@@ -11,10 +11,12 @@ según el RD 238/2026.
 | `validador/calendario.py` | Días hábiles españoles y plazo de 4 días de los estados | Terminado |
 | `validador/formato.py` | Detección de formato y versión (Facturae, UBL, CII, EDIFACT) | Terminado |
 | `validador/en16931.py` | Reglas de negocio EN 16931 sobre UBL, con mensajes en castellano | Terminado |
-| Reglas para CII | Las mismas comprobaciones sobre la sintaxis CII | Pendiente |
+| `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
+| `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
+| Reglas para CII | Las comprobaciones de EN 16931 sobre la sintaxis CII | Pendiente |
 | Validación XSD | Comprobación de forma contra los esquemas oficiales | Pendiente |
 
-90 tests, todos en verde.
+160 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -67,6 +69,78 @@ Consecuencias prácticas para este proyecto:
    no dependen de esa orden. Los dígitos de control del NIF llevan décadas sin
    cambiar; el cómputo de días hábiles tampoco va a cambiar; y las reglas
    Schematron de EN 16931 son estables y de código abierto.
+
+## El código único de factura
+
+Es la primera regla del proyecto que **no** está en EN 16931. Ningún validador
+europeo la comprueba, porque es española: sale del artículo 6 del Reglamento de
+Facturación —numeración correlativa dentro de cada serie— y del sistema de
+facturación del RD 238/2026.
+
+Una factura queda identificada de forma inequívoca por tres datos: **NIF del
+emisor**, **serie y número**, y **fecha de expedición**. `codigo_unico.py` los
+extrae de UBL, Facturae o CII, y comprueba dos cosas distintas.
+
+**Un código suelto:**
+
+| Código | Qué mira | Gravedad |
+|---|---|---|
+| CU-01 | El NIF del emisor es válido (reutiliza `nif.py`) | Error |
+| CU-02 | Hay número de factura | Error |
+| CU-03 | El número cabe en 60 caracteres | Error |
+| CU-04 | El número no lleva caracteres de control; si lleva no-ASCII, avisa | Error / Aviso |
+| CU-05 | El número no tiene espacios sobrantes | Aviso |
+| CU-06 | La fecha de expedición no es futura | Error |
+| CU-07 | La fecha no es anterior a la prescripción | Aviso |
+
+**Un lote de facturas**, que es donde está el valor real, porque un duplicado
+entre trescientas facturas no se ve a ojo:
+
+| Código | Qué mira | Gravedad |
+|---|---|---|
+| CU-10 | La misma factura dos veces | Error |
+| CU-11 | Mismo número con otra fecha: numeración reutilizada | Error |
+| CU-12 | Dos facturas que solo se distinguen por mayúsculas o espacios | Error |
+| CU-13 | Huecos en la numeración de una serie | Aviso |
+| CU-14 | La fecha retrocede al avanzar el número | Aviso |
+| CU-15 | El mismo ordinal con distinto relleno de ceros | Aviso |
+
+Los huecos y los retrocesos van como aviso a propósito: un hueco puede ser una
+factura anulada, y un lote parcial no tiene por qué estar completo. Marcarlos
+como error daría falsos positivos constantes.
+
+```
+[CU-13] La serie tiene huecos: falta(n) 3 número(s) entre el primero y el
+último. Si son facturas anuladas, no pasa nada; si no, la numeración no es
+correlativa.
+  Campo: Serie F-2026-*
+  Debería ser: del 0001 al 0007 sin saltos
+  Tiene: falta(n) 0003 al 0005
+```
+
+### Decisiones concretas de este módulo
+
+**La huella se calcula con las longitudes por delante.** `huella()` devuelve un
+SHA-256 del código único, para poder indexar sin guardar los datos. Se cifra
+`9:B12345674` + `10:F-2026-001` + `10:2026-09-07`, no la concatenación a pelo:
+sin la longitud, un emisor vacío con número `B12345674X` y el emisor
+`B12345674` con número `X` producirían la misma cadena y compartirían huella.
+
+**Repetir no es lo mismo que reutilizar, ni que escribir distinto.** Son tres
+problemas con tres consecuencias diferentes, y por eso hay tres códigos en vez
+de un «duplicado» genérico. CU-10 es un reenvío. CU-11 es una infracción de la
+numeración correlativa. CU-12 es el peor de los tres, porque cada sistema cree
+tener una factura distinta y ninguno detecta nada.
+
+**El tope de 60 caracteres está tomado de Verifactu.** La Orden Ministerial del
+RD 238/2026 no se ha publicado y podría fijar otro. Es una constante justo para
+poder cambiarla en una línea.
+
+**La búsqueda del NIF es relativa al vendedor, no absoluta.** Con `//` en lugar
+de `./`, la consulta arranca de la raíz del documento aunque se lance desde el
+nodo del vendedor: en una factura donde el vendedor solo trae
+`PartyLegalEntity` y el comprador sí trae `PartyTaxScheme`, el código único
+acababa llevando **el NIF del comprador**. Hay un test que lo fija.
 
 ## Decisiones de diseño
 
@@ -131,10 +205,14 @@ recalcular el total.
 
 ## Siguiente paso
 
-Llevar las mismas reglas a la sintaxis CII, y añadir la validación XSD de forma
-contra los esquemas oficiales. Después, las reglas específicas españolas que
-no están en EN 16931: el código único de factura (NIF + serie/número + fecha) y
-la validación del NIF de las partes, que ya está resuelta en `nif.py`.
+Un orquestador que corra de una pasada las reglas europeas y las españolas
+sobre el mismo documento, en vez de tener que llamar a `en16931.validar()` y a
+`codigo_unico.validar()` por separado. Ahora que `Incidencia` e `Informe` viven
+en un módulo común, es poco más que juntar las dos listas.
+
+Después: llevar las reglas de EN 16931 a la sintaxis CII —la extracción del
+código único ya la cubre— y la validación XSD de forma contra los esquemas
+oficiales.
 
 ## Fuentes
 

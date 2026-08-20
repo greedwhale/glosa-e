@@ -87,7 +87,7 @@ class Deteccion:
         return " ".join(partes)
 
 
-def _parser() -> etree.XMLParser:
+def parser() -> etree.XMLParser:
     """Parser endurecido para XML que llega de fuera.
 
     Sin resolución de entidades ni acceso a red: un fichero subido por un
@@ -100,6 +100,11 @@ def _parser() -> etree.XMLParser:
         huge_tree=False,
         recover=False,
     )
+
+
+# Nombre anterior, cuando el parser era privado de este módulo. Se mantiene
+# porque lo usan los tests de seguridad y no cuesta nada.
+_parser = parser
 
 
 def _partir_nombre(etiqueta: str) -> tuple[str | None, str]:
