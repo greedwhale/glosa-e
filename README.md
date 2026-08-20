@@ -10,10 +10,11 @@ según el RD 238/2026.
 | `validador/nif.py` | Valida NIF, NIE y CIF con sus dígitos de control | Terminado |
 | `validador/calendario.py` | Días hábiles españoles y plazo de 4 días de los estados | Terminado |
 | `validador/formato.py` | Detección de formato y versión (Facturae, UBL, CII, EDIFACT) | Terminado |
-| `validador/en16931.py` | Validación XSD + Schematron contra EN 16931 | Pendiente |
-| `validador/informe.py` | Traducción de errores BR-* a castellano llano | Pendiente |
+| `validador/en16931.py` | Reglas de negocio EN 16931 sobre UBL, con mensajes en castellano | Terminado |
+| Reglas para CII | Las mismas comprobaciones sobre la sintaxis CII | Pendiente |
+| Validación XSD | Comprobación de forma contra los esquemas oficiales | Pendiente |
 
-65 tests, todos en verde.
+90 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -96,14 +97,44 @@ con una entidad externa podría leer ficheros del servidor. Hay dos tests que lo
 comprueban, y el de XXE verifica primero que el documento **sí** se parsea, para
 que la comprobación de fuga no pueda pasar en vacío.
 
+**Las reglas van en Python, no en Schematron.** Los artefactos oficiales de
+CEN/TC 434 son Schematron, que compila a XSLT 2.0. lxml solo habla XSLT 1.0, y
+`saxonche` —la vía habitual para XSLT 2.0 en Python— todavía no publica ruedas
+para Python 3.14. Comprobado, no supuesto.
+
+Lejos de ser un problema, resulta ser lo correcto: el valor del producto está
+en el mensaje, no en la regla. Las reglas son públicas y las tiene cualquiera;
+lo que nadie da es una frase que explique qué hay que corregir. Escribirlas en
+Python permite controlar cada mensaje y calcular el importe que *debería*
+figurar, no solo señalar que está mal.
+
+**El dinero se maneja con `Decimal`, nunca con `float`.** Con float,
+`0.1 + 0.2 != 0.3`, y una factura correcta se rechazaría por un céntimo
+fantasma. Hay un test que lo deja por escrito.
+
+**Nada de caracteres exóticos en los mensajes.** El signo menos tipográfico
+(U+2212) reventaba al imprimir en una consola Windows con cp1252. Los mensajes
+se quedan en caracteres que sobreviven a una terminal española.
+
+## Ejemplo de salida
+
+```
+UBL v2.1 (factura) · conforme EN 16931 — 4 error(es).
+
+[BR-CO-10] La suma de importes de línea que declara la factura no coincide
+con la suma real de sus líneas. Suele ser una línea añadida o modificada sin
+recalcular el total.
+  Campo: Suma de importes de línea
+  Debería ser: 90.00 (suma de las 2 líneas)
+  Tiene: 100.00
+```
+
 ## Siguiente paso
 
-`validador/en16931.py`: enchufar los artefactos oficiales de validación de
-CEN/TC 434 — XSD para la forma y Schematron para las reglas de negocio. Son
-955 reglas y ahí es donde se produce la mayoría de los rechazos.
-
-Después, `informe.py`: traducir códigos como `BR-CO-10` a una frase que diga
-qué falta y dónde. Esa traducción es el producto; las reglas son de todos.
+Llevar las mismas reglas a la sintaxis CII, y añadir la validación XSD de forma
+contra los esquemas oficiales. Después, las reglas específicas españolas que
+no están en EN 16931: el código único de factura (NIF + serie/número + fecha) y
+la validación del NIF de las partes, que ya está resuelta en `nif.py`.
 
 ## Fuentes
 
