@@ -1,0 +1,431 @@
+"""Las reglas EN 16931 sobre la sintaxis CII.
+
+La gracia de este fichero está en `TestLasMismasReglas`: cada comprobación se
+ejecuta sobre UBL y sobre CII con el mismo documento semántico. Si una regla
+dejara de funcionar en una de las dos sintaxis, la mitad de los tests caería.
+"""
+
+import pytest
+
+from validador import en16931
+from validador.en16931 import AVISO, ERROR
+from validador.formato import CII, UBL
+
+# --- Construcción de facturas equivalentes en las dos sintaxis -------------
+
+PLANTILLA_CII = """<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice
+    xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+    xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+    xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+  <rsm:ExchangedDocumentContext>{perfil}</rsm:ExchangedDocumentContext>
+  <rsm:ExchangedDocument>
+    {numero}
+    {tipo}
+    {fecha}
+  </rsm:ExchangedDocument>
+  <rsm:SupplyChainTradeTransaction>
+    {lineas}
+    <ram:ApplicableHeaderTradeAgreement>
+      {vendedor}
+      {comprador}
+    </ram:ApplicableHeaderTradeAgreement>
+    <ram:ApplicableHeaderTradeDelivery/>
+    <ram:ApplicableHeaderTradeSettlement>
+      {moneda}
+      {impuestos}
+      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+        {suma_lineas}
+        {base}
+        {impuesto_total}
+        {con_impuestos}
+        {anticipos}
+        {a_pagar}
+      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+    </ram:ApplicableHeaderTradeSettlement>
+  </rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>"""
+
+PLANTILLA_UBL = """<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2">
+  <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
+  {perfil}
+  {numero}
+  {fecha}
+  {tipo}
+  {moneda}
+  {vendedor}
+  {comprador}
+  {impuestos}
+  <cac:LegalMonetaryTotal>
+    {suma_lineas}
+    {base}
+    {con_impuestos}
+    {anticipos}
+    {a_pagar}
+  </cac:LegalMonetaryTotal>
+  {lineas}
+</Invoice>"""
+
+
+def cii(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
+        impuestos="21.00", con_impuestos="121.00", a_pagar="121.00",
+        anticipos=None, perfil="urn:cen.eu:en16931:2017", moneda="EUR",
+        omitir=()):
+    """Una factura CII. `omitir` quita campos para provocar cada BR."""
+
+    def si(clave, texto):
+        return "" if clave in omitir else texto
+
+    linea_xml = "".join(
+        f"""<ram:IncludedSupplyChainTradeLineItem>
+      <ram:AssociatedDocumentLineDocument><ram:LineID>{ident}</ram:LineID>
+      </ram:AssociatedDocumentLineDocument>
+      <ram:SpecifiedLineTradeSettlement>
+        <ram:SpecifiedTradeSettlementLineMonetarySummation>
+          {'' if 'importe_linea' in omitir else
+           f'<ram:LineTotalAmount>{importe}</ram:LineTotalAmount>'}
+        </ram:SpecifiedTradeSettlementLineMonetarySummation>
+      </ram:SpecifiedLineTradeSettlement>
+    </ram:IncludedSupplyChainTradeLineItem>"""
+        for ident, importe in lineas
+    )
+
+    def parte(etiqueta, nombre, clave):
+        if clave in omitir:
+            return ""
+        direccion = (
+            ""
+            if f"direccion_{clave}" in omitir
+            else "<ram:PostalTradeAddress>"
+            + ("" if f"pais_{clave}" in omitir
+               else "<ram:CountryID>ES</ram:CountryID>")
+            + "</ram:PostalTradeAddress>"
+        )
+        return f"<ram:{etiqueta}><ram:Name>{nombre}</ram:Name>{direccion}</ram:{etiqueta}>"
+
+    return PLANTILLA_CII.format(
+        perfil=si(
+            "perfil",
+            "<ram:GuidelineSpecifiedDocumentContextParameter>"
+            f"<ram:ID>{perfil}</ram:ID>"
+            "</ram:GuidelineSpecifiedDocumentContextParameter>",
+        ),
+        numero=si("numero", "<ram:ID>F-2026-0001</ram:ID>"),
+        tipo=si("tipo", "<ram:TypeCode>380</ram:TypeCode>"),
+        fecha=si(
+            "fecha",
+            '<ram:IssueDateTime><udt:DateTimeString format="102">20260302'
+            "</udt:DateTimeString></ram:IssueDateTime>",
+        ),
+        lineas="" if "lineas" in omitir else linea_xml,
+        vendedor=parte("SellerTradeParty", "Talleres Ejemplo SL", "vendedor"),
+        comprador=parte("BuyerTradeParty", "Cliente SA", "comprador"),
+        moneda=si("moneda", f"<ram:InvoiceCurrencyCode>{moneda}</ram:InvoiceCurrencyCode>"),
+        impuestos=""
+        if impuestos is None
+        else f"<ram:ApplicableTradeTax><ram:CalculatedAmount>{impuestos}"
+        "</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>"
+        "</ram:ApplicableTradeTax>",
+        impuesto_total=""
+        if impuestos is None
+        else f'<ram:TaxTotalAmount currencyID="{moneda}">{impuestos}</ram:TaxTotalAmount>',
+        suma_lineas=si("suma_lineas", f"<ram:LineTotalAmount>{suma_lineas}</ram:LineTotalAmount>"),
+        base=si("base", f"<ram:TaxBasisTotalAmount>{base}</ram:TaxBasisTotalAmount>"),
+        con_impuestos=si(
+            "con_impuestos", f"<ram:GrandTotalAmount>{con_impuestos}</ram:GrandTotalAmount>"
+        ),
+        anticipos=""
+        if anticipos is None
+        else f"<ram:TotalPrepaidAmount>{anticipos}</ram:TotalPrepaidAmount>",
+        a_pagar=si("a_pagar", f"<ram:DuePayableAmount>{a_pagar}</ram:DuePayableAmount>"),
+    )
+
+
+def ubl(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
+        impuestos="21.00", con_impuestos="121.00", a_pagar="121.00",
+        anticipos=None, perfil="urn:cen.eu:en16931:2017", moneda="EUR",
+        omitir=()):
+    """La misma factura, en UBL. Mismos nombres de campo para `omitir`."""
+
+    def si(clave, texto):
+        return "" if clave in omitir else texto
+
+    linea_xml = "".join(
+        f"""<cac:InvoiceLine><cbc:ID>{ident}</cbc:ID>
+        {'' if 'importe_linea' in omitir else
+         f'<cbc:LineExtensionAmount currencyID="{moneda}">{importe}</cbc:LineExtensionAmount>'}
+        </cac:InvoiceLine>"""
+        for ident, importe in lineas
+    )
+
+    def parte(etiqueta, nombre, clave):
+        if clave in omitir:
+            return ""
+        direccion = (
+            ""
+            if f"direccion_{clave}" in omitir
+            else "<cac:PostalAddress>"
+            + ("" if f"pais_{clave}" in omitir
+               else "<cac:Country><cbc:IdentificationCode>ES</cbc:IdentificationCode>"
+                    "</cac:Country>")
+            + "</cac:PostalAddress>"
+        )
+        return (
+            f"<cac:{etiqueta}><cac:Party>{direccion}"
+            f"<cac:PartyLegalEntity><cbc:RegistrationName>{nombre}"
+            f"</cbc:RegistrationName></cac:PartyLegalEntity>"
+            f"</cac:Party></cac:{etiqueta}>"
+        )
+
+    def total(clave, etiqueta, valor):
+        if clave in omitir or valor is None:
+            return ""
+        return f'<cbc:{etiqueta} currencyID="{moneda}">{valor}</cbc:{etiqueta}>'
+
+    return PLANTILLA_UBL.format(
+        perfil=si("perfil", f"<cbc:CustomizationID>{perfil}</cbc:CustomizationID>"),
+        numero=si("numero", "<cbc:ID>F-2026-0001</cbc:ID>"),
+        fecha=si("fecha", "<cbc:IssueDate>2026-03-02</cbc:IssueDate>"),
+        tipo=si("tipo", "<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>"),
+        moneda=si("moneda", f"<cbc:DocumentCurrencyCode>{moneda}</cbc:DocumentCurrencyCode>"),
+        lineas="" if "lineas" in omitir else linea_xml,
+        vendedor=parte("AccountingSupplierParty", "Talleres Ejemplo SL", "vendedor"),
+        comprador=parte("AccountingCustomerParty", "Cliente SA", "comprador"),
+        impuestos=""
+        if impuestos is None
+        else f'<cac:TaxTotal><cbc:TaxAmount currencyID="{moneda}">{impuestos}'
+        "</cbc:TaxAmount></cac:TaxTotal>",
+        suma_lineas=total("suma_lineas", "LineExtensionAmount", suma_lineas),
+        base=total("base", "TaxExclusiveAmount", base),
+        con_impuestos=total("con_impuestos", "TaxInclusiveAmount", con_impuestos),
+        anticipos=total("anticipos", "PrepaidAmount", anticipos),
+        a_pagar=total("a_pagar", "PayableAmount", a_pagar),
+    )
+
+
+SINTAXIS = {"UBL": ubl, "CII": cii}
+
+
+@pytest.fixture(params=sorted(SINTAXIS))
+def montar(request):
+    """Devuelve el constructor de una de las dos sintaxis."""
+    return SINTAXIS[request.param]
+
+
+def codigos(informe, gravedad=None):
+    return {
+        i.codigo
+        for i in informe.incidencias
+        if gravedad is None or i.gravedad == gravedad
+    }
+
+
+# --- Las mismas reglas en las dos sintaxis ---------------------------------
+
+
+class TestLasMismasReglas:
+    """Cada test se ejecuta dos veces: una en UBL y otra en CII."""
+
+    def test_factura_correcta(self, montar):
+        informe = en16931.validar(montar())
+        assert informe.conforme, informe.detalle()
+        assert not informe.avisos, informe.detalle()
+
+    @pytest.mark.parametrize(
+        "campo,codigo",
+        [
+            ("numero", "BR-02"),
+            ("fecha", "BR-03"),
+            ("tipo", "BR-04"),
+            ("moneda", "BR-05"),
+            ("vendedor", "BR-06"),
+            ("comprador", "BR-07"),
+            ("direccion_vendedor", "BR-08"),
+            ("pais_vendedor", "BR-09"),
+            ("direccion_comprador", "BR-10"),
+            ("pais_comprador", "BR-11"),
+            ("suma_lineas", "BR-12"),
+            ("base", "BR-13"),
+            ("con_impuestos", "BR-14"),
+            ("a_pagar", "BR-15"),
+            ("lineas", "BR-16"),
+            ("importe_linea", "BR-24"),
+        ],
+    )
+    def test_campo_obligatorio_que_falta(self, montar, campo, codigo):
+        informe = en16931.validar(montar(omitir=(campo,)))
+        assert codigo in codigos(informe, ERROR), informe.detalle()
+
+    def test_una_direccion_no_esta_vacia_por_no_tener_texto(self, montar):
+        """La dirección es un contenedor: su texto propio siempre es None.
+
+        Se comprobaba mirando si la ruta acababa en «PostalAddress», que en
+        UBL colaba y en CII —«PostalTradeAddress»— habría dado BR-08 y BR-10
+        en todas las facturas correctas.
+        """
+        informe = en16931.validar(montar(omitir=("pais_vendedor",)))
+        assert "BR-09" in codigos(informe, ERROR)
+        assert "BR-08" not in codigos(informe)  # la dirección sigue estando
+
+    def test_suma_de_lineas_no_cuadra(self, montar):
+        informe = en16931.validar(
+            montar(lineas=(("1", "60.00"), ("2", "30.00")), suma_lineas="100.00")
+        )
+        problema = next(i for i in informe.errores if i.codigo == "BR-CO-10")
+        assert "90.00" in problema.esperado
+        assert "2 líneas" in problema.esperado
+        assert problema.encontrado == "100.00"
+
+    def test_base_imponible_no_cuadra(self, montar):
+        informe = en16931.validar(montar(base="90.00"))
+        assert "BR-CO-13" in codigos(informe, ERROR)
+
+    def test_total_con_impuestos_no_cuadra(self, montar):
+        informe = en16931.validar(montar(con_impuestos="130.00", a_pagar="130.00"))
+        assert "BR-CO-15" in codigos(informe, ERROR)
+
+    def test_a_pagar_no_cuadra(self, montar):
+        informe = en16931.validar(montar(a_pagar="200.00"))
+        assert "BR-CO-16" in codigos(informe, ERROR)
+
+    def test_anticipo_bien_descontado(self, montar):
+        informe = en16931.validar(montar(anticipos="21.00", a_pagar="100.00"))
+        assert informe.conforme, informe.detalle()
+
+    def test_sin_impuestos_avisa_pero_no_falla(self, montar):
+        informe = en16931.validar(montar(impuestos=None, con_impuestos="100.00",
+                                         a_pagar="100.00"))
+        assert "BR-CO-14" in codigos(informe, AVISO)
+        assert "BR-CO-15" not in codigos(informe, ERROR)
+
+    def test_un_centimo_se_tolera(self, montar):
+        informe = en16931.validar(
+            montar(lineas=(("1", "33.33"), ("2", "33.33"), ("3", "33.33")))
+        )
+        assert "BR-CO-10" not in codigos(informe, ERROR), informe.detalle()
+
+    def test_dos_centimos_ya_es_error(self, montar):
+        informe = en16931.validar(
+            montar(lineas=(("1", "33.33"), ("2", "33.33"), ("3", "33.32")))
+        )
+        assert "BR-CO-10" in codigos(informe, ERROR)
+
+    def test_sin_declarar_en16931_avisa(self, montar):
+        informe = en16931.validar(montar(perfil="urn:otra:cosa"))
+        aviso = next(i for i in informe.avisos if i.codigo == "BR-01")
+        assert "urn:otra:cosa" in aviso.encontrado
+
+    def test_la_linea_sin_importe_se_nombra_por_su_id(self, montar):
+        informe = en16931.validar(montar(omitir=("importe_linea",)))
+        problema = next(i for i in informe.errores if i.codigo == "BR-24")
+        assert "1" in problema.campo
+
+
+# --- Lo propio de CII ------------------------------------------------------
+
+
+class TestPropioDeCII:
+    def test_se_reconoce_como_cii(self):
+        informe = en16931.validar(cii())
+        assert informe.deteccion.familia == CII
+        assert "SIN-SOPORTE" not in codigos(informe)
+
+    def test_el_aviso_nombra_el_campo_de_cada_sintaxis(self):
+        """«CustomizationID» no existe en CII: decirlo confundiría a quien lea."""
+        en_cii = next(
+            i for i in en16931.validar(cii(perfil="x")).avisos if i.codigo == "BR-01"
+        )
+        en_ubl = next(
+            i for i in en16931.validar(ubl(perfil="x")).avisos if i.codigo == "BR-01"
+        )
+        assert "GuidelineSpecifiedDocumentContextParameter" in en_cii.mensaje
+        assert "CustomizationID" in en_ubl.mensaje
+
+    def test_facturae_sigue_sin_soporte(self):
+        facturae = """<?xml version="1.0"?>
+<fe:Facturae xmlns:fe="http://www.facturae.es/Facturae/2009/v3.2/Facturae">
+  <FileHeader><SchemaVersion>3.2</SchemaVersion></FileHeader>
+</fe:Facturae>"""
+        informe = en16931.validar(facturae)
+        aviso = next(i for i in informe.avisos if i.codigo == "SIN-SOPORTE")
+        assert "UBL y para CII" in aviso.mensaje
+
+    def test_edifact_no_revienta(self):
+        datos = b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+INVOIC:D:96A:UN'"
+        assert "SIN-SOPORTE" in codigos(en16931.validar(datos), AVISO)
+
+
+class TestImpuestoEnVariasMonedas:
+    """BT-110 y BT-111: el total de impuestos puede venir dos veces.
+
+    Las dos sintaxis permiten declararlo en la moneda de la factura y en la de
+    contabilidad. Coger el primero que aparezca es coger uno al azar, y si el
+    documento los trae en el otro orden el cuadre falla por una factura buena.
+    """
+
+    def _cii_con_dos_monedas(self, primero, segundo):
+        base = cii()
+        return base.replace(
+            '<ram:TaxTotalAmount currencyID="EUR">21.00</ram:TaxTotalAmount>',
+            f"<ram:TaxTotalAmount {primero}</ram:TaxTotalAmount>"
+            f"<ram:TaxTotalAmount {segundo}</ram:TaxTotalAmount>",
+        )
+
+    def test_coge_la_moneda_de_la_factura_aunque_vaya_segunda(self):
+        xml = self._cii_con_dos_monedas(
+            'currencyID="USD">23.10', 'currencyID="EUR">21.00'
+        )
+        informe = en16931.validar(xml)
+        assert informe.conforme, informe.detalle()
+
+    def test_y_tambien_si_va_primera(self):
+        xml = self._cii_con_dos_monedas(
+            'currencyID="EUR">21.00', 'currencyID="USD">23.10'
+        )
+        assert en16931.validar(xml).conforme
+
+    def test_sin_currency_id_se_coge_el_primero(self):
+        """Sin atributo no hay forma de elegir; al menos que no reviente."""
+        xml = cii().replace(
+            '<ram:TaxTotalAmount currencyID="EUR">21.00</ram:TaxTotalAmount>',
+            "<ram:TaxTotalAmount>21.00</ram:TaxTotalAmount>",
+        )
+        assert en16931.validar(xml).conforme
+
+    def test_lo_mismo_en_ubl(self):
+        xml = ubl().replace(
+            '<cac:TaxTotal><cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount></cac:TaxTotal>',
+            '<cac:TaxTotal><cbc:TaxAmount currencyID="USD">23.10</cbc:TaxAmount></cac:TaxTotal>'
+            '<cac:TaxTotal><cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount></cac:TaxTotal>',
+        )
+        informe = en16931.validar(xml)
+        assert informe.conforme, informe.detalle()
+
+
+class TestElMapaEsSoloUnMapa:
+    """La `Sintaxis` no debería tener lógica: solo rutas."""
+
+    def test_las_dos_sintaxis_declaran_los_mismos_campos(self):
+        campos_ubl = set(vars(en16931.SINTAXIS_UBL))
+        campos_cii = set(vars(en16931.SINTAXIS_CII))
+        assert campos_ubl == campos_cii
+
+    def test_ninguna_ruta_se_ha_quedado_a_medias(self):
+        for sintaxis in (en16931.SINTAXIS_UBL, en16931.SINTAXIS_CII):
+            for nombre, valor in vars(sintaxis).items():
+                if nombre in ("nombre", "espacios", "nombre_perfil"):
+                    continue
+                assert valor.startswith("./"), f"{sintaxis.nombre}.{nombre} = {valor}"
+                prefijos = {
+                    trozo.split(":", 1)[0]
+                    for trozo in valor.removeprefix("./").split("/")
+                    if ":" in trozo
+                }
+                sobran = prefijos - set(sintaxis.espacios)
+                assert not sobran, f"{sintaxis.nombre}.{nombre} usa {sobran}"
+
+    def test_las_familias_registradas_son_las_que_se_validan(self):
+        assert set(en16931.SINTAXIS) == {UBL, CII}

@@ -1,4 +1,4 @@
-"""Reglas de negocio de la norma EN 16931 sobre facturas en UBL.
+"""Reglas de negocio de la norma EN 16931, sobre UBL y sobre CII.
 
 La norma son 955 reglas y ahí es donde se produce la mayoría de los rechazos:
 un documento puede pasar la validación de forma (XSD) y fallar la de contenido.
@@ -8,45 +8,199 @@ todo, las de cuadre aritmético— con el mensaje escrito en castellano llano. L
 traducción es el producto: las reglas son públicas y de todos, pero un error
 como «BR-CO-13» no le dice nada a quien tiene que arreglar la factura.
 
+**Las reglas no dependen de la sintaxis.** EN 16931 define un modelo semántico
+—los campos BT-1, BT-109, BT-112…— y luego UBL y CII lo escriben de dos
+maneras distintas. Que la base imponible más los impuestos den el total es
+verdad en las dos; lo único que cambia es dónde está escrito cada número. Por
+eso aquí el mapa de rutas es un dato (`Sintaxis`) y las reglas son código: se
+escriben una vez y valen para las dos.
+
 El importe se maneja siempre con Decimal. Con float, 0.1 + 0.2 no da 0.3 y una
 factura correcta se rechazaría por un céntimo fantasma.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 from lxml import etree
 
-from validador.formato import UBL, detectar, parser
+from validador.formato import CII, UBL, detectar, parser
 from validador.incidencias import AVISO, ERROR, Incidencia, Informe
 
-# Se reexportan para no romper a quien ya importaba estos nombres desde aquí.
 __all__ = [
     "AVISO",
     "ERROR",
     "Incidencia",
     "Informe",
     "NS",
+    "SINTAXIS",
+    "Sintaxis",
     "TOLERANCIA",
     "reglas",
     "validar",
 ]
 
-NS = {
+NS_UBL = {
     "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
     "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
 }
+
+NS_CII = {
+    "rsm": "urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100",
+    "ram": (
+        "urn:un:unece:uncefact:data:standard:"
+        "ReusableAggregateBusinessInformationEntity:100"
+    ),
+    "udt": "urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100",
+}
+
+# Nombre de antes, cuando este módulo solo sabía de UBL.
+NS = NS_UBL
 
 # La norma trabaja con importes redondeados a dos decimales, así que una
 # diferencia de un céntimo no es un error: es el redondeo permitido.
 TOLERANCIA = Decimal("0.01")
 
+
+# --- El mapa de cada sintaxis ----------------------------------------------
+
+
+@dataclass(frozen=True)
+class Sintaxis:
+    """Dónde vive cada campo de EN 16931 en una sintaxis concreta.
+
+    Es un mapa, no lógica: aquí solo hay rutas XPath. Añadir una sintaxis nueva
+    debería ser rellenar otra de estas sin tocar ninguna regla.
+    """
+
+    nombre: str
+    espacios: dict[str, str]
+    nombre_perfil: str  # cómo se llama el campo del perfil en esta sintaxis
+
+    perfil: str
+    numero: str
+    fecha: str
+    tipo: str
+    moneda: str
+
+    vendedor_nombre: str
+    vendedor_direccion: str
+    vendedor_pais: str
+    comprador_nombre: str
+    comprador_direccion: str
+    comprador_pais: str
+
+    lineas: str
+    linea_id: str  # relativa a una línea
+    linea_importe: str  # relativa a una línea
+
+    suma_lineas: str
+    base: str
+    con_impuestos: str
+    a_pagar: str
+    descuentos: str
+    cargos: str
+    anticipos: str
+    redondeo: str
+    impuestos: str
+
+
+_TOTAL_UBL = "./cac:LegalMonetaryTotal"
+_VENDEDOR_UBL = "./cac:AccountingSupplierParty/cac:Party"
+_COMPRADOR_UBL = "./cac:AccountingCustomerParty/cac:Party"
+
+SINTAXIS_UBL = Sintaxis(
+    nombre="UBL",
+    espacios=NS_UBL,
+    nombre_perfil="CustomizationID",
+    perfil="./cbc:CustomizationID",
+    numero="./cbc:ID",
+    fecha="./cbc:IssueDate",
+    tipo="./cbc:InvoiceTypeCode",
+    moneda="./cbc:DocumentCurrencyCode",
+    vendedor_nombre=f"{_VENDEDOR_UBL}/cac:PartyLegalEntity/cbc:RegistrationName",
+    vendedor_direccion=f"{_VENDEDOR_UBL}/cac:PostalAddress",
+    vendedor_pais=(
+        f"{_VENDEDOR_UBL}/cac:PostalAddress/cac:Country/cbc:IdentificationCode"
+    ),
+    comprador_nombre=f"{_COMPRADOR_UBL}/cac:PartyLegalEntity/cbc:RegistrationName",
+    comprador_direccion=f"{_COMPRADOR_UBL}/cac:PostalAddress",
+    comprador_pais=(
+        f"{_COMPRADOR_UBL}/cac:PostalAddress/cac:Country/cbc:IdentificationCode"
+    ),
+    lineas="./cac:InvoiceLine",
+    linea_id="./cbc:ID",
+    linea_importe="./cbc:LineExtensionAmount",
+    suma_lineas=f"{_TOTAL_UBL}/cbc:LineExtensionAmount",
+    base=f"{_TOTAL_UBL}/cbc:TaxExclusiveAmount",
+    con_impuestos=f"{_TOTAL_UBL}/cbc:TaxInclusiveAmount",
+    a_pagar=f"{_TOTAL_UBL}/cbc:PayableAmount",
+    descuentos=f"{_TOTAL_UBL}/cbc:AllowanceTotalAmount",
+    cargos=f"{_TOTAL_UBL}/cbc:ChargeTotalAmount",
+    anticipos=f"{_TOTAL_UBL}/cbc:PrepaidAmount",
+    redondeo=f"{_TOTAL_UBL}/cbc:PayableRoundingAmount",
+    impuestos="./cac:TaxTotal/cbc:TaxAmount",
+)
+
+# En CII casi todo cuelga de SupplyChainTradeTransaction, repartido en tres
+# bloques: lo pactado (Agreement), la entrega (Delivery) y el cobro
+# (Settlement). Los totales viven en el Settlement, y la cabecera —número,
+# fecha y tipo— va aparte, en ExchangedDocument.
+_TRANSACCION = "./rsm:SupplyChainTradeTransaction"
+_ACUERDO = f"{_TRANSACCION}/ram:ApplicableHeaderTradeAgreement"
+_COBRO = f"{_TRANSACCION}/ram:ApplicableHeaderTradeSettlement"
+_SUMARIO = f"{_COBRO}/ram:SpecifiedTradeSettlementHeaderMonetarySummation"
+_CABECERA = "./rsm:ExchangedDocument"
+
+SINTAXIS_CII = Sintaxis(
+    nombre="CII",
+    espacios=NS_CII,
+    nombre_perfil="GuidelineSpecifiedDocumentContextParameter",
+    perfil=(
+        "./rsm:ExchangedDocumentContext"
+        "/ram:GuidelineSpecifiedDocumentContextParameter/ram:ID"
+    ),
+    numero=f"{_CABECERA}/ram:ID",
+    fecha=f"{_CABECERA}/ram:IssueDateTime/udt:DateTimeString",
+    tipo=f"{_CABECERA}/ram:TypeCode",
+    moneda=f"{_COBRO}/ram:InvoiceCurrencyCode",
+    vendedor_nombre=f"{_ACUERDO}/ram:SellerTradeParty/ram:Name",
+    vendedor_direccion=f"{_ACUERDO}/ram:SellerTradeParty/ram:PostalTradeAddress",
+    vendedor_pais=(
+        f"{_ACUERDO}/ram:SellerTradeParty/ram:PostalTradeAddress/ram:CountryID"
+    ),
+    comprador_nombre=f"{_ACUERDO}/ram:BuyerTradeParty/ram:Name",
+    comprador_direccion=f"{_ACUERDO}/ram:BuyerTradeParty/ram:PostalTradeAddress",
+    comprador_pais=(
+        f"{_ACUERDO}/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CountryID"
+    ),
+    lineas=f"{_TRANSACCION}/ram:IncludedSupplyChainTradeLineItem",
+    linea_id="./ram:AssociatedDocumentLineDocument/ram:LineID",
+    linea_importe=(
+        "./ram:SpecifiedLineTradeSettlement"
+        "/ram:SpecifiedTradeSettlementLineMonetarySummation/ram:LineTotalAmount"
+    ),
+    suma_lineas=f"{_SUMARIO}/ram:LineTotalAmount",
+    base=f"{_SUMARIO}/ram:TaxBasisTotalAmount",
+    con_impuestos=f"{_SUMARIO}/ram:GrandTotalAmount",
+    a_pagar=f"{_SUMARIO}/ram:DuePayableAmount",
+    descuentos=f"{_SUMARIO}/ram:AllowanceTotalAmount",
+    cargos=f"{_SUMARIO}/ram:ChargeTotalAmount",
+    anticipos=f"{_SUMARIO}/ram:TotalPrepaidAmount",
+    redondeo=f"{_SUMARIO}/ram:RoundingAmount",
+    impuestos=f"{_SUMARIO}/ram:TaxTotalAmount",
+)
+
+SINTAXIS: dict[str, Sintaxis] = {UBL: SINTAXIS_UBL, CII: SINTAXIS_CII}
+
+
 # --- Utilidades ------------------------------------------------------------
 
 
-def _texto(nodo, ruta: str) -> str | None:
-    encontrados = nodo.xpath(ruta, namespaces=NS)
+def _texto(nodo, ruta: str, sintaxis: Sintaxis) -> str | None:
+    encontrados = nodo.xpath(ruta, namespaces=sintaxis.espacios)
     if not encontrados:
         return None
     valor = encontrados[0]
@@ -55,15 +209,41 @@ def _texto(nodo, ruta: str) -> str | None:
     return texto or None
 
 
-def _importe(nodo, ruta: str) -> Decimal | None:
-    """Lee un importe como Decimal. Devuelve None si falta o no es un número."""
-    bruto = _texto(nodo, ruta)
+def _a_decimal(bruto: str | None) -> Decimal | None:
     if bruto is None:
         return None
     try:
-        return Decimal(bruto)
+        return Decimal(bruto.strip())
     except InvalidOperation:
         return None
+
+
+def _importe(nodo, ruta: str, sintaxis: Sintaxis) -> Decimal | None:
+    """Lee un importe como Decimal. Devuelve None si falta o no es un número."""
+    return _a_decimal(_texto(nodo, ruta, sintaxis))
+
+
+def _importe_en_moneda(
+    nodo, ruta: str, sintaxis: Sintaxis, moneda: str | None
+) -> Decimal | None:
+    """El importe declarado en la moneda de la factura.
+
+    Tanto UBL como CII permiten declarar el total de impuestos dos veces: una
+    en la moneda de la factura (BT-110) y otra en la moneda de contabilidad
+    (BT-111), distinguidas por el atributo `currencyID`. Coger el primero que
+    aparezca es coger uno al azar: si el documento las trae en el otro orden,
+    el cuadre falla por una factura que está bien.
+    """
+    encontrados = nodo.xpath(ruta, namespaces=sintaxis.espacios)
+    if not encontrados:
+        return None
+    elegido = encontrados[0]
+    if moneda:
+        for candidato in encontrados:
+            if candidato.get("currencyID") == moneda:
+                elegido = candidato
+                break
+    return _a_decimal(elegido.text)
 
 
 def _cuadra(a: Decimal, b: Decimal) -> bool:
@@ -76,113 +256,133 @@ def _fmt(valor: Decimal | None) -> str:
 
 # --- Reglas de campos obligatorios -----------------------------------------
 
-# (código, ruta XPath, nombre en castellano del campo, explicación)
-_OBLIGATORIOS: tuple[tuple[str, str, str, str], ...] = (
+# (código, campo de `Sintaxis`, nombre en castellano, explicación, contenedor)
+#
+# «contenedor» marca los elementos que agrupan a otros y por tanto no tienen
+# texto propio: una dirección postal no está vacía por no llevar texto suelto.
+# Antes esto se deducía mirando si la ruta acababa en «PostalAddress», que en
+# UBL colaba y en CII —donde se llama «PostalTradeAddress»— habría dado un
+# error falso en todas las facturas.
+_OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
     (
         "BR-01",
-        "./cbc:CustomizationID",
+        "perfil",
         "Identificador de especificación",
         "La factura debe declarar a qué especificación se ajusta.",
+        False,
     ),
     (
         "BR-02",
-        "./cbc:ID",
+        "numero",
         "Número de factura",
         "La factura debe llevar número.",
+        False,
     ),
     (
         "BR-03",
-        "./cbc:IssueDate",
+        "fecha",
         "Fecha de expedición",
         "La factura debe llevar fecha de expedición.",
+        False,
     ),
     (
         "BR-04",
-        "./cbc:InvoiceTypeCode",
+        "tipo",
         "Código de tipo de factura",
         "La factura debe indicar de qué tipo es (380 para factura ordinaria).",
+        False,
     ),
     (
         "BR-05",
-        "./cbc:DocumentCurrencyCode",
+        "moneda",
         "Moneda",
         "La factura debe indicar en qué moneda está.",
+        False,
     ),
     (
         "BR-06",
-        "./cac:AccountingSupplierParty/cac:Party/cac:PartyLegalEntity"
-        "/cbc:RegistrationName",
+        "vendedor_nombre",
         "Nombre del vendedor",
         "Falta el nombre o razón social de quien emite la factura.",
+        False,
     ),
     (
         "BR-07",
-        "./cac:AccountingCustomerParty/cac:Party/cac:PartyLegalEntity"
-        "/cbc:RegistrationName",
+        "comprador_nombre",
         "Nombre del comprador",
         "Falta el nombre o razón social de quien recibe la factura.",
+        False,
     ),
     (
         "BR-08",
-        "./cac:AccountingSupplierParty/cac:Party/cac:PostalAddress",
+        "vendedor_direccion",
         "Dirección del vendedor",
         "Falta la dirección postal del vendedor.",
+        True,
     ),
     (
         "BR-09",
-        "./cac:AccountingSupplierParty/cac:Party/cac:PostalAddress"
-        "/cac:Country/cbc:IdentificationCode",
+        "vendedor_pais",
         "País del vendedor",
         "La dirección del vendedor debe incluir el código de país (ES, FR...).",
+        False,
     ),
     (
         "BR-10",
-        "./cac:AccountingCustomerParty/cac:Party/cac:PostalAddress",
+        "comprador_direccion",
         "Dirección del comprador",
         "Falta la dirección postal del comprador.",
+        True,
     ),
     (
         "BR-11",
-        "./cac:AccountingCustomerParty/cac:Party/cac:PostalAddress"
-        "/cac:Country/cbc:IdentificationCode",
+        "comprador_pais",
         "País del comprador",
         "La dirección del comprador debe incluir el código de país.",
+        False,
     ),
     (
         "BR-12",
-        "./cac:LegalMonetaryTotal/cbc:LineExtensionAmount",
+        "suma_lineas",
         "Suma de importes de línea",
         "Falta la suma de los importes netos de las líneas.",
+        False,
     ),
     (
         "BR-13",
-        "./cac:LegalMonetaryTotal/cbc:TaxExclusiveAmount",
+        "base",
         "Base imponible total",
         "Falta el importe total sin impuestos.",
+        False,
     ),
     (
         "BR-14",
-        "./cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount",
+        "con_impuestos",
         "Total con impuestos",
         "Falta el importe total con impuestos incluidos.",
+        False,
     ),
     (
         "BR-15",
-        "./cac:LegalMonetaryTotal/cbc:PayableAmount",
+        "a_pagar",
         "Total a pagar",
         "Falta el importe que hay que pagar.",
+        False,
     ),
 )
 
 
-def _reglas_obligatorios(raiz) -> list[Incidencia]:
+def _reglas_obligatorios(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     incidencias = []
-    for codigo, ruta, campo, explicacion in _OBLIGATORIOS:
-        if not raiz.xpath(ruta, namespaces=NS):
+    for codigo, atributo, campo, explicacion, contenedor in _OBLIGATORIOS:
+        ruta = getattr(sintaxis, atributo)
+        if not raiz.xpath(ruta, namespaces=sintaxis.espacios):
             incidencias.append(
-                Incidencia(codigo, ERROR, explicacion, campo=campo, encontrado="(falta)")
+                Incidencia(
+                    codigo, ERROR, explicacion, campo=campo, encontrado="(falta)"
+                )
             )
-        elif _texto(raiz, ruta) is None and not ruta.endswith("PostalAddress"):
+        elif not contenedor and _texto(raiz, ruta, sintaxis) is None:
             incidencias.append(
                 Incidencia(
                     codigo,
@@ -195,9 +395,9 @@ def _reglas_obligatorios(raiz) -> list[Incidencia]:
     return incidencias
 
 
-def _regla_lineas(raiz) -> list[Incidencia]:
+def _regla_lineas(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     """BR-16: la factura debe tener al menos una línea."""
-    if not raiz.xpath("./cac:InvoiceLine", namespaces=NS):
+    if not raiz.xpath(sintaxis.lineas, namespaces=sintaxis.espacios):
         return [
             Incidencia(
                 "BR-16",
@@ -214,36 +414,44 @@ def _regla_lineas(raiz) -> list[Incidencia]:
 # --- Reglas de cuadre aritmético -------------------------------------------
 
 
-def _reglas_cuadre(raiz) -> list[Incidencia]:
+def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     """Las BR-CO-*: que las sumas de la factura cuadren entre sí.
 
     Son las que más rechazos provocan y las más difíciles de ver a ojo, porque
     el error suele estar en una línea perdida entre cincuenta.
     """
     incidencias: list[Incidencia] = []
-    total = "./cac:LegalMonetaryTotal"
 
-    suma_lineas = _importe(raiz, f"{total}/cbc:LineExtensionAmount")
-    base = _importe(raiz, f"{total}/cbc:TaxExclusiveAmount")
-    con_impuestos = _importe(raiz, f"{total}/cbc:TaxInclusiveAmount")
-    a_pagar = _importe(raiz, f"{total}/cbc:PayableAmount")
-    descuentos = _importe(raiz, f"{total}/cbc:AllowanceTotalAmount") or Decimal(0)
-    cargos = _importe(raiz, f"{total}/cbc:ChargeTotalAmount") or Decimal(0)
-    anticipos = _importe(raiz, f"{total}/cbc:PrepaidAmount") or Decimal(0)
-    redondeo = _importe(raiz, f"{total}/cbc:PayableRoundingAmount") or Decimal(0)
-    impuestos = _importe(raiz, "./cac:TaxTotal/cbc:TaxAmount")
+    def leer(atributo: str) -> Decimal | None:
+        return _importe(raiz, getattr(sintaxis, atributo), sintaxis)
+
+    def leer_o_cero(atributo: str) -> Decimal:
+        return leer(atributo) or Decimal(0)
+
+    moneda = _texto(raiz, sintaxis.moneda, sintaxis)
+    suma_lineas = leer("suma_lineas")
+    base = leer("base")
+    con_impuestos = leer("con_impuestos")
+    a_pagar = leer("a_pagar")
+    descuentos = leer_o_cero("descuentos")
+    cargos = leer_o_cero("cargos")
+    anticipos = leer_o_cero("anticipos")
+    redondeo = leer_o_cero("redondeo")
+    impuestos = _importe_en_moneda(raiz, sintaxis.impuestos, sintaxis, moneda)
 
     # BR-24: cada línea debe llevar su importe neto. Se comprueba aparte del
     # cuadre, porque una línea sin importe es un error aunque la factura no
     # declare el total; si se anida bajo esa condición, deja de avisar justo
     # en el caso en que faltan las dos cosas.
-    lineas = raiz.xpath("./cac:InvoiceLine", namespaces=NS)
+    lineas = raiz.xpath(sintaxis.lineas, namespaces=sintaxis.espacios)
     acumulado = Decimal(0)
     sin_importe: list[str] = []
     for indice, linea in enumerate(lineas, start=1):
-        importe = _importe(linea, "./cbc:LineExtensionAmount")
+        importe = _importe(linea, sintaxis.linea_importe, sintaxis)
         if importe is None:
-            sin_importe.append(_texto(linea, "./cbc:ID") or str(indice))
+            sin_importe.append(
+                _texto(linea, sintaxis.linea_id, sintaxis) or str(indice)
+            )
         else:
             acumulado += importe
 
@@ -370,17 +578,18 @@ def _reglas_cuadre(raiz) -> list[Incidencia]:
 def reglas(raiz, deteccion) -> list[Incidencia]:
     """Las reglas EN 16931 sobre un documento ya parseado.
 
-    Separado de `validar` para que el orquestador pueda pasar el mismo arbol a
+    Separado de `validar` para que el orquestador pueda pasar el mismo árbol a
     varios conjuntos de reglas en vez de que cada uno se lo parsee por su
     cuenta. `raiz` puede ser None cuando el documento no es XML (EDIFACT), y
     entonces ni se mira.
     """
-    if deteccion.familia != UBL:
+    sintaxis = SINTAXIS.get(deteccion.familia or "")
+    if sintaxis is None or raiz is None:
         return [
             Incidencia(
                 "SIN-SOPORTE",
                 AVISO,
-                "Las reglas EN 16931 solo estan implementadas para UBL. "
+                "Las reglas EN 16931 están implementadas para UBL y para CII. "
                 f"Este documento es {deteccion.familia} y solo se ha "
                 "identificado, no validado.",
                 campo="Formato",
@@ -395,17 +604,17 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
                 "BR-01",
                 AVISO,
                 "El documento no declara conformidad con EN 16931 en su "
-                "CustomizationID. Se valida igualmente, pero un receptor "
-                "estricto podria rechazarlo por eso.",
-                campo="Identificador de especificacion",
+                f"{sintaxis.nombre_perfil}. Se valida igualmente, pero un "
+                "receptor estricto podría rechazarlo por eso.",
+                campo="Identificador de especificación",
                 esperado="urn:cen.eu:en16931:2017...",
                 encontrado=deteccion.perfil or "(falta)",
             )
         )
 
-    incidencias.extend(_reglas_obligatorios(raiz))
-    incidencias.extend(_regla_lineas(raiz))
-    incidencias.extend(_reglas_cuadre(raiz))
+    incidencias.extend(_reglas_obligatorios(raiz, sintaxis))
+    incidencias.extend(_regla_lineas(raiz, sintaxis))
+    incidencias.extend(_reglas_cuadre(raiz, sintaxis))
     return incidencias
 
 
@@ -417,7 +626,7 @@ def validar(datos: bytes | str) -> Informe:
         return informe
 
     raiz = None
-    if deteccion.familia == UBL:
+    if deteccion.familia in SINTAXIS:
         if isinstance(datos, str):
             datos = datos.encode("utf-8")
         raiz = etree.fromstring(datos, parser=parser())

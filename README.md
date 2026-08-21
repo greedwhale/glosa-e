@@ -10,15 +10,15 @@ según el RD 238/2026.
 | `validador/nif.py` | Valida NIF, NIE y CIF con sus dígitos de control | Terminado |
 | `validador/calendario.py` | Días hábiles españoles y plazo de 4 días de los estados | Terminado |
 | `validador/formato.py` | Detección de formato y versión (Facturae, UBL, CII, EDIFACT) | Terminado |
-| `validador/en16931.py` | Reglas de negocio EN 16931 sobre UBL, con mensajes en castellano | Terminado |
+| `validador/en16931.py` | Reglas de negocio EN 16931 sobre UBL **y CII**, con mensajes en castellano | Terminado |
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
 | `validador/factura.py` | El orquestador: las dos normas sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
-| Reglas para CII | Las comprobaciones de EN 16931 sobre la sintaxis CII | Pendiente |
 | Validación XSD | Comprobación de forma contra los esquemas oficiales | Pendiente |
+| Reglas para Facturae | EN 16931 no es su modelo; haría falta un mapa aparte | Pendiente |
 
-194 tests, todos en verde.
+261 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -34,12 +34,21 @@ Acepta ficheros sueltos, carpetas o comodines. Devuelve 0 si todo está bien, 1
 si hay algún error y 2 si no hay nada que mirar, para poder encadenarlo en un
 script. Con `--solo-errores` calla los avisos y deja solo lo que impide cobrar.
 
-En la carpeta `ejemplos/` hay cuatro facturas preparadas: dos correctas, una
-repetida en otro fichero y otra cuyas líneas no cuadran con el total. Sale
-esto:
+En la carpeta `ejemplos/` hay cinco facturas preparadas: dos correctas, una
+repetida en otro fichero, otra cuyas líneas no cuadran con el total, y una en
+sintaxis CII con la base imponible mal calculada. Sale esto:
 
 ```
-ejemplos-0006.xml
+ejemplos\cii-A-0001.xml
+  CII vD16B (factura) · conforme EN 16931 — 1 error(es).
+
+  [BR-CO-13] La base imponible no cuadra con las líneas menos los descuentos
+  más los cargos.
+    Campo: Base imponible total
+    Debería ser: 90.00  (100.00 - 10.00 de descuentos)
+    Tiene: 100.00
+
+ejemplos\f-0006.xml
   UBL v2.1 (factura) · conforme EN 16931 — 1 error(es).
 
   [BR-CO-10] La suma de importes de línea que declara la factura no coincide
@@ -64,7 +73,7 @@ Entre ficheros:
     Debería ser: del 0001 al 0006 sin saltos
     Tiene: falta(n) 0003 al 0005
 
-4 fichero(s) · 3 correcto(s) · 1 con errores · 2 incidencia(s) entre ficheros.
+5 fichero(s) · 3 correcto(s) · 2 con errores · 2 incidencia(s) entre ficheros.
 ```
 
 También se puede usar como biblioteca:
@@ -125,6 +134,68 @@ Consecuencias prácticas para este proyecto:
    no dependen de esa orden. Los dígitos de control del NIF llevan décadas sin
    cambiar; el cómputo de días hábiles tampoco va a cambiar; y las reglas
    Schematron de EN 16931 son estables y de código abierto.
+
+## Las mismas reglas sobre dos sintaxis
+
+EN 16931 define un **modelo semántico** —los campos BT-1, BT-109, BT-112…— y
+después UBL y CII lo escriben de dos maneras completamente distintas. Que la
+base imponible más los impuestos den el total es verdad en las dos: lo único
+que cambia es dónde está escrito cada número.
+
+Por eso el mapa de rutas es un dato y las reglas son código:
+
+```python
+@dataclass(frozen=True)
+class Sintaxis:
+    nombre: str
+    espacios: dict[str, str]
+    base: str            # dónde vive BT-109
+    con_impuestos: str   # dónde vive BT-112
+    ...
+```
+
+`SINTAXIS_UBL` dice `./cac:LegalMonetaryTotal/cbc:TaxExclusiveAmount`.
+`SINTAXIS_CII` dice `./rsm:SupplyChainTradeTransaction/ram:Applicable
+HeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/
+ram:TaxBasisTotalAmount`. La aritmética y los mensajes no se enteran de la
+diferencia, y **los tests corren dos veces**, una por sintaxis, con el mismo
+documento semántico montado de las dos formas. Si una regla dejara de
+funcionar en una de ellas, la mitad de la suite caería.
+
+Añadir una sintaxis nueva debería ser rellenar otra `Sintaxis` sin tocar
+ninguna regla.
+
+### El truco de CII
+
+En UBL casi todo cuelga de la raíz. En CII hay tres bloques bajo
+`SupplyChainTradeTransaction` —lo pactado (`Agreement`), la entrega
+(`Delivery`) y el cobro (`Settlement`)— y la cabecera va aparte, en
+`ExchangedDocument`. Las líneas también son hermanas de esos bloques, no hijas
+de ninguno. Cuesta más leerlo, pero es el mismo modelo.
+
+### Dos fallos que el port sacó a la luz
+
+**Los contenedores no están vacíos por no tener texto.** La regla de campo
+obligatorio decidía si un elemento era un contenedor mirando si su ruta acababa
+en `PostalAddress`. En UBL colaba; en CII el elemento se llama
+`PostalTradeAddress`, así que **toda factura CII correcta habría dado BR-08 y
+BR-10** como «el elemento existe pero está vacío». Ahora la tabla lo declara
+explícitamente.
+
+**El total de impuestos puede venir dos veces.** Las dos sintaxis permiten
+declararlo en la moneda de la factura (BT-110) y en la de contabilidad
+(BT-111), distinguidos por el atributo `currencyID`. Coger el primero que
+aparezca es coger uno al azar:
+
+```
+con la selección por moneda: sin errores
+cogiendo el primero        : 1 error(es)
+    BR-CO-15 | 123.10  (100.00 + 23.10 de impuestos) -> 121.00
+```
+
+Una factura perfectamente válida rechazada por leer el importe en dólares.
+Afectaba también a UBL, así que el port de CII acabó arreglando un fallo que
+ya estaba.
 
 ## El orquestador
 
@@ -297,15 +368,18 @@ recalcular el total.
 
 ## Siguiente paso
 
-Llevar las reglas de EN 16931 a la sintaxis CII. La extracción del código único
-ya la cubre, así que es cuestión de traducir las rutas XPath: donde UBL dice
-`cac:LegalMonetaryTotal/cbc:TaxExclusiveAmount`, CII dice
-`ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:TaxBasisTotalAmount`.
-Las comprobaciones aritméticas y los mensajes se reaprovechan enteros.
+La **validación XSD** contra los esquemas oficiales. Es lo único que queda para
+cubrir los dos tipos de rechazo que existen: el de forma —el documento no
+respeta el esquema— y el de contenido, que es lo que hay hecho hasta ahora.
+Hace falta descargar los XSD de UBL 2.1, CII D16B y Facturae, decidir si van
+dentro del repositorio o se bajan al instalar, y traducir los mensajes de lxml,
+que son bastante crípticos.
 
-Después, la validación XSD de forma contra los esquemas oficiales, que es lo
-único que queda para cubrir los dos tipos de rechazo: el de forma y el de
-contenido.
+Facturae se queda sin reglas de negocio a propósito. No es una sintaxis de
+EN 16931 sino un formato nacional con su propio modelo, así que no basta con
+rellenar otra `Sintaxis`: haría falta un mapa distinto y decidir qué reglas
+tienen equivalente. Mientras tanto, a un Facturae sí se le comprueba el código
+único, que es donde están las reglas españolas.
 
 ## Fuentes
 
