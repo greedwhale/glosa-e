@@ -248,6 +248,19 @@ def _revisar_numero(numero: str) -> list[Incidencia]:
 # --- Reglas sobre un conjunto de códigos -----------------------------------
 
 
+def _de_donde(antes: str | None, ahora: str | None) -> str:
+    """Coletilla que dice en que ficheros estan las dos facturas del choque.
+
+    Nombrar solo la primera deja al lector a medias: para arreglar un
+    duplicado hay que saber cual de los dos ficheros sobra.
+    """
+    if not antes:
+        return ""
+    if antes == ahora:
+        return f" Las dos vienen en {antes}."
+    return f" La primera viene en {antes} y esta en {ahora}."
+
+
 @dataclass
 class Registro:
     """Lleva la cuenta de las facturas ya vistas y avisa al repetirse una.
@@ -258,9 +271,16 @@ class Registro:
     cosa diferente.
     """
 
-    _canonicos: dict[str, CodigoUnico] = field(default_factory=dict)
-    _claves: dict[tuple[str, str, date], CodigoUnico] = field(default_factory=dict)
-    _numeros: dict[tuple[str, str], CodigoUnico] = field(default_factory=dict)
+    # Cada indice guarda la factura y, si se sabe, de donde venia: en un lote
+    # de ficheros lo primero que se pregunta uno al ver un duplicado es "en
+    # cual de los dos estaba".
+    _canonicos: dict[str, tuple[CodigoUnico, str | None]] = field(default_factory=dict)
+    _claves: dict[tuple[str, str, date], tuple[CodigoUnico, str | None]] = field(
+        default_factory=dict
+    )
+    _numeros: dict[tuple[str, str], tuple[CodigoUnico, str | None]] = field(
+        default_factory=dict
+    )
 
     def __len__(self) -> int:
         return len(self._canonicos)
@@ -268,8 +288,14 @@ class Registro:
     def contiene(self, codigo: CodigoUnico) -> bool:
         return codigo.canonico() in self._canonicos
 
-    def anotar(self, codigo: CodigoUnico) -> list[Incidencia]:
-        """Registra una factura y devuelve lo que choque con las anteriores."""
+    def anotar(
+        self, codigo: CodigoUnico, procedencia: str | None = None
+    ) -> list[Incidencia]:
+        """Registra una factura y devuelve lo que choque con las anteriores.
+
+        `procedencia` es de donde sale la factura (un nombre de fichero, por
+        ejemplo). Si se pasa, los avisos dicen donde estaba la primera.
+        """
         incidencias: list[Incidencia] = []
         canonico = codigo.canonico()
         clave = codigo.clave()
@@ -282,7 +308,8 @@ class Registro:
                     "CU-10",
                     ERROR,
                     "Esta factura ya estaba registrada: mismo emisor, mismo "
-                    "número y misma fecha. Es la misma factura dos veces.",
+                    "número y misma fecha. Es la misma factura dos veces."
+                    + _de_donde(self._canonicos[canonico][1], procedencia),
                     campo="Código único",
                     encontrado=canonico,
                 )
@@ -290,14 +317,14 @@ class Registro:
         elif clave in self._claves:
             # CU-12: es la misma, pero escrita distinto. Peor que un duplicado,
             # porque cada sistema cree tener una factura diferente.
-            anterior = self._claves[clave]
+            anterior, de_antes = self._claves[clave]
             incidencias.append(
                 Incidencia(
                     "CU-12",
                     ERROR,
                     "Hay dos facturas que solo se distinguen por mayúsculas o "
                     "espacios. Son la misma factura escrita de dos maneras, y "
-                    "cada sistema la contará por separado.",
+                    "cada sistema la contará por separado." + _de_donde(de_antes, procedencia),
                     campo="Número de factura",
                     esperado=f"la anterior: {anterior.numero_completo!r}",
                     encontrado=repr(codigo.numero_completo),
@@ -306,22 +333,23 @@ class Registro:
         elif por_numero in self._numeros:
             # CU-11: mismo número, otra fecha. Numeración reutilizada, que es
             # justo lo que el código único existe para impedir.
-            anterior = self._numeros[por_numero]
+            anterior, de_antes = self._numeros[por_numero]
             incidencias.append(
                 Incidencia(
                     "CU-11",
                     ERROR,
                     "El número de factura está repetido con otra fecha. Dentro "
-                    "de una serie, un número no puede usarse dos veces.",
+                    "de una serie, un número no puede usarse dos veces."
+                    + _de_donde(de_antes, procedencia),
                     campo=f"Factura {codigo.numero_completo}",
                     esperado=f"ya usado el {anterior.fecha.isoformat()}",
                     encontrado=f"reutilizado el {codigo.fecha.isoformat()}",
                 )
             )
 
-        self._canonicos.setdefault(canonico, codigo)
-        self._claves.setdefault(clave, codigo)
-        self._numeros.setdefault(por_numero, codigo)
+        self._canonicos.setdefault(canonico, (codigo, procedencia))
+        self._claves.setdefault(clave, (codigo, procedencia))
+        self._numeros.setdefault(por_numero, (codigo, procedencia))
         return incidencias
 
 
@@ -445,16 +473,33 @@ def _reglas_de_serie(codigos: list[CodigoUnico]) -> list[Incidencia]:
     return incidencias
 
 
+def reglas_de_lote(
+    codigos: list[CodigoUnico], procedencias: list[str] | None = None
+) -> list[Incidencia]:
+    """Lo que solo se ve mirando varias facturas a la vez.
+
+    Va aparte de `revisar` a proposito: cuando se validan cien ficheros, las
+    comprobaciones de cada factura se hacen fichero a fichero, pero estas hay
+    que hacerlas una sola vez sobre el monton entero. Si no, un duplicado
+    entre dos ficheros no se ve, o se cuenta dos veces.
+    """
+    incidencias: list[Incidencia] = []
+    registro = Registro()
+    for indice, codigo in enumerate(codigos):
+        de_donde = procedencias[indice] if procedencias else None
+        incidencias.extend(registro.anotar(codigo, procedencia=de_donde))
+    incidencias.extend(_reglas_de_serie(codigos))
+    return incidencias
+
+
 def revisar_lote(
     codigos: list[CodigoUnico], hoy: date | None = None
 ) -> list[Incidencia]:
     """Revisa un conjunto de facturas: cada una por su cuenta y todas juntas."""
     incidencias: list[Incidencia] = []
-    registro = Registro()
     for codigo in codigos:
         incidencias.extend(revisar(codigo, hoy=hoy))
-        incidencias.extend(registro.anotar(codigo))
-    incidencias.extend(_reglas_de_serie(codigos))
+    incidencias.extend(reglas_de_lote(codigos))
     return incidencias
 
 
@@ -570,6 +615,19 @@ def _extraer_cii(raiz) -> list[CodigoUnico]:
     return [CodigoUnico(limpiar_nif(texto), numero, fecha)]
 
 
+def extraer_de(raiz, deteccion) -> list[CodigoUnico]:
+    """Saca los codigos unicos de un documento ya parseado."""
+    if raiz is None or not deteccion:
+        return []
+    if deteccion.familia == UBL:
+        return _extraer_ubl(raiz)
+    if deteccion.familia == FACTURAE:
+        return _extraer_facturae(raiz)
+    if deteccion.familia == CII:
+        return _extraer_cii(raiz)
+    return []
+
+
 def extraer(datos: bytes | str) -> list[CodigoUnico]:
     """Saca los códigos únicos de un documento, sea del formato que sea.
 
@@ -581,14 +639,40 @@ def extraer(datos: bytes | str) -> list[CodigoUnico]:
         return []
     if isinstance(datos, str):
         datos = datos.encode("utf-8")
-    raiz = etree.fromstring(datos, parser=parser())
-    if deteccion.familia == UBL:
-        return _extraer_ubl(raiz)
-    if deteccion.familia == FACTURAE:
-        return _extraer_facturae(raiz)
-    if deteccion.familia == CII:
-        return _extraer_cii(raiz)
-    return []
+    return extraer_de(etree.fromstring(datos, parser=parser()), deteccion)
+
+
+def sin_codigo_unico() -> Incidencia:
+    """La queja de cuando no hay con que componer el codigo unico."""
+    return Incidencia(
+        "CU-00",
+        ERROR,
+        "No se ha podido componer el código único: falta el número de "
+        "factura, la fecha de expedición, o ambos.",
+        campo="Código único",
+        esperado="NIF del emisor + serie y número + fecha de expedición",
+        encontrado="(incompleto)",
+    )
+
+
+def reglas(raiz, deteccion, hoy: date | None = None) -> list[Incidencia]:
+    """Las reglas del codigo unico sobre un documento ya parseado.
+
+    Incluye las de conjunto, porque un solo fichero Facturae puede traer
+    varias facturas y pueden chocar entre ellas. Para comparar facturas de
+    ficheros distintos esta `reglas_de_lote`, que el orquestador ejecuta una
+    sola vez sobre el monton entero.
+    """
+    codigos = extraer_de(raiz, deteccion)
+    if not codigos:
+        # En EDIFACT y en los formatos que no se saben leer no hay nada que
+        # reprochar: no es que falte el codigo unico, es que no se ha mirado.
+        if deteccion and deteccion.familia in (UBL, FACTURAE, CII):
+            return [sin_codigo_unico()]
+        return []
+    incidencias = [i for codigo in codigos for i in revisar(codigo, hoy=hoy)]
+    incidencias.extend(reglas_de_lote(codigos))
+    return incidencias
 
 
 def validar(datos: bytes | str, hoy: date | None = None) -> Informe:
@@ -600,17 +684,7 @@ def validar(datos: bytes | str, hoy: date | None = None) -> Informe:
 
     codigos = extraer(datos)
     if not codigos:
-        informe.incidencias.append(
-            Incidencia(
-                "CU-00",
-                ERROR,
-                "No se ha podido componer el código único: falta el número de "
-                "factura, la fecha de expedición, o ambos.",
-                campo="Código único",
-                esperado="NIF del emisor + serie y número + fecha de expedición",
-                encontrado="(incompleto)",
-            )
-        )
+        informe.incidencias.append(sin_codigo_unico())
         return informe
 
     informe.incidencias.extend(revisar_lote(codigos, hoy=hoy))

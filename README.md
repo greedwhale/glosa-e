@@ -13,13 +13,69 @@ según el RD 238/2026.
 | `validador/en16931.py` | Reglas de negocio EN 16931 sobre UBL, con mensajes en castellano | Terminado |
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
+| `validador/factura.py` | El orquestador: las dos normas sobre el mismo documento, y lotes | Terminado |
+| `validador/__main__.py` | La línea de órdenes | Terminado |
 | Reglas para CII | Las comprobaciones de EN 16931 sobre la sintaxis CII | Pendiente |
 | Validación XSD | Comprobación de forma contra los esquemas oficiales | Pendiente |
 
-160 tests, todos en verde.
+194 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
+```
+
+## Cómo se usa
+
+```bash
+python -m validador ejemplos --hoy 2026-09-20
+```
+
+Acepta ficheros sueltos, carpetas o comodines. Devuelve 0 si todo está bien, 1
+si hay algún error y 2 si no hay nada que mirar, para poder encadenarlo en un
+script. Con `--solo-errores` calla los avisos y deja solo lo que impide cobrar.
+
+En la carpeta `ejemplos/` hay cuatro facturas preparadas: dos correctas, una
+repetida en otro fichero y otra cuyas líneas no cuadran con el total. Sale
+esto:
+
+```
+ejemplos-0006.xml
+  UBL v2.1 (factura) · conforme EN 16931 — 1 error(es).
+
+  [BR-CO-10] La suma de importes de línea que declara la factura no coincide
+  con la suma real de sus líneas. Suele ser una línea añadida o modificada sin
+  recalcular el total.
+    Campo: Suma de importes de línea
+    Debería ser: 90.00 (suma de la única línea)
+    Tiene: 100.00
+
+Entre ficheros:
+
+  [CU-10] Esta factura ya estaba registrada: mismo emisor, mismo número y misma
+  fecha. Es la misma factura dos veces. La primera viene en f-0002-bis.xml y
+  esta en f-0002.xml.
+    Campo: Código único
+    Tiene: B12345674|F-2026-0002|2026-03-05
+
+  [CU-13] La serie tiene huecos: falta(n) 3 número(s) entre el primero y el
+  último. Si son facturas anuladas, no pasa nada; si no, la numeración no es
+  correlativa.
+    Campo: Serie F-2026-*
+    Debería ser: del 0001 al 0006 sin saltos
+    Tiene: falta(n) 0003 al 0005
+
+4 fichero(s) · 3 correcto(s) · 1 con errores · 2 incidencia(s) entre ficheros.
+```
+
+También se puede usar como biblioteca:
+
+```python
+from validador import factura
+
+informe = factura.validar_archivo("factura.xml")
+print(informe.detalle())
+
+lote = factura.validar_lote(["a.xml", "b.xml"])   # además los compara entre sí
 ```
 
 ## Lo que la norma exige (verificado)
@@ -69,6 +125,42 @@ Consecuencias prácticas para este proyecto:
    no dependen de esa orden. Los dígitos de control del NIF llevan décadas sin
    cambiar; el cómputo de días hábiles tampoco va a cambiar; y las reglas
    Schematron de EN 16931 son estables y de código abierto.
+
+## El orquestador
+
+`en16931` mira lo que exige la norma europea y `codigo_unico` lo que exige el
+RD 238/2026. Quien recibe una factura necesita las dos cosas a la vez y no le
+importa de qué reglamento sale cada queja. `factura.py` las junta, y hace tres
+cosas que no salen gratis de concatenar las dos listas.
+
+**Un solo árbol.** El documento se parsea una vez y se les pasa ya parseado a
+los dos conjuntos de reglas. Por eso `en16931.reglas()` y `codigo_unico.reglas()`
+existen aparte de sus respectivos `validar()`: reciben el árbol, no los bytes.
+
+**No decir dos veces lo mismo.** BR-02 («falta el número de factura») y CU-00
+(«no se puede componer el código único») son la misma queja escrita por dos
+reglamentos distintos. Si ya lo ha dicho la norma europea, la española se
+calla. La tabla de qué tapa a qué está en `_SOBRA_SI` y es explícita a
+propósito: es una decisión editorial, no una deducción.
+
+**Mirar el lote entero.** Un duplicado entre dos ficheros no lo puede detectar
+ninguno de los dos por separado; es una propiedad del conjunto. `validar_lote`
+valida fichero a fichero y después pasa una segunda vez sobre todas las
+facturas juntas, y lo que sale de ahí va en `InformeLote.cruzadas`.
+
+**Facturae se beneficia aunque EN 16931 no esté portado.** Las reglas BR solo
+están sobre UBL, así que un Facturae recibe un aviso `SIN-SOPORTE`. Pero el
+código único sí se le comprueba, y ahí es donde están las reglas españolas. Un
+Facturae con el NIF mal cantará `CU-01` igualmente.
+
+### Un detalle que costó un fallo
+
+Las incidencias del lote y las del fichero **no se pueden comparar por su
+texto**. El mensaje del lote añade de qué fichero venía la factura anterior y
+el del fichero no, así que dos quejas idénticas nunca coincidían y un duplicado
+dentro de un mismo fichero salía dos veces en el informe. Se comparan por
+`(código, campo, esperado, encontrado)`, que es lo que identifica la queja sin
+depender de cómo esté redactada.
 
 ## El código único de factura
 
@@ -205,14 +297,15 @@ recalcular el total.
 
 ## Siguiente paso
 
-Un orquestador que corra de una pasada las reglas europeas y las españolas
-sobre el mismo documento, en vez de tener que llamar a `en16931.validar()` y a
-`codigo_unico.validar()` por separado. Ahora que `Incidencia` e `Informe` viven
-en un módulo común, es poco más que juntar las dos listas.
+Llevar las reglas de EN 16931 a la sintaxis CII. La extracción del código único
+ya la cubre, así que es cuestión de traducir las rutas XPath: donde UBL dice
+`cac:LegalMonetaryTotal/cbc:TaxExclusiveAmount`, CII dice
+`ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:TaxBasisTotalAmount`.
+Las comprobaciones aritméticas y los mensajes se reaprovechan enteros.
 
-Después: llevar las reglas de EN 16931 a la sintaxis CII —la extracción del
-código único ya la cubre— y la validación XSD de forma contra los esquemas
-oficiales.
+Después, la validación XSD de forma contra los esquemas oficiales, que es lo
+único que queda para cubrir los dos tipos de rechazo: el de forma y el de
+contenido.
 
 ## Fuentes
 

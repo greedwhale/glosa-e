@@ -22,7 +22,16 @@ from validador.formato import UBL, detectar, parser
 from validador.incidencias import AVISO, ERROR, Incidencia, Informe
 
 # Se reexportan para no romper a quien ya importaba estos nombres desde aquí.
-__all__ = ["AVISO", "ERROR", "Incidencia", "Informe", "NS", "TOLERANCIA", "validar"]
+__all__ = [
+    "AVISO",
+    "ERROR",
+    "Incidencia",
+    "Informe",
+    "NS",
+    "TOLERANCIA",
+    "reglas",
+    "validar",
+]
 
 NS = {
     "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
@@ -261,7 +270,15 @@ def _reglas_cuadre(raiz) -> list[Incidencia]:
                     "coincide con la suma real de sus líneas. Suele ser una "
                     "línea añadida o modificada sin recalcular el total.",
                     campo="Suma de importes de línea",
-                    esperado=f"{acumulado:.2f} (suma de las {len(lineas)} líneas)",
+                    esperado=(
+                        f"{acumulado:.2f} (suma de "
+                        + (
+                            "la única línea"
+                            if len(lineas) == 1
+                            else f"las {len(lineas)} líneas"
+                        )
+                        + ")"
+                    ),
                     encontrado=_fmt(suma_lineas),
                 )
             )
@@ -350,47 +367,60 @@ def _reglas_cuadre(raiz) -> list[Incidencia]:
 # --- Entrada pública -------------------------------------------------------
 
 
-def validar(datos: bytes | str) -> Informe:
-    """Valida una factura contra las reglas de negocio implementadas."""
-    deteccion = detectar(datos)
-    informe = Informe(deteccion=deteccion)
+def reglas(raiz, deteccion) -> list[Incidencia]:
+    """Las reglas EN 16931 sobre un documento ya parseado.
 
-    if not deteccion:
-        return informe
-
+    Separado de `validar` para que el orquestador pueda pasar el mismo arbol a
+    varios conjuntos de reglas en vez de que cada uno se lo parsee por su
+    cuenta. `raiz` puede ser None cuando el documento no es XML (EDIFACT), y
+    entonces ni se mira.
+    """
     if deteccion.familia != UBL:
-        informe.incidencias.append(
+        return [
             Incidencia(
                 "SIN-SOPORTE",
                 AVISO,
-                f"Las reglas EN 16931 solo están implementadas para UBL. "
+                "Las reglas EN 16931 solo estan implementadas para UBL. "
                 f"Este documento es {deteccion.familia} y solo se ha "
-                f"identificado, no validado.",
+                "identificado, no validado.",
                 campo="Formato",
                 encontrado=deteccion.familia,
             )
-        )
-        return informe
+        ]
 
-    if isinstance(datos, str):
-        datos = datos.encode("utf-8")
-    raiz = etree.fromstring(datos, parser=parser())
-
+    incidencias: list[Incidencia] = []
     if not deteccion.conforme_en16931:
-        informe.incidencias.append(
+        incidencias.append(
             Incidencia(
                 "BR-01",
                 AVISO,
                 "El documento no declara conformidad con EN 16931 en su "
                 "CustomizationID. Se valida igualmente, pero un receptor "
-                "estricto podría rechazarlo por eso.",
-                campo="Identificador de especificación",
+                "estricto podria rechazarlo por eso.",
+                campo="Identificador de especificacion",
                 esperado="urn:cen.eu:en16931:2017...",
                 encontrado=deteccion.perfil or "(falta)",
             )
         )
 
-    informe.incidencias.extend(_reglas_obligatorios(raiz))
-    informe.incidencias.extend(_regla_lineas(raiz))
-    informe.incidencias.extend(_reglas_cuadre(raiz))
+    incidencias.extend(_reglas_obligatorios(raiz))
+    incidencias.extend(_regla_lineas(raiz))
+    incidencias.extend(_reglas_cuadre(raiz))
+    return incidencias
+
+
+def validar(datos: bytes | str) -> Informe:
+    """Valida una factura contra las reglas de negocio implementadas."""
+    deteccion = detectar(datos)
+    informe = Informe(deteccion=deteccion)
+    if not deteccion:
+        return informe
+
+    raiz = None
+    if deteccion.familia == UBL:
+        if isinstance(datos, str):
+            datos = datos.encode("utf-8")
+        raiz = etree.fromstring(datos, parser=parser())
+
+    informe.incidencias.extend(reglas(raiz, deteccion))
     return informe
