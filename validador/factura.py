@@ -26,8 +26,9 @@ from pathlib import Path
 
 from lxml import etree
 
-from validador import codigo_unico, en16931
+from validador import codigo_unico, en16931, esquema
 from validador.formato import CII, FACTURAE, UBL, Deteccion, detectar, parser
+from validador.esquema import Catalogo
 from validador.incidencias import ERROR, Incidencia, Informe
 
 # Familias que son XML y por tanto se pueden parsear. EDIFACT no lo es.
@@ -43,6 +44,7 @@ _SOBRA_SI: dict[str, tuple[str, ...]] = {
 # De qué reglamento sale cada queja, por el prefijo de su código.
 EUROPEA = "EN 16931"
 ESPANOLA = "RD 238/2026"
+FORMA = "Esquema XSD"
 OTRA = "Formato"
 
 
@@ -52,6 +54,8 @@ def origen(incidencia: Incidencia) -> str:
         return EUROPEA
     if incidencia.codigo.startswith("CU-"):
         return ESPANOLA
+    if incidencia.codigo.startswith("XSD-"):
+        return FORMA
     return OTRA
 
 
@@ -92,30 +96,47 @@ def _senia(incidencia: Incidencia) -> tuple:
     )
 
 
-def _reglas(raiz, deteccion: Deteccion, hoy: date | None) -> list[Incidencia]:
-    """Todas las reglas sobre un documento ya parseado y ya identificado."""
-    incidencias = list(en16931.reglas(raiz, deteccion))
+def _reglas(
+    raiz, deteccion: Deteccion, hoy: date | None, catalogo: Catalogo | None
+) -> list[Incidencia]:
+    """Todas las reglas sobre un documento ya parseado y ya identificado.
+
+    La forma va primero porque es lo primero que mira un receptor: si el
+    documento no cumple el esquema, ni llega a leer los numeros.
+    """
+    incidencias = list(esquema.reglas(raiz, deteccion, catalogo))
+    incidencias.extend(en16931.reglas(raiz, deteccion))
     incidencias.extend(codigo_unico.reglas(raiz, deteccion, hoy=hoy))
     return _podar(incidencias)
 
 
-def validar(datos: bytes | str, hoy: date | None = None) -> Informe:
-    """Valida un documento contra las reglas europeas y las españolas."""
+def validar(
+    datos: bytes | str,
+    hoy: date | None = None,
+    catalogo: Catalogo | None = None,
+) -> Informe:
+    """Valida un documento: su forma, las reglas europeas y las españolas."""
     deteccion = detectar(datos)
     informe = Informe(deteccion=deteccion)
     if not deteccion:
         return informe
     if isinstance(datos, str):
         datos = datos.encode("utf-8")
-    informe.incidencias.extend(_reglas(_arbol(datos, deteccion), deteccion, hoy))
+    informe.incidencias.extend(
+        _reglas(_arbol(datos, deteccion), deteccion, hoy, catalogo)
+    )
     return informe
 
 
-def validar_archivo(ruta: str | Path, hoy: date | None = None) -> Informe:
+def validar_archivo(
+    ruta: str | Path,
+    hoy: date | None = None,
+    catalogo: Catalogo | None = None,
+) -> Informe:
     """Igual que `validar`, leyendo de un fichero."""
     camino = Path(ruta)
     try:
-        return validar(camino.read_bytes(), hoy=hoy)
+        return validar(camino.read_bytes(), hoy=hoy, catalogo=catalogo)
     except OSError as error:
         return Informe(deteccion=_no_se_puede_leer(camino, error))
 
@@ -188,7 +209,11 @@ def _sangrar(texto: str, margen: str) -> str:
     return "\n".join(margen + linea for linea in texto.splitlines())
 
 
-def validar_lote(rutas: list[str | Path], hoy: date | None = None) -> InformeLote:
+def validar_lote(
+    rutas: list[str | Path],
+    hoy: date | None = None,
+    catalogo: Catalogo | None = None,
+) -> InformeLote:
     """Valida varios ficheros y además los compara entre sí.
 
     Cada fichero se valida por su cuenta y después se juntan todas las facturas
@@ -197,6 +222,9 @@ def validar_lote(rutas: list[str | Path], hoy: date | None = None) -> InformeLot
     detectarlo ninguno de los dos por separado.
     """
     lote = InformeLote()
+    # Un solo catalogo para todo el lote: asi el esquema se compila una vez y
+    # no una por fichero, que es lo que de verdad cuesta.
+    catalogo = catalogo or Catalogo.por_defecto()
     todos: list[codigo_unico.CodigoUnico] = []
     procedencias: list[str] = []
 
@@ -214,7 +242,7 @@ def validar_lote(rutas: list[str | Path], hoy: date | None = None) -> InformeLot
         raiz = _arbol(datos, deteccion)
         informe = Informe(deteccion=deteccion)
         if deteccion:
-            informe.incidencias.extend(_reglas(raiz, deteccion, hoy))
+            informe.incidencias.extend(_reglas(raiz, deteccion, hoy, catalogo))
         lote.informes.append((camino, informe))
 
         for codigo in codigo_unico.extraer_de(raiz, deteccion):

@@ -13,12 +13,12 @@ según el RD 238/2026.
 | `validador/en16931.py` | Reglas de negocio EN 16931 sobre UBL **y CII**, con mensajes en castellano | Terminado |
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
-| `validador/factura.py` | El orquestador: las dos normas sobre el mismo documento, y lotes | Terminado |
+| `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
+| `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
-| Validación XSD | Comprobación de forma contra los esquemas oficiales | Pendiente |
 | Reglas para Facturae | EN 16931 no es su modelo; haría falta un mapa aparte | Pendiente |
 
-261 tests, todos en verde.
+296 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -33,6 +33,7 @@ python -m validador ejemplos --hoy 2026-09-20
 Acepta ficheros sueltos, carpetas o comodines. Devuelve 0 si todo está bien, 1
 si hay algún error y 2 si no hay nada que mirar, para poder encadenarlo en un
 script. Con `--solo-errores` calla los avisos y deja solo lo que impide cobrar.
+Con `--esquemas CARPETA` comprueba además la forma; ver más abajo.
 
 En la carpeta `ejemplos/` hay cinco facturas preparadas: dos correctas, una
 repetida en otro fichero, otra cuyas líneas no cuadran con el total, y una en
@@ -134,6 +135,112 @@ Consecuencias prácticas para este proyecto:
    no dependen de esa orden. Los dígitos de control del NIF llevan décadas sin
    cambiar; el cómputo de días hábiles tampoco va a cambiar; y las reglas
    Schematron de EN 16931 son estables y de código abierto.
+
+## Validación de forma: los esquemas XSD
+
+Hay dos maneras de que rechacen una factura. Una es de **contenido**: el
+documento está bien formado pero las cuentas no cuadran, y de eso se ocupan
+`en16931` y `codigo_unico`. La otra es de **forma**: el documento no respeta el
+esquema, y ahí el receptor ni siquiera llega a mirar los números.
+
+La comprobación en sí la hace libxml2 y no hay nada que reinventar. **El
+trabajo está en traducir el resultado.** Este es un caso real, el mismo
+documento visto por los dos:
+
+```
+-- lo que dice libxml2 --
+Element {urn:oasis:names:specification:ubl:schema:xsd:CommonBasic
+Components-2}IssueDate: This element is not expected. Expected is (
+{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}ID ).
+
+-- lo que dice el validador --
+[XSD-ORDEN] «IssueDate» y «ID» están cambiados de sitio. En XML el orden de
+los elementos es parte del formato: «ID» tiene que ir antes.
+  Campo: IssueDate (línea 3)
+  Debería ser: «ID»
+  Tiene: IssueDate
+```
+
+### Instalar los esquemas
+
+No vienen dentro del repositorio: son de OASIS, de UN/CEFACT y del Ministerio,
+pesan lo suyo y tienen sus propias licencias. Hay que descargarlos y dejarlos
+en una carpeta:
+
+| Formato | Fichero que se busca | De dónde sale |
+|---|---|---|
+| UBL 2.1 | `UBL-Invoice-2.1.xsd`, `UBL-CreditNote-2.1.xsd` | paquete UBL 2.1 de OASIS |
+| CII | `CrossIndustryInvoice_100pD16B.xsd` | paquete D16B de UN/CEFACT |
+| Facturae | `Facturaev3_2_2.xsd` y equivalentes | sede de facturae.gob.es |
+
+El catálogo **busca por nombre de fichero en toda la carpeta**, no por una ruta
+fija. Cada paquete oficial se descomprime con su propio arbolito y no tiene
+sentido obligar a nadie a recolocarlo a mano: se descomprime donde sea, dentro
+de `esquemas/`, y ya está. La carpeta se cambia con `--esquemas` o con la
+variable de entorno `FACTURAE_ESQUEMAS`.
+
+Si no hay ninguno instalado, **no se comprueba la forma y se dice**, una vez al
+final y no una por factura. Callar y aparentar que todo está bien sería lo peor
+que podría hacer un validador.
+
+### Lo que traduce
+
+| Código | Qué ha pasado |
+|---|---|
+| `XSD-ORDEN` | Un elemento no cabe ahí: está cambiado de sitio, repetido, o no existe |
+| `XSD-FALTA` | A un elemento le falta un hijo obligatorio |
+| `XSD-VALOR` | El valor no está en la lista cerrada que admite el esquema |
+| `XSD-TIPO` | El valor no tiene la pinta de su tipo (fecha, importe, número...) |
+| `XSD-LONGITUD` | Demasiado largo o demasiado corto |
+| `XSD-PATRON` | No encaja con la expresión que exige el esquema |
+| `XSD-ATRIBUTO` | Falta un atributo obligatorio, o sobra uno |
+| `XSD-TEXTO` | Texto suelto donde solo caben elementos |
+| `XSD-RAIZ` | El documento no empieza por donde el esquema espera |
+| `XSD-OTRO` | Algo que no se sabe redactar mejor; se pasa tal cual |
+
+Lo último no es pereza: **nunca se pierde un incumplimiento por no saber
+traducirlo**. Si aparece un mensaje que las reglas no reconocen, sale igual con
+el texto original.
+
+Los dos que más se ganan al traducirlos son los tópicos españoles:
+
+```
+[XSD-TIPO] «02/03/2026» no vale como contenido de «IssueDate».
+Una fecha se escribe AAAA-MM-DD: 2026-03-02.
+
+[XSD-TIPO] «1.234,56» no vale como contenido de «PayableAmount». Un importe
+lleva punto decimal, sin símbolo de moneda ni separador de miles: 1234.56,
+no 1.234,56 EUR.
+```
+
+### Decisiones y sorpresas
+
+**«No esperado» significa tres cosas distintas.** libxml2 dice lo mismo si un
+elemento está cambiado de orden, si está repetido o si no existe en el esquema.
+Para quien tiene que arreglar la factura son tres problemas diferentes, así que
+se mira el documento: si lo que se esperaba aparece más adelante entre los
+hermanos, están al revés; si el nombre sale dos veces, sobra uno. **El repetido
+se comprueba antes que el desordenado**, porque con `<ID/><ID/><Fecha/>` lo
+esperado también aparece más adelante y diría «cambiados de sitio» cuando lo
+que pasa es que uno sobra.
+
+**El `path` de libxml2 lleva los prefijos del documento.** Viene como
+`/*/cbc:IssueDate`, y evaluarlo sin más revienta con «Undefined namespace
+prefix». Hay que pasarle los prefijos recogidos de todo el árbol, no solo de la
+raíz. Como reserva se busca por número de línea, aunque eso no sirve en un XML
+escrito todo seguido, que es justo como los genera media industria.
+
+**El esquema se compila una vez por lote.** Compilar UBL 2.1 no es barato y en
+trescientos ficheros se notaría; el `Catalogo` los cachea.
+
+**Se cortan a veinte.** Un documento roto de verdad da cientos de
+incumplimientos, casi todos consecuencia del primero. Pasado el tope se dice
+cuántos quedan y que se arreglen los de arriba primero.
+
+**libxml2 se para en el primer error de estructura.** Los errores de tipo se
+acumulan, pero en cuanto el modelo de contenido se tuerce, abandona ese
+elemento. Así que puede hacer falta más de una pasada: se arregla el orden, se
+vuelve a pasar, y entonces aparecen los valores mal escritos.
 
 ## Las mismas reglas sobre dos sintaxis
 
@@ -368,18 +475,23 @@ recalcular el total.
 
 ## Siguiente paso
 
-La **validación XSD** contra los esquemas oficiales. Es lo único que queda para
-cubrir los dos tipos de rechazo que existen: el de forma —el documento no
-respeta el esquema— y el de contenido, que es lo que hay hecho hasta ahora.
-Hace falta descargar los XSD de UBL 2.1, CII D16B y Facturae, decidir si van
-dentro del repositorio o se bajan al instalar, y traducir los mensajes de lxml,
-que son bastante crípticos.
+Los dos tipos de rechazo que existen —el de forma y el de contenido— ya están
+cubiertos. Lo que queda es de otra clase:
 
-Facturae se queda sin reglas de negocio a propósito. No es una sintaxis de
-EN 16931 sino un formato nacional con su propio modelo, así que no basta con
-rellenar otra `Sintaxis`: haría falta un mapa distinto y decidir qué reglas
-tienen equivalente. Mientras tanto, a un Facturae sí se le comprueba el código
-único, que es donde están las reglas españolas.
+**Probarlo contra facturas reales.** Todo lo de aquí está comprobado contra
+documentos escritos a mano para provocar cada error. Falta pasarle un lote de
+facturas de verdad, con sus rarezas, y ver qué mensajes salen mal redactados o
+qué formato no se reconoce. Es el trabajo que decide si esto sirve.
+
+**Reglas de negocio para Facturae.** Se queda fuera a propósito: no es una
+sintaxis de EN 16931 sino un formato nacional con su propio modelo, así que no
+basta con rellenar otra `Sintaxis`. Haría falta un mapa distinto y decidir qué
+reglas tienen equivalente. Mientras tanto, a un Facturae sí se le comprueba la
+forma contra su XSD y el código único, que es donde están las reglas españolas.
+
+**Las reglas de IVA de EN 16931** (BR-S-*, BR-E-*, BR-Z-*...): que cada
+categoría de impuesto cuadre con su base y su tipo. Son unas cuantas y siguen
+el mismo patrón que las BR-CO-*, así que caben en el diseño que ya hay.
 
 ## Fuentes
 

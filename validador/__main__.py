@@ -17,6 +17,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from validador import factura
+from validador.esquema import CARPETA_POR_DEFECTO, VARIABLE_ENTORNO, Catalogo
 from validador.incidencias import ERROR
 
 EXTENSIONES = (".xml", ".xsig")
@@ -81,6 +82,13 @@ def main(argumentos: list[str] | None = None) -> int:
         "prescrita. Por defecto, hoy.",
     )
     analizador.add_argument(
+        "--esquemas",
+        metavar="CARPETA",
+        help="carpeta con los esquemas XSD oficiales, para comprobar también "
+        f"la forma. Por defecto, la variable de entorno {VARIABLE_ENTORNO} "
+        f"o ./{CARPETA_POR_DEFECTO}.",
+    )
+    analizador.add_argument(
         "--solo-errores",
         action="store_true",
         help="calla los avisos y deja solo lo que impide cobrar",
@@ -92,13 +100,22 @@ def main(argumentos: list[str] | None = None) -> int:
         print("No hay ningún fichero que mirar.", file=sys.stderr)
         return 2
 
-    lote = factura.validar_lote(caminos, hoy=opciones.hoy)
+    catalogo = Catalogo.por_defecto(opciones.esquemas)
+    lote = factura.validar_lote(caminos, hoy=opciones.hoy, catalogo=catalogo)
     if opciones.solo_errores:
         for _, informe in lote.informes:
             informe.incidencias = informe.errores
         lote.cruzadas = [i for i in lote.cruzadas if i.gravedad == ERROR]
 
     print(lote.detalle())
+    if catalogo.vacio:
+        # Una sola línea al final, no un aviso por fichero: quien no tiene los
+        # esquemas puestos ya lo sabe, y no hace falta repetírselo cien veces.
+        print()
+        print(
+            f"No se ha comprobado la forma: no hay esquemas XSD en "
+            f"{catalogo.carpeta}. El README dice de dónde bajarlos."
+        )
     return 0 if lote.conforme else 1
 
 
