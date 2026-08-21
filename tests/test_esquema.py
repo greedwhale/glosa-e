@@ -168,6 +168,94 @@ class TestSinEsquemas:
         assert str(catalogo.carpeta) in aviso.mensaje
 
 
+class TestIndice:
+    """El disco se recorre una vez por catálogo, no una por consulta.
+
+    Antes cada pregunta —«¿hay esquemas?», «¿dónde está este?»— salía a mirar
+    el disco. Dos o tres veces por factura. Cada búsqueda era barata, porque
+    `rglob` con un nombre concreto corta en cuanto lo encuentra, así que esto
+    no era el cuello de botella que parecía: son décimas de segundo en un lote
+    grande. Pero un índice hecho una vez es más simple de razonar y no depende
+    de dónde caiga el fichero dentro del árbol.
+    """
+
+    def test_el_disco_se_mira_una_sola_vez(self, catalogo, monkeypatch):
+        from pathlib import Path
+
+        vueltas = []
+        original = Path.rglob
+
+        def contando(self, patron, **kwargs):
+            vueltas.append(patron)
+            return original(self, patron, **kwargs)
+
+        monkeypatch.setattr(Path, "rglob", contando)
+        for _ in range(10):
+            assert not catalogo.vacio
+            assert catalogo.ruta_para(_deteccion_ubl()) is not None
+        assert len(vueltas) == 1, vueltas
+
+    def test_el_indice_encuentra_lo_que_hay(self, catalogo):
+        assert "UBL-Invoice-2.1.xsd" in catalogo.indice
+        assert "UBL-CommonBasicComponents-2.1.xsd" in catalogo.indice
+
+    def test_recargar_vuelve_a_mirar(self, catalogo, tmp_path):
+        """Un esquema añadido en caliente no se ve hasta que se pide."""
+        assert catalogo.ruta_para(_deteccion_abono()) is None
+        (tmp_path / "ubl" / "maindoc" / "UBL-CreditNote-2.1.xsd").write_text(
+            PRINCIPAL.replace('name="Invoice"', 'name="CreditNote"'),
+            encoding="utf-8",
+        )
+        assert catalogo.ruta_para(_deteccion_abono()) is None  # sigue con el de antes
+        catalogo.recargar()
+        assert catalogo.ruta_para(_deteccion_abono()) is not None
+
+
+class TestEsquemaRoto:
+    """Un fichero que está pero no compila no puede tumbar el lote.
+
+    Pasaba: la excepción de lxml salía de `esquema_para` y subía hasta arriba.
+    Una descarga a medias en la carpeta de esquemas y trescientas facturas sin
+    validar, con un traceback en vez de una frase.
+    """
+
+    @pytest.fixture
+    def catalogo_roto(self, tmp_path):
+        (tmp_path / "UBL-Invoice-2.1.xsd").write_text(
+            "<esto no es un esquema/>", encoding="utf-8"
+        )
+        return Catalogo(tmp_path)
+
+    def test_no_revienta_y_lo_dice(self, catalogo_roto):
+        aviso = una(revisar(CORRECTA, catalogo_roto), "XSD-ESQUEMA-ROTO")
+        assert aviso.gravedad == AVISO
+        assert "UBL-Invoice-2.1.xsd" in aviso.campo
+
+    def test_el_lote_sigue_adelante(self, catalogo_roto, tmp_path):
+        ruta = tmp_path / "f.xml"
+        ruta.write_text(CORRECTA, encoding="utf-8")
+        lote = factura.validar_lote([ruta, ruta], catalogo=catalogo_roto)
+        assert len(lote.informes) == 2
+
+    def test_no_se_reintenta_compilarlo(self, catalogo_roto):
+        """Compilar y fallar mil veces cuesta lo mismo que compilar mil veces."""
+        for _ in range(5):
+            revisar(CORRECTA, catalogo_roto)
+        assert len(catalogo_roto._rotos) == 1
+
+
+def _deteccion_ubl():
+    from validador.formato import UBL, Deteccion
+
+    return Deteccion(familia=UBL, tipo_documento="factura")
+
+
+def _deteccion_abono():
+    from validador.formato import UBL, Deteccion
+
+    return Deteccion(familia=UBL, tipo_documento="abono")
+
+
 # --- Traducción de cada tipo de incumplimiento -----------------------------
 
 

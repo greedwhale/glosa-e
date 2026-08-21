@@ -29,7 +29,6 @@ from decimal import Decimal
 from validador.incidencias import AVISO, ERROR, Incidencia
 from validador.sintaxis import (
     Sintaxis,
-    a_decimal,
     cuadra,
     fmt,
     fmt_tipo,

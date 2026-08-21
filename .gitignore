@@ -2,3 +2,8 @@ __pycache__/
 .venv/
 *.pyc
 .pytest_cache/
+
+# Restos de empaquetado
+*.egg-info/
+build/
+dist/

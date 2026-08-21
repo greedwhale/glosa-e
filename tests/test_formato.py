@@ -1,6 +1,5 @@
 """Comprobaciones de la detección de formato."""
 
-import pytest
 from lxml import etree
 
 from validador import formato

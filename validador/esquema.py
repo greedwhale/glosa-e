@@ -72,12 +72,25 @@ class Catalogo:
     Busca por nombre de fichero en toda la carpeta, no por una ruta fija: los
     paquetes oficiales se descomprimen cada uno con su propio arbolito y no
     tiene sentido obligar a nadie a recolocarlos a mano.
+
+    El recorrido del disco se hace **una sola vez** por catálogo. Antes se
+    hacía uno por cada consulta: tres por factura —uno para saber si había
+    esquemas y dos probando nombres— y el paquete de UBL 2.1 trae cientos de
+    ficheros, así que un lote de trescientas facturas daba novecientas vueltas
+    completas al árbol. El esquema compilado ya se guardaba; lo que faltaba era
+    guardar también dónde estaba.
+
+    La contrapartida es que un esquema añadido a la carpeta con el catálogo ya
+    en marcha no se ve. Para un lote eso es lo que se quiere —que todos los
+    ficheros se midan con la misma vara—; si hiciera falta, `recargar()`.
     """
 
     carpeta: Path
     _compilados: dict[Path, etree.XMLSchema] = field(
         default_factory=dict, repr=False
     )
+    _indice: dict[str, Path] | None = field(default=None, repr=False)
+    _rotos: dict[Path, str] = field(default_factory=dict, repr=False)
 
     @classmethod
     def por_defecto(cls, carpeta: str | Path | None = None) -> Catalogo:
@@ -86,15 +99,34 @@ class Catalogo:
         return cls(Path(carpeta))
 
     @property
+    def indice(self) -> dict[str, Path]:
+        """Nombre de fichero -> dónde está, recorriendo el disco una vez.
+
+        Se queda con la primera aparición de cada nombre, que es lo mismo que
+        devolvía el `rglob` por nombre de antes.
+        """
+        if self._indice is None:
+            encontrados: dict[str, Path] = {}
+            if self.carpeta.is_dir():
+                for ruta in self.carpeta.rglob("*.xsd"):
+                    encontrados.setdefault(ruta.name, ruta)
+            self._indice = encontrados
+        return self._indice
+
+    def recargar(self) -> None:
+        """Vuelve a mirar el disco. Para cuando se instalan esquemas en caliente."""
+        self._indice = None
+        self._compilados.clear()
+        self._rotos.clear()
+
+    @property
     def vacio(self) -> bool:
         """No hay esquemas instalados, ni siquiera la carpeta."""
-        if not self.carpeta.is_dir():
-            return True
-        return next(self.carpeta.rglob("*.xsd"), None) is None
+        return not self.indice
 
     def ruta_para(self, deteccion) -> Path | None:
         for nombre in _nombres_esperados(deteccion):
-            encontrado = next(self.carpeta.rglob(nombre), None)
+            encontrado = self.indice.get(nombre)
             if encontrado is not None:
                 return encontrado
         return None
@@ -104,15 +136,33 @@ class Catalogo:
 
         Sin cache, validar un lote de trescientos ficheros recompilaria el
         mismo esquema trescientas veces.
+
+        Si el fichero está pero no se puede compilar —una descarga a medias, o
+        algo que no es un esquema con el nombre de uno— devuelve None y se
+        guarda el motivo. Antes la excepción salía de aquí y **se llevaba por
+        delante el lote entero**: un fichero mal descargado en la carpeta de
+        esquemas y trescientas facturas sin validar, con un traceback en vez de
+        una frase.
         """
         ruta = self.ruta_para(deteccion)
-        if ruta is None:
+        if ruta is None or ruta in self._rotos:
             return None
         if ruta not in self._compilados:
-            self._compilados[ruta] = etree.XMLSchema(
-                etree.parse(str(ruta), parser=parser())
-            )
+            try:
+                self._compilados[ruta] = etree.XMLSchema(
+                    etree.parse(str(ruta), parser=parser())
+                )
+            except (etree.LxmlError, OSError) as error:
+                self._rotos[ruta] = str(error)
+                return None
         return self._compilados[ruta]
+
+    def por_que_no_compila(self, deteccion) -> tuple[Path, str] | None:
+        """El esquema que le toca existe pero está roto, y por qué."""
+        ruta = self.ruta_para(deteccion)
+        if ruta is None or ruta not in self._rotos:
+            return None
+        return (ruta, self._rotos[ruta])
 
 
 # --- Traducción de los mensajes de libxml2 ---------------------------------
@@ -275,10 +325,14 @@ def traducir(entrada, arbol=None) -> Incidencia:
     """Convierte un error de libxml2 en una queja que se entienda."""
     casa = _RE_CABECERA.match(entrada.message or "")
     if casa is None:
+        # Aquí no se ha reconocido ni la cabecera del mensaje, así que lo único
+        # que se puede hacer es pasarlo tal cual. Pero al menos sin los
+        # namespaces: dejarlos era devolver exactamente el ladrillo de libxml2
+        # que este módulo existe para no enseñar.
         return Incidencia(
             "XSD-OTRO",
             ERROR,
-            f"El documento no cumple el esquema. {entrada.message}",
+            f"El documento no cumple el esquema. {_limpiar(entrada.message)}",
             campo=f"Línea {entrada.line}",
         )
 
@@ -446,6 +500,20 @@ def reglas(raiz, deteccion, catalogo: Catalogo | None = None) -> list[Incidencia
 
     esquema = catalogo.esquema_para(deteccion)
     if esquema is None:
+        roto = catalogo.por_que_no_compila(deteccion)
+        if roto is not None:
+            ruta, motivo = roto
+            return [
+                Incidencia(
+                    "XSD-ESQUEMA-ROTO",
+                    AVISO,
+                    "No se ha comprobado la forma: el esquema que le toca a "
+                    "este documento está ahí pero no se puede leer. Suele ser "
+                    "una descarga a medias; vuelve a bajarlo.",
+                    campo=str(ruta),
+                    encontrado=_limpiar(motivo),
+                )
+            ]
         return [
             Incidencia(
                 "XSD-SIN-ESQUEMA",

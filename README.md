@@ -20,16 +20,30 @@ según el RD 238/2026.
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 | Reglas para Facturae | EN 16931 no es su modelo; haría falta un mapa aparte | Pendiente |
 
-431 tests, todos en verde.
+437 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
 ```
 
+## Instalación
+
+Una sola dependencia, lxml, y no es opcional: el parser endurecido, la
+validación XSD y el XPath sobre namespaces salen todos de ahí.
+
+```bash
+pip install -e .
+```
+
+Deja disponible el mandato `factura-e` y también `python -m validador`, que
+hacen lo mismo. Para pasar los tests, `pip install -e ".[dev]"`.
+
+Necesita Python 3.10 o posterior. Está probado en 3.14.
+
 ## Cómo se usa
 
 ```bash
-python -m validador ejemplos --hoy 2026-09-20
+factura-e ejemplos --hoy 2026-09-20
 ```
 
 Acepta ficheros sueltos, carpetas o comodines. Devuelve 0 si todo está bien, 1
@@ -366,10 +380,19 @@ que podría hacer un validador.
 | `XSD-TEXTO` | Texto suelto donde solo caben elementos |
 | `XSD-RAIZ` | El documento no empieza por donde el esquema espera |
 | `XSD-OTRO` | Algo que no se sabe redactar mejor; se pasa tal cual |
+| `XSD-ESQUEMA-ROTO` | El esquema está instalado pero no se puede leer |
 
-Lo último no es pereza: **nunca se pierde un incumplimiento por no saber
+`XSD-OTRO` no es pereza: **nunca se pierde un incumplimiento por no saber
 traducirlo**. Si aparece un mensaje que las reglas no reconocen, sale igual con
-el texto original.
+el texto original —eso sí, sin los namespaces, que era lo único que ese camino
+seguía enseñando en crudo—.
+
+`XSD-ESQUEMA-ROTO` salió de un experimento que no iba de eso. Al medir el
+catálogo con una carpeta de esquemas falsos, la excepción de lxml subió sin que
+nadie la parase y **se llevó por delante el lote entero**: una descarga a
+medias en la carpeta de esquemas y trescientas facturas sin validar, con un
+traceback en vez de una frase. Ahora el esquema que no compila se anota, se
+dice, y las demás facturas siguen su camino.
 
 Los dos que más se ganan al traducirlos son los tópicos españoles:
 
@@ -381,6 +404,30 @@ Una fecha se escribe AAAA-MM-DD: 2026-03-02.
 lleva punto decimal, sin símbolo de moneda ni separador de miles: 1234.56,
 no 1.234,56 EUR.
 ```
+
+### Una medición que salió al revés
+
+El catálogo miraba el disco en cada consulta: dos o tres veces por factura,
+una para saber si había esquemas y las demás probando nombres. Escrito así
+parece caro, y en la revisión lo di por caro. Al medirlo, no lo era:
+
+```
+        ficheros    esquema   una búsqueda
+             500  enterrado        0.3 ms
+            2000  enterrado        0.4 ms
+            8000  enterrado        0.5 ms
+```
+
+`next(ruta.rglob(nombre), None)` es perezoso —corta en cuanto encuentra— y
+`pathlib` con un nombre literal baja por directorios sin enumerar los ficheros
+de cada uno. De ahí que el coste apenas suba de 500 a 8.000 ficheros. En un
+lote de trescientas facturas se ahorran décimas de segundo, no minutos.
+
+El índice se queda igualmente: hacer el recorrido una vez es más simple de
+razonar y no depende de dónde caiga el fichero dentro del árbol. Pero la razón
+es esa y no el rendimiento, y conviene que quede escrito, porque **una
+optimización justificada con una cifra inventada es la que nadie se atreve a
+quitar después.**
 
 ### Decisiones y sorpresas
 
@@ -693,17 +740,6 @@ recalcular el total.
 
 Los dos tipos de rechazo que existen —el de forma y el de contenido— ya están
 cubiertos. Lo que queda es de otra clase:
-
-**Que se pueda instalar.** No hay `pyproject.toml` ni una línea que diga que
-esto necesita lxml: quien clone el repositorio no puede ejecutarlo sin
-averiguarlo por su cuenta. Es el obstáculo más barato de quitar y está delante
-de todos los demás.
-
-**Que el catálogo de esquemas no recorra el disco por cada factura.** El
-esquema compilado se guarda en caché; la **búsqueda** del fichero, no. Son tres
-recorridos recursivos por factura —uno para saber si hay esquemas y dos
-probando nombres— y el paquete oficial de UBL 2.1 trae cientos de ficheros. En
-un lote de trescientas facturas son novecientos recorridos completos.
 
 **Probarlo contra facturas reales.** Todo lo de aquí está comprobado contra
 documentos escritos a mano para provocar cada error. Falta pasarle un lote de

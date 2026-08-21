@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "factura-e"
+version = "0.1.0"
+description = "Validador de facturas electrónicas españolas: EN 16931, RD 238/2026 y esquemas XSD, con los errores explicados en castellano"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = ["factura electrónica", "EN 16931", "UBL", "CII", "Facturae", "RD 238/2026"]
+
+# lxml es la única dependencia y no es opcional: el parser endurecido, la
+# validación XSD y el XPath sobre namespaces salen todos de ahí. La biblioteca
+# estándar no valida esquemas.
+dependencies = ["lxml>=4.9"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+factura-e = "validador.__main__:main"
+
+[tool.setuptools]
+packages = ["validador"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Para poder pasar los tests sin instalar nada, recién clonado el repositorio.
+# Instalado con `pip install -e .` sobra, pero no estorba.
+pythonpath = ["."]
