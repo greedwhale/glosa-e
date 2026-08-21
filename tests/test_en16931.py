@@ -327,10 +327,17 @@ class TestCuadreAritmetico:
         assert "IVA-SIN-TOTAL" in codigos(informe, AVISO)
         assert "BR-CO-15" not in codigos(informe, ERROR)
 
-    def test_sin_desglose_de_iva_avisa(self):
+    def test_sin_desglose_de_iva_no_hay_factura(self):
+        """BR-CO-18: sin desglose no hay factura valida, y no es un aviso.
+
+        Antes esto era un aviso propio y la factura salia "conforme". Una
+        factura sin desglose de IVA no la acepta ningun receptor: darla por
+        buena era el error mas caro que podia cometer este validador, porque
+        el usuario se fia y la manda.
+        """
         informe = en16931.validar(factura(omitir=("TaxSubtotal",)))
-        assert "IVA-SIN-DESGLOSE" in codigos(informe, AVISO)
-        assert informe.conforme, informe.detalle()
+        assert "BR-CO-18" in codigos(informe, ERROR)
+        assert not informe.conforme
 
 
 class TestRedondeo:

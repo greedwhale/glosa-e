@@ -63,6 +63,14 @@ CERO = "cero"  # tiene que haber tipo y ser cero
 SIN_TIPO = "sin tipo"  # no debe declararse tipo
 CUALQUIERA = "cualquiera"  # tiene que haber tipo, del valor que sea
 
+# Y cómo debe ser el motivo de exención. Son tres estados y no dos: la norma
+# no solo exige el motivo donde hace falta, también lo **prohíbe** donde no
+# (BR-S-10 y BR-Z-10). Con un booleano, «no obligatorio» y «prohibido» eran lo
+# mismo, y una entrada a tipo cero con motivo de exención pasaba sin más.
+OBLIGATORIO = "obligatorio"
+PROHIBIDO = "prohibido"
+LIBRE = "libre"  # la norma no se pronuncia, y nosotros tampoco
+
 
 @dataclass(frozen=True)
 class ReglaCategoria:
@@ -70,21 +78,21 @@ class ReglaCategoria:
 
     codigo: str  # el sufijo del grupo de reglas: BR-S-*, BR-AE-*...
     tipo: str
-    motivo_obligatorio: bool
+    motivo: str
 
 
 REGLAS: dict[str, ReglaCategoria] = {
-    "S": ReglaCategoria("S", POSITIVO, False),
-    "Z": ReglaCategoria("Z", CERO, False),
-    "E": ReglaCategoria("E", CERO, True),
-    "AE": ReglaCategoria("AE", CERO, True),
-    "K": ReglaCategoria("IC", CERO, True),
-    "G": ReglaCategoria("G", CERO, True),
-    "O": ReglaCategoria("O", SIN_TIPO, True),
+    "S": ReglaCategoria("S", POSITIVO, PROHIBIDO),
+    "Z": ReglaCategoria("Z", CERO, PROHIBIDO),
+    "E": ReglaCategoria("E", CERO, OBLIGATORIO),
+    "AE": ReglaCategoria("AE", CERO, OBLIGATORIO),
+    "K": ReglaCategoria("IC", CERO, OBLIGATORIO),
+    "G": ReglaCategoria("G", CERO, OBLIGATORIO),
+    "O": ReglaCategoria("O", SIN_TIPO, OBLIGATORIO),
     # IGIC e IPSI llevan tipos propios y la norma no los ata como a las demás.
     # Se exige que declaren tipo y no se opina sobre el motivo.
-    "L": ReglaCategoria("IG", CUALQUIERA, False),
-    "M": ReglaCategoria("IP", CUALQUIERA, False),
+    "L": ReglaCategoria("IG", CUALQUIERA, LIBRE),
+    "M": ReglaCategoria("IP", CUALQUIERA, LIBRE),
 }
 
 
@@ -248,20 +256,65 @@ def _ajustes_sin_detallar(raiz, sintaxis: Sintaxis, apuntes: list[Apunte]) -> bo
     return declarados and not any(a.es_ajuste for a in apuntes)
 
 
+def _ajustes_no_cuadran(raiz, sintaxis: Sintaxis, apuntes: list[Apunte]) -> bool:
+    """Los ajustes vienen detallados, pero no suman lo que declara la factura.
+
+    Entonces tampoco son de fiar para repartir la base por tipos: no se sabe
+    cuál de las dos cifras es la buena. Aquí no se dice nada porque ya lo dicen
+    BR-CO-11 y BR-CO-12 desde `en16931`, y lo dicen señalando el campo que está
+    mal. Comprobar además la base por tipo sacaría una segunda queja apuntando
+    al desglose, que es donde no está el problema.
+    """
+    detallados = [a for a in apuntes if a.es_ajuste]
+    if not detallados:
+        return False
+    descuentos = sum((-a.importe for a in detallados if a.importe < 0), Decimal(0))
+    cargos = sum((a.importe for a in detallados if a.importe > 0), Decimal(0))
+    declarado_descuentos = importe(raiz, sintaxis.descuentos_total, sintaxis)
+    declarado_cargos = importe(raiz, sintaxis.cargos_total, sintaxis)
+    return (
+        declarado_descuentos is not None
+        and not cuadra(descuentos, declarado_descuentos)
+    ) or (declarado_cargos is not None and not cuadra(cargos, declarado_cargos))
+
+
 def _regla_base_por_grupo(grupo: Grupo, apuntes: list[Apunte]) -> list[Incidencia]:
     """BR-{X}-8: la base de cada entrada del desglose es la suma de lo suyo."""
     if grupo.base is None or grupo.categoria is None:
         return []
+    regla = REGLAS.get(grupo.categoria)
+    codigo = f"BR-{regla.codigo}-8" if regla else "IVA-BASE"
     suyos = [a for a in apuntes if a.clave == grupo.clave]
+
     if not suyos:
-        return []
+        # Base fantasma: el desglose cobra sobre algo que no está en ninguna
+        # parte. La suma de lo suyo es cero, así que técnicamente es la misma
+        # regla, pero decirlo como «debería ser 0.00» no ayuda a nadie.
+        #
+        # Solo se dice si el documento clasifica sus conceptos. Si ninguno
+        # lleva categoría no es que falten: es que no se han podido leer, y de
+        # eso avisa IVA-SIN-CATEGORIA.
+        if grupo.base == 0 or not any(a.categoria for a in apuntes):
+            return []
+        return [
+            Incidencia(
+                codigo,
+                ERROR,
+                f"El desglose declara base para {grupo}, pero no hay ningún "
+                "concepto a ese tipo. O sobra esa entrada del desglose, o hay "
+                "una línea con la categoría o el tipo cambiados.",
+                campo=f"Base imponible de {grupo}",
+                esperado="algún concepto que vaya a ese tipo",
+                encontrado=f"{grupo.base:.2f} sin nada detrás",
+            )
+        ]
+
     suma = sum((a.importe for a in suyos), Decimal(0))
     if cuadra(suma, grupo.base):
         return []
-    regla = REGLAS.get(grupo.categoria)
     return [
         Incidencia(
-            f"BR-{regla.codigo}-8" if regla else "IVA-BASE",
+            codigo,
             ERROR,
             f"La base declarada para {grupo} no coincide con la suma de lo que "
             "va a ese tipo.",
@@ -293,19 +346,74 @@ def _regla_cuota_por_grupo(grupo: Grupo) -> list[Incidencia]:
     ]
 
 
-def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
-    """BR-{X}-5 y BR-{X}-10: el tipo y el motivo que pide cada categoría."""
-    if grupo.categoria is None:
-        return [
+def _reglas_campos_del_grupo(grupo: Grupo) -> list[Incidencia]:
+    """BR-45 a BR-48: los cuatro datos que toda entrada del desglose debe traer.
+
+    Sin esto, una entrada a la que le faltaba la base y la cuota era invisible:
+    las reglas de cuadre se saltan lo que está a None, así que el desglose más
+    roto posible salía en el informe más limpio. De paso enmudecía BR-CO-14,
+    que suma cuotas y no encontraba ninguna que sumar.
+    """
+    incidencias: list[Incidencia] = []
+
+    if grupo.base is None:
+        incidencias.append(
             Incidencia(
-                "IVA-SIN-CATEGORIA",
+                "BR-45",
+                ERROR,
+                "Hay una entrada del desglose sin base imponible. Cada tipo "
+                "debe declarar sobre cuánto se calcula.",
+                campo=f"Base imponible de {grupo}",
+                encontrado="(falta)",
+            )
+        )
+
+    if grupo.cuota is None:
+        incidencias.append(
+            Incidencia(
+                "BR-46",
+                ERROR,
+                "Hay una entrada del desglose sin importe de IVA. Cada tipo "
+                "debe declarar cuánto impuesto sale.",
+                campo=f"Cuota de {grupo}",
+                encontrado="(falta)",
+            )
+        )
+
+    if grupo.categoria is None:
+        incidencias.append(
+            Incidencia(
+                "BR-47",
                 ERROR,
                 "Hay una entrada del desglose sin categoría de IVA. Sin ella no "
                 "se sabe si es tipo general, exenta o no sujeta.",
                 campo="Desglose de IVA",
                 encontrado="(sin categoría)",
             )
-        ]
+        )
+
+    # BR-48: el tipo es obligatorio salvo en lo no sujeto, que no tiene tipo
+    # que aplicar. Aquí se mira solo si **falta**; que el valor sea el que le
+    # toca a la categoría lo miran las BR-{X}-5.
+    if grupo.tipo is None and grupo.categoria != "O":
+        incidencias.append(
+            Incidencia(
+                "BR-48",
+                ERROR,
+                "Hay una entrada del desglose sin tipo de IVA. Solo lo no "
+                "sujeto (categoría O) puede ir sin tipo.",
+                campo=f"Tipo de {nombre_categoria(grupo.categoria)}",
+                encontrado="(sin tipo)",
+            )
+        )
+
+    return incidencias
+
+
+def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
+    """BR-{X}-5 y BR-{X}-10: el tipo y el motivo que pide cada categoría."""
+    if grupo.categoria is None:
+        return []  # de eso ya se queja BR-47
 
     regla = REGLAS.get(grupo.categoria)
     if regla is None:
@@ -323,7 +431,25 @@ def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
     incidencias: list[Incidencia] = []
     nombre = nombre_categoria(grupo.categoria)
 
-    if regla.tipo == POSITIVO and not (grupo.tipo and grupo.tipo > 0):
+    # Que el tipo **falte** lo dice BR-48, una sola vez para todas las
+    # categorías. Aquí se mira si el valor es el que le toca a esta: dos
+    # quejas para un mismo tipo ausente sería decir lo mismo dos veces.
+    if regla.tipo == SIN_TIPO:
+        if grupo.tipo is not None:
+            incidencias.append(
+                Incidencia(
+                    f"BR-{regla.codigo}-5",
+                    ERROR,
+                    f"Una operación a {nombre} no debe declarar tipo de IVA: si "
+                    "no está sujeta, no hay tipo que aplicar.",
+                    campo=f"Tipo de {nombre}",
+                    esperado="(sin tipo)",
+                    encontrado=fmt_tipo(grupo.tipo),
+                )
+            )
+    elif grupo.tipo is None:
+        pass  # ya lo ha dicho BR-48
+    elif regla.tipo == POSITIVO and grupo.tipo <= 0:
         incidencias.append(
             Incidencia(
                 f"BR-{regla.codigo}-5",
@@ -336,7 +462,7 @@ def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
                 encontrado=fmt_tipo(grupo.tipo),
             )
         )
-    elif regla.tipo == CERO and (grupo.tipo is None or grupo.tipo != 0):
+    elif regla.tipo == CERO and grupo.tipo != 0:
         incidencias.append(
             Incidencia(
                 f"BR-{regla.codigo}-5",
@@ -347,30 +473,8 @@ def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
                 encontrado=fmt_tipo(grupo.tipo),
             )
         )
-    elif regla.tipo == SIN_TIPO and grupo.tipo is not None:
-        incidencias.append(
-            Incidencia(
-                f"BR-{regla.codigo}-5",
-                ERROR,
-                f"Una operación a {nombre} no debe declarar tipo de IVA: si no "
-                "está sujeta, no hay tipo que aplicar.",
-                campo=f"Tipo de {nombre}",
-                esperado="(sin tipo)",
-                encontrado=fmt_tipo(grupo.tipo),
-            )
-        )
-    elif regla.tipo == CUALQUIERA and grupo.tipo is None:
-        incidencias.append(
-            Incidencia(
-                f"BR-{regla.codigo}-5",
-                ERROR,
-                f"Una operación a {nombre} tiene que declarar su tipo.",
-                campo=f"Tipo de {nombre}",
-                encontrado="(sin tipo)",
-            )
-        )
 
-    if regla.motivo_obligatorio and not grupo.motivo:
+    if regla.motivo == OBLIGATORIO and not grupo.motivo:
         incidencias.append(
             Incidencia(
                 f"BR-{regla.codigo}-10",
@@ -383,13 +487,15 @@ def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
                 encontrado="(sin motivo)",
             )
         )
-    elif not regla.motivo_obligatorio and grupo.motivo and regla.tipo == POSITIVO:
+    elif regla.motivo == PROHIBIDO and grupo.motivo:
         incidencias.append(
             Incidencia(
                 f"BR-{regla.codigo}-10",
                 ERROR,
                 f"Una operación a {nombre} no debe llevar motivo de exención: "
-                "si se cobra IVA, no hay nada que eximir.",
+                "esa categoría no es una exención, y el motivo es justamente "
+                "lo que justifica una. Si la operación de verdad está exenta, "
+                "la categoría es otra: E, AE, K o G según el caso.",
                 campo=f"Motivo de {nombre}",
                 esperado="(sin motivo)",
                 encontrado=grupo.motivo,
@@ -412,7 +518,11 @@ def _regla_hay_desglose(
         usados = [a.descripcion for a in apuntes if a.categoria == categoria]
         incidencias.append(
             Incidencia(
-                f"BR-{regla.codigo}-1" if regla else "IVA-SIN-DESGLOSE",
+                # Sin `regla` la categoría no es ninguna de la norma, así que
+                # no hay BR-{X}-1 que citar. `IVA-SIN-DESGLOSE` era un nombre
+                # prestado y ahora confundiría con BR-CO-18, que es el que dice
+                # que no hay desglose ninguno.
+                f"BR-{regla.codigo}-1" if regla else "IVA-CATEGORIA-SIN-DESGLOSE",
                 ERROR,
                 f"Hay operaciones a {nombre_categoria(categoria)} pero el "
                 "desglose de IVA no recoge esa categoría.",
@@ -519,20 +629,27 @@ def reglas(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     apuntes = _leer_apuntes(raiz, sintaxis)
 
     if not grupos:
+        # BR-CO-18: toda factura tiene que traer al menos un desglose. No es un
+        # aviso ni depende de que se declare importe de impuestos: sin desglose
+        # no hay nada que comprobar y el receptor lo rechaza. Antes esto era un
+        # aviso propio y solo saltaba si el IVA declarado no era cero, así que
+        # una factura sin desglose y sin total pasaba en silencio.
         moneda = texto(raiz, sintaxis.moneda, sintaxis)
         declarado = importe_en_moneda(raiz, sintaxis.impuestos, sintaxis, moneda)
-        if declarado is None or declarado == 0:
-            return []
         return [
             Incidencia(
-                "IVA-SIN-DESGLOSE",
-                AVISO,
-                "La factura declara un importe de IVA pero no trae el desglose "
-                "por tipo. Sin él no se puede comprobar que el impuesto esté "
-                "bien calculado, y un receptor estricto lo rechazará.",
+                "BR-CO-18",
+                ERROR,
+                "La factura no trae el desglose de IVA. Hace falta una entrada "
+                "por cada combinación de categoría y tipo, con su base y su "
+                "cuota; sin eso no se puede comprobar el impuesto.",
                 campo="Desglose de IVA",
-                esperado="una entrada por cada combinación de categoría y tipo",
-                encontrado=f"{declarado:.2f} de IVA sin desglosar",
+                esperado="al menos una entrada del desglose",
+                encontrado=(
+                    "(no hay ninguna)"
+                    if declarado is None
+                    else f"{declarado:.2f} de IVA sin desglosar"
+                ),
             )
         ]
 
@@ -554,7 +671,13 @@ def reglas(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
             )
         )
 
+    # Con los ajustes sin detallar no se puede repartir la base; con los
+    # ajustes detallados pero descuadrados, tampoco, y encima ya hay quien lo
+    # dice mejor (BR-CO-11 y BR-CO-12). En los dos casos se calla BR-{X}-8.
+    a_ciegas = a_ciegas or _ajustes_no_cuadran(raiz, sintaxis, apuntes)
+
     for grupo in grupos:
+        incidencias.extend(_reglas_campos_del_grupo(grupo))
         incidencias.extend(_regla_forma_del_grupo(grupo))
         if not a_ciegas:
             incidencias.extend(_regla_base_por_grupo(grupo, apuntes))

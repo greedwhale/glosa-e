@@ -20,7 +20,7 @@ según el RD 238/2026.
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 | Reglas para Facturae | EN 16931 no es su modelo; haría falta un mapa aparte | Pendiente |
 
-400 tests, todos en verde.
+431 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -40,11 +40,11 @@ Con `--esquemas CARPETA` comprueba además la forma; ver más abajo.
 En la carpeta `ejemplos/` hay seis documentos preparados: dos facturas
 correctas, una repetida en otro fichero, otra cuyas líneas no cuadran con el
 total, una en sintaxis CII con dos tipos de IVA en las líneas y uno solo en el
-desglose, y un abono correcto. Sale esto:
+desglose, y un abono correcto.
 
 Junto al código va **de qué reglamento sale la queja**, porque cambia lo que
 hay que hacer con ella: lo que firma una norma te lo rechaza el receptor, lo
-que firmamos nosotros es una opinión que puedes discutir.
+que firmamos nosotros es una opinión que puedes discutir. Sale esto:
 
 ```
 ejemplos\cii-A-0001.xml
@@ -90,8 +90,8 @@ Entre ficheros:
     Tiene: B12345674|F-2026-0002|2026-03-05
 
   [CU-13 · RD 238/2026] La serie tiene huecos: falta(n) 3 número(s) entre el
-  primero y el último. Si son facturas anuladas, no pasa nada; si no, la numeración no es
-  correlativa.
+  primero y el último. Si son facturas anuladas, no pasa nada; si no, la
+  numeración no es correlativa.
     Campo: Serie F-2026-*
     Debería ser: del 0001 al 0006 sin saltos
     Tiene: falta(n) 0003 al 0005
@@ -204,7 +204,13 @@ casi ninguna herramienta europea las nombra:
 | `M` | IPSI (Ceuta y Melilla) | el suyo | libre |
 
 El motivo de exención no es burocracia: sin él, quien recibe la factura no
-puede justificar por qué no le repercuten IVA.
+puede justificar por qué no le repercuten IVA. Y por eso la norma no solo lo
+exige donde hace falta: también lo **prohíbe** donde no (`BR-S-10`, `BR-Z-10`).
+Son tres estados y no dos. Con un booleano —«obligatorio» o no— «no
+obligatorio» y «prohibido» eran lo mismo, y una entrada a tipo cero con motivo
+de exención pasaba entera. Llevarlo ahí es señal de que la categoría está mal
+elegida, y eso sí cuesta dinero: el receptor se deduce un IVA que no debería, o
+al revés.
 
 ### Qué se comprueba
 
@@ -212,8 +218,13 @@ puede justificar por qué no le repercuten IVA.
 
 | Código | Qué mira |
 |---|---|
+| `BR-CO-18` | La factura trae al menos una entrada de desglose |
+| `BR-45` / `BR-46` | Cada entrada declara su base y su cuota |
+| `BR-47` | Cada entrada declara su categoría |
+| `BR-48` | Cada entrada declara su tipo, salvo lo no sujeto |
 | `BR-CO-14` | El IVA total es la suma de las cuotas del desglose |
 | `BR-CO-17` | Cuota = base × tipo / 100, redondeada a dos decimales |
+| `BR-CO-11` / `BR-CO-12` | El total de descuentos y de cargos es la suma de los detallados |
 | `BR-{X}-8` | La base de cada entrada es la suma de lo que va a ese tipo |
 | `BR-{X}-5` | El tipo que exige cada categoría |
 | `BR-{X}-10` | El motivo de exención, presente o ausente según toque |
@@ -228,21 +239,37 @@ para quien factura en España:
 | `IVA-TIPO-SIN-DESGLOSE` | Un tipo usado en las líneas sin entrada en el desglose |
 | `IVA-TIPO` | Un tipo que no es 21, 10, 4 ni 0 (aviso: legal fuera de España) |
 | `IVA-CATEGORIA-RARA` | Una categoría que no está en la lista de la norma |
-| `IVA-SIN-CATEGORIA` | Desglose o líneas sin categoría de IVA |
-| `IVA-SIN-DESGLOSE` | Se declara IVA pero no viene desglosado |
+| `IVA-CATEGORIA-SIN-DESGLOSE` | Una categoría de fuera de la norma, sin entrada en el desglose |
+| `IVA-SIN-CATEGORIA` | Líneas sin categoría de IVA (aviso: no se ha podido comprobar) |
 | `IVA-AJUSTES-SIN-DETALLAR` | Descuentos globales sin decir a qué tipo van |
 | `IVA-SIN-TOTAL` | No hay importe total de impuestos que comprobar |
 
 La separación es deliberada: **que se vea de un vistazo qué exige la norma y
 qué opinamos nosotros.**
 
-### Dos decisiones
+### Decisiones
 
 **No acusar cuando no se puede saber.** Si la factura declara descuentos
 globales pero no los detalla, no hay forma de repartirlos entre los tipos, y
 comprobar la base sería inventarse un error. En ese caso se salta `BR-{X}-8` y
-se dice que no se ha podido comprobar. La norma pide detallarlos (BR-CO-11 y
-BR-CO-12), pero decir «no lo sé» es mejor que acusar en falso.
+se dice que no se ha podido comprobar. Decir «no lo sé» es mejor que acusar en
+falso.
+
+**Y la queja, en el campo que está mal.** El caso hermano: los descuentos
+vienen detallados, pero no suman lo que declara el total de la factura.
+Entonces tampoco son de fiar —no se sabe cuál de las dos cifras es la buena—
+así que también se calla `BR-{X}-8`. Lo dicen `BR-CO-11` y `BR-CO-12`, que
+señalan el total del descuento y no el desglose de IVA. Antes de tenerlas, el
+error salía igual pero apuntando al sitio equivocado: la queja llegaba, la
+dirección no.
+
+**La base fantasma.** `BR-{X}-8` comparaba la base declarada con la suma de lo
+suyo, y si no había nada suyo se callaba: la suma daba cero y no había con qué
+comparar. Un desglose que cobra sobre algo que no está en ninguna parte pasaba
+entero. Ahora se dice, y se dice de otra forma —«150.00 sin nada detrás»—
+porque «debería ser 0.00» no ayuda a nadie. Solo si el documento clasifica sus
+conceptos: si ninguna línea lleva categoría, no es que falten, es que no se han
+podido leer.
 
 **`BR-CO-14` estaba mal usado.** Llevaba ese código un aviso propio —«la
 factura no declara el importe total de impuestos»— cuando BR-CO-14 es de la
@@ -250,6 +277,18 @@ norma y significa otra cosa: que el total de IVA sea la suma de las cuotas del
 desglose. Ahora esa regla está implementada de verdad y el aviso lleva el
 código `IVA-SIN-TOTAL`, que es de la casa. Un código oficial en una
 comprobación inventada es peor que no tener código.
+
+**Y el error espejo, que también estaba.** `IVA-SIN-CATEGORIA` sobre una
+entrada del desglose es `BR-47` («cada entrada del desglose se define por su
+código de categoría»), y `IVA-SIN-DESGLOSE` es `BR-CO-18` («la factura tendrá
+al menos un desglose»). Un código inventado donde la norma ya tiene uno cuesta
+lo mismo en la otra dirección: el lector no puede buscarlo, ni saber si se lo
+van a rechazar. Los dos llevan ya su código oficial.
+
+`BR-CO-18` además **era un aviso**, y solo saltaba si el IVA declarado no era
+cero. Una factura sin desglose y sin total salía «conforme, sin errores». Ese
+es el peor fallo posible en un validador: no el falso positivo, sino el falso
+negativo, porque el usuario se fía y la manda.
 
 **Y una tercera, aprendida después.** Esa salvaguarda de «no acusar cuando no
 se puede saber» decidía si un apunte era un ajuste **leyendo su descripción**:
@@ -654,6 +693,17 @@ recalcular el total.
 
 Los dos tipos de rechazo que existen —el de forma y el de contenido— ya están
 cubiertos. Lo que queda es de otra clase:
+
+**Que se pueda instalar.** No hay `pyproject.toml` ni una línea que diga que
+esto necesita lxml: quien clone el repositorio no puede ejecutarlo sin
+averiguarlo por su cuenta. Es el obstáculo más barato de quitar y está delante
+de todos los demás.
+
+**Que el catálogo de esquemas no recorra el disco por cada factura.** El
+esquema compilado se guarda en caché; la **búsqueda** del fichero, no. Son tres
+recorridos recursivos por factura —uno para saber si hay esquemas y dos
+probando nombres— y el paquete oficial de UBL 2.1 trae cientos de ficheros. En
+un lote de trescientas facturas son novecientos recorridos completos.
 
 **Probarlo contra facturas reales.** Todo lo de aquí está comprobado contra
 documentos escritos a mano para provocar cada error. Falta pasarle un lote de

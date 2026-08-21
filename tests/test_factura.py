@@ -36,7 +36,16 @@ UBL = """<?xml version="1.0" encoding="UTF-8"?>
     <cac:PartyLegalEntity><cbc:RegistrationName>Cliente SA</cbc:RegistrationName>
     </cac:PartyLegalEntity>
   </cac:Party></cac:AccountingCustomerParty>
-  <cac:TaxTotal><cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount></cac:TaxTotal>
+  <!-- El desglose por tipo no es adorno: BR-CO-18 lo exige, y sin él esta
+       factura de prueba era una que ningún receptor aceptaría. -->
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="EUR">100.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent></cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
   <cac:LegalMonetaryTotal>
     <cbc:LineExtensionAmount currencyID="EUR">{declarado}</cbc:LineExtensionAmount>
     <cbc:TaxExclusiveAmount currencyID="EUR">100.00</cbc:TaxExclusiveAmount>
@@ -45,6 +54,9 @@ UBL = """<?xml version="1.0" encoding="UTF-8"?>
   </cac:LegalMonetaryTotal>
   <cac:InvoiceLine><cbc:ID>1</cbc:ID>
     <cbc:LineExtensionAmount currencyID="EUR">{linea}</cbc:LineExtensionAmount>
+    <cac:Item><cac:ClassifiedTaxCategory>
+      <cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent>
+    </cac:ClassifiedTaxCategory></cac:Item>
   </cac:InvoiceLine>
 </Invoice>"""
 

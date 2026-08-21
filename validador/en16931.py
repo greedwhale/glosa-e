@@ -227,6 +227,59 @@ def _regla_lineas(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
 # --- Reglas de cuadre aritmético -------------------------------------------
 
 
+def _reglas_ajustes(
+    raiz, sintaxis: Sintaxis, descuentos: Decimal, cargos: Decimal
+) -> list[Incidencia]:
+    """BR-CO-11 y BR-CO-12: los totales de ajustes son la suma de los ajustes.
+
+    Un descuento o un cargo de documento se escribe dos veces: detallado en su
+    bloque, con su importe y su tipo de IVA, y sumado en el total de la
+    factura. Que las dos cifras digan lo mismo es lo que permite fiarse de
+    cualquiera de las dos.
+    """
+    detallados: dict[bool, Decimal] = {True: Decimal(0), False: Decimal(0)}
+    hay_alguno = False
+    for nodo in raiz.xpath(sintaxis.cargos, namespaces=sintaxis.espacios):
+        cantidad = importe(nodo, sintaxis.cargo_importe, sintaxis)
+        if cantidad is None:
+            continue
+        marca = (texto(nodo, sintaxis.cargo_es_cargo, sintaxis) or "").lower()
+        detallados[marca in ("true", "1")] += cantidad
+        hay_alguno = True
+
+    # Si no se detalla ni uno, no se compara nada: de esa factura ya se queja
+    # `iva` diciendo que no ha podido repartir la base por tipos, y ahí el
+    # consejo útil es «detállalos», no «la resta no cuadra».
+    #
+    # Basta con que haya **alguno**, no uno de cada lado: una factura que
+    # detalla sus cargos y declara además un total de descuentos que no
+    # detalla se queda sin ese aviso —ajustes tiene—, así que si aquí se
+    # exigiera un descuento detallado para mirar los descuentos, ese total
+    # fantasma no lo cazaría nadie.
+    if not hay_alguno:
+        return []
+
+    incidencias: list[Incidencia] = []
+    for es_cargo, codigo, nombre, declarado in (
+        (False, "BR-CO-11", "descuentos", descuentos),
+        (True, "BR-CO-12", "cargos", cargos),
+    ):
+        if cuadra(detallados[es_cargo], declarado):
+            continue
+        incidencias.append(
+            Incidencia(
+                codigo,
+                ERROR,
+                f"El total de {nombre} que declara la factura no es la suma de "
+                f"los {nombre} que detalla.",
+                campo=f"Total de {nombre} de documento",
+                esperado=f"{detallados[es_cargo]:.2f} (lo que suman los detallados)",
+                encontrado=fmt(declarado),
+            )
+        )
+    return incidencias
+
+
 def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     """Las BR-CO-*: que las sumas de la factura cuadren entre sí.
 
@@ -303,6 +356,12 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                     encontrado=fmt(suma_lineas),
                 )
             )
+
+    # BR-CO-11 y BR-CO-12: el total de descuentos y el de cargos que declara la
+    # factura tienen que ser la suma de los que detalla. Sin esto, el error
+    # salía igualmente pero por el sitio equivocado: como BR-{X}-8, señalando
+    # el desglose de IVA, cuando lo que estaba mal era el total del ajuste.
+    incidencias.extend(_reglas_ajustes(raiz, sintaxis, descuentos, cargos))
 
     # BR-CO-13: base imponible = suma de líneas - descuentos + cargos.
     if suma_lineas is not None and base is not None:
