@@ -100,8 +100,9 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
     (
         "BR-04",
         "tipo",
-        "Código de tipo de factura",
-        "La factura debe indicar de qué tipo es (380 para factura ordinaria).",
+        "Código de tipo de documento",
+        "El documento debe indicar de qué tipo es: 380 para una factura "
+        "ordinaria, 381 para un abono.",
         False,
     ),
     (

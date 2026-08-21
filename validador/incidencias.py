@@ -27,8 +27,17 @@ class Incidencia:
     esperado: str | None = None
     encontrado: str | None = None
 
-    def __str__(self) -> str:
-        partes = [f"[{self.codigo}] {self.mensaje}"]
+    def texto(self, norma: str | None = None) -> str:
+        """La queja escrita, con la norma de la que sale si se sabe.
+
+        Saber si una queja la firma EN 16931 o la firmamos nosotros cambia lo
+        que hay que hacer con ella: la primera te la rechaza el receptor, la
+        segunda es una opinión. Quién lo decide no es asunto de este módulo
+        —aquí no se sabe qué reglamentos existen—, así que la etiqueta llega
+        de fuera ya resuelta.
+        """
+        etiqueta = self.codigo if not norma else f"{self.codigo} · {norma}"
+        partes = [f"[{etiqueta}] {self.mensaje}"]
         if self.campo:
             partes.append(f"  Campo: {self.campo}")
         if self.esperado is not None:
@@ -36,6 +45,9 @@ class Incidencia:
         if self.encontrado is not None:
             partes.append(f"  Tiene: {self.encontrado}")
         return "\n".join(partes)
+
+    def __str__(self) -> str:
+        return self.texto()
 
 
 @dataclass
@@ -77,9 +89,14 @@ class Informe:
             f"{f', {len(self.avisos)} aviso(s)' if self.avisos else ''}."
         )
 
-    def detalle(self) -> str:
+    def detalle(self, norma=None) -> str:
+        """El informe entero. `norma` dice de qué reglamento sale cada queja.
+
+        Es una función `Incidencia -> str`; quien orquesta pasa la suya
+        (`factura.origen`). Sin ella el informe sale como siempre.
+        """
         lineas = [self.resumen()]
         for incidencia in self.errores + self.avisos:
             lineas.append("")
-            lineas.append(str(incidencia))
+            lineas.append(incidencia.texto(norma(incidencia) if norma else None))
         return "\n".join(lineas)

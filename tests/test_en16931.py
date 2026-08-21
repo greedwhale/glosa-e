@@ -119,12 +119,99 @@ def factura(
 </Invoice>"""
 
 
+def abono(**opciones):
+    """La misma factura, escrita como abono (CreditNote).
+
+    Un abono no es un documento exótico: es con lo que se corrige una factura,
+    y el RD 238/2026 lo trata igual. En UBL cambian tres cosas —el elemento
+    raíz, el código de tipo y el nombre de las líneas— y todo lo demás es
+    idéntico, así que se genera reescribiendo la factura. Hacerlo así obliga a
+    que las dos vayan siempre a la par: no se puede arreglar una y olvidar la
+    otra.
+    """
+    return (
+        factura(**opciones)
+        .replace("schema:xsd:Invoice-2", "schema:xsd:CreditNote-2")
+        .replace("<Invoice ", "<CreditNote ")
+        .replace("</Invoice>", "</CreditNote>")
+        .replace(
+            "<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>",
+            "<cbc:CreditNoteTypeCode>381</cbc:CreditNoteTypeCode>",
+        )
+        .replace("<cac:InvoiceLine>", "<cac:CreditNoteLine>")
+        .replace("</cac:InvoiceLine>", "</cac:CreditNoteLine>")
+    )
+
+
+@pytest.fixture(params=["factura", "abono"])
+def documento(request):
+    """Cada comprobación de esta clase se hace sobre los dos documentos.
+
+    Antes solo se probaba la factura, y por eso pasó lo siguiente: el mapa de
+    UBL apuntaba a `InvoiceTypeCode` e `InvoiceLine`, que en un abono se
+    llaman de otra forma. Un abono correcto salía con BR-04 y BR-16
+    inventados y, al no encontrársele las líneas, enmudecían de golpe BR-24,
+    BR-CO-10 y todas las reglas de IVA. Los 375 tests seguían en verde porque
+    ninguno pasaba las reglas de negocio sobre un abono.
+    """
+    return factura if request.param == "factura" else abono
+
+
 def codigos(informe, gravedad=None):
     return {
         i.codigo
         for i in informe.incidencias
         if gravedad is None or i.gravedad == gravedad
     }
+
+
+class TestSobreFacturaYAbono:
+    """Las reglas que dependen del tipo de documento o de las líneas.
+
+    Son justo las que el mapa equivocado rompía, así que se prueban sobre los
+    dos documentos. La factura ya las tenía cubiertas más abajo; lo que aquí
+    se garantiza es que el abono no vuelva a quedarse fuera.
+    """
+
+    def test_documento_correcto_sin_errores(self, documento):
+        informe = en16931.validar(documento())
+        assert informe.conforme, informe.detalle()
+        assert not informe.avisos, informe.detalle()
+
+    def test_se_le_encuentran_las_lineas(self, documento):
+        informe = en16931.validar(documento())
+        assert "BR-16" not in codigos(informe), informe.detalle()
+
+    def test_sin_lineas_salta_br_16(self, documento):
+        informe = en16931.validar(documento(omitir=("InvoiceLine",)))
+        assert "BR-16" in codigos(informe, ERROR)
+
+    def test_linea_sin_importe_salta_br_24(self, documento):
+        informe = en16931.validar(documento(omitir=("LineExtensionAmount",)))
+        assert "BR-24" in codigos(informe, ERROR)
+
+    def test_las_lineas_no_cuadran_con_el_total(self, documento):
+        informe = en16931.validar(
+            documento(lineas=(("1", "90.00"),), suma_lineas="100.00")
+        )
+        assert "BR-CO-10" in codigos(informe, ERROR), informe.detalle()
+
+    def test_el_desglose_de_iva_se_comprueba(self, documento):
+        # La base del desglose dice 150.00 y la línea son 100.00. Si no se
+        # leen las líneas, esta regla calla y el error más caro pasa.
+        informe = en16931.validar(documento(base_iva="150.00"))
+        assert "BR-S-8" in codigos(informe, ERROR), informe.detalle()
+
+    def test_sin_codigo_de_tipo_salta_br_04(self, documento):
+        informe = en16931.validar(documento(omitir=("InvoiceTypeCode",)))
+        assert "BR-04" in codigos(informe, ERROR)
+
+    def test_el_mensaje_de_br_04_vale_para_los_dos(self, documento):
+        informe = en16931.validar(documento(omitir=("InvoiceTypeCode",)))
+        incidencia = next(i for i in informe.errores if i.codigo == "BR-04")
+        # Decir solo «380 para factura ordinaria» deja al que trae un abono
+        # sin la respuesta, que es el número que necesita.
+        assert "381" in incidencia.mensaje
 
 
 class TestFacturaCorrecta:

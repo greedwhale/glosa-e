@@ -20,7 +20,7 @@ según el RD 238/2026.
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 | Reglas para Facturae | EN 16931 no es su modelo; haría falta un mapa aparte | Pendiente |
 
-375 tests, todos en verde.
+400 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -37,24 +37,28 @@ si hay algún error y 2 si no hay nada que mirar, para poder encadenarlo en un
 script. Con `--solo-errores` calla los avisos y deja solo lo que impide cobrar.
 Con `--esquemas CARPETA` comprueba además la forma; ver más abajo.
 
-En la carpeta `ejemplos/` hay cinco facturas preparadas: dos correctas, una
-repetida en otro fichero, otra cuyas líneas no cuadran con el total, y una en
-sintaxis CII con dos tipos de IVA en las líneas y uno solo en el desglose.
-Sale esto:
+En la carpeta `ejemplos/` hay seis documentos preparados: dos facturas
+correctas, una repetida en otro fichero, otra cuyas líneas no cuadran con el
+total, una en sintaxis CII con dos tipos de IVA en las líneas y uno solo en el
+desglose, y un abono correcto. Sale esto:
+
+Junto al código va **de qué reglamento sale la queja**, porque cambia lo que
+hay que hacer con ella: lo que firma una norma te lo rechaza el receptor, lo
+que firmamos nosotros es una opinión que puedes discutir.
 
 ```
 ejemplos\cii-A-0001.xml
   CII vD16B (factura) · conforme EN 16931 — 2 error(es).
 
-  [BR-S-8] La base declarada para S (tipo general) al 21% no coincide con la
-  suma de lo que va a ese tipo.
+  [BR-S-8 · EN 16931] La base declarada para S (tipo general) al 21% no
+  coincide con la suma de lo que va a ese tipo.
     Campo: Base imponible de S (tipo general) al 21%
     Debería ser: 100.00 (línea 1)
     Tiene: 150.00
 
-  [IVA-TIPO-SIN-DESGLOSE] Hay 50.00 a S (tipo general) al 10%, pero el
-  desglose no trae ninguna entrada a ese tipo. El desglose va por categoría y
-  tipo, no solo por categoría.
+  [IVA-TIPO-SIN-DESGLOSE · de la casa] Hay 50.00 a S (tipo general) al 10%,
+  pero el desglose no trae ninguna entrada a ese tipo. El desglose va por
+  categoría y tipo, no solo por categoría.
     Campo: Desglose de IVA
     Debería ser: una entrada al 10%
     Tiene: línea 2
@@ -62,34 +66,37 @@ ejemplos\cii-A-0001.xml
 ejemplos\f-0006.xml
   UBL v2.1 (factura) · conforme EN 16931 — 2 error(es).
 
-  [BR-CO-10] La suma de importes de línea que declara la factura no coincide
-  con la suma real de sus líneas. Suele ser una línea añadida o modificada sin
-  recalcular el total.
+  [BR-CO-10 · EN 16931] La suma de importes de línea que declara la factura
+  no coincide con la suma real de sus líneas. Suele ser una línea añadida o
+  modificada sin recalcular el total.
     Campo: Suma de importes de línea
     Debería ser: 90.00 (suma de la única línea)
     Tiene: 100.00
 
-  [BR-S-8] La base declarada para S (tipo general) al 21% no coincide con la
-  suma de lo que va a ese tipo.
+  [BR-S-8 · EN 16931] La base declarada para S (tipo general) al 21% no
+  coincide con la suma de lo que va a ese tipo.
     Debería ser: 90.00 (línea 1)
     Tiene: 100.00
 
+ejemplos\r-0001.xml
+  UBL v2.1 (abono) · conforme EN 16931 — sin errores.
+
 Entre ficheros:
 
-  [CU-10] Esta factura ya estaba registrada: mismo emisor, mismo número y misma
-  fecha. Es la misma factura dos veces. La primera viene en f-0002-bis.xml y
-  esta en f-0002.xml.
+  [CU-10 · RD 238/2026] Esta factura ya estaba registrada: mismo emisor,
+  mismo número y misma fecha. Es la misma factura dos veces. La primera viene
+  en f-0002-bis.xml y esta en f-0002.xml.
     Campo: Código único
     Tiene: B12345674|F-2026-0002|2026-03-05
 
-  [CU-13] La serie tiene huecos: falta(n) 3 número(s) entre el primero y el
-  último. Si son facturas anuladas, no pasa nada; si no, la numeración no es
+  [CU-13 · RD 238/2026] La serie tiene huecos: falta(n) 3 número(s) entre el
+  primero y el último. Si son facturas anuladas, no pasa nada; si no, la numeración no es
   correlativa.
     Campo: Serie F-2026-*
     Debería ser: del 0001 al 0006 sin saltos
     Tiene: falta(n) 0003 al 0005
 
-5 fichero(s) · 3 correcto(s) · 2 con errores · 2 incidencia(s) entre ficheros.
+6 fichero(s) · 4 correcto(s) · 2 con errores · 2 incidencia(s) entre ficheros.
 ```
 
 También se puede usar como biblioteca:
@@ -243,6 +250,21 @@ norma y significa otra cosa: que el total de IVA sea la suma de las cuotas del
 desglose. Ahora esa regla está implementada de verdad y el aviso lleva el
 código `IVA-SIN-TOTAL`, que es de la casa. Un código oficial en una
 comprobación inventada es peor que no tener código.
+
+**Y una tercera, aprendida después.** Esa salvaguarda de «no acusar cuando no
+se puede saber» decidía si un apunte era un ajuste **leyendo su descripción**:
+
+```python
+detallados = any(a.descripcion.startswith(("cargo", "descuento")) for a in apuntes)
+```
+
+La descripción es texto para el usuario. Colgar de ella una decisión de
+negocio significa que el día que alguien reescriba «descuento 1» como «dto. 1»,
+la salvaguarda se apaga sola y **los tests siguen en verde**, porque ninguno
+mira ese camino. Ahora es un campo, `Apunte.es_ajuste`. Los dos totales
+—descuentos y cargos— también se miran por separado en vez de sumados: sumando,
+un descuento y un cargo del mismo importe se anulan y la factura parece no
+declarar ninguno.
 
 ## Validación de forma: los esquemas XSD
 
@@ -412,6 +434,34 @@ Una factura perfectamente válida rechazada por leer el importe en dólares.
 Afectaba también a UBL, así que el port de CII acabó arreglando un fallo que
 ya estaba.
 
+### El abono, que se había quedado fuera del mapa
+
+Un abono no es un documento exótico: es con lo que se corrige una factura. En
+UBL cambian tres nombres —el elemento raíz, `CreditNoteTypeCode` en vez de
+`InvoiceTypeCode` y `CreditNoteLine` en vez de `InvoiceLine`— y todo lo demás
+es idéntico. El mapa solo conocía los nombres de la factura, así que **un
+abono correcto salía con dos errores inventados**:
+
+```
+[BR-04] La factura debe indicar de qué tipo es.
+[BR-16] La factura no tiene ninguna línea.
+```
+
+Y lo grave no eran los falsos positivos. Al no encontrársele las líneas,
+enmudecían de golpe BR-24, BR-CO-10, BR-S-8 y todo el IVA: **acusado en falso
+y sin comprobar a la vez.** El mapa ahora usa una unión XPath (`a|b`) y coge el
+nombre que haya, que es más seguro que mantener dos mapas y elegir uno.
+
+Sobrevivió porque **ningún test pasaba las reglas de negocio sobre un abono**.
+Había tests de detección de abonos y de qué esquema les toca, pero ninguno de
+contenido. Ahora hay un `fixture` que corre cada regla dependiente de las
+líneas sobre los dos documentos, generando el abono a partir de la factura
+para que no se pueda arreglar uno y olvidar el otro. Sin el arreglo, cinco de
+esos tests caen.
+
+La moraleja no es sobre abonos: es que **reconocer un tipo de documento en un
+módulo y no mapearlo en otro no da error, da silencio.**
+
 ## El orquestador
 
 `en16931` mira lo que exige la norma europea y `codigo_unico` lo que exige el
@@ -438,6 +488,25 @@ facturas juntas, y lo que sale de ahí va en `InformeLote.cruzadas`.
 están sobre UBL, así que un Facturae recibe un aviso `SIN-SOPORTE`. Pero el
 código único sí se le comprueba, y ahí es donde están las reglas españolas. Un
 Facturae con el NIF mal cantará `CU-01` igualmente.
+
+**Y decir de dónde sale cada queja.** Junto al código va la norma que la firma:
+
+```
+[BR-S-8 · EN 16931]              te lo rechaza el receptor
+[CU-10 · RD 238/2026]            te lo rechaza Hacienda
+[XSD-ORDEN · Esquema XSD]        no pasa ni de la puerta
+[IVA-TIPO-SIN-DESGLOSE · de la casa]   opinamos nosotros
+```
+
+No es adorno: cambia lo que hay que hacer con la queja. Lo que firma una norma
+hay que arreglarlo; lo que firmamos nosotros se puede discutir, y quien lo lea
+tiene derecho a saber cuál es cuál sin ir a buscar la tabla del README.
+
+Esto ya estaba escrito —`origen()` existía desde el primer día— pero **no
+llegaba al informe** y solo lo ejercitaban los tests. De paso tenía un fallo:
+las comprobaciones propias de IVA, que empiezan por `IVA-`, caían en el cajón
+de «Formato», que es el de «no reconozco este fichero». Un aviso sobre el
+desglose de IVA no es un problema de formato.
 
 ### Un detalle que costó un fallo
 

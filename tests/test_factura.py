@@ -103,6 +103,24 @@ class TestValidar:
         origenes = {factura.origen(i) for i in informe.errores}
         assert origenes == {factura.EUROPEA, factura.ESPANOLA}
 
+    def test_el_informe_dice_de_donde_sale_cada_queja(self):
+        informe = factura.validar(ubl(nif=NIF_MALO, linea="90.00"), hoy=HOY)
+        texto = informe.detalle(factura.origen)
+        assert f"[BR-CO-10 · {factura.EUROPEA}]" in texto
+        assert f"[CU-01 · {factura.ESPANOLA}]" in texto
+
+    def test_un_abono_correcto_no_da_quejas(self):
+        """Un abono es el documento con el que se corrige una factura.
+
+        En UBL cambian el elemento raíz, el código de tipo y el nombre de las
+        líneas. Con el mapa de la factura salían BR-04 y BR-16 inventados y,
+        de paso, enmudecían todas las reglas que leen las líneas.
+        """
+        informe = factura.validar_archivo("ejemplos/r-0001.xml", hoy=HOY)
+        assert informe.deteccion.tipo_documento == "abono"
+        assert informe.conforme, informe.detalle(factura.origen)
+        assert not informe.avisos, informe.detalle(factura.origen)
+
     def test_no_dice_dos_veces_que_falta_el_numero(self):
         """BR-02 y CU-00 son la misma queja de dos reglamentos distintos."""
         sin_numero = ubl().replace("<cbc:ID>F-2026-0001</cbc:ID>", "", 1)
@@ -235,7 +253,10 @@ class TestValidarLote:
         b = escribir(tmp_path, "b.xml", ubl(numero="F-2026-0001"))
         detalle = factura.validar_lote([a, b], hoy=HOY).detalle()
         assert "Entre ficheros:" in detalle
-        assert "[CU-10]" in detalle
+        # El informe dice el código y, al lado, de qué reglamento sale. Un
+        # «CU-10» a secas no le dice a nadie si esto se lo rechaza el receptor
+        # o si es una opinión nuestra.
+        assert f"[CU-10 · {factura.ESPANOLA}]" in detalle
 
     def test_lote_limpio_es_conforme(self, tmp_path):
         ruta = escribir(tmp_path, "a.xml", ubl())
@@ -250,7 +271,15 @@ class TestOrigen:
         [
             ("BR-02", factura.EUROPEA),
             ("BR-CO-10", factura.EUROPEA),
+            ("BR-S-8", factura.EUROPEA),
             ("CU-01", factura.ESPANOLA),
+            ("XSD-ORDEN", factura.FORMA),
+            # Las de IVA que no son de la norma caían en OTRA, que se lee
+            # «Formato». Un aviso sobre el desglose de IVA no es un problema
+            # de formato: es que opinamos nosotros, y eso cambia lo que hay
+            # que hacer con la queja.
+            ("IVA-TIPO-SIN-DESGLOSE", factura.CASA),
+            ("IVA-SIN-TOTAL", factura.CASA),
             ("SIN-SOPORTE", factura.OTRA),
         ],
     )

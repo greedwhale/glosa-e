@@ -94,6 +94,19 @@ _TOTAL_UBL = "./cac:LegalMonetaryTotal"
 _VENDEDOR_UBL = "./cac:AccountingSupplierParty/cac:Party"
 _COMPRADOR_UBL = "./cac:AccountingCustomerParty/cac:Party"
 
+# UBL escribe dos elementos distintos para lo mismo según el documento sea una
+# factura o un abono: `InvoiceTypeCode` frente a `CreditNoteTypeCode`, e
+# `InvoiceLine` frente a `CreditNoteLine`. Todo lo demás —partes, totales,
+# desglose de IVA— se llama igual en los dos.
+#
+# La unión XPath («a|b») coge el que haya, que es más seguro que mantener dos
+# mapas y elegir uno: si se elige mal, las reglas leen el documento
+# equivocado. Con el mapa de la factura a secas, un abono correcto salía con
+# BR-04 y BR-16 inventados y, al no encontrársele las líneas, enmudecían de
+# golpe BR-24, BR-CO-10 y todo el IVA. Acusado en falso y sin comprobar.
+_TIPO_UBL = "./cbc:InvoiceTypeCode|./cbc:CreditNoteTypeCode"
+_LINEAS_UBL = "./cac:InvoiceLine|./cac:CreditNoteLine"
+
 SINTAXIS_UBL = Sintaxis(
     nombre="UBL",
     espacios=NS_UBL,
@@ -101,7 +114,7 @@ SINTAXIS_UBL = Sintaxis(
     perfil="./cbc:CustomizationID",
     numero="./cbc:ID",
     fecha="./cbc:IssueDate",
-    tipo="./cbc:InvoiceTypeCode",
+    tipo=_TIPO_UBL,
     moneda="./cbc:DocumentCurrencyCode",
     vendedor_nombre=f"{_VENDEDOR_UBL}/cac:PartyLegalEntity/cbc:RegistrationName",
     vendedor_direccion=f"{_VENDEDOR_UBL}/cac:PostalAddress",
@@ -113,7 +126,7 @@ SINTAXIS_UBL = Sintaxis(
     comprador_pais=(
         f"{_COMPRADOR_UBL}/cac:PostalAddress/cac:Country/cbc:IdentificationCode"
     ),
-    lineas="./cac:InvoiceLine",
+    lineas=_LINEAS_UBL,
     linea_id="./cbc:ID",
     linea_importe="./cbc:LineExtensionAmount",
     linea_categoria="./cac:Item/cac:ClassifiedTaxCategory/cbc:ID",

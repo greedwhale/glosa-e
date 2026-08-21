@@ -41,10 +41,14 @@ _SOBRA_SI: dict[str, tuple[str, ...]] = {
     "CU-02": ("BR-02",),
 }
 
-# De qué reglamento sale cada queja, por el prefijo de su código.
+# De qué reglamento sale cada queja, por el prefijo de su código. Va en el
+# informe, junto al código, porque cambia lo que hay que hacer con la queja:
+# lo que firma una norma te lo rechaza el receptor, lo que firmamos nosotros
+# es una opinión que puedes discutir.
 EUROPEA = "EN 16931"
 ESPANOLA = "RD 238/2026"
 FORMA = "Esquema XSD"
+CASA = "de la casa"
 OTRA = "Formato"
 
 
@@ -56,6 +60,11 @@ def origen(incidencia: Incidencia) -> str:
         return ESPANOLA
     if incidencia.codigo.startswith("XSD-"):
         return FORMA
+    if incidencia.codigo.startswith("IVA-"):
+        # `IVA-` es el prefijo de las comprobaciones propias. Sin esta rama
+        # caían en OTRA, que se lee «Formato», y una regla de IVA no es un
+        # problema de formato: es que opinamos nosotros.
+        return CASA
     return OTRA
 
 
@@ -193,13 +202,13 @@ class InformeLote:
             lineas.append(f"  {informe.resumen()}")
             for incidencia in informe.errores + informe.avisos:
                 lineas.append("")
-                lineas.append(_sangrar(str(incidencia), "  "))
+                lineas.append(_sangrar(incidencia.texto(origen(incidencia)), "  "))
             lineas.append("")
         if self.cruzadas:
             lineas.append("Entre ficheros:")
             for incidencia in self.cruzadas:
                 lineas.append("")
-                lineas.append(_sangrar(str(incidencia), "  "))
+                lineas.append(_sangrar(incidencia.texto(origen(incidencia)), "  "))
             lineas.append("")
         lineas.append(self.resumen())
         return "\n".join(lineas)

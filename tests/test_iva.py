@@ -402,6 +402,40 @@ class TestAjustesSinDetallar:
         )
         assert "IVA-AJUSTES-SIN-DETALLAR" not in codigos(incidencias)
 
+    def test_descuentos_y_cargos_se_miran_por_separado(self, revisar):
+        """Sumados, un descuento y un cargo que se anulan borran la salvaguarda.
+
+        Los dos totales son no negativos en una factura bien hecha, así que
+        esto solo pasa con un documento mal generado. Pero es justo ahí donde
+        importa: sumando, el módulo creería que no se declara ningún ajuste,
+        se pondría a comprobar bases que no puede repartir, y acusaría en
+        falso a la factura más rota, que es la que menos lo aguanta.
+        """
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00")],
+            grupos=[Grupo("100.00", "21.00")],
+            descuentos_total="-10.00",
+            cargos_total="10.00",
+        )
+        assert "IVA-AJUSTES-SIN-DETALLAR" in codigos(incidencias, AVISO)
+
+    def test_el_ajuste_se_reconoce_por_lo_que_es_no_por_como_se_llama(self):
+        """La salvaguarda no puede depender del texto que lee el usuario.
+
+        Antes se preguntaba si la descripción empezaba por «cargo» o por
+        «descuento». Reescribir esa cadena —que es texto de interfaz— habría
+        apagado la salvaguarda sin que ningún test se enterase.
+        """
+        from decimal import Decimal
+
+        from validador import iva
+
+        linea = iva.Apunte("línea 1", Decimal("100.00"), "S", Decimal(21))
+        descuento = iva.Apunte("lo que sea", Decimal("-10.00"), "S", Decimal(21),
+                               es_ajuste=True)
+        assert not linea.es_ajuste
+        assert descuento.es_ajuste
+
 
 # --- Lo que exige cada categoría -------------------------------------------
 

@@ -121,12 +121,18 @@ class Apunte:
 
     Los descuentos entran con importe negativo, que es lo que los hace restar
     sin necesidad de tratarlos aparte.
+
+    `es_ajuste` distingue el cargo o descuento de la línea normal. Es un campo
+    y no una lectura de `descripcion` a propósito: la descripción es texto
+    para el usuario, y colgar de ella una decisión de negocio significa que el
+    día que alguien la reescriba, la lógica cambia sin que nadie se entere.
     """
 
     descripcion: str
     importe: Decimal
     categoria: str | None
     tipo: Decimal | None
+    es_ajuste: bool = False
 
     @property
     def clave(self) -> tuple[str | None, Decimal | None]:
@@ -183,6 +189,7 @@ def _leer_apuntes(raiz, sintaxis: Sintaxis) -> list[Apunte]:
                 importe=cantidad if es_cargo else -cantidad,
                 categoria=texto(nodo, sintaxis.cargo_categoria, sintaxis),
                 tipo=importe(nodo, sintaxis.cargo_tipo, sintaxis),
+                es_ajuste=True,
             )
         )
     return apuntes
@@ -233,11 +240,12 @@ def _ajustes_sin_detallar(raiz, sintaxis: Sintaxis, apuntes: list[Apunte]) -> bo
     error. La norma exige detallarlos (BR-CO-11 y BR-CO-12), pero es mejor
     decir «no se ha podido comprobar» que acusar en falso.
     """
-    declarados = (importe(raiz, sintaxis.descuentos_total, sintaxis) or Decimal(0)) + (
-        importe(raiz, sintaxis.cargos_total, sintaxis) or Decimal(0)
-    )
-    detallados = any(a.descripcion.startswith(("cargo", "descuento")) for a in apuntes)
-    return declarados != 0 and not detallados
+    descuentos = importe(raiz, sintaxis.descuentos_total, sintaxis) or Decimal(0)
+    cargos = importe(raiz, sintaxis.cargos_total, sintaxis) or Decimal(0)
+    # Por separado y no sumados: sumándolos, un descuento y un cargo del mismo
+    # importe se anulan y la factura parecería no declarar ninguno.
+    declarados = descuentos != 0 or cargos != 0
+    return declarados and not any(a.es_ajuste for a in apuntes)
 
 
 def _regla_base_por_grupo(grupo: Grupo, apuntes: list[Apunte]) -> list[Incidencia]:
