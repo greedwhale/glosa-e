@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Factura en sintaxis CII (UN/CEFACT D16B). La base imponible declarada no
-     descuenta el descuento de linea, asi que no cuadra: 100 - 10 = 90, no 100. -->
+<!-- Factura en sintaxis CII (UN/CEFACT D16B). Dos tipos de IVA en las lineas
+     pero una sola entrada en el desglose: la suma de lineas cuadra, el IVA no. -->
 <rsm:CrossIndustryInvoice
     xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
     xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
@@ -23,17 +23,40 @@
         <ram:LineID>1</ram:LineID>
       </ram:AssociatedDocumentLineDocument>
       <ram:SpecifiedTradeProduct>
-        <ram:Name>Mantenimiento anual</ram:Name>
+        <ram:Name>Consumiciones del minibar</ram:Name>
       </ram:SpecifiedTradeProduct>
       <ram:SpecifiedLineTradeSettlement>
+        <ram:ApplicableTradeTax>
+          <ram:TypeCode>VAT</ram:TypeCode>
+          <ram:CategoryCode>S</ram:CategoryCode>
+          <ram:RateApplicablePercent>21</ram:RateApplicablePercent>
+        </ram:ApplicableTradeTax>
         <ram:SpecifiedTradeSettlementLineMonetarySummation>
           <ram:LineTotalAmount>100.00</ram:LineTotalAmount>
         </ram:SpecifiedTradeSettlementLineMonetarySummation>
       </ram:SpecifiedLineTradeSettlement>
     </ram:IncludedSupplyChainTradeLineItem>
+    <ram:IncludedSupplyChainTradeLineItem>
+      <ram:AssociatedDocumentLineDocument>
+        <ram:LineID>2</ram:LineID>
+      </ram:AssociatedDocumentLineDocument>
+      <ram:SpecifiedTradeProduct>
+        <ram:Name>Alojamiento, dos noches</ram:Name>
+      </ram:SpecifiedTradeProduct>
+      <ram:SpecifiedLineTradeSettlement>
+        <ram:ApplicableTradeTax>
+          <ram:TypeCode>VAT</ram:TypeCode>
+          <ram:CategoryCode>S</ram:CategoryCode>
+          <ram:RateApplicablePercent>10</ram:RateApplicablePercent>
+        </ram:ApplicableTradeTax>
+        <ram:SpecifiedTradeSettlementLineMonetarySummation>
+          <ram:LineTotalAmount>50.00</ram:LineTotalAmount>
+        </ram:SpecifiedTradeSettlementLineMonetarySummation>
+      </ram:SpecifiedLineTradeSettlement>
+    </ram:IncludedSupplyChainTradeLineItem>
     <ram:ApplicableHeaderTradeAgreement>
       <ram:SellerTradeParty>
-        <ram:Name>Talleres Ejemplo SL</ram:Name>
+        <ram:Name>Hotel Ejemplo SL</ram:Name>
         <ram:PostalTradeAddress>
           <ram:CountryID>ES</ram:CountryID>
         </ram:PostalTradeAddress>
@@ -52,18 +75,18 @@
     <ram:ApplicableHeaderTradeSettlement>
       <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
       <ram:ApplicableTradeTax>
-        <ram:CalculatedAmount>21.00</ram:CalculatedAmount>
+        <ram:CalculatedAmount>31.50</ram:CalculatedAmount>
         <ram:TypeCode>VAT</ram:TypeCode>
+        <ram:BasisAmount>150.00</ram:BasisAmount>
         <ram:CategoryCode>S</ram:CategoryCode>
-        <ram:RateApplicablePercent>21.00</ram:RateApplicablePercent>
+        <ram:RateApplicablePercent>21</ram:RateApplicablePercent>
       </ram:ApplicableTradeTax>
       <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
-        <ram:LineTotalAmount>100.00</ram:LineTotalAmount>
-        <ram:AllowanceTotalAmount>10.00</ram:AllowanceTotalAmount>
-        <ram:TaxBasisTotalAmount>100.00</ram:TaxBasisTotalAmount>
-        <ram:TaxTotalAmount currencyID="EUR">21.00</ram:TaxTotalAmount>
-        <ram:GrandTotalAmount>121.00</ram:GrandTotalAmount>
-        <ram:DuePayableAmount>121.00</ram:DuePayableAmount>
+        <ram:LineTotalAmount>150.00</ram:LineTotalAmount>
+        <ram:TaxBasisTotalAmount>150.00</ram:TaxBasisTotalAmount>
+        <ram:TaxTotalAmount currencyID="EUR">31.50</ram:TaxTotalAmount>
+        <ram:GrandTotalAmount>181.50</ram:GrandTotalAmount>
+        <ram:DuePayableAmount>181.50</ram:DuePayableAmount>
       </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
     </ram:ApplicableHeaderTradeSettlement>
   </rsm:SupplyChainTradeTransaction>

@@ -73,17 +73,30 @@ PLANTILLA_UBL = """<?xml version="1.0" encoding="UTF-8"?>
 def cii(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
         impuestos="21.00", con_impuestos="121.00", a_pagar="121.00",
         anticipos=None, perfil="urn:cen.eu:en16931:2017", moneda="EUR",
+        categoria="S", tipo_iva="21", base_iva=None, motivo=None,
         omitir=()):
     """Una factura CII. `omitir` quita campos para provocar cada BR."""
 
     def si(clave, texto):
         return "" if clave in omitir else texto
 
+    iva_de_linea = (
+        ""
+        if categoria is None or "categoria_linea" in omitir
+        else f"""<ram:ApplicableTradeTax>
+          <ram:TypeCode>VAT</ram:TypeCode>
+          <ram:CategoryCode>{categoria}</ram:CategoryCode>
+          {'' if tipo_iva is None else
+           f'<ram:RateApplicablePercent>{tipo_iva}</ram:RateApplicablePercent>'}
+        </ram:ApplicableTradeTax>"""
+    )
+
     linea_xml = "".join(
         f"""<ram:IncludedSupplyChainTradeLineItem>
       <ram:AssociatedDocumentLineDocument><ram:LineID>{ident}</ram:LineID>
       </ram:AssociatedDocumentLineDocument>
       <ram:SpecifiedLineTradeSettlement>
+        {iva_de_linea}
         <ram:SpecifiedTradeSettlementLineMonetarySummation>
           {'' if 'importe_linea' in omitir else
            f'<ram:LineTotalAmount>{importe}</ram:LineTotalAmount>'}
@@ -126,9 +139,15 @@ def cii(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
         moneda=si("moneda", f"<ram:InvoiceCurrencyCode>{moneda}</ram:InvoiceCurrencyCode>"),
         impuestos=""
         if impuestos is None
-        else f"<ram:ApplicableTradeTax><ram:CalculatedAmount>{impuestos}"
-        "</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>"
-        "</ram:ApplicableTradeTax>",
+        else f"""<ram:ApplicableTradeTax>
+        <ram:CalculatedAmount>{impuestos}</ram:CalculatedAmount>
+        <ram:TypeCode>VAT</ram:TypeCode>
+        {'' if motivo is None else f'<ram:ExemptionReason>{motivo}</ram:ExemptionReason>'}
+        <ram:BasisAmount>{base if base_iva is None else base_iva}</ram:BasisAmount>
+        {'' if categoria is None else f'<ram:CategoryCode>{categoria}</ram:CategoryCode>'}
+        {'' if tipo_iva is None else
+         f'<ram:RateApplicablePercent>{tipo_iva}</ram:RateApplicablePercent>'}
+      </ram:ApplicableTradeTax>""",
         impuesto_total=""
         if impuestos is None
         else f'<ram:TaxTotalAmount currencyID="{moneda}">{impuestos}</ram:TaxTotalAmount>',
@@ -147,16 +166,27 @@ def cii(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
 def ubl(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
         impuestos="21.00", con_impuestos="121.00", a_pagar="121.00",
         anticipos=None, perfil="urn:cen.eu:en16931:2017", moneda="EUR",
+        categoria="S", tipo_iva="21", base_iva=None, motivo=None,
         omitir=()):
     """La misma factura, en UBL. Mismos nombres de campo para `omitir`."""
 
     def si(clave, texto):
         return "" if clave in omitir else texto
 
+    iva_de_linea = (
+        ""
+        if categoria is None or "categoria_linea" in omitir
+        else f"""<cac:Item><cac:ClassifiedTaxCategory>
+          <cbc:ID>{categoria}</cbc:ID>
+          {'' if tipo_iva is None else f'<cbc:Percent>{tipo_iva}</cbc:Percent>'}
+        </cac:ClassifiedTaxCategory></cac:Item>"""
+    )
+
     linea_xml = "".join(
         f"""<cac:InvoiceLine><cbc:ID>{ident}</cbc:ID>
         {'' if 'importe_linea' in omitir else
          f'<cbc:LineExtensionAmount currencyID="{moneda}">{importe}</cbc:LineExtensionAmount>'}
+        {iva_de_linea}
         </cac:InvoiceLine>"""
         for ident, importe in lineas
     )
@@ -196,8 +226,19 @@ def ubl(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
         comprador=parte("AccountingCustomerParty", "Cliente SA", "comprador"),
         impuestos=""
         if impuestos is None
-        else f'<cac:TaxTotal><cbc:TaxAmount currencyID="{moneda}">{impuestos}'
-        "</cbc:TaxAmount></cac:TaxTotal>",
+        else f"""<cac:TaxTotal>
+        <cbc:TaxAmount currencyID="{moneda}">{impuestos}</cbc:TaxAmount>
+        <cac:TaxSubtotal>
+          <cbc:TaxableAmount currencyID="{moneda}">{base if base_iva is None else base_iva}</cbc:TaxableAmount>
+          <cbc:TaxAmount currencyID="{moneda}">{impuestos}</cbc:TaxAmount>
+          <cac:TaxCategory>
+            {'' if categoria is None else f'<cbc:ID>{categoria}</cbc:ID>'}
+            {'' if tipo_iva is None else f'<cbc:Percent>{tipo_iva}</cbc:Percent>'}
+            {'' if motivo is None else
+             f'<cbc:TaxExemptionReason>{motivo}</cbc:TaxExemptionReason>'}
+          </cac:TaxCategory>
+        </cac:TaxSubtotal>
+      </cac:TaxTotal>""",
         suma_lineas=total("suma_lineas", "LineExtensionAmount", suma_lineas),
         base=total("base", "TaxExclusiveAmount", base),
         con_impuestos=total("con_impuestos", "TaxInclusiveAmount", con_impuestos),
@@ -296,9 +337,16 @@ class TestLasMismasReglas:
         assert informe.conforme, informe.detalle()
 
     def test_sin_impuestos_avisa_pero_no_falla(self, montar):
+        """El aviso se llama IVA-SIN-TOTAL, no BR-CO-14.
+
+        Llevaba el código BR-CO-14, que es de la norma y significa otra cosa:
+        que el total de IVA sea la suma de las cuotas del desglose. Ahora esa
+        regla está implementada de verdad en `iva.py` y este aviso —que es de
+        la casa— usa un código de la casa.
+        """
         informe = en16931.validar(montar(impuestos=None, con_impuestos="100.00",
                                          a_pagar="100.00"))
-        assert "BR-CO-14" in codigos(informe, AVISO)
+        assert "IVA-SIN-TOTAL" in codigos(informe, AVISO)
         assert "BR-CO-15" not in codigos(informe, ERROR)
 
     def test_un_centimo_se_tolera(self, montar):

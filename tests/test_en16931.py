@@ -20,6 +20,9 @@ def factura(
     anticipos=None,
     redondeo=None,
     perfil="urn:cen.eu:en16931:2017",
+    categoria="S",
+    tipo_iva="21",
+    base_iva=None,
     omitir=(),
 ):
     """Construye una factura UBL. `omitir` quita campos para probar las BR."""
@@ -29,10 +32,19 @@ def factura(
             return ""
         return f"<{ns}:{etiqueta}>{valor}</{ns}:{etiqueta}>"
 
+    iva_de_linea = (
+        ""
+        if categoria is None
+        else f"""<cac:Item><cac:ClassifiedTaxCategory>
+          <cbc:ID>{categoria}</cbc:ID><cbc:Percent>{tipo_iva}</cbc:Percent>
+        </cac:ClassifiedTaxCategory></cac:Item>"""
+    )
+
     xml_lineas = "".join(
         f"""<cac:InvoiceLine><cbc:ID>{ident}</cbc:ID>
         {'' if 'LineExtensionAmount' in omitir else
          f'<cbc:LineExtensionAmount currencyID="EUR">{importe}</cbc:LineExtensionAmount>'}
+        {iva_de_linea}
         </cac:InvoiceLine>"""
         for ident, importe in lineas
     )
@@ -64,10 +76,21 @@ def factura(
         <cac:PartyLegalEntity><cbc:RegistrationName>Comprador SA</cbc:RegistrationName>
         </cac:PartyLegalEntity></cac:Party></cac:AccountingCustomerParty>"""
     )
+    # Una factura EN 16931 de verdad siempre trae el desglose por tipo de IVA,
+    # no solo el importe total. Sin él, `iva.py` avisa y con razón.
     xml_impuestos = (
         ""
         if impuestos is None
-        else f'<cac:TaxTotal><cbc:TaxAmount currencyID="EUR">{impuestos}</cbc:TaxAmount></cac:TaxTotal>'
+        else f"""<cac:TaxTotal>
+      <cbc:TaxAmount currencyID="EUR">{impuestos}</cbc:TaxAmount>
+      {'' if 'TaxSubtotal' in omitir else f'''<cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="EUR">{base if base_iva is None else base_iva}</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="EUR">{impuestos}</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <cbc:ID>{categoria}</cbc:ID><cbc:Percent>{tipo_iva}</cbc:Percent>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>'''}
+    </cac:TaxTotal>"""
     )
 
     return f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -206,9 +229,21 @@ class TestCuadreAritmetico:
         assert "BR-CO-16" in codigos(informe, ERROR)
 
     def test_sin_importe_de_impuestos_avisa_pero_no_falla(self):
+        """El aviso se llama IVA-SIN-TOTAL: BR-CO-14 es otra cosa.
+
+        BR-CO-14 es de la norma y dice que el total de IVA sea la suma de las
+        cuotas del desglose. Se estaba usando ese código para un aviso propio.
+        Ahora la regla de verdad vive en `iva.py` y el aviso lleva un código
+        de la casa.
+        """
         informe = en16931.validar(factura(impuestos=None, con_impuestos="100.00"))
-        assert "BR-CO-14" in codigos(informe, AVISO)
+        assert "IVA-SIN-TOTAL" in codigos(informe, AVISO)
         assert "BR-CO-15" not in codigos(informe, ERROR)
+
+    def test_sin_desglose_de_iva_avisa(self):
+        informe = en16931.validar(factura(omitir=("TaxSubtotal",)))
+        assert "IVA-SIN-DESGLOSE" in codigos(informe, AVISO)
+        assert informe.conforme, informe.detalle()
 
 
 class TestRedondeo:

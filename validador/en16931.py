@@ -3,17 +3,19 @@
 La norma son 955 reglas y ahí es donde se produce la mayoría de los rechazos:
 un documento puede pasar la validación de forma (XSD) y fallar la de contenido.
 
-Este módulo implementa las reglas de mayor valor —campos obligatorios y, sobre
-todo, las de cuadre aritmético— con el mensaje escrito en castellano llano. La
-traducción es el producto: las reglas son públicas y de todos, pero un error
-como «BR-CO-13» no le dice nada a quien tiene que arreglar la factura.
+Este módulo implementa las reglas de mayor valor —campos obligatorios y las de
+cuadre aritmético— con el mensaje escrito en castellano llano. La traducción es
+el producto: las reglas son públicas y de todos, pero un error como «BR-CO-13»
+no le dice nada a quien tiene que arreglar la factura.
 
-**Las reglas no dependen de la sintaxis.** EN 16931 define un modelo semántico
-—los campos BT-1, BT-109, BT-112…— y luego UBL y CII lo escriben de dos
-maneras distintas. Que la base imponible más los impuestos den el total es
-verdad en las dos; lo único que cambia es dónde está escrito cada número. Por
-eso aquí el mapa de rutas es un dato (`Sintaxis`) y las reglas son código: se
-escriben una vez y valen para las dos.
+Las reglas de IVA, que son una familia entera y siguen su propio patrón, viven
+en `iva.py` y se llaman desde aquí: para quien usa el validador son las mismas
+reglas de la misma norma.
+
+**Nada de esto depende de la sintaxis.** EN 16931 define un modelo semántico
+—BT-1, BT-109, BT-112…— y luego UBL y CII lo escriben de dos maneras. Que la
+base imponible más los impuestos den el total es verdad en las dos; lo único
+que cambia es dónde está escrito cada número. El mapa está en `sintaxis.py`.
 
 El importe se maneja siempre con Decimal. Con float, 0.1 + 0.2 no da 0.3 y una
 factura correcta se rechazaría por un céntimo fantasma.
@@ -21,13 +23,27 @@ factura correcta se rechazaría por un céntimo fantasma.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from lxml import etree
 
-from validador.formato import CII, UBL, detectar, parser
+from validador import iva
+from validador.formato import detectar, parser
 from validador.incidencias import AVISO, ERROR, Incidencia, Informe
+from validador.sintaxis import (
+    NS_CII,
+    NS_UBL,
+    SINTAXIS,
+    SINTAXIS_CII,
+    SINTAXIS_UBL,
+    TOLERANCIA,
+    Sintaxis,
+    cuadra,
+    fmt,
+    importe,
+    importe_en_moneda,
+    texto,
+)
 
 __all__ = [
     "AVISO",
@@ -35,223 +51,19 @@ __all__ = [
     "Incidencia",
     "Informe",
     "NS",
+    "NS_CII",
+    "NS_UBL",
     "SINTAXIS",
+    "SINTAXIS_CII",
+    "SINTAXIS_UBL",
     "Sintaxis",
     "TOLERANCIA",
     "reglas",
     "validar",
 ]
 
-NS_UBL = {
-    "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
-    "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
-}
-
-NS_CII = {
-    "rsm": "urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100",
-    "ram": (
-        "urn:un:unece:uncefact:data:standard:"
-        "ReusableAggregateBusinessInformationEntity:100"
-    ),
-    "udt": "urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100",
-}
-
-# Nombre de antes, cuando este módulo solo sabía de UBL.
+# Nombre de antes, cuando este módulo llevaba dentro el mapa y solo sabía de UBL.
 NS = NS_UBL
-
-# La norma trabaja con importes redondeados a dos decimales, así que una
-# diferencia de un céntimo no es un error: es el redondeo permitido.
-TOLERANCIA = Decimal("0.01")
-
-
-# --- El mapa de cada sintaxis ----------------------------------------------
-
-
-@dataclass(frozen=True)
-class Sintaxis:
-    """Dónde vive cada campo de EN 16931 en una sintaxis concreta.
-
-    Es un mapa, no lógica: aquí solo hay rutas XPath. Añadir una sintaxis nueva
-    debería ser rellenar otra de estas sin tocar ninguna regla.
-    """
-
-    nombre: str
-    espacios: dict[str, str]
-    nombre_perfil: str  # cómo se llama el campo del perfil en esta sintaxis
-
-    perfil: str
-    numero: str
-    fecha: str
-    tipo: str
-    moneda: str
-
-    vendedor_nombre: str
-    vendedor_direccion: str
-    vendedor_pais: str
-    comprador_nombre: str
-    comprador_direccion: str
-    comprador_pais: str
-
-    lineas: str
-    linea_id: str  # relativa a una línea
-    linea_importe: str  # relativa a una línea
-
-    suma_lineas: str
-    base: str
-    con_impuestos: str
-    a_pagar: str
-    descuentos: str
-    cargos: str
-    anticipos: str
-    redondeo: str
-    impuestos: str
-
-
-_TOTAL_UBL = "./cac:LegalMonetaryTotal"
-_VENDEDOR_UBL = "./cac:AccountingSupplierParty/cac:Party"
-_COMPRADOR_UBL = "./cac:AccountingCustomerParty/cac:Party"
-
-SINTAXIS_UBL = Sintaxis(
-    nombre="UBL",
-    espacios=NS_UBL,
-    nombre_perfil="CustomizationID",
-    perfil="./cbc:CustomizationID",
-    numero="./cbc:ID",
-    fecha="./cbc:IssueDate",
-    tipo="./cbc:InvoiceTypeCode",
-    moneda="./cbc:DocumentCurrencyCode",
-    vendedor_nombre=f"{_VENDEDOR_UBL}/cac:PartyLegalEntity/cbc:RegistrationName",
-    vendedor_direccion=f"{_VENDEDOR_UBL}/cac:PostalAddress",
-    vendedor_pais=(
-        f"{_VENDEDOR_UBL}/cac:PostalAddress/cac:Country/cbc:IdentificationCode"
-    ),
-    comprador_nombre=f"{_COMPRADOR_UBL}/cac:PartyLegalEntity/cbc:RegistrationName",
-    comprador_direccion=f"{_COMPRADOR_UBL}/cac:PostalAddress",
-    comprador_pais=(
-        f"{_COMPRADOR_UBL}/cac:PostalAddress/cac:Country/cbc:IdentificationCode"
-    ),
-    lineas="./cac:InvoiceLine",
-    linea_id="./cbc:ID",
-    linea_importe="./cbc:LineExtensionAmount",
-    suma_lineas=f"{_TOTAL_UBL}/cbc:LineExtensionAmount",
-    base=f"{_TOTAL_UBL}/cbc:TaxExclusiveAmount",
-    con_impuestos=f"{_TOTAL_UBL}/cbc:TaxInclusiveAmount",
-    a_pagar=f"{_TOTAL_UBL}/cbc:PayableAmount",
-    descuentos=f"{_TOTAL_UBL}/cbc:AllowanceTotalAmount",
-    cargos=f"{_TOTAL_UBL}/cbc:ChargeTotalAmount",
-    anticipos=f"{_TOTAL_UBL}/cbc:PrepaidAmount",
-    redondeo=f"{_TOTAL_UBL}/cbc:PayableRoundingAmount",
-    impuestos="./cac:TaxTotal/cbc:TaxAmount",
-)
-
-# En CII casi todo cuelga de SupplyChainTradeTransaction, repartido en tres
-# bloques: lo pactado (Agreement), la entrega (Delivery) y el cobro
-# (Settlement). Los totales viven en el Settlement, y la cabecera —número,
-# fecha y tipo— va aparte, en ExchangedDocument.
-_TRANSACCION = "./rsm:SupplyChainTradeTransaction"
-_ACUERDO = f"{_TRANSACCION}/ram:ApplicableHeaderTradeAgreement"
-_COBRO = f"{_TRANSACCION}/ram:ApplicableHeaderTradeSettlement"
-_SUMARIO = f"{_COBRO}/ram:SpecifiedTradeSettlementHeaderMonetarySummation"
-_CABECERA = "./rsm:ExchangedDocument"
-
-SINTAXIS_CII = Sintaxis(
-    nombre="CII",
-    espacios=NS_CII,
-    nombre_perfil="GuidelineSpecifiedDocumentContextParameter",
-    perfil=(
-        "./rsm:ExchangedDocumentContext"
-        "/ram:GuidelineSpecifiedDocumentContextParameter/ram:ID"
-    ),
-    numero=f"{_CABECERA}/ram:ID",
-    fecha=f"{_CABECERA}/ram:IssueDateTime/udt:DateTimeString",
-    tipo=f"{_CABECERA}/ram:TypeCode",
-    moneda=f"{_COBRO}/ram:InvoiceCurrencyCode",
-    vendedor_nombre=f"{_ACUERDO}/ram:SellerTradeParty/ram:Name",
-    vendedor_direccion=f"{_ACUERDO}/ram:SellerTradeParty/ram:PostalTradeAddress",
-    vendedor_pais=(
-        f"{_ACUERDO}/ram:SellerTradeParty/ram:PostalTradeAddress/ram:CountryID"
-    ),
-    comprador_nombre=f"{_ACUERDO}/ram:BuyerTradeParty/ram:Name",
-    comprador_direccion=f"{_ACUERDO}/ram:BuyerTradeParty/ram:PostalTradeAddress",
-    comprador_pais=(
-        f"{_ACUERDO}/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CountryID"
-    ),
-    lineas=f"{_TRANSACCION}/ram:IncludedSupplyChainTradeLineItem",
-    linea_id="./ram:AssociatedDocumentLineDocument/ram:LineID",
-    linea_importe=(
-        "./ram:SpecifiedLineTradeSettlement"
-        "/ram:SpecifiedTradeSettlementLineMonetarySummation/ram:LineTotalAmount"
-    ),
-    suma_lineas=f"{_SUMARIO}/ram:LineTotalAmount",
-    base=f"{_SUMARIO}/ram:TaxBasisTotalAmount",
-    con_impuestos=f"{_SUMARIO}/ram:GrandTotalAmount",
-    a_pagar=f"{_SUMARIO}/ram:DuePayableAmount",
-    descuentos=f"{_SUMARIO}/ram:AllowanceTotalAmount",
-    cargos=f"{_SUMARIO}/ram:ChargeTotalAmount",
-    anticipos=f"{_SUMARIO}/ram:TotalPrepaidAmount",
-    redondeo=f"{_SUMARIO}/ram:RoundingAmount",
-    impuestos=f"{_SUMARIO}/ram:TaxTotalAmount",
-)
-
-SINTAXIS: dict[str, Sintaxis] = {UBL: SINTAXIS_UBL, CII: SINTAXIS_CII}
-
-
-# --- Utilidades ------------------------------------------------------------
-
-
-def _texto(nodo, ruta: str, sintaxis: Sintaxis) -> str | None:
-    encontrados = nodo.xpath(ruta, namespaces=sintaxis.espacios)
-    if not encontrados:
-        return None
-    valor = encontrados[0]
-    texto = valor if isinstance(valor, str) else (valor.text or "")
-    texto = texto.strip()
-    return texto or None
-
-
-def _a_decimal(bruto: str | None) -> Decimal | None:
-    if bruto is None:
-        return None
-    try:
-        return Decimal(bruto.strip())
-    except InvalidOperation:
-        return None
-
-
-def _importe(nodo, ruta: str, sintaxis: Sintaxis) -> Decimal | None:
-    """Lee un importe como Decimal. Devuelve None si falta o no es un número."""
-    return _a_decimal(_texto(nodo, ruta, sintaxis))
-
-
-def _importe_en_moneda(
-    nodo, ruta: str, sintaxis: Sintaxis, moneda: str | None
-) -> Decimal | None:
-    """El importe declarado en la moneda de la factura.
-
-    Tanto UBL como CII permiten declarar el total de impuestos dos veces: una
-    en la moneda de la factura (BT-110) y otra en la moneda de contabilidad
-    (BT-111), distinguidas por el atributo `currencyID`. Coger el primero que
-    aparezca es coger uno al azar: si el documento las trae en el otro orden,
-    el cuadre falla por una factura que está bien.
-    """
-    encontrados = nodo.xpath(ruta, namespaces=sintaxis.espacios)
-    if not encontrados:
-        return None
-    elegido = encontrados[0]
-    if moneda:
-        for candidato in encontrados:
-            if candidato.get("currencyID") == moneda:
-                elegido = candidato
-                break
-    return _a_decimal(elegido.text)
-
-
-def _cuadra(a: Decimal, b: Decimal) -> bool:
-    return abs(a - b) <= TOLERANCIA
-
-
-def _fmt(valor: Decimal | None) -> str:
-    return "(vacío)" if valor is None else f"{valor:.2f}"
 
 
 # --- Reglas de campos obligatorios -----------------------------------------
@@ -382,7 +194,7 @@ def _reglas_obligatorios(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                     codigo, ERROR, explicacion, campo=campo, encontrado="(falta)"
                 )
             )
-        elif not contenedor and _texto(raiz, ruta, sintaxis) is None:
+        elif not contenedor and texto(raiz, ruta, sintaxis) is None:
             incidencias.append(
                 Incidencia(
                     codigo,
@@ -423,21 +235,21 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     incidencias: list[Incidencia] = []
 
     def leer(atributo: str) -> Decimal | None:
-        return _importe(raiz, getattr(sintaxis, atributo), sintaxis)
+        return importe(raiz, getattr(sintaxis, atributo), sintaxis)
 
     def leer_o_cero(atributo: str) -> Decimal:
         return leer(atributo) or Decimal(0)
 
-    moneda = _texto(raiz, sintaxis.moneda, sintaxis)
+    moneda = texto(raiz, sintaxis.moneda, sintaxis)
     suma_lineas = leer("suma_lineas")
     base = leer("base")
     con_impuestos = leer("con_impuestos")
     a_pagar = leer("a_pagar")
-    descuentos = leer_o_cero("descuentos")
-    cargos = leer_o_cero("cargos")
+    descuentos = leer_o_cero("descuentos_total")
+    cargos = leer_o_cero("cargos_total")
     anticipos = leer_o_cero("anticipos")
     redondeo = leer_o_cero("redondeo")
-    impuestos = _importe_en_moneda(raiz, sintaxis.impuestos, sintaxis, moneda)
+    impuestos = importe_en_moneda(raiz, sintaxis.impuestos, sintaxis, moneda)
 
     # BR-24: cada línea debe llevar su importe neto. Se comprueba aparte del
     # cuadre, porque una línea sin importe es un error aunque la factura no
@@ -447,13 +259,13 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     acumulado = Decimal(0)
     sin_importe: list[str] = []
     for indice, linea in enumerate(lineas, start=1):
-        importe = _importe(linea, sintaxis.linea_importe, sintaxis)
-        if importe is None:
+        cantidad = importe(linea, sintaxis.linea_importe, sintaxis)
+        if cantidad is None:
             sin_importe.append(
-                _texto(linea, sintaxis.linea_id, sintaxis) or str(indice)
+                texto(linea, sintaxis.linea_id, sintaxis) or str(indice)
             )
         else:
-            acumulado += importe
+            acumulado += cantidad
 
     if sin_importe:
         incidencias.append(
@@ -469,7 +281,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     # BR-CO-10: la suma declarada debe coincidir con la suma real de las líneas.
     # Solo tiene sentido si todas las líneas tienen importe.
     if lineas and suma_lineas is not None and not sin_importe:
-        if not _cuadra(acumulado, suma_lineas):
+        if not cuadra(acumulado, suma_lineas):
             incidencias.append(
                 Incidencia(
                     "BR-CO-10",
@@ -487,14 +299,14 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                         )
                         + ")"
                     ),
-                    encontrado=_fmt(suma_lineas),
+                    encontrado=fmt(suma_lineas),
                 )
             )
 
     # BR-CO-13: base imponible = suma de líneas - descuentos + cargos.
     if suma_lineas is not None and base is not None:
         calculada = suma_lineas - descuentos + cargos
-        if not _cuadra(calculada, base):
+        if not cuadra(calculada, base):
             detalle = f"{suma_lineas:.2f}"
             if descuentos:
                 detalle += f" - {descuentos:.2f} de descuentos"
@@ -508,7 +320,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                     "descuentos más los cargos.",
                     campo="Base imponible total",
                     esperado=f"{calculada:.2f}  ({detalle})",
-                    encontrado=_fmt(base),
+                    encontrado=fmt(base),
                 )
             )
 
@@ -517,7 +329,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
         if impuestos is None:
             incidencias.append(
                 Incidencia(
-                    "BR-CO-14",
+                    "IVA-SIN-TOTAL",
                     AVISO,
                     "La factura no declara el importe total de impuestos, así "
                     "que no se ha podido comprobar que el total cuadre.",
@@ -527,7 +339,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
             )
         else:
             calculada = base + impuestos
-            if not _cuadra(calculada, con_impuestos):
+            if not cuadra(calculada, con_impuestos):
                 incidencias.append(
                     Incidencia(
                         "BR-CO-15",
@@ -539,14 +351,14 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                             f"{calculada:.2f}  ({base:.2f} + {impuestos:.2f} "
                             "de impuestos)"
                         ),
-                        encontrado=_fmt(con_impuestos),
+                        encontrado=fmt(con_impuestos),
                     )
                 )
 
     # BR-CO-16: a pagar = total con impuestos - anticipos + redondeo.
     if con_impuestos is not None and a_pagar is not None:
         calculada = con_impuestos - anticipos + redondeo
-        if not _cuadra(calculada, a_pagar):
+        if not cuadra(calculada, a_pagar):
             desglose = []
             if anticipos:
                 desglose.append(f"- {anticipos:.2f} ya pagados")
@@ -565,7 +377,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                     "anticipado.",
                     campo="Total a pagar",
                     esperado=explicacion,
-                    encontrado=_fmt(a_pagar),
+                    encontrado=fmt(a_pagar),
                 )
             )
 
@@ -615,6 +427,7 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
     incidencias.extend(_reglas_obligatorios(raiz, sintaxis))
     incidencias.extend(_regla_lineas(raiz, sintaxis))
     incidencias.extend(_reglas_cuadre(raiz, sintaxis))
+    incidencias.extend(iva.reglas(raiz, sintaxis))
     return incidencias
 
 

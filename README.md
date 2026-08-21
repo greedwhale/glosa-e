@@ -10,7 +10,9 @@ según el RD 238/2026.
 | `validador/nif.py` | Valida NIF, NIE y CIF con sus dígitos de control | Terminado |
 | `validador/calendario.py` | Días hábiles españoles y plazo de 4 días de los estados | Terminado |
 | `validador/formato.py` | Detección de formato y versión (Facturae, UBL, CII, EDIFACT) | Terminado |
-| `validador/en16931.py` | Reglas de negocio EN 16931 sobre UBL **y CII**, con mensajes en castellano | Terminado |
+| `validador/sintaxis.py` | El mapa: dónde vive cada campo de EN 16931 en UBL y en CII | Terminado |
+| `validador/en16931.py` | Campos obligatorios y cuadre aritmético, sobre UBL y CII | Terminado |
+| `validador/iva.py` | El desglose de IVA: bases, cuotas, categorías y exenciones | Terminado |
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
 | `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
@@ -18,7 +20,7 @@ según el RD 238/2026.
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 | Reglas para Facturae | EN 16931 no es su modelo; haría falta un mapa aparte | Pendiente |
 
-296 tests, todos en verde.
+375 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -37,26 +39,39 @@ Con `--esquemas CARPETA` comprueba además la forma; ver más abajo.
 
 En la carpeta `ejemplos/` hay cinco facturas preparadas: dos correctas, una
 repetida en otro fichero, otra cuyas líneas no cuadran con el total, y una en
-sintaxis CII con la base imponible mal calculada. Sale esto:
+sintaxis CII con dos tipos de IVA en las líneas y uno solo en el desglose.
+Sale esto:
 
 ```
 ejemplos\cii-A-0001.xml
-  CII vD16B (factura) · conforme EN 16931 — 1 error(es).
+  CII vD16B (factura) · conforme EN 16931 — 2 error(es).
 
-  [BR-CO-13] La base imponible no cuadra con las líneas menos los descuentos
-  más los cargos.
-    Campo: Base imponible total
-    Debería ser: 90.00  (100.00 - 10.00 de descuentos)
-    Tiene: 100.00
+  [BR-S-8] La base declarada para S (tipo general) al 21% no coincide con la
+  suma de lo que va a ese tipo.
+    Campo: Base imponible de S (tipo general) al 21%
+    Debería ser: 100.00 (línea 1)
+    Tiene: 150.00
+
+  [IVA-TIPO-SIN-DESGLOSE] Hay 50.00 a S (tipo general) al 10%, pero el
+  desglose no trae ninguna entrada a ese tipo. El desglose va por categoría y
+  tipo, no solo por categoría.
+    Campo: Desglose de IVA
+    Debería ser: una entrada al 10%
+    Tiene: línea 2
 
 ejemplos\f-0006.xml
-  UBL v2.1 (factura) · conforme EN 16931 — 1 error(es).
+  UBL v2.1 (factura) · conforme EN 16931 — 2 error(es).
 
   [BR-CO-10] La suma de importes de línea que declara la factura no coincide
   con la suma real de sus líneas. Suele ser una línea añadida o modificada sin
   recalcular el total.
     Campo: Suma de importes de línea
     Debería ser: 90.00 (suma de la única línea)
+    Tiene: 100.00
+
+  [BR-S-8] La base declarada para S (tipo general) al 21% no coincide con la
+  suma de lo que va a ese tipo.
+    Debería ser: 90.00 (línea 1)
     Tiene: 100.00
 
 Entre ficheros:
@@ -135,6 +150,99 @@ Consecuencias prácticas para este proyecto:
    no dependen de esa orden. Los dígitos de control del NIF llevan décadas sin
    cambiar; el cómputo de días hábiles tampoco va a cambiar; y las reglas
    Schematron de EN 16931 son estables y de código abierto.
+
+## El desglose de IVA
+
+Una factura no lleva un solo importe de impuesto: lleva un **desglose**, con
+una entrada por cada combinación de categoría y tipo. Un hotel que factura
+alojamiento al 10% y minibar al 21% tiene dos entradas, y cada una declara su
+base y su cuota.
+
+Ahí se cuela el error más caro y más difícil de ver. Alguien cambia el tipo de
+una línea y no rehace el desglose: **las cuentas generales siguen cuadrando**
+—la suma de líneas es la misma— y sin embargo la factura declara mal el IVA,
+que es justo lo que mira Hacienda. Ninguna de las reglas BR-CO-* se entera.
+
+```
+[BR-S-8] La base declarada para S (tipo general) al 21% no coincide con la
+suma de lo que va a ese tipo.
+  Debería ser: 100.00 (línea 1)
+  Tiene: 150.00
+
+[IVA-TIPO-SIN-DESGLOSE] Hay 50.00 a S (tipo general) al 10%, pero el desglose
+no trae ninguna entrada a ese tipo. El desglose va por categoría y tipo, no
+solo por categoría.
+  Debería ser: una entrada al 10%
+  Tiene: línea 2
+```
+
+Dos quejas para un solo error, cada una por un lado: lo que sobra en el 21% y
+lo que falta en el 10%.
+
+### Las categorías, en castellano
+
+La norma usa los códigos de la lista UNCL 5305. Las dos últimas son españolas y
+casi ninguna herramienta europea las nombra:
+
+| Código | Qué es | Tipo | Motivo de exención |
+|---|---|---|---|
+| `S` | tipo general | mayor que 0 | no debe llevarlo |
+| `Z` | tipo cero | 0 | no debe llevarlo |
+| `E` | operación exenta | 0 | **obligatorio** |
+| `AE` | inversión del sujeto pasivo | 0 | **obligatorio** |
+| `K` | entrega intracomunitaria | 0 | **obligatorio** |
+| `G` | exportación fuera de la UE | 0 | **obligatorio** |
+| `O` | operación no sujeta | ninguno | **obligatorio** |
+| `L` | IGIC (Canarias) | el suyo | libre |
+| `M` | IPSI (Ceuta y Melilla) | el suyo | libre |
+
+El motivo de exención no es burocracia: sin él, quien recibe la factura no
+puede justificar por qué no le repercuten IVA.
+
+### Qué se comprueba
+
+**De la norma** (prefijo `BR-`):
+
+| Código | Qué mira |
+|---|---|
+| `BR-CO-14` | El IVA total es la suma de las cuotas del desglose |
+| `BR-CO-17` | Cuota = base × tipo / 100, redondeada a dos decimales |
+| `BR-{X}-8` | La base de cada entrada es la suma de lo que va a ese tipo |
+| `BR-{X}-5` | El tipo que exige cada categoría |
+| `BR-{X}-10` | El motivo de exención, presente o ausente según toque |
+| `BR-{X}-1` | Cada categoría usada aparece en el desglose |
+| `BR-O-11` | Lo no sujeto no se mezcla con lo sujeto en la misma factura |
+
+**De la casa** (prefijo `IVA-`), que no están en EN 16931 pero tienen sentido
+para quien factura en España:
+
+| Código | Qué mira |
+|---|---|
+| `IVA-TIPO-SIN-DESGLOSE` | Un tipo usado en las líneas sin entrada en el desglose |
+| `IVA-TIPO` | Un tipo que no es 21, 10, 4 ni 0 (aviso: legal fuera de España) |
+| `IVA-CATEGORIA-RARA` | Una categoría que no está en la lista de la norma |
+| `IVA-SIN-CATEGORIA` | Desglose o líneas sin categoría de IVA |
+| `IVA-SIN-DESGLOSE` | Se declara IVA pero no viene desglosado |
+| `IVA-AJUSTES-SIN-DETALLAR` | Descuentos globales sin decir a qué tipo van |
+| `IVA-SIN-TOTAL` | No hay importe total de impuestos que comprobar |
+
+La separación es deliberada: **que se vea de un vistazo qué exige la norma y
+qué opinamos nosotros.**
+
+### Dos decisiones
+
+**No acusar cuando no se puede saber.** Si la factura declara descuentos
+globales pero no los detalla, no hay forma de repartirlos entre los tipos, y
+comprobar la base sería inventarse un error. En ese caso se salta `BR-{X}-8` y
+se dice que no se ha podido comprobar. La norma pide detallarlos (BR-CO-11 y
+BR-CO-12), pero decir «no lo sé» es mejor que acusar en falso.
+
+**`BR-CO-14` estaba mal usado.** Llevaba ese código un aviso propio —«la
+factura no declara el importe total de impuestos»— cuando BR-CO-14 es de la
+norma y significa otra cosa: que el total de IVA sea la suma de las cuotas del
+desglose. Ahora esa regla está implementada de verdad y el aviso lleva el
+código `IVA-SIN-TOTAL`, que es de la casa. Un código oficial en una
+comprobación inventada es peor que no tener código.
 
 ## Validación de forma: los esquemas XSD
 
@@ -489,9 +597,14 @@ basta con rellenar otra `Sintaxis`. Haría falta un mapa distinto y decidir qué
 reglas tienen equivalente. Mientras tanto, a un Facturae sí se le comprueba la
 forma contra su XSD y el código único, que es donde están las reglas españolas.
 
-**Las reglas de IVA de EN 16931** (BR-S-*, BR-E-*, BR-Z-*...): que cada
-categoría de impuesto cuadre con su base y su tipo. Son unas cuantas y siguen
-el mismo patrón que las BR-CO-*, así que caben en el diseño que ya hay.
+**Las reglas de IVA por línea.** Ahora se comprueba el desglose contra las
+líneas, pero no que el tipo declarado en cada línea sea coherente con el
+producto. Eso ya no es EN 16931: es la Ley del IVA, y hace falta saber qué se
+vende.
+
+**Un servicio, no solo una herramienta.** Todo esto se usa desde la consola o
+como biblioteca. Lo que hace falta para venderlo es que alguien pueda soltar un
+fichero y ver el informe sin instalar nada.
 
 ## Fuentes
 
