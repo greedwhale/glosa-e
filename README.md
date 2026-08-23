@@ -20,7 +20,7 @@ según el RD 238/2026.
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 | Reglas para Facturae | EN 16931 no es su modelo; haría falta un mapa aparte | Pendiente |
 
-437 tests, todos en verde.
+444 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -50,6 +50,22 @@ Acepta ficheros sueltos, carpetas o comodines. Devuelve 0 si todo está bien, 1
 si hay algún error y 2 si no hay nada que mirar, para poder encadenarlo en un
 script. Con `--solo-errores` calla los avisos y deja solo lo que impide cobrar.
 Con `--esquemas CARPETA` comprueba además la forma; ver más abajo.
+
+**Cada fichero cae en uno de tres estados, no de dos:** correcto, con errores,
+o **sin comprobar**. Lo tercero es el fichero que no existe, no se puede leer o
+cuyo formato no se reconoce. No es correcto ni incorrecto: es que no se ha
+mirado, y también devuelve 1.
+
+```
+1 fichero(s) · 0 correcto(s) · 0 con errores · 1 SIN COMPROBAR.
+```
+
+Parece un detalle y no lo es. Antes ese fichero se contaba entre los buenos y
+el programa devolvía 0, así que **una letra de más en la ruta daba un lote
+entero por bueno sin haber abierto nada.** Dar por válido lo que no se ha visto
+es lo peor que puede hacer un validador; era el fallo más grave que ha tenido
+este proyecto y no lo cazó ningún test: lo cazó un usuario escribiendo mal una
+carpeta.
 
 En la carpeta `ejemplos/` hay seis documentos preparados: dos facturas
 correctas, una repetida en otro fichero, otra cuyas líneas no cuadran con el

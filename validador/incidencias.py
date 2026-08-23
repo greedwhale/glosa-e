@@ -69,6 +69,22 @@ class Informe:
     def conforme(self) -> bool:
         return not self.errores
 
+    @property
+    def validado(self) -> bool:
+        """Se ha podido identificar el documento y aplicarle reglas.
+
+        Falso cuando el fichero no existe, no se puede leer, o no se reconoce
+        su formato. Un documento así **no es correcto ni incorrecto: es que no
+        se ha mirado**, y hay que contarlo aparte.
+
+        Sin esta distinción, `conforme` decía que sí —no hay errores porque no
+        hay nada— y un fichero inexistente aparecía en el resumen entre los
+        buenos. Dar por bueno lo que no se ha visto es lo peor que puede hacer
+        un validador: quien se equivoca al escribir una ruta se queda tan
+        tranquilo creyendo que ha revisado un lote que nadie ha abierto.
+        """
+        return self.deteccion is not None and bool(self.deteccion)
+
     def __bool__(self) -> bool:
         return self.conforme
 

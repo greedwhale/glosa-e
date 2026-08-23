@@ -178,19 +178,37 @@ class InformeLote:
         return de_cada_uno + [i for i in self.cruzadas if i.gravedad == ERROR]
 
     @property
+    def sin_comprobar(self) -> list[tuple[Path, Informe]]:
+        """Ficheros que no se han podido mirar.
+
+        No existen, no se pueden leer, o no se reconoce su formato. Van
+        aparte de los correctos y de los que tienen errores porque son un
+        tercer estado, y confundirlos con los buenos es justo el fallo que
+        deja a alguien creyendo que ha revisado un lote entero cuando se
+        equivocó de carpeta.
+        """
+        return [(c, i) for c, i in self.informes if not i.validado]
+
+    @property
     def conforme(self) -> bool:
-        return not self.errores
+        # Un fichero que no se ha podido abrir no cuenta como aprobado. Si
+        # contara, `factura-e` devolvería 0 —«todo en orden»— por un lote que
+        # nadie ha llegado a leer, y un guion encadenado se lo creería.
+        return not self.errores and not self.sin_comprobar
 
     def __bool__(self) -> bool:
         return self.conforme
 
     def resumen(self) -> str:
-        correctos = sum(1 for _, informe in self.informes if informe.conforme)
+        mirados = [informe for _, informe in self.informes if informe.validado]
+        correctos = sum(1 for informe in mirados if informe.conforme)
         partes = [
             f"{len(self.informes)} fichero(s)",
             f"{correctos} correcto(s)",
-            f"{len(self.informes) - correctos} con errores",
+            f"{len(mirados) - correctos} con errores",
         ]
+        if self.sin_comprobar:
+            partes.append(f"{len(self.sin_comprobar)} SIN COMPROBAR")
         if self.cruzadas:
             partes.append(f"{len(self.cruzadas)} incidencia(s) entre ficheros")
         return " · ".join(partes) + "."

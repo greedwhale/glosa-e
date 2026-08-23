@@ -301,6 +301,79 @@ class TestOrigen:
         assert factura.origen(Incidencia(codigo, ERROR, "da igual")) == esperado
 
 
+class TestSinComprobar:
+    """Un fichero que no se ha podido mirar no es un fichero correcto.
+
+    Era un fallo real y silencioso: `Informe.conforme` decía que sí —no hay
+    errores porque no hay nada— así que un fichero inexistente salía en el
+    resumen entre los buenos y `factura-e` devolvía 0. Quien se equivocaba al
+    escribir la ruta se quedaba tan tranquilo creyendo que había revisado un
+    lote que nadie llegó a abrir.
+    """
+
+    def test_el_que_no_existe_no_cuenta_como_correcto(self, tmp_path):
+        bueno = escribir(tmp_path, "bueno.xml", ubl())
+        lote = factura.validar_lote([bueno, tmp_path / "fantasma.xml"], hoy=HOY)
+        assert "1 correcto(s)" in lote.resumen()
+        assert "1 SIN COMPROBAR" in lote.resumen()
+
+    def test_el_lote_no_es_conforme(self, tmp_path):
+        bueno = escribir(tmp_path, "bueno.xml", ubl())
+        lote = factura.validar_lote([bueno, tmp_path / "fantasma.xml"], hoy=HOY)
+        assert not lote.conforme
+        assert lote.errores == []  # no hay errores; hay algo peor: un hueco
+
+    def test_la_consola_no_devuelve_cero(self, tmp_path, capsys):
+        escribir(tmp_path, "bueno.xml", ubl())
+        salida = consola.main(
+            [str(tmp_path / "bueno.xml"), str(tmp_path / "fantasma.xml"),
+             "--hoy", "2026-09-20"]
+        )
+        assert salida == 1, "un guion encadenado se creería que todo fue bien"
+        assert "SIN COMPROBAR" in capsys.readouterr().out
+
+    def test_un_formato_ajeno_tampoco_es_correcto(self, tmp_path):
+        """No solo el que falta: el que está pero no se reconoce."""
+        ruta = escribir(tmp_path, "pedido.xml", "<pedido><linea/></pedido>")
+        lote = factura.validar_lote([ruta], hoy=HOY)
+        assert "1 SIN COMPROBAR" in lote.resumen()
+        assert not lote.conforme
+
+    def test_solo_errores_no_esconde_el_hueco(self, tmp_path, capsys):
+        """El aviso se puede callar; el fichero que falta, no.
+
+        Con --solo-errores se silencian los avisos, y si el hueco viajara como
+        aviso desaparecería justo para quien pide ver «solo lo importante».
+        Va en el resumen, que no se filtra.
+        """
+        escribir(tmp_path, "bueno.xml", ubl())
+        consola.main(
+            [str(tmp_path / "bueno.xml"), str(tmp_path / "fantasma.xml"),
+             "--hoy", "2026-09-20", "--solo-errores"]
+        )
+        assert "SIN COMPROBAR" in capsys.readouterr().out
+
+    def test_un_lote_entero_bueno_sigue_saliendo_limpio(self, tmp_path):
+        """La comprobación nueva no puede ensuciar el caso normal."""
+        rutas = [
+            escribir(tmp_path, "a.xml", ubl(numero="F-2026-0001")),
+            escribir(tmp_path, "b.xml", ubl(numero="F-2026-0002",
+                                            fecha="2026-03-03")),
+        ]
+        lote = factura.validar_lote(rutas, hoy=HOY)
+        assert lote.conforme, lote.detalle()
+        assert lote.sin_comprobar == []
+        assert "SIN COMPROBAR" not in lote.resumen()
+
+    def test_informe_suelto_sabe_si_lo_ha_mirado(self):
+        assert factura.validar(ubl(), hoy=HOY).validado
+        assert not factura.validar(b"<pedido/>", hoy=HOY).validado
+        # Un EDIFACT sí se identifica, aunque no se validen sus reglas: la
+        # queja SIN-SOPORTE lo dice, y eso es distinto de no poder abrirlo.
+        edifact = b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+INVOIC:D:96A:UN'"
+        assert factura.validar(edifact, hoy=HOY).validado
+
+
 # --- Línea de órdenes ------------------------------------------------------
 
 
