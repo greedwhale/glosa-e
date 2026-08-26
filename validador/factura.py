@@ -1,9 +1,11 @@
 """El orquestador: todas las reglas sobre el mismo documento, de una pasada.
 
-Hasta aquí había dos módulos de reglas que no se hablaban. `en16931` mira lo
-que exige la norma europea; `codigo_unico` mira lo que exige el RD 238/2026 y
-que ningún validador europeo comprueba. Quien recibe una factura necesita las
-dos cosas a la vez y no le importa de qué reglamento sale cada queja.
+Hay tres reglamentos en juego y ninguno se habla con los otros. `en16931` mira
+lo que exige la norma europea sobre UBL y CII; `facturae` mira la aritmética
+que el esquema del formato nacional escribe en sus propias anotaciones;
+`codigo_unico` mira lo que exige el RD 238/2026 y que ningún validador europeo
+comprueba. Quien recibe una factura las necesita todas a la vez y no le importa
+de qué reglamento sale cada queja.
 
 Este módulo hace tres cosas que no salen gratis de sumar las dos listas:
 
@@ -26,7 +28,7 @@ from pathlib import Path
 
 from lxml import etree
 
-from validador import codigo_unico, en16931, esquema
+from validador import codigo_unico, en16931, esquema, facturae
 from validador.formato import CII, FACTURAE, UBL, Deteccion, detectar, parser
 from validador.esquema import Catalogo
 from validador.incidencias import ERROR, Incidencia, Informe
@@ -48,6 +50,7 @@ _SOBRA_SI: dict[str, tuple[str, ...]] = {
 EUROPEA = "EN 16931"
 ESPANOLA = "RD 238/2026"
 FORMA = "Esquema XSD"
+NACIONAL = "formato Facturae"
 CASA = "de la casa"
 OTRA = "Formato"
 
@@ -60,6 +63,8 @@ def origen(incidencia: Incidencia) -> str:
         return ESPANOLA
     if incidencia.codigo.startswith("XSD-"):
         return FORMA
+    if incidencia.codigo.startswith("FE-"):
+        return NACIONAL
     if incidencia.codigo.startswith("IVA-"):
         # `IVA-` es el prefijo de las comprobaciones propias. Sin esta rama
         # caían en OTRA, que se lee «Formato», y una regla de IVA no es un
@@ -119,6 +124,7 @@ def _reglas(
     espanola = codigo_unico.obligado_en_espania(raiz, deteccion)
     incidencias = list(esquema.reglas(raiz, deteccion, catalogo))
     incidencias.extend(en16931.reglas(raiz, deteccion, espanola=espanola))
+    incidencias.extend(facturae.reglas(raiz, deteccion))
     incidencias.extend(codigo_unico.reglas(raiz, deteccion, hoy=hoy))
     return _podar(incidencias)
 

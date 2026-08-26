@@ -330,3 +330,112 @@ La validez criptográfica de las firmas XAdES; el texto del RD 238/2026 en sí
 —comprobó que los cálculos son correctos, no que la norma diga lo que el código
 afirma—; y el contexto de las reglas `BR-*` en la sintaxis CII, porque solo
 descargó el esquematrón de UBL.
+
+---
+
+# Portar las reglas de negocio a Facturae
+
+El hallazgo número 1 de la auditoría, resuelto. Era el que decidía si esto vale
+para el mercado español: el formato que España usa de verdad era el que menos
+se validaba.
+
+## Se fue al esquema, no a la memoria
+
+El XSD de Facturae lleva la aritmética escrita en sus anotaciones, en
+castellano y campo por campo:
+
+> **TotalGrossAmountBeforeTaxes.** Resultado de: TotalGrossAmount -
+> TotalGeneralDiscounts + TotalGeneralSurcharges.
+
+> **TotalExecutableAmount.** Resultado de: TotalOutstandingAmount -
+> WithholdingAmount - PaymentInKindAmount + TotalReimbursableExpenses +
+> TotalFinancialExpenses.
+
+Cada regla de `validador/facturae.py` cita la frase de la que sale. Es la misma
+disciplina que encontró que `BR-{X}-05` colgaba de la línea y no del desglose.
+
+**Y se comprobó la lectura antes de escribir una sola regla.** La cadena de
+totales de `gob_sample-factura-firmada-31.xml` cuadra al céntimo con la fórmula
+tal como la leí: 468,10 − 2,34 − 0 + 20,99 + 2,99 = 489,74, que es exactamente
+lo que declara. Una fórmula que reconstruye un fichero oficial que no he escrito
+yo no es una suposición.
+
+## Nueve defectos, nueve silencios, veinte quejas
+
+Se repitió la demostración del auditor sobre `gob_factura_sinFirmar.xml`, y
+además se midió el «antes» en vez de recordarlo: se ejecutó el mismo lote con
+el módulo nuevo desactivado.
+
+| Defecto inyectado | Antes | Ahora |
+|---|---|---|
+| total de factura a 999.999,99 | 0 | `FE-TOTAL`, `FE-PENDIENTE`, `FE-LOTE-TOTAL` |
+| cuota de IVA a 1,00 | 0 | `FE-CUOTA`, `FE-REPERCUTIDOS` |
+| una línea que ya no suma | 0 | `FE-LINEA-BRUTO`, `FE-LINEA-SIN-GRAVAR`, `FE-BRUTO` |
+| tipo de IVA al 77 % | 0 | `FE-CUOTA` |
+| base antes de impuestos falsa | 0 | `FE-BASE`, `FE-TOTAL`, `FE-SIN-GRAVAR` |
+| coste ≠ cantidad × precio | 0 | `FE-LINEA-COSTE`, `FE-LINEA-BRUTO` |
+| total a pagar descuadrado | 0 | `FE-PENDIENTE`, `FE-EJECUTAR`, `FE-LOTE-PENDIENTE` |
+| total a ejecutar descuadrado | 0 | `FE-EJECUTAR`, `FE-LOTE-EJECUTAR` |
+| la cabecera del lote miente | 0 | `FE-LOTE-CUENTA` |
+| **total** | **0** | **20** |
+
+## Y los dos defectos reales, al céntimo
+
+Sobre las nueve muestras oficiales, sin tocar ninguna:
+
+- `gob_facturae_32v1.xml` (y su duplicado firmado): **33,75 € facturados y sin
+  gravar**, señalados dos veces —en la línea «Flores», que es donde está el
+  fallo, y en el desglose de la factura.
+- `gob_sample-factura-firmada-31.xml`: **22,08 €**, la base declarada es la de
+  antes de descuentos y recargos.
+
+Las mismas dos cifras que el auditor había sacado a mano. **Cero quejas de
+aritmética sobre las otras siete**, incluida `alphp_factura-prueba-v1-2-0.xml`,
+que es la más enrevesada del lote: descuento general, descuento y cargo de
+línea, dos impuestos repercutidos sobre la misma base, recargo de equivalencia
+y retención de IRPF. Que esa salga limpia es la prueba de que las fórmulas
+están bien leídas.
+
+El corpus europeo no se movió: 73 · 52 correctas · 10 con errores · 11 sin
+comprobar, igual que antes. Las reglas nuevas no tocan UBL ni CII.
+
+## Tres cosas que salieron al escribirlo
+
+**El recargo de equivalencia cuenta en el total repercutido.** «Sumatorio de
+todas Cuotas *y Recargos de Equivalencia*». Sin leer esa mitad de la frase,
+`alphp` habría dado 244,34 frente a los 279,24 que declara: 35 € de queja falsa
+sobre una factura correcta.
+
+**No se pueden sumar todas las bases del desglose.** Una operación puede llevar
+dos impuestos distintos sobre la misma base —IPSI e IVA— y sumarlas daría el
+doble. Se agrupa por clase de impuesto. `alphp` lo hace, y sin agrupar habría
+recibido un descuadre inventado del 100 %.
+
+**La tolerancia se cuenta en cifras, no en entradas.** Una entrada de impuesto
+con recargo aporta *dos* importes redondeados a la suma. Contando entradas, la
+holgura se quedaba corta y una factura correcta con dos impuestos y un recargo
+se rechazaba por dos céntimos. **Esto lo cazó un test, no la lectura**: fue
+justo el test que hubo que reescribir porque no distinguía nada.
+
+## Sobre los tests
+
+37 nuevos, 502 en total. Comprobado por reversión:
+
+- Con el módulo desactivado, **30 de los 37 se ponen rojos**.
+- Los 7 que sobreviven son los que vigilan *falsos positivos*, y por definición
+  pasan cuando el módulo calla. Para probar que distinguen algo se rompió a
+  propósito la defensa concreta que cada uno guarda: agrupar bases por
+  impuesto, desenvolver la firma XAdES, callar el `SIN-SOPORTE`. Todos se
+  pusieron rojos menos uno.
+- **Ese uno no distinguía nada.** El de la tolerancia pasaba igual con el
+  céntimo fijo, porque el caso que probaba caía dentro de las dos. Se reescribió
+  con un desvío de dos céntimos, que separa las dos implementaciones —y al
+  reescribirlo destapó el fallo de contar entradas en vez de cifras.
+
+## Lo que este trabajo *no* arregla
+
+Facturae no tiene categorías de IVA —la letra S, Z, E, AE, K, G, O de
+EN 16931—, así que toda la familia `BR-{X}-*` sigue sin equivalente y no lo
+tendrá: no hay dónde mapearla. Lo que se comprueba ahora es la aritmética, que
+es donde estaba el agujero. Tampoco se valida la firma XAdES, que en Facturae
+es lo que le da validez legal frente a terceros.

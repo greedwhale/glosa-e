@@ -392,14 +392,20 @@ class TestPropioDeCII:
         assert "GuidelineSpecifiedDocumentContextParameter" in en_cii.mensaje
         assert "CustomizationID" in en_ubl.mensaje
 
-    def test_facturae_sigue_sin_soporte(self):
+    def test_facturae_no_es_asunto_de_este_modulo(self):
+        """Antes recibia un SIN-SOPORTE; ahora no recibe nada, y es mejor.
+
+        Facturae no es un perfil de EN 16931 y no tiene por que serlo: es el
+        formato nacional, con su propio esquema y su propia aritmetica. De el
+        se encarga `facturae.py`. El aviso de antes decia «solo se ha
+        identificado, no validado» mientras el resumen decia «sin errores», y
+        las dos cosas eran verdad a medias.
+        """
         facturae = """<?xml version="1.0"?>
 <fe:Facturae xmlns:fe="http://www.facturae.es/Facturae/2009/v3.2/Facturae">
   <FileHeader><SchemaVersion>3.2</SchemaVersion></FileHeader>
 </fe:Facturae>"""
-        informe = en16931.validar(facturae)
-        aviso = next(i for i in informe.avisos if i.codigo == "SIN-SOPORTE")
-        assert "UBL y para CII" in aviso.mensaje
+        assert en16931.validar(facturae).incidencias == []
 
     def test_edifact_no_revienta(self):
         datos = b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+INVOIC:D:96A:UN'"

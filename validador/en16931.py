@@ -28,7 +28,7 @@ from decimal import Decimal
 from lxml import etree
 
 from validador import iva
-from validador.formato import detectar, parser
+from validador.formato import FACTURAE, detectar, parser
 from validador.incidencias import AVISO, ERROR, Incidencia, Informe
 from validador.sintaxis import (
     NS_CII,
@@ -457,6 +457,17 @@ def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
     """
     sintaxis = SINTAXIS.get(deteccion.familia or "")
     if sintaxis is None or raiz is None:
+        if deteccion.familia == FACTURAE:
+            # Facturae no es un perfil de EN 16931 y no tiene por qué serlo: es
+            # el formato nacional, con su propio esquema y su propia aritmética.
+            # De él se encarga `facturae.py`, que comprueba las fórmulas que el
+            # esquema escribe en sus anotaciones. Aquí no hay nada que decir.
+            #
+            # Antes esta rama soltaba un «solo se ha identificado, no validado»
+            # que a la vez sobraba y se quedaba corto: el informe decía «sin
+            # errores» arriba y «no validado» abajo, y las dos cosas eran
+            # verdad a medias.
+            return []
         return [
             Incidencia(
                 "SIN-SOPORTE",

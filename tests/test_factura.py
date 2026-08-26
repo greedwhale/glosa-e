@@ -171,10 +171,15 @@ class TestValidar:
         assert "CU-00" in codigos(informe, ERROR)
 
     def test_facturae_se_valida_con_las_reglas_espanolas(self):
-        """Aunque EN 16931 no esté portado a Facturae, el código único sí."""
+        """El código único se le mide a Facturae como a cualquier otro.
+
+        Y ya no aparece el SIN-SOPORTE que decía que el documento no se había
+        validado: la aritmética de Facturae la comprueba `facturae.py` contra
+        las fórmulas del propio esquema del formato.
+        """
         informe = factura.validar(facturae(nif=NIF_MALO), hoy=HOY)
-        assert "SIN-SOPORTE" in codigos(informe, AVISO)
         assert "CU-01" in codigos(informe, ERROR)
+        assert "SIN-SOPORTE" not in codigos(informe)
 
     def test_dos_facturas_iguales_en_el_mismo_fichero(self):
         informe = factura.validar(facturae(primera="F-001", segunda="F-001"), hoy=HOY)
@@ -504,14 +509,14 @@ class TestConsola:
         assert "ningún fichero" in capsys.readouterr().err
 
     def test_solo_errores_calla_los_avisos(self, tmp_path, capsys):
-        escribir(tmp_path, "a.xml", facturae())  # SIN-SOPORTE es un aviso
+        escribir(tmp_path, "a.xml", al_25())  # IVA-TIPO es un aviso
         consola.main([str(tmp_path), "--hoy", "2026-09-20", "--solo-errores"])
-        assert "SIN-SOPORTE" not in capsys.readouterr().out
+        assert "IVA-TIPO" not in capsys.readouterr().out
 
     def test_sin_solo_errores_los_avisos_salen(self, tmp_path, capsys):
-        escribir(tmp_path, "a.xml", facturae())
+        escribir(tmp_path, "a.xml", al_25())
         consola.main([str(tmp_path), "--hoy", "2026-09-20"])
-        assert "SIN-SOPORTE" in capsys.readouterr().out
+        assert "IVA-TIPO" in capsys.readouterr().out
 
     def test_fecha_mal_escrita(self, tmp_path):
         with pytest.raises(SystemExit):

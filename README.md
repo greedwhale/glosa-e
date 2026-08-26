@@ -16,11 +16,11 @@ según el RD 238/2026.
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
 | `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
+| `validador/facturae.py` | La aritmética del formato nacional: totales, líneas, impuestos y lote | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
-| Reglas para Facturae | EN 16931 no es su modelo; haría falta un mapa aparte | Pendiente |
 
-462 tests, todos en verde.
+502 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -586,10 +586,11 @@ ninguno de los dos por separado; es una propiedad del conjunto. `validar_lote`
 valida fichero a fichero y después pasa una segunda vez sobre todas las
 facturas juntas, y lo que sale de ahí va en `InformeLote.cruzadas`.
 
-**Facturae se beneficia aunque EN 16931 no esté portado.** Las reglas BR solo
-están sobre UBL, así que un Facturae recibe un aviso `SIN-SOPORTE`. Pero el
-código único sí se le comprueba, y ahí es donde están las reglas españolas. Un
-Facturae con el NIF mal cantará `CU-01` igualmente.
+**Tres reglamentos sobre el mismo documento.** A un UBL o un CII se le miden
+las reglas europeas; a un Facturae, la aritmética de su propio esquema; a los
+tres, la forma contra el XSD y el código único del RD 238/2026. Ninguno sabe de
+los otros, y quien recibe la factura no tiene por qué saber de qué reglamento
+sale cada queja.
 
 **Y decir de dónde sale cada queja.** Junto al código va la norma que la firma:
 
@@ -739,6 +740,100 @@ fantasma. Hay un test que lo deja por escrito.
 (U+2212) reventaba al imprimir en una consola Windows con cp1252. Los mensajes
 se quedan en caracteres que sobreviven a una terminal española.
 
+## Facturae: la aritmética del formato nacional
+
+Facturae es el formato que España usa de verdad y el único que la
+Administración acepta por FACe. Hasta ahora este validador lo reconocía, le
+comprobaba la forma contra el XSD y le sacaba el código único —pero **no le
+miraba ni un número**. Un Facturae con el total inventado salía «sin errores».
+
+Se demostró inyectando nueve defectos de uno en uno sobre una factura oficial
+de prueba: total a 999.999,99, cuota de IVA a 1,00, una línea que ya no suma,
+tipo al 77 %, el coste que no es la cantidad por el precio... **Nueve defectos,
+nueve silencios.** Los mismos nueve, hoy, dan veinte quejas.
+
+### De dónde salen estas reglas
+
+Del propio esquema, no de la memoria de nadie. El XSD de Facturae lleva la
+aritmética escrita en sus anotaciones, en castellano:
+
+> **TotalGrossAmountBeforeTaxes.** Total importe bruto antes de impuestos.
+> Resultado de: TotalGrossAmount - TotalGeneralDiscounts +
+> TotalGeneralSurcharges.
+
+Cada regla cita en su comentario la frase de la que sale. Es la misma
+disciplina que en su día encontró que toda la familia `BR-{X}-05` colgaba de la
+línea y no del desglose: ir al artefacto normativo en vez de recordarlo.
+
+La cadena entera, tal como la escribe el esquema:
+
+```
+TotalGrossAmount            = Σ GrossAmount de las líneas
+TotalGrossAmountBeforeTaxes = TotalGrossAmount − descuentos + cargos generales
+TotalTaxOutputs             = Σ cuotas y recargos de equivalencia
+InvoiceTotal                = base + repercutidos − retenidos
+TotalOutstandingAmount      = InvoiceTotal − subvenciones − anticipos
+TotalExecutableAmount       = a pagar − retenido − especie + suplidos + financieros
+```
+
+Y en cada línea: `TotalCost = Quantity × UnitPriceWithoutTax`, y
+`GrossAmount = TotalCost − descuentos + cargos`.
+
+### Dónde el esquema se abstiene, nosotros también
+
+`TaxAmount` lleva esta anotación: «La legislación del impuesto correspondiente
+determina cómo se calcula la cuota». Y `TaxRate`: «Téngase en cuenta que no
+siempre son porcentajes».
+
+Así que `FE-CUOTA` va como **aviso**, no como error —al revés que `BR-CO-17`,
+que en UBL y CII sí es error porque la norma europea sí lo manda—, y no se le
+mide la cuota a los impuestos que no se liquidan por porcentaje: los especiales
+van por litro o por kilo, y multiplicar su «tipo» por la base no significa
+nada.
+
+Los códigos (`FE-BASE`, `FE-TOTAL`...) son **nuestros** y se llaman por lo que
+comprueban. Facturae no numera sus reglas como EN 16931 numera las `BR-*`, e
+inventar un «FE-07» que suene a oficial es exactamente el error que ya se
+cometió aquí una vez con unos `BR-IG-*` que no existen en ninguna norma.
+
+### Lo que se factura y no se grava
+
+La comprobación que más dinero mueve no está escrita como fórmula en ninguna
+parte: que la base declarada en el desglose cubra lo que la factura cobra. Va
+como aviso, porque hay regímenes —agencias de viajes, grupo de entidades— donde
+la base del impuesto legítimamente no es el importe facturado.
+
+Sale sola en **dos de las nueve facturas oficiales de prueba**: 33,75 € en una
+y 22,08 € en otra, facturados y sin base declarada. Las mismas dos cifras que
+un revisor independiente había encontrado antes a mano, al céntimo.
+
+### Un fichero Facturae son varias facturas
+
+`Facturae/Invoices/Invoice*`, con una cabecera de lote encima que declara
+cuántas hay y cuánto suman. En UBL y en CII el fichero *es* la factura. Por eso
+no basta con rellenar otra `Sintaxis`: hay una capa de reglas —`FE-LOTE-*`— que
+en las otras sintaxis no existe, y cuando hay más de una factura cada queja
+tiene que decir de cuál habla.
+
+### La tolerancia depende de cuántas cifras se sumen
+
+Cada importe se escribe redondeado, así que al sumarlos los medios céntimos se
+acumulan: para N cifras, la desviación legítima llega a `0,005 × (N+1)`. Con
+una sola cifra eso es el céntimo de siempre.
+
+No es teórico. `alphp_factura-prueba-v1-2-0.xml`, que es correcta, suma tres
+cuotas —34,91 + 34,91 + 209,43 = 279,25— y declara 279,24: con la tolerancia
+fija se salva por el pelo, y con una cuota más ya no. **Y se cuentan cifras, no
+entradas**: una entrada de impuesto con recargo de equivalencia aporta dos
+importes redondeados, no uno. Ese detalle lo cazó un test, no la lectura.
+
+### El resultado sobre las muestras
+
+Nueve ficheros oficiales que no hemos escrito nosotros, ninguna queja de
+aritmética sobre las que están bien —incluida la más enrevesada, con descuento
+general, descuento y cargo de línea, dos impuestos repercutidos, recargo de
+equivalencia y retención— y las dos defectuosas señaladas con la cifra exacta.
+
 ## Ejemplo de salida
 
 ```
@@ -761,12 +856,6 @@ cubiertos. Lo que queda es de otra clase:
 documentos escritos a mano para provocar cada error. Falta pasarle un lote de
 facturas de verdad, con sus rarezas, y ver qué mensajes salen mal redactados o
 qué formato no se reconoce. Es el trabajo que decide si esto sirve.
-
-**Reglas de negocio para Facturae.** Se queda fuera a propósito: no es una
-sintaxis de EN 16931 sino un formato nacional con su propio modelo, así que no
-basta con rellenar otra `Sintaxis`. Haría falta un mapa distinto y decidir qué
-reglas tienen equivalente. Mientras tanto, a un Facturae sí se le comprueba la
-forma contra su XSD y el código único, que es donde están las reglas españolas.
 
 **Las reglas de IVA por línea.** Ahora se comprueba el desglose contra las
 líneas, pero no que el tipo declarado en cada línea sea coherente con el

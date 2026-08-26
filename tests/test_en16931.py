@@ -376,14 +376,25 @@ class TestRedondeo:
 
 
 class TestOtrosFormatos:
-    def test_facturae_se_identifica_pero_no_se_valida(self):
+    def test_facturae_se_lo_queda_su_propio_modulo(self):
+        """Este modulo implementa la norma europea sobre UBL y CII y ya esta.
+
+        Las reglas de Facturae salen de otro sitio -del propio esquema del
+        formato- y las aplica `facturae.py`. Aqui, callarse es lo correcto: el
+        SIN-SOPORTE que salia antes era un aviso que sobraba y se quedaba corto
+        a la vez.
+        """
         xml = """<?xml version="1.0"?>
 <fe:Facturae xmlns:fe="http://www.facturae.es/Facturae/2009/v3.2/Facturae">
   <FileHeader><SchemaVersion>3.2</SchemaVersion></FileHeader>
 </fe:Facturae>"""
-        informe = en16931.validar(xml)
-        assert "SIN-SOPORTE" in codigos(informe, AVISO)
-        assert informe.conforme  # no hay errores, simplemente no se ha validado
+        assert en16931.validar(xml).incidencias == []
+
+    def test_edifact_si_sigue_sin_soporte(self):
+        """Lo que de verdad no se valida se sigue diciendo, y con estas letras."""
+        datos = b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+INVOIC:D:96A:UN'"
+        aviso = [i for i in en16931.validar(datos).avisos if i.codigo == "SIN-SOPORTE"]
+        assert aviso and "UBL y para CII" in aviso[0].mensaje
 
     def test_documento_irreconocible(self):
         informe = en16931.validar(b"<pedido/>")
