@@ -300,17 +300,27 @@ def _por_que_no_encaja(arbol, entrada, encontrado: str, esperados: list[str]):
         return None
     hermanos = [_limpiar(hijo.tag) for hijo in hijos]
 
+    donde = hijos.index(elemento)
+
     # El repetido se mira antes que el desordenado. Con <ID/><ID/><Fecha/>, lo
     # que se espera (Fecha) también aparece más adelante, así que la
     # comprobación de orden diría que están cambiados de sitio cuando lo que
     # pasa es que uno sobra.
-    if hermanos.count(encontrado) > 1:
+    #
+    # Pero no basta con contar cuántos hay: hay elementos que la norma permite
+    # repetir. Lo que hace que uno sobre es que **otro igual haya pasado ya**
+    # por su sitio bueno; si el que se queja es el primero, el problema no es
+    # que haya dos, es dónde están. Contando a secas, un
+    # `AdditionalDocumentReference` —que UBL admite sin límite— colocado en el
+    # lugar equivocado salía como «aparece 2 veces y el esquema no admite
+    # tantas», y quien leyera eso borraría uno sin arreglar nada.
+    if encontrado in hermanos[:donde]:
         return (
             f"«{encontrado}» aparece {hermanos.count(encontrado)} veces y el "
             "esquema no admite tantas."
         )
 
-    posteriores = hermanos[hijos.index(elemento) + 1 :]
+    posteriores = hermanos[donde + 1 :]
     desordenado = [nombre for nombre in esperados if nombre in posteriores]
     if desordenado:
         return (

@@ -177,3 +177,54 @@ extranjera.
 
 460 tests. Los dieciséis nuevos fallan con el código anterior: se ha comprobado
 revirtiendo cada arreglo por separado y volviéndolos a pasar.
+
+## Con los esquemas XSD oficiales puestos
+
+Hasta aquí la validación de forma no se había ejercitado nunca contra ficheros
+reales: `esquemas/` estaba vacía y el validador lo decía al final de cada
+informe. Se instalaron los oficiales —Facturae 3.0, 3.1, 3.2, 3.2.1 y 3.2.2 de
+[facturae.gob.es](https://www.facturae.gob.es/), UBL 2.1 de OASIS y CII D16B de
+los artefactos de la Comisión—, 24 ficheros y 3,8 MB. No se versionan.
+
+Las nueve españolas **cumplen todas su esquema**. Antes de creérselo se
+comprobó que la comprobación está viva: metiéndoles a mano una etiqueta
+inventada, un importe con letras y una cabecera renombrada, salta en los tres
+casos. De las 73 europeas, tres no cumplen.
+
+Y ahí aparecieron dos cosas más.
+
+### Un mensaje que mandaba a borrar lo que no sobraba
+
+`peppol_GR-base-example-correct.xml` —que se llama «correct»— tiene dos
+`AdditionalDocumentReference` colocados después del cliente, cuando UBL 2.1 los
+pone antes del proveedor. El esquema lo rechaza con razón. Pero el mensaje
+decía:
+
+> «AdditionalDocumentReference» aparece 2 veces y el esquema no admite tantas.
+
+Y UBL sí admite tantas: ese elemento es `maxOccurs="unbounded"`. Lo que está
+mal es **dónde** están, no cuántos hay. Quien leyera ese mensaje borraría uno y
+no arreglaría nada.
+
+La causa, en `_por_que_no_encaja`: se contaban los hermanos con el mismo nombre
+y, si había más de uno, se daba por repetido antes de mirar el orden. Contar no
+distingue los dos casos. Lo que hace que uno sobre es que **otro igual haya
+pasado ya por su sitio bueno**; si el que se queja es el primero, el problema es
+la posición. Ahora se mira eso, y el mensaje nombra qué elementos tenían que ir
+delante.
+
+### La suite de tests no era hermética
+
+Al poner los esquemas, **doce tests que llevaban meses en verde se pusieron
+rojos**. Ninguno era sobre esquemas: eran los de `factura.py`, que construyen
+facturas mínimas —lo justo para retorcer una regla de negocio— y por eso no
+cumplen el XSD completo, donde `PartyTaxScheme` exige su `TaxScheme` dentro.
+
+El fallo real no era de esos tests sino del conjunto: `Catalogo.por_defecto()`
+lee la carpeta `esquemas/` del directorio actual, así que **el resultado de la
+suite dependía de si quien la ejecuta se había bajado los XSD**. Verde en una
+máquina y rojo en otra, sin que cambie una línea de código.
+
+`tests/conftest.py` lo declara ahora en voz alta: los tests apuntan a una
+carpeta de esquemas que no existe. Quien quiera probar la validación de forma
+monta su propio `Catalogo`, que es lo que ya hacía `test_esquema.py`.

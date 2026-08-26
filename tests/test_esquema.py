@@ -28,6 +28,7 @@ COMUNES = f"""<?xml version="1.0"?>
     </xs:restriction></xs:simpleType>
   </xs:element>
   <xs:element name="IssueDate" type="xs:date"/>
+  <xs:element name="Note" type="xs:string"/>
   <xs:element name="InvoiceTypeCode">
     <xs:simpleType><xs:restriction base="xs:string">
       <xs:enumeration value="380"/><xs:enumeration value="381"/>
@@ -54,6 +55,10 @@ PRINCIPAL = f"""<?xml version="1.0"?>
   <xs:element name="Invoice">
     <xs:complexType><xs:sequence>
       <xs:element ref="cbc:ID"/>
+      <!-- Repetible sin limite, como AdditionalDocumentReference en UBL: hace
+           falta uno asi para distinguir «esta mal colocado» de «sobra». Va
+           antes de IssueDate para poder ponerlo despues en el documento. -->
+      <xs:element ref="cbc:Note" minOccurs="0" maxOccurs="unbounded"/>
       <xs:element ref="cbc:IssueDate"/>
       <xs:element ref="cbc:InvoiceTypeCode"/>
       <xs:element ref="cbc:CompanyID" minOccurs="0"/>
@@ -103,6 +108,49 @@ def codigos(incidencias, gravedad=None):
 
 def una(incidencias, codigo):
     return next(i for i in incidencias if i.codigo == codigo)
+
+
+class TestRepetidoFrenteADesordenado:
+    """Que algo aparezca dos veces no significa que sobre.
+
+    Salio de instalar los esquemas oficiales y pasarlos por facturas ajenas: un
+    `AdditionalDocumentReference` -que UBL admite sin limite- colocado despues
+    de `AccountingCustomerParty` en vez de antes de `AccountingSupplierParty`
+    salia como «aparece 2 veces y el esquema no admite tantas». Quien leyera eso
+    borraria uno y no arreglaria nada, porque el problema era la posicion.
+
+    La cuenta a secas no distingue los dos casos. Lo que hace que uno sobre es
+    que otro igual haya pasado ya por su sitio bueno: si el que se queja es el
+    primero, el problema es donde esta.
+    """
+
+    def test_repetible_pero_mal_colocado_es_desorden(self, catalogo):
+        # Las dos Note van despues de IssueDate cuando el esquema las pone
+        # antes, y lo que se espera -InvoiceTypeCode- aparece mas adelante.
+        roto = factura_xml(
+            """  <cbc:ID>F-2026-0001</cbc:ID>
+  <cbc:IssueDate>2026-03-02</cbc:IssueDate>
+  <cbc:Note>una</cbc:Note>
+  <cbc:Note>y otra</cbc:Note>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>"""
+        )
+        problema = una(revisar(roto, catalogo), "XSD-ORDEN")
+        assert "cambiados de sitio" in problema.mensaje
+        assert "veces" not in problema.mensaje, (
+            "contarlos despista: son dos porque la norma deja, y el fallo es "
+            "que van despues de InvoiceTypeCode en vez de antes")
+
+    def test_el_que_de_verdad_sobra_se_sigue_llamando_repetido(self, catalogo):
+        """La otra mitad: el arreglo no puede tapar el caso que ya funcionaba."""
+        roto = factura_xml(
+            """  <cbc:ID>F-2026-0001</cbc:ID>
+  <cbc:ID>F-2026-0002</cbc:ID>
+  <cbc:IssueDate>2026-03-02</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>"""
+        )
+        problema = una(revisar(roto, catalogo), "XSD-ORDEN")
+        assert "2 veces" in problema.mensaje
+        assert "cambiados de sitio" not in problema.mensaje
 
 
 # --- El catálogo -----------------------------------------------------------

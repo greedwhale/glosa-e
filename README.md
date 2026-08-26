@@ -20,7 +20,7 @@ según el RD 238/2026.
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 | Reglas para Facturae | EN 16931 no es su modelo; haría falta un mapa aparte | Pendiente |
 
-444 tests, todos en verde.
+462 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q

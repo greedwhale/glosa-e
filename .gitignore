@@ -11,3 +11,6 @@ dist/
 # Facturas de terceros descargadas para probar. No son nuestras.
 muestras/
 MuestrasFE/
+
+# Los esquemas XSD oficiales: son de sus organismos y pesan 3,8 MB.
+esquemas/
