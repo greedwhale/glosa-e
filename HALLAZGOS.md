@@ -228,3 +228,105 @@ máquina y rojo en otra, sin que cambie una línea de código.
 `tests/conftest.py` lo declara ahora en voz alta: los tests apuntan a una
 carpeta de esquemas que no existe. Quien quiera probar la validación de forma
 monta su propio `Catalogo`, que es lo que ya hacía `test_esquema.py`.
+
+## La auditoría independiente
+
+Se encargó a un revisor independiente decidir, con pruebas, si la herramienta
+hace su trabajo. Con el encargo explícito de no dar nada por bueno porque lo
+diga esta documentación: todo lo que hay aquí lo ha escrito el mismo autor cuya
+obra se audita, comentarios incluidos.
+
+Su veredicto: **hace bien la parte que hace —forma XSD y código único, sin un
+solo error de los que denuncia— pero sobre Facturae no comprueba ni un número,
+y lo dice de una manera que se lee como aprobado.**
+
+### Lo que confirmó, y cómo
+
+- **El algoritmo del CIF es correcto.** Lo implementó desde su definición, sin
+  leer ni importar `nif.py`, y comparó ocho identificadores. Coincidencia total,
+  incluidos los dos inválidos de las muestras oficiales, que por casualidad
+  piden el mismo dígito. Prueba adicional: inyectó un CIF con el dígito de
+  control cambiado y la herramienta pidió el mismo que da su implementación.
+- **Los tres duplicados de `CU-10` son reales.** Uno es idéntico byte a byte;
+  los otros dos son el mismo cuerpo con y sin firma.
+- **Las cuatro facturas que salen limpias cuadran de verdad.** Escribió su
+  propio comprobador aritmético y las repasó.
+
+### Lo que encontró y ya está arreglado
+
+**`IVA-TIPO` se aplicaba a facturas que no son españolas.** El filtro
+`obligado_en_espania` se cableó a la familia `CU-*` y se olvidó esta. Resultado:
+**64 quejas en 50 de las 73 facturas europeas**, denunciando el 25 % danés, el
+19 % alemán y el 27 % húngaro como si fueran dedazos. Eran **el 70 % de todo lo
+que decía el programa**, y enterraban la señal útil debajo.
+
+Es el mismo error diagnosticado y corregido una vez, sin terminar de aplicarlo.
+Ahora `iva.reglas` recibe si el documento es español y el orquestador lo decide
+una sola vez para los dos bandos. El corpus europeo pasa de 91 incidencias a 27.
+
+### Lo que encontró y sigue abierto
+
+Por orden de gravedad:
+
+1. **Sobre Facturae no se valida ninguna aritmética, y se demostró.** Copió una
+   factura oficial e inyectó nueve defectos de uno en uno: total a 999.999,99,
+   cuota de IVA a 1,00, una línea que ya no suma la base, cantidad cambiada sin
+   tocar el importe, tipo al 77 %, total negativo, NIF del receptor inválido...
+   **Nueve defectos, nueve silencios.** La capacidad existe —el mismo defecto en
+   un UBL salta como `BR-CO-16`— pero no se enchufa: `en16931.reglas` devuelve
+   solo `SIN-SOPORTE` si la familia no es UBL o CII, y `iva.reglas` se llama
+   dentro de esa rama.
+
+   Cuantificado: de los 64 códigos de regla implementados, sobre un Facturae
+   solo pueden dispararse 25 (los `XSD-*` y los `CU-*`). De los que son
+   comprobación de negocio, 14 de 53. **De la aritmética, cero.**
+
+2. **Dos muestras oficiales tienen la base mal repartida y no lo decimos.** En
+   `gob_facturae_32v1.xml` el total antes de impuestos es 59,75 pero las bases
+   del desglose suman 26,00: quedan 33,75 € sin gravar. En
+   `gob_sample-factura-firmada-31.xml` la base declarada es la de antes de
+   descuentos y recargos: 22,08 € de diferencia. En UBL las cazarían `BR-CO-10`
+   y `BR-CO-13`.
+
+3. **`CU-07` no cubre lo que su mensaje promete.** Dice «más de 4 años» pero
+   compara años de calendario: `fecha.year < hoy.year - 4`. Una factura de
+   2022-01-01, con 4 años y 7 meses, no salta. Se pierde todo el tramo entre 4
+   y casi 5 años.
+
+4. **`BR-09` y `BR-11` se evalúan desde la raíz.** En el esquematrón normativo
+   cuelgan de la dirección postal del vendedor y del comprador. Si falta la
+   dirección entera, la norma dispara solo `BR-08`; aquí salen las dos, y se
+   duplica la queja sobre un solo defecto. Es la misma familia de error que el
+   `BR-{X}-05` ya corregido. Comprobado quitando el bloque de dirección.
+
+5. **`CU-14` afirma algo que no ha pasado.** Dice «la fecha retrocede al avanzar
+   el número» sobre dos facturas con el **mismo** número. Las entradas se
+   ordenan solo por ordinal y, al empatar, el orden entre ellas es el de
+   llegada. La incidencia real —número repetido— ya la había dicho `CU-11`.
+
+6. **`XSD-TIPO` diagnostica lo que no es en las fechas imposibles.** Con
+   `2012-02-31` responde «una fecha se escribe AAAA-MM-DD». Ya está escrita así:
+   lo que pasa es que el 31 de febrero no existe. La pista es un literal fijo
+   por tipo, no depende del fallo concreto.
+
+7. **«Sin errores» promete más de lo hecho.** Es el mensaje más peligroso del
+   programa. Sobre un Facturae significa exactamente «cumple el XSD y su código
+   único es formable y no está repetido», y se lee como «esta factura está
+   bien». Y `SIN-SOPORTE` dice lo contrario en la otra dirección —«solo se ha
+   identificado, no validado»— que tampoco es cierto, porque XSD y `CU-*` sí se
+   han aplicado. Las dos frases juntas dejan al lector sin saber qué se ha
+   mirado.
+
+8. **La cabecera de un fichero puede decir «sin errores» y ser un error.** Los
+   duplicados salen como incidencia de lote, así que cada fichero del par se
+   imprime como limpio y el recuento final los cuenta entre los correctos.
+
+9. **El NIF del receptor no se valida nunca.** Es defendible —el código único
+   solo usa el del emisor— pero conviene saberlo.
+
+### Lo que el auditor no verificó
+
+La validez criptográfica de las firmas XAdES; el texto del RD 238/2026 en sí
+—comprobó que los cálculos son correctos, no que la norma diga lo que el código
+afirma—; y el contexto de las reglas `BR-*` en la sintaxis CII, porque solo
+descargó el esquematrón de UBL.

@@ -113,8 +113,12 @@ def _reglas(
     La forma va primero porque es lo primero que mira un receptor: si el
     documento no cumple el esquema, ni llega a leer los numeros.
     """
+    # Una sola vez, y sirve para los dos bandos: el reglamento español no
+    # aplica a una factura extranjera, y tampoco tiene sentido medirle los
+    # tipos de IVA contra los que se usan aquí.
+    espanola = codigo_unico.obligado_en_espania(raiz, deteccion)
     incidencias = list(esquema.reglas(raiz, deteccion, catalogo))
-    incidencias.extend(en16931.reglas(raiz, deteccion))
+    incidencias.extend(en16931.reglas(raiz, deteccion, espanola=espanola))
     incidencias.extend(codigo_unico.reglas(raiz, deteccion, hoy=hoy))
     return _podar(incidencias)
 

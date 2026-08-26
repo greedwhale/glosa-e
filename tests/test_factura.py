@@ -100,6 +100,20 @@ def facturae(primera="F-001", segunda="F-002", nif=NIF_BUENO):
     return FACTURAE.format(primera=primera, segunda=segunda, nif=nif)
 
 
+def al_25(**opciones):
+    """La misma factura pero al 25%, que es el tipo general danes.
+
+    El constructor de arriba va al 21%, que es vigente en Espania y por tanto
+    no dispara IVA-TIPO: con el no se puede probar nada sobre ese aviso. Se
+    cambian tambien las cuotas para que la factura siga cuadrando y el unico
+    motivo de queja sea el tipo.
+    """
+    return (ubl(**opciones)
+            .replace("<cbc:Percent>21</cbc:Percent>", "<cbc:Percent>25</cbc:Percent>")
+            .replace(">21.00<", ">25.00<")
+            .replace(">121.00<", ">125.00<"))
+
+
 def codigos(informe, gravedad=None):
     fuente = informe.incidencias if hasattr(informe, "incidencias") else informe
     return {i.codigo for i in fuente if gravedad is None or i.gravedad == gravedad}
@@ -354,6 +368,26 @@ class TestAQuienLeAplicaElReglamentoEspanol:
         """Es el formato nacional: no hace falta preguntarle de donde es."""
         informe = factura.validar(facturae(nif=NIF_MALO), hoy=HOY)
         assert "CU-01" in codigos(informe, ERROR)
+
+    def test_a_la_extranjera_no_se_le_miden_los_tipos_espanoles(self):
+        """El aviso IVA-TIPO tambien es una regla espaniola, y se colaba.
+
+        El filtro se cableo a la familia CU-* y se olvido esta. Lo encontro un
+        auditor independiente: 64 quejas en 50 de las 73 facturas europeas de
+        muestras/ -el 70% de todo lo que decia el programa- denunciando el 25%
+        danes, el 19% aleman y el 27% hungaro como si fueran dedazos.
+        """
+        informe = factura.validar(al_25(pais="DK", nif="DK12345678"), hoy=HOY)
+        assert "IVA-TIPO" not in codigos(informe), informe.detalle()
+
+    def test_a_la_espaniola_si_se_le_miden(self):
+        """Y la otra mitad: acotar no puede ser dejar de comprobar.
+
+        El 25% no es tipo vigente en Espania, asi que sobre una factura
+        espaniola el aviso tiene que seguir saliendo.
+        """
+        informe = factura.validar(al_25(), hoy=HOY)
+        assert "IVA-TIPO" in codigos(informe, AVISO), informe.detalle()
 
     def test_dos_facturas_de_paises_distintos_no_son_un_duplicado(self, tmp_path):
         """Las reglas de conjunto tambien tenian que acotarse.

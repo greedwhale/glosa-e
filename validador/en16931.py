@@ -447,7 +447,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
 # --- Entrada pública -------------------------------------------------------
 
 
-def reglas(raiz, deteccion) -> list[Incidencia]:
+def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
     """Las reglas EN 16931 sobre un documento ya parseado.
 
     Separado de `validar` para que el orquestador pueda pasar el mismo árbol a
@@ -487,7 +487,7 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
     incidencias.extend(_reglas_obligatorios(raiz, sintaxis))
     incidencias.extend(_regla_lineas(raiz, sintaxis))
     incidencias.extend(_reglas_cuadre(raiz, sintaxis))
-    incidencias.extend(iva.reglas(raiz, sintaxis))
+    incidencias.extend(iva.reglas(raiz, sintaxis, espanola=espanola))
     return incidencias
 
 

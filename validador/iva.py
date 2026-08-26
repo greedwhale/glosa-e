@@ -699,8 +699,15 @@ def _regla_lineas_con_categoria(apuntes: list[Apunte]) -> list[Incidencia]:
 # --- Entrada pública -------------------------------------------------------
 
 
-def reglas(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
-    """Todas las comprobaciones de IVA sobre un documento ya parseado."""
+def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
+    """Todas las comprobaciones de IVA sobre un documento ya parseado.
+
+    `espanola` dice si el documento está sujeto a la facturación española. Solo
+    afecta a `IVA-TIPO`, que compara contra los tipos vigentes en España y no
+    significa nada sobre una factura danesa. Por defecto sí, porque para eso
+    existe esta herramienta y porque llamar a `reglas` sin decir nada no puede
+    apagar comprobaciones en silencio.
+    """
     grupos = _leer_grupos(raiz, sintaxis)
     apuntes = _leer_apuntes(raiz, sintaxis)
 
@@ -761,6 +768,12 @@ def reglas(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     incidencias.extend(_regla_tipo_de_los_conceptos(apuntes))
     incidencias.extend(_regla_hay_desglose(grupos, apuntes))
     incidencias.extend(_regla_no_sujeta_a_solas(grupos))
-    incidencias.extend(_regla_tipos_espanoles(grupos))
+    if espanola:
+        # Sobre una factura extranjera este aviso no dice nada: el 25% danés y
+        # el 19% alemán son sus tipos generales, no un dedazo. Sin esta
+        # condición era 64 quejas en 50 de las 73 facturas europeas de
+        # `muestras/` —el 70% de todo lo que decía el programa— y la señal útil
+        # quedaba enterrada debajo.
+        incidencias.extend(_regla_tipos_espanoles(grupos))
     incidencias.extend(_regla_lineas_con_categoria(apuntes))
     return incidencias
