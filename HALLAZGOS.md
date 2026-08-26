@@ -439,3 +439,125 @@ EN 16931—, así que toda la familia `BR-{X}-*` sigue sin equivalente y no lo
 tendrá: no hay dónde mapearla. Lo que se comprueba ahora es la aritmética, que
 es donde estaba el agujero. Tampoco se valida la firma XAdES, que en Facturae
 es lo que le da validez legal frente a terceros.
+
+---
+
+# Los siete arreglos restantes
+
+Hallazgos 3 a 9 de la auditoría. Cerrados los nueve.
+
+Cada uno se reprodujo antes de tocar nada, y cada test nuevo se comprobó
+revirtiendo su arreglo por separado.
+
+## 3. `CU-07` no cubría lo que su mensaje promete
+
+Decía «más de 4 años» y comparaba **años de calendario**. Reproducido: del 20
+de septiembre de 2026, una factura del 1 de enero de 2022 —cuatro años y siete
+meses— pasaba sin decir nada, y una del 31 de diciembre de 2021, **tres semanas
+más vieja**, sí saltaba. La diferencia real entre las dos es de tres semanas y
+la respuesta del programa era la contraria.
+
+Ahora se comparan fechas, con el 29 de febrero resuelto al 28. Un test antiguo
+—«fecha dentro de prescripción no avisa», con 2022-05-01, que son cuatro años y
+medio— pasaba **solo porque la comprobación miraba años de calendario**.
+
+## 4. `BR-09` y `BR-11` se evaluaban desde la raíz
+
+En el esquematrón normativo cuelgan de la dirección postal. Sin dirección, la
+norma dispara `BR-08` y calla. Aquí salían las dos, y el informe contaba dos
+defectos donde había uno, con el segundo además mal descrito: no es que a la
+dirección le falte el país, es que no hay dirección.
+
+Misma familia que el `BR-{X}-05` que se comprobaba sobre el desglose en vez de
+sobre la línea. Va con la prueba que impide «arreglarlo» borrando la regla: con
+dirección y sin país, `BR-09` sigue saltando.
+
+## 5. `CU-14` afirmaba algo que no había pasado
+
+Reproducido literalmente:
+
+```
+[CU-11] El número de factura está repetido con otra fecha.
+[CU-14] La fecha retrocede al avanzar el número.
+        Tiene: F-001 el 2026-03-05, pero F-001 el 2026-03-02
+```
+
+El número no había avanzado: es el mismo. Las entradas de una serie se ordenan
+solo por ordinal, y al empatar quedan en el orden en que llegaron —el de los
+ficheros de la carpeta—. De ese caso ya se queja `CU-11`, que sí sabe lo que
+es.
+
+## 6. `XSD-TIPO` diagnosticaba lo que no era
+
+A `2012-02-31` respondía «una fecha se escribe AAAA-MM-DD». Ya está escrita
+así. Quien lee eso comprueba el formato, lo ve bien y no encuentra el fallo.
+
+La pista era un literal fijo por tipo. Ahora, en las fechas, mira el valor: «la
+forma está bien, pero ese día no existe: febrero de 2012 tiene 29 días». Y sabe
+de años bisiestos —`2011-02-29` da 28— y de meses que no existen.
+
+## 7. «Sin errores» prometía más de lo hecho
+
+El mensaje más peligroso del programa. No quiere decir «esta factura está
+bien»: quiere decir «no ha fallado ninguna de las comprobaciones que existen»,
+y quien lo lee no tiene por qué saber cuáles son.
+
+La mitad grande se cerró portando la aritmética de Facturae. Lo que quedaba se
+dice ahora al final del informe, una sola vez —como el recordatorio de los
+esquemas, y por lo mismo: en un lote de doscientos, cien repeticiones de la
+misma advertencia son ruido—:
+
+```
+«Sin errores» quiere decir que se ha comprobado la forma contra el esquema
+XSD, la aritmética del formato Facturae (líneas, totales, impuestos y cabecera
+de lote), el código único del RD 238/2026.
+No se comprueba la validez de las firmas electrónicas, ni si lo que dice la
+factura es cierto.
+```
+
+La frase se ajusta a lo que había en el lote: a un Facturae no le promete
+reglas europeas, a un UBL no le promete las de Facturae, y **si no hay esquemas
+XSD puestos no promete la forma** —decirlo justo encima del recordatorio de que
+no hay esquemas eran dos líneas seguidas contradiciéndose, que es peor que no
+decir nada y es exactamente el defecto que esta línea viene a arreglar—.
+
+Y el `SIN-SOPORTE` que decía lo contrario en la otra dirección ya no sale sobre
+Facturae. Sobre EDIFACT sí, que ahí es cierto.
+
+## 8. Un fichero podía decir «sin errores» y ser medio duplicado
+
+Un duplicado no es de ninguno de los dos ficheros por separado: cada uno,
+mirado solo, está perfecto. Los dos se imprimían «sin errores», los dos se
+contaban entre los correctos, y el error aparecía al final huérfano. El resumen
+podía decir «2 correctos, 0 con errores» sobre un lote que sí tiene un error.
+
+Ahora una incidencia sabe a qué ficheros apunta, el recuento los deja fuera de
+los correctos, y la línea de cada uno lo dice: «sin errores, pero choca con
+otro fichero (ver abajo)». Sobre las nueve muestras españolas, de 4 correctas a
+2 —y las dos que quedan son las que de verdad no chocan con nada—.
+
+Límite conocido: se atribuyen las tres incidencias de conjunto que son error
+(`CU-10`, `CU-11`, `CU-12`). Las de serie (`CU-13`, `CU-14`, `CU-15`) son
+avisos y no cambian el recuento, así que no se les ha hilado la procedencia.
+
+## 9. El NIF del receptor no se validaba nunca
+
+Ahora sí, pero como **aviso «de la casa» y sin prefijo `CU-`**: el código único
+solo usa el del emisor, así que el RD 238/2026 no firma esta queja y no puede
+salir con su etiqueta. Es el mismo cuidado que falló con unos `BR-IG-*`
+inventados.
+
+Al escribir la guarda de «esta factura no es española» **salió mal a la
+primera**: un `NL999999999B01` recibía la queja igualmente, que es exactamente
+el fallo que costó 61 quejas falsas en 62 facturas ajenas. Lo cazó el test. La
+pista —dos letras seguidas al principio son prefijo de país, y ningún NIF, NIE
+ni CIF español empieza así— vivía solo en `obligado_en_espania` y al copiarla se
+copió mal; ahora las dos la leen del mismo sitio.
+
+## Lo que sigue sin comprobarse, y ahora se dice
+
+La validez criptográfica de las firmas XAdES, que en Facturae es lo que le da
+validez legal frente a terceros. Y si lo que dice la factura es cierto, que no
+lo puede saber ningún validador.
+
+527 tests.

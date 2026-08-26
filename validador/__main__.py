@@ -107,7 +107,7 @@ def main(argumentos: list[str] | None = None) -> int:
             informe.incidencias = informe.errores
         lote.cruzadas = [i for i in lote.cruzadas if i.gravedad == ERROR]
 
-    print(lote.detalle())
+    print(lote.detalle(forma=not catalogo.vacio))
     if catalogo.vacio:
         # Una sola línea al final, no un aviso por fichero: quien no tiene los
         # esquemas puestos ya lo sabe, y no hace falta repetírselo cien veces.

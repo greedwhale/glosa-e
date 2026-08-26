@@ -509,6 +509,55 @@ class TestElNifDelReceptor:
         assert factura.origen(Incidencia("NIF-RECEPTOR", AVISO, "")) == factura.CASA
 
 
+class TestLoQueSeHaMirado:
+    """Hallazgo 7: «sin errores» promete mas de lo hecho.
+
+    Es el mensaje mas peligroso del programa. No quiere decir «esta factura
+    esta bien»: quiere decir «no ha fallado ninguna de las comprobaciones que
+    existen», y quien lo lee no tiene por que saber cuales son.
+    """
+
+    def test_el_informe_dice_que_se_ha_mirado(self, tmp_path):
+        escribir(tmp_path, "a.xml", ubl())
+        lote = factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY)
+        assert "EN 16931" in lote.detalle()
+        assert "código único del RD 238/2026" in lote.detalle()
+
+    def test_y_dice_lo_que_no(self, tmp_path):
+        escribir(tmp_path, "a.xml", ubl())
+        lote = factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY)
+        assert "firmas" in lote.detalle()
+
+    def test_no_promete_reglas_europeas_sobre_un_facturae(self, tmp_path):
+        """A un Facturae no se le miden las BR-*, y decirlo seria mentir."""
+        escribir(tmp_path, "a.xml", facturae())
+        lote = factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY)
+        assert "EN 16931" not in lote.alcance()
+        assert "Facturae" in lote.alcance()
+
+    def test_ni_reglas_de_facturae_sobre_un_ubl(self, tmp_path):
+        escribir(tmp_path, "a.xml", ubl())
+        lote = factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY)
+        assert "formato Facturae" not in lote.alcance()
+
+    def test_no_promete_la_forma_si_no_hay_esquemas(self, tmp_path):
+        """Decia «se ha comprobado la forma contra el esquema XSD» justo
+        encima del recordatorio de que no hay esquemas puestos: dos lineas
+        seguidas contradiciendose, que es peor que no decir nada.
+        """
+        escribir(tmp_path, "a.xml", ubl())
+        lote = factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY)
+        assert "esquema XSD" in lote.alcance(forma=True)
+        assert "esquema XSD" not in lote.alcance(forma=False)
+
+    def test_la_consola_lo_dice_segun_tenga_esquemas(self, tmp_path, capsys):
+        escribir(tmp_path, "a.xml", ubl())
+        consola.main([str(tmp_path), "--hoy", "2026-09-20", "--esquemas", "no-existe"])
+        salida = capsys.readouterr().out
+        assert "No se ha comprobado la forma" in salida
+        assert "se ha comprobado la forma contra el esquema XSD" not in salida
+
+
 class TestSinComprobar:
     """Un fichero que no se ha podido mirar no es un fichero correcto.
 

@@ -253,7 +253,50 @@ class InformeLote:
             partes.append(f"{len(self.cruzadas)} incidencia(s) entre ficheros")
         return " · ".join(partes) + "."
 
-    def detalle(self) -> str:
+    def alcance(self, forma: bool = True) -> str:
+        """Qué se ha mirado, dicho una vez y al final del informe.
+
+        `forma` dice si había esquemas XSD con los que comprobarla. Sin este
+        dato la frase decía «se ha comprobado la forma contra el esquema XSD»
+        justo encima del recordatorio de que no hay esquemas puestos: dos
+        líneas seguidas contradiciéndose, que es peor que no decir nada y es
+        exactamente el defecto que esta función viene a arreglar.
+
+        «Sin errores» es el mensaje más peligroso que da este programa. No
+        quiere decir «esta factura está bien»: quiere decir «no ha fallado
+        ninguna de las comprobaciones que existen», y quien lo lee no tiene por
+        qué saber cuáles son. La diferencia entre las dos lecturas es la que
+        separa una herramienta útil de una que da falsa tranquilidad.
+
+        Va una sola vez al final, no como aviso en cada fichero, por lo mismo
+        que el recordatorio de los esquemas: en un lote de doscientos, cien
+        repeticiones de la misma advertencia son ruido y se dejan de leer.
+        """
+        familias = {
+            informe.deteccion.familia
+            for _, informe in self.informes
+            if informe.deteccion is not None and informe.deteccion.familia
+        }
+        mirado = ["la forma contra el esquema XSD"] if forma else []
+        if familias & {UBL, CII}:
+            mirado.append(
+                "las reglas EN 16931 (campos obligatorios, cuadre de totales y "
+                "desglose de IVA)"
+            )
+        if FACTURAE in familias:
+            mirado.append(
+                "la aritmética del formato Facturae (líneas, totales, impuestos "
+                "y cabecera de lote)"
+            )
+        mirado.append("el código único del RD 238/2026")
+        return (
+            "«Sin errores» quiere decir que se ha comprobado "
+            + ", ".join(mirado)
+            + ".\nNo se comprueba la validez de las firmas electrónicas, ni si "
+            "lo que dice la factura es cierto."
+        )
+
+    def detalle(self, forma: bool = True) -> str:
         senialados = self.senialados
         lineas: list[str] = []
         for camino, informe in self.informes:
@@ -278,6 +321,8 @@ class InformeLote:
                 lineas.append(_sangrar(incidencia.texto(origen(incidencia)), "  "))
             lineas.append("")
         lineas.append(self.resumen())
+        lineas.append("")
+        lineas.append(self.alcance(forma))
         return "\n".join(lineas)
 
 
