@@ -68,20 +68,30 @@ NS = NS_UBL
 
 # --- Reglas de campos obligatorios -----------------------------------------
 
-# (código, campo de `Sintaxis`, nombre en castellano, explicación, contenedor)
+# (código, campo de `Sintaxis`, nombre en castellano, explicación, contenedor,
+#  de qué cuelga)
 #
 # «contenedor» marca los elementos que agrupan a otros y por tanto no tienen
 # texto propio: una dirección postal no está vacía por no llevar texto suelto.
 # Antes esto se deducía mirando si la ruta acababa en «PostalAddress», que en
 # UBL colaba y en CII —donde se llama «PostalTradeAddress»— habría dado un
 # error falso en todas las facturas.
-_OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
+#
+# «de qué cuelga» es el contexto de la regla en el esquematrón normativo. BR-09
+# no se evalúa sobre la factura: se evalúa **sobre la dirección del vendedor**,
+# y si no hay dirección la norma dispara BR-08 y calla. Aquí salían las dos, y
+# quien recibía el informe leía dos defectos donde solo había uno —encima con
+# el segundo mal descrito, porque no es que a la dirección le falte el país,
+# es que no hay dirección—. Es la misma familia de error que el BR-{X}-05 que
+# se comprobaba sobre el desglose en vez de sobre la línea.
+_OBLIGATORIOS: tuple[tuple[str, str, str, str, bool, str | None], ...] = (
     (
         "BR-01",
         "perfil",
         "Identificador de especificación",
         "La factura debe declarar a qué especificación se ajusta.",
         False,
+        None,
     ),
     (
         "BR-02",
@@ -89,6 +99,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "Número de factura",
         "La factura debe llevar número.",
         False,
+        None,
     ),
     (
         "BR-03",
@@ -96,6 +107,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "Fecha de expedición",
         "La factura debe llevar fecha de expedición.",
         False,
+        None,
     ),
     (
         "BR-04",
@@ -104,6 +116,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "El documento debe indicar de qué tipo es: 380 para una factura "
         "ordinaria, 381 para un abono.",
         False,
+        None,
     ),
     (
         "BR-05",
@@ -111,6 +124,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "Moneda",
         "La factura debe indicar en qué moneda está.",
         False,
+        None,
     ),
     (
         "BR-06",
@@ -118,6 +132,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "Nombre del vendedor",
         "Falta el nombre o razón social de quien emite la factura.",
         False,
+        None,
     ),
     (
         "BR-07",
@@ -125,6 +140,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "Nombre del comprador",
         "Falta el nombre o razón social de quien recibe la factura.",
         False,
+        None,
     ),
     (
         "BR-08",
@@ -132,6 +148,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "Dirección del vendedor",
         "Falta la dirección postal del vendedor.",
         True,
+        None,
     ),
     (
         "BR-09",
@@ -139,6 +156,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "País del vendedor",
         "La dirección del vendedor debe incluir el código de país (ES, FR...).",
         False,
+        "vendedor_direccion",
     ),
     (
         "BR-10",
@@ -146,6 +164,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "Dirección del comprador",
         "Falta la dirección postal del comprador.",
         True,
+        None,
     ),
     (
         "BR-11",
@@ -153,6 +172,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "País del comprador",
         "La dirección del comprador debe incluir el código de país.",
         False,
+        "comprador_direccion",
     ),
     (
         "BR-12",
@@ -160,6 +180,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "Suma de importes de línea",
         "Falta la suma de los importes netos de las líneas.",
         False,
+        None,
     ),
     (
         "BR-13",
@@ -167,6 +188,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "Base imponible total",
         "Falta el importe total sin impuestos.",
         False,
+        None,
     ),
     (
         "BR-14",
@@ -174,6 +196,7 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "Total con impuestos",
         "Falta el importe total con impuestos incluidos.",
         False,
+        None,
     ),
     (
         "BR-15",
@@ -181,14 +204,22 @@ _OBLIGATORIOS: tuple[tuple[str, str, str, str, bool], ...] = (
         "Total a pagar",
         "Falta el importe que hay que pagar.",
         False,
+        None,
     ),
 )
 
 
 def _reglas_obligatorios(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     incidencias = []
-    for codigo, atributo, campo, explicacion, contenedor in _OBLIGATORIOS:
+    for codigo, atributo, campo, explicacion, contenedor, cuelga_de in _OBLIGATORIOS:
         ruta = getattr(sintaxis, atributo)
+        if cuelga_de is not None and not raiz.xpath(
+            getattr(sintaxis, cuelga_de), namespaces=sintaxis.espacios
+        ):
+            # Sin el bloque del que cuelga, esta regla no se evalúa: es lo que
+            # dice su contexto en el esquematrón, y de que falte el bloque ya
+            # se queja la regla de al lado.
+            continue
         if not raiz.xpath(ruta, namespaces=sintaxis.espacios):
             incidencias.append(
                 Incidencia(

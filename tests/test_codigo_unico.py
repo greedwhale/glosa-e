@@ -137,7 +137,35 @@ class TestCodigoSuelto:
         assert "CU-07" in codigos(incidencias, AVISO)
 
     def test_fecha_dentro_de_prescripcion_no_avisa(self):
-        assert codigo_unico.revisar(cu(fecha=date(2022, 5, 1)), hoy=HOY) == []
+        # Del 20 de septiembre de 2026, esta factura tiene tres anios y cuatro
+        # meses. Antes aqui ponia 2022-05-01, que son cuatro anios y medio: la
+        # prueba pasaba solo porque la comprobacion miraba anios de calendario.
+        assert codigo_unico.revisar(cu(fecha=date(2023, 5, 1)), hoy=HOY) == []
+
+    def test_el_tramo_entre_cuatro_y_cinco_anios(self):
+        """Cuatro anios y siete meses son mas de cuatro anios.
+
+        Se comparaban anios de calendario -`fecha.year < hoy.year - 4`- y con
+        eso el mensaje prometia algo que la comprobacion no hacia: se saltaba
+        entero el tramo entre 4 y casi 5. Del 20 de septiembre de 2026, esta
+        factura tiene 4 anios y 8 meses y no se decia nada de ella.
+        """
+        incidencias = codigo_unico.revisar(cu(fecha=date(2022, 1, 1)), hoy=HOY)
+        assert "CU-07" in codigos(incidencias, AVISO)
+
+    def test_y_la_frontera_esta_donde_dice_el_mensaje(self):
+        """El dia que cumple cuatro anios todavia no, y el siguiente si."""
+        justo = codigo_unico.revisar(cu(fecha=date(2022, 9, 20)), hoy=HOY)
+        assert "CU-07" not in codigos(justo)
+        un_dia_mas = codigo_unico.revisar(cu(fecha=date(2022, 9, 19)), hoy=HOY)
+        assert "CU-07" in codigos(un_dia_mas, AVISO)
+
+    def test_el_29_de_febrero_no_revienta(self):
+        """Restarle cuatro anios a un 29 de febrero da un dia que no existe."""
+        bisiesto = date(2028, 2, 29)
+        assert codigo_unico.revisar(cu(fecha=date(2024, 3, 1)), hoy=bisiesto) == []
+        prescrita = codigo_unico.revisar(cu(fecha=date(2024, 2, 27)), hoy=bisiesto)
+        assert "CU-07" in codigos(prescrita, AVISO)
 
 
 # --- Duplicados ------------------------------------------------------------
@@ -240,6 +268,24 @@ class TestSerie:
         )
         assert problema.gravedad == AVISO
         assert "2026-09-10" in problema.encontrado
+
+    def test_el_mismo_numero_no_es_un_numero_que_avanza(self):
+        """CU-14 afirmaba algo que no habia pasado.
+
+        Las entradas se ordenan solo por ordinal, asi que dos facturas con el
+        mismo numero quedan en el orden en que llegaron -el de los ficheros de
+        la carpeta-. Si la segunda tiene fecha anterior, saltaba «la fecha
+        retrocede al avanzar el numero» mostrando F-001 y F-001: el numero no
+        habia avanzado. La incidencia de verdad -numero reutilizado- ya la dice
+        CU-11, que si sabe lo que es.
+        """
+        lote = [
+            cu(numero="F-2026-001", fecha=date(2026, 9, 10)),
+            cu(numero="F-2026-001", fecha=date(2026, 9, 5)),
+        ]
+        incidencias = codigo_unico.revisar_lote(lote, hoy=HOY)
+        assert "CU-14" not in codigos(incidencias)
+        assert "CU-11" in codigos(incidencias, ERROR)
 
     def test_misma_fecha_no_es_retroceso(self):
         lote = [

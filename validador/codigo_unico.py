@@ -52,6 +52,25 @@ _RE_SUFIJO_NUMERICO = re.compile(r"^(?P<prefijo>.*?)(?P<digitos>\d+)$")
 _RE_ESPACIOS = re.compile(r"\s+")
 
 
+def _hace_anios(desde: date, anios: int) -> date:
+    """El mismo día de hace tantos años.
+
+    Antes esto se hacía comparando años de calendario —`fecha.year < hoy.year -
+    4`— y el mensaje prometía algo que la comprobación no hacía: dice «más de 4
+    años» pero se saltaba entero el tramo entre 4 y casi 5. Un 20 de septiembre
+    de 2026, una factura del 1 de enero de 2022 tiene cuatro años y siete meses
+    y no se decía nada de ella; una del 31 de diciembre de 2021, tres semanas
+    más vieja, sí saltaba. La diferencia real entre las dos es de tres semanas
+    y la respuesta del programa era la contraria.
+    """
+    try:
+        return desde.replace(year=desde.year - anios)
+    except ValueError:
+        # 29 de febrero: el año de destino no tiene ese día. Se toma el 28,
+        # que es como cuenta los plazos la Administración.
+        return desde.replace(year=desde.year - anios, month=2, day=28)
+
+
 # --- El código único -------------------------------------------------------
 
 
@@ -166,7 +185,7 @@ def revisar(codigo: CodigoUnico, hoy: date | None = None) -> list[Incidencia]:
             )
         )
     # CU-07: o muy anterior, que casi siempre es el año mal tecleado.
-    elif codigo.fecha.year < hoy.year - ANIOS_PRESCRIPCION:
+    elif codigo.fecha < _hace_anios(hoy, ANIOS_PRESCRIPCION):
         incidencias.append(
             Incidencia(
                 "CU-07",
@@ -448,7 +467,17 @@ def _reglas_de_serie(codigos: list[CodigoUnico]) -> list[Incidencia]:
 
         # CU-14: dentro de una serie, la fecha no debería retroceder al avanzar
         # el número. Cuando lo hace, suele ser una factura metida a posteriori.
-        for (_, anterior), (_, codigo) in zip(entradas, entradas[1:]):
+        for (ordinal_antes, anterior), (ordinal, codigo) in zip(
+            entradas, entradas[1:]
+        ):
+            # Con el mismo ordinal el número no ha avanzado, así que decir que
+            # «la fecha retrocede al avanzar el número» es afirmar algo que no
+            # ha pasado: la queja salía mostrando F-001 y F-001. Las entradas se
+            # ordenan solo por ordinal, y al empatar quedan en el orden en que
+            # llegaron, que es el de los ficheros de la carpeta. De ese caso ya
+            # se queja CU-11, que sí sabe lo que es: número reutilizado.
+            if ordinal == ordinal_antes:
+                continue
             if codigo.fecha < anterior.fecha:
                 incidencias.append(
                     Incidencia(

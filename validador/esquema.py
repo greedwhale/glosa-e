@@ -29,6 +29,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from pathlib import Path
 
 from lxml import etree
@@ -207,6 +208,15 @@ _RE_TEXTO_SUELTO = re.compile(r"^Character content other than whitespace")
 _RE_NAMESPACE = re.compile(r"\{[^}]*\}")
 
 # Cómo se escribe cada tipo, para no dejar a nadie con «xs:date» y una duda.
+# Una fecha que ya viene con la forma correcta. Si el esquema la rechaza aun
+# asi, el problema no es la forma: es que ese dia no existe.
+_RE_FECHA_ESCRITA = re.compile(r"^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$")
+
+_MESES = (
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+)
+
 _PISTAS: dict[str, str] = {
     "xs:date": "Una fecha se escribe AAAA-MM-DD: 2026-03-02.",
     "xs:dateTime": "Se escribe AAAA-MM-DDThh:mm:ss: 2026-03-02T14:30:00.",
@@ -218,6 +228,42 @@ _PISTAS: dict[str, str] = {
     "xs:boolean": "Solo admite true o false.",
     "xs:anyURI": "Tiene que ser una dirección, del estilo https://...",
 }
+
+
+def _pista(tipo: str, valor: str) -> str:
+    """La ayuda que acompaña a un valor que el esquema rechaza.
+
+    Para casi todos los tipos basta con recordar la forma. Con las fechas no:
+    «2012-02-31» **ya está escrita AAAA-MM-DD**, y contestarle «una fecha se
+    escribe AAAA-MM-DD» es no haber mirado el valor. Quien lee eso comprueba
+    el formato, lo ve bien, y no encuentra el fallo.
+
+    Lo que pasa es que el 31 de febrero no existe, y eso es lo que hay que
+    decir. La pista era un literal fijo por tipo y no dependía del valor
+    concreto; ahora, en las fechas, sí.
+    """
+    if tipo in ("xs:date", "xs:dateTime") and (
+        m := _RE_FECHA_ESCRITA.match(valor.strip())
+    ):
+        anio, mes, dia = (int(g) for g in m.groups())
+        if not 1 <= mes <= 12:
+            return f"No existe el mes {mes:02d}: los meses van del 01 al 12."
+        try:
+            date(anio, mes, dia)
+        except ValueError:
+            ultimo = _ultimo_dia(anio, mes)
+            return (
+                f"La forma está bien, pero ese día no existe: "
+                f"{_MESES[mes - 1]} de {anio} tiene {ultimo} días."
+            )
+    return _PISTAS.get(tipo, f"El esquema espera un {tipo}.")
+
+
+def _ultimo_dia(anio: int, mes: int) -> int:
+    """Cuántos días tiene un mes, sin traerse el módulo `calendar` entero."""
+    if mes == 12:
+        return 31
+    return (date(anio, mes + 1, 1) - timedelta(days=1)).day
 
 
 def _limpiar(texto: str | None) -> str:
@@ -392,7 +438,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         )
 
     if (m := _RE_TIPO.match(resto)) is not None:
-        pista = _PISTAS.get(m["tipo"], f"El esquema espera un {m['tipo']}.")
+        pista = _pista(m["tipo"], m["valor"])
         return Incidencia(
             "XSD-TIPO",
             ERROR,

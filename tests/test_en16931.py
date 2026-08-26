@@ -260,11 +260,40 @@ class TestCamposObligatorios:
 
     def test_falta_el_vendedor(self):
         informe = en16931.validar(factura(omitir=("vendedor",)))
-        assert {"BR-06", "BR-08", "BR-09"} <= codigos(informe, ERROR)
+        assert {"BR-06", "BR-08"} <= codigos(informe, ERROR)
 
     def test_falta_el_comprador(self):
         informe = en16931.validar(factura(omitir=("comprador",)))
-        assert {"BR-07", "BR-10", "BR-11"} <= codigos(informe, ERROR)
+        assert {"BR-07", "BR-10"} <= codigos(informe, ERROR)
+
+    def test_sin_direccion_no_se_pide_ademas_el_pais(self):
+        """BR-09 cuelga de la direccion del vendedor, no de la factura.
+
+        En el esquematron normativo su contexto es la direccion postal: si no
+        hay direccion, la norma dispara BR-08 y calla. Aqui salian las dos, y
+        el informe contaba dos defectos donde habia uno, con el segundo ademas
+        mal descrito: no es que a la direccion le falte el pais, es que no hay
+        direccion. Misma familia de error que el BR-{X}-05 que se comprobaba
+        sobre el desglose en vez de sobre la linea.
+        """
+        del_vendedor = codigos(en16931.validar(factura(omitir=("vendedor",))), ERROR)
+        assert "BR-09" not in del_vendedor
+        del_comprador = codigos(en16931.validar(factura(omitir=("comprador",))), ERROR)
+        assert "BR-11" not in del_comprador
+
+    def test_pero_con_direccion_y_sin_pais_si(self):
+        """Que es el caso para el que la regla existe.
+
+        Sin esta prueba, «no digas BR-09» se cumpliria borrando la regla.
+        """
+        # Se quita solo el codigo de pais: la direccion del vendedor sigue
+        # ahi, que es lo que hace que BR-09 tenga contexto donde evaluarse.
+        sin_pais = factura().replace(
+            "<cbc:IdentificationCode>ES</cbc:IdentificationCode>", "", 1
+        )
+        informe = en16931.validar(sin_pais)
+        assert "BR-09" in codigos(informe, ERROR)
+        assert "BR-08" not in codigos(informe, ERROR)
 
     def test_sin_lineas(self):
         informe = en16931.validar(factura(omitir=("InvoiceLine",)))

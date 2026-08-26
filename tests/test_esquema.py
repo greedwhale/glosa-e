@@ -382,6 +382,40 @@ class TestTraduccion:
         assert "AAAA-MM-DD" in problema.mensaje
         assert "xs:date" not in problema.mensaje  # traducido, no copiado
 
+    def test_una_fecha_que_no_existe(self, catalogo):
+        """El 31 de febrero **ya** esta escrito AAAA-MM-DD.
+
+        Contestarle «una fecha se escribe AAAA-MM-DD» es no haber mirado el
+        valor: quien lee eso comprueba el formato, lo ve bien y no encuentra el
+        fallo. La pista era un literal fijo por tipo y no dependia del valor.
+        """
+        roto = factura_xml(
+            """  <cbc:ID>F1</cbc:ID>
+  <cbc:IssueDate>2012-02-31</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>"""
+        )
+        problema = una(revisar(roto, catalogo), "XSD-TIPO")
+        assert "AAAA-MM-DD" not in problema.mensaje
+        assert "febrero de 2012 tiene 29" in problema.mensaje
+
+    def test_y_sabe_de_anios_bisiestos(self, catalogo):
+        roto = factura_xml(
+            """  <cbc:ID>F1</cbc:ID>
+  <cbc:IssueDate>2011-02-29</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>"""
+        )
+        problema = una(revisar(roto, catalogo), "XSD-TIPO")
+        assert "febrero de 2011 tiene 28" in problema.mensaje
+
+    def test_un_mes_que_no_existe(self, catalogo):
+        roto = factura_xml(
+            """  <cbc:ID>F1</cbc:ID>
+  <cbc:IssueDate>2026-13-01</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>"""
+        )
+        problema = una(revisar(roto, catalogo), "XSD-TIPO")
+        assert "mes 13" in problema.mensaje
+
     def test_importe_a_la_espanola(self, catalogo):
         """Coma decimal y separador de miles: el error más repetido que hay."""
         roto = factura_xml(
