@@ -27,6 +27,13 @@ Y abrir <http://127.0.0.1:8765/web/>.
 La página busca sola el `.whl` más reciente de `dist/`, así que no hay que
 tocar nada al subir la versión en `pyproject.toml`.
 
+**Hay que reconstruirlo cada vez que se toque `validador/`.** La página carga
+el wheel, no la carpeta, así que un wheel viejo ejecuta código viejo. Y si
+mientras tanto ha aparecido un módulo nuevo, ni siquiera arranca: `factura.py`
+lo importa y el wheel no lo trae. Pasó al añadir `facturae.py` —la página
+quedó rota sin que nada lo dijera, porque `dist/` no se versiona y los tests
+corren contra la carpeta, no contra el paquete—.
+
 ## Qué mirar
 
 Arriba, el tiempo de arranque en frío. Abajo, doce comprobaciones que deben
