@@ -272,9 +272,15 @@ def validar_lote(
             informe.incidencias.extend(_reglas(raiz, deteccion, hoy, catalogo))
         lote.informes.append((camino, informe))
 
-        for codigo in codigo_unico.extraer_de(raiz, deteccion):
-            todos.append(codigo)
-            procedencias.append(camino.name)
+        # Al montón del lote solo van las facturas sujetas al reglamento
+        # español. Comparar series y duplicados entre una factura holandesa y
+        # una alemana no significa nada: no comparten numeración ni tienen por
+        # qué. Sin este filtro salían «duplicados» entre dos suites de prueba
+        # que solo tenían en común el número de ejemplo.
+        if codigo_unico.obligado_en_espania(raiz, deteccion):
+            for codigo in codigo_unico.extraer_de(raiz, deteccion):
+                todos.append(codigo)
+                procedencias.append(camino.name)
 
     # Solo interesa lo que cruza ficheros. Lo que ya dijo el informe de un
     # fichero sobre sus propias facturas no se repite aquí.

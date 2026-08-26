@@ -615,6 +615,73 @@ def _extraer_cii(raiz) -> list[CodigoUnico]:
     return [CodigoUnico(limpiar_nif(texto), numero, fecha)]
 
 
+# --- ¿A esta factura le aplica el reglamento español? -----------------------
+
+# Donde dice cada sintaxis de que pais es quien emite. Facturae no aparece
+# porque es el formato nacional espaniol: si el documento es Facturae, la
+# respuesta ya la sabemos.
+_PAIS_DEL_EMISOR = {
+    UBL: (
+        "AccountingSupplierParty",
+        ("Party", "PostalAddress", "Country", "IdentificationCode"),
+    ),
+    CII: ("SellerTradeParty", ("PostalTradeAddress", "CountryID")),
+}
+
+
+def pais_emisor(raiz, deteccion) -> str | None:
+    """Codigo de pais de quien emite la factura, o None si no se dice.
+
+    Se mira la direccion postal y no el prefijo del identificador fiscal,
+    porque el prefijo se lo pone quien quiere: hay facturas alemanas cuyo
+    numero de IVA viene sin `DE` delante.
+    """
+    if raiz is None or not deteccion:
+        return None
+    if deteccion.familia == FACTURAE:
+        return "ES"
+    camino = _PAIS_DEL_EMISOR.get(deteccion.familia)
+    if camino is None:
+        return None
+    contenedor, resto = camino
+    nodos = raiz.xpath(f"//*[local-name()='{contenedor}']")
+    if not nodos:
+        return None
+    encontrado = _local(nodos[0], *resto)
+    return encontrado.strip().upper() if encontrado else None
+
+
+def obligado_en_espania(raiz, deteccion) -> bool:
+    """Si a este documento le aplica el RD 238/2026.
+
+    El reglamento obliga a quien expide facturas **en España**. Una factura de
+    un proveedor holandés a un cliente español no está sujeta a él, y aplicarle
+    sus reglas es sencillamente inventarse errores: el dígito de control del
+    NIF español no lo pasa ningún identificador extranjero, porque no es su
+    algoritmo. En la primera prueba contra facturas ajenas esto saltó en 61 de
+    62 documentos, ninguno español.
+
+    Cuando el documento no dice de qué país es se mira el prefijo del
+    identificador fiscal, que es peor pista pero alguna es. Vale solo para
+    descartar: dos letras que no son `ES` delante de un identificador es un
+    número de IVA intracomunitario de otro país, y ningún NIF, NIE ni CIF
+    español empieza por dos letras seguidas.
+
+    Y si tampoco hay prefijo, se responde que sí. Es una herramienta para
+    facturación española y ese es el caso por defecto; callarse las reglas por
+    un dato que falta sería dar por revisado lo que no se ha mirado, que es
+    peor que una queja de más. Del país ausente ya se queja BR-09.
+    """
+    pais = pais_emisor(raiz, deteccion)
+    if pais is not None:
+        return pais == "ES"
+    for codigo in extraer_de(raiz, deteccion):
+        prefijo = codigo.nif_emisor[:2].upper()
+        if len(prefijo) == 2 and prefijo.isalpha() and prefijo != "ES":
+            return False
+    return True
+
+
 def extraer_de(raiz, deteccion) -> list[CodigoUnico]:
     """Saca los codigos unicos de un documento ya parseado."""
     if raiz is None or not deteccion:
@@ -663,6 +730,10 @@ def reglas(raiz, deteccion, hoy: date | None = None) -> list[Incidencia]:
     ficheros distintos esta `reglas_de_lote`, que el orquestador ejecuta una
     sola vez sobre el monton entero.
     """
+    if not obligado_en_espania(raiz, deteccion):
+        # Factura extranjera: el RD 238/2026 no le aplica. Las reglas europeas
+        # sí, y de esas se encarga `en16931`.
+        return []
     codigos = extraer_de(raiz, deteccion)
     if not codigos:
         # En EDIFACT y en los formatos que no se saben leer no hay nada que

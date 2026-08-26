@@ -815,6 +815,78 @@ class TestCategorias:
 # --- Comprobaciones de la casa ---------------------------------------------
 
 
+class TestNoSujeta:
+    """La categoria O: lo que no esta sujeto no tiene tipo que aplicar.
+
+    Salio de pasar el validador por `cef_XRechnung-O.xml`, una factura ajena
+    correcta que recibia **tres** quejas, y ademas contradictorias entre si.
+    """
+
+    def test_lineas_sin_tipo_y_desglose_a_cero_es_la_misma_cosa(self, revisar):
+        """El desglose trae 0 y las lineas no traen nada: no hay descuadre.
+
+        La clave de agrupacion era (categoria, tipo), asi que ("O", None) y
+        ("O", 0) caian en cubos distintos y se inventaban un desajuste. Salia
+        BR-O-8 diciendo que al desglose le sobraban 100 sin conceptos detras, y
+        a la vez IVA-TIPO-SIN-DESGLOSE diciendo que a los conceptos les faltaba
+        desglose. Las dos sobre lo mismo, contandolo desde los dos lados.
+        """
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="O", tipo=None)],
+            grupos=[Grupo("100.00", "0.00", categoria="O", tipo="0",
+                          motivo="No sujeta")],
+            total_iva="0.00",
+        )
+        assert "BR-O-8" not in codigos(incidencias)
+        assert "IVA-TIPO-SIN-DESGLOSE" not in codigos(incidencias)
+        assert "BR-O-5" not in codigos(incidencias), (
+            "el tipo del desglose no es asunto de BR-O-5, que es de la linea")
+
+    def test_la_linea_con_tipo_si_se_caza(self, revisar):
+        """Lo que BR-O-5 si prohibe: que la **linea** declare tipo."""
+        problema = una(
+            revisar(
+                lineas=[Linea("1", "100.00", categoria="O", tipo="21")],
+                grupos=[Grupo("100.00", "0.00", categoria="O", tipo=None,
+                              motivo="No sujeta")],
+                total_iva="0.00",
+            ),
+            "BR-O-5",
+        )
+        assert problema.gravedad == ERROR
+        assert "línea 1" in problema.campo
+
+
+class TestDondeViveCadaRegla:
+    """BR-{X}-5 es de la linea, no de la entrada del desglose.
+
+    Comprobado en el esquematron oficial de EN 16931: BR-S-05 cuelga de
+    `$VATS_Line` y BR-O-05 de `$VATO_Line`. Se miraba en el desglose, que casi
+    siempre lleva el mismo tipo que sus lineas; por eso ningun test lo noto.
+    """
+
+    def test_el_tipo_malo_de_la_linea_es_lo_que_se_denuncia(self, revisar):
+        problema = una(
+            revisar(
+                lineas=[Linea("1", "100.00", tipo="0")],
+                grupos=[Grupo("100.00", "0.00", tipo="0")],
+                total_iva="0.00",
+            ),
+            "BR-S-5",
+        )
+        assert "línea 1" in problema.campo, (
+            "tiene que sennalar la linea, que es de donde sale la regla")
+
+    def test_el_igic_y_el_ipsi_usan_los_codigos_de_la_norma(self, revisar):
+        """BR-AF-* y BR-AG-*, no los BR-IG-*/BR-IP-* que nos inventamos.
+
+        Importa mas de lo que parece: IGIC es el impuesto de Canarias, asi que
+        una factura canaria recibia una regla con un codigo inexistente.
+        """
+        assert iva.REGLAS["L"].codigo == "AF"
+        assert iva.REGLAS["M"].codigo == "AG"
+
+
 class TestPropias:
     def test_tipo_que_no_existe_en_espana(self, revisar):
         incidencias = revisar(

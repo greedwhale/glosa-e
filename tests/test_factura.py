@@ -24,8 +24,7 @@ UBL = """<?xml version="1.0" encoding="UTF-8"?>
   <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
   <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
   <cac:AccountingSupplierParty><cac:Party>
-    <cac:PostalAddress><cac:Country>
-      <cbc:IdentificationCode>ES</cbc:IdentificationCode></cac:Country></cac:PostalAddress>
+    <cac:PostalAddress>{direccion_vendedor}</cac:PostalAddress>
     <cac:PartyTaxScheme><cbc:CompanyID>{nif}</cbc:CompanyID></cac:PartyTaxScheme>
     <cac:PartyLegalEntity><cbc:RegistrationName>Vendedor SL</cbc:RegistrationName>
     </cac:PartyLegalEntity>
@@ -61,10 +60,20 @@ UBL = """<?xml version="1.0" encoding="UTF-8"?>
 </Invoice>"""
 
 
+PAIS = ("<cac:Country><cbc:IdentificationCode>{}</cbc:IdentificationCode>"
+        "</cac:Country>")
+
+
 def ubl(numero="F-2026-0001", fecha="2026-03-02", nif=NIF_BUENO,
-        linea="100.00", declarado="100.00"):
+        linea="100.00", declarado="100.00", pais="ES"):
+    """Una factura UBL de prueba.
+
+    `pais` es el del **vendedor**, y a None se queda sin direccion de pais:
+    hace falta para probar a quien le aplica el reglamento espaniol.
+    """
     return UBL.format(
-        numero=numero, fecha=fecha, nif=nif, linea=linea, declarado=declarado
+        numero=numero, fecha=fecha, nif=nif, linea=linea, declarado=declarado,
+        direccion_vendedor="" if pais is None else PAIS.format(pais),
     )
 
 
@@ -299,6 +308,75 @@ class TestOrigen:
         from validador.incidencias import Incidencia
 
         assert factura.origen(Incidencia(codigo, ERROR, "da igual")) == esperado
+
+
+class TestAQuienLeAplicaElReglamentoEspanol:
+    """El RD 238/2026 obliga a quien factura en Espania, y a nadie mas.
+
+    Salio de la primera prueba contra facturas ajenas: CU-01 saltaba en 61 de
+    62 documentos y ni uno era espaniol. Se le estaba aplicando el digito de
+    control del NIF espaniol a identificadores holandeses y alemanes, que no
+    siguen ese algoritmo y por tanto no lo pasan jamas. Una gestoria con un
+    solo proveedor europeo habria visto un muro de errores inventados.
+    """
+
+    def test_a_la_holandesa_no_se_le_aplican(self):
+        informe = factura.validar(ubl(nif="NL820098395B01", pais="NL"), hoy=HOY)
+        assert not [c for c in codigos(informe) if c.startswith("CU-")], (
+            informe.detalle())
+
+    def test_a_la_espaniola_si(self):
+        """La otra mitad: acotar no puede significar dejar de comprobar."""
+        informe = factura.validar(ubl(nif=NIF_MALO), hoy=HOY)
+        assert "CU-01" in codigos(informe, ERROR)
+
+    def test_las_reglas_europeas_siguen_corriendo_sobre_la_extranjera(self):
+        """Acotar las espaniolas no exime de EN 16931."""
+        informe = factura.validar(
+            ubl(nif="NL820098395B01", pais="NL", numero=""), hoy=HOY)
+        assert "BR-02" in codigos(informe, ERROR)
+
+    def test_sin_pais_manda_el_prefijo_del_identificador(self):
+        """Un fichero real traia el pais comentado y el NIF con prefijo NL."""
+        informe = factura.validar(ubl(nif="NL820098395B01", pais=None), hoy=HOY)
+        assert "CU-01" not in codigos(informe)
+
+    def test_sin_pais_y_sin_prefijo_se_da_por_espaniola(self):
+        """No saber no puede ser excusa para no mirar.
+
+        Callarse las reglas por un dato que falta seria dar por revisado lo que
+        nadie ha comprobado, que es peor que una queja de mas.
+        """
+        informe = factura.validar(ubl(nif="B12345670", pais=None), hoy=HOY)
+        assert "CU-01" in codigos(informe, ERROR)
+
+    def test_facturae_siempre_es_espaniola(self):
+        """Es el formato nacional: no hace falta preguntarle de donde es."""
+        informe = factura.validar(facturae(nif=NIF_MALO), hoy=HOY)
+        assert "CU-01" in codigos(informe, ERROR)
+
+    def test_dos_facturas_de_paises_distintos_no_son_un_duplicado(self, tmp_path):
+        """Las reglas de conjunto tambien tenian que acotarse.
+
+        Dos suites de prueba europeas compartian el numero de ejemplo, y el
+        lote las denunciaba como la misma factura repetida. Numeraciones de
+        paises distintos no tienen por que guardar relacion ninguna.
+        """
+        holandesa = ubl(nif="NL820098395B01", pais="NL")
+        rutas = [
+            escribir(tmp_path, "una.xml", holandesa),
+            escribir(tmp_path, "otra.xml", holandesa),
+        ]
+        lote = factura.validar_lote(rutas, hoy=HOY)
+        assert "CU-10" not in codigos(lote.cruzadas), lote.detalle()
+
+    def test_pero_dos_espaniolas_repetidas_si(self, tmp_path):
+        rutas = [
+            escribir(tmp_path, "a.xml", ubl()),
+            escribir(tmp_path, "b.xml", ubl()),
+        ]
+        lote = factura.validar_lote(rutas, hoy=HOY)
+        assert "CU-10" in codigos(lote.cruzadas)
 
 
 class TestSinComprobar:

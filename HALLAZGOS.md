@@ -46,8 +46,14 @@ primer día. Y el que se lleva un error falso la primera vez no vuelve.
 
 Las reglas `CU-*` salen del RD 238/2026, que obliga a quien factura **en
 España**. Una factura de un proveedor holandés a un cliente español no está
-sujeta a ese reglamento. Hay que acotarlas: si el emisor no es español, esas
-reglas no se aplican.
+sujeta a ese reglamento.
+
+**Arreglado.** `codigo_unico.obligado_en_espania` mira el país de la dirección
+del vendedor; si falta, el prefijo del identificador fiscal; y si tampoco lo
+hay, responde que sí, porque no saber no puede ser excusa para no mirar.
+Facturae es español por definición. El filtro se aplica también a las reglas de
+conjunto del lote: dos numeraciones de países distintos no tienen por qué
+guardar relación, y se estaban denunciando como duplicados.
 
 ## 2. El fallo propio: la categoría O agrupada por tipo
 
@@ -68,7 +74,22 @@ fabrica un desajuste que no existe.
 
 **Para la categoría O el tipo no significa nada** —la norma prohíbe declararlo,
 porque una operación no sujeta no tiene tipo que aplicar—, así que no debe
-formar parte de la clave. Una queja clara en lugar de tres contradictorias.
+formar parte de la clave.
+
+**Arreglado, y por debajo había más.** Al ir a buscar el texto normativo de
+BR-O-05 al esquematrón oficial resultó que **toda la familia `BR-{X}-05` es de
+la línea, no del desglose**: BR-O-05 cuelga de `$VATO_Line` y BR-S-05 de
+`$VATS_Line`. Se comprobaban sobre la entrada del desglose, que casi siempre
+lleva el mismo tipo que sus líneas —por eso 444 tests no lo notaron—. En la
+categoría O se separan, y ahí salía la queja falsa. Ahora la familia se aplica
+a los conceptos, con su sufijo según de qué cuelgue: 5 para la línea, 6 para el
+descuento de documento y 7 para el cargo.
+
+De paso apareció un tercer fallo: los códigos de IGIC e IPSI eran `BR-IG-*` y
+`BR-IP-*`, inventados aquí por analogía con `BR-IC-*`. La norma los llama
+**`BR-AF-*` y `BR-AG-*`**. Importa más de lo que parece, porque el IGIC es el
+impuesto de Canarias: una factura canaria recibía una regla con un código que
+no existe en ningún reglamento.
 
 ## 3. Lo que hay que decidir: monedas sin céntimos
 
@@ -80,8 +101,9 @@ Por la letra de BR-CO-17 tenemos razón. Pero el forinto se factura redondeado a
 la unidad, y ese fichero está en la carpeta de ejemplos oficiales precisamente
 para enseñar el caso. La tolerancia está pensada para monedas de dos decimales.
 
-No se toca todavía: no afecta a ninguna factura española y conviene comprobar
-antes qué hace el validador oficial con ese mismo fichero.
+**Sin tocar, a propósito.** No afecta a ninguna factura española y conviene
+comprobar antes qué hace el validador oficial con ese mismo fichero. Es el
+único de los tres que sigue abierto.
 
 ## 4. Lo que el validador acertó
 
@@ -139,3 +161,19 @@ vendemos.
   normalización: limpios, pequeños y pensados para ilustrar reglas. Una factura
   real de un programa de facturación español trae adjuntos, firma, extensiones
   y rarezas que aquí no aparecen.
+
+## Después de los arreglos
+
+Los mismos 73 ficheros, sin tocar ni uno:
+
+```
+antes:    73 fichero(s) · 0 correcto(s) · 62 con errores · 11 SIN COMPROBAR
+después:  73 fichero(s) · 53 correcto(s) · 9 con errores · 11 SIN COMPROBAR
+```
+
+Las nueve que siguen dando error son las ocho que la merecían y la húngara, que
+se ha dejado a propósito. Ninguna regla española salta ya sobre una factura
+extranjera.
+
+460 tests. Los dieciséis nuevos fallan con el código anterior: se ha comprobado
+revirtiendo cada arreglo por separado y volviéndolos a pasar.

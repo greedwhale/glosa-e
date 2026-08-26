@@ -90,9 +90,37 @@ REGLAS: dict[str, ReglaCategoria] = {
     "O": ReglaCategoria("O", SIN_TIPO, OBLIGATORIO),
     # IGIC e IPSI llevan tipos propios y la norma no los ata como a las demás.
     # Se exige que declaren tipo y no se opina sobre el motivo.
-    "L": ReglaCategoria("IG", CUALQUIERA, LIBRE),
-    "M": ReglaCategoria("IP", CUALQUIERA, LIBRE),
+    #
+    # Los códigos son AF y AG, no IG e IP. Lo de antes se lo inventó quien
+    # escribió esto —o sea, nosotros— por analogía con IC, y da la casualidad
+    # de que IGIC es el impuesto de Canarias: una factura canaria recibía una
+    # regla «BR-IG-5» que no existe en ninguna norma. Comprobado en el
+    # esquematrón oficial: $VATIG lleva BR-AF-* y $VATIP lleva BR-AG-*.
+    "L": ReglaCategoria("AF", CUALQUIERA, LIBRE),
+    "M": ReglaCategoria("AG", CUALQUIERA, LIBRE),
 }
+
+
+def _clave(
+    categoria: str | None, tipo: Decimal | None
+) -> tuple[str | None, Decimal | None]:
+    """Cómo se emparejan el desglose y los conceptos que lo alimentan.
+
+    Por categoría **y tipo**, porque así va el desglose: material al 21% y
+    comida al 10% son dos entradas aunque las dos sean categoría S.
+
+    La excepción son las categorías donde la norma *prohíbe* declarar tipo —O,
+    operación no sujeta, porque lo que no está sujeto no tiene tipo que
+    aplicar—. Ahí el tipo no puede entrar en la clave: si las líneas vienen
+    sin él y el desglose trae un `0.0000`, caen en cubos distintos y se
+    fabrica un descuadre que no existe. Una factura correcta salía con tres
+    quejas que además se contradecían entre sí: una decía que al desglose le
+    faltaban conceptos y otra que a los conceptos les faltaba desglose.
+    """
+    regla = REGLAS.get(categoria)
+    if regla is not None and regla.tipo == SIN_TIPO:
+        return (categoria, None)
+    return (categoria, tipo)
 
 
 def nombre_categoria(codigo: str | None) -> str:
@@ -116,7 +144,7 @@ class Grupo:
 
     @property
     def clave(self) -> tuple[str | None, Decimal | None]:
-        return (self.categoria, self.tipo)
+        return _clave(self.categoria, self.tipo)
 
     def __str__(self) -> str:
         return f"{nombre_categoria(self.categoria)} al {fmt_tipo(self.tipo)}"
@@ -140,10 +168,11 @@ class Apunte:
     categoria: str | None
     tipo: Decimal | None
     es_ajuste: bool = False
+    es_cargo: bool = False
 
     @property
     def clave(self) -> tuple[str | None, Decimal | None]:
-        return (self.categoria, self.tipo)
+        return _clave(self.categoria, self.tipo)
 
 
 def _leer_grupos(raiz, sintaxis: Sintaxis) -> list[Grupo]:
@@ -197,6 +226,7 @@ def _leer_apuntes(raiz, sintaxis: Sintaxis) -> list[Apunte]:
                 categoria=texto(nodo, sintaxis.cargo_categoria, sintaxis),
                 tipo=importe(nodo, sintaxis.cargo_tipo, sintaxis),
                 es_ajuste=True,
+                es_cargo=es_cargo,
             )
         )
     return apuntes
@@ -430,48 +460,12 @@ def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
     incidencias: list[Incidencia] = []
     nombre = nombre_categoria(grupo.categoria)
 
-    # Que el tipo **falte** lo dice BR-48, una sola vez para todas las
-    # categorías. Aquí se mira si el valor es el que le toca a esta: dos
-    # quejas para un mismo tipo ausente sería decir lo mismo dos veces.
-    if regla.tipo == SIN_TIPO:
-        if grupo.tipo is not None:
-            incidencias.append(
-                Incidencia(
-                    f"BR-{regla.codigo}-5",
-                    ERROR,
-                    f"Una operación a {nombre} no debe declarar tipo de IVA: si "
-                    "no está sujeta, no hay tipo que aplicar.",
-                    campo=f"Tipo de {nombre}",
-                    esperado="(sin tipo)",
-                    encontrado=fmt_tipo(grupo.tipo),
-                )
-            )
-    elif grupo.tipo is None:
-        pass  # ya lo ha dicho BR-48
-    elif regla.tipo == POSITIVO and grupo.tipo <= 0:
-        incidencias.append(
-            Incidencia(
-                f"BR-{regla.codigo}-5",
-                ERROR,
-                f"Una operación a {nombre} tiene que llevar un tipo mayor que "
-                "cero. Si de verdad no lleva impuesto, la categoría es otra: Z "
-                "para tipo cero, E para exenta, O para no sujeta.",
-                campo=f"Tipo de {nombre}",
-                esperado="mayor que 0",
-                encontrado=fmt_tipo(grupo.tipo),
-            )
-        )
-    elif regla.tipo == CERO and grupo.tipo != 0:
-        incidencias.append(
-            Incidencia(
-                f"BR-{regla.codigo}-5",
-                ERROR,
-                f"Una operación a {nombre} tiene que llevar el tipo a cero.",
-                campo=f"Tipo de {nombre}",
-                esperado="0",
-                encontrado=fmt_tipo(grupo.tipo),
-            )
-        )
+    # El tipo del desglose no se mira aquí. La familia BR-{X}-5 es de la
+    # **línea**, no de la entrada del desglose: en el esquematrón oficial
+    # BR-O-05 cuelga de `$VATO_Line` y BR-S-05 de `$VATS_Line`. Está en
+    # `_regla_tipo_de_los_conceptos`. Que el tipo del desglose no cuadre con
+    # su categoría lo caza igual la aritmética, porque BR-CO-17 exige que la
+    # cuota salga de aplicarlo a la base.
 
     if regla.motivo == OBLIGATORIO and not grupo.motivo:
         incidencias.append(
@@ -602,6 +596,89 @@ def _regla_tipos_espanoles(grupos: list[Grupo]) -> list[Incidencia]:
     return incidencias
 
 
+def _sufijo_del_concepto(apunte: Apunte) -> str:
+    """Qué número de regla le toca a cada clase de concepto.
+
+    La norma parte la misma comprobación en tres según de qué cuelgue: BR-{X}-5
+    para la línea, BR-{X}-6 para el descuento de documento y BR-{X}-7 para el
+    cargo de documento.
+    """
+    if not apunte.es_ajuste:
+        return "5"
+    return "7" if apunte.es_cargo else "6"
+
+
+def _regla_tipo_de_los_conceptos(apuntes: list[Apunte]) -> list[Incidencia]:
+    """BR-{X}-5, BR-{X}-6 y BR-{X}-7: el tipo que le toca a cada concepto.
+
+    Estas reglas son de la línea, del descuento o del cargo; no del desglose.
+    Se comprobaban sobre la entrada del desglose, que casi siempre lleva el
+    mismo tipo que sus líneas, y por eso el error nunca se notó. En la
+    categoría O se separan —el desglose puede traer un `0.0000` que las líneas
+    no llevan— y ahí salía una queja falsa contra una factura correcta.
+
+    Se agrupa por regla y por tipo para no repetir la misma queja veinte veces
+    en una factura de veinte líneas iguales.
+    """
+    fallos: dict[tuple[str, str, str, Decimal | None], list[str]] = {}
+    for apunte in apuntes:
+        regla = REGLAS.get(apunte.categoria) if apunte.categoria else None
+        if regla is None:
+            continue  # sin categoría o con una que no es de la norma: otros lo dicen
+        # Que el tipo **falte** lo dice BR-48, una sola vez para toda la
+        # factura. Aquí se mira si el valor es el que le toca a esta categoría.
+        if regla.tipo == SIN_TIPO:
+            mal = apunte.tipo is not None
+        elif apunte.tipo is None:
+            mal = False
+        elif regla.tipo == POSITIVO:
+            mal = apunte.tipo <= 0
+        elif regla.tipo == CERO:
+            mal = apunte.tipo != 0
+        else:
+            mal = False
+        if mal:
+            clave = (
+                regla.codigo,
+                _sufijo_del_concepto(apunte),
+                apunte.categoria,
+                apunte.tipo,
+            )
+            fallos.setdefault(clave, []).append(apunte.descripcion)
+
+    incidencias = []
+    for (codigo, sufijo, categoria, tipo), suyos in fallos.items():
+        regla = REGLAS[categoria]
+        nombre = nombre_categoria(categoria)
+        if regla.tipo == SIN_TIPO:
+            mensaje = (
+                f"Hay conceptos a {nombre} que declaran tipo de IVA: si no "
+                "está sujeta, no hay tipo que aplicar."
+            )
+            esperado = "(sin tipo)"
+        elif regla.tipo == POSITIVO:
+            mensaje = (
+                f"Hay conceptos a {nombre} con un tipo que no es mayor que "
+                "cero. Si de verdad no llevan impuesto, la categoría es otra: "
+                "Z para tipo cero, E para exenta, O para no sujeta."
+            )
+            esperado = "mayor que 0"
+        else:
+            mensaje = f"Hay conceptos a {nombre} cuyo tipo no está a cero."
+            esperado = "0"
+        incidencias.append(
+            Incidencia(
+                f"BR-{codigo}-{sufijo}",
+                ERROR,
+                mensaje,
+                campo="Conceptos: " + ", ".join(suyos),
+                esperado=esperado,
+                encontrado=fmt_tipo(tipo),
+            )
+        )
+    return incidencias
+
+
 def _regla_lineas_con_categoria(apuntes: list[Apunte]) -> list[Incidencia]:
     """De la casa: sin categoría en la línea no hay desglose que comprobar."""
     huerfanos = [a.descripcion for a in apuntes if not a.categoria]
@@ -681,6 +758,7 @@ def reglas(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
         if not a_ciegas:
             incidencias.extend(_regla_base_por_grupo(grupo, apuntes))
         incidencias.extend(_regla_cuota_por_grupo(grupo))
+    incidencias.extend(_regla_tipo_de_los_conceptos(apuntes))
     incidencias.extend(_regla_hay_desglose(grupos, apuntes))
     incidencias.extend(_regla_no_sujeta_a_solas(grupos))
     incidencias.extend(_regla_tipos_espanoles(grupos))
