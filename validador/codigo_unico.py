@@ -280,6 +280,15 @@ def _de_donde(antes: str | None, ahora: str | None) -> str:
     return f" La primera viene en {antes} y esta en {ahora}."
 
 
+def _implicados(*procedencias: str | None) -> tuple[str, ...]:
+    """Los ficheros que hacen falta para que la queja exista, sin repetir."""
+    vistos: list[str] = []
+    for nombre in procedencias:
+        if nombre and nombre not in vistos:
+            vistos.append(nombre)
+    return tuple(vistos)
+
+
 @dataclass
 class Registro:
     """Lleva la cuenta de las facturas ya vistas y avisa al repetirse una.
@@ -331,6 +340,7 @@ class Registro:
                     + _de_donde(self._canonicos[canonico][1], procedencia),
                     campo="Código único",
                     encontrado=canonico,
+                    ficheros=_implicados(self._canonicos[canonico][1], procedencia),
                 )
             )
         elif clave in self._claves:
@@ -347,6 +357,7 @@ class Registro:
                     campo="Número de factura",
                     esperado=f"la anterior: {anterior.numero_completo!r}",
                     encontrado=repr(codigo.numero_completo),
+                    ficheros=_implicados(de_antes, procedencia),
                 )
             )
         elif por_numero in self._numeros:
@@ -363,6 +374,7 @@ class Registro:
                     campo=f"Factura {codigo.numero_completo}",
                     esperado=f"ya usado el {anterior.fecha.isoformat()}",
                     encontrado=f"reutilizado el {codigo.fecha.isoformat()}",
+                    ficheros=_implicados(de_antes, procedencia),
                 )
             )
 
@@ -680,6 +692,102 @@ def pais_emisor(raiz, deteccion) -> str | None:
     return encontrado.strip().upper() if encontrado else None
 
 
+# Donde guarda cada sintaxis el identificador fiscal del receptor. Se prueban
+# por orden: quien genera el fichero elige uno de los tres y no hay convención.
+_NIF_DEL_RECEPTOR: dict[str, tuple[str, tuple[tuple[str, ...], ...]]] = {
+    UBL: (
+        "AccountingCustomerParty",
+        (
+            ("Party", "PartyTaxScheme", "CompanyID"),
+            ("Party", "PartyLegalEntity", "CompanyID"),
+            ("Party", "PartyIdentification", "ID"),
+        ),
+    ),
+    CII: ("BuyerTradeParty", (("SpecifiedTaxRegistration", "ID"),)),
+    FACTURAE: (
+        "BuyerParty",
+        (("TaxIdentification", "TaxIdentificationNumber"),),
+    ),
+}
+
+
+def parece_de_fuera(documento: str | None) -> bool:
+    """¿Es un identificador fiscal que no sigue el algoritmo español?
+
+    Dos letras seguidas al principio son el prefijo de país de un número de IVA
+    intracomunitario: NL999999999B01, DE123456789. **Ningún NIF, NIE ni CIF
+    español empieza por dos letras seguidas** —el CIF lleva una letra y ocho
+    dígitos, el NIE una letra y siete—, así que la pista no falla por el lado
+    que importa, que es no medirle el dígito de control español a quien no lo
+    tiene. `ES` se excluye porque ahí sí hay un NIF español debajo.
+
+    Esta misma pista la usa `obligado_en_espania`. Vive aquí para que las dos
+    la lean del mismo sitio: la primera vez que se escribió estaba solo en un
+    lado, y al copiarla al otro salió mal y una factura holandesa recibía la
+    queja igualmente.
+    """
+    prefijo = nif.normalizar(documento or "")[:2]
+    return len(prefijo) == 2 and prefijo.isalpha() and prefijo != "ES"
+
+
+def nif_receptor(raiz, deteccion) -> str | None:
+    """El identificador fiscal de quien recibe la factura, si lo lleva."""
+    if raiz is None or not deteccion:
+        return None
+    camino = _NIF_DEL_RECEPTOR.get(deteccion.familia or "")
+    if camino is None:
+        return None
+    contenedor, opciones = camino
+    nodos = raiz.xpath(f"//*[local-name()='{contenedor}']")
+    if not nodos:
+        return None
+    for ruta in opciones:
+        encontrado = _local(nodos[0], *ruta)
+        if encontrado:
+            return encontrado
+    return None
+
+
+def regla_nif_receptor(raiz, deteccion) -> list[Incidencia]:
+    """NIF-RECEPTOR: si el receptor lleva NIF español, que sea uno de verdad.
+
+    El código único solo usa el del emisor, así que esto no lo exige el
+    RD 238/2026 y por eso no lleva prefijo `CU-`: **no vamos a firmar con una
+    norma una queja que esa norma no hace**. Sale como aviso «de la casa».
+
+    Pero un dígito de control que no sale es un hecho, no una opinión, y a
+    quien recibe la factura le importa: con el NIF mal no puede deducirse el
+    IVA soportado y devuelve la factura. Estaba entre los hallazgos de la
+    auditoría precisamente porque no se comprobaba nunca.
+
+    Solo se mira cuando el documento está sujeto a la facturación española.
+    Medirle el dígito de control español a un identificador holandés es
+    inventarse un error, que es exactamente lo que hacía CU-01 en 61 de 62
+    facturas ajenas antes de acotarlo.
+    """
+    documento = nif_receptor(raiz, deteccion)
+    if not documento:
+        # Que no lo lleve es otra discusión —depende del tipo de operación— y
+        # sin una fuente que citar aquí no se sentencia.
+        return []
+    if parece_de_fuera(documento):
+        return []
+    resultado = nif.validar(limpiar_nif(documento))
+    if resultado:
+        return []
+    return [
+        Incidencia(
+            "NIF-RECEPTOR",
+            AVISO,
+            "El NIF del receptor no es válido. No forma parte del código "
+            f"único, pero quien reciba la factura no podrá deducir el IVA con "
+            f"un identificador que no existe. {resultado.motivo}",
+            campo="NIF del receptor",
+            encontrado=documento,
+        )
+    ]
+
+
 def obligado_en_espania(raiz, deteccion) -> bool:
     """Si a este documento le aplica el RD 238/2026.
 
@@ -704,11 +812,9 @@ def obligado_en_espania(raiz, deteccion) -> bool:
     pais = pais_emisor(raiz, deteccion)
     if pais is not None:
         return pais == "ES"
-    for codigo in extraer_de(raiz, deteccion):
-        prefijo = codigo.nif_emisor[:2].upper()
-        if len(prefijo) == 2 and prefijo.isalpha() and prefijo != "ES":
-            return False
-    return True
+    return not any(
+        parece_de_fuera(codigo.nif_emisor) for codigo in extraer_de(raiz, deteccion)
+    )
 
 
 def extraer_de(raiz, deteccion) -> list[CodigoUnico]:
@@ -772,6 +878,7 @@ def reglas(raiz, deteccion, hoy: date | None = None) -> list[Incidencia]:
         return []
     incidencias = [i for codigo in codigos for i in revisar(codigo, hoy=hoy)]
     incidencias.extend(reglas_de_lote(codigos))
+    incidencias.extend(regla_nif_receptor(raiz, deteccion))
     return incidencias
 
 

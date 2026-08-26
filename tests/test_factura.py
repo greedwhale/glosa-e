@@ -7,7 +7,7 @@ import pytest
 
 from validador import __main__ as consola
 from validador import factura
-from validador.incidencias import AVISO, ERROR
+from validador.incidencias import AVISO, ERROR, Incidencia
 
 HOY = date(2026, 9, 20)
 NIF_BUENO = "ESB12345674"
@@ -416,6 +416,97 @@ class TestAQuienLeAplicaElReglamentoEspanol:
         ]
         lote = factura.validar_lote(rutas, hoy=HOY)
         assert "CU-10" in codigos(lote.cruzadas)
+
+
+class TestUnDuplicadoNoDejaLimpio_A_Nadie:
+    """Hallazgo 8 de la auditoria.
+
+    Un duplicado no es de ninguno de los dos ficheros por separado: cada uno,
+    mirado solo, esta perfecto. Los dos se imprimian «sin errores» y los dos se
+    contaban entre los correctos, asi que el resumen podia decir «2 correctos,
+    0 con errores» sobre un lote que si tiene un error -el error salia al
+    final, huerfano, sin que nada en las lineas de arriba llevara hasta el-.
+    """
+
+    def test_ninguno_de_los_dos_cuenta_como_correcto(self, tmp_path):
+        escribir(tmp_path, "a.xml", ubl(numero="F-1"))
+        escribir(tmp_path, "b.xml", ubl(numero="F-1"))
+        lote = factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY)
+        assert "CU-10" in {i.codigo for i in lote.cruzadas}
+        assert "2 correcto(s)" not in lote.resumen()
+        assert "0 correcto(s)" in lote.resumen()
+
+    def test_y_la_linea_de_cada_uno_lo_dice(self, tmp_path):
+        escribir(tmp_path, "a.xml", ubl(numero="F-1"))
+        escribir(tmp_path, "b.xml", ubl(numero="F-1"))
+        lote = factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY)
+        detalle = lote.detalle()
+        # Quien revisa doscientos ficheros lee la linea de cada uno. Si esa
+        # linea dice «sin errores» a secas, no vuelve a bajar a mirar.
+        assert detalle.count("choca con otro fichero") == 2
+
+    def test_la_incidencia_sabe_a_que_ficheros_apunta(self, tmp_path):
+        escribir(tmp_path, "a.xml", ubl(numero="F-1"))
+        escribir(tmp_path, "b.xml", ubl(numero="F-1"))
+        lote = factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY)
+        choque = next(i for i in lote.cruzadas if i.codigo == "CU-10")
+        assert set(choque.ficheros) == {"a.xml", "b.xml"}
+
+    def test_un_fichero_limpio_de_verdad_sigue_contando(self, tmp_path):
+        escribir(tmp_path, "a.xml", ubl(numero="F-1"))
+        escribir(tmp_path, "b.xml", ubl(numero="F-2"))
+        lote = factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY)
+        assert "2 correcto(s)" in lote.resumen()
+        assert "choca con otro fichero" not in lote.detalle()
+
+
+class TestElNifDelReceptor:
+    """Hallazgo 9: no se validaba nunca."""
+
+    @staticmethod
+    def con_nif(documento):
+        """La misma factura UBL, pero con NIF en el comprador."""
+        return ubl().replace(
+            "<cac:AccountingCustomerParty><cac:Party>",
+            "<cac:AccountingCustomerParty><cac:Party>"
+            f"<cac:PartyTaxScheme><cbc:CompanyID>{documento}</cbc:CompanyID>"
+            "</cac:PartyTaxScheme>",
+        )
+
+    def test_un_nif_de_receptor_invalido_avisa(self):
+        informe = factura.validar(self.con_nif("B12345670"), hoy=HOY)
+        assert "NIF-RECEPTOR" in codigos(informe, AVISO)
+
+    def test_uno_valido_no_dice_nada(self):
+        informe = factura.validar(self.con_nif("B12345674"), hoy=HOY)
+        assert "NIF-RECEPTOR" not in codigos(informe)
+
+    def test_a_un_receptor_extranjero_no_se_le_mide_el_digito_espaniol(self):
+        """El mismo error que costo 61 quejas falsas en 62 facturas ajenas.
+
+        Un NL999999999B01 no pasa el algoritmo espaniol porque no es el suyo.
+        """
+        informe = factura.validar(self.con_nif("NL999999999B01"), hoy=HOY)
+        assert "NIF-RECEPTOR" not in codigos(informe)
+
+    def test_pero_uno_espaniol_escrito_como_iva_intracomunitario_si(self):
+        """ESB12345670 es un NIF espaniol con prefijo, y esta mal."""
+        informe = factura.validar(self.con_nif("ESB12345670"), hoy=HOY)
+        assert "NIF-RECEPTOR" in codigos(informe, AVISO)
+
+    def test_sin_nif_de_receptor_no_se_dice_nada(self):
+        """Si hace falta o no depende del tipo de operacion, y sin una fuente
+        que citar aqui no se sentencia."""
+        assert "NIF-RECEPTOR" not in codigos(factura.validar(ubl(), hoy=HOY))
+
+    def test_no_lo_firma_el_reglamento_espaniol(self):
+        """El codigo unico solo usa el NIF del emisor.
+
+        Asi que esta queja no puede salir etiquetada «RD 238/2026»: seria
+        firmar con una norma algo que esa norma no dice. Es el mismo error que
+        se cometio aqui con unos BR-IG-* inventados.
+        """
+        assert factura.origen(Incidencia("NIF-RECEPTOR", AVISO, "")) == factura.CASA
 
 
 class TestSinComprobar:

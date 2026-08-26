@@ -65,6 +65,10 @@ def origen(incidencia: Incidencia) -> str:
         return FORMA
     if incidencia.codigo.startswith("FE-"):
         return NACIONAL
+    if incidencia.codigo.startswith("NIF-"):
+        # No lo firma el RD 238/2026 —el código único solo usa el NIF del
+        # emisor—, así que no puede salir con su etiqueta. Es nuestra.
+        return CASA
     if incidencia.codigo.startswith("IVA-"):
         # `IVA-` es el prefijo de las comprobaciones propias. Sin esta rama
         # caían en OTRA, que se lee «Formato», y una regla de IVA no es un
@@ -188,6 +192,23 @@ class InformeLote:
         return de_cada_uno + [i for i in self.cruzadas if i.gravedad == ERROR]
 
     @property
+    def senialados(self) -> set[str]:
+        """Ficheros a los que apunta alguna incidencia de conjunto grave.
+
+        Un duplicado no es de ninguno de los dos ficheros por separado: cada
+        uno, mirado solo, está perfecto. Sin esto, los dos se imprimían «sin
+        errores», los dos se contaban entre los correctos, y el error aparecía
+        al final huérfano —de forma que el resumen podía decir «10 correctos, 0
+        con errores» sobre un lote que sí tiene un error—.
+        """
+        return {
+            nombre
+            for i in self.cruzadas
+            if i.gravedad == ERROR
+            for nombre in i.ficheros
+        }
+
+    @property
     def sin_comprobar(self) -> list[tuple[Path, Informe]]:
         """Ficheros que no se han podido mirar.
 
@@ -210,8 +231,17 @@ class InformeLote:
         return self.conforme
 
     def resumen(self) -> str:
-        mirados = [informe for _, informe in self.informes if informe.validado]
-        correctos = sum(1 for informe in mirados if informe.conforme)
+        senialados = self.senialados
+        mirados = [
+            (camino, informe)
+            for camino, informe in self.informes
+            if informe.validado
+        ]
+        correctos = sum(
+            1
+            for camino, informe in mirados
+            if informe.conforme and camino.name not in senialados
+        )
         partes = [
             f"{len(self.informes)} fichero(s)",
             f"{correctos} correcto(s)",
@@ -224,10 +254,19 @@ class InformeLote:
         return " · ".join(partes) + "."
 
     def detalle(self) -> str:
+        senialados = self.senialados
         lineas: list[str] = []
         for camino, informe in self.informes:
             lineas.append(str(camino))
-            lineas.append(f"  {informe.resumen()}")
+            resumen = informe.resumen()
+            if camino.name in senialados and informe.conforme:
+                # Decirlo aquí y no solo al final. Quien revisa un lote de
+                # doscientos ficheros lee la línea de cada uno; si esta dice
+                # «sin errores» a secas, no vuelve a bajar a mirar.
+                resumen = resumen.rstrip(".") + (
+                    ", pero choca con otro fichero (ver abajo)."
+                )
+            lineas.append(f"  {resumen}")
             for incidencia in informe.errores + informe.avisos:
                 lineas.append("")
                 lineas.append(_sangrar(incidencia.texto(origen(incidencia)), "  "))

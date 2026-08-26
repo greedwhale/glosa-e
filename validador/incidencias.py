@@ -26,6 +26,12 @@ class Incidencia:
     campo: str | None = None
     esperado: str | None = None
     encontrado: str | None = None
+    # Qué ficheros hacen falta para que esta queja exista. Vacío en casi todas,
+    # porque casi todas salen de mirar un documento solo. Las de conjunto —dos
+    # ficheros con la misma factura— no son de ninguno de los dos por separado,
+    # y sin esta lista el resumen los contaba a los dos entre los correctos:
+    # cada uno se imprimía «sin errores» y el error aparecía al final, huérfano.
+    ficheros: tuple[str, ...] = ()
 
     def texto(self, norma: str | None = None) -> str:
         """La queja escrita, con la norma de la que sale si se sabe.
