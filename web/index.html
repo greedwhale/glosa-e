@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba de Pyodide &middot; Factura-e</title>
+<style>
+  :root {
+    --fondo: #12151a; --papel: #1a1f27; --borde: #2b323d;
+    --texto: #e6e9ee; --tenue: #8b95a5;
+    --bien: #4ade80; --mal: #f87171; --ojo: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1.25rem; background: var(--fondo); color: var(--texto);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 .3rem; }
+  .sub { color: var(--tenue); margin: 0 0 1.75rem; }
+  .caja { background: var(--papel); border: 1px solid var(--borde); border-radius: 10px; padding: 1rem 1.15rem; margin-bottom: 1.25rem; }
+  .caja h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--tenue); margin: 0 0 .8rem; font-weight: 600; }
+  #fases div { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem 0; border-bottom: 1px dashed var(--borde); }
+  #fases div:last-child { border-bottom: 0; }
+  #fases .ms { color: var(--tenue); font-variant-numeric: tabular-nums; font-family: ui-monospace, Consolas, monospace; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: .45rem .5rem; border-bottom: 1px solid var(--borde); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  .marca { width: 1.6rem; font-weight: 700; }
+  .ok .marca { color: var(--bien); } .no .marca { color: var(--mal); }
+  .no td { background: rgba(248,113,113,.07); }
+  .det { color: var(--tenue); font-size: .85em; font-family: ui-monospace, Consolas, monospace; word-break: break-word; }
+  .ms { color: var(--tenue); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: .85em; }
+  .veredicto { font-size: 1.05rem; font-weight: 600; padding: .9rem 1.15rem; border-radius: 10px; margin-bottom: 1.25rem; }
+  .veredicto.si { background: rgba(74,222,128,.12); border: 1px solid rgba(74,222,128,.35); color: var(--bien); }
+  .veredicto.no { background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.35); color: var(--mal); }
+  .veredicto.esperando { background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.3); color: var(--ojo); }
+  #zona { border: 2px dashed var(--borde); border-radius: 10px; padding: 2rem 1rem; text-align: center; color: var(--tenue); cursor: pointer; transition: .15s; }
+  #zona.encima { border-color: var(--bien); color: var(--bien); background: rgba(74,222,128,.06); }
+  pre { background: #0d1015; border: 1px solid var(--borde); border-radius: 8px; padding: .9rem; overflow-x: auto; font: 13px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; margin: 1rem 0 0; }
+  .nota { color: var(--tenue); font-size: .85rem; margin-top: .8rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>&iquest;Funciona Factura-e dentro del navegador?</h1>
+  <p class="sub">Pyodide + lxml compilados a WebAssembly. Ning&uacute;n fichero sale de este ordenador.</p>
+
+  <div id="veredicto" class="veredicto esperando">Arrancando&hellip;</div>
+
+  <div class="caja">
+    <h2>Arranque en fr&iacute;o</h2>
+    <div id="fases"></div>
+  </div>
+
+  <div class="caja">
+    <h2>Comprobaciones</h2>
+    <table><tbody id="tabla"><tr><td class="det">esperando a que arranque Python&hellip;</td></tr></tbody></table>
+  </div>
+
+  <div class="caja">
+    <h2>Prueba de verdad: suelta una factura aqu&iacute;</h2>
+    <div id="zona">Arrastra un XML, o haz clic para elegirlo.<br>No se sube a ning&uacute;n sitio.</div>
+    <input type="file" id="fichero" accept=".xml,.xsig" hidden multiple>
+    <pre id="salida" hidden></pre>
+    <p class="nota">Esto es exactamente lo que har&iacute;a la p&aacute;gina de producci&oacute;n: leer el fichero en el navegador, validarlo aqu&iacute; y mostrar el informe. El servidor solo sirve la p&aacute;gina.</p>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v314.0.6/full/pyodide.js"></script>
+<script>
+// Esta version se fija a proposito y no se sigue a «latest»: lo que se prueba
+// aqui es una combinacion concreta de Pyodide, lxml y libxml2. Si se mueve
+// sola, el dia que algo se rompa no se sabra que ha cambiado.
+const VERSION_PYODIDE = "314.0.6";
+const RAIZ = "https://cdn.jsdelivr.net/pyodide/v" + VERSION_PYODIDE + "/full/";
+const EJEMPLOS = ["f-0001.xml", "f-0002.xml", "f-0002-bis.xml", "f-0006.xml",
+                  "r-0001.xml", "cii-A-0001.xml"];
+let pyodide = null;
+
+const $ = (id) => document.getElementById(id);
+const seg = (t) => (t / 1000).toFixed(2) + " s";
+
+function marcar(etiqueta, ms) {
+  const fila = document.createElement("div");
+  fila.innerHTML = "<span>" + etiqueta + "</span><span class='ms'>" + ms + "</span>";
+  $("fases").appendChild(fila);
+}
+
+// El nombre del wheel lleva la version dentro, asi que se busca en el listado
+// de ../dist en vez de escribirlo a mano: si no, cada vez que suba la version
+// en pyproject.toml esta pagina dejaria de arrancar sin decir por que.
+async function buscarWheel() {
+  const listado = await fetch("../dist/");
+  if (listado.ok) {
+    const nombres = [...(await listado.text()).matchAll(/href="([^"]+\.whl)"/g)]
+      .map((m) => decodeURIComponent(m[1].split("/").pop()));
+    if (nombres.length) return "../dist/" + nombres.sort().pop();
+  }
+  throw new Error(
+    "No hay ningun .whl en dist/. Construyelo antes: python -m build --wheel --outdir dist"
+  );
+}
+
+async function arrancar() {
+  const cero = performance.now();
+  let t = cero;
+
+  pyodide = await loadPyodide({ indexURL: RAIZ });
+  marcar("Int&eacute;rprete de Python (WebAssembly)", seg(performance.now() - t));
+
+  t = performance.now();
+  await pyodide.loadPackage("lxml");
+  marcar("lxml + libxml2", seg(performance.now() - t));
+
+  t = performance.now();
+  await pyodide.loadPackage("micropip");
+  const micropip = pyodide.pyimport("micropip");
+  await micropip.install(await buscarWheel());
+  marcar("El validador (factura_e)", seg(performance.now() - t));
+
+  t = performance.now();
+  pyodide.FS.mkdirTree("/ejemplos");
+  await Promise.all(EJEMPLOS.map(async (nombre) => {
+    const respuesta = await fetch("../ejemplos/" + nombre);
+    pyodide.FS.writeFile("/ejemplos/" + nombre,
+                         new Uint8Array(await respuesta.arrayBuffer()));
+  }));
+  marcar("Facturas de ejemplo al disco virtual", seg(performance.now() - t));
+  marcar("<b>Total hasta poder validar</b>", "<b>" + seg(performance.now() - cero) + "</b>");
+
+  const codigo = await (await fetch("./prueba.py")).text();
+  pintar(JSON.parse(await pyodide.runPythonAsync(codigo)));
+}
+
+function escapar(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function pintar(resultados) {
+  const cuerpo = $("tabla");
+  cuerpo.innerHTML = "";
+  for (const r of resultados) {
+    const fila = document.createElement("tr");
+    fila.className = r.ok ? "ok" : "no";
+    fila.innerHTML =
+      "<td class='marca'>" + (r.ok ? "&#10003;" : "&#10007;") + "</td>" +
+      "<td>" + escapar(r.nombre) +
+      (r.critica ? " <span class='ms'>cr&iacute;tica</span>" : "") +
+      "<div class='det'>" + escapar(r.detalle) + "</div></td>" +
+      "<td class='ms'>" + r.ms + " ms</td>";
+    cuerpo.appendChild(fila);
+  }
+  const fallan = resultados.filter((r) => !r.ok);
+  const criticas = fallan.filter((r) => r.critica);
+  const caja = $("veredicto");
+  if (fallan.length === 0) {
+    caja.className = "veredicto si";
+    caja.innerHTML = "S&iacute;: las " + resultados.length +
+      " comprobaciones pasan. El validador funciona entero dentro del navegador, sin servidor.";
+  } else {
+    caja.className = "veredicto no";
+    caja.innerHTML = "Fallan " + fallan.length + " de " + resultados.length +
+      (criticas.length ? " (" + criticas.length + " cr&iacute;tica(s)): " +
+       escapar(criticas[0].nombre) : "") + ".";
+  }
+}
+
+async function validarSueltos(ficheros) {
+  if (!pyodide || !ficheros.length) return;
+  $("salida").hidden = false;
+  $("salida").textContent = "Validando " + ficheros.length + " fichero(s)…";
+  pyodide.FS.mkdirTree("/entrada");
+  const rutas = [];
+  for (const f of ficheros) {
+    // El nombre se limpia porque acaba siendo una ruta en el disco virtual.
+    const destino = "/entrada/" + f.name.replace(/[^\w.\-]/g, "_");
+    pyodide.FS.writeFile(destino, new Uint8Array(await f.arrayBuffer()));
+    rutas.push(destino);
+  }
+  pyodide.globals.set("_rutas", rutas);
+  $("salida").textContent = await pyodide.runPythonAsync(
+    "from validador import factura\n" +
+    "factura.validar_lote(list(_rutas)).detalle()\n"
+  );
+}
+
+const zona = $("zona");
+zona.addEventListener("click", () => $("fichero").click());
+$("fichero").addEventListener("change", (e) => validarSueltos([...e.target.files]));
+["dragenter", "dragover"].forEach((ev) =>
+  zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.add("encima"); }));
+["dragleave", "drop"].forEach((ev) =>
+  zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.remove("encima"); }));
+zona.addEventListener("drop", (e) => validarSueltos([...e.dataTransfer.files]));
+
+arrancar().catch((error) => {
+  $("veredicto").className = "veredicto no";
+  $("veredicto").textContent = "No ha arrancado: " + error;
+  console.error(error);
+});
+</script>
+</body>
+</html>

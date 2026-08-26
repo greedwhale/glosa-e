@@ -775,7 +775,32 @@ vende.
 
 **Un servicio, no solo una herramienta.** Todo esto se usa desde la consola o
 como biblioteca. Lo que hace falta para venderlo es que alguien pueda soltar un
-fichero y ver el informe sin instalar nada.
+fichero y ver el informe sin instalar nada. Eso ya está comprobado que se puede
+hacer sin servidor: ver más abajo.
+
+## Sin servidor: el validador dentro del navegador
+
+`web/` no es la página del producto, es la prueba de que la página es posible.
+Pyodide compila Python a WebAssembly y lxml está entre los paquetes portados,
+así que el validador entero corre dentro del navegador de quien mira la
+factura. **El fichero no se sube a ningún sitio**, lo que ahorra a la vez un
+servidor que mantener y la custodia de datos fiscales ajenos.
+
+La duda real no era si arrancaba Python, sino si esa compilación de lxml traía
+soporte de esquemas XSD: libxml2 se puede compilar sin él, y `esquema.py`
+entero depende de `etree.XMLSchema`. Lo trae.
+
+Las doce comprobaciones de `web/prueba.py` dan el mismo resultado que en Python
+nativo —mismos códigos, mismos importes— pese a que ahí libxml2 es 2.9.10 y en
+local 2.11.9. Medido: 42 s el primer arranque, 4,8 s con la caché caliente,
+10 ms por factura, y un lote de 200 en 2 segundos.
+
+```
+python -m build --wheel --outdir dist
+python -m http.server 8765
+```
+
+Y abrir <http://127.0.0.1:8765/web/>. Los detalles, en [`web/LEEME.md`](web/LEEME.md).
 
 ## Fuentes
 
