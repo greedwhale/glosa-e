@@ -17,10 +17,11 @@ según el RD 238/2026.
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
 | `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
 | `validador/facturae.py` | La aritmética del formato nacional: totales, líneas, impuestos y lote | Terminado |
+| `validador/firma.py` | La firma XAdES: integridad del documento y verificación RSA, sin salir a la red | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-527 tests, todos en verde.
+560 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -834,6 +835,110 @@ aritmética sobre las que están bien —incluida la más enrevesada, con descue
 general, descuento y cargo de línea, dos impuestos repercutidos, recargo de
 equivalencia y retención— y las dos defectuosas señaladas con la cifra exacta.
 
+## La firma XAdES
+
+En Facturae la firma no es un adorno. Lo dice el propio esquema, en la
+anotación de su bloque `Signature`:
+
+> «Se define como opcional para facilitar la verificación y el tránsito del
+> fichero. No obstante, debe cumplimentarse este bloque de firma electrónica
+> para que se considere una factura electrónica válida legalmente frente a
+> terceros.»
+
+### Qué se comprueba
+
+Todo esto sin salir a la red:
+
+1. **Que nadie haya tocado el documento desde que se firmó.** Cada `Reference`
+   de la firma lleva el resumen de un trozo del documento. Se canonicaliza ese
+   trozo, se le rehace el resumen y se compara. Es solo *hash*: no hace falta
+   ninguna clave, y es lo que caza el fallo más común de todos —alguien edita
+   el XML después de firmarlo, o una herramienta lo vuelve a guardar y lo
+   rompe—. Basta un espacio de más.
+2. **Que la firma la hiciera la clave privada del certificado que se enseña.**
+3. **Que el certificado estuviera vigente** el día que la firma declara.
+4. **Que el certificado presentado sea el que XAdES dice haber usado.**
+5. **Que los algoritmos no estén retirados.**
+
+### Qué no, y por qué se dice
+
+- **De quién es el certificado.** Exige la lista de confianza europea (TSL),
+  que cambia y hay que descargar.
+- **Si está revocado.** Exige OCSP o CRL, o sea red.
+- **Los sellos de tiempo.** Sin ellos la fecha de firma la escribe quien firma;
+  sirve para contrastarla con la vigencia del certificado, no para demostrar
+  cuándo se firmó.
+
+Traducido: responde **«¿ha cambiado alguien este documento después de
+firmarlo?»**. No responde «¿de quién es este certificado?». Un documento
+firmado con un certificado que el remitente se ha inventado pasa las cinco
+comprobaciones —de hecho es justo lo que hacen los tests—, y por eso el informe
+dice lo que no mira:
+
+```
+No se comprueba de quién es el certificado ni si está revocado
+—para eso hace falta la lista de confianza europea y salir a la
+red—, ni si lo que dice la factura es cierto.
+```
+
+Ese párrafo cambia solo cuando el lote trae firmas. Sobre uno sin firmar sería
+explicar qué mitad de algo que no hay se comprueba.
+
+### Sin dependencias nuevas
+
+Verificar RSA es `pow(firma, e, n)`: aritmética de enteros, que Python hace
+nativa y con precisión arbitraria. Leer la clave pública del certificado son
+unas líneas de DER.
+
+Traer `cryptography` habría costado una extensión compilada, y esto está
+pensado para correr dentro del navegador con Pyodide: cada dependencia nativa
+es otro *wheel* que buscar, otra versión que casar y varios megas de descarga.
+**La descarga sigue en 13,8 MB.** Cuesta 3-5 ms por factura firmada.
+
+Aquí no se firma nada: no hay ninguna clave privada de por medio y por tanto no
+hay secreto que filtrar por tiempos de ejecución. El riesgo de una
+implementación propia es el contrario —dar por buena una firma falsa—, y contra
+eso está escrita.
+
+### El detalle que no se deja al azar
+
+`_verificar_rsa` reconstruye el bloque PKCS#1 entero y compara bytes. La forma
+natural de escribirlo es la contraria —abrir el bloque descifrado, saltarse el
+relleno y leer el resumen de dentro—, y así se escribió durante años en medio
+mundo. Un lector permisivo acepta bloques con el relleno corto y basura detrás,
+y con eso se fabrican firmas falsas sin tener la clave privada: es el fallo de
+Bleichenbacher de 2006, que volvió en 2014 como «BERserk».
+
+Que la diferencia es real está comprobado, no supuesto. Sobre el mismo bloque
+forjado `00 01 FF 00 <DigestInfo> <basura>`, la versión ingenua da la firma por
+buena y esta la rechaza.
+
+Con precisión, porque conviene no exagerar: fabricar uno de esos bloques exige
+que el exponente público sea pequeño —3 o 17—, y con 65537, que es lo normal,
+no se puede. Pero certificados con exponente 3 los hay, escribirlo bien cuesta
+cero, y la alternativa es un validador que da por buena una firma falsa.
+
+### Cómo se prueba sin facturas firmadas
+
+`MuestrasFE/` no se versiona, así que los tests **firman de verdad**: montan un
+certificado X.509 a mano en DER y firman con una clave RSA de 512 bits cuyos
+primos están escritos en el fichero de tests.
+
+Tener la clave privada es lo que permite lo que ninguna factura real permite:
+fabricar bloques PKCS#1 a medida —incluida la falsificación de arriba— y
+comprobar que se rechazan uno por uno.
+
+### El resultado sobre las muestras
+
+Las cinco muestras firmadas del Gobierno verifican enteras, resúmenes y RSA.
+Una de ellas, `sample-factura-firmada-31`, sale con el certificado **caducado**:
+vencía el 31-01-2009 y la firma declara el 25-02-2009. Es la misma factura que
+ya traía el descuadre de 22,08 € en la base imponible.
+
+Las cinco usan RSA-SHA1 y cuatro tienen claves de 1024 bits, así que salen con
+aviso y no con error: la firma puede ser auténtica, el algoritmo ya no da
+garantías.
+
 ## Ejemplo de salida
 
 ```
@@ -849,13 +954,17 @@ recalcular el total.
 
 ## Siguiente paso
 
-Los dos tipos de rechazo que existen —el de forma y el de contenido— ya están
-cubiertos. Lo que queda es de otra clase:
+Los tres tipos de rechazo que existen —el de forma, el de contenido y el de
+firma— ya están cubiertos. Probarlo contra facturas ajenas también está hecho:
+73 europeas y 9 españolas, ninguna escrita aquí, y cada pasada encontró fallos
+que la inspección del código no había encontrado. Lo que queda es de otra
+clase:
 
-**Probarlo contra facturas reales.** Todo lo de aquí está comprobado contra
-documentos escritos a mano para provocar cada error. Falta pasarle un lote de
-facturas de verdad, con sus rarezas, y ver qué mensajes salen mal redactados o
-qué formato no se reconoce. Es el trabajo que decide si esto sirve.
+**La cadena de confianza de las firmas.** Hoy se comprueba que el documento no
+se haya tocado y que la firma cuadre con su certificado. Falta saber de quién
+es ese certificado y si sigue vivo, y eso exige la lista de confianza europea y
+consultas OCSP. Es la primera decisión de producto de verdad: obliga a salir a
+la red, y salir a la red rompe la promesa de que nada sube a ningún sitio.
 
 **Las reglas de IVA por línea.** Ahora se comprueba el desglose contra las
 líneas, pero no que el tipo declarado en cada línea sea coherente con el

@@ -437,8 +437,8 @@ justo el test que hubo que reescribir porque no distinguía nada.
 Facturae no tiene categorías de IVA —la letra S, Z, E, AE, K, G, O de
 EN 16931—, así que toda la familia `BR-{X}-*` sigue sin equivalente y no lo
 tendrá: no hay dónde mapearla. Lo que se comprueba ahora es la aritmética, que
-es donde estaba el agujero. Tampoco se valida la firma XAdES, que en Facturae
-es lo que le da validez legal frente a terceros.
+es donde estaba el agujero. La firma XAdES tampoco se validaba entonces; se
+hizo después, y está al final de este documento.
 
 ---
 
@@ -561,3 +561,120 @@ validez legal frente a terceros. Y si lo que dice la factura es cierto, que no
 lo puede saber ningún validador.
 
 527 tests.
+
+---
+
+# La firma XAdES
+
+El único punto que quedaba abierto de la lista de arriba. Se cierra a medias, y
+la mitad que no se cierra se dice con todas las letras.
+
+## Lo que se comprobó antes de escribir nada
+
+La pregunta que decidía si esto era viable: **¿se puede reproducir el resumen de
+un documento firmado por el Gobierno?** Si la respuesta era no —por
+canonicalización, por saltos de línea, por lo que fuera—, no había módulo que
+escribir.
+
+Sobre `gob_sample-facturae-firmada.xsig.xml`, con C14N 1.0 no exclusiva:
+
+| referencia | resultado |
+|---|---|
+| `#Signature-SignedProperties` | coincide |
+| `` (documento entero, enveloped) | coincide |
+| `#Certificate1` | coincide |
+
+Las tres, exactas. Y las cinco muestras firmadas verifican enteras, resúmenes y
+RSA. Solo entonces se escribió el módulo.
+
+## Sin dependencias nuevas, y por qué importa
+
+Verificar RSA es `pow(firma, e, n)`: aritmética de enteros, que Python hace
+nativa. Leer la clave pública del certificado son unas líneas de DER. Traer
+`cryptography` habría costado una extensión compilada, y esto corre dentro del
+navegador con Pyodide: cada dependencia nativa es otro wheel que buscar, otra
+versión que casar y varios megas de descarga. **La descarga sigue en 13,8 MB.**
+Cuesta 3-5 ms por factura firmada.
+
+## El detalle que no se deja al azar
+
+`_verificar_rsa` reconstruye el bloque PKCS#1 entero y compara bytes. La forma
+natural de escribirlo es la contraria —abrir el bloque descifrado, saltarse el
+relleno y leer el resumen de dentro—, y así se escribió durante años en medio
+mundo. Un lector permisivo acepta bloques con el relleno corto y basura detrás,
+y con eso se fabrican firmas falsas sin tener la clave privada: el fallo de
+Bleichenbacher de 2006, que volvió en 2014 como «BERserk».
+
+Comprobado que la diferencia es real, no teórica. Sobre el mismo bloque forjado
+`00 01 FF 00 <DigestInfo> <basura>`:
+
+| bloque | versión ingenua | la nuestra |
+|---|---|---|
+| el correcto | acepta | acepta |
+| relleno corto + basura | **acepta** | rechaza |
+| sin byte separador | rechaza | rechaza |
+| resumen de otro mensaje | rechaza | rechaza |
+
+Con precisión, porque conviene no exagerar: fabricar uno de esos bloques exige
+exponente público pequeño —3 o 17—, y con 65537 no se puede. Pero certificados
+con exponente 3 los hay, escribirlo bien cuesta cero, y la alternativa es un
+validador que da por buena una firma falsa.
+
+## Lo que salió al pasarlo por las muestras
+
+`gob_sample-factura-firmada-31.xml` firma con un certificado **caducado**:
+vencía el 31-01-2009 y la firma declara el 25-02-2009, veinticinco días
+después. Es la misma factura que ya traía el descuadre de 22,08 € en la base
+imponible. Las otras cuatro firmadas verifican sin una queja de integridad.
+
+Las cinco usan RSA-SHA1 y cuatro tienen claves de 1024 bits, así que salen con
+aviso —no error—: la firma puede ser auténtica, el algoritmo ya no da
+garantías.
+
+## Dos cosas que costaron
+
+**`getpath` frente a `getelementpath`.** Para calcular el resumen del documento
+entero hay que quitarle la firma, y sobre una copia hay que volver a localizar
+la misma firma. `getpath` devuelve una ruta con prefijos de namespace que la
+copia no tiene declarados: lxml responde «Undefined namespace prefix» en
+cualquier documento con prefijos, o sea en todos los Facturae firmados.
+`getelementpath` usa notación `{namespace}etiqueta` y no depende de prefijos.
+
+**Una prueba que no probaba nada.** El primer intento de sustituir el
+certificado por otro hacía un `replace` sobre el texto del fichero con el
+base64 que devuelve lxml. Al parsear, lxml normaliza CRLF a LF: el texto
+devuelto no está literalmente en el fichero, el `replace` no encontraba nada, y
+la prueba pasaba sin sustituir nada. Se rehízo sacando el base64 crudo con una
+expresión regular, y entonces sí falló como debía.
+
+## Sobre los tests
+
+Los 33 nuevos no dependen de `MuestrasFE/`, que no se versiona: **firman de
+verdad**. Se construye un certificado X.509 a mano en DER —versión, serie,
+emisor, validez, sujeto y la clave— y se firma con una clave RSA de 512 bits
+cuyos primos están escritos en el fichero.
+
+Tener la clave privada es lo que permite lo que ninguna factura real permite:
+fabricar bloques PKCS#1 a medida y comprobar que se rechazan uno por uno.
+
+Que un certificado inventado a mano valga para esto es exactamente lo que el
+módulo dice de sí mismo: comprueba que la firma cuadra con el certificado,
+**no** de quién es el certificado.
+
+## Lo que sigue sin comprobarse, ahora de verdad
+
+- **De quién es el certificado.** Exige la lista de confianza europea (TSL),
+  que cambia y se descarga.
+- **Si está revocado.** Exige OCSP o CRL, o sea red.
+- **Los sellos de tiempo** (XAdES-T y por encima). Sin ellos, la fecha de firma
+  la escribe quien firma y puede poner la que quiera; sirve para contrastarla
+  con la vigencia del certificado, no para demostrar cuándo se firmó.
+- **Si quien firma está autorizado a facturar por ese NIF.**
+
+Traducido: el validador responde «¿ha cambiado alguien este documento después
+de firmarlo?» y «¿la firma cuadra con el certificado que trae dentro?». No
+responde «¿de quién es este certificado?». Un documento firmado con un
+certificado que el propio remitente se ha inventado pasa todas las
+comprobaciones —de hecho es lo que hacen los tests—, y el informe lo dice.
+
+560 tests.
