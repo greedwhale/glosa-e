@@ -16,6 +16,7 @@ una falsificación clásica de PKCS#1— y comprobar que se rechazan.
 import base64
 import hashlib
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 from lxml import etree
@@ -538,3 +539,37 @@ class TestEnElOrquestador:
             i for i in factura.validar(roto).incidencias if i.codigo == "FIRMA-ALTERADA"
         ][0]
         assert factura.origen(salta) == factura.SELLO
+
+
+# --- El ejemplo que sí se versiona -----------------------------------------
+
+EJEMPLO = Path(__file__).resolve().parent.parent / "ejemplos" / "fe-0001.xml"
+
+
+class TestElEjemploFirmado:
+    """`ejemplos/fe-0001.xml` va en el repositorio y lo usa la página.
+
+    Su firma se rompe con tocarle un byte, y quien lo edite para cambiar un
+    importe no tiene por qué acordarse de volver a firmarlo. Sin esta prueba se
+    quedaría en el repositorio un ejemplo que el propio validador denuncia como
+    manipulado —y nadie se enteraría hasta enseñarlo—.
+    """
+
+    @pytest.mark.skipif(not EJEMPLO.exists(), reason="no está el ejemplo")
+    def test_sigue_verificando(self):
+        salen = quejas(EJEMPLO.read_bytes())
+        assert codigos(salen, ERROR) == set(), [i.texto() for i in salen]
+
+    @pytest.mark.skipif(not EJEMPLO.exists(), reason="no está el ejemplo")
+    def test_y_la_prueba_distingue(self):
+        # Que la de arriba no pase por no mirar nada.
+        roto = EJEMPLO.read_bytes().replace(
+            b"<InvoiceTotal>121.00", b"<InvoiceTotal>121.01"
+        )
+        assert "FIRMA-ALTERADA" in codigos(quejas(roto), ERROR)
+
+    @pytest.mark.skipif(not EJEMPLO.exists(), reason="no está el ejemplo")
+    def test_y_es_una_factura_correcta_ademas(self):
+        # Un ejemplo que se enseña tiene que estar bien entero, no solo firmado.
+        informe = factura.validar_archivo(EJEMPLO)
+        assert informe.validado and informe.conforme, informe.detalle()

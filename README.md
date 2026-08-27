@@ -21,7 +21,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-560 tests, todos en verde.
+563 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -68,10 +68,17 @@ es lo peor que puede hacer un validador; era el fallo más grave que ha tenido
 este proyecto y no lo cazó ningún test: lo cazó un usuario escribiendo mal una
 carpeta.
 
-En la carpeta `ejemplos/` hay seis documentos preparados: dos facturas
+En la carpeta `ejemplos/` hay siete documentos preparados: dos facturas
 correctas, una repetida en otro fichero, otra cuyas líneas no cuadran con el
 total, una en sintaxis CII con dos tipos de IVA en las líneas y uno solo en el
-desglose, y un abono correcto.
+desglose, un abono correcto, y un Facturae 3.2.2 firmado (`fe-0001.xml`).
+
+La firma de ese último está hecha con la clave de juguete de
+`tests/test_firma.py`, y el fichero lo dice en un comentario: sirve para
+comprobar que el documento no se ha tocado, **no** acredita a nadie, porque no
+la avala ninguna autoridad de certificación. Un test se encarga de que siga
+verificando: quien lo edite para cambiar un importe y no lo vuelva a firmar se
+entera al pasar la suite, no al enseñarlo.
 
 Junto al código va **de qué reglamento sale la queja**, porque cambia lo que
 hay que hacer con ella: lo que firma una norma te lo rechaza el receptor, lo

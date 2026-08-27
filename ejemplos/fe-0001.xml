@@ -1,0 +1,115 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Factura en Facturae 3.2.2, correcta y firmada.
+     Una linea: 2 x 50,00 = 100,00, IVA al 21% = 21,00, total 121,00.
+     La firma es XAdES-EPES hecha con la clave de juguete de
+     tests/test_firma.py, cuyos primos estan escritos alli. Sirve para
+     comprobar que el documento no se ha tocado; NO acredita a nadie:
+     no la avala ninguna autoridad de certificacion. -->
+<fe:Facturae xmlns:fe="http://www.facturae.gob.es/formato/Versiones/Facturaev3_2_2.xml">
+  <FileHeader>
+    <SchemaVersion>3.2.2</SchemaVersion>
+    <Modality>I</Modality>
+    <InvoiceIssuerType>EM</InvoiceIssuerType>
+    <Batch>
+      <BatchIdentifier>FE0001</BatchIdentifier>
+      <InvoicesCount>1</InvoicesCount>
+      <TotalInvoicesAmount><TotalAmount>121.00</TotalAmount></TotalInvoicesAmount>
+      <TotalOutstandingAmount><TotalAmount>121.00</TotalAmount></TotalOutstandingAmount>
+      <TotalExecutableAmount><TotalAmount>121.00</TotalAmount></TotalExecutableAmount>
+      <InvoiceCurrencyCode>EUR</InvoiceCurrencyCode>
+    </Batch>
+  </FileHeader>
+  <Parties>
+    <SellerParty>
+      <TaxIdentification>
+        <PersonTypeCode>J</PersonTypeCode>
+        <ResidenceTypeCode>R</ResidenceTypeCode>
+        <TaxIdentificationNumber>ESB12345674</TaxIdentificationNumber>
+      </TaxIdentification>
+      <LegalEntity>
+        <CorporateName>Talleres Ejemplo SL</CorporateName>
+        <AddressInSpain>
+          <Address>Calle Mayor 1</Address>
+          <PostCode>28013</PostCode>
+          <Town>Madrid</Town>
+          <Province>Madrid</Province>
+          <CountryCode>ESP</CountryCode>
+        </AddressInSpain>
+      </LegalEntity>
+    </SellerParty>
+    <BuyerParty>
+      <TaxIdentification>
+        <PersonTypeCode>J</PersonTypeCode>
+        <ResidenceTypeCode>R</ResidenceTypeCode>
+        <TaxIdentificationNumber>ESB85905495</TaxIdentificationNumber>
+      </TaxIdentification>
+      <LegalEntity>
+        <CorporateName>Clientes Ejemplo SL</CorporateName>
+        <AddressInSpain>
+          <Address>Gran Via 2</Address>
+          <PostCode>28013</PostCode>
+          <Town>Madrid</Town>
+          <Province>Madrid</Province>
+          <CountryCode>ESP</CountryCode>
+        </AddressInSpain>
+      </LegalEntity>
+    </BuyerParty>
+  </Parties>
+  <Invoices>
+    <Invoice>
+      <InvoiceHeader>
+        <InvoiceNumber>0001</InvoiceNumber>
+        <InvoiceSeriesCode>FE</InvoiceSeriesCode>
+        <InvoiceDocumentType>FC</InvoiceDocumentType>
+        <InvoiceClass>OO</InvoiceClass>
+      </InvoiceHeader>
+      <InvoiceIssueData>
+        <IssueDate>2026-03-02</IssueDate>
+        <InvoiceCurrencyCode>EUR</InvoiceCurrencyCode>
+        <TaxCurrencyCode>EUR</TaxCurrencyCode>
+        <LanguageName>es</LanguageName>
+      </InvoiceIssueData>
+      <TaxesOutputs>
+        <Tax>
+          <TaxTypeCode>01</TaxTypeCode>
+          <TaxRate>21.00</TaxRate>
+          <TaxableBase><TotalAmount>100.00</TotalAmount></TaxableBase>
+          <TaxAmount><TotalAmount>21.00</TotalAmount></TaxAmount>
+        </Tax>
+      </TaxesOutputs>
+      <InvoiceTotals>
+        <TotalGrossAmount>100.00</TotalGrossAmount>
+        <TotalGrossAmountBeforeTaxes>100.00</TotalGrossAmountBeforeTaxes>
+        <TotalTaxOutputs>21.00</TotalTaxOutputs>
+        <TotalTaxesWithheld>0.00</TotalTaxesWithheld>
+        <InvoiceTotal>121.00</InvoiceTotal>
+        <TotalOutstandingAmount>121.00</TotalOutstandingAmount>
+        <TotalExecutableAmount>121.00</TotalExecutableAmount>
+      </InvoiceTotals>
+      <Items>
+        <InvoiceLine>
+          <ItemDescription>Revision anual del vehiculo</ItemDescription>
+          <Quantity>2.00</Quantity>
+          <UnitPriceWithoutTax>50.000000</UnitPriceWithoutTax>
+          <TotalCost>100.00</TotalCost>
+          <GrossAmount>100.00</GrossAmount>
+          <TaxesOutputs>
+            <Tax>
+              <TaxTypeCode>01</TaxTypeCode>
+              <TaxRate>21.00</TaxRate>
+              <TaxableBase><TotalAmount>100.00</TotalAmount></TaxableBase>
+              <TaxAmount><TotalAmount>21.00</TotalAmount></TaxAmount>
+            </Tax>
+          </TaxesOutputs>
+        </InvoiceLine>
+      </Items>
+      <PaymentDetails>
+        <Installment>
+          <InstallmentDueDate>2026-04-01</InstallmentDueDate>
+          <InstallmentAmount>121.00</InstallmentAmount>
+          <PaymentMeans>04</PaymentMeans>
+        </Installment>
+      </PaymentDetails>
+    </Invoice>
+  </Invoices>
+<ns0:Signature xmlns:ns0="http://www.w3.org/2000/09/xmldsig#" Id="Signature1"><ns0:SignedInfo><ns0:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><ns0:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><ns0:Reference URI=""><ns0:Transforms><ns0:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></ns0:Transforms><ns0:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ns0:DigestValue>QhCzLpVYSl2ORdMKljVqXwWBdP0N7m1N9EFc1SxVLf8=</ns0:DigestValue></ns0:Reference><ns0:Reference URI="#SignedProperties1" Type="http://uri.etsi.org/01903#SignedProperties"><ns0:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ns0:DigestValue>urxbc60XrcrMN5LnBUnlBnObwebWVQenI+4VtLi8Wq4=</ns0:DigestValue></ns0:Reference></ns0:SignedInfo><ns0:SignatureValue>M+NJFb18jckK8Y1GS+VN5vMVtv044YaIcWgTAI+tBvMmARHDWwxz15AlAYL241ZaxeqGLuFDNXL9sgBW+zdxfQ==</ns0:SignatureValue><ns0:KeyInfo><ns0:X509Data><ns0:X509Certificate>MIIBJDCB0aADAgECAgEBMAsGCSqGSIb3DQEBCzAYMRYwFAYDVQQDDA1DQSBkZSBwcnVlYmFzMCIYDzIwMjUwMzAyMTIwMDAwWhgPMjAyNzAzMDIxMjAwMDBaMB4xHDAaBgNVBAMME1RhbGxlcmVzIEVqZW1wbG8gU0wwXDANBgkqhkiG9w0BAQEFAANLADBIAkEAhUbTBbaCxI14ewxgLr0GehXL69tL6Q7LSs8iq6ObmUgRk6jTU+d74bPtZeEnn9UeHfssM/bXAW6DoOELNNiO3QIDAQABMAsGCSqGSIb3DQEBCwNBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</ns0:X509Certificate></ns0:X509Data></ns0:KeyInfo><ns0:Object><ns1:QualifyingProperties xmlns:ns1="http://uri.etsi.org/01903/v1.3.2#" Target="#Signature1"><ns1:SignedProperties Id="SignedProperties1"><ns1:SignedSignatureProperties><ns1:SigningTime>2026-03-02T10:15:00+00:00</ns1:SigningTime><ns1:SigningCertificate><ns1:Cert><ns1:CertDigest><ns0:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ns0:DigestValue>hXFncTskiXgJ1cVNTElkHFNzxhWoFIPmqR/xscqcPok=</ns0:DigestValue></ns1:CertDigest></ns1:Cert></ns1:SigningCertificate></ns1:SignedSignatureProperties></ns1:SignedProperties></ns1:QualifyingProperties></ns0:Object></ns0:Signature></fe:Facturae>
