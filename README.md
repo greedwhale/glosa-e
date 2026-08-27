@@ -18,10 +18,11 @@ según el RD 238/2026.
 | `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
 | `validador/facturae.py` | La aritmética del formato nacional: totales, líneas, impuestos y lote | Terminado |
 | `validador/firma.py` | La firma XAdES: integridad del documento y verificación RSA, sin salir a la red | Terminado |
+| `validador/cadena.py` | De quién es el certificado: la cadena hasta un ancla de confianza instalada | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-563 tests, todos en verde.
+593 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -957,6 +958,110 @@ ya traía el descuadre de 22,08 € en la base imponible.
 Las cinco usan RSA-SHA1 y cuatro tienen claves de 1024 bits, así que salen con
 aviso y no con error: la firma puede ser auténtica, el algoritmo ya no da
 garantías.
+
+## Las anclas de confianza
+
+`firma.py` responde «este documento no se ha tocado y la firma cuadra con el
+certificado que trae dentro». Falta lo otro: **de quién es ese certificado**.
+Sin eso, un documento firmado con un certificado que el propio remitente se ha
+inventado pasa todas las comprobaciones.
+
+`cadena.py` lo responde encadenando: el certificado de la factura lo emitió
+otro, y ese otro lo emitió otro, hasta llegar a uno que ya conocemos. Los que
+conocemos son las **anclas de confianza**.
+
+### Esto no necesita red, y esa es la idea
+
+Un ancla no se consulta: se conoce. El navegador no llama a nadie para saber
+qué es una autoridad raíz; las lleva dentro. El sistema operativo, igual.
+
+Así que las anclas se instalan en una carpeta —como los esquemas XSD— y a
+partir de ahí encadenar es aritmética local: la misma verificación RSA que ya
+estaba escrita, aplicada hacia arriba. **La promesa de que la factura no sale
+del ordenador queda intacta.**
+
+```bash
+factura-e facturas/ --anclas anclas/
+```
+
+Por defecto busca en `./anclas` o en la variable `FACTURAE_ANCLAS`. Lee `.cer`,
+`.crt`, `.der` y `.pem`, y un `.pem` con varios certificados dentro.
+
+### Por qué no vienen en el repositorio
+
+Porque meter un certificado raíz en el paquete es una decisión de seguridad, no
+de comodidad: **quien controle ese fichero controla a quién cree el
+validador.** Bajarlos «como sea» y hornearlos dentro sería crear justo el
+problema que este módulo viene a resolver.
+
+Se instalan a mano, y el validador enseña la huella de cada uno para poder
+contrastarla con la que publica su autoridad:
+
+```bash
+factura-e --ver-anclas
+```
+
+```
+Anclas de confianza en anclas:
+
+  Talleres Ejemplo SL
+    SHA-256  85:71:67:71:3B:24:89:78:09:D5:C5:4D:4C:49:64:1C:53:73:C6:15:A8:14:83:E6:A9:1F:F1:B1:CA:9C:3E:89
+
+Contrasta cada huella con la que publica su autoridad antes de fiarte de ella.
+```
+
+Esa de ahí arriba es la del certificado de juguete de `ejemplos/fe-0001.xml`,
+que es lo que hay a mano para enseñar el formato. **No se copian huellas de
+aquí ni de ningún sitio que no sea la propia autoridad**: el sentido de la
+huella es cortar la cadena de «me fío de quien me lo pasó», y una huella
+copiada de un README la reanuda.
+
+No hay que fiarse de por dónde llegó el fichero: se comprueba.
+
+### Los tres fallos clásicos, y dónde se paran
+
+1. **`basicConstraints`.** Un certificado que no es de autoridad no puede haber
+   emitido a otro. Los validadores que no lo miraban —que fueron muchos y
+   grandes— dejaban que cualquiera con un certificado normal emitiera
+   certificados a nombre de quien quisiera. Es `ERROR`.
+2. **Encadenar solo por el nombre.** Que el emisor declarado coincida con el
+   sujeto del siguiente no prueba nada: los nombres los escribe quien hace el
+   certificado. Cada eslabón se **verifica criptográficamente**.
+3. **Una raíz falsa con el nombre de una buena.** El almacén compara **byte a
+   byte**, no por sujeto.
+
+Cada una de estas defensas tiene un test que se pone rojo al quitarla:
+comprobado desactivándolas una por una.
+
+### Lo que sale cuando no llega
+
+```
+[CADENA-DESCONOCIDA · firma electrónica] El certificado que firma no lleva a
+ninguna autoridad conocida: no tenemos el certificado de «AC DNIE 001». Puede
+ser que falte un certificado en el almacén, o que no lo emitiera nadie de
+fiar. No es lo mismo y desde aquí no se distingue.
+```
+
+Es **aviso, no error**, y la distinción importa: «no lo reconozco» no es «es
+falso». Hacerlo error llenaría de acusaciones falsas a quien tenga el almacén
+incompleto —que al principio es todo el mundo—. El mensaje nombra la autoridad
+que falta, que es lo accionable.
+
+Lo que sí es error es una cadena **mal formada**: una hoja emitiendo
+certificados, o un eslabón cuya firma no verifica. Eso no es desconocimiento,
+es que algo está mal.
+
+### Un dato práctico
+
+Ninguna de las nueve muestras del Gobierno trae sus certificados intermedios:
+solo el de quien firma. Así que para encadenar de verdad hay que instalar la
+raíz **y** los intermedios, no solo la raíz. Es el caso normal, no el raro.
+
+### Lo que sigue sin comprobarse
+
+Si el certificado está **revocado**. Eso sí necesita red —OCSP o CRL— o que el
+documento traiga la prueba dentro, que es lo que hace XAdES-XL y ninguna de
+nuestras muestras alcanza. El informe lo dice.
 
 ## Ejemplo de salida
 

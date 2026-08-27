@@ -29,19 +29,21 @@ Se comprueba, y sin conexión a ninguna parte:
    (la propiedad `SigningCertificate` de XAdES guarda su resumen).
 5. **Que los algoritmos no estén obsoletos.**
 
-**No se comprueba** —y hay que decirlo, porque la diferencia es enorme—:
+**De quién es el certificado lo responde `cadena.py`**, encadenándolo hasta un
+ancla de confianza instalada. Aquí no: aquí solo se mira el certificado que el
+documento enseña, sin preguntarse quién lo avala.
 
-- Que el certificado lo emitiera una autoridad de confianza. Eso exige la lista
-  de confianza europea (TSL), que cambia, se descarga y se actualiza.
-- Que el certificado no esté revocado. Exige OCSP o CRL, o sea red.
+**No se comprueba en ninguno de los dos**:
+
+- Que el certificado no esté revocado. Exige OCSP o CRL, o sea red, o que el
+  documento traiga la prueba dentro (XAdES-XL).
 - Los sellos de tiempo (XAdES-T y por encima).
 - Que quien firma esté autorizado a facturar por ese NIF.
 
-Traducido: esto responde **«¿alguien ha cambiado este documento después de
-firmarlo?»** y **«¿la firma cuadra con el certificado que trae dentro?»**. No
-responde «¿de quién es este certificado y sigue siendo válido?». Un documento
-firmado por un certificado inventado por el propio remitente pasa las cinco
-comprobaciones de arriba, y por eso el informe dice lo que no mira.
+Traducido: este módulo responde **«¿alguien ha cambiado este documento después
+de firmarlo?»** y **«¿la firma cuadra con el certificado que trae dentro?»**.
+Un documento firmado con un certificado que el remitente se haya inventado pasa
+las cinco comprobaciones de aquí; lo caza `cadena.py` si hay anclas puestas.
 
 Por qué no se usa una librería de criptografía
 ----------------------------------------------
@@ -52,7 +54,8 @@ la clave pública del certificado, y para eso bastan unas líneas de DER.
 Traer `cryptography` costaría una extensión compilada, y este validador entero
 está pensado para correr dentro del navegador con Pyodide: cada dependencia con
 código nativo es un wheel más que buscar, otra versión que casar y varios megas
-más de descarga. La descarga hoy son 13,8 MB y este módulo no le suma nada.
+más de descarga. Este módulo **no le suma ni un byte**: son unos kilobytes
+dentro del wheel que ya se bajaba.
 
 Aquí **no se firma nada**: no hay ninguna clave privada de por medio y por
 tanto no hay secreto que filtrar por tiempos de ejecución. El riesgo de una
@@ -73,7 +76,8 @@ from lxml import etree
 from validador.formato import FACTURAE, NS_FIRMA, Deteccion
 from validador.incidencias import AVISO, ERROR, Incidencia
 
-__all__ = ["reglas", "hay_firma"]
+__all__ = ["reglas", "hay_firma", "certificados_de", "momento_de_firma",
+           "leer_certificado", "Certificado", "ALGORITMOS_ROTOS"]
 
 # --- Algoritmos ------------------------------------------------------------
 
@@ -154,7 +158,14 @@ def _elementos(contenido: bytes) -> list[tuple[int, bytes]]:
 
 @dataclass(frozen=True)
 class Certificado:
-    """Lo poco que hace falta de un X.509 para verificar una firma."""
+    """Lo que hace falta de un X.509 para verificar una firma y encadenarla.
+
+    Los nombres van dos veces: en claro (`sujeto`, `emisor_nombre`) para poder
+    escribir un mensaje que alguien entienda, y en DER (`sujeto_der`,
+    `emisor_der`) para encadenar. Encadenar por el nombre en claro sería un
+    error: el nombre completo tiene más atributos que el común, y dos
+    autoridades distintas pueden coincidir en el CN.
+    """
 
     modulo: int
     exponente: int
@@ -162,9 +173,37 @@ class Certificado:
     hasta: datetime | None
     sujeto: str | None
 
+    # Para la cadena. Todo opcional para no romper a quien construya un
+    # Certificado a mano —los tests lo hacen— sin querer saber de cadenas.
+    der: bytes = b""
+    tbs: bytes = b""  # lo que el emisor firmó, tal cual venía
+    sujeto_der: bytes = b""
+    emisor_der: bytes = b""
+    emisor_nombre: str | None = None
+    algoritmo_firma: str | None = None  # "sha256", o None si no lo conocemos
+    valor_firma: bytes = b""
+    es_autoridad: bool | None = None  # basicConstraints cA
+    profundidad_max: int | None = None  # pathLenConstraint
+    usos: frozenset[str] = frozenset()  # keyUsage
+    criticas_sin_entender: frozenset[str] = frozenset()
+
     @property
     def bits(self) -> int:
         return self.modulo.bit_length()
+
+    @property
+    def autofirmado(self) -> bool:
+        return bool(self.sujeto_der) and self.sujeto_der == self.emisor_der
+
+    def huella(self, alg: str = "sha256") -> str:
+        """La huella del certificado, en mayúsculas y por parejas.
+
+        Es como las publican las autoridades en su web, y es lo que permite
+        comprobar que un ancla de confianza es la que dice ser sin fiarse de
+        por dónde ha llegado.
+        """
+        crudo = hashlib.new(alg, self.der).hexdigest().upper()
+        return ":".join(crudo[i : i + 2] for i in range(0, len(crudo), 2))
 
 
 def _fecha_der(etiqueta: int, crudo: bytes) -> datetime | None:
@@ -200,19 +239,111 @@ def _nombre_der(contenido: bytes) -> str | None:
     return None
 
 
+# Algoritmos de firma de certificado, por su OID. MD5 y SHA-1 están rotos para
+# firmar certificados —se saben fabricar colisiones, y con una colisión se
+# fabrica un certificado falso que verifica—, así que se reconocen para poder
+# decir qué son, no para darlos por buenos: ver `cadena.py`.
+_OID_ALGORITMO = {
+    "2a864886f70d010104": ("md5", True),
+    "2a864886f70d010105": ("sha1", True),
+    "2a864886f70d01010b": ("sha256", False),
+    "2a864886f70d01010c": ("sha384", False),
+    "2a864886f70d01010d": ("sha512", False),
+}
+ALGORITMOS_ROTOS = frozenset(
+    alg for alg, roto in _OID_ALGORITMO.values() if roto
+)
+
+_OID_BASIC_CONSTRAINTS = "551d13"  # 2.5.29.19
+_OID_KEY_USAGE = "551d0f"  # 2.5.29.15
+
+# keyUsage es un BIT STRING; el bit 5 es el que permite firmar certificados.
+_USOS = (
+    "firma",  # 0 digitalSignature
+    "no_repudio",  # 1 contentCommitment
+    "cifrar_clave",
+    "cifrar_datos",
+    "acuerdo_clave",
+    "firmar_certificados",  # 5 keyCertSign
+    "firmar_crl",  # 6 cRLSign
+    "solo_cifrar",
+    "solo_descifrar",
+)
+
+
+def _oid(crudo: bytes) -> str:
+    return crudo.hex()
+
+
+def _leer_extensiones(campos, salto):
+    """basicConstraints, keyUsage y qué críticas no entendemos.
+
+    Las extensiones van en `[3] EXPLICIT`, o sea etiqueta 0xA3, y son
+    opcionales: un certificado v1 no tiene ninguna.
+    """
+    es_ca = None
+    profundidad = None
+    usos: set[str] = set()
+    criticas: set[str] = set()
+    for etiqueta, contenido in campos[salto + 6 :]:
+        if etiqueta != 0xA3:
+            continue
+        _, lista, _ = _tlv(contenido)
+        for _, extension in _elementos(lista):
+            partes = _elementos(extension)
+            if not partes:
+                continue
+            identificador = _oid(partes[0][1])
+            critica = len(partes) == 3 and partes[1][1] == b"\xff"
+            valor = partes[-1][1]
+            if identificador == _OID_BASIC_CONSTRAINTS:
+                dentro = _elementos(_tlv(valor)[1]) if valor else []
+                es_ca = bool(dentro) and dentro[0][0] == 0x01 and dentro[0][1] == b"\xff"
+                for et, v in dentro:
+                    if et == 0x02:
+                        profundidad = int.from_bytes(v, "big")
+            elif identificador == _OID_KEY_USAGE:
+                _, bits, _ = _tlv(valor)
+                if len(bits) >= 2:
+                    sobran = bits[0]
+                    total = (len(bits) - 1) * 8 - sobran
+                    numero = int.from_bytes(bits[1:], "big") >> sobran
+                    for posicion in range(total):
+                        if numero >> (total - 1 - posicion) & 1 and posicion < len(_USOS):
+                            usos.add(_USOS[posicion])
+            elif critica:
+                # Una extensión crítica que no se entiende obliga, según la
+                # norma, a rechazar el certificado. No se rechaza aquí —eso lo
+                # decide quien encadena—, pero se apunta cuál era.
+                criticas.add(identificador)
+    return es_ca, profundidad, frozenset(usos), frozenset(criticas)
+
+
 def leer_certificado(der: bytes) -> Certificado:
-    """La clave pública, las fechas y el nombre de un certificado X.509."""
-    _, certificado, _ = _tlv(der)
-    tbs = _elementos(certificado)[0][1]
-    campos = _elementos(tbs)
+    """Un X.509 abierto: clave, fechas, nombres, firma y extensiones."""
+    _, certificado, siguiente = _tlv(der)
+    der = der[:siguiente]  # sin la basura que venga detrás, si viene
+    partes = _elementos(certificado)
+    if len(partes) < 3:
+        raise ValueError("no parece un certificado")
+
+    # El `tbsCertificate` hay que quedárselo **tal cual venía**, con su
+    # etiqueta y su longitud: es exactamente la ristra de octetos que el emisor
+    # firmó. Volver a serializarlo a partir de lo parseado daría otros bytes en
+    # cuanto el certificado no fuera DER estricto, y la firma no verificaría.
+    fin_tbs = _tlv(certificado)[2]
+    tbs = certificado[:fin_tbs]
+
+    campos = _elementos(partes[0][1])
     # El campo `version` es opcional y va etiquetado [0]. Si está, todo lo
     # demás baja una posición: sin esta cuenta se leería el número de serie
     # donde va la clave.
     salto = 1 if campos[0][0] == 0xA0 else 0
+    emisor_der = _reserializar(campos[salto + 2])
     validez = _elementos(campos[salto + 3][1])
     desde = _fecha_der(*validez[0]) if len(validez) > 0 else None
     hasta = _fecha_der(*validez[1]) if len(validez) > 1 else None
-    sujeto = _nombre_der(campos[salto + 4][1])
+    sujeto_der = _reserializar(campos[salto + 4])
 
     spki = _elementos(campos[salto + 5][1])
     bits = spki[1][1]
@@ -222,13 +353,47 @@ def leer_certificado(der: bytes) -> Certificado:
     numeros = _elementos(rsa)
     if len(numeros) < 2:
         raise ValueError("no parece una clave RSA")
+
+    algoritmo = None
+    algoritmos = _elementos(partes[1][1])
+    if algoritmos and algoritmos[0][0] == 0x06:
+        pareja = _OID_ALGORITMO.get(_oid(algoritmos[0][1]))
+        algoritmo = pareja[0] if pareja else None
+    valor_firma = partes[2][1][1:] if partes[2][1][:1] == b"\x00" else b""
+
+    es_ca, profundidad, usos, criticas = _leer_extensiones(campos, salto)
     return Certificado(
         modulo=int.from_bytes(numeros[0][1], "big"),
         exponente=int.from_bytes(numeros[1][1], "big"),
         desde=desde,
         hasta=hasta,
-        sujeto=sujeto,
+        sujeto=_nombre_der(campos[salto + 4][1]),
+        der=der,
+        tbs=tbs,
+        sujeto_der=sujeto_der,
+        emisor_der=emisor_der,
+        emisor_nombre=_nombre_der(campos[salto + 2][1]),
+        algoritmo_firma=algoritmo,
+        valor_firma=valor_firma,
+        es_autoridad=es_ca,
+        profundidad_max=profundidad,
+        usos=usos,
+        criticas_sin_entender=criticas,
     )
+
+
+def _reserializar(elemento: tuple[int, bytes]) -> bytes:
+    """Devuelve un TLV ya parseado a su forma en bytes.
+
+    Para los nombres, que se comparan en DER y no en claro.
+    """
+    etiqueta, contenido = elemento
+    if len(contenido) < 0x80:
+        largo = bytes([len(contenido)])
+    else:
+        crudo = len(contenido).to_bytes((len(contenido).bit_length() + 7) // 8, "big")
+        largo = bytes([0x80 | len(crudo)]) + crudo
+    return bytes([etiqueta]) + largo + contenido
 
 
 def _verificar_rsa(firma: bytes, mensaje: bytes, cert: Certificado, alg: str) -> bool:
@@ -297,6 +462,24 @@ def hay_firma(raiz) -> list:
     return raiz.xpath(
         "//*[local-name()='Signature' and namespace-uri()=$ns]", ns=NS_FIRMA
     )
+
+
+def certificados_de(firma) -> list[Certificado]:
+    """Los certificados que trae una firma, el primero el que firma.
+
+    XAdES permite meter la cadena entera en el `KeyInfo`, y lo normal es que el
+    primero sea el del firmante. Los que no se puedan leer se saltan en
+    silencio: de que falte el del firmante ya se queja `reglas`, y un
+    intermedio ilegible solo significa que la cadena no llegará arriba.
+    """
+    salida = []
+    for texto in firma.xpath(".//*[local-name()='X509Certificate']/text()"):
+        crudo = base64.b64decode("".join(texto.split()), validate=False)
+        try:
+            salida.append(leer_certificado(crudo))
+        except (ValueError, IndexError, binascii.Error):
+            continue
+    return salida
 
 
 def _canonicalizar(nodo, algoritmo: str | None) -> bytes | None:
@@ -582,7 +765,7 @@ def _regla_certificado(
     return incidencias
 
 
-def _momento_de_firma(firma) -> datetime | None:
+def momento_de_firma(firma) -> datetime | None:
     """La fecha que la firma declara. **No es prueba de nada por sí sola.**
 
     Sin sello de tiempo de un tercero, esta fecha la escribe quien firma y
@@ -686,6 +869,6 @@ def reglas(raiz, deteccion: Deteccion) -> list[Incidencia]:
         incidencias.extend(_regla_referencias(raiz, firma, donde))
         incidencias.extend(_regla_valor(raiz, firma, certificado, donde))
         incidencias.extend(
-            _regla_certificado(firma, certificado, _momento_de_firma(firma), donde)
+            _regla_certificado(firma, certificado, momento_de_firma(firma), donde)
         )
     return incidencias

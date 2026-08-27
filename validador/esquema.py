@@ -90,6 +90,13 @@ class Catalogo:
     _compilados: dict[Path, etree.XMLSchema] = field(
         default_factory=dict, repr=False
     )
+
+    def __post_init__(self) -> None:
+        # `Catalogo("esquemas")` es lo natural de escribir desde fuera, y sin
+        # esto no reventaba hasta la primera consulta, en mitad de un lote.
+        if not isinstance(self.carpeta, Path):
+            self.carpeta = Path(self.carpeta)
+
     _indice: dict[str, Path] | None = field(default=None, repr=False)
     _rotos: dict[Path, str] = field(default_factory=dict, repr=False)
 

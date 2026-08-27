@@ -254,4 +254,62 @@ def _():
     return firmadas[0].split("/")[-1] + " -> firma intacta"
 
 
+
+@comprobar("la cadena de confianza se encadena aqui tambien", critica=True)
+def _():
+    # cadena.py es RSA y DER: aritmetica pura, sin nada que pueda faltar en
+    # WebAssembly. Se comprueba igualmente porque el coste es cero y porque
+    # «deberia funcionar» no es haberlo mirado.
+    #
+    # Se monta la jerarquia entera al vuelo: el propio certificado del ejemplo
+    # firmado hace de ancla de si mismo, que es el caso que se puede montar sin
+    # traer ningun fichero mas.
+    import base64, glob
+    from lxml import etree
+    from validador.cadena import Almacen, construir
+    from validador.firma import leer_certificado
+
+    firmadas = [r for r in sorted(glob.glob(BASE + "/*.xml"))
+                if b"Signature" in open(r, "rb").read()]
+    if not firmadas:
+        return "no hay ninguna firmada entre los ejemplos"
+    raiz = etree.parse(firmadas[0]).getroot()
+    crudo = base64.b64decode("".join(
+        raiz.xpath("//*[local-name()='X509Certificate']/text()")[0].split()))
+    hoja = leer_certificado(crudo)
+
+    import os
+    os.makedirs("/anclas", exist_ok=True)
+    with open("/anclas/ejemplo.cer", "wb") as f:
+        f.write(crudo)
+    almacen = Almacen("/anclas")
+    assert not almacen.vacio, "no ha leido el ancla del disco virtual"
+    assert almacen.contiene(hoja), "no reconoce su propio certificado"
+    assert construir(hoja, almacen).llega, "no encadena hasta el ancla"
+
+    # Y que rechaza lo que no es: un certificado con el mismo nombre pero otros
+    # bytes no vale como ancla.
+    otro = leer_certificado(crudo[:-1] + bytes([crudo[-1] ^ 1]))
+    assert not almacen.contiene(otro), "acepta un ancla por el nombre"
+    return "{} -> encadena, y rechaza la copia alterada".format(hoja.sujeto)
+
+
+@comprobar("sin anclas no se inventa nada")
+def _():
+    from validador.cadena import Almacen, reglas
+    from validador.firma import leer_certificado
+    import base64, glob
+    from lxml import etree
+    firmadas = [r for r in sorted(glob.glob(BASE + "/*.xml"))
+                if b"Signature" in open(r, "rb").read()]
+    if not firmadas:
+        return "no hay ninguna firmada entre los ejemplos"
+    raiz = etree.parse(firmadas[0]).getroot()
+    crudo = base64.b64decode("".join(
+        raiz.xpath("//*[local-name()='X509Certificate']/text()")[0].split()))
+    salen = reglas([leer_certificado(crudo)], Almacen("/no-hay-anclas"))
+    assert [i.codigo for i in salen] == ["CADENA-SIN-ANCLAS"],         "deberia avisar de que no ha comprobado nada: " + str(salen)
+    return "avisa en vez de callarse"
+
+
 json.dumps(resultados)

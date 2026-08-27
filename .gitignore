@@ -14,3 +14,8 @@ MuestrasFE/
 
 # Los esquemas XSD oficiales: son de sus organismos y pesan 3,8 MB.
 esquemas/
+
+# Las anclas de confianza. No se versionan a proposito, y no por tamanio:
+# quien controle ese fichero controla a quien cree el validador. Las instala
+# quien usa la herramienta y las contrasta con `--ver-anclas`.
+anclas/

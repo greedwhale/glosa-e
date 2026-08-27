@@ -28,8 +28,9 @@ from pathlib import Path
 
 from lxml import etree
 
-from validador import codigo_unico, en16931, esquema, facturae, firma
+from validador import cadena, codigo_unico, en16931, esquema, facturae, firma
 from validador.formato import CII, FACTURAE, UBL, Deteccion, detectar, parser
+from validador.cadena import Almacen
 from validador.esquema import Catalogo
 from validador.incidencias import ERROR, Incidencia, Informe
 
@@ -66,7 +67,7 @@ def origen(incidencia: Incidencia) -> str:
         return FORMA
     if incidencia.codigo.startswith("FE-"):
         return NACIONAL
-    if incidencia.codigo.startswith("FIRMA-"):
+    if incidencia.codigo.startswith(("FIRMA-", "CADENA-")):
         return SELLO
     if incidencia.codigo.startswith("NIF-"):
         # No lo firma el RD 238/2026 —el código único solo usa el NIF del
@@ -118,7 +119,11 @@ def _senia(incidencia: Incidencia) -> tuple:
 
 
 def _reglas(
-    raiz, deteccion: Deteccion, hoy: date | None, catalogo: Catalogo | None
+    raiz,
+    deteccion: Deteccion,
+    hoy: date | None,
+    catalogo: Catalogo | None,
+    almacen: Almacen | None = None,
 ) -> list[Incidencia]:
     """Todas las reglas sobre un documento ya parseado y ya identificado.
 
@@ -133,6 +138,7 @@ def _reglas(
     incidencias.extend(en16931.reglas(raiz, deteccion, espanola=espanola))
     incidencias.extend(facturae.reglas(raiz, deteccion))
     incidencias.extend(firma.reglas(raiz, deteccion))
+    incidencias.extend(cadena.reglas_de_documento(raiz, deteccion, almacen))
     incidencias.extend(codigo_unico.reglas(raiz, deteccion, hoy=hoy))
     return _podar(incidencias)
 
@@ -141,6 +147,7 @@ def validar(
     datos: bytes | str,
     hoy: date | None = None,
     catalogo: Catalogo | None = None,
+    almacen: Almacen | None = None,
 ) -> Informe:
     """Valida un documento: su forma, las reglas europeas y las españolas."""
     deteccion = detectar(datos)
@@ -150,7 +157,7 @@ def validar(
     if isinstance(datos, str):
         datos = datos.encode("utf-8")
     informe.incidencias.extend(
-        _reglas(_arbol(datos, deteccion), deteccion, hoy, catalogo)
+        _reglas(_arbol(datos, deteccion), deteccion, hoy, catalogo, almacen)
     )
     return informe
 
@@ -159,11 +166,14 @@ def validar_archivo(
     ruta: str | Path,
     hoy: date | None = None,
     catalogo: Catalogo | None = None,
+    almacen: Almacen | None = None,
 ) -> Informe:
     """Igual que `validar`, leyendo de un fichero."""
     camino = Path(ruta)
     try:
-        return validar(camino.read_bytes(), hoy=hoy, catalogo=catalogo)
+        return validar(
+            camino.read_bytes(), hoy=hoy, catalogo=catalogo, almacen=almacen
+        )
     except OSError as error:
         return Informe(deteccion=_no_se_puede_leer(camino, error))
 
@@ -269,10 +279,11 @@ class InformeLote:
             for _, informe in self.informes
         )
 
-    def alcance(self, forma: bool = True) -> str:
+    def alcance(self, forma: bool = True, anclas: bool = False) -> str:
         """Qué se ha mirado, dicho una vez y al final del informe.
 
-        `forma` dice si había esquemas XSD con los que comprobarla. Sin este
+        `forma` dice si había esquemas XSD con los que comprobarla, y `anclas`
+        si había anclas de confianza. Sin este
         dato la frase decía «se ha comprobado la forma contra el esquema XSD»
         justo encima del recordatorio de que no hay esquemas puestos: dos
         líneas seguidas contradiciéndose, que es peor que no decir nada y es
@@ -312,12 +323,21 @@ class InformeLote:
                 "documento desde que se firmó, y que la firma cuadre con el "
                 "certificado que trae dentro"
             )
-            # La mitad cara de validar una firma es esta, y es la que no se
-            # hace. Decir «firma comprobada» a secas dejaría creer que sí.
-            sin_mirar.append(
-                "de quién es el certificado ni si está revocado —para eso hace "
-                "falta la lista de confianza europea y salir a la red—"
-            )
+            if anclas:
+                mirado.append(
+                    "que ese certificado lleve a una autoridad de confianza "
+                    "instalada"
+                )
+                # Lo que queda es lo único que de verdad exige salir a la red.
+                sin_mirar.append("si el certificado está revocado")
+            else:
+                # Decir «firma comprobada» a secas dejaría creer que también se
+                # sabe de quién es, que es la mitad que más importa.
+                sin_mirar.append(
+                    "de quién es el certificado ni si está revocado —lo primero "
+                    "necesita anclas de confianza instaladas, lo segundo salir "
+                    "a la red—"
+                )
         else:
             sin_mirar.append("la validez de las firmas electrónicas")
         sin_mirar.append("si lo que dice la factura es cierto")
@@ -329,7 +349,7 @@ class InformeLote:
             + "."
         )
 
-    def detalle(self, forma: bool = True) -> str:
+    def detalle(self, forma: bool = True, anclas: bool = False) -> str:
         senialados = self.senialados
         lineas: list[str] = []
         for camino, informe in self.informes:
@@ -355,7 +375,7 @@ class InformeLote:
             lineas.append("")
         lineas.append(self.resumen())
         lineas.append("")
-        lineas.append(self.alcance(forma))
+        lineas.append(self.alcance(forma, anclas))
         return "\n".join(lineas)
 
 
@@ -367,6 +387,7 @@ def validar_lote(
     rutas: list[str | Path],
     hoy: date | None = None,
     catalogo: Catalogo | None = None,
+    almacen: Almacen | None = None,
 ) -> InformeLote:
     """Valida varios ficheros y además los compara entre sí.
 
@@ -379,6 +400,9 @@ def validar_lote(
     # Un solo catalogo para todo el lote: asi el esquema se compila una vez y
     # no una por fichero, que es lo que de verdad cuesta.
     catalogo = catalogo or Catalogo.por_defecto()
+    # Un solo almacen para todo el lote, por lo mismo que el catalogo: leer y
+    # parsear las anclas una vez, no una por fichero.
+    almacen = almacen if almacen is not None else Almacen.por_defecto()
     todos: list[codigo_unico.CodigoUnico] = []
     procedencias: list[str] = []
 
@@ -396,7 +420,9 @@ def validar_lote(
         raiz = _arbol(datos, deteccion)
         informe = Informe(deteccion=deteccion)
         if deteccion:
-            informe.incidencias.extend(_reglas(raiz, deteccion, hoy, catalogo))
+            informe.incidencias.extend(
+                _reglas(raiz, deteccion, hoy, catalogo, almacen)
+            )
         lote.informes.append((camino, informe))
 
         # Al montón del lote solo van las facturas sujetas al reglamento

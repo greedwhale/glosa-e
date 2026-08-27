@@ -13,7 +13,9 @@ Trae soporte de XSD. Compila un esquema, acepta lo válido, rechaza lo inválido
 y llena el `error_log` del que salen los mensajes.
 
 Al añadirse la firma apareció una segunda pregunta del mismo calibre: **¿esta
-compilación canonicaliza igual que la de fuera?** También sí, byte a byte.
+compilación canonicaliza igual que la de fuera?** También sí, byte a byte. Y la
+cadena de confianza encadena aquí igual, que era menos dudoso —es aritmética de
+enteros— pero se ha mirado en vez de suponerlo.
 
 ## Cómo ejecutarla
 
@@ -39,9 +41,9 @@ corren contra la carpeta, no contra el paquete—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, quince comprobaciones que deben salir
-todas en verde; ocho están marcadas como **críticas** y son las que, si fallan,
-tumban la idea entera:
+Arriba, el tiempo de arranque. Abajo, diecisiete comprobaciones que deben
+salir todas en verde; nueve están marcadas como **críticas** y son las que, si
+fallan, tumban la idea entera:
 
 | Comprobación | Por qué es crítica |
 |---|---|
@@ -53,6 +55,7 @@ tumban la idea entera:
 | una factura rota se caza | sin falsos negativos |
 | lxml canonicaliza igual que fuera | de ello depende `firma.py` entero |
 | se verifica una firma RSA de verdad | sin `cryptography`, que aquí no hay |
+| la cadena de confianza se encadena aquí | de ello depende `cadena.py` |
 
 Las dos últimas son de la firma y la primera de ellas es la que más podía
 doler. `firma.py` calcula el resumen de un documento canonicalizado y lo compara
@@ -78,7 +81,8 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Arranque con la caché ya caliente | ~4,8 s |
 | Validar una factura | 5–120 ms |
 | Validar las siete de `ejemplos/` | 241 ms |
-| Verificar una firma XAdES | 48 ms |
+| Verificar una firma XAdES | 17 ms |
+| Encadenar hasta un ancla de confianza | 4 ms |
 | Validar un lote de 200 | 2,05 s · 10,3 ms cada una · 23 MB de memoria |
 | Lo que descomprime el navegador | 14,71 MB |
 
@@ -88,7 +92,7 @@ visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
 0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
 menos de cinco.
 
-Los quince resultados coinciden exactamente con los de la misma prueba
+Los diecisiete resultados coinciden exactamente con los de la misma prueba
 ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
 Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
 en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización
@@ -135,11 +139,17 @@ WebAssembly, sin que el fichero salga del ordenador.
 - **Los esquemas XSD oficiales.** No están en el repositorio y aquí tampoco:
   la prueba los da por ausentes y comprueba que eso no revienta nada. Con ellos
   habría que bajar unos megas más.
-- **La cadena de confianza de las firmas.** Aquí se comprueba que el documento
-  no se haya tocado y que la firma cuadre con su certificado. Saber de quién es
-  ese certificado exige la lista de confianza europea y consultas OCSP, o sea
-  red. Y salir a la red rompe justo lo que hace atractiva a esta página: que
-  nada sube a ningún sitio.
+- **Las anclas de confianza, en el navegador.** Encadenar funciona aquí —está
+  comprobado—, pero las anclas hay que meterlas en el disco virtual, igual que
+  las facturas de ejemplo. Son unos cientos de KB y se cachean, así que el
+  coste es pequeño; lo que falta es decidir **quién las pone**: si van con la
+  página, la responsabilidad de mantenerlas al día es nuestra, y si las pone
+  quien usa la página, hay que enseñarle a hacerlo. Es una decisión de
+  producto, no un problema técnico.
+- **La revocación.** Lo único que de verdad obliga a salir a la red. Se puede
+  resolver con CRL en vez de OCSP —te bajas la lista entera y filtras en casa,
+  con lo que la autoridad no aprende qué certificado te interesaba—, pero sigue
+  siendo tráfico y hay que contarlo.
 
 Un lote de 200 facturas sí se ha medido: 2 segundos y 23 MB. Eso significa que
 la parte de pago —el lote del mes de una gestoría— también cabe en el
