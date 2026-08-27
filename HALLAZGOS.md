@@ -1284,3 +1284,110 @@ DNIE», retirada el 14 de septiembre de 2023—. Sin el intermedio no hay cadena
 que construir por completo que esté el almacén.
 
 797 tests, 25 de 25 en el navegador (16 críticas).
+
+
+# El sello de tiempo, y las tres trampas del RFC 3161
+
+## Por qué era el primero de la lista
+
+La fecha de una firma salía de `SigningTime`, que la escribe quien firma. De
+ese dato cuelgan las dos comprobaciones más caras del validador —la vigencia
+del certificado y la revocación—, así que las dos se esquivan con el mismo
+gesto: fechar hacia atrás. Un certificado caducado o anulado ayer firma hoy una
+factura que dice ser del año pasado, y las dos reglas la dan por buena.
+
+## Las tres trampas
+
+Ninguna sale de leer la norma; las tres salieron de contrastar el código contra
+un `TimeStampToken` hecho con `openssl`.
+
+**Uno: la firma no va sobre los atributos tal y como vienen.** En el DER los
+atributos firmados llevan la etiqueta `[0]`; lo que se firma es esa secuencia
+reetiquetada como `SET OF`. Esta es benigna —falla en todos los sellos del
+mundo, y a gritos—, pero hay una prueba que exige que la forma ingenua **no**
+verifique, porque el día que alguien la «simplifique» conviene que se entere.
+
+**Dos: el algoritmo de resumen no sale de donde parece.** El
+`signatureAlgorithm` del firmante es casi siempre `rsaEncryption` a secas, sin
+decir con qué resumen se hizo. El bueno es el `digestAlgorithm`, que va aparte.
+
+**Tres, y esta sí falla en silencio hacia el lado malo: el resumen por defecto
+del certificado no es el mismo en las dos versiones del atributo.** En
+`SigningCertificate` es SHA-1 siempre y no se escribe; en
+`SigningCertificateV2`, SHA-256. Escribir un único valor por defecto —lo
+natural, y lo que yo escribí— hace que la comprobación no case en ningún sello
+moderno. Se vio contrastando contra el vector: con SHA-256 casa, con SHA-1 no,
+y hay una prueba que lo fija en las dos direcciones.
+
+## La comprobación que no es criptografía
+
+RFC 3161 §2.3 pide que el certificado de la autoridad lleve la extensión de uso
+extendido con `id-kp-timeStamping` y **nada más**. Es la comprobación que más
+pesa y la única que no es aritmética: sin ella, cualquiera con un certificado de
+firma corriente se fabrica la fecha que quiera.
+
+Que la norma sea estricta no la hace realista, así que se contrastó contra la
+lista española. De los **69 certificados de sellado concedidos**, 60 son
+certificados de firma —los que sellan— y los 60 llevan la extensión con ese uso
+y solo ese. Los otros nueve son autoridades de certificación: no sellan nada, y
+la regla no les aplica porque lo que se comprueba es el certificado que **firma
+el sello**, que siempre es una hoja. De esos nueve, seis la llevan y tres no.
+
+Hay un vector dedicado: un sello perfectamente firmado, cuya firma verifica y
+cuyo resumen cubre lo que dice cubrir, emitido por un certificado sin permiso.
+Se rechaza, y es la única prueba que se pone roja si alguien afloja esa
+comprobación. La misma va marcada como crítica en el navegador.
+
+## Que la fecha llegue abajo, que era lo que importaba
+
+Leer el sello y escribir una nota bonita no arregla nada. El agujero se cierra
+cuando la fecha acreditada **sustituye** a la declarada, y eso cambia
+veredictos: una anulación posterior a la firma pasa de **aviso** —«esa fecha la
+escribe quien firma»— a **nota** —«el sello acredita que la firma ya existía»—.
+Mismo hecho, distinta confianza, y por eso distinta gravedad.
+
+Los siete cables entre `sellos.py` y el resto se comprobaron uno a uno
+deshaciéndolos y exigiendo que alguna prueba se pusiera roja. **Seis lo
+hicieron; uno no.**
+
+## El que no: una prueba que no probaba nada
+
+La regla dice que con varios sellos buenos manda **el más antiguo** —lo que un
+sello demuestra es «ya existía entonces», así que el más antiguo es la cota más
+ajustada—. La prueba montaba dos sellos y exigía que ganara el menor.
+
+Cambiando `min` por `max` la prueba seguía verde. Los dos sellos se pedían
+seguidos, la TSA de pruebas sellaba con precisión de un segundo, y los dos caían
+en el mismo instante: `min` y `max` daban lo mismo. Estaba comprobando una
+igualdad consigo misma.
+
+Se arregló poniendo la TSA de pruebas a sellar con milisegundos, lo que además
+cubrió de paso la lectura de la fracción de segundo del `genTime`, que estaba
+escrita y no la miraba nadie. Ahora `max` se pone roja.
+
+Es la segunda vez en este proyecto que aparece una prueba que pasa con y sin lo
+que dice probar. Las dos veces la encontró el mismo método: deshacer la defensa
+a propósito y exigir el rojo.
+
+## Un hueco que abrió el propio arreglo
+
+Con la fecha del sello mandando, apareció un caso que antes no se podía ni ver:
+la fecha declarada cae dentro de la vigencia del certificado, el sello cae
+fuera, y nadie se quejaba. `firma.py` mide la vigencia contra la declarada, que
+es lo único que tenía.
+
+Eso es exactamente la maniobra contra la que sirve un sello. Se añadió un aviso
+—no un error: sellar tarde es legítimo y pasa— que dice que lo único acreditado
+de esa firma es posterior a la caducidad, y que si se firmó antes eso solo lo
+dice la fecha que escribe quien firma.
+
+## Lo que sigue abierto
+
+**De quién es la autoridad de sellado.** El sello se comprueba entero; que ese
+certificado sea de una TSA cualificada, todavía no. Un sello se puede fabricar
+entero, autoridad incluida, y pasa todas las comprobaciones. La nota que emite
+el validador lo dice con todas las letras en vez de dar un visto bueno a secas,
+que es la misma política que se siguió con la firma antes de que existiera
+`cadena.py`: primero que cuadre, después de quién es.
+
+849 tests, 27 de 27 en el navegador (18 críticas).

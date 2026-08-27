@@ -318,10 +318,11 @@ class TestLoQueTieneQueParar:
 # --- Las fechas ------------------------------------------------------------
 
 
-def quejas(*lineas_de_lista, cuando=None, hoy=None, **opciones):
+def quejas(*lineas_de_lista, cuando=None, hoy=None, sello=None, **opciones):
     listas = [leer_lista(lista(lineas=lineas_de_lista, **opciones))]
     return revocacion.reglas(
-        [LA_HOJA, LA_INTERMEDIA, leer(raiz())], listas, cuando=cuando, hoy=hoy
+        [LA_HOJA, LA_INTERMEDIA, leer(raiz())], listas, cuando=cuando, hoy=hoy,
+        sello=sello,
     )
 
 
@@ -346,6 +347,39 @@ class TestLasFechas:
         assert codigos(salen) == {"REVOCACION-POSTERIOR"}
         assert salen[0].gravedad == AVISO
         assert "la escribe quien firma" in salen[0].mensaje
+
+    def test_con_sello_de_tiempo_la_anulacion_posterior_es_una_nota(self):
+        """El mismo hecho, otro veredicto, porque la fecha ya no es de parte.
+
+        Sin sello, «se anuló después de firmar» es un aviso: puede ser verdad,
+        pero la fecha la escribe quien firma. Con un sello, la fecha la
+        acredita un tercero y ya no hay nada que avisar; queda una nota, que es
+        lo que este informe usa para decir qué se ha dado por bueno y con qué.
+        """
+        from tests.test_sellos import token
+        from validador import sellos as _sellos
+
+        sello = _sellos.leer(token())
+        salen = quejas(
+            _linea(HOJA_SERIE, HOY), cuando=HOY - timedelta(days=60), sello=sello
+        )
+        assert codigos(salen) == {"REVOCACION-POSTERIOR"}
+        assert salen[0].gravedad == NOTA
+        assert "TSU de prueba" in salen[0].mensaje
+        assert "la escribe quien firma" not in salen[0].mensaje
+
+    def test_anulado_antes_del_sello_sigue_siendo_error(self):
+        """El sello no es un salvoconducto: acredita la fecha, no la validez."""
+        from tests.test_sellos import token
+        from validador import sellos as _sellos
+
+        sello = _sellos.leer(token())
+        salen = quejas(
+            _linea(HOJA_SERIE, HOY - timedelta(days=30)), cuando=HOY, sello=sello
+        )
+        assert codigos(salen) == {"REVOCADO"}
+        assert salen[0].gravedad == ERROR
+        assert "TSU de prueba" in salen[0].mensaje
 
     def test_la_clave_comprometida_mira_hacia_atras(self):
         """Aunque la denuncia sea posterior a la firma: quien robó la clave

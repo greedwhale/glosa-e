@@ -17,14 +17,15 @@ según el RD 238/2026.
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
 | `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
 | `validador/facturae.py` | La aritmética del formato nacional: totales, líneas, impuestos y lote | Terminado |
-| `validador/firma.py` | La firma XAdES: integridad del documento y verificación RSA, sin salir a la red | Terminado |
+| `validador/firma.py` | La firma XAdES: integridad del documento y verificación RSA y ECDSA, sin salir a la red | Terminado |
 | `validador/cadena.py` | De quién es el certificado: la cadena hasta un ancla de confianza instalada | Terminado |
 | `validador/revocacion.py` | Si anularon el certificado: listas de revocación (CRL), sin salir a la red | Terminado |
 | `validador/tsl.py` | De dónde salen las anclas: la lista de confianza (TSL) del Estado, verificada | Terminado |
+| `validador/sellos.py` | El sello de tiempo (RFC 3161 dentro de XAdES): quién acredita la fecha de la firma | Falta de quién es la TSA |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-797 tests, todos en verde.
+849 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1023,6 +1024,166 @@ que emite una hoja P-256, la revoca y publica su CRL— para comprobar que
 con ECDSA, que son los dos sitios donde el despachador tenía que enterarse de
 que la clave no es RSA.
 
+## El sello de tiempo: quién pone la fecha
+
+Hasta aquí la fecha de una firma salía de `SigningTime`, que **la escribe quien
+firma**. No es un detalle de formato: es la bisagra de la que cuelgan las dos
+comprobaciones más caras de todo el validador.
+
+- La **vigencia** del certificado se mide contra esa fecha.
+- La **revocación** también: «se anuló el 3 de marzo» solo dice algo si se sabe
+  si la factura es de antes o de después.
+
+Con la fecha en manos del firmante las dos se esquivan a la vez y con el mismo
+gesto: fechar hacia atrás. Un certificado caducado o anulado ayer firma hoy una
+factura que dice ser del año pasado, y las dos reglas la dan por buena.
+
+Un sello de tiempo cierra eso. Una autoridad de sellado —una TSA— firma «he
+visto estos bytes en este instante». Los bytes que ve son el `SignatureValue`,
+que no se puede fabricar sin la clave privada; así que el sello demuestra que
+**la firma ya existía** entonces. La fecha deja de ser una afirmación del
+interesado y pasa a ser el testimonio de otro.
+
+### Lo que se comprueba
+
+Un sello es un `TimeStampToken` de RFC 3161: un CMS `SignedData` con un
+`TSTInfo` dentro, metido en las propiedades XAdES que la firma **no** cubre
+—que es lo que permite sellar después de firmar—.
+
+1. Que lo que la autoridad firmó sea **este** sello y no otro. El atributo
+   `messageDigest`, que va dentro de lo firmado, tiene que ser el resumen del
+   `TSTInfo` que trae el documento.
+2. Que la firma de la autoridad cuadre con su certificado.
+3. Que el certificado del sello sea el que la autoridad dice haber usado
+   (`signingCertificate`, lo mismo que XAdES hace por fuera).
+4. Que ese certificado **esté autorizado a sellar el tiempo**.
+5. Que el sello sea **de esta firma**: su resumen tiene que ser el del
+   `ds:SignatureValue` canonicalizado.
+
+Y con la fecha ya acreditada, dos cosas que antes no se podían ni mirar: que el
+sello no sea anterior a la emisión del certificado —imposible— y que no sea
+posterior a su caducidad —posible, pero entonces nada acredita que la firma se
+hiciera mientras el certificado valía—.
+
+### La comprobación que no es criptografía, y es la que más pesa
+
+La cuarta. RFC 3161 lo pide con una rotundidad rara en una norma: la extensión
+de uso extendido tiene que estar, tiene que llevar `id-kp-timeStamping` y **no
+puede llevar nada más**. Sin eso, cualquiera con un certificado de firma
+corriente se fabrica los sellos que quiera, y la fecha vuelve a ser suya.
+
+Que la norma sea estricta no la hace realista, así que se contrastó contra la
+lista española. De los **69 certificados de sellado concedidos**, 60 son
+certificados de firma —los que de verdad sellan— y **los 60 llevan la
+extensión, con ese uso y solo ese**. Los otros nueve son autoridades de
+certificación, que no sellan nada: son los emisores, y ahí la regla no aplica
+(seis la llevan igual y tres no).
+
+Hay un vector de prueba dedicado a esto, y es el más importante de los dos: un
+sello **perfectamente firmado**, cuya firma verifica y cuyo resumen cubre lo
+que dice cubrir, emitido por un certificado que no está autorizado a sellar. Se
+rechaza. Si un día alguien afloja esa comprobación, esa es la única prueba que
+se pone roja —y la misma comprobación está marcada como crítica en el
+navegador, porque es de sobre-confianza y esas no avisan solas—.
+
+### Dos trampas que solo se ven probando
+
+Las dos salieron de contrastar el código contra un sello hecho con `openssl`,
+no de leer la norma:
+
+- **La firma no va sobre los atributos tal y como vienen.** En el DER los
+  atributos firmados llevan la etiqueta `[0]`; lo que se firma es esa misma
+  secuencia **reetiquetada como `SET OF`**. Verificar sobre los bytes tal cual
+  falla en todos los sellos del mundo, que es un fallo ruidoso y por tanto
+  benigno; hay una prueba que exige que la forma ingenua **no** verifique.
+- **El algoritmo de resumen no sale de donde parece.** El `signatureAlgorithm`
+  del firmante suele ser `rsaEncryption` a secas, sin decir con qué resumen. El
+  bueno es el `digestAlgorithm`, que va aparte.
+
+Y una tercera que costó encontrar porque falla en silencio hacia el lado malo:
+**el resumen por defecto del certificado no es el mismo en las dos versiones
+del atributo**. En `SigningCertificate` es SHA-1 siempre; en
+`SigningCertificateV2`, SHA-256. Escribir un único valor por defecto —lo
+natural— hace que la comprobación del certificado no case en ningún sello
+moderno, que es exactamente donde hace falta.
+
+Cuando cuadra, sale así:
+
+```
+[SELLO-TIEMPO · firma electrónica] La firma lleva un sello de tiempo de «TSU de
+prueba» del 2026-08-27 a las 22:32:13 UTC, con una precisión de ±1 s 500 ms
+100 µs, y el sello cuadra: esa autoridad vio esta firma ese día, así que la
+firma ya existía entonces. Esa es la fecha que se usa para la vigencia y la
+revocación, en vez de la que declara quien firma. Lo que todavía no se
+comprueba es quién es esa autoridad: que el sello sea coherente no dice que
+esté en la lista de confianza del Estado.
+```
+
+### La fecha acreditada gana, y se nota en el veredicto
+
+Leer el sello no arregla nada por sí solo. Lo que arregla el agujero es que la
+fecha del sello **sustituya** a la declarada en todo lo que cuelga de ella, y
+eso cambia resultados:
+
+```
+[REVOCACION-POSTERIOR · firma electrónica] El certificado que firma se anuló el
+2026-03-02, después del 2026-01-01 en que el sello de tiempo de «TSU de prueba»
+acredita que esta firma ya existía. La factura se firmó cuando el certificado
+aún valía, y eso no depende de lo que declare quien firma.
+```
+
+Ese mismo caso, sin sello, es un **aviso** que acaba diciendo «esa fecha la
+escribe quien firma: sin un sello de tiempo de un tercero no hay forma de
+comprobarla». Con sello es una **nota**: ya no hay nada de que avisar, solo que
+declarar en qué se ha confiado. El hecho es el mismo; lo que cambia es quién
+responde por la fecha.
+
+Al revés también: una anulación anterior al sello sigue siendo un error, y
+ahora lo dice sin rodeos —«estaba ya anulado cuando el sello acredita que ya
+existía esta firma»—, que es una acusación que antes no se podía sostener.
+
+### Cuando no hay sello, se dice
+
+```
+[SELLO-FALTA · firma electrónica] La firma no lleva sello de tiempo de un
+tercero. La fecha que se ha usado para comprobar la vigencia del certificado y
+la revocación es la que declara quien firma, el 2026-03-02: quien firma puede
+escribir la que quiera, y fechando hacia atrás se esquivan las dos
+comprobaciones a la vez.
+```
+
+Ninguna de las muestras del Gobierno lleva sello, así que esta nota es lo que
+sale hoy en la práctica. Es la misma política que con las anclas: **una
+decisión tomada por otro solo es aceptable si se declara**.
+
+### Lo que todavía no se comprueba
+
+**De quién es la autoridad de sellado.** Se comprueba que el sello es coherente
+y que lo firmó el certificado que trae dentro; no que ese certificado sea de
+una TSA cualificada. Mientras eso falte, un sello se puede fabricar entero
+—autoridad incluida— y pasa las cinco comprobaciones de arriba, y por eso la
+nota lo dice con todas las letras en vez de dar un visto bueno a secas.
+
+Es el mismo orden en que se hizo la firma: primero que cuadre, después de quién
+es. La lista española publica **69 servicios de sellado concedidos**, así que la
+fuente está y el siguiente paso es montar ese conjunto —aparte del de las
+firmas, porque una autoridad cualificada solo para sellar no debe avalar la
+firma de una factura—.
+
+### Cómo se prueba sin ningún sello real
+
+Ninguna muestra trae uno, así que el círculo se rompe igual que con las curvas:
+**el sello no lo fabrica este código**. Los vectores los hizo `openssl`, y el
+bueno está sellado sobre el `SignatureValue` exacto del documento de pruebas
+—determinista— canonicalizado por lxml. Los bytes que la autoridad selló no los
+eligió este módulo: los eligió la norma, los serializó lxml y los resumió
+`openssl`.
+
+Van escritos en el fichero de pruebas para que corran sin `openssl` instalado y
+dentro del navegador. Las que necesitan sellar bytes a medida —las que cruzan
+la fecha del sello con otra cosa— montan una autoridad entera con `openssl` y
+se saltan solas cuando no está.
+
 ## Las anclas de confianza
 
 `firma.py` responde «este documento no se ha tocado y la firma cuadra con el
@@ -1335,8 +1496,6 @@ Listas de revocación en revocaciones:
 
 - **Las respuestas OCSP que vengan dentro del documento.** Se detectan y se
   dice que están, pero no se leen todavía.
-- **Los sellos de tiempo** (XAdES-T y por encima), que son lo que convertiría
-  la fecha de firma en algo más que la palabra del firmante.
 - **Si anularon el certificado después de la última lista que tengas.** Eso no
   lo arregla ningún validador: ninguna lista sabe lo que pasó después de
   publicarse.
@@ -1766,7 +1925,7 @@ Lo que queda, ordenado por lo que de verdad estorba.
 | Hueco | Por qué importa | Tamaño |
 |---|---|---|
 | **EDIFACT no se valida** | Es uno de los **cuatro** formatos que admite el RD 238/2026. Hoy se detecta y se contesta «no se ha podido validar» | grande |
-| **Sellos de tiempo (XAdES-T)** | Sin ellos la fecha de la firma **la escribe quien firma**. La caducidad del certificado y la revocación cuelgan las dos de ese dato | medio |
+| **De quién es la autoridad de sellado** | El sello ya se comprueba entero; falta montar el conjunto de anclas de sellado desde la lista, que publica 69 servicios concedidos | pequeño |
 | **Respuestas OCSP embebidas (XAdES-XL)** | Las listas de revocación que trae el documento ya se leen; las respuestas OCSP no. Es la única forma de comprobar revocación sin red en un documento moderno | medio |
 | **Los mensajes de estado del RD** | `calendario.py` calcula el plazo de cuatro días hábiles, pero no se valida un documento de estado en sí | medio |
 | **El IVA por línea** | Que el tipo de cada línea case con lo que se vende no es EN 16931: es la Ley del IVA, y hace falta saber qué se vende | dudoso |
@@ -1775,11 +1934,10 @@ Lo que queda, ordenado por lo que de verdad estorba.
 se nota a la primera: el cliente suelta una factura y el validador contesta que
 no sabe.
 
-**El más incómodo de explicar son los sellos de tiempo.** Ahora el informe dice
-honestamente que la fecha la pone quien firma. Dicho de otro modo: un firmante
-puede fechar hacia atrás y esquivar a la vez la caducidad de su certificado y
-su revocación. Mientras no haya sello de un tercero, esa puerta está abierta y
-lo único que se puede hacer es decirlo, que es lo que se hace.
+**El más cercano a estar hecho es el sellado.** Un sello de tiempo se lee, se
+comprueba entero y su fecha manda sobre la que declara quien firma; lo que
+falta es contrastar **de quién** es la autoridad que sella, y la fuente es la
+misma lista de la que ya salen las anclas de firma.
 
 ### Producto
 
@@ -1806,8 +1964,8 @@ lo único que se puede hacer es decirlo, que es lo que se hace.
 
 ### Por dónde empezaría
 
-1. **Los sellos de tiempo**, porque sostienen lo demás: sin ellos, la
-   revocación y la caducidad se apoyan en una fecha que elige el firmante.
+1. **Las anclas de sellado**, que es lo que le falta al sello de tiempo para
+   valer del todo, y es el trozo más corto de los tres.
 2. **EDIFACT**, por ser un cuarto del alcance.
 3. **Facturas reales**, que no es programar sino conseguirlas.
 
@@ -1823,10 +1981,10 @@ La duda real no era si arrancaba Python, sino si esa compilación de lxml traía
 soporte de esquemas XSD: libxml2 se puede compilar sin él, y `esquema.py`
 entero depende de `etree.XMLSchema`. Lo trae.
 
-Las veinticinco comprobaciones de `web/prueba.py` dan el mismo resultado que
+Las veintisiete comprobaciones de `web/prueba.py` dan el mismo resultado que
 en Python nativo —mismos códigos, mismos importes— pese a que ahí libxml2 es
-2.9.10 y en local 2.11.9. Dieciséis son críticas, dos de ellas de curva
-elíptica y tres de la lista de confianza: que se verifique y se monte allí, y que una lista manipulada no
+2.9.10 y en local 2.11.9. Dieciocho son críticas: dos de curva elíptica, tres
+de la lista de confianza y dos de sellos de tiempo: que se verifique y se monte allí, y que una lista manipulada no
 monte nada. Esa parte depende de la canonicalización, que es lo más frágil de
 esa compilación. Medido: 42 s el primer arranque, 4,8 s con la caché caliente,
 10 ms por factura, y un lote de 200 en 2 segundos.

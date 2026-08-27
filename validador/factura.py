@@ -28,7 +28,15 @@ from pathlib import Path
 
 from lxml import etree
 
-from validador import cadena, codigo_unico, en16931, esquema, facturae, firma
+from validador import (
+    cadena,
+    codigo_unico,
+    en16931,
+    esquema,
+    facturae,
+    firma,
+    sellos,
+)
 from validador.formato import CII, FACTURAE, UBL, Deteccion, detectar, parser
 from validador.cadena import Almacen
 from validador.revocacion import AlmacenDeListas
@@ -68,10 +76,14 @@ def origen(incidencia: Incidencia) -> str:
         return FORMA
     if incidencia.codigo.startswith("FE-"):
         return NACIONAL
-    if incidencia.codigo.startswith(("FIRMA-", "CADENA-", "REVOCA", "CONFIANZA-")):
+    if incidencia.codigo.startswith(
+        ("FIRMA-", "CADENA-", "REVOCA", "CONFIANZA-", "SELLO-")
+    ):
         # «REVOCA» y no «REVOCACION-» a propósito: el código de la anulación
         # confirmada es `REVOCADO`, a secas, y sin esto salía etiquetado como
-        # un problema de formato, que es justo lo que no es.
+        # un problema de formato, que es justo lo que no es. Lo mismo le pasaba
+        # a todo lo de los sellos de tiempo, que es lo contrario de un problema
+        # de formato: es de lo que cuelga la fecha de la firma.
         return SELLO
     if incidencia.codigo.startswith("NIF-"):
         # No lo firma el RD 238/2026 —el código único solo usa el NIF del
@@ -143,6 +155,7 @@ def _reglas(
     incidencias.extend(en16931.reglas(raiz, deteccion, espanola=espanola))
     incidencias.extend(facturae.reglas(raiz, deteccion))
     incidencias.extend(firma.reglas(raiz, deteccion))
+    incidencias.extend(sellos.reglas_de_documento(raiz, deteccion))
     incidencias.extend(
         cadena.reglas_de_documento(raiz, deteccion, almacen, listas, hoy)
     )

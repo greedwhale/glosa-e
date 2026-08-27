@@ -4,6 +4,7 @@ No basta con que Pyodide arranque. Lo que hay que saber es si la compilacion
 de lxml para WebAssembly trae todo lo que el validador usa, en particular el
 soporte de esquemas XSD, que libxml2 se puede compilar sin el.
 """
+import base64
 import json
 import os
 import time
@@ -18,6 +19,112 @@ ESPERADO_C14N = "AesuDLQkGMXkd5ZOqjQXwGzUHYaUE4/PuR5VUXJZ/Gw="
 # Un par de primos para firmar en la prueba. Es de juguete: no protege nada.
 P_JUGUETE = 102537101091278998115987341585599416127626670398059308299795465171831775139903
 Q_JUGUETE = 68075505016498421992239704630051902902248104096335391022395579103563275678179
+# --- Los sellos de tiempo --------------------------------------------------
+
+#
+# Los dos los hizo openssl, y van escritos porque aqui dentro no hay ninguno.
+# El bueno esta sellado sobre SELLADO, que es el `ds:SignatureValue`
+# canonicalizado de una factura firmada de verdad; asi la comprobacion pasa
+# por el mismo camino que fuera: DER, RSA, sha256 y la canonicalizacion de
+# esta compilacion de libxml2.
+#
+# El segundo es el que importa: esta perfectamente firmado y su firma
+# verifica, y aun asi hay que rechazarlo, porque el certificado que lo firma
+# no esta autorizado a sellar el tiempo. Es una comprobacion de
+# sobre-confianza, y esas no avisan solas.
+
+SELLO_BUENO = (
+    "MIIJDgYJKoZIhvcNAQcCoIII/zCCCPsCAQMxDzANBglghkgBZQMEAgEFADCBngYLKoZI"
+    "hvcNAQkQAQSggY4EgYswgYgCAQEGBCoDBAEwMTANBglghkgBZQMEAgEFAAQg9oaJiDxV"
+    "g+U8q28t3vzNGHw6bYj7uOwYd+YT/Ksy1bUCAQMYDzIwMjYwODI3MjIzMjEzWjAKAgEB"
+    "gAIB9IEBZAEB/wIJANDz29iUwV8qoBykGjAYMRYwFAYDVQQDDA1UU1UgZGUgcHJ1ZWJh"
+    "oIIGRjCCAywwggIUoAMCAQICAQcwDQYJKoZIhvcNAQELBQAwITEfMB0GA1UEAwwWQUMg"
+    "ZGUgc2VsbG9zIGRlIHBydWViYTAeFw0yNjA4MjcyMjE4MTNaFw0zNjA4MjQyMjE4MTNa"
+    "MBgxFjAUBgNVBAMMDVRTVSBkZSBwcnVlYmEwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAw"
+    "ggEKAoIBAQCrEjGq5EESLiBqKcDPFdi8Nf9J/mxs6F7ssCHeF0Fu5cfe4WcrdMPpwFSK"
+    "oBk4Yj/W51gsdoWSoA2hEBqAhknvaYR6EoFUZCwKsDUAYUpXpdK4z4QnVBdBEIRS03yA"
+    "2iiIbIuVAXp0RQBrVcO/Zggq3emOx6dVC86PZ5CowDxSgtgzSVlwMqcOvEGrlWCpjXLX"
+    "24OWdtGVzrXotxkBTHGPAWoVi0hQmXW8EypRvbSrETlyqLYTosvVHgD7UEWQt95kyJjG"
+    "m7ajxE5+nhRBrPxKnVKKtaWgeiGUmH+qlS9a328uXJ2S48Q/hxjAbBTDjKnhLz+PqJ3h"
+    "XSGGvBN4wTh5AgMBAAGjeDB2MAwGA1UdEwEB/wQCMAAwDgYDVR0PAQH/BAQDAgeAMBYG"
+    "A1UdJQEB/wQMMAoGCCsGAQUFBwMIMB0GA1UdDgQWBBQYjX/AhEd2UbH8e78FzGMmNihs"
+    "GDAfBgNVHSMEGDAWgBSphU64OVjc4JZX/N81z5NOSKPj0jANBgkqhkiG9w0BAQsFAAOC"
+    "AQEAnAgyagPf/PgiprcYmqOEkgic8IC0zAY64j3X+x75ae6dgBeA5s18gZL9NVbdBhqh"
+    "Z+etalBg4w/7boAR+9kFkNf7Caf213bL5gs7IVVsR1I75X58Zh4n457IVQOoDzjD/Gen"
+    "oZRS4cUlvJsmlmeKP72LN04hdFUvqA/kUAPIf6Coi+MP6MiIr7ulZZNZLhbhqhSCU2VR"
+    "YD9FakGcZ9AncdD4o5TXudggyZrlTEZoY194P+fkI4KX0gOQs5MxS62Ke0XDWD7XB5cH"
+    "4IphxzaokgeegrVR52YD6PFJ3FdgANmgv5gvx96iTdxX98Smz160HD2xPo9/opMeVzGD"
+    "JpymczCCAxIwggH6oAMCAQICFECLVOo+cDTDn/g0nINpkJFOsovQMA0GCSqGSIb3DQEB"
+    "CwUAMCExHzAdBgNVBAMMFkFDIGRlIHNlbGxvcyBkZSBwcnVlYmEwHhcNMjYwODI3MjIx"
+    "ODEyWhcNMzYwODI0MjIxODEyWjAhMR8wHQYDVQQDDBZBQyBkZSBzZWxsb3MgZGUgcHJ1"
+    "ZWJhMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvFlHuEuTtp3lnCPdSS5S"
+    "RGdLZpjed9sZYOIyvxmkNW1bjFzvTPH+UUUyJJJ4g8DPgb3TsfBUkURNC1LfBYGt31o7"
+    "zRhIUFPqWEPot/Wcvq6OnrZE1J4nqSw5yxEo973qsubn9GvR2CcK0lL60F9bNrll8PM8"
+    "wF+FcotjyQmntoV7Gk3xr648/5znedh2JpmlY7GsV0ev+5+oIwU1fffJt1eGeGGuDCEq"
+    "Pad2mKqfEkW3dSadV5fD0cBa94wdcEH0su1CYnbBUDk532Vz2OwIyBN8gQnsWgfPTYPC"
+    "uu8xPRD/nDz5MZTrNI+qP4lELt6nsToXXeezGyHxkYVAujQ/LwIDAQABo0IwQDAPBgNV"
+    "HRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUqYVOuDlY3OCWV/zf"
+    "Nc+TTkij49IwDQYJKoZIhvcNAQELBQADggEBAAc8Pz62/8CzkzyMvcg++LrBy7yXbUQR"
+    "5ADHBmvr/Ye9TYWtp2xUFZXoZguzaU3gkvhIEk0xnOZMXIQAHmy7h8yGlizI3L5rzVOM"
+    "XQX78Y6wqQxC2Y3fv710B97vicXoLnyuhobSrN07SX1ufh35y3gUePCl04s9Ek+Q9dvs"
+    "eVhJDOAcvVrYd9zUq5zilWZUph2azeu2/jt7ec3Z9CveVydIvyYq/qnKctx+vajo05rj"
+    "fy196jl6mP0IaCUTU1HU2soa/01Akw2p0trxIeDlHeG7FPhj6V+OFqOYBV8d5o3MhAGH"
+    "q6W5v/CG0JILWYTimeNjfouzWNciBI6tgUKznLgxggH4MIIB9AIBATAmMCExHzAdBgNV"
+    "BAMMFkFDIGRlIHNlbGxvcyBkZSBwcnVlYmECAQcwDQYJYIZIAWUDBAIBBQCggaQwGgYJ"
+    "KoZIhvcNAQkDMQ0GCyqGSIb3DQEJEAEEMBwGCSqGSIb3DQEJBTEPFw0yNjA4MjcyMjMy"
+    "MTNaMC8GCSqGSIb3DQEJBDEiBCD7vyd439XXb5jW8KQmofx8f6bOq11KNwXHx1dKTXOu"
+    "ITA3BgsqhkiG9w0BCRACLzEoMCYwJDAiBCA+pGlS9jQ+tLVHJJFopR7Dwloe41dz1Liz"
+    "1m7poyUfNDANBgkqhkiG9w0BAQEFAASCAQCplUH6+da5M2PRtoCALEmKxlKXqn6DgPzi"
+    "PMahZiqXollco3uT9E5rpsiyk6EAl3cjKxrz3bZ7dTAV6Ixq5Wsvhi0Eh9Dx5q7xPY+Z"
+    "3JEgZHChWyqQmpDGhJ5xhFq+uq4D2m6b+3+FkhtqLF3yqcLG7rglKcnwB3O5m+Vq4Vxe"
+    "lMepoffSKDVIDGu7b1nigfFl7uteOzMkM27jkf+5KZARbbeu+3+L8s8Yi+Pc9krNhaJ5"
+    "dFzn9jdei5bTYCiqynE/hoKpONgQUUajg/Phm53sOm0knsj2Zm8Bfwl8STRaf0HocMwa"
+    "avRyzerE8ORydch1ERQhu7thR6EXdtGf0NdP"
+)
+
+SELLO_SIN_PERMISO = (
+    "MIIGPQYJKoZIhvcNAQcCoIIGLjCCBioCAQMxDTALBglghkgBZQMEAgEwgZ4GCyqGSIb3"
+    "DQEJEAEEoIGOBIGLMIGIAgEBBgQqAwQBMDEwDQYJYIZIAWUDBAIBBQAEIPaGiYg8VYPl"
+    "PKtvLd78zRh8Om2I+7jsGHfmE/yrMtW1AgEDGA8yMDI2MDgyNzIyMzIxM1owCgIBAYAC"
+    "AfSBAWQBAf8CCQDQ89vYlMFfKqAcpBowGDEWMBQGA1UEAwwNVFNVIGRlIHBydWViYaCC"
+    "AzcwggMzMIICG6ADAgECAgEJMA0GCSqGSIb3DQEBCwUAMCExHzAdBgNVBAMMFkFDIGRl"
+    "IHNlbGxvcyBkZSBwcnVlYmEwHhcNMjYwODI3MjIzMjQzWhcNMzYwODI0MjIzMjQzWjAf"
+    "MR0wGwYDVQQDDBRUU1Ugc2luIGF1dG9yaXphY2lvbjCCASIwDQYJKoZIhvcNAQEBBQAD"
+    "ggEPADCCAQoCggEBAMAr0OgP+uUSN+9TZbwURCNdJyol8FmnTfVldHZ4Hl4KBiWuRgCK"
+    "dPg8uMTPnKrLzroC681I7c2WaHeG1QSgAzKRdTYXE18CTtI60XcKlXiTTziEsC2wOPXO"
+    "ESKuHNUB9wZLdvc2UV0Gefrn2A7J2o1VNlANzkk1XQQ5q1Oe2ghZ28fZiatilPy+HtFe"
+    "8jkIzk64uqjjDU3uPveCS3Db/iVIO24iEgUjOrnx/bLhr7wrcJDioj4xSKV8Lh8ijPVb"
+    "Iaiij8l9oWGqCEvHZSvrkvaWYd77tOFfNgVrjoueuvdq2w6erPCOxUXxfmI9PG1GF2TQ"
+    "lPWjD2bjYYriSYm/LWUCAwEAAaN4MHYwDAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8EBAMC"
+    "B4AwFgYDVR0lAQH/BAwwCgYIKwYBBQUHAwQwHQYDVR0OBBYEFLI9HmiIo5NMwVusCRyn"
+    "jU5T+xKuMB8GA1UdIwQYMBaAFKmFTrg5WNzgllf83zXPk05Io+PSMA0GCSqGSIb3DQEB"
+    "CwUAA4IBAQBKnQGe8xGHr+TnoskhQRipVjLyd383AQ5MTCMaA1DwmfacST5RSf0S1eFg"
+    "+Cl/92rym1ilXpNDKZPuJUs6sK/9CANRw/idAEB5pPeofxdHKoJiIxKGxzJgAAuiqFST"
+    "ab6QXRTy2L8NIjnBWZOkCh1jyFBITsV+bB61+1SRltAWMgoFbIiHZAFUozlANo6G5DAb"
+    "AsDZ9AwK3ZJM21fJzr9P3+gmsH58+mzljLeh4cExSGItExFNhEAOvt8HaHGJpShoIfOA"
+    "NzqL5Y8dpGuc8hllp3EtfcMWkg8nI/XkSAiK867BRk7BRj74PT/OVfllzvuvLPJ4bWoL"
+    "gBRvfLnOmzo+MYICODCCAjQCAQEwJjAhMR8wHQYDVQQDDBZBQyBkZSBzZWxsb3MgZGUg"
+    "cHJ1ZWJhAgEJMAsGCWCGSAFlAwQCAaCB5jAaBgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQ"
+    "AQQwHAYJKoZIhvcNAQkFMQ8XDTI2MDgyNzIyMzI0NFowLwYJKoZIhvcNAQkEMSIEIPu/"
+    "J3jf1ddvmNbwpCah/Hx/ps6rXUo3BcfHV0pNc64hMHkGCSqGSIb3DQEJDzFsMGowCwYJ"
+    "YIZIAWUDBAEqMAsGCWCGSAFlAwQBFjALBglghkgBZQMEAQIwCgYIKoZIhvcNAwcwDgYI"
+    "KoZIhvcNAwICAgCAMA0GCCqGSIb3DQMCAgFAMAcGBSsOAwIHMA0GCCqGSIb3DQMCAgEo"
+    "MA0GCSqGSIb3DQEBAQUABIIBACAC1/WVUtEA6tRk4uvffk+lw8iS+PuCPuot4RFcvWJw"
+    "XRM7MlmfjfUmNkaLPh/XEBEyNjx9QQDrKhNUsyAvzhcSbjAA5H/zpeRuehs8B4dSO3wq"
+    "MKrss87cNWt6j1SM32cQck8LifIVS4gf721v+cl6S9pMPW49rFDKDXZFYwcRJPuacvji"
+    "hD0QVvC5YH3UJC3muoTml26sqGODPUJ5d+nM0XpXmApuZlxAtBiF/eqFzmunpNCmafvl"
+    "uYJ2JIxDf8XIcom5vak8o8VWAfiEgRYSBBcwoWw57EyXn3GvwoQtxp8I2mhAFmkEAC/X"
+    "9JcRgjARo9XlUvHmwAcgbdZJGgI="
+)
+
+SELLADO = (
+    "PG5zMDpTaWduYXR1cmVWYWx1ZSB4bWxuczpmZT0iaHR0cDovL3d3dy5mYWN0dXJhZS5n"
+    "b2IuZXMvZm9ybWF0by9WZXJzaW9uZXMvRmFjdHVyYWV2M18yXzIueG1sIiB4bWxuczpu"
+    "czA9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvMDkveG1sZHNpZyMiPmJYemlMeGJBYk1N"
+    "OTZiMGROQU1SYnlZTXBjM2hHU1BsNHJhWlU3WUx5eEJsUG95OXU1RkVOOHUvMWl0WEJP"
+    "NzJ4bjQrei80WkJMSy9tRWltUVl5TWVBPT08L25zMDpTaWduYXR1cmVWYWx1ZT4="
+)
+
 resultados = []
 
 
@@ -767,5 +874,40 @@ def _():
     almacen.recargar()
     assert almacen.vale_para(hoja, antes), "sin tabla se la da por buena"
     return "vale antes de 2016-07-01, no despues, y sin la tabla no vale"
+
+
+@comprobar("un sello de tiempo se lee y se comprueba aqui", critica=True)
+def _():
+    from validador import sellos
+    sello = sellos.leer(base64.b64decode(SELLO_BUENO))
+    assert sello.momento is not None, "no se lee la fecha"
+    assert sello.firmante is not None, "no encuentra el certificado de la TSA"
+    motivo = sellos.comprobar(sello)
+    assert motivo == "", "no se cree un sello bueno: " + motivo
+    sellado = base64.b64decode(SELLADO)
+    motivo = sellos.cubre(sello, sellado)
+    assert motivo == "", "no ata el sello a lo que sello: " + motivo
+    # Y que no se lo trague sobre otra cosa, que es de lo que sirve.
+    assert sellos.cubre(sello, sellado + b" "), "acepta el sello sobre otros bytes"
+    return "sello de %s del %s" % (sello.quien, sello.momento.date().isoformat())
+
+
+@comprobar("un sello sin permiso para sellar no vale", critica=True)
+def _():
+    # La firma de este sello es correcta y cubre lo mismo que el bueno. Lo
+    # unico que le pasa es que su certificado no esta autorizado a sellar el
+    # tiempo. Si esta comprobacion se afloja, cualquiera con un certificado de
+    # firma corriente se fabrica la fecha que quiera, y la fecha es de lo que
+    # cuelgan la caducidad y la revocacion.
+    from validador import sellos
+    from validador.firma import verificar
+    sello = sellos.leer(base64.b64decode(SELLO_SIN_PERMISO))
+    mensaje = b"\x31" + sello.atributos_der[1:]
+    assert verificar(sello.valor_firma, mensaje, sello.firmante,
+                     sello.resumen_firma), "la firma del vector deberia valer"
+    assert sellos.cubre(sello, base64.b64decode(SELLADO)) == "", "no cubre lo mismo"
+    motivo = sellos.comprobar(sello)
+    assert "sellar el tiempo" in motivo, "lo da por bueno: " + repr(motivo)
+    return "firma valida, permiso no: se rechaza"
 
 json.dumps(resultados)

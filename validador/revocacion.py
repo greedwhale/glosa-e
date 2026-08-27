@@ -682,6 +682,7 @@ def _anulado(
     cuando: datetime | None,
     primero: bool,
     donde: str,
+    sello=None,
 ) -> Incidencia:
     anulacion = veredicto.anulacion
     quien = _quien(cert, primero)
@@ -724,14 +725,38 @@ def _anulado(
         )
 
     if cuando is None or (anulacion.cuando and anulacion.cuando <= cuando):
+        segun = (
+            f"cuando el sello de tiempo de «{sello.quien}» acredita que ya "
+            "existía esta firma"
+            if sello is not None
+            else "el día que la factura dice haberse firmado"
+        )
         return Incidencia(
             "REVOCADO",
             ERROR,
-            f"{quien} estaba ya anulado el día que la factura dice haberse "
-            f"firmado. Una firma hecha con un certificado anulado no vale, "
-            "aunque la aritmética de la firma cuadre.",
+            f"{quien} estaba ya anulado {segun}. Una firma hecha con un "
+            "certificado anulado no vale, aunque la aritmética de la firma "
+            "cuadre.",
             campo=f"{donde}Revocación",
             esperado="un certificado no anulado",
+            encontrado=encontrado,
+        )
+
+    # Aquí la anulación es posterior a la firma, y de dónde salga la fecha
+    # cambia el veredicto, no solo la redacción. Con la fecha del firmante esto
+    # es un aviso —puede haberla escrito él—; con un sello de tiempo es un
+    # hecho acreditado por un tercero, y entonces lo que hay que decir no es
+    # «cuidado» sino **qué se ha dado por bueno y con qué**, que es una nota.
+    if sello is not None:
+        return Incidencia(
+            "REVOCACION-POSTERIOR",
+            NOTA,
+            f"{quien} se anuló el {fecha}, después del "
+            f"{cuando.date().isoformat()} en que el sello de tiempo de "
+            f"«{sello.quien}» acredita que esta firma ya existía. La factura "
+            "se firmó cuando el certificado aún valía, y eso no depende de lo "
+            "que declare quien firma.",
+            campo=f"{donde}Revocación",
             encontrado=encontrado,
         )
 
@@ -757,6 +782,7 @@ def reglas(
     hoy=None,
     donde: str = "",
     hay_ocsp: bool = False,
+    sello=None,
 ) -> list[Incidencia]:
     """¿Anularon alguno de los certificados de esta cadena?
 
@@ -784,7 +810,9 @@ def reglas(
         veredicto = comprobar(hijo, padre, candidatas, cuando)
 
         if veredicto.estado == "anulado":
-            incidencias.append(_anulado(hijo, veredicto, cuando, primero, donde))
+            incidencias.append(
+                _anulado(hijo, veredicto, cuando, primero, donde, sello)
+            )
             continue
 
         if veredicto.estado == "vigente":

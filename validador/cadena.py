@@ -63,7 +63,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from validador import firma, revocacion
+from validador import firma, revocacion, sellos
 from validador.firma import (
     ALGORITMOS_ROTOS,
     Certificado,
@@ -473,9 +473,18 @@ def construir(
 # --- Las reglas ------------------------------------------------------------
 
 
-def _regla_vigencias(cadena: Cadena, cuando: datetime | None, donde: str):
+def _regla_vigencias(cadena: Cadena, cuando: datetime | None, donde: str,
+                     sello=None):
     if cuando is None:
         return []
+    # La misma queja cambia de peso según de dónde venga la fecha: «no estaba
+    # vigente el día que la factura dice» es una pega que se responde diciendo
+    # que la fecha es otra; «el día que acredita el sello» no se responde.
+    segun = (
+        f"el día que acredita el sello de tiempo de «{sello.quien}»"
+        if sello is not None
+        else "el día que la factura dice haberse firmado"
+    )
     incidencias = []
     for cert in cadena.eslabones[1:]:  # la hoja ya la mira `firma.py`
         if cert.desde and cert.hasta and not (cert.desde <= cuando <= cert.hasta):
@@ -484,8 +493,7 @@ def _regla_vigencias(cadena: Cadena, cuando: datetime | None, donde: str):
                     "CADENA-CADUCADA",
                     ERROR,
                     f"«{cert.sujeto or 'un certificado de la cadena'}», que está "
-                    "por encima del que firma, no estaba vigente el día que la "
-                    "factura dice haberse firmado.",
+                    f"por encima del que firma, no estaba vigente {segun}.",
                     campo=f"{donde}Cadena de confianza",
                     esperado=(
                         f"entre {cert.desde.date().isoformat()} y "
@@ -596,6 +604,7 @@ def reglas(
     listas_dentro: list | None = None,
     hoy=None,
     hay_ocsp: bool = False,
+    sello=None,
 ) -> list[Incidencia]:
     """De quién es el certificado que firma, hasta donde se pueda saber.
 
@@ -675,7 +684,7 @@ def reglas(
         return incidencias
 
     incidencias.append(_nota_de_confianza(cadena, almacen, donde))
-    incidencias.extend(_regla_vigencias(cadena, cuando, donde))
+    incidencias.extend(_regla_vigencias(cadena, cuando, donde, sello))
     incidencias.extend(_regla_algoritmos(cadena, donde))
     incidencias.extend(
         revocacion.reglas(
@@ -686,6 +695,7 @@ def reglas(
             hoy=hoy,
             donde=donde,
             hay_ocsp=hay_ocsp,
+            sello=sello,
         )
     )
     return incidencias
@@ -707,16 +717,24 @@ def reglas_de_documento(
     incidencias: list[Incidencia] = []
     for numero, una in enumerate(firmas, start=1):
         donde = f"Firma {numero} · " if len(firmas) > 1 else ""
+        # De dónde sale la fecha con la que se mide todo lo demás. Un sello
+        # de tiempo comprobado gana a `SigningTime` **siempre**, y no por
+        # cortesía: la declarada la escribe quien firma, y es justo el dato
+        # que le interesa mover para esquivar a la vez la caducidad de su
+        # certificado y su revocación.
+        acreditado = sellos.momento_probado(una)
+        cuando = acreditado[0] if acreditado else firma.momento_de_firma(una)
         incidencias.extend(
             reglas(
                 firma.certificados_de(una),
                 almacen,
-                cuando=firma.momento_de_firma(una),
+                cuando=cuando,
                 donde=donde,
                 listas=listas.todas() if listas is not None else [],
                 listas_dentro=revocacion.listas_del_documento(una),
                 hoy=hoy,
                 hay_ocsp=revocacion.trae_ocsp(una),
+                sello=acreditado[1] if acreditado else None,
             )
         )
     return incidencias
