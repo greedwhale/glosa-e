@@ -57,17 +57,23 @@ Igual que con las listas de revocación: bajar el fichero es cosa de quien usa
 la herramienta. Aquí se lee de disco. Se puede comprobar con un `grep`: en todo
 el paquete no hay ni un `urlopen`, ni un `requests`, ni un `socket`.
 
-Lo que este módulo **no** resuelve
-----------------------------------
+Las retiradas, y por qué van aparte
+-----------------------------------
 Que una autoridad esté cualificada **hoy** no dice que lo estuviera cuando se
-firmó la factura, ni al revés. La lista lleva la fecha de cada cambio de estado
-—`StatusStartingTime`— y aquí se lee y se cuenta, pero el conjunto que se monta
-es el de las que están concedidas hoy. Una autoridad retirada el año pasado
-firmó facturas buenas hace dos, y con este conjunto esas facturas salen como
-«no llega a ninguna autoridad conocida»: un aviso, no un error, y el mensaje ya
-dice que no se distingue de la otra posibilidad. Está anotado en el manifiesto
-y sale en `--ver-tsl`. Cerrarlo del todo es dar al almacén una ventana de
-validez por ancla, que es otro trabajo.
+firmó la factura, ni al revés. Una factura se guarda años y la autoridad que la
+firmó puede haber dejado de serlo desde entonces: en la lista española hay 114
+retiradas entre 2016 y 2026, y todas emitieron certificados buenos mientras
+estuvieron.
+
+Así que se instalan también, con la fecha en que dejaron de ser cualificadas, y
+`cadena.py` solo las acepta para lo firmado antes de esa fecha.
+
+Lo delicado no es leer la fecha: es que **ampliar el conjunto no amplíe la
+confianza**. Por eso van en una subcarpeta aparte y su fecha en una tabla
+aparte, y por eso `cadena.py` se niega a usar una retirada sin su fila: si
+estuvieran revueltas con las vigentes, copiar la carpeta sin la tabla
+convertiría 135 autoridades caducadas en 135 autoridades de confianza sin fecha
+de caducidad, y nada en el informe lo diría.
 """
 
 from __future__ import annotations
@@ -187,12 +193,18 @@ def _fecha(texto: str) -> datetime | None:
 def _certificados(nodo) -> tuple[list[Certificado], list[str]]:
     """Los certificados utilizables, y por qué no lo son los que no.
 
-    Lo segundo importa tanto como lo primero. Un servicio trae varias formas de
-    identificarse —el certificado, el nombre del sujeto, la huella de la clave—
-    y lo normal es que solo una sea un certificado; contar «las que no lo son»
-    daba un número enorme y sin significado que además **tapaba** la noticia de
-    verdad: que 46 de las 129 autoridades cualificadas concedidas de la lista
-    española usan curva elíptica, y este validador todavía no sabe verificarla.
+    Lo segundo importa tanto como lo primero, y hay una historia detrás. Un
+    servicio trae varias formas de identificarse —el certificado, el nombre del
+    sujeto, la huella de la clave— y lo normal es que solo una sea un
+    certificado; contar «las que no lo son» daba un número enorme y sin
+    significado que además **tapaba** la noticia de verdad: que 46 de las 129
+    autoridades cualificadas concedidas de la lista española usaban curva
+    elíptica y se quedaban fuera del conjunto en silencio.
+
+    Esas ya se verifican. La cuenta se queda porque el problema no era la curva:
+    era no enterarse. El día que aparezca un certificado con una clave que no
+    sepamos usar —Ed25519, una curva de fuera de las tres— tiene que salir
+    contado y con su motivo, y no desaparecer.
 
     Un certificado que está y no se puede usar no es lo mismo que un servicio
     que no trae ninguno, y saltárselos juntos y en silencio deja el conjunto

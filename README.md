@@ -1751,45 +1751,65 @@ avisaba de la autoridad de media España por un algoritmo que aquí no se usa
 para nada. Reproducido con una sonda antes de tocar el código, y la prueba de
 regresión se pone roja al deshacer el arreglo.
 
-## Siguiente paso
+## Lo que falta para estar operativo del todo
 
 Los tres tipos de rechazo que existen —el de forma, el de contenido y el de
-firma— ya están cubiertos. Probarlo contra facturas ajenas también está hecho:
-73 europeas y 9 españolas, ninguna escrita aquí, y cada pasada encontró fallos
-que la inspección del código no había encontrado. Lo que queda es de otra
-clase:
+firma— están cubiertos, y probados contra 82 facturas ajenas. La firma está
+entera y sin red: integridad, RSA y ECDSA, cadena hasta una autoridad de la
+lista de confianza del Estado, ventana de validez por ancla y revocación contra
+listas locales.
 
-**La firma, entera y sin red.** Está hecha: integridad, verificación RSA,
-cadena hasta un ancla instalada y revocación contra listas locales. Lo que
-parecía obligar a salir a internet resultó no obligar: un ancla no se consulta,
-se conoce, y una CRL es un fichero que se instala como los esquemas. Lo único
-que sigue fuera del alcance —los sellos de tiempo y las respuestas OCSP
-embebidas— está anotado arriba.
+Lo que queda, ordenado por lo que de verdad estorba.
 
-**Quién pone las anclas en el navegador, y de dónde salen: decidido y hecho.**
-Las pone la página, porque quien pueda servir la página ya es dueño del
-validador entero —las anclas y el código llegan por el mismo canal—, así que no
-traerlas no compra seguridad: compra que la comprobación no se haga nunca. Lo
-innegociable es declararlo, y está hecho. La fuente también: la lista de
-confianza del Estado, verificada contra la lista de listas europea, y esa
-contra el Diario Oficial. Ver «La lista de confianza».
+### Cobertura de validación
 
-Lo que queda de ahí es operativo, no de diseño: **contrastar el lector contra
-la lista española de verdad** —bajarla es cosa de quien usa la herramienta—,
-decidir cada cuánto se vuelve a montar el conjunto, y que la página enseñe de
-cuándo es el que trae. Y el hueco que queda abierto y está anotado: una
-autoridad retirada hoy firmó facturas buenas hace dos años, y el almacén
-todavía no sabe de ventanas de validez.
+| Hueco | Por qué importa | Tamaño |
+|---|---|---|
+| **EDIFACT no se valida** | Es uno de los **cuatro** formatos que admite el RD 238/2026. Hoy se detecta y se contesta «no se ha podido validar» | grande |
+| **Sellos de tiempo (XAdES-T)** | Sin ellos la fecha de la firma **la escribe quien firma**. La caducidad del certificado y la revocación cuelgan las dos de ese dato | medio |
+| **Respuestas OCSP embebidas (XAdES-XL)** | Las listas de revocación que trae el documento ya se leen; las respuestas OCSP no. Es la única forma de comprobar revocación sin red en un documento moderno | medio |
+| **Los mensajes de estado del RD** | `calendario.py` calcula el plazo de cuatro días hábiles, pero no se valida un documento de estado en sí | medio |
+| **El IVA por línea** | Que el tipo de cada línea case con lo que se vende no es EN 16931: es la Ley del IVA, y hace falta saber qué se vende | dudoso |
 
-**Las reglas de IVA por línea.** Ahora se comprueba el desglose contra las
-líneas, pero no que el tipo declarado en cada línea sea coherente con el
-producto. Eso ya no es EN 16931: es la Ley del IVA, y hace falta saber qué se
-vende.
+**El más gordo es EDIFACT**, porque es un cuarto del alcance legal declarado y
+se nota a la primera: el cliente suelta una factura y el validador contesta que
+no sabe.
 
-**Un servicio, no solo una herramienta.** Todo esto se usa desde la consola o
-como biblioteca. Lo que hace falta para venderlo es que alguien pueda soltar un
-fichero y ver el informe sin instalar nada. Eso ya está comprobado que se puede
-hacer sin servidor: ver más abajo.
+**El más incómodo de explicar son los sellos de tiempo.** Ahora el informe dice
+honestamente que la fecha la pone quien firma. Dicho de otro modo: un firmante
+puede fechar hacia atrás y esquivar a la vez la caducidad de su certificado y
+su revocación. Mientras no haya sello de un tercero, esa puerta está abierta y
+lo único que se puede hacer es decirlo, que es lo que se hace.
+
+### Producto
+
+- **La página de verdad.** `web/` es un banco de pruebas, no la página: falta
+  la interfaz que ve quien suelta una factura.
+- **Los 14,7 MB del primer arranque.** Hay compilaciones de Pyodide más
+  ligeras. La primera visita no va a ser instantánea nunca, y la página tiene
+  que decirlo en vez de parecer rota.
+- **Repartir los esquemas y las anclas con la página.** El «quién» y el «de
+  dónde» están decididos y resueltos; falta empaquetarlos, y que la página
+  **enseñe de cuándo son las anclas que trae**.
+- **Facturas de un cliente de verdad.** Es lo único que va a decir si los
+  mensajes están bien escritos, y suele mover la lista entera.
+
+### Deuda conocida
+
+- **Numeración con barra** (`1/2026`): CU-13 y CU-14 no llegan a dispararse.
+- **`Catalogo` no es seguro entre hilos.** Da igual en consola; no daría igual
+  en un servidor.
+- **Control de CIF tipo L y M** sin contrastar contra la AEAT.
+- **Claves comprimidas, Ed25519 y RSA-PSS**: se dicen por su nombre y no se
+  verifican. No corre prisa —no hay ninguna en la lista española— y el día que
+  aparezca una, sale contada y con su motivo en vez de desaparecer.
+
+### Por dónde empezaría
+
+1. **Los sellos de tiempo**, porque sostienen lo demás: sin ellos, la
+   revocación y la caducidad se apoyan en una fecha que elige el firmante.
+2. **EDIFACT**, por ser un cuarto del alcance.
+3. **Facturas reales**, que no es programar sino conseguirlas.
 
 ## Sin servidor: el validador dentro del navegador
 
