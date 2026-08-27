@@ -116,6 +116,15 @@ ejemplos\f-0006.xml
     Debería ser: 90.00 (línea 1)
     Tiene: 100.00
 
+ejemplos\fe-0001.xml
+  Facturae v3.2.2 (factura) · firmado — sin errores, 1 aviso(s).
+
+  [FIRMA-DEBIL · firma electrónica] La clave del certificado es de 512 bits.
+  Para firma electrónica se piden 2048 como mínimo.
+    Campo: Clave del certificado
+    Debería ser: 2048 bits o más
+    Tiene: 512 bits
+
 ejemplos\r-0001.xml
   UBL v2.1 (abono) · conforme EN 16931 — sin errores.
 
@@ -134,7 +143,7 @@ Entre ficheros:
     Debería ser: del 0001 al 0006 sin saltos
     Tiene: falta(n) 0003 al 0005
 
-6 fichero(s) · 4 correcto(s) · 2 con errores · 2 incidencia(s) entre ficheros.
+7 fichero(s) · 3 correcto(s) · 4 con errores · 2 incidencia(s) entre ficheros.
 ```
 
 También se puede usar como biblioteca:
