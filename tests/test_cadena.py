@@ -100,6 +100,7 @@ def certificado(
     alg: str = "sha256",
     serie: int = 1,
     extensiones: bytes = b"",
+    spki: bytes | None = None,
 ) -> bytes:
     """Un X.509 firmado de verdad por `clave_emisor`.
 
@@ -112,7 +113,7 @@ def certificado(
     hasta = hasta or HOY + timedelta(days=365)
     oid = _OID_SHA256_RSA if alg == "sha256" else _OID_SHA1_RSA
 
-    spki = _secuencia(
+    spki = spki or _secuencia(
         _secuencia(_der(0x06, b"\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01"), _der(0x05, b"")),
         _der(0x03, b"\x00" + _secuencia(_entero(modulo), _entero(E))),
     )

@@ -16,12 +16,14 @@ privada a mano para poder falsificarla. Se monta aquí con las mismas claves de
 juguete de `test_cadena`, y el constructor firma con RSA de verdad: si la
 comprobación de firma se rompiera, estas pruebas se ponen rojas.
 
-Lo que aquí **no** se prueba, y hay que decirlo: que esto lea la lista de
-confianza española de verdad. Para eso hace falta bajarla, y bajarla es cosa de
-quien usa la herramienta. Un constructor y un lector escritos por la misma mano
-pueden compartir el mismo malentendido y darse la razón mutuamente; con las
-listas de revocación esto se cerró con `openssl`, y aquí queda pendiente contra
-el fichero real.
+Lo que aquí **no** puede probarse es que el fichero de verdad tenga la forma
+que tiene este constructor: un constructor y un lector escritos por la misma
+mano comparten los malentendidos y se dan la razón. Eso se cerró pasándolo por
+la lista de listas europea y por la lista española reales, que sacaron cuatro
+fallos que ninguna lista inventada iba a sacar —el puntero al PDF, la lista de
+un país que parecía la de listas, la cuenta de «sin certificado» y el «DER
+truncado» sobre certificados impecables—. Las pruebas de aquí abajo son las que
+quedaron de aquello: cada una es un fallo que ya ocurrió.
 """
 
 import base64
@@ -38,7 +40,7 @@ from validador.cadena import Almacen
 from validador.tsl import CA_CUALIFICADA, CONCEDIDO, RAIZ_NACIONAL
 
 from test_cadena import HOJA, INTERMEDIA, INTRUSO, RAIZ, certificado, hoja, intermedia
-from test_firma import _c14n, _firmar, _resumen
+from test_firma import _c14n, _der, _firmar, _resumen, _secuencia
 
 NS_TSL = "http://uri.etsi.org/02231/v2#"
 NS_DS = "http://www.w3.org/2000/09/xmldsig#"
@@ -69,9 +71,34 @@ Serv = namedtuple(
               "2016-07-01T00:00:00Z", (), 0),
 )
 Punt = namedtuple(
-    "Punt", "territorio donde tipo firmantes",
-    defaults=("PT", "https://ejemplo.invalid/pt.xml", TIPO_PAIS, ()),
+    "Punt", "territorio donde tipo firmantes mime",
+    defaults=("PT", "https://ejemplo.invalid/pt.xml", TIPO_PAIS, (),
+              tsl.MIME_PROCESABLE),
 )
+
+MIME_PDF = "application/pdf"
+
+
+def _spki_de_curva() -> bytes:
+    """Un `SubjectPublicKeyInfo` de curva elíptica P-256, bien formado.
+
+    Los 64 bytes del punto son relleno: lo que se prueba no es la curva, es que
+    el lector mire el OID del algoritmo **antes** de intentar leer la clave.
+    """
+    return _secuencia(
+        _secuencia(
+            _der(0x06, b"\x2a\x86\x48\xce\x3d\x02\x01"),  # id-ecPublicKey
+            _der(0x06, b"\x2a\x86\x48\xce\x3d\x03\x01\x07"),  # prime256v1
+        ),
+        _der(0x03, b"\x00\x04" + bytes(64)),
+    )
+
+
+def ca_de_curva(nombre="AC de curva eliptica"):
+    return certificado(
+        nombre, "Raiz de pruebas", INTERMEDIA, RAIZ, es_ca=True, serie=55,
+        spki=_spki_de_curva(),
+    )
 
 
 # --- El ministerio de juguete que firma la lista ---------------------------
@@ -146,6 +173,8 @@ def lista(
             extra = _t(puntero, "AdditionalInformation")
             _t(_t(extra, "OtherInformation"), "SchemeTerritory", uno.territorio)
             _t(_t(extra, "OtherInformation"), "TSLType", uno.tipo)
+            if uno.mime:
+                _t(_t(extra, "OtherInformation"), "MimeType", uno.mime)
     _t(cabecera, "ListIssueDateTime", emitida)
     if siguiente:
         _t(_t(cabecera, "NextUpdate"), "dateTime", siguiente)
@@ -257,10 +286,38 @@ class TestLoQueDiceLaLista:
         assert servicio.estado_corto == "withdrawn"
         assert servicio.desde.date().isoformat() == "2025-02-01"
 
-    def test_un_servicio_sin_certificado_se_cuenta(self):
+    def test_un_servicio_sin_certificado(self):
+        # Identificarse sin certificado —por el nombre del sujeto, o por la
+        # huella de la clave— es legal y no da ancla.
         una = tsl.leer(lista(servicios=[Serv(sueltos=2)]))
-        assert una.servicios[0].sin_certificado == 2
-        assert una.servicios[0].certificados == ()
+        servicio = una.servicios[0]
+        assert servicio.sin_certificado
+        assert servicio.certificados == ()
+        assert servicio.no_usables == ()
+
+    def test_un_servicio_normal_no_cuenta_como_sin_certificado(self):
+        # Un servicio sano trae **varias** identidades: el certificado, el
+        # nombre del sujeto y la huella de la clave. Contar «las que no son un
+        # certificado» daba 2 de 3 en cada servicio sano —425 en la lista
+        # española— y con ese número encima nadie iba a ver el que importaba.
+        una = tsl.leer(
+            lista(servicios=[Serv(certificados=(intermedia(),), sueltos=2)])
+        )
+        servicio = una.servicios[0]
+        assert not servicio.sin_certificado
+        assert len(servicio.certificados) == 1
+        assert tsl.cuentas(una).sin_certificado == 0
+
+    def test_un_certificado_de_curva_eliptica_no_es_un_fichero_roto(self):
+        # La noticia no es «hay un servicio menos»: es que esa autoridad sigue
+        # siendo cualificada y el corto es este validador. Si se cuenta junto
+        # con lo demás, no se entera nadie.
+        una = tsl.leer(lista(servicios=[Serv(certificados=(ca_de_curva(),))]))
+        servicio = una.servicios[0]
+        assert servicio.certificados == ()
+        assert not servicio.sin_certificado
+        assert len(servicio.no_usables) == 1
+        assert "curva elíptica" in servicio.no_usables[0]
 
     def test_sin_fecha_de_siguiente_actualizacion(self):
         una = tsl.leer(lista(siguiente=""))
@@ -424,8 +481,29 @@ class TestElConjunto:
         assert cuentas.servicios_mirados == 3  # el sello de tiempo no se mira
         assert cuentas.concedidos == 2
         assert cuentas.retirados == 1
-        assert cuentas.sin_certificado == 3
+        # Un servicio, no tres identidades: lo que se pierde son autoridades.
+        assert cuentas.sin_certificado == 1
+        assert cuentas.no_usables == 0
         assert cuentas.escritas == 1
+
+    def test_las_cuentas_separan_lo_que_falta_de_lo_que_no_sabemos_usar(self):
+        una = creida(
+            lista(
+                servicios=[
+                    Serv(nombre="a", certificados=(intermedia(),)),
+                    Serv(nombre="b", sueltos=1),
+                    Serv(nombre="c", certificados=(ca_de_curva(),)),
+                ]
+            )
+        )
+        cuentas = tsl.cuentas(una)
+        assert cuentas.concedidos == 3
+        assert cuentas.sin_certificado == 1
+        assert cuentas.no_usables == 1
+        assert cuentas.escritas == 1
+        assert len(cuentas.motivos) == 1
+        cual, cuantos = cuentas.motivos[0]
+        assert cuantos == 1 and "curva elíptica" in cual
 
 
 # --- Montarlo en una carpeta ----------------------------------------------
@@ -465,7 +543,26 @@ class TestMontar:
         manifiesto = (tmp_path / cadena.NOMBRE_DEL_MANIFIESTO).read_text("utf-8")
         assert "retirados       1" in manifiesto
         # Y por qué importa, no solo cuántos.
-        assert "no llega a ninguna autoridad conocida" in manifiesto
+        assert "no llega a ninguna" in manifiesto
+
+    def test_el_manifiesto_dice_que_autoridades_no_sabemos_usar_y_por_que(
+        self, tmp_path
+    ):
+        una = creida(
+            lista(
+                servicios=[
+                    Serv(nombre="a", certificados=(intermedia(),)),
+                    Serv(nombre="b", certificados=(ca_de_curva(),)),
+                ]
+            )
+        )
+        tsl.montar(una, tmp_path, cuando=HOY)
+        manifiesto = (tmp_path / cadena.NOMBRE_DEL_MANIFIESTO).read_text("utf-8")
+        assert "no utilizables  1" in manifiesto
+        assert "curva elíptica" in manifiesto
+        # Y que no las mete en el mismo saco que las retiradas, porque no es
+        # la misma noticia: esa autoridad sigue siendo cualificada.
+        assert "el corto es este validador" in manifiesto
 
     def test_dos_autoridades_con_el_mismo_nombre_no_se_pisan(self, tmp_path):
         # Una autoridad que renueva su certificado se llama igual que ella
@@ -607,6 +704,83 @@ class TestLaListaDeListas:
             )
         )
         assert una.tipo == ""
+
+    def test_la_lista_de_un_pais_tambien_trae_un_puntero(self):
+        # Y no por eso es una lista de listas. El formato le exige a cada país
+        # apuntar de vuelta a la LOTL, así que «trae punteros» no distingue
+        # nada: con ese criterio la lista española pasaba por lista de listas
+        # y `--ver-tsl` enseñaba el puntero de vuelta en lugar de sus 243
+        # autoridades. Lo que las separa es el tipo que declaran.
+        una = tsl.leer(
+            lista(
+                territorio="ES",
+                tipo=TIPO_PAIS,
+                punteros=[Punt("EU", "https://ejemplo.invalid/eu-lotl.xml")],
+                servicios=[Serv(certificados=(intermedia(),))],
+            )
+        )
+        assert not una.es_lista_de_listas
+        assert len(una.punteros) == 1
+
+    def test_manda_el_tipo_declarado_y_no_la_forma(self):
+        # «Trae punteros y ningún servicio» acierta con las listas de hoy, pero
+        # es una conjetura sobre la forma. El tipo es lo que la lista **declara
+        # de sí misma**, y va dentro de lo firmado: si una lista de listas trae
+        # además un servicio, la conjetura falla y el tipo no.
+        una = tsl.leer(
+            lista(
+                territorio="EU",
+                tipo=TIPO_LISTA_DE_LISTAS,
+                punteros=[Punt("ES", "https://ejemplo.invalid/es.xml")],
+                servicios=[Serv(certificados=(intermedia(),))],
+            )
+        )
+        assert una.es_lista_de_listas
+
+    def test_sin_tipo_declarado_lo_distingue_la_forma(self):
+        con_servicios = tsl.leer(
+            lista(tipo="", punteros=[Punt("EU", "x")],
+                  servicios=[Serv(certificados=(intermedia(),))])
+        )
+        assert not con_servicios.es_lista_de_listas
+        sin_servicios = tsl.leer(lista(tipo="", punteros=[Punt("ES", "x")]))
+        assert sin_servicios.es_lista_de_listas
+
+    def test_el_puntero_de_un_pais_es_el_del_fichero_procesable(self):
+        # En la lista de listas de verdad, once países aparecen **dos veces**:
+        # una entrada para el PDF legible y otra para el XML, y la del PDF va
+        # primero. Quedarse con la primera que case mandaba a bajar el PDF —y
+        # daba por buenos los certificados de esa entrada, confiando en que
+        # fueran los mismos que los de la otra—.
+        otro = firmante(INTERMEDIA, nombre="Otro firmante")
+        una = tsl.leer(
+            lista(
+                territorio="EU",
+                tipo=TIPO_LISTA_DE_LISTAS,
+                punteros=[
+                    Punt("ES", "https://ejemplo.invalid/es.pdf", mime=MIME_PDF,
+                         firmantes=(otro,)),
+                    Punt("ES", "https://ejemplo.invalid/es.xml",
+                         firmantes=(firmante(),)),
+                ],
+            )
+        )
+        espania = una.puntero_de("ES")
+        assert espania.donde.endswith(".xml")
+        assert espania.procesable
+        assert espania.firmantes[0].sujeto == "Ministerio de pruebas"
+
+    def test_sin_tipo_de_fichero_se_devuelve_lo_que_haya(self):
+        # Hay listas antiguas que no declaran el tipo. Quedarse callado sería
+        # peor que devolver lo único que hay.
+        una = tsl.leer(
+            lista(
+                territorio="EU",
+                tipo=TIPO_LISTA_DE_LISTAS,
+                punteros=[Punt("ES", "https://ejemplo.invalid/es.xml", mime="")],
+            )
+        )
+        assert una.puntero_de("ES") is not None
 
     def test_una_lista_de_listas_no_trae_anclas(self):
         una = creida(

@@ -81,6 +81,7 @@ def certificado(
     desde: datetime | None = None,
     hasta: datetime | None = None,
     comun: str = "Pruebas SL",
+    spki: bytes | None = None,
 ) -> bytes:
     """Un X.509 con lo justo para que `leer_certificado` lo entienda.
 
@@ -94,7 +95,7 @@ def certificado(
     desde = desde or HOY - timedelta(days=365)
     hasta = hasta or HOY + timedelta(days=365)
     clave = _secuencia(_entero(modulo), _entero(exponente))
-    spki = _secuencia(
+    spki = spki or _secuencia(
         _secuencia(_der(0x06, b"\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01"), _der(0x05, b"")),
         _der(0x03, b"\x00" + clave),
     )
@@ -410,6 +411,55 @@ class TestRellenoFalsificado:
 
 
 # --- El certificado --------------------------------------------------------
+
+
+class TestQueClaseDeClave:
+    """Que un certificado que no sabemos usar no se confunda con uno roto.
+
+    Este validador solo verifica RSA, y eso está bien dicho. Lo que estaba mal
+    era **cómo** lo decía: al intentar leer el punto de una curva elíptica como
+    si fuera una pareja de enteros salía «DER truncado», que es una acusación
+    falsa contra un fichero perfectamente válido. No es una distinción
+    académica: 46 de las 129 autoridades cualificadas concedidas de la lista
+    de confianza española usan curva elíptica.
+    """
+
+    def _con_clave(self, oid_alg, oid_curva=None):
+        alg = [_der(0x06, oid_alg)]
+        alg.append(_der(0x06, oid_curva) if oid_curva else _der(0x05, b""))
+        spki = _secuencia(_secuencia(*alg), _der(0x03, b"\x00\x04" + bytes(64)))
+        return certificado(spki=spki)
+
+    def test_curva_eliptica_se_dice_por_su_nombre(self):
+        crudo = self._con_clave(
+            b"\x2a\x86\x48\xce\x3d\x02\x01",  # id-ecPublicKey
+            b"\x2a\x86\x48\xce\x3d\x03\x01\x07",  # prime256v1
+        )
+        with pytest.raises(firma.ClaveNoSoportada) as fallo:
+            firma.leer_certificado(crudo)
+        assert "curva elíptica" in str(fallo.value)
+        # Y sobre todo: que no acuse al fichero de estar roto.
+        assert "truncado" not in str(fallo.value)
+
+    def test_ed25519_tambien(self):
+        with pytest.raises(firma.ClaveNoSoportada, match="Ed25519"):
+            firma.leer_certificado(self._con_clave(b"\x2b\x65\x70"))
+
+    def test_una_clave_desconocida_dice_su_oid(self):
+        with pytest.raises(firma.ClaveNoSoportada, match="no es RSA"):
+            firma.leer_certificado(self._con_clave(b"\x2a\x03\x04"))
+
+    def test_se_puede_distinguir_de_un_fichero_roto(self):
+        # Hereda de ValueError para no romper a quien ya lo capturaba, y es
+        # una clase aparte para poder decir cosas distintas.
+        assert issubclass(firma.ClaveNoSoportada, ValueError)
+        with pytest.raises(ValueError) as fallo:
+            firma.leer_certificado(certificado()[:-40])
+        assert not isinstance(fallo.value, firma.ClaveNoSoportada)
+
+    def test_una_rsa_normal_sigue_leyendose(self):
+        cert = firma.leer_certificado(certificado())
+        assert cert.bits == N.bit_length()
 
 
 class TestElCertificado:

@@ -77,7 +77,8 @@ from validador.formato import FACTURAE, NS_FIRMA, Deteccion
 from validador.incidencias import AVISO, ERROR, Incidencia
 
 __all__ = ["reglas", "hay_firma", "certificados_de", "momento_de_firma",
-           "leer_certificado", "Certificado", "ALGORITMOS_ROTOS"]
+           "leer_certificado", "Certificado", "ALGORITMOS_ROTOS",
+           "ClaveNoSoportada"]
 
 # --- Algoritmos ------------------------------------------------------------
 
@@ -271,6 +272,29 @@ ALGORITMOS_ROTOS = frozenset(
 _OID_BASIC_CONSTRAINTS = "551d13"  # 2.5.29.19
 _OID_KEY_USAGE = "551d0f"  # 2.5.29.15
 
+# Qué clase de clave lleva el certificado. Aquí solo se sabe verificar RSA, y
+# lo que importa es **decirlo bien**: sin mirar este OID, un certificado de
+# curva elíptica —bien formado, y son 46 de las 129 autoridades cualificadas
+# concedidas de la lista española— reventaba con «DER truncado», que es una
+# acusación falsa contra el fichero. El que no sabe leerlo somos nosotros.
+_OID_RSA = "2a864886f70d010101"  # 1.2.840.113549.1.1.1
+_CLAVES_QUE_NO_SABEMOS = {
+    "2a8648ce3d0201": "de curva elíptica (ECDSA)",  # 1.2.840.10045.2.1
+    "2b6570": "Ed25519",  # 1.3.101.112
+    "2b6571": "Ed448",  # 1.3.101.113
+    "2a8648ce380401": "DSA",  # 1.2.840.10040.4.1
+}
+
+
+class ClaveNoSoportada(ValueError):
+    """El certificado se lee bien; su clave no es de las que sabemos usar.
+
+    Hereda de `ValueError` para no romper a quien ya capturaba eso al leer una
+    carpeta de certificados. Es una clase aparte para que quien quiera pueda
+    distinguir «este fichero está roto» de «este fichero está bien y el corto
+    soy yo», que no son la misma noticia ni llevan a la misma acción.
+    """
+
 # keyUsage es un BIT STRING; el bit 5 es el que permite firmar certificados.
 _USOS = (
     "firma",  # 0 digitalSignature
@@ -362,6 +386,18 @@ def leer_certificado(der: bytes) -> Certificado:
     sujeto_der = _reserializar(campos[salto + 4])
 
     spki = _elementos(campos[salto + 5][1])
+    # Primero **de qué clase es la clave**, y solo después leerla. Al revés se
+    # intenta parsear el punto de una curva elíptica como si fuera una
+    # SEQUENCE de dos enteros, y lo que sale es un error de DER sobre un
+    # fichero que no tiene nada de malo. Ver `_CLAVES_QUE_NO_SABEMOS`.
+    tipo = _elementos(spki[0][1]) if spki else []
+    cual = _oid(tipo[0][1]) if tipo and tipo[0][0] == 0x06 else ""
+    if cual != _OID_RSA:
+        nombre = _CLAVES_QUE_NO_SABEMOS.get(cual)
+        raise ClaveNoSoportada(
+            f"la clave es {nombre}" if nombre
+            else f"la clave no es RSA (OID {cual or 'ilegible'})"
+        )
     bits = spki[1][1]
     if not bits or bits[0] != 0:
         raise ValueError("la clave pública no empieza en un byte entero")

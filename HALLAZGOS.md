@@ -1036,10 +1036,11 @@ mano para poder falsificar, y con él se fabrican los casos que importan:
 Deshaciendo cada defensa por separado, la prueba que le corresponde se pone
 roja. Comprobado una por una.
 
-Lo que **no** está probado, y hay que decirlo: este lector no ha visto todavía
-una lista de verdad. Un constructor y un lector escritos por la misma mano
-pueden compartir el mismo malentendido y darse la razón mutuamente. Con las CRL
-eso se cerró contra `openssl`; aquí hace falta el fichero real.
+Lo que ninguna de esas pruebas puede dar es que el fichero de verdad tenga la
+forma que tiene mi constructor: un constructor y un lector escritos por la misma
+mano comparten los malentendidos y se dan la razón mutuamente. Eso se cerró
+bajando las listas reales. Ver la sección siguiente: sacaron cuatro fallos y una
+noticia.
 
 ## En el navegador
 
@@ -1050,4 +1051,78 @@ aprobado —daría una lista rechazada y una página sin anclas—, pero daría 
 al revés: la comprobación no se hace. Verificar y montar cuesta 20,8 ms allí;
 rechazar una manipulada, 14,1 ms.
 
-706 tests.
+720 tests.
+
+
+# Lo que enseñaron las listas de verdad
+
+Bajadas el 27 de agosto de 2026: la lista de listas europea (478 KB) y la
+española (3,0 MB). Las dos verifican —la primera contra las seis huellas del
+Diario Oficial, la segunda contra lo que dice la primera— y de la española
+salen **87 anclas de 33 prestadores**. El ministerio publica además el SHA-256
+de su lista y cuadra.
+
+## La noticia: 46 autoridades que este validador no sabe usar
+
+De los 129 servicios concedidos que emiten certificados cualificados, **46
+traen un certificado de curva elíptica**. Este validador solo verifica RSA, así
+que esas 46 autoridades cualificadas se quedan fuera del conjunto de anclas.
+
+No es un fallo de la lista ni del certificado: **el corto es este validador**, y
+ahora se dice con esas palabras en `--ver-tsl`, en el resumen de
+`--montar-anclas` y en el manifiesto. Se separa a propósito de las retiradas
+porque no es la misma noticia: una retirada dejó de ser cualificada, una que no
+sabemos usar lo sigue siendo. Es, con diferencia, lo que más cobertura añadiría
+de una sola vez.
+
+## Cuatro fallos que ninguna lista inventada iba a sacar
+
+Los cuatro son de los que no dan error: dan un resultado que parece bueno.
+
+1. **El puntero de un país apuntaba al PDF.** Once países aparecen dos veces en
+   la lista de listas —versión legible y XML—, la del PDF primero, y España es
+   uno de los once. «La primera que case» mandaba a bajar un PDF y daba por
+   buenos los certificados de esa entrada confiando en que fueran los mismos
+   que los de la otra: hoy lo son, y nadie lo ha prometido.
+
+2. **La lista de España pasaba por lista de listas**, porque trae un puntero de
+   vuelta —el formato se lo exige— y yo las distinguía por «¿trae punteros?».
+   `--ver-tsl` enseñaba ese puntero en lugar de las 243 autoridades. Manda el
+   tipo que la lista declara de sí misma, que va dentro de lo firmado.
+
+3. **«Sin certificado: 425».** Un servicio sano trae varias identidades —el
+   certificado, el nombre del sujeto, la huella de la clave— y yo contaba las
+   que no eran un certificado: dos de cada tres en cada servicio correcto. Un
+   número enorme, sin significado, y que además **tapaba** la noticia de las 46.
+   Se cuentan servicios, que es lo que se pierde: autoridades, no líneas.
+
+4. **«DER truncado» sobre un certificado impecable.** Leer el punto de una curva
+   elíptica como si fuera una pareja de enteros daba tres errores distintos,
+   todos acusando al fichero. Ahora se mira el OID del algoritmo antes de leer
+   la clave. Y hay una excepción propia, `ClaveNoSoportada`, para poder
+   distinguir «este fichero está roto» de «este fichero está bien y el corto soy
+   yo», que no llevan a la misma acción.
+
+Los cuatro se reprodujeron sobre el fichero real antes de tocar el código, y
+cada uno tiene una prueba que se pone roja al deshacer el arreglo.
+
+## La comprobación que salió al revés
+
+Ninguna de las cinco muestras firmadas del Gobierno encadena hasta las 87
+anclas, y el motivo no es el conjunto: **cada una lleva dentro un solo
+certificado, el del firmante, sin ningún intermedio**. Sin intermedio no hay
+cadena que construir por completo que esté el almacén, y el informe ya lo decía
+con esas palabras.
+
+La del DNIe tiene además el hueco temporal, y es el ejemplo real de lo que
+estaba anotado como hipótesis: su raíz figura en la lista como **retirada el 14
+de septiembre de 2023**. La factura es anterior y era buena entonces.
+
+## Un detalle que confirma un arreglo hecho a ciegas
+
+Cinco de cada seis anclas de la lista española **no son autofirmadas**. Es
+exactamente lo que decía la sospecha que llevó a arreglar el aviso de SHA-1:
+una lista de confianza publica las CA emisoras, no las raíces. Estaba
+arreglado antes de poder comprobarlo; ahora está comprobado.
+
+720 tests, 22 de 22 en el navegador.

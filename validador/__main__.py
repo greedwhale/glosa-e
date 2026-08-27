@@ -142,9 +142,12 @@ def main(argumentos: list[str] | None = None) -> int:
     analizador.add_argument(
         "--firmante",
         metavar="HUELLA",
+        action="append",
         help="la huella SHA-256 del certificado que tenia que firmar la lista. "
         "Para la lista de listas europea (LOTL) esta publicada en el Diario "
-        "Oficial de la UE; para la de un pais, en la LOTL.",
+        "Oficial de la UE; para la de un pais, en la LOTL. Se puede repetir: el "
+        "Diario Oficial publica seis certificados a la vez, cualquiera de los "
+        "cuales puede ser el que este firmando hoy.",
     )
     analizador.add_argument(
         "--segun",
@@ -408,7 +411,11 @@ def _ver_tsl(ruta: Path, hoy: date) -> int:
     print(f"  concedidos       {resumen.concedidos}")
     print(f"  retirados        {resumen.retirados}")
     print(f"  sin certificado  {resumen.sin_certificado}")
-    print(f"  anclas que saldrían  {resumen.escritas}")
+    print(f"  no utilizables   {resumen.no_usables}")
+    for cual, cuantos in resumen.motivos:
+        print(f"     {cuantos:>4}  {cual}")
+    print()
+    print(f"  anclas que saldrían: {resumen.escritas}")
     print()
 
     retirados = [
@@ -431,7 +438,11 @@ def _ver_tsl(ruta: Path, hoy: date) -> int:
 
 
 def _montar_anclas(
-    ruta: Path, segun: Path | None, huella: str | None, destino: Path, hoy: date
+    ruta: Path,
+    segun: Path | None,
+    huella: list[str] | None,
+    destino: Path,
+    hoy: date,
 ) -> int:
     """Monta la carpeta de anclas desde una lista de confianza comprobada.
 
@@ -460,7 +471,7 @@ def _montar_anclas(
         if madre is None:
             print(motivo, file=sys.stderr)
             return 2
-        fallo = tsl.comprobar_firma(madre, [huella])
+        fallo = tsl.comprobar_firma(madre, huella)
         if fallo:
             print(f"No me creo {segun}: {fallo}.", file=sys.stderr)
             return 1
@@ -479,7 +490,7 @@ def _montar_anclas(
             f"{lista.territorio} la firma uno de {len(esperados)} certificado(s)."
         )
     elif huella:
-        esperados = [huella]
+        esperados = list(huella)
     else:
         print(
             "Falta decir quién tenía que firmar la lista, y sin eso no se monta "
@@ -516,6 +527,17 @@ def _montar_anclas(
         f"concedidos, {resumen.retirados} retirados (fuera), "
         f"{resumen.sin_certificado} sin certificado (fuera)."
     )
+    if resumen.motivos:
+        # Esto no se puede callar en el resumen. Que 46 autoridades
+        # cualificadas se queden fuera porque el corto es este validador es
+        # una noticia distinta de que se queden fuera las retiradas, y quien
+        # monta el conjunto tiene que enterarse sin abrir el manifiesto.
+        print(
+            f"  {resumen.no_usables} traen certificado y no sabemos usarlo, "
+            "y siguen siendo autoridades cualificadas:"
+        )
+        for cual, cuantos in resumen.motivos:
+            print(f"     {cuantos:>4}  {cual}")
     if lista.siguiente is not None and lista.siguiente.date() < hoy:
         print()
         print(

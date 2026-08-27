@@ -85,7 +85,7 @@ from lxml import etree
 
 from validador import firma
 from validador.cadena import NOMBRE_DEL_MANIFIESTO
-from validador.firma import Certificado, leer_certificado
+from validador.firma import Certificado, ClaveNoSoportada, leer_certificado
 from validador.formato import parser
 
 __all__ = [
@@ -111,6 +111,19 @@ TIPOS_QUE_EMITEN = (CA_CUALIFICADA, RAIZ_NACIONAL)
 # eIDAS que siguen apareciendo en el historial— significan que esa autoridad
 # ya no es cualificada.
 CONCEDIDO = "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"
+
+# El tipo de fichero de una lista procesable. Hace falta porque en la lista
+# de listas **cada país puede aparecer dos veces**: una entrada para la
+# versión legible en PDF y otra para el XML, y la del PDF va primero. Sin
+# mirar esto, «el puntero de España» es el que manda a bajar un documento
+# que ninguna máquina va a leer.
+MIME_PROCESABLE = "application/vnd.etsi.tsl+xml"
+
+# El tipo que declara la lista de listas. Va dentro de lo que está firmado, que
+# es lo que lo hace utilizable para decidir qué se tiene delante.
+TIPO_LISTA_DE_LISTAS = (
+    "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUlistofthelists"
+)
 
 
 def _limpio(texto: str) -> str:
@@ -167,26 +180,35 @@ def _fecha(texto: str) -> datetime | None:
     return cuando if cuando.tzinfo else cuando.replace(tzinfo=timezone.utc)
 
 
-def _certificados(nodo) -> tuple[list[Certificado], int]:
-    """Los certificados de un `ServiceDigitalIdentity`, y cuántos no lo son.
+def _certificados(nodo) -> tuple[list[Certificado], list[str]]:
+    """Los certificados utilizables, y por qué no lo son los que no.
 
-    Un servicio se puede identificar sin certificado —solo por el nombre del
-    sujeto, o por la huella de su clave—. Eso no da un ancla, y saltárselo en
-    silencio dejaría el conjunto corto sin que nadie se enterara: por eso se
-    devuelve la cuenta y se acaba diciendo en el manifiesto.
+    Lo segundo importa tanto como lo primero. Un servicio trae varias formas de
+    identificarse —el certificado, el nombre del sujeto, la huella de la clave—
+    y lo normal es que solo una sea un certificado; contar «las que no lo son»
+    daba un número enorme y sin significado que además **tapaba** la noticia de
+    verdad: que 46 de las 129 autoridades cualificadas concedidas de la lista
+    española usan curva elíptica, y este validador todavía no sabe verificarla.
+
+    Un certificado que está y no se puede usar no es lo mismo que un servicio
+    que no trae ninguno, y saltárselos juntos y en silencio deja el conjunto
+    corto sin que nadie se entere.
     """
     salida: list[Certificado] = []
-    sin_certificado = 0
+    no_usables: list[str] = []
     for identidad in nodo.xpath(".//*[local-name()='DigitalId']"):
         crudo = identidad.xpath("./*[local-name()='X509Certificate']/text()")
         if not crudo:
-            sin_certificado += 1
             continue
         try:
-            salida.append(leer_certificado(base64.b64decode("".join(crudo[0].split()))))
-        except (ValueError, IndexError, binascii.Error):
-            sin_certificado += 1
-    return salida, sin_certificado
+            salida.append(
+                leer_certificado(base64.b64decode("".join(crudo[0].split())))
+            )
+        except ClaveNoSoportada as error:
+            no_usables.append(str(error))
+        except (ValueError, IndexError, binascii.Error) as error:
+            no_usables.append(f"no se ha podido leer: {error}")
+    return salida, no_usables
 
 
 @dataclass(frozen=True)
@@ -204,7 +226,19 @@ class Servicio:
     estado: str
     desde: datetime | None
     certificados: tuple[Certificado, ...] = ()
-    sin_certificado: int = 0
+    # Por qué no se ha podido usar un certificado que **sí está**. Vacío es lo
+    # normal. Ver `_certificados`: contar esto junto con «no trae ninguno» fue
+    # lo que escondió el asunto de las claves de curva elíptica.
+    no_usables: tuple[str, ...] = ()
+
+    @property
+    def sin_certificado(self) -> bool:
+        """No trae ningún certificado: se identifica de otra forma.
+
+        Es legal —basta el nombre del sujeto o la huella de la clave— y no da
+        ancla. Distinto de traer uno que no sabemos usar.
+        """
+        return not self.certificados and not self.no_usables
 
     @property
     def emite_cualificados(self) -> bool:
@@ -231,6 +265,12 @@ class Puntero:
     donde: str
     tipo: str
     firmantes: tuple[Certificado, ...] = ()
+    # El tipo de fichero al que apunta: PDF o XML. Ver `MIME_PROCESABLE`.
+    mime: str = ""
+
+    @property
+    def procesable(self) -> bool:
+        return self.mime == MIME_PROCESABLE
 
 
 @dataclass
@@ -255,7 +295,23 @@ class Lista:
 
     @property
     def es_lista_de_listas(self) -> bool:
-        return bool(self.punteros)
+        """¿Es la lista de listas, o la de un país?
+
+        No vale mirar si trae punteros: **la lista de un país también trae
+        uno**, de vuelta a la lista de listas, porque el formato se lo exige.
+        Con ese criterio la lista española pasaba por lista de listas, y
+        `--ver-tsl` enseñaba el puntero de vuelta en lugar de las 243
+        autoridades que trae dentro. No se ve con una lista inventada: se ve
+        con la de verdad.
+
+        Lo que las distingue es el tipo que declara, que además va dentro de lo
+        firmado.
+        """
+        if self.tipo:
+            return self.tipo == TIPO_LISTA_DE_LISTAS
+        # Sin tipo declarado —las hay antiguas—, lo que queda es la forma:
+        # punteros y ningún servicio.
+        return bool(self.punteros) and not self.servicios
 
     def vencida(self, hoy: datetime | None = None) -> bool:
         """¿Ha pasado ya la fecha en la que prometía volver a publicarse?
@@ -269,10 +325,26 @@ class Lista:
         return self.siguiente < (hoy or datetime.now(timezone.utc))
 
     def puntero_de(self, territorio: str) -> Puntero | None:
-        for uno in self.punteros:
-            if uno.territorio.upper() == territorio.upper():
+        """El puntero al fichero **procesable** de un país, no al PDF.
+
+        En la lista de listas de verdad, once países aparecen dos veces —la
+        versión legible y la XML— y la del PDF va primero. Quedarse con «la
+        primera que case» mandaba a bajar un PDF, y de paso daba por buenos los
+        certificados de esa entrada confiando en que fueran los mismos que los
+        de la otra: hoy lo son, y nadie lo ha prometido.
+        """
+        candidatos = [
+            uno
+            for uno in self.punteros
+            if uno.territorio.upper() == territorio.upper()
+        ]
+        for uno in candidatos:
+            if uno.procesable:
                 return uno
-        return None
+        # Sin ninguno marcado como procesable se devuelve el primero: hay
+        # listas antiguas que no declaran el tipo de fichero, y quedarse
+        # callado sería peor que devolver lo único que hay.
+        return candidatos[0] if candidatos else None
 
 
 def leer(datos: bytes) -> Lista:
@@ -296,8 +368,8 @@ def leer(datos: bytes) -> Lista:
                 continue
             actual = actual[0]
             identidad = actual.xpath("./*[local-name()='ServiceDigitalIdentity']")
-            certificados, sueltos = (
-                _certificados(identidad[0]) if identidad else ([], 0)
+            certificados, no_usables = (
+                _certificados(identidad[0]) if identidad else ([], [])
             )
             servicios.append(
                 Servicio(
@@ -312,7 +384,7 @@ def leer(datos: bytes) -> Lista:
                     estado=_de_dentro(actual, "ServiceStatus"),
                     desde=_fecha(_de_dentro(actual, "StatusStartingTime")),
                     certificados=tuple(certificados),
-                    sin_certificado=sueltos,
+                    no_usables=tuple(no_usables),
                 )
             )
 
@@ -326,7 +398,7 @@ def leer(datos: bytes) -> Lista:
         identidades = puntero.xpath(
             "./*[local-name()='ServiceDigitalIdentities']"
         )
-        firmantes, _ = _certificados(identidades[0]) if identidades else ([], 0)
+        firmantes, _ = _certificados(identidades[0]) if identidades else ([], [])
         punteros.append(
             Puntero(
                 territorio=territorio,
@@ -335,6 +407,9 @@ def leer(datos: bytes) -> Lista:
                     iter(puntero.xpath(".//*[local-name()='TSLType']/text()")), ""
                 ),
                 firmantes=tuple(firmantes),
+                mime=next(
+                    iter(puntero.xpath(".//*[local-name()='MimeType']/text()")), ""
+                ).strip(),
             )
         )
 
@@ -458,7 +533,14 @@ class Resumen:
     servicios_mirados: int
     concedidos: int
     retirados: int
+    # Servicios concedidos que no traen ningún certificado: se identifican de
+    # otra forma. Legal, y no dan ancla.
     sin_certificado: int
+    # Servicios concedidos cuyo certificado **está** y no sabemos usar. Es la
+    # cuenta que importa vigilar: mide lo que este validador se está perdiendo.
+    no_usables: int
+    # Por qué, agrupado, para poder decirlo en vez de dar un número pelado.
+    motivos: tuple[tuple[str, int], ...]
     repetidos: int
     carpeta: Path | None = None
 
@@ -485,17 +567,26 @@ def anclas_de(lista: Lista, tipos=TIPOS_QUE_EMITEN) -> list[tuple[Certificado, S
 
 def cuentas(lista: Lista, tipos=TIPOS_QUE_EMITEN) -> Resumen:
     """Lo mismo que `anclas_de`, pero contando también lo que se deja fuera."""
-    mirados = concedidos = retirados = sin_certificado = repetidos = 0
+    mirados = concedidos = retirados = sin_certificado = no_usables = 0
+    repetidos = 0
+    motivos: dict[str, int] = {}
     vistos: set[bytes] = set()
     for servicio in lista.servicios:
         if servicio.tipo not in tipos:
             continue
         mirados += 1
-        sin_certificado += servicio.sin_certificado
         if not servicio.concedido:
             retirados += 1
             continue
         concedidos += 1
+        if servicio.sin_certificado:
+            sin_certificado += 1
+        elif not servicio.certificados:
+            # Trae certificado y no sirve. Se cuenta una vez por servicio, no
+            # una por identidad: lo que se pierde son autoridades, no líneas.
+            no_usables += 1
+            for cual in servicio.no_usables:
+                motivos[cual] = motivos.get(cual, 0) + 1
         for cert in servicio.certificados:
             if cert.der in vistos:
                 repetidos += 1
@@ -507,6 +598,8 @@ def cuentas(lista: Lista, tipos=TIPOS_QUE_EMITEN) -> Resumen:
         concedidos=concedidos,
         retirados=retirados,
         sin_certificado=sin_certificado,
+        no_usables=no_usables,
+        motivos=tuple(sorted(motivos.items(), key=lambda par: -par[1])),
         repetidos=repetidos,
     )
 
@@ -567,14 +660,26 @@ def _manifiesto(lista: Lista, resumen: Resumen, cuando: datetime) -> str:
         f"{resumen.servicios_mirados}",
         f"    {'concedidos':<16}{resumen.concedidos}",
         f"    {'retirados':<16}{resumen.retirados}  (no se instalan)",
-        f"    {'sin certificado':<16}{resumen.sin_certificado}  (no dan ancla)",
+        f"    {'sin certificado':<16}{resumen.sin_certificado}  "
+        "(se identifican de otra forma)",
+        f"    {'no utilizables':<16}{resumen.no_usables}  "
+        "(traen certificado y no sabemos usarlo)",
         f"    {'repetidos':<16}{resumen.repetidos}  "
         "(un certificado, varios servicios)",
+    ]
+    if resumen.motivos:
+        lineas.append("")
+        lineas.append("  Por qué no se ha podido usar el que traen:")
+        for cual, cuantos in resumen.motivos:
+            lineas.append(f"    {cuantos:>4}  {cual}")
+    lineas += [
         "",
-        "Los retirados no están aquí. Una autoridad retirada firmó certificados",
-        "buenos mientras estuvo concedida, así que una factura antigua suya",
-        "saldrá como «no llega a ninguna autoridad conocida»: es un aviso, no un",
-        "error, y no se distingue de que falte el certificado.",
+        "Ni los retirados ni los que no sabemos usar están en esta carpeta, y",
+        "las facturas de unos y otros saldrán igual: «no llega a ninguna",
+        "autoridad conocida». Es un aviso, no un error, y no se distingue de",
+        "que falte el certificado. Pero no es la misma noticia: una autoridad",
+        "retirada dejó de serlo, y una que no sabemos usar sigue siendo",
+        "cualificada —el corto es este validador—.",
         "",
         "Cada .cer se puede contrastar con la huella que publica su autoridad.",
     ]

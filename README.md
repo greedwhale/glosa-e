@@ -24,7 +24,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-706 tests, todos en verde.
+720 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1343,7 +1343,7 @@ en el código parece un dato de confianza y no lo es.
 - **Lista de listas (LOTL):** `https://ec.europa.eu/tools/lotl/eu-lotl.xml`,
   con los seis certificados que pueden firmarla y sus huellas SHA-256, en el
   anexo del **DOUE C/2026/1944, de 15 de abril de 2026**.
-- **Lista de España:** `https://tsl.digital.gob.es/TSL.xml` (2,84 MB), que
+- **Lista de España:** `https://tsl.digital.gob.es/TSL.xml` (3,0 MB), que
   publica el Ministerio para la Transformación Digital y de la Función Pública.
   Al lado hay una versión legible (`TSL.pdf`), su resumen (`TSL.sha2`) y el
   registro de cambios (`cambiosTSL.pdf`).
@@ -1364,24 +1364,32 @@ python -m validador --ver-tsl TSL.xml
 
 ```
   territorio  ES
-  operador    Ministerio para la Transformacion Digital
-  secuencia   7
-  publicada   2026-08-01
-  siguiente   2026-11-01
+  operador    MINISTERIO DE ASUNTOS ECONOMICOS Y TRANSFORMACION DIGITAL
+  secuencia   188
+  publicada   2026-08-06
+  siguiente   2027-02-02
 
-Servicios que emiten certificados cualificados: 3
-  concedidos       2
-  retirados        1
-  sin certificado  1
-  anclas que saldrían  1
+Servicios que emiten certificados cualificados: 243
+  concedidos       129
+  retirados        114
+  sin certificado  0
+  no utilizables   46
+       46  la clave es de curva elíptica (ECDSA)
+
+  anclas que saldrían: 87
 
 Retirados —no se instalan, y las facturas que firmaron antes de
 retirarse eran buenas—:
-  2025-02-01  withdrawn    Certificados de Antano SA
+  2016-06-30  withdrawn    Banco Santander, S.A.
+  2016-06-30  withdrawn    Fábrica Nacional de Moneda y Timbre - Real Casa …
+  2023-09-14  withdrawn    Dirección General de la Policía
+  …
 
 La firma de esta lista no se ha comprobado aquí: mirarla es una cosa y
 creérsela es otra. Para lo segundo, --montar-anclas.
 ```
+
+Eso es la lista española de verdad, la del 6 de agosto de 2026.
 
 Sobre la lista de listas enseña la dirección de cada país y cuántos
 certificados pueden firmarla. Eso es lo que evita escribir ninguna a mano.
@@ -1439,12 +1447,113 @@ cambio de estado y aquí se lee, se cuenta y se anota en el manifiesto; cerrarlo
 del todo es darle al almacén una ventana de validez por ancla, que es otro
 trabajo.
 
-Y lo otro: **este parser no ha visto todavía una lista de verdad**. Se prueba
-contra listas firmadas de verdad, pero fabricadas aquí, y un constructor y un
-lector escritos por la misma mano pueden compartir el mismo malentendido y
-darse la razón mutuamente. Con las CRL eso se cerró contrastando contra
-`openssl`; aquí hace falta el fichero real, y bajarlo es cosa de quien usa la
-herramienta.
+Y lo más gordo, que se descubrió al pasarlo por la lista de verdad: **46 de
+las 129 autoridades cualificadas concedidas usan curva elíptica**, y este
+validador solo verifica RSA. Se dice y se cuenta; ver abajo.
+
+### Pasado por las listas de verdad
+
+Ya está hecho, y era lo que faltaba. Las dos listas bajadas de donde dice
+arriba, el 27 de agosto de 2026:
+
+| | Lista de listas | Lista de España |
+|---|---|---|
+| tamaño | 478 KB | 3,0 MB |
+| secuencia | 392 | 188 |
+| publicada | 2026-08-25 | 2026-08-06 |
+| vuelve a publicarse | 2027-02-17 | 2027-02-02 |
+| la firma | EUROPEAN COMMISSION, 4096 bits | SPANISH TRUST SCHEME OPERATOR |
+| comprobada contra | las seis huellas del DOUE | lo que dice la lista de listas |
+
+Las dos verifican. Y de propina, el ministerio publica el SHA-256 de su lista
+en `TSL.sha2`: **cuadra** con el fichero bajado, que es una confirmación
+independiente de que la descarga llegó entera.
+
+De los 436 servicios de la lista española, 243 emiten certificados
+cualificados: **129 concedidos y 114 retirados**. De ahí salen **87 anclas de
+33 prestadores** —la Fábrica Nacional de Moneda y Timbre, la Dirección General
+de la Policía, Camerfirma, Izenpe, Firmaprofesional, ANF, el Consejo General de
+la Abogacía...—. Leer la lista cuesta 0,5 s y verificarla 0,2 s.
+
+Y **5 de cada 6 anclas no son autofirmadas**, que confirma sobre datos reales
+lo que ya se había arreglado a ciegas: una lista de confianza publica las CA
+**emisoras**, no las raíces.
+
+### Lo que se encontró al pasarlas: 46 autoridades que este validador no sabe usar
+
+De los 129 servicios concedidos, **46 traen un certificado de curva elíptica**
+(ECDSA). Este validador solo verifica RSA —está dicho desde el principio— así
+que esas 46 autoridades cualificadas se quedan fuera del conjunto. No es un
+fallo de la lista ni del certificado: **el corto es este validador**.
+
+Eso ahora se dice, con esas palabras, en `--ver-tsl`, en el resumen de
+`--montar-anclas` y en el manifiesto de la carpeta:
+
+```
+  no utilizables  46  (traen certificado y no sabemos usarlo)
+
+  Por qué no se ha podido usar el que traen:
+      46  la clave es de curva elíptica (ECDSA)
+```
+
+Y se separa a propósito de las retiradas, porque **no es la misma noticia**:
+una autoridad retirada dejó de ser cualificada; una que no sabemos usar sigue
+siéndolo. Las facturas de ambas salen igual —«no llega a ninguna autoridad
+conocida»— y el manifiesto explica la diferencia.
+
+Soportar ECDSA es el siguiente paso obvio de esta parte, y no es pequeño:
+aritmética de curva sobre P-256 y P-384, y verificación ECDSA. Cabe con la
+misma disciplina que RSA —sin dependencias nuevas, todo enteros— pero es otro
+trabajo.
+
+### Cuatro fallos que solo enseñó el fichero real
+
+Ninguno de los cuatro se ve con listas inventadas, y los cuatro son de los que
+no dan error: dan un resultado que parece bueno.
+
+1. **El puntero de un país apuntaba al PDF.** En la lista de listas, once
+   países aparecen **dos veces** —una entrada para la versión legible y otra
+   para el XML—, y la del PDF va primero. España es uno de los once. Quedarse
+   con «la primera que case» mandaba a bajar un documento que ninguna máquina
+   va a leer, y de paso daba por buenos los certificados de esa entrada
+   confiando en que fueran los mismos que los de la otra: hoy lo son, y nadie
+   lo ha prometido. Ahora se mira el tipo de fichero declarado.
+
+2. **La lista de España pasaba por lista de listas.** Porque trae un puntero
+   —de vuelta a la lista de listas, que el formato se lo exige—, y yo estaba
+   distinguiéndolas por «¿trae punteros?». Resultado: `--ver-tsl` sobre la
+   lista española enseñaba el puntero de vuelta en lugar de sus 243
+   autoridades. Ahora manda el tipo que la lista declara de sí misma, que
+   además va dentro de lo firmado.
+
+3. **«Sin certificado: 425».** Un servicio sano trae **varias** formas de
+   identificarse —el certificado, el nombre del sujeto, la huella de la clave—
+   y yo contaba «las que no son un certificado»: dos de cada tres en cada
+   servicio correcto. Un número enorme, sin significado, y que además **tapaba**
+   la noticia de verdad, que era la de las 46. Ahora se cuentan servicios, que
+   es lo que se pierde: autoridades, no líneas.
+
+4. **«DER truncado» sobre un certificado impecable.** Al intentar leer el punto
+   de una curva elíptica como si fuera una pareja de enteros salían tres
+   errores distintos —«DER truncado», «longitud DER indefinida o truncada», «no
+   parece una clave RSA»— acusando al fichero de estar roto. Ahora se mira el
+   OID del algoritmo **antes** de leer la clave, y sale una sola frase que es
+   verdad. Hay una excepción propia, `ClaveNoSoportada`, para que quien lea una
+   carpeta de certificados pueda distinguir «este fichero está roto» de «este
+   fichero está bien y el corto soy yo».
+
+### Y una comprobación que salió al revés, que también vale
+
+Ninguna de las cinco muestras firmadas del Gobierno encadena hasta las 87
+anclas. El motivo no es el conjunto: **cada una lleva dentro un solo
+certificado, el del firmante, sin ningún intermedio**. Sin el intermedio no hay
+cadena que construir por muy completo que sea el almacén, y el informe ya lo
+dice con esas palabras: *«no tenemos el certificado de «AC DNIE 001»»*.
+
+La del DNIe además tiene el otro problema, y es el ejemplo real del hueco
+temporal que queda abierto: su raíz —«AC RAIZ DNIE»— figura en la lista como
+**retirada el 14 de septiembre de 2023**. La factura es de antes y era buena
+entonces.
 
 ### La procedencia viaja con los ficheros
 
@@ -1518,6 +1627,12 @@ todavía no sabe de ventanas de validez.
 líneas, pero no que el tipo declarado en cada línea sea coherente con el
 producto. Eso ya no es EN 16931: es la Ley del IVA, y hace falta saber qué se
 vende.
+
+**Soportar ECDSA.** Es lo que más cobertura añade de una sola vez: 46 de las
+129 autoridades cualificadas españolas concedidas usan curva elíptica y hoy se
+quedan fuera del conjunto de anclas. Aritmética de curva sobre P-256 y P-384 y
+verificación ECDSA, con la misma disciplina que RSA: enteros y ninguna
+dependencia nueva.
 
 **Un servicio, no solo una herramienta.** Todo esto se usa desde la consola o
 como biblioteca. Lo que hace falta para venderlo es que alguien pueda soltar un
