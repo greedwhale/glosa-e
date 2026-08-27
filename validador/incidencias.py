@@ -15,6 +15,19 @@ from validador.formato import Deteccion
 ERROR = "error"
 AVISO = "aviso"
 
+# Ni un fallo ni un riesgo: **algo que se ha dado por bueno, y con qué**.
+#
+# Hacía falta un tercer nivel porque hasta ahora este informe solo sabía
+# hablar de lo que está mal, y el silencio hacía de «correcto». Con las anclas
+# de confianza eso deja de valer: que una firma llegue a una autoridad no es la
+# ausencia de un problema, es **una decisión que hemos tomado por quien lee**
+# —creerle a esa autoridad— y una decisión tomada por otro solo es aceptable si
+# se declara. Lo mismo con la lista de revocación que se haya consultado.
+#
+# Sirve además para lo que pide una inspección: una validación solo es
+# reproducible si consta en qué se confió al hacerla.
+NOTA = "nota"
+
 
 @dataclass(frozen=True)
 class Incidencia:
@@ -72,6 +85,11 @@ class Informe:
         return [i for i in self.incidencias if i.gravedad == AVISO]
 
     @property
+    def notas(self) -> list[Incidencia]:
+        """Lo que se ha dado por bueno y con qué. Ver `NOTA`."""
+        return [i for i in self.incidencias if i.gravedad == NOTA]
+
+    @property
     def conforme(self) -> bool:
         return not self.errores
 
@@ -117,8 +135,12 @@ class Informe:
         Es una función `Incidencia -> str`; quien orquesta pasa la suya
         (`factura.origen`). Sin ella el informe sale como siempre.
         """
+        # Las notas van primero: dicen sobre qué base se ha juzgado, y eso se
+        # lee antes que el juicio. Enterradas debajo de cuatro errores nadie
+        # las vería, y son justo lo que hay que ver para saber si el resultado
+        # significa algo.
         lineas = [self.resumen()]
-        for incidencia in self.errores + self.avisos:
+        for incidencia in self.notas + self.errores + self.avisos:
             lineas.append("")
             lineas.append(incidencia.texto(norma(incidencia) if norma else None))
         return "\n".join(lineas)

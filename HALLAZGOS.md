@@ -820,3 +820,97 @@ un byte y se comprueba que deja de valer; y se comprueba que una lista
 incremental no da a nadie por vigente. 4,8 ms y 8,5 ms.
 
 651 tests.
+
+# Decir en qué se ha confiado
+
+## El silencio no puede seguir haciendo de aprobado
+
+Hasta aquí este informe solo sabía hablar de lo que está mal. Con las anclas de
+confianza eso deja de valer, y no por elegancia: **que una firma llegue a una
+autoridad no es la ausencia de un problema, es una decisión** —creerle a esa
+autoridad— y quien la toma es el almacén, no quien lee el informe. Una decisión
+tomada por otro solo es aceptable si se declara.
+
+De ahí un tercer nivel junto a `ERROR` y `AVISO`: `NOTA`. No es un fallo ni un
+riesgo; es lo que se ha dado por bueno y con qué.
+
+```
+[CONFIANZA-ANCLA] La firma de «Talleres Paco SL» llega a «CA intermedia» en 2
+eslabones. Esta validación se fía de esa autoridad porque es un ancla instalada
+en anclas/intermedia.cer, con huella SHA-256 EE:CA:8D:AA:…
+
+[CONFIANZA-REVOCACION] No consta anulado ningún certificado de la cadena: se ha
+comprobado 1 certificado contra la lista de «CA intermedia», publicada el
+2026-09-18. Una lista solo responde por lo que se sabía el día que se publicó.
+```
+
+Las notas van **antes** que las quejas: dicen sobre qué base se ha juzgado, y
+eso se lee antes que el juicio. Enterradas debajo de cuatro errores no las
+vería nadie, y son justo lo que hay que ver para saber si el resultado
+significa algo.
+
+## La huella entera, aunque ocupe
+
+Es lo que hace la validación **reproducible**. Quien guarde ese informe puede
+demostrar años después contra qué se contrastó, que es lo que pide una
+inspección y lo que ninguna captura de pantalla de un tic verde puede dar. Con
+`--solo-errores` desaparece, como los avisos.
+
+## La procedencia, que es la mitad que importa
+
+La ruta de un fichero no le dice nada a quien no instaló ese fichero. Por eso
+`Almacen` acepta una procedencia declarada, y manda sobre la ruta:
+
+    Almacen(carpeta, procedencia="viene con esta página")
+
+## Por qué esto cambia la decisión sobre el navegador
+
+En el repositorio, la razón para no traer anclas puestas era que **quien
+controle ese fichero controla a quién cree el validador**. En la página web ese
+argumento no aplica: **quien pueda servir la página ya es dueño del validador
+entero.** El código es Python que llega por el mismo canal; alguien capaz de
+cambiar el fichero de anclas puede cambiar `firma.py` para que devuelva «todo
+bien» y ahorrarse el rodeo.
+
+O sea que no traerlas no compra seguridad. Compra que la comprobación no se
+haga nunca —porque nadie va a buscar e instalar un certificado raíz antes de
+soltar una factura— y entonces el informe dice «sin errores» habiéndose saltado
+la mitad que más importa.
+
+El único camino de verdad malo es el intermedio: **traerlas y no decirlo**. Eso
+fabrica confianza en silencio, que es exactamente lo que este validador existe
+para no hacer. De ahí que la nota se escribiera **antes** de meter la primera
+ancla en la página, y no después.
+
+Y la asimetría que conviene no perder: **anclas sí, listas de revocación no.**
+Un ancla es conocimiento que dura décadas; una CRL es una noticia que caduca en
+días. Traer CRL con la página sería repartir una foto vieja de quién está
+anulado, que es justo lo que no sirve.
+
+## Sobre los tests
+
+Siete nuevos, y el orden importa: la nota es una afirmación, así que lo que hay
+que probar no es solo que aparezca, sino **que no aparezca cuando no toca**.
+
+- Que dice a qué ancla llega, en cuántos eslabones y con qué huella.
+- Que dice de qué fichero salió.
+- Que una procedencia declarada tapa a la ruta, y que la ruta no se cuela.
+- Que un certificado que es su propia ancla se cuenta como tal y no como cadena.
+- Que **una cadena que no llega a ningún ancla no deja ninguna nota**: lo peor
+  posible sería una línea tranquilizadora sobre una firma que no se ha podido
+  atribuir a nadie.
+- Que un certificado anulado no lleva la nota de «no consta anulado».
+- Una sola nota de revocación por firma, aunque se comprueben varios eslabones:
+  en un lote de doscientas, una línea por certificado deja de leerse.
+
+Quitando la línea que emite la nota, cinco pruebas se ponen rojas. Comprobado.
+
+## En el navegador
+
+20 de 20. La comprobación nueva es **crítica** y monta el caso de verdad: un
+almacén con `procedencia="viene con la pagina"`, y se exige que el informe la
+diga, que lleve la huella y que **no** se cuele la ruta del disco virtual. Es
+la condición que hace aceptable traer las anclas puestas, así que si se rompe,
+se rompe la decisión de producto entera.
+
+658 tests.

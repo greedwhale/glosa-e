@@ -23,7 +23,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-651 tests, todos en verde.
+658 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1064,6 +1064,45 @@ que se consulta a mano y se verifica, no un canal de actualización.
 
 En la práctica: media hora dos veces al año, y cuando el validador te lo pida.
 
+### El informe dice en qué ha confiado
+
+Hasta aquí este validador solo sabía hablar de lo que está mal, y el silencio
+hacía de aprobado. Con las anclas eso deja de valer: **que una firma llegue a
+una autoridad no es la ausencia de un problema, es una decisión** —creerle a esa
+autoridad— y quien la toma no es quien lee el informe.
+
+Así que hay un tercer nivel además de error y aviso: la **nota**, que dice lo
+que se ha dado por bueno y con qué.
+
+```
+[CONFIANZA-ANCLA · firma electrónica] La firma de «Talleres Paco SL» llega a
+«CA intermedia» en 2 eslabones. Esta validación se fía de esa autoridad porque
+es un ancla instalada en anclas/intermedia.cer, con huella SHA-256
+EE:CA:8D:AA:…
+
+[CONFIANZA-REVOCACION · firma electrónica] No consta anulado ningún
+certificado de la cadena: se ha comprobado 1 certificado contra la lista de
+«CA intermedia», publicada el 2026-09-18. Una lista solo responde por lo que
+se sabía el día que se publicó.
+```
+
+La huella entera va a propósito, aunque ocupe: **es lo que hace la validación
+reproducible.** Quien guarde ese informe puede demostrar años después contra
+qué se contrastó, que es lo que pide una inspección y lo que ninguna captura de
+un tic verde puede dar. Con `--solo-errores` desaparecen, como los avisos.
+
+Y si las anclas no las instaló quien valida, la ruta de un fichero no le dice
+nada. Quien distribuya un conjunto de anclas declara su procedencia y manda esa:
+
+```python
+Almacen(carpeta, procedencia="viene con esta página")
+```
+
+Es la condición que hace aceptable traer anclas puestas en una distribución:
+**la decisión se toma por quien lee, así que hay que decírsela.** Traerlas y
+callarlo sería fabricar confianza en silencio, que es justo lo que este
+validador existe para no hacer.
+
 ### Los tres fallos clásicos, y dónde se paran
 
 1. **`basicConstraints`.** Un certificado que no es de autoridad no puede haber
@@ -1270,10 +1309,14 @@ se conoce, y una CRL es un fichero que se instala como los esquemas. Lo único
 que sigue fuera del alcance —los sellos de tiempo y las respuestas OCSP
 embebidas— está anotado arriba.
 
-**Quién pone las anclas en el navegador.** Es la decisión de producto que
-queda. Si van con la página, mantenerlas al día es responsabilidad nuestra y
-somos nosotros quienes decidimos en quién cree quien la use. Si las pone quien
-la usa, hay que enseñarle a hacerlo. No es un problema técnico.
+**Quién pone las anclas en el navegador: ya está decidido.** Las pone la
+página, porque quien pueda servir la página ya es dueño del validador entero
+—las anclas y el código llegan por el mismo canal—, así que no traerlas no
+compra seguridad: compra que la comprobación no se haga nunca. Lo que sí es
+innegociable es declararlo, y eso ya está hecho: ver «El informe dice en qué ha
+confiado». Lo que queda es el trabajo que eso nos echa encima —mantener el
+conjunto al día y que la página enseñe de cuándo es— y elegir la fuente, que
+tiene que ser la lista de confianza (TSL) y no un montón de raíces cualquiera.
 
 **Las reglas de IVA por línea.** Ahora se comprueba el desglose contra las
 líneas, pero no que el tipo declarado en cada línea sea coherente con el

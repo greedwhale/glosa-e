@@ -26,7 +26,7 @@ import pytest
 
 from validador import cadena, firma
 from validador.cadena import Almacen, construir
-from validador.incidencias import AVISO, ERROR
+from validador.incidencias import AVISO, ERROR, NOTA
 from test_firma import _der, _entero, _nombre, _secuencia, _tiempo
 
 E = 65537
@@ -381,16 +381,53 @@ def codigos(incidencias, gravedad=None):
 
 
 class TestElInforme:
-    def test_una_cadena_buena_solo_echa_de_menos_la_revocacion(self, tmp_path):
-        """La cadena no se queja; lo que queda por saber, se dice.
+    def test_una_cadena_buena_no_se_queja_pero_declara(self, tmp_path):
+        """Ni una queja; una nota diciendo en qué se ha confiado, y lo que falta.
 
-        Antes esto era `== []`. Desde que se mira la revocación, una cadena
-        perfecta sigue sin poder afirmar que el certificado no esté anulado, y
-        callarlo dejaría creer que sí se ha comprobado.
+        Antes esto era `== []`: el silencio hacía de aprobado. Pero que una
+        firma llegue a una autoridad no es la ausencia de un problema, es una
+        decisión —creerle a esa autoridad— que toma el almacén y no quien lee.
         """
         salen = quejas(hoja(), [raiz()], [intermedia()], tmp_path=tmp_path)
-        assert codigos(salen) == {"REVOCACION-SIN-COMPROBAR"}
         assert codigos(salen, ERROR) == set()
+        assert codigos(salen, AVISO) == {"REVOCACION-SIN-COMPROBAR"}
+        assert codigos(salen, NOTA) == {"CONFIANZA-ANCLA"}
+
+    def test_la_nota_dice_a_que_ancla_llega_y_con_que_huella(self, tmp_path):
+        salen = quejas(hoja(), [raiz()], [intermedia()], tmp_path=tmp_path)
+        nota = next(i for i in salen if i.codigo == "CONFIANZA-ANCLA")
+        assert "Raiz de pruebas" in nota.mensaje
+        assert leer(raiz()).huella() in nota.mensaje
+        assert "3 eslabones" in nota.mensaje
+
+    def test_la_nota_dice_de_donde_salio_el_ancla(self, tmp_path):
+        """Es la mitad que importa cuando las anclas no las pusiste tú."""
+        salen = quejas(hoja(), [raiz()], [intermedia()], tmp_path=tmp_path)
+        nota = next(i for i in salen if i.codigo == "CONFIANZA-ANCLA")
+        assert "ancla0.cer" in nota.mensaje
+
+    def test_un_almacen_que_declara_su_procedencia_manda(self, tmp_path):
+        """La ruta de un fichero no le dice nada a quien no lo instaló; a quien
+        abre la página web hay que decirle que las anclas vienen con ella."""
+        almacen = Almacen(tmp_path, procedencia="viene con esta página")
+        (tmp_path / "ancla0.cer").write_bytes(raiz())
+        salen = cadena.reglas(
+            [leer(hoja()), leer(intermedia())], almacen, cuando=HOY
+        )
+        nota = next(i for i in salen if i.codigo == "CONFIANZA-ANCLA")
+        assert "viene con esta página" in nota.mensaje
+        assert str(tmp_path) not in nota.mensaje
+
+    def test_si_el_certificado_es_su_propia_ancla_se_dice_asi(self, tmp_path):
+        salen = quejas(hoja(), [hoja()], tmp_path=tmp_path)
+        nota = next(i for i in salen if i.codigo == "CONFIANZA-ANCLA")
+        assert "es él mismo un ancla" in nota.mensaje
+
+    def test_sin_llegar_a_ningun_ancla_no_hay_nada_que_declarar(self, tmp_path):
+        """Lo peor sería una nota tranquilizadora sobre una cadena que no
+        llega: la nota dice en qué se ha confiado, y aquí no se ha confiado."""
+        salen = quejas(hoja(), [raiz()], tmp_path=tmp_path)
+        assert codigos(salen, NOTA) == set()
 
     def test_sin_anclas_avisa_y_no_inventa(self, tmp_path):
         salen = quejas(hoja(), [], tmp_path=tmp_path)

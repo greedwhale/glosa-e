@@ -85,7 +85,7 @@ from validador.firma import (
     _tlv,
     _verificar_rsa,
 )
-from validador.incidencias import AVISO, ERROR, Incidencia
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
 __all__ = [
     "AlmacenDeListas",
@@ -772,6 +772,11 @@ def reglas(
     dentro = listas_dentro or []
     incidencias: list[Incidencia] = []
     ya_dicho = False
+    # Contra qué se ha contrastado, para poder declararlo al final. Un «no
+    # consta anulado» sin decir según qué lista y de qué día no es una
+    # respuesta: es un tic verde con más letras.
+    limpios = 0
+    usadas: list[Lista] = []
 
     for numero, (hijo, padre) in enumerate(zip(eslabones, eslabones[1:])):
         primero = numero == 0
@@ -784,6 +789,9 @@ def reglas(
 
         if veredicto.estado == "vigente":
             lista = veredicto.lista
+            limpios += 1
+            if lista is not None and not any(o is lista for o in usadas):
+                usadas.append(lista)
             if lista and lista.hasta and hoy is not None and lista.hasta.date() < hoy:
                 incidencias.append(
                     Incidencia(
@@ -810,7 +818,37 @@ def reglas(
         ya_dicho = True
         incidencias.append(_no_se_sabe(hijo, veredicto, donde, hay_ocsp))
 
+    if limpios:
+        incidencias.append(_nota_de_limpieza(limpios, usadas, donde))
     return incidencias
+
+
+def _nota_de_limpieza(cuantos: int, usadas: list[Lista], donde: str) -> Incidencia:
+    """Declarar contra qué se ha contrastado, cuando no consta anulado.
+
+    Una sola nota por firma y no una por eslabón: en un lote de doscientas
+    facturas, la misma línea repetida por cada certificado de cada cadena deja
+    de leerse, y lo que hay que poder leer es de qué día es la lista.
+    """
+    detalles = []
+    for lista in usadas:
+        cuando = lista.desde.date().isoformat() if lista.desde else "fecha ilegible"
+        quien = lista.emisor_nombre or "una autoridad sin nombre común"
+        detalles.append(f"«{quien}», publicada el {cuando}")
+    cuales = "; ".join(detalles) or "las listas disponibles"
+    contados = (
+        "se ha comprobado 1 certificado"
+        if cuantos == 1
+        else f"se han comprobado {cuantos} certificados"
+    )
+    return Incidencia(
+        "CONFIANZA-REVOCACION",
+        NOTA,
+        f"No consta anulado ningún certificado de la cadena: {contados} "
+        f"contra la lista de {cuales}. Una lista solo responde por lo que se "
+        "sabía el día que se publicó.",
+        campo=f"{donde}Revocación",
+    )
 
 
 def _no_se_sabe(

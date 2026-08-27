@@ -70,7 +70,7 @@ from validador.firma import (
     _verificar_rsa,
     leer_certificado,
 )
-from validador.incidencias import AVISO, ERROR, Incidencia
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
 __all__ = ["Almacen", "Cadena", "construir", "reglas", "reglas_de_documento"]
 
@@ -104,9 +104,16 @@ class Almacen:
     """
 
     carpeta: Path
+    # De dónde salen estas anclas, dicho para una persona. Vacío significa
+    # «de esa carpeta», que es lo normal cuando las instala quien valida. Una
+    # distribución que las traiga puestas —la página web, por ejemplo— tiene
+    # que decirlo aquí: «vienen con esta página». Es la diferencia entre una
+    # decisión declarada y una tomada a espaldas de quien lee el informe.
+    procedencia: str = ""
     _por_sujeto: dict[bytes, list[Certificado]] | None = field(
         default=None, repr=False
     )
+    _de_donde: dict[bytes, Path] = field(default_factory=dict, repr=False)
     _ilegibles: list[tuple[Path, str]] = field(default_factory=list, repr=False)
 
     def __post_init__(self) -> None:
@@ -117,15 +124,18 @@ class Almacen:
             self.carpeta = Path(self.carpeta)
 
     @classmethod
-    def por_defecto(cls, carpeta: str | Path | None = None) -> Almacen:
+    def por_defecto(
+        cls, carpeta: str | Path | None = None, procedencia: str = ""
+    ) -> Almacen:
         if carpeta is None:
             carpeta = os.environ.get(VARIABLE_ENTORNO) or CARPETA_POR_DEFECTO
-        return cls(Path(carpeta))
+        return cls(Path(carpeta), procedencia)
 
     @property
     def por_sujeto(self) -> dict[bytes, list[Certificado]]:
         if self._por_sujeto is None:
             encontradas: dict[bytes, list[Certificado]] = {}
+            self._de_donde = {}
             self._ilegibles = []
             if self.carpeta.is_dir():
                 for ruta in sorted(self.carpeta.rglob("*")):
@@ -146,8 +156,22 @@ class Almacen:
                             self._ilegibles.append((ruta, str(error)))
                             continue
                         encontradas.setdefault(cert.sujeto_der, []).append(cert)
+                        self._de_donde.setdefault(cert.der, ruta)
             self._por_sujeto = encontradas
         return self._por_sujeto
+
+    def procedencia_de(self, cert: Certificado) -> str:
+        """De dónde salió esta ancla, para poder decirlo en el informe.
+
+        Si el almacén trae una procedencia declarada, manda esa: quien
+        distribuye un conjunto de anclas sabe mejor que nosotros de dónde lo
+        sacó, y la ruta de un fichero no dice nada útil a quien no lo instaló.
+        """
+        if self.procedencia:
+            return self.procedencia
+        self.por_sujeto  # fuerza el recorrido
+        ruta = self._de_donde.get(cert.der)
+        return f"instalada en {ruta}" if ruta else f"instalada en {self.carpeta}"
 
     @property
     def ilegibles(self) -> list[tuple[Path, str]]:
@@ -160,6 +184,7 @@ class Almacen:
 
     def recargar(self) -> None:
         self._por_sujeto = None
+        self._de_donde = {}
         self._ilegibles = []
 
     def todas(self) -> list[Certificado]:
@@ -347,6 +372,46 @@ def _describir(cadena: Cadena) -> str:
     return " ← ".join(c.sujeto or "(sin nombre)" for c in cadena.eslabones)
 
 
+def _nota_de_confianza(cadena: Cadena, almacen: Almacen, donde: str) -> Incidencia:
+    """Declarar en qué se ha confiado, cuando la cadena llega.
+
+    Hasta aquí una cadena buena no decía nada: el silencio hacía de aprobado.
+    Pero que una firma llegue a una autoridad no es la ausencia de un problema,
+    es **una decisión** —creerle a esa autoridad— y quien la toma no es quien
+    lee el informe. Si la toma el almacén que viene puesto con la herramienta,
+    con más razón hay que decirlo.
+
+    Va la huella entera a propósito, aunque ocupe: es lo que hace la validación
+    reproducible. Quien la guarde puede demostrar años después contra qué se
+    contrastó, que es lo que pide una inspección y lo que ninguna captura de
+    pantalla de un tic verde puede dar.
+    """
+    ancla = cadena.ancla
+    procedencia = almacen.procedencia_de(ancla) if ancla is not None else ""
+    huella = ancla.huella() if ancla is not None else "(no se ha podido calcular)"
+    quien = cadena.hoja.sujeto if cadena.hoja is not None else "el firmante"
+
+    if len(cadena.eslabones) == 1:
+        cuerpo = (
+            f"El certificado que firma, «{quien}», es él mismo un ancla de "
+            "confianza: no se ha encadenado a nadie porque ya estaba en el "
+            "almacén."
+        )
+    else:
+        arriba = ancla.sujeto or "una autoridad sin nombre común"
+        cuerpo = (
+            f"La firma de «{quien}» llega a «{arriba}» en "
+            f"{len(cadena.eslabones)} eslabones."
+        )
+    return Incidencia(
+        "CONFIANZA-ANCLA",
+        NOTA,
+        f"{cuerpo} Esta validación se fía de esa autoridad porque es un ancla "
+        f"{procedencia}, con huella SHA-256 {huella}.",
+        campo=f"{donde}Cadena de confianza",
+    )
+
+
 def reglas(
     certificados: list[Certificado],
     almacen: Almacen | None,
@@ -417,6 +482,7 @@ def reglas(
             )
         return incidencias
 
+    incidencias.append(_nota_de_confianza(cadena, almacen, donde))
     incidencias.extend(_regla_vigencias(cadena, cuando, donde))
     incidencias.extend(_regla_algoritmos(cadena, donde))
     incidencias.extend(

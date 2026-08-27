@@ -50,8 +50,8 @@ caché —todo verde, y no es lo que crees que has probado—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, diecinueve comprobaciones que deben
-salir todas en verde; diez están marcadas como **críticas** y son las que, si
+Arriba, el tiempo de arranque. Abajo, veinte comprobaciones que deben
+salir todas en verde; once están marcadas como **críticas** y son las que, si
 fallan, tumban la idea entera:
 
 | Comprobación | Por qué es crítica |
@@ -66,8 +66,9 @@ fallan, tumban la idea entera:
 | se verifica una firma RSA de verdad | sin `cryptography`, que aquí no hay |
 | la cadena de confianza se encadena aquí | de ello depende `cadena.py` |
 | una lista de revocación se lee y se comprueba aquí | de ello depende `revocacion.py` |
+| el informe declara de dónde salen las anclas | es la condición para traerlas puestas |
 
-Las cuatro últimas son de la firma, y la de la canonicalización es la que más podía
+Las cinco últimas son de la firma, y la de la canonicalización es la que más podía
 doler. `firma.py` calcula el resumen de un documento canonicalizado y lo compara
 con el que guarda la firma. Si lxml en WebAssembly escribiera un solo byte
 distinto —un atributo en otro orden, un namespace colocado de otra manera— el
@@ -94,6 +95,7 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Verificar una firma XAdES | 17 ms |
 | Encadenar hasta un ancla de confianza | 3,2 ms |
 | Leer y verificar una lista de revocación | 4,8 ms |
+| Declarar el ancla en el informe | 1,5 ms |
 | Validar un lote de 200 | 2,05 s · 10,3 ms cada una · 23 MB de memoria |
 | Lo que descomprime el navegador | 14,71 MB |
 
@@ -103,7 +105,7 @@ visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
 0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
 menos de cinco.
 
-Los diecinueve resultados coinciden exactamente con los de la misma prueba
+Los veinte resultados coinciden exactamente con los de la misma prueba
 ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
 Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
 en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización
@@ -111,7 +113,7 @@ incluida**.
 
 ## La prueba de soltar una factura firmada
 
-No basta con que las quince salgan verdes: la zona de arrastre es la
+No basta con que las veinte salgan verdes: la zona de arrastre es la
 interacción del producto, y hay que verla funcionar. Soltando
 `ejemplos/fe-0001.xml`, que es un Facturae 3.2.2 firmado:
 
@@ -151,16 +153,28 @@ WebAssembly, sin que el fichero salga del ordenador.
   la prueba los da por ausentes y comprueba que eso no revienta nada. Con ellos
   habría que bajar unos megas más.
 - **Las anclas de confianza, en el navegador.** Encadenar funciona aquí —está
-  comprobado—, pero las anclas hay que meterlas en el disco virtual, igual que
-  las facturas de ejemplo. Son unos cientos de KB y se cachean, así que el
-  coste es pequeño; lo que falta es decidir **quién las pone**: si van con la
-  página, la responsabilidad de mantenerlas al día es nuestra, y si las pone
-  quien usa la página, hay que enseñarle a hacerlo. Es una decisión de
-  producto, no un problema técnico.
-- **La revocación.** Lo único que de verdad obliga a salir a la red. Se puede
-  resolver con CRL en vez de OCSP —te bajas la lista entera y filtras en casa,
-  con lo que la autoridad no aprende qué certificado te interesaba—, pero sigue
-  siendo tráfico y hay que contarlo.
+  comprobado—, y las anclas hay que meterlas en el disco virtual, igual que las
+  facturas de ejemplo: unos cientos de KB que se cachean.
+
+  Quién las pone **ya está decidido: las pone la página.** El argumento que lo
+  desaconsejaba en el repositorio no aplica aquí, porque **quien pueda servir
+  la página ya es dueño del validador entero**: las anclas y el código llegan
+  por el mismo canal, y quien pudiera cambiar unas puede cambiar el otro. No
+  traerlas no compra seguridad; compra que la comprobación no se haga nunca, y
+  un informe que dice «sin errores» sin haber mirado de quién es la firma es
+  peor que no tenerlo.
+
+  Lo que sí es innegociable es **decirlo**. El informe declara a qué ancla ha
+  llegado, de dónde salió y con qué huella —`Almacen(..., procedencia="viene
+  con esta página")`— y hay una comprobación crítica que lo vigila. Traerlas y
+  callarlo sería fabricar confianza en silencio, que es exactamente lo que este
+  validador existe para no hacer.
+- **Las listas de revocación, en cambio, no.** Un ancla es conocimiento que
+  dura décadas; una CRL es una noticia que caduca en días. Traerlas con la
+  página sería repartir una foto vieja de quién está anulado. Aquí el orden es:
+  leer lo que traiga el documento (XAdES-XL), dejar soltar un `.crl` junto a la
+  factura, y como mucho un botón que diga qué descarga y de dónde. Nunca de
+  fondo.
 
 Un lote de 200 facturas sí se ha medido: 2 segundos y 23 MB. Eso significa que
 la parte de pago —el lote del mes de una gestoría— también cabe en el

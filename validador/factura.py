@@ -68,7 +68,7 @@ def origen(incidencia: Incidencia) -> str:
         return FORMA
     if incidencia.codigo.startswith("FE-"):
         return NACIONAL
-    if incidencia.codigo.startswith(("FIRMA-", "CADENA-", "REVOCA")):
+    if incidencia.codigo.startswith(("FIRMA-", "CADENA-", "REVOCA", "CONFIANZA-")):
         # «REVOCA» y no «REVOCACION-» a propósito: el código de la anulación
         # confirmada es `REVOCADO`, a secas, y sin esto salía etiquetado como
         # un problema de formato, que es justo lo que no es.
@@ -396,7 +396,7 @@ class InformeLote:
                     ", pero choca con otro fichero (ver abajo)."
                 )
             lineas.append(f"  {resumen}")
-            for incidencia in informe.errores + informe.avisos:
+            for incidencia in informe.notas + informe.errores + informe.avisos:
                 lineas.append("")
                 lineas.append(_sangrar(incidencia.texto(origen(incidencia)), "  "))
             lineas.append("")

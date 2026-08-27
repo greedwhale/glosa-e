@@ -32,7 +32,7 @@ import pytest
 
 from validador import __main__ as consola
 from validador import cadena, firma, revocacion
-from validador.incidencias import AVISO, ERROR
+from validador.incidencias import AVISO, ERROR, NOTA
 from validador.revocacion import AlmacenDeListas, comprobar, leer_lista
 from test_cadena import (
     HOJA,
@@ -378,11 +378,30 @@ class TestLasFechas:
         salen = quejas(
             hasta=HOY - timedelta(days=5), hoy=HOY.date(), cuando=HOY - timedelta(days=40)
         )
-        assert codigos(salen) == {"REVOCACION-LISTA-VIEJA"}
-        assert "no es lo mismo que estar vigente" in salen[0].mensaje
+        assert codigos(salen, AVISO) == {"REVOCACION-LISTA-VIEJA"}
+        aviso = next(i for i in salen if i.codigo == "REVOCACION-LISTA-VIEJA")
+        assert "no es lo mismo que estar vigente" in aviso.mensaje
 
-    def test_una_lista_al_dia_y_limpia_no_dice_nada(self):
-        assert quejas(hoy=HOY.date(), cuando=HOY - timedelta(days=40)) == []
+    def test_una_lista_al_dia_y_limpia_declara_contra_que_ha_mirado(self):
+        """No basta con callar. «No consta anulado» sin decir según qué lista y
+        de qué día es un tic verde con más letras."""
+        salen = quejas(hoy=HOY.date(), cuando=HOY - timedelta(days=40))
+        assert codigos(salen, ERROR) == set()
+        assert codigos(salen, AVISO) == set()
+        assert codigos(salen, NOTA) == {"CONFIANZA-REVOCACION"}
+        assert "CA intermedia" in salen[0].mensaje
+        assert (HOY - timedelta(days=1)).date().isoformat() in salen[0].mensaje
+
+    def test_una_sola_nota_por_firma_aunque_se_comprueben_varios(self):
+        """En un lote de doscientas, una línea por cada eslabón de cada cadena
+        deja de leerse; y lo que hay que poder leer es de qué día es la lista."""
+        salen = quejas(hoy=HOY.date(), cuando=HOY - timedelta(days=40))
+        assert len([i for i in salen if i.codigo == "CONFIANZA-REVOCACION"]) == 1
+        assert "se ha comprobado 1 certificado" in salen[0].mensaje
+
+    def test_si_esta_anulado_no_hay_nota_tranquilizadora(self):
+        salen = quejas(_linea(HOJA_SERIE, HOY - timedelta(days=30)), cuando=HOY)
+        assert codigos(salen, NOTA) == set()
 
     def test_una_autoridad_anulada_tambien_se_ve(self):
         """Si anulan la intermedia, todo lo que cuelga de ella deja de valer."""

@@ -397,6 +397,37 @@ def _certificado_del_ejemplo():
     return leer_certificado(crudo)
 
 
+@comprobar("el informe declara de donde salen las anclas", critica=True)
+def _():
+    # Esta es la condicion que hace aceptable que la pagina traiga las anclas
+    # puestas: la decision de en quien creer la toma la pagina y no quien lee
+    # el informe, asi que hay que decirsela. Sin esta linea, traerlas seria
+    # fabricar confianza en silencio, que es lo que este validador existe para
+    # no hacer. Aqui va sin tildes por seguir el fichero; en la pagina de
+    # verdad la frase se escribe bien.
+    import os
+    from validador.cadena import Almacen, reglas
+    hoja = _certificado_del_ejemplo()
+    if hoja is None:
+        return "no hay ninguna firmada entre los ejemplos"
+
+    os.makedirs("/anclas-pagina", exist_ok=True)
+    with open("/anclas-pagina/ejemplo.cer", "wb") as f:
+        f.write(hoja.der)
+    almacen = Almacen("/anclas-pagina", procedencia="viene con la pagina")
+
+    notas = [i for i in reglas([hoja], almacen) if i.gravedad == "nota"]
+    assert len(notas) == 1, "no declara nada: " + str(notas)
+    nota = notas[0]
+    assert nota.codigo == "CONFIANZA-ANCLA", nota.codigo
+    assert "viene con la pagina" in nota.mensaje, nota.mensaje
+    assert hoja.huella() in nota.mensaje, "no deja constancia de la huella"
+    # Y que no se cuela la ruta del disco virtual, que a quien lee no le dice
+    # nada y encima suena a que el ancla la puso el.
+    assert "/anclas-pagina" not in nota.mensaje, nota.mensaje
+    return "dice de donde viene el ancla y con que huella"
+
+
 @comprobar("una lista de revocacion se lee y se comprueba aqui", critica=True)
 def _():
     from validador.revocacion import comprobar as comprobar_revocacion
