@@ -24,3 +24,10 @@ anclas/
 # y hay que renovarlas: versionarlas seria repartir una foto vieja de quien
 # esta anulado, que es justo lo que no sirve.
 revocaciones/
+
+# Las listas de confianza que se bajen para montar el conjunto de anclas. La
+# espanola pesa 2,8 MB y caduca; lo que hay que conservar no es el fichero,
+# sino la carpeta que sale de el y su PROCEDENCIA.txt.
+TSL.xml
+eu-lotl.xml
+*.tsl.xml

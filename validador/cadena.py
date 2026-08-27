@@ -78,6 +78,16 @@ VARIABLE_ENTORNO = "FACTURAE_ANCLAS"
 CARPETA_POR_DEFECTO = "anclas"
 
 _EXTENSIONES = (".cer", ".crt", ".der", ".pem", ".ca-bundle")
+
+# Un conjunto de anclas montado desde una lista de confianza deja aquí de dónde
+# salió. La primera línea acaba en el informe de cada factura.
+#
+# Va en un fichero y no en el código de quien monta el almacén a propósito: la
+# procedencia tiene que viajar **con los ficheros**. Si hay que acordarse de
+# pasarla en la llamada, el día que alguien copie la carpeta a otro sitio se
+# quedará sin ella, y un conjunto de anclas que no dice de dónde viene es justo
+# lo que habíamos quedado en no repartir.
+NOMBRE_DEL_MANIFIESTO = "PROCEDENCIA.txt"
 _PEM = re.compile(
     rb"-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----", re.S
 )
@@ -160,15 +170,37 @@ class Almacen:
             self._por_sujeto = encontradas
         return self._por_sujeto
 
+    @property
+    def declarada(self) -> str:
+        """Lo que dice el manifiesto de la carpeta, si es que lo hay.
+
+        Una línea, la primera: el resto del fichero es para quien lo abra a
+        mano. Si no se puede leer se devuelve vacío y se cae en la ruta, que
+        es peor pero cierto.
+        """
+        try:
+            texto = (self.carpeta / NOMBRE_DEL_MANIFIESTO).read_text(
+                encoding="utf-8"
+            )
+        except (OSError, UnicodeDecodeError):
+            return ""
+        return texto.strip().splitlines()[0].strip() if texto.strip() else ""
+
     def procedencia_de(self, cert: Certificado) -> str:
         """De dónde salió esta ancla, para poder decirlo en el informe.
 
-        Si el almacén trae una procedencia declarada, manda esa: quien
-        distribuye un conjunto de anclas sabe mejor que nosotros de dónde lo
-        sacó, y la ruta de un fichero no dice nada útil a quien no lo instaló.
+        Tres respuestas por orden de autoridad. La declarada al construir el
+        almacén manda sobre todo: quien distribuye un conjunto sabe mejor que
+        nosotros cómo llega a quien lo recibe —«viene con esta página»—. Luego
+        el manifiesto que dejó quien lo montó desde una lista de confianza. Y
+        de última, la ruta del fichero, que es lo único que se puede decir de
+        una carpeta que alguien llenó a mano.
         """
         if self.procedencia:
             return self.procedencia
+        declarada = self.declarada
+        if declarada:
+            return declarada
         self.por_sujeto  # fuerza el recorrido
         ruta = self._de_donde.get(cert.der)
         return f"instalada en {ruta}" if ruta else f"instalada en {self.carpeta}"
@@ -341,17 +373,24 @@ def _regla_vigencias(cadena: Cadena, cuando: datetime | None, donde: str):
 
 
 def _regla_algoritmos(cadena: Cadena, donde: str):
+    # El ancla se deja fuera a propósito: su firma no la comprueba nadie —se
+    # confía en ella porque está en el almacén, no porque su firma verifique—,
+    # así que con qué la firmaron da igual. Casi todas las autoridades en
+    # circulación arrastran SHA-1 arriba del todo y avisar sería ruido.
+    #
+    # Esto decía «autofirmado», que es lo mismo solo mientras las anclas son
+    # raíces. Una lista de confianza (TSL) no publica raíces: publica las CA
+    # **emisoras**, que están firmadas por alguien. Con el conjunto montado
+    # desde la TSL, la regla avisaba de la CA de media España por un algoritmo
+    # que aquí no se usa para nada.
+    arriba = cadena.ancla.der if cadena.ancla is not None else None
     debiles = [
         c
         for c in cadena.eslabones
-        if c.algoritmo_firma in ALGORITMOS_ROTOS and not c.autofirmado
+        if c.algoritmo_firma in ALGORITMOS_ROTOS and c.der != arriba
     ]
     if not debiles:
         return []
-    # Las raíces autofirmadas se dejan fuera a propósito: su firma no la
-    # comprueba nadie —se confía en ellas porque están en el almacén, no
-    # porque su firma verifique—, así que su algoritmo da igual. Casi todas
-    # las raíces en circulación son SHA-1 y avisar de ellas sería ruido.
     cual = debiles[0]
     return [
         Incidencia(

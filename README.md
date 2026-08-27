@@ -20,10 +20,11 @@ según el RD 238/2026.
 | `validador/firma.py` | La firma XAdES: integridad del documento y verificación RSA, sin salir a la red | Terminado |
 | `validador/cadena.py` | De quién es el certificado: la cadena hasta un ancla de confianza instalada | Terminado |
 | `validador/revocacion.py` | Si anularon el certificado: listas de revocación (CRL), sin salir a la red | Terminado |
+| `validador/tsl.py` | De dónde salen las anclas: la lista de confianza (TSL) del Estado, verificada | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-659 tests, todos en verde.
+706 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1056,11 +1057,11 @@ mecanismos, ninguno de ellos una descarga automática:
    renueva un ancla, se contrasta su SHA-256 con la que publica su autoridad.
    Es lo que corta la cadena de «me fío de quien me lo pasó».
 
-Si algún día hace falta instalar muchas de golpe, el catálogo con autoridad
-para esto en la UE es la **lista de confianza (TSL)** que publica cada Estado
-miembro y la lista de listas de la Comisión, que van firmadas y llevan la
-historia de cuándo cada autoridad dejó de ser cualificada. Eso es un catálogo
-que se consulta a mano y se verifica, no un canal de actualización.
+Para instalar muchas de golpe —recibir facturas de cualquiera, sin saber de
+antemano de qué autoridad— el catálogo con autoridad para esto en la UE es la
+**lista de confianza (TSL)** que publica cada Estado miembro, y ya se lee: ver
+«La lista de confianza» más abajo. Sigue siendo un catálogo que se baja a mano
+y se verifica, no un canal de actualización.
 
 En la práctica: media hora dos veces al año, y cuando el validador te lo pida.
 
@@ -1294,6 +1295,195 @@ recalcular el total.
   Tiene: 100.00
 ```
 
+## La lista de confianza: de dónde salen las anclas
+
+Encadenar hasta un ancla contesta «de quién es este certificado». Debajo hay
+otra pregunta, y es la que decide si lo demás significa algo: **¿de dónde ha
+salido esa ancla?** Es el único sitio de este validador donde equivocarse no
+produce un error, produce un aprobado.
+
+Recopilar raíces a mano no vale, y no por trabajo: **quien elige el montón
+elige a quién cree el validador**. La respuesta correcta ya existe, es pública
+y va firmada.
+
+### La respuesta la da el artículo 22 de eIDAS
+
+Cada Estado miembro está obligado a publicar, firmada y en formato procesable,
+la lista de sus prestadores cualificados: quién es autoridad de certificación
+cualificada, desde cuándo y con qué certificado. El formato es **ETSI TS 119
+612** y se le llama TSL. La Comisión publica además la lista de esas listas
+(LOTL).
+
+O sea que «¿en quién hay que confiar?» tiene respuesta oficial, publicada,
+firmada y con fecha. No hay que inventar el conjunto: hay que leerlo.
+
+### La cadena de la cadena, y dónde acaba
+
+Una lista bajada de una dirección no vale nada por sí sola: si no compruebas
+quién la firmó, has aceptado la lista de en quién confiar de manos de quien
+contestara al DNS. Así que hay que verificarla contra algo que ya sepas, y ese
+algo es otra lista:
+
+| # | Quién | Dice | Se comprueba contra |
+|---|---|---|---|
+| 1 | El **DOUE** | dónde está la LOTL y qué certificados la firman | nada: es el final, y está fuera de internet |
+| 2 | La **LOTL** | dónde está la lista de cada país y quién la firma | la huella del DOUE |
+| 3 | La **lista del país** | qué autoridades son cualificadas | los certificados que dice la LOTL |
+
+Lo bonito del asunto es dónde termina: en un **documento del Diario Oficial**,
+con número de expediente. La raíz de toda esta confianza no es un servidor, es
+un boletín. Encaja exactamente con la idea de la que sale este proyecto: las
+reglas son públicas.
+
+### Las direcciones, verificadas y no escritas de memoria
+
+Están en este README y **no en el código**, a propósito: una dirección metida
+en el código parece un dato de confianza y no lo es.
+
+- **Lista de listas (LOTL):** `https://ec.europa.eu/tools/lotl/eu-lotl.xml`,
+  con los seis certificados que pueden firmarla y sus huellas SHA-256, en el
+  anexo del **DOUE C/2026/1944, de 15 de abril de 2026**.
+- **Lista de España:** `https://tsl.digital.gob.es/TSL.xml` (2,84 MB), que
+  publica el Ministerio para la Transformación Digital y de la Función Pública.
+  Al lado hay una versión legible (`TSL.pdf`), su resumen (`TSL.sha2`) y el
+  registro de cambios (`cambiosTSL.pdf`).
+
+Merece la pena contar por qué me molesté en comprobarlas. La dirección del
+ministerio que yo tenía en la cabeza —`sede.serviciosmin.gob.es`— **ya no
+existe**: responde con una redirección permanente a otro sitio. Es exactamente
+el fallo que iba a cometer, y del que ya había una constancia en este mismo
+fichero: una huella inventada de memoria. Por eso la lista de España no se
+escribe en ningún sitio del programa: **la dice la LOTL**, que es quien tiene
+autoridad para decirla, y `--ver-tsl` la enseña.
+
+### Mirar una lista
+
+```
+python -m validador --ver-tsl TSL.xml
+```
+
+```
+  territorio  ES
+  operador    Ministerio para la Transformacion Digital
+  secuencia   7
+  publicada   2026-08-01
+  siguiente   2026-11-01
+
+Servicios que emiten certificados cualificados: 3
+  concedidos       2
+  retirados        1
+  sin certificado  1
+  anclas que saldrían  1
+
+Retirados —no se instalan, y las facturas que firmaron antes de
+retirarse eran buenas—:
+  2025-02-01  withdrawn    Certificados de Antano SA
+
+La firma de esta lista no se ha comprobado aquí: mirarla es una cosa y
+creérsela es otra. Para lo segundo, --montar-anclas.
+```
+
+Sobre la lista de listas enseña la dirección de cada país y cuántos
+certificados pueden firmarla. Eso es lo que evita escribir ninguna a mano.
+
+### Montar el conjunto
+
+```
+python -m validador --montar-anclas TSL.xml --segun eu-lotl.xml \
+                    --firmante <huella del DOUE> --en anclas/
+```
+
+Y lo que pasa si te saltas un paso:
+
+```
+$ python -m validador --montar-anclas TSL.xml --en anclas/
+Falta decir quién tenía que firmar la lista, y sin eso no se monta nada:
+verificarla contra el certificado que ella misma trae dentro no demuestra
+nada, porque cualquiera firma su propia lista.
+  --firmante HUELLA   la huella SHA-256 de quien la firma
+  --segun LOTL        sacarla de la lista de listas europea
+```
+
+```
+$ python -m validador --montar-anclas TSL.xml --segun eu-lotl.xml --en anclas/
+Falta --firmante. La lista de listas también hay que comprobarla: si te la
+crees porque sí, lo que has hecho es elegir en quién confiar a partir de un
+fichero que no has verificado.
+```
+
+**Se niega, no avisa.** Un aviso deja la decisión en manos de quien tiene
+prisa, y lo que sale de aquí es la raíz de confianza de todo lo demás.
+
+### Una lista no es un montón de certificados
+
+Es la trampa del formato, y es la misma forma que ya tenía la revocación: **un
+servicio de la lista es un certificado con un estado y una fecha**. Quien se
+quede solo con los certificados monta un conjunto que incluye a las autoridades
+retiradas, que es justo lo contrario de lo que se pretendía.
+
+Aquí se filtra por tipo (solo lo que emite certificados cualificados: ni sellos
+de tiempo ni servicios de estado) y por estado (solo `granted`), se quitan los
+repetidos —una autoridad que emite para firma y para sello aparece dos veces
+con el mismo certificado— y se cuenta lo que se deja fuera, incluidos los
+servicios que se identifican **sin** certificado, que son legales y no dan
+ancla.
+
+### Lo que no resuelve, dicho
+
+Que una autoridad esté cualificada **hoy** no dice que lo estuviera cuando se
+firmó la factura. Una autoridad retirada el año pasado firmó certificados
+buenos hace dos, y con este conjunto sus facturas antiguas salen como «no llega
+a ninguna autoridad conocida»: un aviso, no un error, y el mensaje ya dice que
+eso no se distingue de que falte un certificado. La lista trae la fecha de cada
+cambio de estado y aquí se lee, se cuenta y se anota en el manifiesto; cerrarlo
+del todo es darle al almacén una ventana de validez por ancla, que es otro
+trabajo.
+
+Y lo otro: **este parser no ha visto todavía una lista de verdad**. Se prueba
+contra listas firmadas de verdad, pero fabricadas aquí, y un constructor y un
+lector escritos por la misma mano pueden compartir el mismo malentendido y
+darse la razón mutuamente. Con las CRL eso se cerró contrastando contra
+`openssl`; aquí hace falta el fichero real, y bajarlo es cosa de quien usa la
+herramienta.
+
+### La procedencia viaja con los ficheros
+
+Montar el conjunto deja un `PROCEDENCIA.txt` en la carpeta, y su primera línea
+es la que sale en el informe de cada factura:
+
+```
+de la lista de confianza de ES, publicada por Ministerio para la
+Transformacion Digital el 2026-08-01
+```
+
+Va en un fichero y no en el código de quien construye el almacén porque **la
+procedencia tiene que viajar con los ficheros**. Si hay que acordarse de
+pasarla en la llamada, el día que alguien copie la carpeta a otro sitio se
+quedará sin ella, y un conjunto de anclas que no dice de dónde viene es
+exactamente lo que habíamos quedado en no repartir.
+
+El resto del fichero es para quien lo abra a mano: la secuencia de la lista,
+cuándo se publicó, cuándo prometía volver a publicarse, quién la firmó y con
+qué huella, cuántas anclas salieron y cuántas se quedaron fuera y por qué.
+
+### Dos fallos que salieron montando esto
+
+**`"".join(texto.split())` se come los espacios de dentro.** Servía para el
+base64 de un certificado, donde hay que quitar los saltos de línea, y es
+destructivo para un nombre: la lista española habría acabado diciendo
+«FABRICANACIONALDEMONEDAYTIMBRE» en el informe de cada factura. No sale con
+datos inventados de una sola palabra; sale en cuanto el nombre lleva un
+espacio, o sea siempre. Lo cazó la primera prueba que puso un nombre realista.
+
+**El aviso de SHA-1 disparaba contra el propio ancla.** La regla excluía las
+raíces autofirmadas —su firma no la comprueba nadie, así que su algoritmo da
+igual— y eso es lo mismo que excluir el ancla **solo mientras las anclas son
+raíces**. Una TSL no publica raíces: publica las CA **emisoras**, que están
+firmadas por alguien. Con el conjunto montado desde la lista, el validador
+avisaba de la autoridad de media España por un algoritmo que aquí no se usa
+para nada. Reproducido con una sonda antes de tocar el código, y la prueba de
+regresión se pone roja al deshacer el arreglo.
+
 ## Siguiente paso
 
 Los tres tipos de rechazo que existen —el de forma, el de contenido y el de
@@ -1309,14 +1499,20 @@ se conoce, y una CRL es un fichero que se instala como los esquemas. Lo único
 que sigue fuera del alcance —los sellos de tiempo y las respuestas OCSP
 embebidas— está anotado arriba.
 
-**Quién pone las anclas en el navegador: ya está decidido.** Las pone la
-página, porque quien pueda servir la página ya es dueño del validador entero
-—las anclas y el código llegan por el mismo canal—, así que no traerlas no
-compra seguridad: compra que la comprobación no se haga nunca. Lo que sí es
-innegociable es declararlo, y eso ya está hecho: ver «El informe dice en qué ha
-confiado». Lo que queda es el trabajo que eso nos echa encima —mantener el
-conjunto al día y que la página enseñe de cuándo es— y elegir la fuente, que
-tiene que ser la lista de confianza (TSL) y no un montón de raíces cualquiera.
+**Quién pone las anclas en el navegador, y de dónde salen: decidido y hecho.**
+Las pone la página, porque quien pueda servir la página ya es dueño del
+validador entero —las anclas y el código llegan por el mismo canal—, así que no
+traerlas no compra seguridad: compra que la comprobación no se haga nunca. Lo
+innegociable es declararlo, y está hecho. La fuente también: la lista de
+confianza del Estado, verificada contra la lista de listas europea, y esa
+contra el Diario Oficial. Ver «La lista de confianza».
+
+Lo que queda de ahí es operativo, no de diseño: **contrastar el lector contra
+la lista española de verdad** —bajarla es cosa de quien usa la herramienta—,
+decidir cada cuánto se vuelve a montar el conjunto, y que la página enseñe de
+cuándo es el que trae. Y el hueco que queda abierto y está anotado: una
+autoridad retirada hoy firmó facturas buenas hace dos años, y el almacén
+todavía no sabe de ventanas de validez.
 
 **Las reglas de IVA por línea.** Ahora se comprueba el desglose contra las
 líneas, pero no que el tipo declarado en cada línea sea coherente con el
@@ -1340,9 +1536,12 @@ La duda real no era si arrancaba Python, sino si esa compilación de lxml traía
 soporte de esquemas XSD: libxml2 se puede compilar sin él, y `esquema.py`
 entero depende de `etree.XMLSchema`. Lo trae.
 
-Las doce comprobaciones de `web/prueba.py` dan el mismo resultado que en Python
-nativo —mismos códigos, mismos importes— pese a que ahí libxml2 es 2.9.10 y en
-local 2.11.9. Medido: 42 s el primer arranque, 4,8 s con la caché caliente,
+Las veintidós comprobaciones de `web/prueba.py` dan el mismo resultado que en
+Python nativo —mismos códigos, mismos importes— pese a que ahí libxml2 es
+2.9.10 y en local 2.11.9. Trece son críticas, y las dos últimas son de la lista
+de confianza: que se verifique y se monte allí, y que una lista manipulada no
+monte nada. Esa parte depende de la canonicalización, que es lo más frágil de
+esa compilación. Medido: 42 s el primer arranque, 4,8 s con la caché caliente,
 10 ms por factura, y un lote de 200 en 2 segundos.
 
 ```
@@ -1358,3 +1557,5 @@ Y abrir <http://127.0.0.1:8765/web/>. Los detalles, en [`web/LEEME.md`](web/LEEM
 - [Qué cambia de verdad tras el RD 238/2026 — ASSET](https://asset.es/factura-electronica-b2b-en-espana-que-cambia-de-verdad-tras-el-rd-238-2026/)
 - [Guía RD 238/2026: estados y plazos de pago](https://www.lealtadis.es/factura-electronica-b2b-estados-pago-pymes/)
 - [Artefactos oficiales de validación EN 16931 (CEN/TC 434)](https://github.com/ConnectingEurope/eInvoicing-EN16931)
+- [Ubicación de la lista de listas (LOTL) y certificados que la firman — DOUE C/2026/1944](https://eur-lex.europa.eu/eli/C/2026/1944/oj/eng)
+- [Lista de confianza española (TSL) — Ministerio para la Transformación Digital](https://digital.sede.gob.es/pagina?id=Lista-de-confianza-de-prestadores-cualificados-de-servicios-electr%C3%B3nicos-de-confianza)

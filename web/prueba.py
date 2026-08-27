@@ -474,4 +474,182 @@ def _():
     return "distingue la completa de la incremental"
 
 
+# --- La lista de confianza -------------------------------------------------
+#
+# De aqui salen las anclas, asi que es el sitio donde equivocarse sale en
+# verde. Lo que se comprueba aqui no es que lea el XML: es que **se niegue**.
+# Ademas depende de la canonicalizacion, que es lo mas fragil de esta
+# compilacion —libxml2 es 2.9.10 aqui y 2.11.9 fuera—: si escribiera un byte
+# distinto, la lista se rechazaria y la pagina se quedaria sin anclas.
+
+
+def _certificado_de_juguete(sujeto="Ministerio de juguete"):
+    """Un X.509 autofirmado con la clave de juguete, para firmar la lista."""
+    import hashlib
+    from validador import firma
+    n = P_JUGUETE * Q_JUGUETE
+    d = pow(65537, -1, (P_JUGUETE - 1) * (Q_JUGUETE - 1))
+    oid = bytes([0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x0B])
+    nombre = _seq(_der(0x31, _seq(
+        _der(0x06, bytes([0x55, 0x04, 0x03])), _der(0x0C, sujeto.encode()))))
+    spki = _seq(
+        _seq(_der(0x06, bytes([0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01,
+                               0x01])), _der(0x05, b"")),
+        _der(0x03, bytes([0]) + _seq(_entero(n), _entero(65537))),
+    )
+    tbs = _seq(
+        _der(0xA0, _entero(2)), _entero(7), _seq(_der(0x06, oid)), nombre,
+        _seq(_tiempo("20250101000000Z"), _tiempo("20300101000000Z")),
+        nombre, spki,
+    )
+    tam = (n.bit_length() + 7) // 8
+    di = firma._DIGESTINFO["sha256"] + hashlib.sha256(tbs).digest()
+    bloque = bytes([0, 1]) + bytes([0xFF]) * (tam - len(di) - 3) + bytes([0]) + di
+    valor = pow(int.from_bytes(bloque, "big"), d, n).to_bytes(tam, "big")
+    return _seq(tbs, _seq(_der(0x06, oid)), _der(0x03, bytes([0]) + valor))
+
+
+def _huella(der):
+    import hashlib
+    crudo = hashlib.sha256(der).hexdigest().upper()
+    return ":".join(crudo[i:i + 2] for i in range(0, len(crudo), 2))
+
+
+def _tsl_de_juguete(firmante_der, ancla_der):
+    """Una lista de confianza ETSI TS 119 612 firmada de verdad."""
+    import base64, hashlib
+    from lxml import etree
+    from validador import firma
+    NS = "http://uri.etsi.org/02231/v2#"
+    DS = "http://www.w3.org/2000/09/xmldsig#"
+
+    def t(padre, nombre, texto=None):
+        hijo = etree.SubElement(padre, "{%s}%s" % (NS, nombre))
+        if texto is not None:
+            hijo.text = texto
+        return hijo
+
+    raiz = etree.Element("{%s}TrustServiceStatusList" % NS)
+    cab = t(raiz, "SchemeInformation")
+    t(cab, "TSLSequenceNumber", "3")
+    t(cab, "TSLType",
+      "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric")
+    t(t(cab, "SchemeOperatorName"), "Name", "Ministerio de juguete")
+    t(cab, "SchemeTerritory", "ES")
+    t(cab, "ListIssueDateTime", "2026-08-01T00:00:00Z")
+    t(t(cab, "NextUpdate"), "dateTime", "2026-11-01T00:00:00Z")
+
+    prov = t(t(raiz, "TrustServiceProviderList"), "TrustServiceProvider")
+    t(t(t(prov, "TSPInformation"), "TSPName"), "Name",
+      "Certificadora de juguete")
+    serv = t(t(t(prov, "TSPServices"), "TSPService"), "ServiceInformation")
+    t(serv, "ServiceTypeIdentifier",
+      "http://uri.etsi.org/TrstSvc/Svctype/CA/QC")
+    t(t(serv, "ServiceName"), "Name", "AC de juguete")
+    ident = t(serv, "ServiceDigitalIdentity")
+    t(t(ident, "DigitalId"), "X509Certificate",
+      base64.b64encode(ancla_der).decode())
+    t(serv, "ServiceStatus",
+      "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted")
+    t(serv, "StatusStartingTime", "2016-07-01T00:00:00Z")
+
+    def c14n(nodo):
+        return etree.tostring(nodo, method="c14n", exclusive=False,
+                              with_comments=False)
+
+    def resumen(octetos):
+        return base64.b64encode(hashlib.sha256(octetos).digest()).decode()
+
+    del_doc = resumen(c14n(raiz))
+    ds = lambda n_: "{%s}%s" % (DS, n_)  # noqa: E731
+    f = etree.SubElement(raiz, ds("Signature"))
+    si = etree.SubElement(f, ds("SignedInfo"))
+    etree.SubElement(si, ds("CanonicalizationMethod")).set(
+        "Algorithm", "http://www.w3.org/TR/2001/REC-xml-c14n-20010315")
+    etree.SubElement(si, ds("SignatureMethod")).set(
+        "Algorithm", "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256")
+    ref = etree.SubElement(si, ds("Reference"))
+    ref.set("URI", "")
+    trs = etree.SubElement(ref, ds("Transforms"))
+    etree.SubElement(trs, ds("Transform")).set(
+        "Algorithm", "http://www.w3.org/2000/09/xmldsig#enveloped-signature")
+    etree.SubElement(ref, ds("DigestMethod")).set(
+        "Algorithm", "http://www.w3.org/2001/04/xmlenc#sha256")
+    etree.SubElement(ref, ds("DigestValue")).text = del_doc
+
+    n = P_JUGUETE * Q_JUGUETE
+    d = pow(65537, -1, (P_JUGUETE - 1) * (Q_JUGUETE - 1))
+    tam = (n.bit_length() + 7) // 8
+    di = firma._DIGESTINFO["sha256"] + hashlib.sha256(c14n(si)).digest()
+    bloque = bytes([0, 1]) + bytes([0xFF]) * (tam - len(di) - 3) + bytes([0]) + di
+    valor = pow(int.from_bytes(bloque, "big"), d, n).to_bytes(tam, "big")
+    etree.SubElement(f, ds("SignatureValue")).text = base64.b64encode(
+        valor).decode()
+    datos = etree.SubElement(etree.SubElement(f, ds("KeyInfo")), ds("X509Data"))
+    etree.SubElement(datos, ds("X509Certificate")).text = base64.b64encode(
+        firmante_der).decode()
+    return etree.tostring(raiz, xml_declaration=True, encoding="UTF-8")
+
+
+@comprobar("una lista de confianza se comprueba y se monta aqui", critica=True)
+def _():
+    import os
+    from validador import tsl
+    from validador.cadena import Almacen, reglas
+    hoja = _certificado_del_ejemplo()
+    if hoja is None:
+        return "no hay ninguna firmada entre los ejemplos"
+
+    cert = _certificado_de_juguete()
+    una = tsl.leer(_tsl_de_juguete(cert, hoja.der))
+    assert una.territorio == "ES", una.territorio
+    # El nombre con sus espacios: `"".join(x.split())` los borraba y dejaba
+    # «Ministeriodejuguete» en el informe de cada factura.
+    assert una.operador == "Ministerio de juguete", una.operador
+
+    fallo = tsl.comprobar_firma(una, [_huella(cert)])
+    assert fallo == "", "no se cree una lista buena: " + fallo
+
+    os.makedirs("/anclas-tsl", exist_ok=True)
+    resumen = tsl.montar(una, "/anclas-tsl")
+    assert resumen.escritas == 1, resumen.escritas
+
+    almacen = Almacen("/anclas-tsl")
+    assert almacen.contiene(hoja), "lo montado no sirve de ancla"
+    notas = [i for i in reglas([hoja], almacen)
+             if i.gravedad == "nota" and i.codigo == "CONFIANZA-ANCLA"]
+    assert len(notas) == 1, "no declara de donde sale: " + str(notas)
+    assert "lista de confianza de ES" in notas[0].mensaje, notas[0].mensaje
+    return "verifica la lista, monta el ancla y dice de donde sale"
+
+
+@comprobar("una lista de confianza manipulada no monta nada", critica=True)
+def _():
+    # Lo que de verdad importa de este modulo. Un almacen de anclas mal montado
+    # no da un error: da un aprobado.
+    from validador import tsl
+    hoja = _certificado_del_ejemplo()
+    if hoja is None:
+        return "no hay ninguna firmada entre los ejemplos"
+    cert = _certificado_de_juguete()
+    datos = _tsl_de_juguete(cert, hoja.der)
+
+    tocada = datos.replace(b"Ministerio de juguete", b"Ministerio del timo")
+    assert tocada != datos, "no se ha podido tocar la lista"
+    fallo = tsl.comprobar_firma(tsl.leer(tocada), [_huella(cert)])
+    assert "se ha modificado" in fallo, "se cree una lista tocada: " + fallo
+
+    # Y sin decir quien tenia que firmarla, tampoco: verificarla contra el
+    # certificado que ella misma trae dentro no demuestra nada.
+    otra = tsl.leer(datos)
+    assert "no se ha dicho" in tsl.comprobar_firma(otra, [])
+    try:
+        tsl.montar(otra, "/anclas-coladas")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("monta anclas de una lista sin comprobar")
+    return "rechaza la tocada y se niega sin firmante"
+
+
 json.dumps(resultados)

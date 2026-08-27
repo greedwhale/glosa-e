@@ -914,3 +914,140 @@ la condición que hace aceptable traer las anclas puestas, así que si se rompe,
 se rompe la decisión de producto entera.
 
 659 tests.
+
+
+# De dónde salen las anclas
+
+## La pregunta de debajo
+
+Encadenar hasta un ancla contesta «de quién es este certificado». Debajo hay
+otra, y es la que decide si lo anterior significa algo: **¿de dónde ha salido
+esa ancla?** Es el único sitio de este validador donde equivocarse no produce
+un error, produce un aprobado.
+
+La respuesta fácil —recopilar raíces de por ahí— es exactamente el problema:
+**quien elige el montón elige a quién cree el validador**. La respuesta
+correcta ya existe: el artículo 22 de eIDAS obliga a cada Estado a publicar,
+firmada y en formato procesable, la lista de sus prestadores cualificados
+(ETSI TS 119 612, la TSL). No hay que inventar el conjunto: hay que leerlo.
+
+## Dónde acaba la cadena, que es lo bonito
+
+| Quién | Dice | Se comprueba contra |
+|---|---|---|
+| El **DOUE** | dónde está la lista de listas y qué la firma | nada: es el final |
+| La **LOTL** | dónde está la lista de cada país y quién la firma | la huella del DOUE |
+| La **lista del país** | qué autoridades son cualificadas | lo que dice la LOTL |
+
+La raíz de toda esta confianza no es un servidor: es **un documento del Diario
+Oficial**, con número de expediente y fuera de internet. Encaja con la idea de
+la que sale el proyecto entero: las reglas son públicas.
+
+Por eso `montar` **se niega** a producir anclas de una lista cuya firma no ha
+comprobado, y por eso `--segun` exige `--firmante` para la propia LOTL:
+creérsela porque sí sería elegir en quién confiar a partir de un fichero sin
+verificar. Se niega, no avisa. Un aviso deja la decisión en manos de quien
+tiene prisa.
+
+## Verificar la dirección era el punto, y menos mal
+
+Me había comprometido a comprobar las direcciones contra la fuente en vez de
+escribirlas de memoria, porque en este mismo repositorio ya había constancia de
+una huella inventada. Resultado: la del ministerio que yo tenía en la cabeza
+—`sede.serviciosmin.gob.es`— **ya no existe**, responde con una redirección
+permanente.
+
+Las buenas, verificadas: la LOTL en `https://ec.europa.eu/tools/lotl/eu-lotl.xml`,
+publicada con sus seis certificados y sus huellas en el **DOUE C/2026/1944, de
+15 de abril de 2026**; y la española en `https://tsl.digital.gob.es/TSL.xml`.
+
+La conclusión de diseño es más fuerte que la anécdota: **la dirección de la
+lista de un país no se escribe en ninguna parte del programa**. La dice la
+LOTL, que es quien tiene autoridad para decirla, y `--ver-tsl` la enseña.
+
+## Una lista no es un montón de certificados
+
+Es la trampa del formato, y tiene la misma forma que ya tenía la revocación:
+**un servicio es un certificado con un estado y una fecha**. Quien se quede
+solo con los certificados monta un conjunto que incluye a las autoridades
+retiradas.
+
+Se filtra por tipo —solo lo que emite certificados cualificados; ni sellos de
+tiempo ni servicios de estado— y por estado, se quitan los repetidos (una
+autoridad que emite para firma y para sello aparece dos veces con el mismo
+certificado) y se cuenta lo que se deja fuera, incluidos los servicios
+identificados **sin** certificado, que son legales y no dan ancla.
+
+Lo que queda abierto y está dicho: una autoridad retirada hoy firmó
+certificados buenos hace dos años. Sus facturas antiguas salen como «no llega a
+ninguna autoridad conocida» —aviso, no error— y el mensaje ya avisa de que eso
+no se distingue de que falte un certificado. Cerrarlo es darle al almacén una
+ventana de validez por ancla.
+
+## La procedencia viaja con los ficheros
+
+Montar deja un `PROCEDENCIA.txt`, y su primera línea acaba en el informe de
+cada factura:
+
+```
+de la lista de confianza de ES, publicada por Ministerio para la
+Transformacion Digital el 2026-08-01
+```
+
+En un fichero y no en el código de quien construye el almacén, a propósito. Si
+hay que acordarse de pasarla en la llamada, el día que alguien copie la carpeta
+se queda sin ella, y un conjunto de anclas que no dice de dónde viene es
+exactamente lo que habíamos quedado en no repartir.
+
+## Dos fallos, y cómo salieron
+
+**`"".join(texto.split())` se come los espacios de dentro.** Sirve para el
+base64 de un certificado y es destructivo para un nombre: la lista española
+habría acabado diciendo «FABRICANACIONALDEMONEDAYTIMBRE» en el informe de cada
+factura. No sale con datos inventados de una sola palabra; sale en cuanto el
+nombre lleva un espacio, o sea siempre. Lo cazó la primera prueba que usó un
+nombre realista, que es el argumento entero a favor de escribir los datos de
+prueba como son y no como es cómodo.
+
+**El aviso de SHA-1 disparaba contra el propio ancla.** La regla excluía las
+raíces autofirmadas —su firma no la comprueba nadie, así que su algoritmo da
+igual—, y eso es lo mismo que excluir el ancla **solo mientras las anclas son
+raíces**. Una TSL no publica raíces: publica las CA emisoras, que están
+firmadas por alguien. Montado el conjunto desde la lista, el validador avisaba
+de la autoridad de media España por un algoritmo que aquí no se usa para nada.
+Sospechado al leer el formato, reproducido con una sonda antes de tocar nada, y
+la prueba de regresión se pone roja al deshacer el arreglo.
+
+## Sobre las pruebas
+
+Lo que hay que probar aquí no es que lea el XML: es que **se niegue**. Hay un
+constructor de listas de confianza que firma de verdad, con la clave privada a
+mano para poder falsificar, y con él se fabrican los casos que importan:
+
+- una lista sin firma;
+- una lista firmada por otro;
+- una lista tocada después de firmarla, y el caso concreto de colarle una
+  autoridad a una lista buena;
+- una firma hecha con una clave que no es la del certificado que enseña;
+- **una firma auténtica que solo cubre la cabecera**: verifica perfectamente y
+  no garantiza nada, porque la lista de autoridades se puede cambiar entera;
+- montar sin haber dicho quién tenía que firmarla.
+
+Deshaciendo cada defensa por separado, la prueba que le corresponde se pone
+roja. Comprobado una por una.
+
+Lo que **no** está probado, y hay que decirlo: este lector no ha visto todavía
+una lista de verdad. Un constructor y un lector escritos por la misma mano
+pueden compartir el mismo malentendido y darse la razón mutuamente. Con las CRL
+eso se cerró contra `openssl`; aquí hace falta el fichero real.
+
+## En el navegador
+
+22 de 22, trece críticas. Las dos nuevas lo son, y una depende de lo más frágil
+de esa compilación: una TSL se verifica **canonicalizándola**, y allí libxml2
+es 2.9.10 frente a 2.11.9 en local. Un byte de diferencia no daría un falso
+aprobado —daría una lista rechazada y una página sin anclas—, pero daría igual
+al revés: la comprobación no se hace. Verificar y montar cuesta 20,8 ms allí;
+rechazar una manipulada, 14,1 ms.
+
+706 tests.

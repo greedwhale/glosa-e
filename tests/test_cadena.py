@@ -482,6 +482,19 @@ class TestElInforme:
         salen = quejas(hoja(), [vieja], [intermedia()], tmp_path=tmp_path)
         assert "CADENA-DEBIL" not in codigos(salen)
 
+    def test_un_ancla_que_no_es_raiz_tampoco_molesta(self, tmp_path):
+        """Lo mismo, y es el caso normal cuando las anclas salen de una lista
+        de confianza: una TSL publica las CA **emisoras**, no las raíces, así
+        que el ancla está firmada por alguien —y su firma tampoco la comprueba
+        nadie—. La exclusión estaba escrita sobre «autofirmado», que es lo
+        mismo solo mientras las anclas son raíces."""
+        debil = certificado(
+            "CA intermedia", "Raiz de pruebas", INTERMEDIA, RAIZ,
+            es_ca=True, alg="sha1", serie=2,
+        )
+        salen = quejas(hoja(), [debil], tmp_path=tmp_path)
+        assert "CADENA-DEBIL" not in codigos(salen)
+
     def test_los_certificados_del_documento_no_bastan(self, tmp_path):
         """Aunque el documento traiga la cadena entera, sin ancla no vale: los
         de dentro los eligió quien firmó."""
