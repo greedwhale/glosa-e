@@ -381,8 +381,16 @@ def codigos(incidencias, gravedad=None):
 
 
 class TestElInforme:
-    def test_una_cadena_buena_no_dice_nada(self, tmp_path):
-        assert quejas(hoja(), [raiz()], [intermedia()], tmp_path=tmp_path) == []
+    def test_una_cadena_buena_solo_echa_de_menos_la_revocacion(self, tmp_path):
+        """La cadena no se queja; lo que queda por saber, se dice.
+
+        Antes esto era `== []`. Desde que se mira la revocación, una cadena
+        perfecta sigue sin poder afirmar que el certificado no esté anulado, y
+        callarlo dejaría creer que sí se ha comprobado.
+        """
+        salen = quejas(hoja(), [raiz()], [intermedia()], tmp_path=tmp_path)
+        assert codigos(salen) == {"REVOCACION-SIN-COMPROBAR"}
+        assert codigos(salen, ERROR) == set()
 
     def test_sin_anclas_avisa_y_no_inventa(self, tmp_path):
         salen = quejas(hoja(), [], tmp_path=tmp_path)

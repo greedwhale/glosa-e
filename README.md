@@ -19,10 +19,11 @@ según el RD 238/2026.
 | `validador/facturae.py` | La aritmética del formato nacional: totales, líneas, impuestos y lote | Terminado |
 | `validador/firma.py` | La firma XAdES: integridad del documento y verificación RSA, sin salir a la red | Terminado |
 | `validador/cadena.py` | De quién es el certificado: la cadena hasta un ancla de confianza instalada | Terminado |
+| `validador/revocacion.py` | Si anularon el certificado: listas de revocación (CRL), sin salir a la red | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-593 tests, todos en verde.
+651 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -51,7 +52,10 @@ factura-e ejemplos --hoy 2026-09-20
 Acepta ficheros sueltos, carpetas o comodines. Devuelve 0 si todo está bien, 1
 si hay algún error y 2 si no hay nada que mirar, para poder encadenarlo en un
 script. Con `--solo-errores` calla los avisos y deja solo lo que impide cobrar.
-Con `--esquemas CARPETA` comprueba además la forma; ver más abajo.
+Con `--esquemas CARPETA` comprueba además la forma, con `--anclas CARPETA` de
+quién es la firma y con `--revocaciones CARPETA` si el certificado sigue vivo;
+ver más abajo. `--ver-anclas` y `--ver-revocaciones` enseñan lo que hay
+instalado y no validan nada.
 
 **Cada fichero cae en uno de tres estados, no de dos:** correcto, con errores,
 o **sin comprobar**. Lo tercero es el fichero que no existe, no se puede leer o
@@ -1018,6 +1022,48 @@ copiada de un README la reanuda.
 
 No hay que fiarse de por dónde llegó el fichero: se comprueba.
 
+### Cómo se mantienen al día
+
+No hay que suscribirse a nada, y no conviene. **Un almacén de confianza que se
+actualiza solo por la red es un almacén con mando a distancia**: quien pueda
+servirte ese fichero decide en quién crees. Los navegadores no lo hacen así
+—las raíces les llegan dentro de una actualización firmada del sistema—, y aquí
+tampoco.
+
+Lo que sí hace falta es saber **cuándo hay que tocarlo**, y para eso hay tres
+mecanismos, ninguno de ellos una descarga automática:
+
+1. **La caducidad, que es lo único que se apaga solo.** Una raíz dura veinte o
+   treinta años; una intermedia, cinco o diez. `--ver-anclas` dice cuándo
+   caduca cada una y avisa de las que están a menos de 90 días o ya vencidas.
+
+   ```
+     Raiz de pruebas
+       SHA-256  7B:52:69:B5:…  (aquí sale entera; se corta para no invitar a copiarla)
+       caduca   2027-03-02  (quedan 46 días)
+
+   Hay 1 ancla(s) caducada(s) o a punto: consigue la nueva en la web de su
+   autoridad y comprueba su huella allí mismo.
+   ```
+
+2. **Lo que te falta te lo dicen tus propias facturas.** Cuando una cadena no
+   llega, el informe nombra a la autoridad que falta: *«no tenemos el
+   certificado de «AC DNIE 001»»*. Se instala lo que hace falta para lo que de
+   verdad recibes, no un paquete entero de raíces del mundo por si acaso.
+   Cuantas menos anclas, menos gente en la que estás confiando.
+
+3. **La huella, para comprobar lo que instalas.** Cada vez que se añade o
+   renueva un ancla, se contrasta su SHA-256 con la que publica su autoridad.
+   Es lo que corta la cadena de «me fío de quien me lo pasó».
+
+Si algún día hace falta instalar muchas de golpe, el catálogo con autoridad
+para esto en la UE es la **lista de confianza (TSL)** que publica cada Estado
+miembro y la lista de listas de la Comisión, que van firmadas y llevan la
+historia de cuándo cada autoridad dejó de ser cualificada. Eso es un catálogo
+que se consulta a mano y se verifica, no un canal de actualización.
+
+En la práctica: media hora dos veces al año, y cuando el validador te lo pida.
+
 ### Los tres fallos clásicos, y dónde se paran
 
 1. **`basicConstraints`.** Un certificado que no es de autoridad no puede haber
@@ -1057,11 +1103,144 @@ Ninguna de las nueve muestras del Gobierno trae sus certificados intermedios:
 solo el de quien firma. Así que para encadenar de verdad hay que instalar la
 raíz **y** los intermedios, no solo la raíz. Es el caso normal, no el raro.
 
+## La revocación
+
+Es la última pregunta de la firma y la única que un certificado no puede
+contestar sobre sí mismo: **si lo anularon antes de usarlo**. Un certificado no
+sabe que ha muerto. Lleva su fecha de caducidad dentro, pero no lleva —no puede
+llevar— la noticia de que su titular perdió la clave el mes pasado.
+
+```bash
+factura-e facturas/ --anclas anclas/ --revocaciones revocaciones/
+```
+
+Por defecto busca en `./revocaciones` o en la variable
+`FACTURAE_REVOCACIONES`. Lee `.crl`, `.der` y `.pem`.
+
+### Este paquete no abre ni una conexión
+
+Y se puede comprobar con un `grep`. Las pruebas de revocación salen de dos
+sitios, los dos locales:
+
+1. **De dentro del documento.** XAdES-XL guarda las listas del momento en que
+   se firmó, que es lo que la norma inventó para poder comprobar una firma
+   dentro de veinte años, cuando la autoridad que la emitió ya no exista. Se
+   leen y se usan.
+2. **De una carpeta**, como los esquemas y las anclas.
+
+Bajar una lista es un acto explícito de quien usa la herramienta. Lo que hace
+el validador es decir **cuál le falta y dónde dice el propio certificado que
+está**:
+
+```
+[REVOCACION-SIN-COMPROBAR · firma electrónica] No se ha comprobado si el
+certificado está anulado: no tenemos ninguna lista de esa autoridad. El propio
+certificado dice que su lista está en http://…/crl.crl; bájala y ponla en la
+carpeta de revocaciones.
+```
+
+### Por qué CRL y no OCSP
+
+Las dos contestan lo mismo y filtran cosas muy distintas.
+
+Una **CRL** es la lista entera de anulados de una autoridad. Al bajarla no
+dices qué certificado te interesa: los pides todos.
+
+Una consulta **OCSP** lleva dentro el número de serie. Le dice a la autoridad
+exactamente qué certificado estás mirando y a qué hora: o sea, de qué factura
+se trata y cuándo te llegó. Para un validador cuya promesa es que la factura no
+sale de tu ordenador, la diferencia no es un detalle.
+
+Y no es teórico. De las cinco facturas firmadas de muestra, **cuatro apuntan a
+una CRL y la firmada con DNIe no publica CRL ninguna**: solo OCSP. Con ese
+certificado no hay forma de comprobar la revocación sin decirle al emisor qué
+estás mirando. Se dice, y que elija quien valida:
+
+```
+[REVOCACION-SOLO-OCSP · firma electrónica] No se ha comprobado si el
+certificado está anulado: su autoridad no publica lista de revocación, solo un
+servicio de consulta (http://ocsp.dnie.es). Preguntarle lleva dentro el número
+de serie del certificado, o sea que le diría a la autoridad qué factura se está
+mirando y cuándo. Esa consulta no se hace desde aquí.
+```
+
+### El problema de las fechas, que casi nadie cuenta
+
+Una revocación tiene fecha, y la firma también. Que un certificado esté anulado
+**hoy** no invalida una factura firmada **hace dos años**: en su momento valía.
+Rechazarla sería tirar una factura buena, que es el error caro de esta parte.
+
+Salvo que lo anularan porque le robaron la clave, y entonces al revés: todo lo
+que esa clave firmó pasa a ser sospechoso, **también lo anterior a la
+denuncia**, porque quien la robó pudo firmar con fecha atrasada.
+
+| Situación | Qué sale |
+|---|---|
+| Anulado antes de la fecha de firma | `REVOCADO`, error |
+| Anulado por clave comprometida, sea cuando sea | `REVOCACION-COMPROMISO`, error |
+| Anulado después de la fecha de firma, por otro motivo | `REVOCACION-POSTERIOR`, aviso |
+| Suspendido (`certificateHold`) | `REVOCACION-SUSPENDIDO`, aviso |
+
+Y hay una vuelta más, que también se dice: **la fecha de firma la escribe quien
+firma**. Sin un sello de tiempo de un tercero —XAdES-T, que ninguna muestra
+trae— comparar las dos fechas es fiarse de su palabra.
+
+### La trampa de la respuesta negativa
+
+«No está en la lista» solo significa «no está revocado» si la lista está
+firmada por la autoridad que toca, es posterior al momento que se juzga y cubre
+a ese certificado. Si falla cualquiera de las tres, la ausencia no prueba nada
+—y es justo ahí donde un validador tiene la tentación de pintar el tic verde—.
+Aquí no se pinta. Casos en que se dice «no se sabe» en vez de «vigente»:
+
+- La lista **no la firmó** quien dice. Es el ataque con más sentido contra esta
+  parte: una CRL vacía a nombre de la autoridad «demuestra» que un certificado
+  revocado sigue vivo. Se verifica su firma con la clave del emisor.
+- El emisor **no tenía permiso** para firmar listas (`cRLSign`).
+- La lista es **incremental** (delta CRL). Es el fallo más traicionero, porque
+  parece una lista normal: solo trae los cambios desde otra, así que quien la
+  lea como completa dará por vigente a todo el que no aparezca. Sí puede
+  acusar; lo que no puede es absolver.
+- La lista está **acotada** a otra clase de certificados
+  (`issuingDistributionPoint`).
+- La lista trae una **extensión crítica** que no sabemos leer.
+- La lista es **anterior** a la fecha de la firma: no pudo enterarse de una
+  anulación posterior.
+- La lista está **vencida**: `REVOCACION-LISTA-VIEJA`, porque no aparecer en
+  una lista caducada no es lo mismo que estar vigente.
+
+Manda **la lista más nueva, y solo ella**. Recorrerlas todas buscando el número
+de serie parece más prudente y es lo contrario: una suspensión que se levanta
+desaparece de las listas siguientes, y una lista vieja resucitaría una
+anulación que ya no existe.
+
+Cada una de estas defensas tiene un test que se pone rojo al quitarla:
+comprobado desactivándolas una por una, las nueve.
+
+### Ver lo que hay instalado
+
+```bash
+factura-e --ver-revocaciones
+```
+
+```
+Listas de revocación en revocaciones:
+
+  CA intermedia
+    anulados  1
+    publicada 2026-09-18
+    vale      hasta 2027-04-06
+```
+
 ### Lo que sigue sin comprobarse
 
-Si el certificado está **revocado**. Eso sí necesita red —OCSP o CRL— o que el
-documento traiga la prueba dentro, que es lo que hace XAdES-XL y ninguna de
-nuestras muestras alcanza. El informe lo dice.
+- **Las respuestas OCSP que vengan dentro del documento.** Se detectan y se
+  dice que están, pero no se leen todavía.
+- **Los sellos de tiempo** (XAdES-T y por encima), que son lo que convertiría
+  la fecha de firma en algo más que la palabra del firmante.
+- **Si anularon el certificado después de la última lista que tengas.** Eso no
+  lo arregla ningún validador: ninguna lista sabe lo que pasó después de
+  publicarse.
 
 ## Ejemplo de salida
 
@@ -1084,11 +1263,17 @@ firma— ya están cubiertos. Probarlo contra facturas ajenas también está hec
 que la inspección del código no había encontrado. Lo que queda es de otra
 clase:
 
-**La cadena de confianza de las firmas.** Hoy se comprueba que el documento no
-se haya tocado y que la firma cuadre con su certificado. Falta saber de quién
-es ese certificado y si sigue vivo, y eso exige la lista de confianza europea y
-consultas OCSP. Es la primera decisión de producto de verdad: obliga a salir a
-la red, y salir a la red rompe la promesa de que nada sube a ningún sitio.
+**La firma, entera y sin red.** Está hecha: integridad, verificación RSA,
+cadena hasta un ancla instalada y revocación contra listas locales. Lo que
+parecía obligar a salir a internet resultó no obligar: un ancla no se consulta,
+se conoce, y una CRL es un fichero que se instala como los esquemas. Lo único
+que sigue fuera del alcance —los sellos de tiempo y las respuestas OCSP
+embebidas— está anotado arriba.
+
+**Quién pone las anclas en el navegador.** Es la decisión de producto que
+queda. Si van con la página, mantenerlas al día es responsabilidad nuestra y
+somos nosotros quienes decidimos en quién cree quien la use. Si las pone quien
+la usa, hay que enseñarle a hacerlo. No es un problema técnico.
 
 **Las reglas de IVA por línea.** Ahora se comprueba el desglose contra las
 líneas, pero no que el tipo declarado en cada línea sea coherente con el

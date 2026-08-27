@@ -74,9 +74,18 @@ def _():
 
 @comprobar("el paquete validador importa", critica=True)
 def _():
+    # Se recorre el paquete en vez de nombrar los modulos a mano. La lista
+    # escrita a mano se quedo corta cuando entro `revocacion`: esta
+    # comprobacion siguio en verde con un wheel viejo dentro y el fallo salio
+    # tres pruebas mas abajo, disfrazado de otra cosa.
+    import importlib
+    import pkgutil
     import validador
-    from validador import factura, esquema, en16931, codigo_unico, iva, nif
-    return "todos los modulos"
+    nombres = sorted(m.name for m in pkgutil.iter_modules(validador.__path__))
+    assert nombres, "el paquete no trae ningun modulo"
+    for nombre in nombres:
+        importlib.import_module("validador." + nombre)
+    return "los {} modulos: {}".format(len(nombres), ", ".join(nombres))
 
 
 @comprobar("el parser endurecido no expande entidades", critica=True)
@@ -310,6 +319,128 @@ def _():
     salen = reglas([leer_certificado(crudo)], Almacen("/no-hay-anclas"))
     assert [i.codigo for i in salen] == ["CADENA-SIN-ANCLAS"],         "deberia avisar de que no ha comprobado nada: " + str(salen)
     return "avisa en vez de callarse"
+
+
+# --- Revocacion ------------------------------------------------------------
+#
+# Se fabrica una CRL aqui mismo, firmada con la clave de juguete, y se le pasa
+# al lector. Es DER y aritmetica, igual que la cadena, pero «deberia funcionar»
+# sigue sin ser haberlo mirado.
+
+def _der(etiqueta, contenido):
+    if len(contenido) < 0x80:
+        largo = bytes([len(contenido)])
+    else:
+        crudo = len(contenido).to_bytes((len(contenido).bit_length() + 7) // 8, "big")
+        largo = bytes([0x80 | len(crudo)]) + crudo
+    return bytes([etiqueta]) + largo + contenido
+
+
+def _seq(*partes):
+    return _der(0x30, b"".join(partes))
+
+
+def _entero(valor):
+    return _der(0x02, valor.to_bytes((valor.bit_length() + 8) // 8, "big"))
+
+
+def _tiempo(texto):
+    return _der(0x18, texto.encode())
+
+
+def _lista_de_juguete(emisor_der, serie=None, delta=False):
+    """Una CRL de verdad: firmada, con su numero y su motivo."""
+    import hashlib
+    from validador import firma
+    n = P_JUGUETE * Q_JUGUETE
+    d = pow(65537, -1, (P_JUGUETE - 1) * (Q_JUGUETE - 1))
+    oid = bytes([0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x0B])
+
+    lineas = b""
+    if serie is not None:
+        motivo = _seq(_seq(_der(0x06, bytes([0x55, 0x1D, 0x15])),
+                           _der(0x04, _der(0x0A, bytes([1])))))
+        lineas = _seq(_seq(_entero(serie), _tiempo("20260101000000Z"), motivo))
+    extensiones = [_seq(_der(0x06, bytes([0x55, 0x1D, 0x14])),
+                        _der(0x04, _entero(1)))]
+    if delta:
+        extensiones.append(_seq(_der(0x06, bytes([0x55, 0x1D, 0x1B])),
+                                _der(0x01, bytes([0xFF])),
+                                _der(0x04, _entero(1))))
+    tbs = _seq(
+        _entero(1),
+        _seq(_der(0x06, oid)),
+        emisor_der,
+        _tiempo("20260901000000Z"),
+        _tiempo("20271001000000Z"),
+        lineas,
+        _der(0xA0, _seq(*extensiones)),
+    )
+    tam = (n.bit_length() + 7) // 8
+    di = firma._DIGESTINFO["sha256"] + hashlib.sha256(tbs).digest()
+    bloque = bytes([0, 1]) + bytes([0xFF]) * (tam - len(di) - 3) + bytes([0]) + di
+    valor = pow(int.from_bytes(bloque, "big"), d, n).to_bytes(tam, "big")
+    return _seq(tbs, _seq(_der(0x06, oid)), _der(0x03, bytes([0]) + valor))
+
+
+def _certificado_del_ejemplo():
+    import base64, glob
+    from lxml import etree
+    from validador.firma import leer_certificado
+    firmadas = [r for r in sorted(glob.glob(BASE + "/*.xml"))
+                if b"Signature" in open(r, "rb").read()]
+    if not firmadas:
+        return None
+    raiz = etree.parse(firmadas[0]).getroot()
+    crudo = base64.b64decode("".join(
+        raiz.xpath("//*[local-name()='X509Certificate']/text()")[0].split()))
+    return leer_certificado(crudo)
+
+
+@comprobar("una lista de revocacion se lee y se comprueba aqui", critica=True)
+def _():
+    from validador.revocacion import comprobar as comprobar_revocacion
+    from validador.revocacion import leer_lista
+    hoja = _certificado_del_ejemplo()
+    if hoja is None:
+        return "no hay ninguna firmada entre los ejemplos"
+
+    crudo = _lista_de_juguete(hoja.emisor_der, serie=hoja.serie)
+    una = leer_lista(crudo)
+    assert len(una.anulaciones) == 1, "no ha leido la linea de anulados"
+    assert una.anulaciones[hoja.serie].compromiso, "no ha leido el motivo"
+
+    salida = comprobar_revocacion(hoja, hoja, [una])
+    assert salida.estado == "anulado", "no lo da por anulado: " + salida.estado
+
+    # Y lo que de verdad importa: que no se crea una lista que no cuadra. Se le
+    # cambia un byte a la firma y tiene que dejar de valer, no colar como un
+    # «no aparece, luego esta vigente».
+    roto = bytearray(crudo); roto[-3] ^= 0xFF
+    otra = comprobar_revocacion(hoja, hoja, [leer_lista(bytes(roto))])
+    assert otra.estado == "sin_saber", "se cree una lista con la firma rota"
+    assert "no la firmo" in otra.motivo.replace("ó", "o"), otra.motivo
+    return "lee la lista, la verifica y rechaza la manipulada"
+
+
+@comprobar("una lista incremental no da a nadie por vigente")
+def _():
+    # El fallo mas traicionero de esta parte: una CRL delta parece una lista
+    # normal, y quien la lea como completa dara por vigente a todo el que no
+    # aparezca en ella.
+    from validador.revocacion import comprobar as comprobar_revocacion
+    from validador.revocacion import leer_lista
+    hoja = _certificado_del_ejemplo()
+    if hoja is None:
+        return "no hay ninguna firmada entre los ejemplos"
+
+    completa = leer_lista(_lista_de_juguete(hoja.emisor_der))
+    assert comprobar_revocacion(hoja, hoja, [completa]).estado == "vigente",         "una lista completa y limpia deberia poder decir que esta vigente"
+
+    incremental = leer_lista(_lista_de_juguete(hoja.emisor_der, delta=True))
+    salida = comprobar_revocacion(hoja, hoja, [incremental])
+    assert salida.estado == "sin_saber", "da por vigente con una lista delta"
+    return "distingue la completa de la incremental"
 
 
 json.dumps(resultados)

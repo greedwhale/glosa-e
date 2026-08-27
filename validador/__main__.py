@@ -22,6 +22,9 @@ from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.cadena import VARIABLE_ENTORNO as ANCLAS_ENTORNO
 from validador.esquema import CARPETA_POR_DEFECTO, VARIABLE_ENTORNO, Catalogo
 from validador.incidencias import ERROR
+from validador.revocacion import CARPETA_POR_DEFECTO as LISTAS_POR_DEFECTO
+from validador.revocacion import VARIABLE_ENTORNO as LISTAS_ENTORNO
+from validador.revocacion import AlmacenDeListas
 
 EXTENSIONES = (".xml", ".xsig")
 
@@ -104,9 +107,23 @@ def main(argumentos: list[str] | None = None) -> int:
     analizador.add_argument(
         "--ver-anclas",
         action="store_true",
-        help="enseña las anclas instaladas con su huella y no valida nada. "
-        "La huella es lo que permite contrastar cada ancla con la que publica "
-        "su autoridad, sin fiarse de por donde llego el fichero.",
+        help="enseña las anclas instaladas con su huella y cuando caducan, y "
+        "no valida nada. La huella es lo que permite contrastar cada ancla con "
+        "la que publica su autoridad, sin fiarse de por donde llego el fichero.",
+    )
+    analizador.add_argument(
+        "--revocaciones",
+        metavar="CARPETA",
+        help="carpeta con las listas de revocacion (CRL) de esas autoridades, "
+        "para comprobar tambien si el certificado esta anulado. Por defecto, la "
+        f"variable de entorno {LISTAS_ENTORNO} o ./{LISTAS_POR_DEFECTO}. "
+        "Bajarlas es cosa tuya: este programa no abre ninguna conexion.",
+    )
+    analizador.add_argument(
+        "--ver-revocaciones",
+        action="store_true",
+        help="enseña las listas de revocacion instaladas, de que autoridad son "
+        "y hasta cuando valen, y no valida nada.",
     )
     analizador.add_argument(
         "--solo-errores",
@@ -116,8 +133,11 @@ def main(argumentos: list[str] | None = None) -> int:
     opciones = analizador.parse_args(argumentos)
 
     almacen = Almacen.por_defecto(opciones.anclas)
+    listas = AlmacenDeListas.por_defecto(opciones.revocaciones)
     if opciones.ver_anclas:
-        return _ver_anclas(almacen)
+        return _ver_anclas(almacen, opciones.hoy or date.today())
+    if opciones.ver_revocaciones:
+        return _ver_revocaciones(listas, opciones.hoy or date.today())
 
     caminos = expandir(opciones.rutas)
     if not caminos:
@@ -126,14 +146,24 @@ def main(argumentos: list[str] | None = None) -> int:
 
     catalogo = Catalogo.por_defecto(opciones.esquemas)
     lote = factura.validar_lote(
-        caminos, hoy=opciones.hoy, catalogo=catalogo, almacen=almacen
+        caminos,
+        hoy=opciones.hoy,
+        catalogo=catalogo,
+        almacen=almacen,
+        listas=listas,
     )
     if opciones.solo_errores:
         for _, informe in lote.informes:
             informe.incidencias = informe.errores
         lote.cruzadas = [i for i in lote.cruzadas if i.gravedad == ERROR]
 
-    print(lote.detalle(forma=not catalogo.vacio, anclas=not almacen.vacio))
+    print(
+        lote.detalle(
+            forma=not catalogo.vacio,
+            anclas=not almacen.vacio,
+            listas=not listas.vacio,
+        )
+    )
     if catalogo.vacio:
         # Una sola línea al final, no un aviso por fichero: quien no tiene los
         # esquemas puestos ya lo sabe, y no hace falta repetírselo cien veces.
@@ -149,21 +179,56 @@ def main(argumentos: list[str] | None = None) -> int:
             f"No se ha comprobado de quién son las firmas: no hay anclas de "
             f"confianza en {almacen.carpeta}. El README dice cómo ponerlas."
         )
+    elif listas.vacio and lote.firmados:
+        # Solo cuando las anclas si estan: sin ellas no se llega ni a saber de
+        # quien es el certificado, y echar de menos su lista de revocacion
+        # seria pedir el segundo paso antes que el primero.
+        print(
+            f"No se ha comprobado si los certificados están anulados: no hay "
+            f"listas de revocación en {listas.carpeta}. El informe de cada "
+            "factura dice de dónde bajar la que le falta."
+        )
     return 0 if lote.conforme else 1
 
 
-def _ver_anclas(almacen) -> int:
-    """Las anclas instaladas, con su huella. Contrastarlas es cosa de quien
-    las instala, y para eso hay que poder verlas."""
+# Por debajo de esto, un ancla se considera «a punto de caducar». Tres meses es
+# tiempo de sobra para conseguir la nueva sin prisas, y lo bastante poco como
+# para que el aviso no sea permanente.
+DIAS_DE_AVISO = 90
+
+
+def _ver_anclas(almacen, hoy: date) -> int:
+    """Las anclas instaladas, con su huella y su caducidad.
+
+    La huella es para contrastarlas con lo que publica su autoridad; la
+    caducidad es la respuesta a «¿y esto hay que mantenerlo?». Las raíces duran
+    veinte o treinta años y las intermedias mucho menos: lo que hay que vigilar
+    es cuál se apaga, y para eso hay que poder verlo de un vistazo.
+    """
     if almacen.vacio:
         print(f"No hay ninguna ancla de confianza en {almacen.carpeta}.")
         return 2
     print(f"Anclas de confianza en {almacen.carpeta}:")
     print()
-    for linea in almacen.inventario():
-        nombre, _, huella = linea.partition(" — ")
-        print(f"  {nombre}")
-        print(f"    SHA-256  {huella}")
+    caducando = 0
+    for cert in sorted(almacen.todas(), key=lambda c: c.hasta or datetime.max.date()):
+        print(f"  {cert.sujeto or '(sin nombre común)'}")
+        print(f"    SHA-256  {cert.huella()}")
+        if cert.hasta is None:
+            print("    caduca   (no se ha podido leer)")
+            continue
+        quedan = (cert.hasta.date() - hoy).days
+        if quedan < 0:
+            print(f"    caduca   {cert.hasta.date().isoformat()}  ¡YA CADUCADA!")
+            caducando += 1
+        elif quedan <= DIAS_DE_AVISO:
+            print(
+                f"    caduca   {cert.hasta.date().isoformat()}  "
+                f"(quedan {quedan} días)"
+            )
+            caducando += 1
+        else:
+            print(f"    caduca   {cert.hasta.date().isoformat()}")
     for ruta, motivo in almacen.ilegibles:
         print(f"  (no se ha podido leer {ruta}: {motivo})")
     print()
@@ -171,6 +236,55 @@ def _ver_anclas(almacen) -> int:
         "Contrasta cada huella con la que publica su autoridad antes de "
         "fiarte de ella."
     )
+    if caducando:
+        print(
+            f"Hay {caducando} ancla(s) caducada(s) o a punto: consigue la nueva "
+            "en la web de su autoridad y comprueba su huella allí mismo."
+        )
+    return 0
+
+
+def _ver_revocaciones(listas, hoy: date) -> int:
+    """Las listas de revocación instaladas y hasta cuándo valen.
+
+    Una lista vencida no es inútil —lo que dice, dicho está—, pero deja de
+    poder decir «este certificado no está anulado», que es para lo que se
+    consulta el 99% de las veces.
+    """
+    if listas.vacio:
+        print(f"No hay ninguna lista de revocación en {listas.carpeta}.")
+        print()
+        print(
+            "Se bajan de la dirección que da cada certificado, y el informe de "
+            "cada factura la dice. Este programa no las baja solo."
+        )
+        return 2
+    print(f"Listas de revocación en {listas.carpeta}:")
+    print()
+    vencidas = 0
+    for una in sorted(listas.todas(), key=lambda l: l.emisor_nombre or ""):
+        print(f"  {una.emisor_nombre or '(sin nombre común)'}")
+        print(f"    anulados  {len(una.anulaciones)}")
+        print(
+            f"    publicada {una.desde.date().isoformat() if una.desde else '?'}"
+        )
+        if una.hasta is None:
+            print("    vale      (sin fecha de caducidad)")
+        elif una.hasta.date() < hoy:
+            print(f"    vale      hasta {una.hasta.date().isoformat()}  ¡VENCIDA!")
+            vencidas += 1
+        else:
+            print(f"    vale      hasta {una.hasta.date().isoformat()}")
+        if una.es_delta:
+            print("    aviso     es incremental: no sirve para dar por vigente")
+    for ruta, motivo in listas.ilegibles:
+        print(f"  (no se ha podido leer {ruta}: {motivo})")
+    if vencidas:
+        print()
+        print(
+            f"Hay {vencidas} lista(s) vencida(s). Mientras no las renueves, no "
+            "aparecer en ellas no demuestra que un certificado siga vigente."
+        )
     return 0
 
 

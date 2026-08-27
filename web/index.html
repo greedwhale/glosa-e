@@ -95,7 +95,14 @@ async function buscarWheel() {
   if (listado.ok) {
     const nombres = [...(await listado.text()).matchAll(/href="([^"]+\.whl)"/g)]
       .map((m) => decodeURIComponent(m[1].split("/").pop()));
-    if (nombres.length) return "../dist/" + nombres.sort().pop();
+    // El `?v=` es por precaucion: el nombre del wheel no cambia entre
+    // compilaciones de la misma version, asi que sin esto el navegador puede
+    // servir el de la cache y la pagina probaria una version vieja del
+    // validador sin decirlo. Es el peor fallo posible en un banco de pruebas:
+    // sale todo verde y no es lo que crees que has probado.
+    if (nombres.length) {
+      return "../dist/" + nombres.sort().pop() + "?v=" + Date.now();
+    }
   }
   throw new Error(
     "No hay ningun .whl en dist/. Construyelo antes: python -m build --wheel --outdir dist"

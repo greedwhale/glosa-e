@@ -63,7 +63,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from validador import firma
+from validador import firma, revocacion
 from validador.firma import (
     ALGORITMOS_ROTOS,
     Certificado,
@@ -352,10 +352,20 @@ def reglas(
     almacen: Almacen | None,
     cuando: datetime | None = None,
     donde: str = "",
+    listas: list | None = None,
+    listas_dentro: list | None = None,
+    hoy=None,
+    hay_ocsp: bool = False,
 ) -> list[Incidencia]:
     """De quién es el certificado que firma, hasta donde se pueda saber.
 
     `certificados` son los del documento, el primero el que firma.
+
+    La revocación se mira **después** y solo si la cadena llega: preguntar si
+    está anulado un certificado que no lleva a ninguna autoridad conocida sería
+    contestar a la pregunta equivocada. Y para creerle una lista a alguien hace
+    falta la clave de quien la firma, que es justo lo que la cadena acaba de
+    encontrar.
     """
     if not certificados:
         return []
@@ -409,10 +419,23 @@ def reglas(
 
     incidencias.extend(_regla_vigencias(cadena, cuando, donde))
     incidencias.extend(_regla_algoritmos(cadena, donde))
+    incidencias.extend(
+        revocacion.reglas(
+            cadena.eslabones,
+            listas or [],
+            listas_dentro=listas_dentro,
+            cuando=cuando,
+            hoy=hoy,
+            donde=donde,
+            hay_ocsp=hay_ocsp,
+        )
+    )
     return incidencias
 
 
-def reglas_de_documento(raiz, deteccion, almacen: Almacen | None = None):
+def reglas_de_documento(
+    raiz, deteccion, almacen: Almacen | None = None, listas=None, hoy=None
+):
     """Lo mismo, sacando los certificados del documento.
 
     Vive aquí y no en `firma.py` para que las dependencias vayan en un solo
@@ -432,6 +455,10 @@ def reglas_de_documento(raiz, deteccion, almacen: Almacen | None = None):
                 almacen,
                 cuando=firma.momento_de_firma(una),
                 donde=donde,
+                listas=listas.todas() if listas is not None else [],
+                listas_dentro=revocacion.listas_del_documento(una),
+                hoy=hoy,
+                hay_ocsp=revocacion.trae_ocsp(una),
             )
         )
     return incidencias

@@ -31,6 +31,7 @@ from lxml import etree
 from validador import cadena, codigo_unico, en16931, esquema, facturae, firma
 from validador.formato import CII, FACTURAE, UBL, Deteccion, detectar, parser
 from validador.cadena import Almacen
+from validador.revocacion import AlmacenDeListas
 from validador.esquema import Catalogo
 from validador.incidencias import ERROR, Incidencia, Informe
 
@@ -67,7 +68,10 @@ def origen(incidencia: Incidencia) -> str:
         return FORMA
     if incidencia.codigo.startswith("FE-"):
         return NACIONAL
-    if incidencia.codigo.startswith(("FIRMA-", "CADENA-")):
+    if incidencia.codigo.startswith(("FIRMA-", "CADENA-", "REVOCA")):
+        # «REVOCA» y no «REVOCACION-» a propósito: el código de la anulación
+        # confirmada es `REVOCADO`, a secas, y sin esto salía etiquetado como
+        # un problema de formato, que es justo lo que no es.
         return SELLO
     if incidencia.codigo.startswith("NIF-"):
         # No lo firma el RD 238/2026 —el código único solo usa el NIF del
@@ -124,6 +128,7 @@ def _reglas(
     hoy: date | None,
     catalogo: Catalogo | None,
     almacen: Almacen | None = None,
+    listas: AlmacenDeListas | None = None,
 ) -> list[Incidencia]:
     """Todas las reglas sobre un documento ya parseado y ya identificado.
 
@@ -138,7 +143,9 @@ def _reglas(
     incidencias.extend(en16931.reglas(raiz, deteccion, espanola=espanola))
     incidencias.extend(facturae.reglas(raiz, deteccion))
     incidencias.extend(firma.reglas(raiz, deteccion))
-    incidencias.extend(cadena.reglas_de_documento(raiz, deteccion, almacen))
+    incidencias.extend(
+        cadena.reglas_de_documento(raiz, deteccion, almacen, listas, hoy)
+    )
     incidencias.extend(codigo_unico.reglas(raiz, deteccion, hoy=hoy))
     return _podar(incidencias)
 
@@ -148,6 +155,7 @@ def validar(
     hoy: date | None = None,
     catalogo: Catalogo | None = None,
     almacen: Almacen | None = None,
+    listas: AlmacenDeListas | None = None,
 ) -> Informe:
     """Valida un documento: su forma, las reglas europeas y las españolas."""
     deteccion = detectar(datos)
@@ -157,7 +165,9 @@ def validar(
     if isinstance(datos, str):
         datos = datos.encode("utf-8")
     informe.incidencias.extend(
-        _reglas(_arbol(datos, deteccion), deteccion, hoy, catalogo, almacen)
+        _reglas(
+            _arbol(datos, deteccion), deteccion, hoy, catalogo, almacen, listas
+        )
     )
     return informe
 
@@ -167,12 +177,17 @@ def validar_archivo(
     hoy: date | None = None,
     catalogo: Catalogo | None = None,
     almacen: Almacen | None = None,
+    listas: AlmacenDeListas | None = None,
 ) -> Informe:
     """Igual que `validar`, leyendo de un fichero."""
     camino = Path(ruta)
     try:
         return validar(
-            camino.read_bytes(), hoy=hoy, catalogo=catalogo, almacen=almacen
+            camino.read_bytes(),
+            hoy=hoy,
+            catalogo=catalogo,
+            almacen=almacen,
+            listas=listas,
         )
     except OSError as error:
         return Informe(deteccion=_no_se_puede_leer(camino, error))
@@ -279,11 +294,14 @@ class InformeLote:
             for _, informe in self.informes
         )
 
-    def alcance(self, forma: bool = True, anclas: bool = False) -> str:
+    def alcance(
+        self, forma: bool = True, anclas: bool = False, listas: bool = False
+    ) -> str:
         """Qué se ha mirado, dicho una vez y al final del informe.
 
-        `forma` dice si había esquemas XSD con los que comprobarla, y `anclas`
-        si había anclas de confianza. Sin este
+        `forma` dice si había esquemas XSD con los que comprobarla, `anclas`
+        si había anclas de confianza y `listas` si había listas de
+        revocación instaladas. Sin este
         dato la frase decía «se ha comprobado la forma contra el esquema XSD»
         justo encima del recordatorio de que no hay esquemas puestos: dos
         líneas seguidas contradiciéndose, que es peor que no decir nada y es
@@ -328,8 +346,21 @@ class InformeLote:
                     "que ese certificado lleve a una autoridad de confianza "
                     "instalada"
                 )
-                # Lo que queda es lo único que de verdad exige salir a la red.
-                sin_mirar.append("si el certificado está revocado")
+                if listas:
+                    mirado.append(
+                        "que no lo hayan anulado, según las listas de "
+                        "revocación instaladas"
+                    )
+                    # Lo que queda no es un defecto del validador: ninguna
+                    # lista sabe lo que pasó después de publicarse.
+                    sin_mirar.append(
+                        "si lo anularon después de la última lista que tengas"
+                    )
+                else:
+                    sin_mirar.append(
+                        "si el certificado está anulado —hace falta la lista "
+                        "de revocación de su autoridad—"
+                    )
             else:
                 # Decir «firma comprobada» a secas dejaría creer que también se
                 # sabe de quién es, que es la mitad que más importa.
@@ -349,7 +380,9 @@ class InformeLote:
             + "."
         )
 
-    def detalle(self, forma: bool = True, anclas: bool = False) -> str:
+    def detalle(
+        self, forma: bool = True, anclas: bool = False, listas: bool = False
+    ) -> str:
         senialados = self.senialados
         lineas: list[str] = []
         for camino, informe in self.informes:
@@ -375,7 +408,7 @@ class InformeLote:
             lineas.append("")
         lineas.append(self.resumen())
         lineas.append("")
-        lineas.append(self.alcance(forma, anclas))
+        lineas.append(self.alcance(forma, anclas, listas))
         return "\n".join(lineas)
 
 
@@ -388,6 +421,7 @@ def validar_lote(
     hoy: date | None = None,
     catalogo: Catalogo | None = None,
     almacen: Almacen | None = None,
+    listas: AlmacenDeListas | None = None,
 ) -> InformeLote:
     """Valida varios ficheros y además los compara entre sí.
 
@@ -403,6 +437,7 @@ def validar_lote(
     # Un solo almacen para todo el lote, por lo mismo que el catalogo: leer y
     # parsear las anclas una vez, no una por fichero.
     almacen = almacen if almacen is not None else Almacen.por_defecto()
+    listas = listas if listas is not None else AlmacenDeListas.por_defecto()
     todos: list[codigo_unico.CodigoUnico] = []
     procedencias: list[str] = []
 
@@ -421,7 +456,7 @@ def validar_lote(
         informe = Informe(deteccion=deteccion)
         if deteccion:
             informe.incidencias.extend(
-                _reglas(raiz, deteccion, hoy, catalogo, almacen)
+                _reglas(raiz, deteccion, hoy, catalogo, almacen, listas)
             )
         lote.informes.append((camino, informe))
 

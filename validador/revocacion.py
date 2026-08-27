@@ -1,0 +1,853 @@
+"""¿Sigue valiendo el certificado, o lo anularon?
+
+`firma.py` dice que el documento no se ha tocado y que la firma cuadra con su
+certificado. `cadena.py` dice de quién es ese certificado. Falta la última
+pregunta, y es la única que un certificado no puede contestar sobre sí mismo:
+**si lo anularon antes de usarlo**.
+
+Un certificado no sabe que ha muerto. Lleva dentro su fecha de caducidad, pero
+no lleva —no puede llevar— la noticia de que su titular perdió la clave el mes
+pasado. Esa noticia la publica la autoridad después, por separado, y por eso
+esta es la única parte del validador que necesita algo de fuera.
+
+Tres formas de conseguir esa prueba, y la que no se usa
+-------------------------------------------------------
+1. **Que la traiga el documento.** XAdES-XL guarda dentro de la firma las
+   listas de revocación del momento en que se firmó. Es lo que la norma
+   inventó para que una firma se pueda comprobar dentro de veinte años, cuando
+   la autoridad que la emitió ya no exista. Cero red, y es la única forma que
+   sigue funcionando cuando la lista de entonces ya no está publicada.
+2. **Una lista instalada en una carpeta**, igual que los esquemas XSD y las
+   anclas. Se baja una vez y sirve para todas las facturas de esa autoridad
+   hasta que caduque.
+3. **Preguntar por internet.** Aquí no se hace: **este paquete no abre ni una
+   conexión**, y eso se puede comprobar con un `grep`. Lo que hace es decir qué
+   lista le falta y dónde dice el propio certificado que está. Bajarla es un
+   acto explícito de quien usa la herramienta, no algo que pase de fondo.
+
+Por qué CRL y no OCSP
+---------------------
+Las dos contestan lo mismo y filtran cosas muy distintas.
+
+Una **CRL** es la lista entera de anulados de una autoridad. Al bajarla no se
+dice qué certificado interesa: se piden todos. Quien sirve el fichero se entera
+de que alguien está validando algo suyo, y de nada más.
+
+Una consulta **OCSP** lleva dentro el número de serie del certificado. Le dice
+a la autoridad exactamente qué certificado se está mirando y a qué hora: o sea,
+de qué factura se trata y cuándo llegó. Para un validador cuya promesa es que
+la factura no sale del ordenador, la diferencia no es un detalle.
+
+Esto no es teórico. De las cinco facturas firmadas que hay de muestra, cuatro
+apuntan a una CRL y **la firmada con DNIe no publica CRL ninguna**: solo OCSP.
+Con ese certificado no hay forma de comprobar la revocación sin decirle al
+emisor qué se está mirando. Se dice, y que elija quien valida.
+
+El problema de las fechas, que es el que casi nadie cuenta
+----------------------------------------------------------
+Una revocación tiene fecha, y la firma también. Que un certificado esté anulado
+**hoy** no invalida una factura firmada **hace dos años**: en su momento valía.
+Salvo que lo anularan porque le robaron la clave, y entonces al revés: todo lo
+que esa clave firmó pasa a ser sospechoso, incluso lo anterior a la denuncia,
+porque quien la robó pudo firmar con fecha atrasada.
+
+Y hay una vuelta más: la fecha de firma **la escribe quien firma**. Sin un
+sello de tiempo de un tercero —XAdES-T, que ninguna muestra trae— comparar las
+dos fechas es fiarse de la palabra del firmante. Eso también se dice, en vez de
+enseñar un tic verde.
+
+La trampa de la respuesta negativa
+----------------------------------
+«No está en la lista» solo significa «no está revocado» si la lista **está
+firmada por la autoridad que toca**, **es posterior al momento que se juzga** y
+**cubre a ese certificado**. Si falla cualquiera de las tres, la ausencia no
+prueba nada —y es justo ahí donde un validador tiene la tentación de pintar el
+tic verde—. Aquí no se pinta: se dice por qué no se sabe.
+"""
+
+from __future__ import annotations
+
+import base64
+import binascii
+import os
+import re
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+
+from validador.firma import (
+    _OID_ALGORITMO,
+    Certificado,
+    _elementos,
+    _fecha_der,
+    _nombre_der,
+    _oid,
+    _tlv,
+    _verificar_rsa,
+)
+from validador.incidencias import AVISO, ERROR, Incidencia
+
+__all__ = [
+    "AlmacenDeListas",
+    "Anulacion",
+    "Lista",
+    "Veredicto",
+    "comprobar",
+    "donde_esta_el_ocsp",
+    "donde_esta_la_lista",
+    "leer_lista",
+    "listas_del_documento",
+    "reglas",
+    "trae_ocsp",
+]
+
+VARIABLE_ENTORNO = "FACTURAE_REVOCACIONES"
+CARPETA_POR_DEFECTO = "revocaciones"
+
+_EXTENSIONES = (".crl", ".der", ".pem")
+_PEM = re.compile(rb"-----BEGIN X509 CRL-----(.*?)-----END X509 CRL-----", re.S)
+
+# Extensiones de la propia lista.
+_OID_NUMERO = "551d14"  # 2.5.29.20 cRLNumber
+_OID_DELTA = "551d1b"  # 2.5.29.27 deltaCRLIndicator
+_OID_ALCANCE = "551d1c"  # 2.5.29.28 issuingDistributionPoint
+# Extensiones de cada línea.
+_OID_MOTIVO = "551d15"  # 2.5.29.21 CRLReason
+_OID_INVALIDA_DESDE = "551d18"  # 2.5.29.24 invalidityDate
+_OID_OTRO_EMISOR = "551d1d"  # 2.5.29.29 certificateIssuer
+# Extensiones del certificado que dicen dónde buscar.
+_OID_PUNTOS = "551d1f"  # 2.5.29.31 cRLDistributionPoints
+_OID_ACCESOS = "2b06010505070101"  # 1.3.6.1.5.5.7.1.1 authorityInfoAccess
+_OID_OCSP = "2b06010505073001"  # 1.3.6.1.5.5.7.48.1
+
+# Las críticas que sí sabemos leer. Una crítica que no esté aquí inutiliza la
+# lista entera: lo manda el RFC 5280 y tiene su lógica —si la autoridad marcó
+# algo como imprescindible y no lo entendemos, no sabemos qué estamos leyendo—.
+_ENTENDIDAS = frozenset({_OID_NUMERO, _OID_DELTA, _OID_ALCANCE})
+
+MOTIVOS = {
+    0: "sin decir por qué",
+    1: "porque la clave privada quedó comprometida",
+    2: "porque la clave de la autoridad quedó comprometida",
+    3: "porque cambió la vinculación del titular",
+    4: "porque se sustituyó por otro certificado",
+    5: "porque cesó la actividad",
+    6: "en suspenso, temporalmente",
+    8: "para sacarlo de la lista",
+    9: "porque se le retiró un privilegio",
+    10: "porque la autoridad de atributos quedó comprometida",
+}
+
+# Los motivos que miran hacia atrás: si la clave estaba en malas manos, lo que
+# firmó antes de que se supiera tampoco vale.
+COMPROMISO = frozenset({1, 2, 10})
+SUSPENSION = 6
+
+
+# --- Leer una lista --------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Anulacion:
+    """Una línea de la lista: este certificado, anulado tal día y por qué."""
+
+    serie: int
+    cuando: datetime | None
+    motivo: int | None = None
+    invalida_desde: datetime | None = None
+    otro_emisor: bool = False
+
+    @property
+    def compromiso(self) -> bool:
+        return self.motivo in COMPROMISO
+
+    @property
+    def suspension(self) -> bool:
+        return self.motivo == SUSPENSION
+
+    @property
+    def texto_motivo(self) -> str:
+        return MOTIVOS.get(self.motivo, "sin decir por qué")
+
+
+@dataclass(frozen=True)
+class Lista:
+    """Una CRL abierta: quién la firma, cuándo, a quién cubre y a quién anula."""
+
+    emisor_der: bytes
+    emisor_nombre: str | None
+    desde: datetime | None  # thisUpdate
+    hasta: datetime | None  # nextUpdate
+    anulaciones: dict[int, Anulacion]
+    tbs: bytes = b""
+    algoritmo_firma: str | None = None
+    valor_firma: bytes = b""
+    numero: int | None = None
+    es_delta: bool = False
+    solo_autoridades: bool = False
+    solo_usuarios: bool = False
+    solo_algunos_motivos: bool = False
+    indirecta: bool = False
+    criticas_sin_entender: frozenset[str] = frozenset()
+
+    @property
+    def parcial(self) -> str:
+        """Por qué esta lista no puede dar un «no está anulado» que valga.
+
+        Son los casos en que la ausencia deja de ser prueba. Una lista
+        incremental es el más traicionero: parece una lista normal, y quien la
+        lea como completa dará por vigente a todo el que no aparezca.
+        """
+        if self.es_delta:
+            return (
+                "es una lista incremental (delta): solo trae los cambios desde "
+                "otra anterior, así que quien no aparezca puede estar anulado "
+                "en la lista base"
+            )
+        if self.solo_algunos_motivos:
+            return "solo recoge algunos motivos de anulación, no todos"
+        if self.indirecta:
+            return (
+                "es una lista indirecta —cada línea puede venir de una autoridad "
+                "distinta— y eso no se sabe leer todavía"
+            )
+        return ""
+
+
+def _reserializar(elemento: tuple[int, bytes]) -> bytes:
+    """Un TLV ya abierto, de vuelta a bytes. Para comparar nombres en DER."""
+    etiqueta, contenido = elemento
+    if len(contenido) < 0x80:
+        largo = bytes([len(contenido)])
+    else:
+        crudo = len(contenido).to_bytes((len(contenido).bit_length() + 7) // 8, "big")
+        largo = bytes([0x80 | len(crudo)]) + crudo
+    return bytes([etiqueta]) + largo + contenido
+
+
+def _extensiones_de_linea(contenido: bytes):
+    motivo = None
+    invalida = None
+    otro = False
+    for _, extension in _elementos(contenido):
+        partes = _elementos(extension)
+        if not partes:
+            continue
+        cual = _oid(partes[0][1])
+        valor = partes[-1][1]
+        if cual == _OID_MOTIVO:
+            _, dentro, _ = _tlv(valor)
+            motivo = int.from_bytes(dentro, "big") if dentro else None
+        elif cual == _OID_INVALIDA_DESDE:
+            etiqueta, dentro, _ = _tlv(valor)
+            invalida = _fecha_der(etiqueta, dentro)
+        elif cual == _OID_OTRO_EMISOR:
+            otro = True
+    return motivo, invalida, otro
+
+
+def _alcance(valor: bytes):
+    """`issuingDistributionPoint`: a qué parte del mundo contesta la lista.
+
+    Los campos booleanos van con etiqueta implícita —[1], [2], [4], [5]—, o sea
+    que llegan como primitivos de contexto con un byte de contenido.
+    """
+    solo_usuarios = solo_autoridades = solo_motivos = indirecta = False
+    try:
+        _, dentro, _ = _tlv(valor)
+    except ValueError:
+        return False, False, False, False
+    for etiqueta, contenido in _elementos(dentro):
+        cierto = contenido == bytes([0xFF])
+        if etiqueta == 0x81:
+            solo_usuarios = cierto
+        elif etiqueta == 0x82:
+            solo_autoridades = cierto
+        elif etiqueta == 0x83:
+            solo_motivos = True
+        elif etiqueta == 0x84:
+            indirecta = cierto
+    return solo_usuarios, solo_autoridades, solo_motivos, indirecta
+
+
+def leer_lista(der: bytes) -> Lista:
+    """Una CRL en DER, abierta. La estructura está en el RFC 5280, apartado 5.
+
+    El `tbsCertList` se guarda **tal cual venía**, por lo mismo que en un
+    certificado: es la ristra exacta de octetos que la autoridad firmó, y
+    volver a serializarla daría otros bytes en cuanto el DER no fuera estricto.
+    """
+    _, lista, _ = _tlv(der)
+    partes = _elementos(lista)
+    if len(partes) < 3:
+        raise ValueError("no parece una lista de revocación")
+    tbs = lista[: _tlv(lista)[2]]
+
+    campos = _elementos(partes[0][1])
+    # `version` es opcional, y es el único INTEGER que puede ir el primero: lo
+    # que va detrás es siempre el algoritmo, que es una SEQUENCE.
+    i = 1 if campos and campos[0][0] == 0x02 else 0
+    if len(campos) < i + 3:
+        raise ValueError("a la lista le faltan campos")
+    i += 1  # el algoritmo de dentro; se lee el de fuera, que es el que firma
+    emisor_der = _reserializar(campos[i])
+    emisor_nombre = _nombre_der(campos[i][1])
+    i += 1
+    desde = _fecha_der(*campos[i])
+    i += 1
+
+    hasta = None
+    if i < len(campos) and campos[i][0] in (0x17, 0x18):
+        hasta = _fecha_der(*campos[i])
+        i += 1
+
+    anulaciones: dict[int, Anulacion] = {}
+    if i < len(campos) and campos[i][0] == 0x30:
+        for _, linea in _elementos(campos[i][1]):
+            trozos = _elementos(linea)
+            if len(trozos) < 2:
+                continue
+            serie = int.from_bytes(trozos[0][1], "big")
+            cuando = _fecha_der(*trozos[1])
+            motivo = invalida = None
+            otro = False
+            if len(trozos) > 2:
+                motivo, invalida, otro = _extensiones_de_linea(trozos[2][1])
+            anulaciones[serie] = Anulacion(serie, cuando, motivo, invalida, otro)
+        i += 1
+
+    numero = None
+    es_delta = solo_usuarios = solo_autoridades = solo_motivos = indirecta = False
+    criticas: set[str] = set()
+    if i < len(campos) and campos[i][0] == 0xA0:
+        _, dentro, _ = _tlv(campos[i][1])
+        for _, extension in _elementos(dentro):
+            partes_ext = _elementos(extension)
+            if not partes_ext:
+                continue
+            cual = _oid(partes_ext[0][1])
+            critica = len(partes_ext) == 3 and partes_ext[1][1] == bytes([0xFF])
+            valor = partes_ext[-1][1]
+            if cual == _OID_NUMERO:
+                _, crudo, _ = _tlv(valor)
+                numero = int.from_bytes(crudo, "big")
+            elif cual == _OID_DELTA:
+                es_delta = True
+            elif cual == _OID_ALCANCE:
+                (
+                    solo_usuarios,
+                    solo_autoridades,
+                    solo_motivos,
+                    indirecta,
+                ) = _alcance(valor)
+            elif critica:
+                criticas.add(cual)
+
+    algoritmo = None
+    algoritmos = _elementos(partes[1][1])
+    if algoritmos and algoritmos[0][0] == 0x06:
+        pareja = _OID_ALGORITMO.get(_oid(algoritmos[0][1]))
+        algoritmo = pareja[0] if pareja else None
+    valor_firma = partes[2][1][1:] if partes[2][1][:1] == bytes([0]) else b""
+
+    return Lista(
+        emisor_der=emisor_der,
+        emisor_nombre=emisor_nombre,
+        desde=desde,
+        hasta=hasta,
+        anulaciones=anulaciones,
+        tbs=tbs,
+        algoritmo_firma=algoritmo,
+        valor_firma=valor_firma,
+        numero=numero,
+        es_delta=es_delta,
+        solo_autoridades=solo_autoridades,
+        solo_usuarios=solo_usuarios,
+        solo_algunos_motivos=solo_motivos,
+        indirecta=indirecta,
+        criticas_sin_entender=frozenset(criticas) - _ENTENDIDAS,
+    )
+
+
+def listas_del_fichero(datos: bytes) -> list[bytes]:
+    """Las CRL de un fichero, vengan en PEM o en DER pelado."""
+    trozos = [base64.b64decode(m.group(1)) for m in _PEM.finditer(datos)]
+    if trozos:
+        return trozos
+    return [datos] if datos[:1] == bytes([0x30]) else []
+
+
+# --- Dónde dice el certificado que está su lista ----------------------------
+
+
+def _uris(valor: bytes, hondo: int = 0) -> list[str]:
+    """Los `uniformResourceIdentifier` que haya dentro, a cualquier hondura.
+
+    Un `GeneralName` de tipo URI es la etiqueta de contexto 6 en primitivo, y
+    en `cRLDistributionPoints` viene envuelto en dos o tres capas según cómo lo
+    escriba cada autoridad. Se recorre en vez de contar capas: aquí lo que
+    interesa es enseñar la dirección, no reconstruir la estructura.
+    """
+    if hondo > 6:
+        return []
+    salida: list[str] = []
+    try:
+        elementos = _elementos(valor)
+    except ValueError:
+        return []
+    for etiqueta, contenido in elementos:
+        if etiqueta == 0x86:
+            salida.append(contenido.decode("ascii", "replace"))
+        elif etiqueta & 0x20:  # construido: hay más cosas dentro
+            salida.extend(_uris(contenido, hondo + 1))
+    return salida
+
+
+def donde_esta_la_lista(cert: Certificado) -> list[str]:
+    """Las direcciones que el certificado da para su CRL, si da alguna."""
+    valor = cert.extension(_OID_PUNTOS)
+    return _uris(valor) if valor else []
+
+
+def donde_esta_el_ocsp(cert: Certificado) -> list[str]:
+    """Las direcciones OCSP de su `authorityInfoAccess`."""
+    valor = cert.extension(_OID_ACCESOS)
+    if not valor:
+        return []
+    salida: list[str] = []
+    try:
+        # Hay que abrir la SEQUENCE de fuera: dentro van los accesos, y cada
+        # uno es la pareja (para qué sirve, dónde está). Sin este paso se
+        # recorrería la lista entera como si fuera un solo acceso, y entonces
+        # la dirección del OCSP no aparece —que es justo lo que pasaba—.
+        _, dentro, _ = _tlv(valor)
+        for _, acceso in _elementos(dentro):
+            partes = _elementos(acceso)
+            if len(partes) == 2 and _oid(partes[0][1]) == _OID_OCSP:
+                salida.extend(_uris(_reserializar(partes[1])))
+    except ValueError:
+        return []
+    return salida
+
+
+# --- El almacén ------------------------------------------------------------
+
+
+@dataclass
+class AlmacenDeListas:
+    """Las listas de revocación instaladas, indexadas por quién las firma."""
+
+    carpeta: Path
+    _por_emisor: dict[bytes, list[Lista]] | None = field(default=None, repr=False)
+    _ilegibles: list[tuple[Path, str]] = field(default_factory=list, repr=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.carpeta, Path):
+            self.carpeta = Path(self.carpeta)
+
+    @classmethod
+    def por_defecto(cls, carpeta: str | Path | None = None) -> AlmacenDeListas:
+        if carpeta is None:
+            carpeta = os.environ.get(VARIABLE_ENTORNO) or CARPETA_POR_DEFECTO
+        return cls(Path(carpeta))
+
+    @property
+    def por_emisor(self) -> dict[bytes, list[Lista]]:
+        if self._por_emisor is None:
+            encontradas: dict[bytes, list[Lista]] = {}
+            self._ilegibles = []
+            if self.carpeta.is_dir():
+                for ruta in sorted(self.carpeta.rglob("*")):
+                    if ruta.suffix.lower() not in _EXTENSIONES or not ruta.is_file():
+                        continue
+                    try:
+                        crudas = listas_del_fichero(ruta.read_bytes())
+                    except (OSError, binascii.Error, ValueError) as error:
+                        self._ilegibles.append((ruta, str(error)))
+                        continue
+                    if not crudas:
+                        self._ilegibles.append((ruta, "no trae ninguna lista"))
+                        continue
+                    for cruda in crudas:
+                        try:
+                            lista = leer_lista(cruda)
+                        except (ValueError, IndexError) as error:
+                            self._ilegibles.append((ruta, str(error)))
+                            continue
+                        encontradas.setdefault(lista.emisor_der, []).append(lista)
+            self._por_emisor = encontradas
+        return self._por_emisor
+
+    @property
+    def ilegibles(self) -> list[tuple[Path, str]]:
+        self.por_emisor  # fuerza el recorrido
+        return self._ilegibles
+
+    @property
+    def vacio(self) -> bool:
+        return not self.por_emisor
+
+    def recargar(self) -> None:
+        self._por_emisor = None
+        self._ilegibles = []
+
+    def todas(self) -> list[Lista]:
+        return [una for grupo in self.por_emisor.values() for una in grupo]
+
+    def de(self, cert: Certificado) -> list[Lista]:
+        """Las listas que dicen venir de quien emitió este certificado.
+
+        «Dicen»: que una lista lleve el nombre de la autoridad no significa que
+        la haya firmado ella. Eso se comprueba en `_sirve`, con la clave.
+        """
+        return list(self.por_emisor.get(cert.emisor_der, ()))
+
+    def inventario(self) -> list[str]:
+        salida = []
+        for lista in sorted(self.todas(), key=lambda una: una.emisor_nombre or ""):
+            cuando = lista.desde.date().isoformat() if lista.desde else "?"
+            caduca = lista.hasta.date().isoformat() if lista.hasta else "sin fecha"
+            marca = " · INCREMENTAL" if lista.es_delta else ""
+            salida.append(
+                f"{lista.emisor_nombre or '(sin nombre común)'} — "
+                f"{len(lista.anulaciones)} anulado(s) · del {cuando} · "
+                f"vale hasta {caduca}{marca}"
+            )
+        return salida
+
+
+# --- La comprobación --------------------------------------------------------
+
+_PRINCIPIO = datetime.min.replace(tzinfo=timezone.utc)
+
+
+@dataclass(frozen=True)
+class Veredicto:
+    """Lo que se ha podido averiguar, y con qué lista se ha averiguado."""
+
+    estado: str  # "anulado", "vigente" o "sin_saber"
+    lista: Lista | None = None
+    anulacion: Anulacion | None = None
+    motivo: str = ""  # por qué no se sabe, cuando no se sabe
+
+
+def _sirve(lista: Lista, emisor: Certificado, cert: Certificado) -> str:
+    """¿Se puede creer a esta lista sobre este certificado?
+
+    Devuelve el motivo por el que no, o cadena vacía si sí. El orden importa,
+    igual que en `cadena._eslabon`: primero lo que descalifica a la lista o a
+    quien la firma, y solo después la criptografía.
+    """
+    if lista.criticas_sin_entender:
+        cual = sorted(lista.criticas_sin_entender)[0]
+        return (
+            f"trae una extensión marcada como imprescindible que no sabemos "
+            f"leer ({cual}), así que no se puede saber qué dice"
+        )
+    if emisor.usos and "firmar_crl" not in emisor.usos:
+        return (
+            f"«{emisor.sujeto or 'el emisor'}» no tiene permiso para firmar "
+            "listas de revocación"
+        )
+    if not lista.algoritmo_firma or not lista.valor_firma or not lista.tbs:
+        return "no se ha podido leer con qué se firmó"
+    if not _verificar_rsa(lista.valor_firma, lista.tbs, emisor, lista.algoritmo_firma):
+        return (
+            f"no la firmó «{emisor.sujeto or 'el emisor del certificado'}», "
+            "aunque diga venir de ahí"
+        )
+    if lista.solo_autoridades and cert.es_autoridad is not True:
+        return "solo cubre certificados de autoridad, y este no lo es"
+    if lista.solo_usuarios and cert.es_autoridad is True:
+        return "solo cubre certificados de usuario, y este es de autoridad"
+    return ""
+
+
+def comprobar(
+    cert: Certificado,
+    emisor: Certificado,
+    listas: list[Lista],
+    cuando: datetime | None = None,
+) -> Veredicto:
+    """¿Está anulado este certificado, según las listas que tenemos?
+
+    `cuando` es el momento que se juzga —la fecha que la firma declara—. Sirve
+    para dos cosas: para saber si la lista es lo bastante nueva como para haber
+    podido enterarse, y para situar la anulación antes o después de la firma.
+    """
+    if not listas:
+        return Veredicto(
+            "sin_saber", motivo="no tenemos ninguna lista de esa autoridad"
+        )
+
+    fallos: list[tuple[Lista, str]] = []
+    utiles: list[Lista] = []
+    for lista in listas:
+        fallo = _sirve(lista, emisor, cert)
+        if fallo:
+            fallos.append((lista, fallo))
+        else:
+            utiles.append(lista)
+
+    if not utiles:
+        lista, fallo = fallos[0]
+        return Veredicto("sin_saber", lista=lista, motivo=fallo)
+
+    # Manda la lista más nueva, y solo ella. Recorrerlas todas buscando el
+    # número de serie parece más seguro y es justo lo contrario: una suspensión
+    # que se levanta desaparece de las listas siguientes, así que una lista
+    # vieja resucitaría una anulación que ya no existe.
+    mejor = max(utiles, key=lambda una: una.desde or _PRINCIPIO)
+    anulacion = mejor.anulaciones.get(cert.serie)
+    if anulacion is not None:
+        return Veredicto("anulado", lista=mejor, anulacion=anulacion)
+
+    parcial = mejor.parcial
+    if parcial:
+        # Una lista incremental sí puede **afirmar**: lo que no puede es negar.
+        # Si la más nueva es un delta, la base sigue sirviendo para acusar.
+        for otra in sorted(
+            utiles, key=lambda una: una.desde or _PRINCIPIO, reverse=True
+        ):
+            anulacion = otra.anulaciones.get(cert.serie)
+            if anulacion is not None:
+                return Veredicto("anulado", lista=otra, anulacion=anulacion)
+        return Veredicto("sin_saber", lista=mejor, motivo=parcial)
+    if cuando is not None and mejor.desde is not None and mejor.desde < cuando:
+        return Veredicto(
+            "sin_saber",
+            lista=mejor,
+            motivo=(
+                f"la lista es del {mejor.desde.date().isoformat()} y la firma "
+                f"dice ser del {cuando.date().isoformat()}: se publicó antes, "
+                "así que no pudo enterarse de una anulación posterior"
+            ),
+        )
+    return Veredicto("vigente", lista=mejor)
+
+
+# --- Lo que trae el propio documento ---------------------------------------
+
+
+def listas_del_documento(firma) -> list[Lista]:
+    """Las CRL que la firma lleva dentro, si es XAdES-XL.
+
+    Es la mejor fuente que hay: no sale de aquí, y es la única que sigue
+    funcionando dentro de veinte años, cuando la lista de aquel día ya no esté
+    publicada en ninguna parte. Que la traiga el firmante no la hace de fiar
+    por sí sola —se le comprueba la firma igual que a cualquier otra—, y por
+    eso se puede aceptar sin más ceremonia.
+    """
+    salida = []
+    for texto in firma.xpath(".//*[local-name()='EncapsulatedCRLValue']/text()"):
+        try:
+            salida.append(leer_lista(base64.b64decode("".join(texto.split()))))
+        except (ValueError, IndexError, binascii.Error):
+            continue
+    return salida
+
+
+def trae_ocsp(firma) -> bool:
+    """¿La firma trae respuestas OCSP guardadas dentro?
+
+    Se detectan para poder decir que están ahí y que no se leen todavía. Callar
+    daría a entender que el documento no traía nada.
+    """
+    return bool(firma.xpath(".//*[local-name()='EncapsulatedOCSPValue']"))
+
+
+# --- Las reglas ------------------------------------------------------------
+
+
+def _quien(cert: Certificado, primero: bool) -> str:
+    if primero:
+        return "El certificado que firma"
+    return f"«{cert.sujeto or 'un certificado de la cadena'}», que está por encima"
+
+
+def _donde_buscarla(cert: Certificado) -> str:
+    """La frase que dice qué hacer, que es la parte accionable del aviso."""
+    listas = donde_esta_la_lista(cert)
+    if listas:
+        return (
+            f" El propio certificado dice que su lista está en {listas[0]}; "
+            "bájala y ponla en la carpeta de revocaciones."
+        )
+    return ""
+
+
+def _anulado(
+    cert: Certificado,
+    veredicto: Veredicto,
+    cuando: datetime | None,
+    primero: bool,
+    donde: str,
+) -> Incidencia:
+    anulacion = veredicto.anulacion
+    quien = _quien(cert, primero)
+    fecha = anulacion.cuando.date().isoformat() if anulacion.cuando else "una fecha que no se lee"
+    encontrado = (
+        f"anulado el {fecha} {anulacion.texto_motivo}, según la lista de "
+        f"«{veredicto.lista.emisor_nombre or 'su autoridad'}»"
+    )
+
+    if anulacion.compromiso:
+        desde = ""
+        if anulacion.invalida_desde:
+            desde = (
+                f" La lista sitúa el compromiso el "
+                f"{anulacion.invalida_desde.date().isoformat()}."
+            )
+        return Incidencia(
+            "REVOCACION-COMPROMISO",
+            ERROR,
+            f"{quien} está anulado {anulacion.texto_motivo}. Cuando una clave "
+            "acaba en malas manos, todo lo que firmó pasa a ser sospechoso, "
+            "también lo firmado antes de la denuncia: quien la robó pudo poner "
+            f"la fecha que quisiera.{desde}",
+            campo=f"{donde}Revocación",
+            esperado="un certificado no anulado",
+            encontrado=encontrado,
+        )
+
+    if anulacion.suspension:
+        return Incidencia(
+            "REVOCACION-SUSPENDIDO",
+            AVISO,
+            f"{quien} está en suspenso desde el {fecha}. Una suspensión no es "
+            "definitiva: puede levantarse, y entonces el certificado vuelve a "
+            "valer. Hoy no vale, y esta lista no dice desde cuándo empezó a no "
+            "valer.",
+            campo=f"{donde}Revocación",
+            esperado="un certificado no anulado",
+            encontrado=encontrado,
+        )
+
+    if cuando is None or (anulacion.cuando and anulacion.cuando <= cuando):
+        return Incidencia(
+            "REVOCADO",
+            ERROR,
+            f"{quien} estaba ya anulado el día que la factura dice haberse "
+            f"firmado. Una firma hecha con un certificado anulado no vale, "
+            "aunque la aritmética de la firma cuadre.",
+            campo=f"{donde}Revocación",
+            esperado="un certificado no anulado",
+            encontrado=encontrado,
+        )
+
+    return Incidencia(
+        "REVOCACION-POSTERIOR",
+        AVISO,
+        f"{quien} se anuló el {fecha}, después del "
+        f"{cuando.date().isoformat()} que declara la firma. Si esa fecha es "
+        "cierta, la factura se firmó cuando el certificado aún valía. Pero esa "
+        "fecha la escribe quien firma: sin un sello de tiempo de un tercero no "
+        "hay forma de comprobarla, y este documento no lo trae.",
+        campo=f"{donde}Revocación",
+        esperado="un certificado no anulado",
+        encontrado=encontrado,
+    )
+
+
+def reglas(
+    eslabones: list[Certificado],
+    listas_puestas: list[Lista],
+    listas_dentro: list[Lista] | None = None,
+    cuando: datetime | None = None,
+    hoy=None,
+    donde: str = "",
+    hay_ocsp: bool = False,
+) -> list[Incidencia]:
+    """¿Anularon alguno de los certificados de esta cadena?
+
+    `eslabones` viene de `cadena.construir`: el primero es el que firma y el
+    último es el ancla. Se mira cada pareja (hijo, padre), porque para creerle
+    una lista a alguien hace falta la clave de quien la firma, y esa es la del
+    padre. **El ancla no se mira**: por encima no hay nadie que pueda firmar
+    una lista que la anule, y en el almacén está porque quien lo mantiene la
+    puso; sacarla de ahí es la forma de dejar de creerla.
+    """
+    if len(eslabones) < 2:
+        return []
+    dentro = listas_dentro or []
+    incidencias: list[Incidencia] = []
+    ya_dicho = False
+
+    for numero, (hijo, padre) in enumerate(zip(eslabones, eslabones[1:])):
+        primero = numero == 0
+        candidatas = [una for una in dentro + listas_puestas if una.emisor_der == hijo.emisor_der]
+        veredicto = comprobar(hijo, padre, candidatas, cuando)
+
+        if veredicto.estado == "anulado":
+            incidencias.append(_anulado(hijo, veredicto, cuando, primero, donde))
+            continue
+
+        if veredicto.estado == "vigente":
+            lista = veredicto.lista
+            if lista and lista.hasta and hoy is not None and lista.hasta.date() < hoy:
+                incidencias.append(
+                    Incidencia(
+                        "REVOCACION-LISTA-VIEJA",
+                        AVISO,
+                        f"{_quien(hijo, primero)} no aparece anulado, pero la "
+                        f"lista que lo dice venció el "
+                        f"{lista.hasta.date().isoformat()} y desde entonces "
+                        "puede haber anulaciones que no recoge. No aparecer en "
+                        "una lista caducada no es lo mismo que estar vigente.",
+                        campo=f"{donde}Revocación",
+                        esperado="una lista dentro de su plazo",
+                        encontrado=f"lista de «{lista.emisor_nombre or '?'}» "
+                        f"vencida el {lista.hasta.date().isoformat()}",
+                    )
+                )
+            continue
+
+        # No se sabe. Se dice una sola vez —la del certificado que firma—,
+        # porque en un lote de doscientas facturas el mismo aviso repetido por
+        # cada eslabón y por cada fichero deja de leerse.
+        if ya_dicho or not primero:
+            continue
+        ya_dicho = True
+        incidencias.append(_no_se_sabe(hijo, veredicto, donde, hay_ocsp))
+
+    return incidencias
+
+
+def _no_se_sabe(
+    cert: Certificado, veredicto: Veredicto, donde: str, hay_ocsp: bool
+) -> Incidencia:
+    ocsp = donde_esta_el_ocsp(cert)
+    if hay_ocsp:
+        return Incidencia(
+            "REVOCACION-SOLO-OCSP",
+            AVISO,
+            "El documento trae dentro una respuesta OCSP con el estado del "
+            "certificado, y este validador todavía no sabe leerla. No se ha "
+            "comprobado si el certificado estaba anulado.",
+            campo=f"{donde}Revocación",
+            esperado="una lista de revocación (CRL)",
+            encontrado="una respuesta OCSP, que no se lee todavía",
+        )
+    if not donde_esta_la_lista(cert) and ocsp:
+        return Incidencia(
+            "REVOCACION-SOLO-OCSP",
+            AVISO,
+            "No se ha comprobado si el certificado está anulado: su autoridad "
+            "no publica lista de revocación, solo un servicio de consulta "
+            f"({ocsp[0]}). Preguntarle lleva dentro el número de serie del "
+            "certificado, o sea que le diría a la autoridad qué factura se "
+            "está mirando y cuándo. Esa consulta no se hace desde aquí: quien "
+            "quiera hacerla, que la haga sabiendo lo que cuenta.",
+            campo=f"{donde}Revocación",
+            esperado="una lista de revocación (CRL)",
+            encontrado="la autoridad solo ofrece OCSP",
+        )
+    return Incidencia(
+        "REVOCACION-SIN-COMPROBAR",
+        AVISO,
+        f"No se ha comprobado si el certificado está anulado: "
+        f"{veredicto.motivo}.{_donde_buscarla(cert)}",
+        campo=f"{donde}Revocación",
+        esperado="una lista de revocación de esa autoridad",
+        encontrado=veredicto.motivo,
+    )

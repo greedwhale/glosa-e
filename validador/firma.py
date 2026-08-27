@@ -180,12 +180,26 @@ class Certificado:
     sujeto_der: bytes = b""
     emisor_der: bytes = b""
     emisor_nombre: str | None = None
+    # El número de serie, que es como se busca un certificado en una lista
+    # de revocación: el par (emisor, serie) es lo que lo identifica.
+    serie: int = 0
     algoritmo_firma: str | None = None  # "sha256", o None si no lo conocemos
     valor_firma: bytes = b""
     es_autoridad: bool | None = None  # basicConstraints cA
     profundidad_max: int | None = None  # pathLenConstraint
     usos: frozenset[str] = frozenset()  # keyUsage
     criticas_sin_entender: frozenset[str] = frozenset()
+    # Todas las extensiones sin abrir, por OID. En tuplas y no en un dict
+    # porque este dataclass es `frozen` y por tanto se puede usar como clave;
+    # un dict dentro rompería el hash el día que alguien lo intente.
+    extensiones: tuple[tuple[str, bytes], ...] = ()
+
+    def extension(self, oid: str) -> bytes | None:
+        """El contenido de una extensión, tal cual, por su OID en hexadecimal."""
+        for cual, valor in self.extensiones:
+            if cual == oid:
+                return valor
+        return None
 
     @property
     def bits(self) -> int:
@@ -285,6 +299,7 @@ def _leer_extensiones(campos, salto):
     profundidad = None
     usos: set[str] = set()
     criticas: set[str] = set()
+    todas: list[tuple[str, bytes]] = []
     for etiqueta, contenido in campos[salto + 6 :]:
         if etiqueta != 0xA3:
             continue
@@ -296,6 +311,7 @@ def _leer_extensiones(campos, salto):
             identificador = _oid(partes[0][1])
             critica = len(partes) == 3 and partes[1][1] == b"\xff"
             valor = partes[-1][1]
+            todas.append((identificador, valor))
             if identificador == _OID_BASIC_CONSTRAINTS:
                 dentro = _elementos(_tlv(valor)[1]) if valor else []
                 es_ca = bool(dentro) and dentro[0][0] == 0x01 and dentro[0][1] == b"\xff"
@@ -316,7 +332,7 @@ def _leer_extensiones(campos, salto):
                 # norma, a rechazar el certificado. No se rechaza aquí —eso lo
                 # decide quien encadena—, pero se apunta cuál era.
                 criticas.add(identificador)
-    return es_ca, profundidad, frozenset(usos), frozenset(criticas)
+    return es_ca, profundidad, frozenset(usos), frozenset(criticas), tuple(todas)
 
 
 def leer_certificado(der: bytes) -> Certificado:
@@ -361,7 +377,7 @@ def leer_certificado(der: bytes) -> Certificado:
         algoritmo = pareja[0] if pareja else None
     valor_firma = partes[2][1][1:] if partes[2][1][:1] == b"\x00" else b""
 
-    es_ca, profundidad, usos, criticas = _leer_extensiones(campos, salto)
+    es_ca, profundidad, usos, criticas, todas = _leer_extensiones(campos, salto)
     return Certificado(
         modulo=int.from_bytes(numeros[0][1], "big"),
         exponente=int.from_bytes(numeros[1][1], "big"),
@@ -373,12 +389,14 @@ def leer_certificado(der: bytes) -> Certificado:
         sujeto_der=sujeto_der,
         emisor_der=emisor_der,
         emisor_nombre=_nombre_der(campos[salto + 2][1]),
+        serie=int.from_bytes(campos[salto][1], "big") if campos[salto][1] else 0,
         algoritmo_firma=algoritmo,
         valor_firma=valor_firma,
         es_autoridad=es_ca,
         profundidad_max=profundidad,
         usos=usos,
         criticas_sin_entender=criticas,
+        extensiones=todas,
     )
 
 

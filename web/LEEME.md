@@ -39,10 +39,19 @@ lo importa y el wheel no lo trae. Pasó al añadir `facturae.py` —la página
 quedó rota sin que nada lo dijera, porque `dist/` no se versiona y los tests
 corren contra la carpeta, no contra el paquete—.
 
+Volvió a pasar al añadir `revocacion.py`, y por eso la comprobación «el paquete
+validador importa» ya no lleva una lista de módulos escrita a mano: **recorre
+el paquete instalado y los importa todos**, y dice cuántos y cuáles. Con la
+lista a mano, un wheel viejo salía en verde y el fallo aparecía tres pruebas
+más abajo disfrazado de otra cosa. Ahora sale ahí y dice qué falta. La página,
+además, le añade un `?v=` a la URL del wheel: el nombre no cambia entre
+compilaciones de la misma versión, y sin eso el navegador puede servir el de su
+caché —todo verde, y no es lo que crees que has probado—.
+
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, diecisiete comprobaciones que deben
-salir todas en verde; nueve están marcadas como **críticas** y son las que, si
+Arriba, el tiempo de arranque. Abajo, diecinueve comprobaciones que deben
+salir todas en verde; diez están marcadas como **críticas** y son las que, si
 fallan, tumban la idea entera:
 
 | Comprobación | Por qué es crítica |
@@ -56,8 +65,9 @@ fallan, tumban la idea entera:
 | lxml canonicaliza igual que fuera | de ello depende `firma.py` entero |
 | se verifica una firma RSA de verdad | sin `cryptography`, que aquí no hay |
 | la cadena de confianza se encadena aquí | de ello depende `cadena.py` |
+| una lista de revocación se lee y se comprueba aquí | de ello depende `revocacion.py` |
 
-Las dos últimas son de la firma y la primera de ellas es la que más podía
+Las cuatro últimas son de la firma, y la de la canonicalización es la que más podía
 doler. `firma.py` calcula el resumen de un documento canonicalizado y lo compara
 con el que guarda la firma. Si lxml en WebAssembly escribiera un solo byte
 distinto —un atributo en otro orden, un namespace colocado de otra manera— el
@@ -82,7 +92,8 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Validar una factura | 5–120 ms |
 | Validar las siete de `ejemplos/` | 241 ms |
 | Verificar una firma XAdES | 17 ms |
-| Encadenar hasta un ancla de confianza | 4 ms |
+| Encadenar hasta un ancla de confianza | 3,2 ms |
+| Leer y verificar una lista de revocación | 4,8 ms |
 | Validar un lote de 200 | 2,05 s · 10,3 ms cada una · 23 MB de memoria |
 | Lo que descomprime el navegador | 14,71 MB |
 
@@ -92,7 +103,7 @@ visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
 0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
 menos de cinco.
 
-Los diecisiete resultados coinciden exactamente con los de la misma prueba
+Los diecinueve resultados coinciden exactamente con los de la misma prueba
 ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
 Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
 en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización

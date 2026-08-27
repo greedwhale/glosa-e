@@ -680,3 +680,143 @@ certificado que el propio remitente se ha inventado pasa todas las
 comprobaciones —de hecho es lo que hacen los tests—, y el informe lo dice.
 
 560 tests.
+
+# La revocación
+
+## Dos afirmaciones de la lista de arriba que resultaron falsas
+
+La lista «lo que sigue sin comprobarse» que cierra el apartado anterior decía
+que saber de quién es un certificado «exige la lista de confianza europea
+(TSL), que cambia y se descarga», y que saber si está revocado «exige OCSP o
+CRL, o sea red». Las dos son de la misma familia de error: **confundir de dónde
+sale un dato con cuándo hay que ir a buscarlo.**
+
+- Un ancla de confianza **no se consulta: se conoce**. El navegador no llama a
+  nadie para saber qué es una autoridad raíz. Se instala una vez, como los
+  esquemas XSD, y a partir de ahí encadenar es aritmética local.
+- Una CRL **es un fichero**. Se baja una vez y contesta por todas las facturas
+  de esa autoridad hasta que caduque. La red hace falta para conseguirla, no
+  para usarla, que es una diferencia de la que depende la promesa entera del
+  producto.
+
+Lo que sí obliga a preguntar en el momento es OCSP, y por eso no se usa.
+
+## Por qué CRL y no OCSP, con un dato de las muestras
+
+Las dos contestan lo mismo y filtran cosas muy distintas. Una CRL es la lista
+entera de anulados: al bajarla no dices qué certificado te interesa. Una
+consulta OCSP lleva dentro el número de serie, o sea que le dice a la autoridad
+qué factura estás mirando y cuándo te llegó.
+
+Se fue a mirar qué publican de verdad los certificados de las muestras, en vez
+de suponerlo:
+
+| Muestra | CRL | OCSP |
+|---|---|---|
+| `gob_sample-factura-firmada-30` | `http://minister-…/PKI/crl.crl` | — |
+| `gob_sample-factura-firmada-31` | la misma | — |
+| `gob_sample-factura-firmada-32v1` | la misma | — |
+| `gob_xades_122_facturae` | la misma | — |
+| `gob_sample-facturae-firmada` (DNIe) | **ninguna** | `http://ocsp.dnie.es` |
+
+O sea: con un DNIe **no hay forma de comprobar la revocación sin decirle al
+emisor qué estás mirando**. No es una postura sobre privacidad, es lo que hay.
+El validador lo dice con su propio código (`REVOCACION-SOLO-OCSP`) en vez de
+esconderlo en un «no comprobado» genérico.
+
+## El experimento decisivo, otra vez antes del código
+
+El mismo método que con la firma: antes de escribir el módulo, comprobar que se
+entiende el formato. Se fabricó con `openssl` una autoridad, un certificado y
+una CRL de verdad, se revocó con motivo `keyCompromise` y se comparó lo que
+`openssl crl -text` dice con lo que sacaba un lector escrito para la ocasión:
+emisor, fechas, número de serie, motivo, `cRLNumber`. Todo cuadró, y la firma
+de la lista la verificó el mismo `pow(sig, e, n)` que ya estaba escrito.
+
+Eso quedó como test permanente, saltado si no hay `openssl` en la máquina. Es
+la única prueba del fichero que no se la escribe a sí misma: **un codificador y
+un lector escritos por la misma mano pueden compartir el mismo malentendido
+sobre el DER y darse la razón mutuamente**. `openssl` no comparte nada.
+
+## El problema de las fechas
+
+Es la parte que casi nadie cuenta y donde es fácil equivocarse en las dos
+direcciones.
+
+Que un certificado esté anulado **hoy** no invalida una factura firmada hace
+dos años: en su momento valía, y rechazarla sería tirar una factura buena.
+Salvo que lo anularan porque le robaron la clave, y entonces al revés: todo lo
+que esa clave firmó pasa a ser sospechoso, **también lo anterior a la
+denuncia**, porque quien la robó pudo firmar con fecha atrasada.
+
+| Situación | Qué sale |
+|---|---|
+| Anulado antes de la fecha de firma | `REVOCADO`, error |
+| Anulado por clave comprometida, sea cuando sea | `REVOCACION-COMPROMISO`, error |
+| Anulado después, por otro motivo | `REVOCACION-POSTERIOR`, aviso |
+| Suspendido (`certificateHold`) | `REVOCACION-SUSPENDIDO`, aviso |
+
+Y la vuelta de tuerca: **la fecha de firma la escribe quien firma**. Sin sello
+de tiempo de un tercero, comparar las dos fechas es fiarse de su palabra. El
+mensaje lo dice; el tic verde no lo diría.
+
+## La trampa de la respuesta negativa
+
+«No está en la lista» solo significa «no está revocado» si la lista está
+firmada por quien toca, es posterior al momento que se juzga y cubre a ese
+certificado. Si falla cualquiera de las tres, la ausencia no prueba nada, y es
+justo ahí donde un validador tiene la tentación de pintar el tic verde.
+
+Se dice «no se sabe» —nunca «vigente»— cuando la lista no la firmó quien dice,
+cuando su emisor no tenía `cRLSign`, cuando es incremental (delta), cuando está
+acotada a otra clase de certificados, cuando trae una extensión crítica que no
+sabemos leer, cuando es anterior a la firma o cuando está vencida.
+
+La delta es la más traicionera porque **parece una lista normal**: solo trae los
+cambios desde otra, así que quien la lea como completa dará por vigente a todo
+el que no aparezca. Sí puede acusar; lo que no puede es absolver, y esa
+asimetría está escrita en el código.
+
+## Un error que se coló y lo cazó una prueba
+
+La primera versión recorría todas las listas buscando el número de serie, que
+parece lo prudente. Es lo contrario: **una suspensión que se levanta desaparece
+de las listas siguientes**, así que una lista vieja resucitaría una anulación
+que ya no existe. Manda la más nueva, y solo ella; las demás solo se consultan
+cuando la más nueva es una delta y por tanto no puede absolver.
+
+## Sobre los tests, y sobre el arnés de los tests
+
+58 tests nuevos. Los nueve mecanismos de defensa se desactivaron uno por uno
+para comprobar que alguna prueba se pone roja: los nueve están cubiertos.
+
+Con una vuelta que merece anotarse. La primera pasada del arnés dijo que dos
+defensas no las vigilaba nadie. Era mentira del arnés: parcheaba
+`revocacion.comprobar`, pero el fichero de pruebas hace `from
+validador.revocacion import comprobar` y se queda con su propia referencia, así
+que el sabotaje no llegaba a probarse. **El arnés que comprueba las pruebas
+también hay que comprobarlo.**
+
+## Tres fallos propios, encontrados con sondas
+
+1. **Las extensiones del certificado no se guardaban.** Una sustitución de
+   texto falló en silencio y `Certificado.extensiones` quedaba siempre vacío.
+   Los 593 tests seguían en verde porque nadie lo usaba todavía; lo cazó una
+   sonda contra un certificado real de `openssl` que sí traía
+   `cRLDistributionPoints` y del que salía una lista vacía.
+2. **El `authorityInfoAccess` se leía un nivel por encima**, así que la
+   dirección OCSP del DNIe no aparecía nunca. Misma sonda, mismo momento.
+3. **La comprobación del navegador «el paquete validador importa» llevaba una
+   lista de módulos escrita a mano** y se quedó corta: salía en verde con un
+   wheel viejo instalado y el fallo aparecía tres pruebas más abajo disfrazado
+   de `ModuleNotFoundError`. Ahora recorre el paquete instalado y los importa
+   todos.
+
+## En el navegador
+
+19 de 19 comprobaciones en verde, dos de ellas nuevas: se fabrica una CRL
+firmada dentro del propio navegador, se lee, se verifica su firma, se le cambia
+un byte y se comprueba que deja de valer; y se comprueba que una lista
+incremental no da a nadie por vigente. 4,8 ms y 8,5 ms.
+
+651 tests.

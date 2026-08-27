@@ -19,3 +19,8 @@ esquemas/
 # quien controle ese fichero controla a quien cree el validador. Las instala
 # quien usa la herramienta y las contrasta con `--ver-anclas`.
 anclas/
+
+# Las listas de revocacion. Estas no deciden en quien se confia, pero caducan
+# y hay que renovarlas: versionarlas seria repartir una foto vieja de quien
+# esta anulado, que es justo lo que no sirve.
+revocaciones/
