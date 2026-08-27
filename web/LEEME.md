@@ -12,6 +12,9 @@ depende de `etree.XMLSchema`. Si faltara, habría que reescribir esa parte.
 Trae soporte de XSD. Compila un esquema, acepta lo válido, rechaza lo inválido
 y llena el `error_log` del que salen los mensajes.
 
+Al añadirse la firma apareció una segunda pregunta del mismo calibre: **¿esta
+compilación canonicaliza igual que la de fuera?** También sí, byte a byte.
+
 ## Cómo ejecutarla
 
 Hacen falta dos cosas: el paquete construido como *wheel*, y un servidor local
@@ -36,9 +39,9 @@ corren contra la carpeta, no contra el paquete—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque en frío. Abajo, doce comprobaciones que deben
-salir todas en verde; cuatro están marcadas como **críticas** y son las que, si
-fallan, tumban la idea entera:
+Arriba, el tiempo de arranque. Abajo, quince comprobaciones que deben salir
+todas en verde; ocho están marcadas como **críticas** y son las que, si fallan,
+tumban la idea entera:
 
 | Comprobación | Por qué es crítica |
 |---|---|
@@ -48,6 +51,16 @@ fallan, tumban la idea entera:
 | el parser endurecido no expande entidades | una factura ajena no debe poder leer ficheros |
 | una factura correcta sale conforme | sin falsos positivos |
 | una factura rota se caza | sin falsos negativos |
+| lxml canonicaliza igual que fuera | de ello depende `firma.py` entero |
+| se verifica una firma RSA de verdad | sin `cryptography`, que aquí no hay |
+
+Las dos últimas son de la firma y la primera de ellas es la que más podía
+doler. `firma.py` calcula el resumen de un documento canonicalizado y lo compara
+con el que guarda la firma. Si lxml en WebAssembly escribiera un solo byte
+distinto —un atributo en otro orden, un namespace colocado de otra manera— el
+resumen saldría distinto y **todas las facturas firmadas se denunciarían como
+manipuladas dentro del navegador y solo dentro del navegador**. El valor
+esperado está medido fuera, con CPython.
 
 Al final hay una zona donde soltar una factura de verdad. Esa parte es
 exactamente la interacción del producto: leer el fichero en el navegador,
@@ -60,31 +73,73 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | | |
 |---|---|
 | lxml / libxml2 | 6.0.2 / **2.9.10** |
-| Arranque en frío (descarga incluida) | ~42 s |
+| Arranque en frío del todo (primera visita) | ~42 s |
+| Arranque con la CDN ya cacheada | 11,25 s |
 | Arranque con la caché ya caliente | ~4,8 s |
 | Validar una factura | 5–120 ms |
-| Validar las seis de `ejemplos/` | ~70 ms |
+| Validar las siete de `ejemplos/` | 241 ms |
+| Verificar una firma XAdES | 48 ms |
 | Validar un lote de 200 | 2,05 s · 10,3 ms cada una · 23 MB de memoria |
-| Bytes que baja el navegador | ~13,8 MB |
+| Lo que descomprime el navegador | 14,71 MB |
 
-Los doce resultados coinciden exactamente con los de la misma prueba ejecutada
-con Python nativo: mismos códigos, mismos resúmenes, mismos importes. Es la
-comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y en
-local es 2.11.9. Dos versiones distintas que dicen lo mismo.
+Cuidado con los tiempos de arranque, que son tres cosas distintas: la primera
+visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
+11,25 s de montar el intérprete —en la última medición se transfirieron
+0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
+menos de cinco.
+
+Los quince resultados coinciden exactamente con los de la misma prueba
+ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
+Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
+en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización
+incluida**.
+
+## La prueba de soltar una factura firmada
+
+No basta con que las quince salgan verdes: la zona de arrastre es la
+interacción del producto, y hay que verla funcionar. Soltando
+`ejemplos/fe-0001.xml`, que es un Facturae 3.2.2 firmado:
+
+```
+/entrada/fe-0001.xml
+  Facturae v3.2.2 (factura) · firmado — sin errores, 1 aviso(s).
+```
+
+Y la misma factura con el total cambiado de 121,00 a 999,00, que es lo que
+prueba que no está dando todo por bueno:
+
+```
+/entrada/fe-0001-manipulada.xml
+  Facturae v3.2.2 (factura) · firmado — 4 error(es), 1 aviso(s).
+
+  [FE-LOTE-TOTAL · formato Facturae] El total de facturas que declara la
+  cabecera no es la suma de las facturas que trae dentro.
+  [FE-TOTAL · formato Facturae] El total de la factura no es la base más los
+  impuestos repercutidos menos los retenidos.
+  [FE-PENDIENTE · formato Facturae] El total a pagar no cuadra con el total de
+  la factura menos las subvenciones y los anticipos.
+  [FIRMA-ALTERADA · firma electrónica] El documento se ha modificado después
+  de firmarlo: el documento entero ya no coincide con el resumen que guarda la
+  firma. La factura no vale como documento firmado.
+```
+
+Cuatro reglas de tres módulos distintos cazándola a la vez, dentro de
+WebAssembly, sin que el fichero salga del ordenador.
 
 ## Lo que queda por resolver antes de que esto sea un producto
 
-- **Los 13,8 MB del primer arranque.** Se pueden bajar: hay una compilación de
+- **Los 14,7 MB del primer arranque.** Se pueden bajar: hay una compilación de
   Pyodide sin la biblioteca estándar completa, y el `.whl` de lxml es fijo y
   cacheable. Pero la primera visita nunca va a ser instantánea, y la página
   tiene que decirlo en vez de parecer rota.
 - **Los esquemas XSD oficiales.** No están en el repositorio y aquí tampoco:
   la prueba los da por ausentes y comprueba que eso no revienta nada. Con ellos
   habría que bajar unos megas más.
-- **Facturas de verdad.** Todo lo que se valida aquí sale de `ejemplos/`, que
-  está escrito por nosotros. Que funcione en el navegador no dice nada sobre si
-  las reglas aciertan con lo que emiten los programas de facturación reales.
-  Eso es otra prueba, y es la que falta.
+- **La cadena de confianza de las firmas.** Aquí se comprueba que el documento
+  no se haya tocado y que la firma cuadre con su certificado. Saber de quién es
+  ese certificado exige la lista de confianza europea y consultas OCSP, o sea
+  red. Y salir a la red rompe justo lo que hace atractiva a esta página: que
+  nada sube a ningún sitio.
 
 Un lote de 200 facturas sí se ha medido: 2 segundos y 23 MB. Eso significa que
 la parte de pago —el lote del mes de una gestoría— también cabe en el

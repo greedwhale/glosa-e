@@ -909,7 +909,10 @@ unas líneas de DER.
 Traer `cryptography` habría costado una extensión compilada, y esto está
 pensado para correr dentro del navegador con Pyodide: cada dependencia nativa
 es otro *wheel* que buscar, otra versión que casar y varios megas de descarga.
-**La descarga sigue en 13,8 MB.** Cuesta 3-5 ms por factura firmada.
+`firma.py` **no añade ni un byte a la descarga**: son unos kilobytes dentro del
+wheel de 97 KB que ya se bajaba. Medido después de añadirlo, el navegador
+descomprime 14,71 MB, y todo eso es Pyodide y lxml. Cuesta 3-5 ms por factura
+firmada.
 
 Aquí no se firma nada: no hay ninguna clave privada de por medio y por tanto no
 hay secreto que filtrar por tiempos de ejecución. El riesgo de una

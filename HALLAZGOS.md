@@ -593,8 +593,10 @@ Verificar RSA es `pow(firma, e, n)`: aritmética de enteros, que Python hace
 nativa. Leer la clave pública del certificado son unas líneas de DER. Traer
 `cryptography` habría costado una extensión compilada, y esto corre dentro del
 navegador con Pyodide: cada dependencia nativa es otro wheel que buscar, otra
-versión que casar y varios megas de descarga. **La descarga sigue en 13,8 MB.**
-Cuesta 3-5 ms por factura firmada.
+versión que casar y varios megas de descarga. **Este módulo no añade ni un byte
+a la descarga**: son unos kilobytes dentro del wheel que ya se bajaba. Medido
+en el navegador después de añadirlo, se descomprimen 14,71 MB y todo eso es
+Pyodide y lxml. Cuesta 3-5 ms por factura firmada.
 
 ## El detalle que no se deja al azar
 
