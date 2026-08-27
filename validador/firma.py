@@ -78,7 +78,7 @@ from validador.incidencias import AVISO, ERROR, Incidencia
 
 __all__ = ["reglas", "hay_firma", "certificados_de", "momento_de_firma",
            "leer_certificado", "Certificado", "ALGORITMOS_ROTOS",
-           "ClaveNoSoportada"]
+           "ClaveNoSoportada", "verificar", "CURVAS", "Curva"]
 
 # --- Algoritmos ------------------------------------------------------------
 
@@ -104,6 +104,10 @@ _FIRMA = {
     "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256": ("sha256", False),
     "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384": ("sha384", False),
     "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512": ("sha512", False),
+    "http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha1": ("sha1", True),
+    "http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256": ("sha256", False),
+    "http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha384": ("sha384", False),
+    "http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha512": ("sha512", False),
 }
 
 # Prefijos DigestInfo del RFC 8017, apéndice B.1. Van tal cual porque el bloque
@@ -174,6 +178,13 @@ class Certificado:
     hasta: datetime | None
     sujeto: str | None
 
+    # De qué clase es la clave: "rsa" o "ecdsa". Por defecto RSA para no
+    # romper a quien construya un `Certificado` a mano —los tests lo hacen—.
+    algoritmo_clave: str = "rsa"
+    # Solo con curva: el nombre de la curva y el punto (x, y) de la clave.
+    curva: str = ""
+    punto: tuple[int, int] | None = None
+
     # Para la cadena. Todo opcional para no romper a quien construya un
     # Certificado a mano —los tests lo hacen— sin querer saber de cadenas.
     der: bytes = b""
@@ -204,7 +215,30 @@ class Certificado:
 
     @property
     def bits(self) -> int:
+        """El tamaño de la clave, en bits.
+
+        Ojo con compararlo entre algoritmos: 256 bits de curva equivalen a unos
+        3072 de RSA. Para «¿es corta?» está `clave_debil`, que sabe contra qué
+        mínimo va cada una.
+        """
+        if self.algoritmo_clave == "ecdsa":
+            curva = CURVAS_POR_NOMBRE.get(self.curva)
+            return curva.n.bit_length() if curva else 0
         return self.modulo.bit_length()
+
+    @property
+    def clave_debil(self) -> bool:
+        """¿Es esta clave demasiado corta para firma electrónica?
+
+        Cada algoritmo con su mínimo. Con uno solo —los 2048 de RSA— cualquier
+        certificado de curva perfectamente bueno saldría marcado como débil por
+        tener «solo» 256 bits, que es justo al revés de la realidad.
+        """
+        minimo = (
+            BITS_MINIMOS_CURVA if self.algoritmo_clave == "ecdsa"
+            else BITS_MINIMOS
+        )
+        return 0 < self.bits < minimo
 
     @property
     def autofirmado(self) -> bool:
@@ -264,6 +298,14 @@ _OID_ALGORITMO = {
     "2a864886f70d01010b": ("sha256", False),
     "2a864886f70d01010c": ("sha384", False),
     "2a864886f70d01010d": ("sha512", False),
+    # Con curva elíptica. Aquí solo se guarda el resumen: **con qué esquema se
+    # verifica lo decide la clave del firmante**, no este OID. Quien firmó solo
+    # pudo usar lo que su clave permite, y si el OID dice otra cosa lo que hay
+    # es una incoherencia, no una instrucción.
+    "2a8648ce3d0401": ("sha1", True),  # ecdsa-with-SHA1
+    "2a8648ce3d040302": ("sha256", False),
+    "2a8648ce3d040303": ("sha384", False),
+    "2a8648ce3d040304": ("sha512", False),
 }
 ALGORITMOS_ROTOS = frozenset(
     alg for alg, roto in _OID_ALGORITMO.values() if roto
@@ -278,8 +320,8 @@ _OID_KEY_USAGE = "551d0f"  # 2.5.29.15
 # concedidas de la lista española— reventaba con «DER truncado», que es una
 # acusación falsa contra el fichero. El que no sabe leerlo somos nosotros.
 _OID_RSA = "2a864886f70d010101"  # 1.2.840.113549.1.1.1
+_OID_EC = "2a8648ce3d0201"  # 1.2.840.10045.2.1, id-ecPublicKey
 _CLAVES_QUE_NO_SABEMOS = {
-    "2a8648ce3d0201": "de curva elíptica (ECDSA)",  # 1.2.840.10045.2.1
     "2b6570": "Ed25519",  # 1.3.101.112
     "2b6571": "Ed448",  # 1.3.101.113
     "2a8648ce380401": "DSA",  # 1.2.840.10040.4.1
@@ -392,6 +434,8 @@ def leer_certificado(der: bytes) -> Certificado:
     # fichero que no tiene nada de malo. Ver `_CLAVES_QUE_NO_SABEMOS`.
     tipo = _elementos(spki[0][1]) if spki else []
     cual = _oid(tipo[0][1]) if tipo and tipo[0][0] == 0x06 else ""
+    if cual == _OID_EC:
+        return _certificado_de_curva(der, tbs, campos, salto, spki, tipo, partes)
     if cual != _OID_RSA:
         nombre = _CLAVES_QUE_NO_SABEMOS.get(cual)
         raise ClaveNoSoportada(
@@ -424,6 +468,74 @@ def leer_certificado(der: bytes) -> Certificado:
         tbs=tbs,
         sujeto_der=sujeto_der,
         emisor_der=emisor_der,
+        emisor_nombre=_nombre_der(campos[salto + 2][1]),
+        serie=int.from_bytes(campos[salto][1], "big") if campos[salto][1] else 0,
+        algoritmo_firma=algoritmo,
+        valor_firma=valor_firma,
+        es_autoridad=es_ca,
+        profundidad_max=profundidad,
+        usos=usos,
+        criticas_sin_entender=criticas,
+        extensiones=todas,
+    )
+
+
+
+def _certificado_de_curva(der, tbs, campos, salto, spki, tipo, partes):
+    """La parte de `leer_certificado` que cambia cuando la clave es de curva.
+
+    Lo único distinto es la clave: el resto del certificado —nombres, fechas,
+    serie, extensiones— se lee igual, y por eso se reaprovecha entero.
+    """
+    cual = _oid(tipo[1][1]) if len(tipo) > 1 and tipo[1][0] == 0x06 else ""
+    curva = CURVAS.get(cual)
+    if curva is None:
+        raise ClaveNoSoportada(
+            f"la clave usa una curva que no conocemos (OID {cual or 'ilegible'})"
+        )
+    bits = spki[1][1]
+    if not bits or bits[0] != 0:
+        raise ValueError("la clave pública no empieza en un byte entero")
+    punto = bits[1:]
+    if not punto or punto[0] != 0x04:
+        # Comprimido (0x02 / 0x03) o vacío. Se podría descomprimir —las tres
+        # curvas tienen p ≡ 3 mod 4 y la raíz sale de una potencia— pero no
+        # hay ni uno así en circulación: los 63 de la lista española van sin
+        # comprimir. Escribirlo sería código que nadie ejerce.
+        raise ClaveNoSoportada(
+            "la clave de curva viene comprimida y no sabemos descomprimirla"
+        )
+    if len(punto) != curva.octetos * 2 + 1:
+        raise ValueError("el punto de la clave no tiene el tamaño de su curva")
+    x = int.from_bytes(punto[1 : curva.octetos + 1], "big")
+    y = int.from_bytes(punto[curva.octetos + 1 :], "big")
+    if not curva.encima(x, y):
+        # Un punto fuera de la curva no es una clave pública: es otra cosa, y
+        # lo que salga de operar con él no significa nada. Se para aquí y no al
+        # verificar, para que el mensaje diga lo que pasa.
+        raise ValueError("la clave dice ser de una curva y su punto no está en ella")
+
+    algoritmo = None
+    algoritmos = _elementos(partes[1][1])
+    if algoritmos and algoritmos[0][0] == 0x06:
+        pareja = _OID_ALGORITMO.get(_oid(algoritmos[0][1]))
+        algoritmo = pareja[0] if pareja else None
+    valor_firma = partes[2][1][1:] if partes[2][1][:1] == b"\x00" else b""
+    validez = _elementos(campos[salto + 3][1])
+    es_ca, profundidad, usos, criticas, todas = _leer_extensiones(campos, salto)
+    return Certificado(
+        modulo=0,
+        exponente=0,
+        desde=_fecha_der(*validez[0]) if len(validez) > 0 else None,
+        hasta=_fecha_der(*validez[1]) if len(validez) > 1 else None,
+        sujeto=_nombre_der(campos[salto + 4][1]),
+        algoritmo_clave="ecdsa",
+        curva=curva.nombre,
+        punto=(x, y),
+        der=der,
+        tbs=tbs,
+        sujeto_der=_reserializar(campos[salto + 4]),
+        emisor_der=_reserializar(campos[salto + 2]),
         emisor_nombre=_nombre_der(campos[salto + 2][1]),
         serie=int.from_bytes(campos[salto][1], "big") if campos[salto][1] else 0,
         algoritmo_firma=algoritmo,
@@ -490,6 +602,280 @@ def _verificar_rsa(firma: bytes, mensaje: bytes, cert: Certificado, alg: str) ->
     bloque = b"\x00\x01" + b"\xff" * (tamanio - len(esperado) - 3) + b"\x00" + esperado
     obtenido = pow(int.from_bytes(firma, "big"), cert.exponente, cert.modulo)
     return obtenido.to_bytes(tamanio, "big") == bloque
+
+
+
+# --- Curva elíptica --------------------------------------------------------
+#
+# Hace falta porque 46 de las 129 autoridades cualificadas concedidas de la
+# lista de confianza española firman con curva elíptica. Sin esto, un tercio
+# de las autoridades de España se quedaba fuera del almacén de anclas.
+#
+# Aquí tampoco hay dependencias nuevas: una curva es aritmética de enteros
+# módulo un primo, igual que RSA. Lo que cambia es que el grupo no son los
+# enteros sino los puntos de la curva, y que hay que escribir la suma.
+
+
+@dataclass(frozen=True)
+class Curva:
+    """Una curva de Weierstrass sobre Fp: y² = x³ + ax + b, con a = -3.
+
+    Las tres del NIST llevan a = -3 y por eso no hace falta guardarlo: es la
+    elección que permite la fórmula corta de duplicar un punto. No hay ninguna
+    curva de las otras en circulación aquí —comprobado sobre la lista española,
+    donde solo aparecen P-256, P-384 y P-521—, así que soportar una `a`
+    cualquiera sería código sin caso de uso y sin nadie que lo probara.
+    """
+
+    nombre: str
+    p: int
+    b: int
+    gx: int
+    gy: int
+    n: int
+
+    @property
+    def octetos(self) -> int:
+        """Lo que ocupa una coordenada. Fija, y con sus ceros por delante."""
+        return (self.p.bit_length() + 7) // 8
+
+    def encima(self, x: int, y: int) -> bool:
+        """¿Está este punto en la curva?
+
+        Se comprueba siempre, con la misma idea que reconstruir el relleno de
+        RSA en vez de leerlo: un punto que no está en la curva no es una clave
+        pública, es otra cosa, y lo que salga de operar con él no significa
+        nada. Cuesta una multiplicación.
+        """
+        if not (0 <= x < self.p and 0 <= y < self.p):
+            return False
+        return (y * y - (x * x % self.p * x - 3 * x + self.b)) % self.p == 0
+
+
+# Los parámetros van escritos a mano, así que **se comprueban**: que el
+# generador esté en la curva y que n·G sea el punto del infinito. Las dos
+# comprobaciones están en los tests y no son ceremonia: al escribirlos la
+# primera vez se perdieron dos dígitos de la `n` de P-521 en un corte de línea,
+# y una constante mal no da un error —da «esta firma no verifica», que es
+# indistinguible de una firma falsificada—.
+CURVAS = {
+    # secp256r1 / prime256v1, OID 1.2.840.10045.3.1.7
+    "2a8648ce3d030107": Curva(
+        "P-256",
+        p=0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF,
+        b=0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B,
+        gx=0x6B17D1F2E12C4247F8BCE6E563A440F277037D812DEB33A0F4A13945D898C296,
+        gy=0x4FE342E2FE1A7F9B8EE7EB4A7C0F9E162BCE33576B315ECECBB6406837BF51F5,
+        n=0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551,
+    ),
+    # secp384r1, OID 1.3.132.0.34
+    "2b81040022": Curva(
+        "P-384",
+        p=int("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+              "ffffffff0000000000000000ffffffff", 16),
+        b=int("b3312fa7e23ee7e4988e056be3f82d19181d9c6efe8141120314088f5013875a"
+              "c656398d8a2ed19d2a85c8edd3ec2aef", 16),
+        gx=int("aa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a38"
+               "5502f25dbf55296c3a545e3872760ab7", 16),
+        gy=int("3617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c0"
+               "0a60b1ce1d7e819d7a431d7c90ea0e5f", 16),
+        n=int("ffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf"
+              "581a0db248b0a77aecec196accc52973", 16),
+    ),
+    # secp521r1, OID 1.3.132.0.35
+    "2b81040023": Curva(
+        "P-521",
+        p=2**521 - 1,
+        b=int("0051953eb9618e1c9a1f929a21a0b68540eea2da725b99b315f3b8b489918ef1"
+              "09e156193951ec7e937b1652c0bd3bb1bf073573df883d2c34f1ef451fd46b50"
+              "3f00", 16),
+        gx=int("00c6858e06b70404e9cd9e3ecb662395b4429c648139053fb521f828af606b4d"
+               "3dbaa14b5e77efe75928fe1dc127a2ffa8de3348b3c1856a429bf97e7e31c2e5"
+               "bd66", 16),
+        gy=int("011839296a789a3bc0045c8a5fb42c7d1bd998f54449579b446817afbd17273e"
+               "662c97ee72995ef42640c550b9013fad0761353c7086a272c24088be94769fd1"
+               "6650", 16),
+        # 66 octetos: 01, luego 32 de ff, y la cola. Escrito así, y no de
+        # corrido, porque contar efes a ojo es justo lo que salió mal.
+        n=int("01" + "f" * 64
+              + "fa51868783bf2f966b7fcc0148f709a5d03bb5c9b8899c47aebb6fb71e913"
+                "86409", 16),
+    ),
+}
+CURVAS_POR_NOMBRE = {curva.nombre: curva for curva in CURVAS.values()}
+
+# Por debajo de esto una curva se considera corta. 256 bits de curva equivalen
+# a unos 3072 de RSA, así que comparar los dos con el mismo número sería un
+# disparate: una clave P-256 perfectamente buena saldría marcada como débil por
+# tener «solo 256 bits».
+BITS_MINIMOS_CURVA = 224
+
+
+# Los puntos van en coordenadas jacobianas —(X, Y, Z) representa (X/Z², Y/Z³)—
+# y no en las de toda la vida. El motivo es de peso: en coordenadas normales
+# cada suma necesita un inverso modular, y una verificación son unos cientos de
+# sumas. Medido, P-521 pasa de 200 ms a 33, y esto tiene que correr también
+# dentro del navegador. El precio es que las fórmulas no se leen solas; la
+# defensa es que hay una prueba que las contrasta contra la versión lenta y
+# evidente, que es la que sí se lee.
+_INFINITO = (0, 0, 0)
+
+
+def _doblar(punto, p: int):
+    x, y, z = punto
+    if y == 0 or z == 0:
+        return _INFINITO
+    a = y * y % p
+    b = 4 * x * a % p
+    c = 8 * a * a % p
+    zz = z * z % p
+    d = 3 * (x - zz) * (x + zz) % p  # esta forma solo vale con a = -3
+    x3 = (d * d - 2 * b) % p
+    return (x3, (d * (b - x3) - c) % p, 2 * y * z % p)
+
+
+def _sumar(uno, otro, p: int):
+    if uno[2] == 0:
+        return otro
+    if otro[2] == 0:
+        return uno
+    x1, y1, z1 = uno
+    x2, y2, z2 = otro
+    z1z1 = z1 * z1 % p
+    z2z2 = z2 * z2 % p
+    u1 = x1 * z2z2 % p
+    u2 = x2 * z1z1 % p
+    s1 = y1 * z2 % p * z2z2 % p
+    s2 = y2 * z1 % p * z1z1 % p
+    if u1 == u2:
+        return _doblar(uno, p) if s1 == s2 else _INFINITO
+    h = (u2 - u1) % p
+    r = (s2 - s1) % p
+    hh = h * h % p
+    hhh = h * hh % p
+    u1hh = u1 * hh % p
+    x3 = (r * r - hhh - 2 * u1hh) % p
+    return (x3, (r * (u1hh - x3) - s1 * hhh) % p, h * z1 % p * z2 % p)
+
+
+def _combinar(k1: int, uno, k2: int, otro, p: int):
+    """k1·uno + k2·otro de una vez, que es lo que pide verificar ECDSA.
+
+    Hacerlo a la vez —el truco de Shamir— ahorra la mitad de los dobles, que
+    es la operación cara. Calcularlos por separado y sumar da lo mismo y tarda
+    casi el doble.
+    """
+    a = (uno[0], uno[1], 1)
+    b = (otro[0], otro[1], 1)
+    ambos = _sumar(a, b, p)
+    salida = _INFINITO
+    for i in range(max(k1.bit_length(), k2.bit_length()) - 1, -1, -1):
+        salida = _doblar(salida, p)
+        cual = ((k1 >> i) & 1) | (((k2 >> i) & 1) << 1)
+        if cual == 3:
+            salida = _sumar(salida, ambos, p)
+        elif cual == 1:
+            salida = _sumar(salida, a, p)
+        elif cual == 2:
+            salida = _sumar(salida, b, p)
+    if salida[2] == 0:
+        return None
+    inverso = pow(salida[2], -1, p)
+    cuadrado = inverso * inverso % p
+    return (salida[0] * cuadrado % p, salida[1] * cuadrado % p * inverso % p)
+
+
+def _pareja(firma: bytes, curva: Curva, concatenada: bool):
+    """Los dos números (r, s) de una firma ECDSA, vengan como vengan.
+
+    Y vienen de dos formas distintas, que es una trampa con nombre: dentro de
+    un certificado o de una CRL la firma es DER —`SEQUENCE { r, s }`—, y dentro
+    de una firma XML es la concatenación cruda de los dos, cada uno relleno con
+    ceros hasta el tamaño de la curva. Confundirlas no da un error de formato:
+    da una firma buena que no verifica.
+    """
+    if concatenada:
+        if len(firma) != curva.octetos * 2:
+            return None
+        mitad = curva.octetos
+        return (
+            int.from_bytes(firma[:mitad], "big"),
+            int.from_bytes(firma[mitad:], "big"),
+        )
+    try:
+        etiqueta, dentro, sobra = _tlv(firma)
+    except (ValueError, IndexError):
+        return None
+    if etiqueta != 0x30 or sobra != len(firma):
+        return None
+    numeros = _elementos(dentro)
+    if len(numeros) != 2 or any(e != 0x02 for e, _ in numeros):
+        return None
+    return (
+        int.from_bytes(numeros[0][1], "big", signed=True),
+        int.from_bytes(numeros[1][1], "big", signed=True),
+    )
+
+
+def _verificar_ecdsa(
+    firma: bytes, mensaje: bytes, cert: Certificado, alg: str,
+    concatenada: bool = False,
+) -> bool:
+    """¿Sale este mensaje de firmar con la clave privada de este certificado?
+
+    ECDSA del FIPS 186-4, tal cual: se rechaza todo lo que esté fuera de rango
+    —r y s tienen que estar entre 1 y n-1— antes de tocar la curva. Ese
+    filtro no es cosmético: sin él, una firma con s = 0 o r = 0 pasa por
+    caminos donde el resultado no significa nada.
+
+    El resumen se recorta por la izquierda al tamaño de n, que es lo que dice
+    la norma y no lo que sale de escribirlo a ojo: con P-256 y SHA-384 hay que
+    tirar 128 bits, y quien no lo haga verifica mal exactamente las firmas
+    donde el resumen es más largo que la curva.
+    """
+    curva = CURVAS_POR_NOMBRE.get(cert.curva)
+    if curva is None or cert.punto is None or alg not in _DIGESTINFO:
+        return False
+    pareja = _pareja(firma, curva, concatenada)
+    if pareja is None:
+        return False
+    r, s = pareja
+    n = curva.n
+    if not (1 <= r < n and 1 <= s < n):
+        return False
+    if not curva.encima(*cert.punto):
+        return False
+
+    resumen = hashlib.new(alg, mensaje).digest()
+    z = int.from_bytes(resumen, "big")
+    sobran = len(resumen) * 8 - n.bit_length()
+    if sobran > 0:
+        z >>= sobran
+
+    inverso = pow(s, -1, n)
+    punto = _combinar(
+        z * inverso % n, (curva.gx, curva.gy),
+        r * inverso % n, cert.punto,
+        curva.p,
+    )
+    if punto is None:
+        return False
+    return punto[0] % n == r
+
+
+def verificar(
+    firma: bytes, mensaje: bytes, cert: Certificado, alg: str,
+    concatenada: bool = False,
+) -> bool:
+    """Verifica una firma, sea RSA o ECDSA, según la clave del certificado.
+
+    Se decide por **la clave y no por el algoritmo declarado**: quien firmó
+    solo pudo usar el esquema que su clave permite, y si el OID declarado dice
+    otra cosa lo que hay es una incoherencia, no una instrucción que seguir.
+    """
+    if cert.algoritmo_clave == "ecdsa":
+        return _verificar_ecdsa(firma, mensaje, cert, alg, concatenada)
+    return _verificar_rsa(firma, mensaje, cert, alg)
 
 
 # --- Lectura del XML -------------------------------------------------------
@@ -712,15 +1098,18 @@ def _regla_valor(raiz, firma, cert: Certificado | None, donde: str) -> list[Inci
                 encontrado="RSA con SHA-1",
             )
         )
-    if cert is not None and cert.bits < BITS_MINIMOS:
+    if cert is not None and cert.clave_debil:
+        de_curva = cert.algoritmo_clave == "ecdsa"
+        minimo = BITS_MINIMOS_CURVA if de_curva else BITS_MINIMOS
+        que = f"de curva {cert.curva}" if de_curva else "RSA"
         incidencias.append(
             Incidencia(
                 "FIRMA-DEBIL",
                 AVISO,
-                f"La clave del certificado es de {cert.bits} bits. Para firma "
-                f"electrónica se piden {BITS_MINIMOS} como mínimo.",
+                f"La clave {que} del certificado es de {cert.bits} bits. Para "
+                f"firma electrónica se piden {minimo} como mínimo.",
                 campo=f"{donde}Clave del certificado",
-                esperado=f"{BITS_MINIMOS} bits o más",
+                esperado=f"{minimo} bits o más",
                 encontrado=f"{cert.bits} bits",
             )
         )
@@ -743,7 +1132,9 @@ def _regla_valor(raiz, firma, cert: Certificado | None, donde: str) -> list[Inci
         )
         return incidencias
 
-    if not _verificar_rsa(valor, octetos, cert, alg):
+    # `concatenada` porque en XML-DSig una firma de curva son los dos números
+    # pegados y rellenos con ceros, no el DER que llevan los certificados.
+    if not verificar(valor, octetos, cert, alg, concatenada=True):
         incidencias.append(
             Incidencia(
                 "FIRMA-NO-CUADRA",

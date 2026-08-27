@@ -1126,3 +1126,84 @@ una lista de confianza publica las CA emisoras, no las raíces. Estaba
 arreglado antes de poder comprobarlo; ahora está comprobado.
 
 720 tests, 22 de 22 en el navegador.
+
+
+# La curva elíptica
+
+## Por qué, y no por completitud
+
+46 de las 129 autoridades cualificadas concedidas de la lista española firman
+con curva. Sin ECDSA, un tercio de las autoridades de España se quedaba fuera
+del almacén de anclas y sus facturas salían como «no llega a ninguna autoridad
+conocida», que no era el motivo. El conjunto pasa de **87 a 133 anclas**.
+
+Empíricamente son tres curvas —P-256, P-384 y P-521— y ninguna brainpool. Se
+soportan esas tres y se dice claramente cuando aparece otra: escribir soporte
+para curvas que nadie usa es código que nadie ejerce.
+
+## Lo que cazó la comprobación de las constantes
+
+Los parámetros de las curvas van escritos a mano, y una errata **no da un
+error**: da «esta firma no verifica», indistinguible de una firma falsificada.
+Antes de escribir una línea de ECDSA se comprobaron con la definición: que el
+generador esté en la curva, y que n·G sea el punto del infinito.
+
+Saltó a la primera. La `n` de P-521 salía de 517 bits en vez de 521: se habían
+perdido dos dígitos en un corte de línea. Escrita ahora como `"01" + "f"*64 +
+cola`, porque contar efes a ojo es exactamente lo que falló.
+
+## La velocidad, que aquí sí importa
+
+En coordenadas afines cada suma de puntos paga un inverso modular y una
+verificación son cientos de sumas: P-521 tardaba 200 ms, y esto corre también
+dentro del navegador. En jacobianas —un solo inverso al final— más el truco de
+Shamir para las dos multiplicaciones a la vez: **33 ms**.
+
+El precio es que las fórmulas dejan de leerse solas. La defensa es una prueba
+que las contrasta, curva por curva y con escalares al azar, contra la versión
+lenta y evidente escrita en el propio fichero de pruebas.
+
+Medido en WebAssembly: P-256 10 ms, P-384 16 ms, P-521 29 ms. Prácticamente lo
+mismo que fuera, que no era obvio.
+
+## Dos trampas
+
+**La firma viene en dos formatos.** DER dentro de un certificado o una CRL;
+los dos números pegados y rellenos con ceros dentro de una firma XML.
+Confundirlos no da un error de formato: daría una firma buena que no verifica.
+Hay una prueba que exige que cada codificación se rechace en el sitio de la
+otra, con material de `openssl`.
+
+**El resumen se recorta por la izquierda** cuando es más largo que la curva.
+P-256 firmado con SHA-384 existe, y quien no recorte verifica mal justo esas.
+Hay un vector de `openssl` para ese caso, y al deshacer el recorte se pone
+roja.
+
+## La fuerza de la clave, que había que separar
+
+256 bits de curva equivalen a unos 3072 de RSA. Con un solo mínimo —los 2048 de
+RSA— **toda** clave de curva saldría marcada como corta, que es justo al revés
+de la realidad; y ahora que son un tercio de las autoridades, el informe se
+habría llenado de un aviso falso.
+
+## Una prueba que no probaba nada, y qué se hizo
+
+Escribí una comprobación de que un punto fuera de la curva se rechaza al
+verificar. Pasaba con y sin la comprobación: con un punto de fuera la
+aritmética devuelve algo, ese algo no coincide con `r` y la firma se rechaza
+igual. O sea que la prueba pasaba por casualidad.
+
+La comprobación que sí manda está al **leer el certificado**: uno cuya clave
+dice ser de una curva y no lo es no se llega a construir. Ahí sí se pone roja
+al quitarla, y ahí es donde está ahora la prueba. La de `_verificar_ecdsa` se
+queda como defensa a mayores, dicho en su sitio y sin fingir que está cubierta.
+
+## Fuera del círculo
+
+`openssl` firma con cada curva y se verifica aquí; se monta además una
+autoridad de curva entera —CA P-384 que emite una hoja P-256, la revoca y
+publica su CRL— para comprobar que `cadena.py` encadena firmas ECDSA y que
+`revocacion.py` se cree una CRL firmada con ECDSA. Son los dos sitios donde el
+despachador tenía que enterarse de que la clave no es RSA.
+
+783 tests, 24 de 24 en el navegador (15 críticas).

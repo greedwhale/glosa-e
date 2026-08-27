@@ -474,6 +474,80 @@ def _():
     return "distingue la completa de la incremental"
 
 
+# --- Curva eliptica --------------------------------------------------------
+#
+# 46 de las 129 autoridades cualificadas concedidas de la lista espanola firman
+# con curva. Aqui hay dos preguntas: si la aritmetica da lo mismo dentro de
+# WebAssembly -es aritmetica de enteros, deberia, pero «deberia» no es haberlo
+# mirado- y **cuanto tarda**, que es lo unico nuevo que puede doler: P-521 es
+# lo mas caro que hace este validador.
+#
+# Los vectores son fijos y salieron de openssl fuera del navegador. Empotrados
+# a proposito: un vector generado aqui mismo comprobaria que el codigo se da la
+# razon a si mismo, que es justo lo que no interesa.
+
+VECTORES = {
+    "P-256": ("sha256",
+      "3f4310e25cdd32d2b0464cdc08a58876e6e7b612e0c77da696b0bf12d9df14ba",
+      "0d7d7921416a46c86b5699f782d6f3458705c05918000e03d72979c29f247d55",
+      "0dbb464221f4af5e560e31ee889985528eb872792f1646f67763e9c90714b0c2"
+      "6aef14886e62fd0aac78f05d8540f658a00b02fe9a1ab4ef8f6b66a3b6348024"),
+    "P-384": ("sha384",
+      "0782e67f240f76d08090a0ca80b4d2a056afa12d0af719d35c0dfd8a415968f3"
+      "c746cb599937e6ad94bf812d90191a8a",
+      "b4749c814d31e0b3bf1827b752e9bcd65cb93ef4e1689183f1e7f88c8c6186ab"
+      "d3dc399e2ac4cfac1a590c65824a4e17",
+      "70af1effeec721f961a6e08c921aba9460f07cca0f26ade858eb2bda21bc9fed"
+      "4663017133b0165dc7f89e087da82fe954af71ecdbe21213e56accb821f9e22b"
+      "f8d95f9868749d26a143852c1d13fa90a8bb4e2a2185caa473ef04b479ec09a2"),
+    "P-521": ("sha512",
+      "01feeaa639b99d584a8dfa50042918a09b8ae0001bc4330aeb9474e7b56609493"
+      "045aff6329aa6a8bb982ae12587c0e6e22d2bcffebc457a6a49df296688b45ee45d",
+      "007574d036548894048c1cd3eb32a0b4908806d21d104b555fe09bc557b1c742a"
+      "8846fed33aea16df5af7d9a8b9ed71013832ba66ab2c00335ec8a6080e13196dc1a",
+      "0117499aaf2292a8a56620a844b35a0b70025acd6d50735906ee01f8386bb7b00"
+      "6936116c8aa3932cdf8f37a3fee2cb9c7df4d8901dc95522f26c912474489c3c77"
+      "301204d2ac9a853b6c326abafffce6f582ab947a4d749192fee4304de8f842fd8a"
+      "1ef79da69bf359ef52f9c010239942873ea4f97731ad976d9f37d857bb6f4bd33a5"),
+}
+MENSAJE_DEL_VECTOR = b"Factura-e: vector fijo para la prueba del navegador"
+
+
+@comprobar("se verifica una firma de curva eliptica", critica=True)
+def _():
+    from validador.firma import CURVAS_POR_NOMBRE, Certificado, verificar
+    tiempos = []
+    for nombre, (alg, x, y, firmada) in VECTORES.items():
+        curva = CURVAS_POR_NOMBRE[nombre]
+        cert = Certificado(
+            modulo=0, exponente=0, desde=None, hasta=None, sujeto="Vector",
+            algoritmo_clave="ecdsa", curva=nombre,
+            punto=(int(x, 16), int(y, 16)),
+        )
+        assert curva.encima(*cert.punto), nombre + ": el punto no esta en la curva"
+        valor = bytes.fromhex(firmada)
+        arranque = time.perf_counter()
+        ok = verificar(valor, MENSAJE_DEL_VECTOR, cert, alg, concatenada=True)
+        tiempos.append("%s %.0f ms" % (nombre, (time.perf_counter() - arranque) * 1000))
+        assert ok, nombre + ": no verifica una firma buena de openssl"
+        # Y que no se traga la misma firma sobre otro mensaje.
+        assert not verificar(valor, MENSAJE_DEL_VECTOR + b"!", cert, alg,
+                             concatenada=True), nombre + ": acepta otro mensaje"
+    return ", ".join(tiempos)
+
+
+@comprobar("las curvas son las de verdad, tambien aqui", critica=True)
+def _():
+    # Los parametros van escritos a mano en el codigo. Si el wheel trajera una
+    # version con una errata, las firmas de curva dejarian de verificar y el
+    # informe diria «no llega a ninguna autoridad conocida» sobre un tercio de
+    # las autoridades espanolas, sin decir por que.
+    from validador.firma import CURVAS
+    for curva in CURVAS.values():
+        assert curva.encima(curva.gx, curva.gy), curva.nombre + ": G fuera"
+    return "%d curvas, con su generador en su sitio" % len(CURVAS)
+
+
 # --- La lista de confianza -------------------------------------------------
 #
 # De aqui salen las anclas, asi que es el sitio donde equivocarse sale en

@@ -514,7 +514,7 @@ def comprobar_firma(lista: Lista, esperados) -> str:
     octetos = firma._canonicalizar(firmado, declarada[0] if declarada else None)
     if octetos is None:
         return "la firma canonicaliza de una forma que no sabemos reproducir"
-    if not firma._verificar_rsa(valor, octetos, cert, pareja[0]):
+    if not firma.verificar(valor, octetos, cert, pareja[0], concatenada=True):
         return "la firma no cuadra con el certificado que la lista enseña"
 
     lista.firmante = cert

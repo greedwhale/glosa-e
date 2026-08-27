@@ -80,24 +80,50 @@ MIME_PDF = "application/pdf"
 
 
 def _spki_de_curva() -> bytes:
-    """Un `SubjectPublicKeyInfo` de curva elíptica P-256, bien formado.
+    """Un `SubjectPublicKeyInfo` de P-256 con una clave que se puede leer.
 
-    Los 64 bytes del punto son relleno: lo que se prueba no es la curva, es que
-    el lector mire el OID del algoritmo **antes** de intentar leer la clave.
+    El punto es el generador de la curva, que obviamente está en ella: aquí no
+    se verifica ninguna firma, solo se comprueba que la lista da el ancla.
     """
+    from validador.firma import CURVAS_POR_NOMBRE
+    curva = CURVAS_POR_NOMBRE["P-256"]
+    punto = (b"\x04" + curva.gx.to_bytes(32, "big")
+             + curva.gy.to_bytes(32, "big"))
     return _secuencia(
         _secuencia(
             _der(0x06, b"\x2a\x86\x48\xce\x3d\x02\x01"),  # id-ecPublicKey
             _der(0x06, b"\x2a\x86\x48\xce\x3d\x03\x01\x07"),  # prime256v1
         ),
-        _der(0x03, b"\x00\x04" + bytes(64)),
+        _der(0x03, b"\x00" + punto),
     )
 
 
-def ca_de_curva(nombre="AC de curva eliptica"):
+def ca_de_curva(nombre="AC de curva P-256"):
+    return certificado(
+        nombre, "Raiz de pruebas", INTERMEDIA, RAIZ, es_ca=True, serie=56,
+        spki=_spki_de_curva(),
+    )
+
+
+def _spki_ed25519() -> bytes:
+    """Un `SubjectPublicKeyInfo` de Ed25519, que sigue sin soportarse.
+
+    Aquí hizo falta cambiar de ejemplo: esto era una clave de curva P-256, y
+    dejó de servir el día que se implementó ECDSA —que era el objetivo—. Lo que
+    se prueba no es Ed25519 en particular: es que una autoridad cuyo
+    certificado no sabemos usar se cuente aparte y con su motivo, en vez de
+    desaparecer en silencio.
+    """
+    return _secuencia(
+        _secuencia(_der(0x06, b"\x2b\x65\x70")),  # 1.3.101.112
+        _der(0x03, b"\x00" + bytes(32)),
+    )
+
+
+def ca_que_no_sabemos_usar(nombre="AC de Ed25519"):
     return certificado(
         nombre, "Raiz de pruebas", INTERMEDIA, RAIZ, es_ca=True, serie=55,
-        spki=_spki_de_curva(),
+        spki=_spki_ed25519(),
     )
 
 
@@ -308,16 +334,29 @@ class TestLoQueDiceLaLista:
         assert len(servicio.certificados) == 1
         assert tsl.cuentas(una).sin_certificado == 0
 
-    def test_un_certificado_de_curva_eliptica_no_es_un_fichero_roto(self):
+    def test_un_certificado_que_no_sabemos_usar_no_es_un_fichero_roto(self):
         # La noticia no es «hay un servicio menos»: es que esa autoridad sigue
         # siendo cualificada y el corto es este validador. Si se cuenta junto
         # con lo demás, no se entera nadie.
-        una = tsl.leer(lista(servicios=[Serv(certificados=(ca_de_curva(),))]))
+        una = tsl.leer(
+            lista(servicios=[Serv(certificados=(ca_que_no_sabemos_usar(),))])
+        )
         servicio = una.servicios[0]
         assert servicio.certificados == ()
         assert not servicio.sin_certificado
         assert len(servicio.no_usables) == 1
-        assert "curva elíptica" in servicio.no_usables[0]
+        assert "Ed25519" in servicio.no_usables[0]
+
+    def test_una_autoridad_de_curva_eliptica_si_da_ancla(self):
+        # 46 de las 129 concedidas de la lista española son de curva. Antes de
+        # soportar ECDSA se quedaban fuera del conjunto sin más noticia que un
+        # número en el manifiesto.
+        una = tsl.leer(lista(servicios=[Serv(certificados=(ca_de_curva(),))]))
+        servicio = una.servicios[0]
+        assert servicio.no_usables == ()
+        assert len(servicio.certificados) == 1
+        assert servicio.certificados[0].algoritmo_clave == "ecdsa"
+        assert servicio.certificados[0].curva == "P-256"
 
     def test_sin_fecha_de_siguiente_actualizacion(self):
         una = tsl.leer(lista(siguiente=""))
@@ -492,7 +531,7 @@ class TestElConjunto:
                 servicios=[
                     Serv(nombre="a", certificados=(intermedia(),)),
                     Serv(nombre="b", sueltos=1),
-                    Serv(nombre="c", certificados=(ca_de_curva(),)),
+                    Serv(nombre="c", certificados=(ca_que_no_sabemos_usar(),)),
                 ]
             )
         )
@@ -503,7 +542,7 @@ class TestElConjunto:
         assert cuentas.escritas == 1
         assert len(cuentas.motivos) == 1
         cual, cuantos = cuentas.motivos[0]
-        assert cuantos == 1 and "curva elíptica" in cual
+        assert cuantos == 1 and "Ed25519" in cual
 
 
 # --- Montarlo en una carpeta ----------------------------------------------
@@ -552,14 +591,14 @@ class TestMontar:
             lista(
                 servicios=[
                     Serv(nombre="a", certificados=(intermedia(),)),
-                    Serv(nombre="b", certificados=(ca_de_curva(),)),
+                    Serv(nombre="b", certificados=(ca_que_no_sabemos_usar(),)),
                 ]
             )
         )
         tsl.montar(una, tmp_path, cuando=HOY)
         manifiesto = (tmp_path / cadena.NOMBRE_DEL_MANIFIESTO).read_text("utf-8")
         assert "no utilizables  1" in manifiesto
-        assert "curva elíptica" in manifiesto
+        assert "Ed25519" in manifiesto
         # Y que no las mete en el mismo saco que las retiradas, porque no es
         # la misma noticia: esa autoridad sigue siendo cualificada.
         assert "el corto es este validador" in manifiesto

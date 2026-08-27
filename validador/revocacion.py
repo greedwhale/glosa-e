@@ -83,7 +83,7 @@ from validador.firma import (
     _nombre_der,
     _oid,
     _tlv,
-    _verificar_rsa,
+    verificar,
 )
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
@@ -551,7 +551,7 @@ def _sirve(lista: Lista, emisor: Certificado, cert: Certificado) -> str:
         )
     if not lista.algoritmo_firma or not lista.valor_firma or not lista.tbs:
         return "no se ha podido leer con qué se firmó"
-    if not _verificar_rsa(lista.valor_firma, lista.tbs, emisor, lista.algoritmo_firma):
+    if not verificar(lista.valor_firma, lista.tbs, emisor, lista.algoritmo_firma):
         return (
             f"no la firmó «{emisor.sujeto or 'el emisor del certificado'}», "
             "aunque diga venir de ahí"

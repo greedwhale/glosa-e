@@ -67,8 +67,8 @@ from validador import firma, revocacion
 from validador.firma import (
     ALGORITMOS_ROTOS,
     Certificado,
-    _verificar_rsa,
     leer_certificado,
+    verificar,
 )
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
@@ -285,9 +285,7 @@ def _eslabon(hijo: Certificado, padre: Certificado, hondo: int) -> str | None:
         )
     if not hijo.algoritmo_firma or not hijo.valor_firma or not hijo.tbs:
         return "no se ha podido leer con qué se firmó"
-    if not _verificar_rsa(
-        hijo.valor_firma, hijo.tbs, padre, hijo.algoritmo_firma
-    ):
+    if not verificar(hijo.valor_firma, hijo.tbs, padre, hijo.algoritmo_firma):
         return (
             f"la firma de «{hijo.sujeto or 'el certificado'}» no la hizo "
             f"«{padre.sujeto or 'su emisor declarado'}»"

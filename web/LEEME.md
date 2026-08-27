@@ -50,8 +50,8 @@ caché —todo verde, y no es lo que crees que has probado—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, veintidós comprobaciones que deben
-salir todas en verde; trece están marcadas como **críticas** y son las que, si
+Arriba, el tiempo de arranque. Abajo, veinticuatro comprobaciones que deben
+salir todas en verde; quince están marcadas como **críticas** y son las que, si
 fallan, tumban la idea entera:
 
 | Comprobación | Por qué es crítica |
@@ -64,13 +64,15 @@ fallan, tumban la idea entera:
 | una factura rota se caza | sin falsos negativos |
 | lxml canonicaliza igual que fuera | de ello depende `firma.py` entero |
 | se verifica una firma RSA de verdad | sin `cryptography`, que aquí no hay |
+| se verifica una firma de curva elíptica | un tercio de las autoridades españolas firma así |
+| las curvas son las de verdad, también aquí | una errata en un parámetro no da error: da «no verifica» |
 | la cadena de confianza se encadena aquí | de ello depende `cadena.py` |
 | una lista de revocación se lee y se comprueba aquí | de ello depende `revocacion.py` |
 | el informe declara de dónde salen las anclas | es la condición para traerlas puestas |
 | una lista de confianza se comprueba y se monta aquí | de ello depende `tsl.py`, y con él de dónde salen las anclas |
 | una lista de confianza manipulada no monta nada | un almacén mal montado no da un error: da un aprobado |
 
-Las siete últimas son de la firma, y la de la canonicalización es la que más podía
+Las nueve últimas son de la firma, y la de la canonicalización es la que más podía
 doler. `firma.py` calcula el resumen de un documento canonicalizado y lo compara
 con el que guarda la firma. Si lxml en WebAssembly escribiera un solo byte
 distinto —un atributo en otro orden, un namespace colocado de otra manera— el
@@ -98,6 +100,7 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Encadenar hasta un ancla de confianza | 3,2 ms |
 | Leer y verificar una lista de revocación | 4,8 ms |
 | Declarar el ancla en el informe | 1,5 ms |
+| Verificar una firma ECDSA (P-256 / P-384 / P-521) | 10 / 16 / 29 ms |
 | Verificar una lista de confianza y montar el ancla | 20,8 ms |
 | Rechazar una lista de confianza manipulada | 14,1 ms |
 | Validar un lote de 200 | 2,05 s · 10,3 ms cada una · 23 MB de memoria |
@@ -109,7 +112,7 @@ visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
 0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
 menos de cinco.
 
-Los veintidós resultados coinciden exactamente con los de la misma prueba
+Los veinticuatro resultados coinciden exactamente con los de la misma prueba
 ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
 Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
 en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización

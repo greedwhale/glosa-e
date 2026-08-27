@@ -430,16 +430,30 @@ class TestQueClaseDeClave:
         spki = _secuencia(_secuencia(*alg), _der(0x03, b"\x00\x04" + bytes(64)))
         return certificado(spki=spki)
 
-    def test_curva_eliptica_se_dice_por_su_nombre(self):
+    def test_una_curva_que_no_conocemos_se_dice_por_su_nombre(self):
+        # P-256 y P-384 sí se leen ahora —ver `test_curva.py`—; lo que queda
+        # fuera son las curvas que no están en la tabla. El mensaje tiene que
+        # decir eso y no acusar al fichero de estar roto.
         crudo = self._con_clave(
             b"\x2a\x86\x48\xce\x3d\x02\x01",  # id-ecPublicKey
-            b"\x2a\x86\x48\xce\x3d\x03\x01\x07",  # prime256v1
+            b"\x2b\x81\x04\x00\x21",  # secp224r1, que no soportamos
         )
         with pytest.raises(firma.ClaveNoSoportada) as fallo:
             firma.leer_certificado(crudo)
-        assert "curva elíptica" in str(fallo.value)
-        # Y sobre todo: que no acuse al fichero de estar roto.
+        assert "curva que no conocemos" in str(fallo.value)
         assert "truncado" not in str(fallo.value)
+
+    def test_una_clave_de_curva_comprimida(self):
+        # Legal y no la sabemos descomprimir. No hay ninguna en circulación
+        # —los 63 de la lista española van sin comprimir— así que se dice en
+        # vez de escribir código que nadie ejerce.
+        spki = _secuencia(
+            _secuencia(_der(0x06, b"\x2a\x86\x48\xce\x3d\x02\x01"),
+                       _der(0x06, b"\x2a\x86\x48\xce\x3d\x03\x01\x07")),
+            _der(0x03, b"\x00\x02" + bytes(32)),
+        )
+        with pytest.raises(firma.ClaveNoSoportada, match="comprimida"):
+            firma.leer_certificado(certificado(spki=spki))
 
     def test_ed25519_tambien(self):
         with pytest.raises(firma.ClaveNoSoportada, match="Ed25519"):

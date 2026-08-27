@@ -24,7 +24,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-720 tests, todos en verde.
+783 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -964,6 +964,65 @@ Las cinco usan RSA-SHA1 y cuatro tienen claves de 1024 bits, así que salen con
 aviso y no con error: la firma puede ser auténtica, el algoritmo ya no da
 garantías.
 
+### La firma con curva elíptica
+
+Este validador nació verificando solo RSA, y estaba dicho. Dejó de ser
+aceptable con un dato concreto: **46 de las 129 autoridades cualificadas
+concedidas de la lista española firman con curva elíptica**. Un tercio de las
+autoridades de España se quedaba fuera del almacén, y sus facturas salían como
+«no llega a ninguna autoridad conocida» sin que ese fuera el motivo real.
+
+Ahora se verifican las tres curvas que aparecen de verdad en esa lista —P-256,
+P-384 y P-521, sin ninguna brainpool— y el conjunto pasa de **87 a 133 anclas**.
+
+Sigue sin haber dependencias nuevas. Una curva es aritmética de enteros módulo
+un primo, igual que RSA; lo que cambia es que el grupo no son los números sino
+los puntos de la curva, y hay que escribir la suma.
+
+**Los parámetros van escritos a mano, y por eso se comprueban.** Una errata en
+una de esas constantes no da un error: da «esta firma no verifica», que es
+indistinguible de una firma falsificada. Se comprueba con la definición —que el
+generador esté en la curva y que n·G sea el punto del infinito— y no es
+ceremonia: al escribirlos se perdieron dos dígitos de la `n` de P-521 en un
+corte de línea, y esa comprobación fue quien lo cazó, antes de escribir ni una
+línea de ECDSA.
+
+**Coordenadas jacobianas, y una prueba que las vigila.** En coordenadas
+normales cada suma de puntos necesita un inverso modular, y una verificación
+son cientos de sumas: P-521 tardaba 200 ms. En jacobianas —un solo inverso al
+final— baja a 33, y con el truco de Shamir para hacer las dos multiplicaciones
+a la vez. El precio es que las fórmulas no se leen solas; la defensa es que hay
+una prueba que las contrasta contra la versión lenta y evidente, que sí se lee.
+
+Medido dentro del navegador, que era la duda: **P-256 10 ms, P-384 16 ms,
+P-521 29 ms**. Prácticamente lo mismo que fuera.
+
+**Dos trampas que costaron su comprobación cada una:**
+
+- **La firma viene en dos formatos distintos.** Dentro de un certificado o una
+  CRL es DER —`SEQUENCE { r, s }`—; dentro de una firma XML son los dos números
+  pegados y rellenos con ceros. Confundirlos no da un error de formato: daría
+  una firma buena que no verifica, y hay una prueba que exige que cada
+  codificación se rechace en el sitio de la otra.
+- **El resumen hay que recortarlo.** Cuando el resumen es más largo que la
+  curva —P-256 firmado con SHA-384, que existe— la norma manda quedarse con los
+  bits de la izquierda. Quien no lo haga verifica mal exactamente esas. Hay un
+  vector de `openssl` para ese caso concreto.
+
+**Y la fuerza de la clave, que había que separar.** 256 bits de curva equivalen
+a unos 3072 de RSA. Con un solo mínimo —los 2048 de RSA— toda clave de curva
+saldría avisada por «corta», que es justo al revés de la realidad, y ahora que
+son un tercio de las autoridades el informe se habría llenado de un aviso
+falso.
+
+**Cómo se prueba.** Con `openssl`, que es lo que saca esto del círculo: se le
+pide una clave, un certificado autofirmado y una firma por cada curva, y se
+verifican con la aritmética de aquí. Y una autoridad de curva entera —CA P-384
+que emite una hoja P-256, la revoca y publica su CRL— para comprobar que
+`cadena.py` encadena firmas ECDSA y que `revocacion.py` se cree una CRL firmada
+con ECDSA, que son los dos sitios donde el despachador tenía que enterarse de
+que la clave no es RSA.
+
 ## Las anclas de confianza
 
 `firma.py` responde «este documento no se ha tocado y la firma cuadra con el
@@ -1373,10 +1432,9 @@ Servicios que emiten certificados cualificados: 243
   concedidos       129
   retirados        114
   sin certificado  0
-  no utilizables   46
-       46  la clave es de curva elíptica (ECDSA)
+  no utilizables   0
 
-  anclas que saldrían: 87
+  anclas que saldrían: 133
 
 Retirados —no se instalan, y las facturas que firmaron antes de
 retirarse eran buenas—:
@@ -1448,8 +1506,8 @@ edita a mano, se vuelve a montar».
 
 **Qué mirar cuando ya está montado.** `--ver-anclas` lo dice todo de un vistazo:
 de dónde salió el conjunto, qué hay dentro, con qué huella y qué se está
-apagando. De las 87 de agosto de 2026, dos caducan el 31 de diciembre; el resto
-aguanta años, y hay tres que llegan a 2047.
+apagando. De las de agosto de 2026, dos caducan el 31 de diciembre; el resto aguanta
+años, y hay tres que llegan a 2047.
 
 **Cuándo hay que rehacerlo, en la práctica.** La lista española del 6 de agosto
 de 2026 promete volver a publicarse antes del 2 de febrero de 2027, pero se
@@ -1513,8 +1571,8 @@ en `TSL.sha2`: **cuadra** con el fichero bajado, que es una confirmación
 independiente de que la descarga llegó entera.
 
 De los 436 servicios de la lista española, 243 emiten certificados
-cualificados: **129 concedidos y 114 retirados**. De ahí salen **87 anclas de
-33 prestadores** —la Fábrica Nacional de Moneda y Timbre, la Dirección General
+cualificados: **129 concedidos y 114 retirados**. De ahí salen **133 anclas de
+33 prestadores** —87 de RSA y 46 de curva elíptica— —la Fábrica Nacional de Moneda y Timbre, la Dirección General
 de la Policía, Camerfirma, Izenpe, Firmaprofesional, ANF, el Consejo General de
 la Abogacía...—. Leer la lista cuesta 0,5 s y verificarla 0,2 s.
 
@@ -1522,32 +1580,26 @@ Y **5 de cada 6 anclas no son autofirmadas**, que confirma sobre datos reales
 lo que ya se había arreglado a ciegas: una lista de confianza publica las CA
 **emisoras**, no las raíces.
 
-### Lo que se encontró al pasarlas: 46 autoridades que este validador no sabe usar
+### Lo que se encontró al pasarlas: 46 autoridades que el validador no sabía usar
 
-De los 129 servicios concedidos, **46 traen un certificado de curva elíptica**
-(ECDSA). Este validador solo verifica RSA —está dicho desde el principio— así
-que esas 46 autoridades cualificadas se quedan fuera del conjunto. No es un
-fallo de la lista ni del certificado: **el corto es este validador**.
+De los 129 servicios concedidos, **46 traen un certificado de curva elíptica**.
+El validador solo verificaba RSA, así que esas 46 autoridades cualificadas se
+quedaban fuera del conjunto —87 anclas en vez de 133—. No era un fallo de la
+lista ni del certificado: el corto era este validador.
 
-Eso ahora se dice, con esas palabras, en `--ver-tsl`, en el resumen de
-`--montar-anclas` y en el manifiesto de la carpeta:
+**Ya está resuelto**: ver «La firma con curva elíptica». La cuenta se conserva
+igualmente, porque la maquinaria que la lleva sigue haciendo falta —hay
+certificados de Ed25519 y curvas fuera de las tres, y el día que aparezca uno
+tiene que salir contado y con su motivo, no desaparecer en silencio—:
 
 ```
-  no utilizables  46  (traen certificado y no sabemos usarlo)
-
-  Por qué no se ha podido usar el que traen:
-      46  la clave es de curva elíptica (ECDSA)
+  no utilizables  0  (traen certificado y no sabemos usarlo)
 ```
 
-Y se separa a propósito de las retiradas, porque **no es la misma noticia**:
-una autoridad retirada dejó de ser cualificada; una que no sabemos usar sigue
-siéndolo. Las facturas de ambas salen igual —«no llega a ninguna autoridad
-conocida»— y el manifiesto explica la diferencia.
-
-Soportar ECDSA es el siguiente paso obvio de esta parte, y no es pequeño:
-aritmética de curva sobre P-256 y P-384, y verificación ECDSA. Cabe con la
-misma disciplina que RSA —sin dependencias nuevas, todo enteros— pero es otro
-trabajo.
+Y se cuenta aparte de las retiradas a propósito, porque **no es la misma
+noticia**: una autoridad retirada dejó de ser cualificada; una que no sabemos
+usar sigue siéndolo. Las facturas de ambas salen igual —«no llega a ninguna
+autoridad conocida»— y el manifiesto explica la diferencia.
 
 ### Cuatro fallos que solo enseñó el fichero real
 
@@ -1671,11 +1723,12 @@ líneas, pero no que el tipo declarado en cada línea sea coherente con el
 producto. Eso ya no es EN 16931: es la Ley del IVA, y hace falta saber qué se
 vende.
 
-**Soportar ECDSA.** Es lo que más cobertura añade de una sola vez: 46 de las
-129 autoridades cualificadas españolas concedidas usan curva elíptica y hoy se
-quedan fuera del conjunto de anclas. Aritmética de curva sobre P-256 y P-384 y
-verificación ECDSA, con la misma disciplina que RSA: enteros y ninguna
-dependencia nueva.
+**Las anclas todavía no saben de fechas.** Es el hueco que dejó abierto la
+lista de confianza y el único que queda de esta parte: el conjunto se monta con
+las autoridades concedidas **hoy**, y una autoridad retirada el año pasado
+firmó certificados buenos hace dos. La lista trae la fecha de cada cambio de
+estado y aquí se lee; lo que falta es que el almacén sepa que un ancla vale
+para lo firmado dentro de su ventana y no fuera.
 
 **Un servicio, no solo una herramienta.** Todo esto se usa desde la consola o
 como biblioteca. Lo que hace falta para venderlo es que alguien pueda soltar un
@@ -1694,10 +1747,10 @@ La duda real no era si arrancaba Python, sino si esa compilación de lxml traía
 soporte de esquemas XSD: libxml2 se puede compilar sin él, y `esquema.py`
 entero depende de `etree.XMLSchema`. Lo trae.
 
-Las veintidós comprobaciones de `web/prueba.py` dan el mismo resultado que en
-Python nativo —mismos códigos, mismos importes— pese a que ahí libxml2 es
-2.9.10 y en local 2.11.9. Trece son críticas, y las dos últimas son de la lista
-de confianza: que se verifique y se monte allí, y que una lista manipulada no
+Las veinticuatro comprobaciones de `web/prueba.py` dan el mismo resultado que
+en Python nativo —mismos códigos, mismos importes— pese a que ahí libxml2 es
+2.9.10 y en local 2.11.9. Quince son críticas, dos de ellas de curva elíptica
+y dos de la lista de confianza: que se verifique y se monte allí, y que una lista manipulada no
 monte nada. Esa parte depende de la canonicalización, que es lo más frágil de
 esa compilación. Medido: 42 s el primer arranque, 4,8 s con la caché caliente,
 10 ms por factura, y un lote de 200 en 2 segundos.
