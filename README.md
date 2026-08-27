@@ -1422,6 +1422,49 @@ fichero que no has verificado.
 **Se niega, no avisa.** Un aviso deja la decisión en manos de quien tiene
 prisa, y lo que sale de aquí es la raíz de confianza de todo lo demás.
 
+### Cómo se renueva el conjunto
+
+Tres cosas se quedan viejas aquí, y **cada una tiene su propio reloj**. Vale la
+pena no mezclarlas, porque la respuesta a «¿cada cuánto hay que tocar esto?» es
+distinta para cada una.
+
+| Qué | Cada cuánto | Cómo te enteras |
+|---|---|---|
+| Las **listas** (`listas/`) | se republican varias veces al año | la lista dice hasta cuándo responde por sí misma |
+| Las **anclas** (`anclas/`) | cuando cambia la lista | `--ver-anclas`, que avisa a 90 días de caducar |
+| Las **huellas del DOUE** | años | un anuncio nuevo en el Diario Oficial |
+
+El mandato es siempre el mismo, y lo único que cambia entre una vez y la
+siguiente son los dos ficheros de `listas/`:
+
+```
+python -m validador --montar-anclas listas/TSL.xml --segun listas/eu-lotl.xml \
+                    --firmante <huella> [--firmante <otra>...]
+```
+
+Sin `--en`, escribe en `anclas/`, que es donde el validador las busca sola. La
+carpeta se **rehace entera**, no se parchea: por eso el manifiesto dice «no se
+edita a mano, se vuelve a montar».
+
+**Qué mirar cuando ya está montado.** `--ver-anclas` lo dice todo de un vistazo:
+de dónde salió el conjunto, qué hay dentro, con qué huella y qué se está
+apagando. De las 87 de agosto de 2026, dos caducan el 31 de diciembre; el resto
+aguanta años, y hay tres que llegan a 2047.
+
+**Cuándo hay que rehacerlo, en la práctica.** La lista española del 6 de agosto
+de 2026 promete volver a publicarse antes del 2 de febrero de 2027, pero se
+republica bastante más a menudo —iba por la secuencia 188—. Con revisarlo cada
+tres meses sobra, y hay dos avisos que lo piden solos:
+
+- `--ver-anclas` marca lo que caduca en menos de 90 días;
+- una factura cuyo informe diga *«no tenemos el certificado de X»* con X en la
+  lista, que significa que el conjunto se quedó atrás.
+
+**Lo único que no se automatiza, y a propósito:** las huellas del Diario
+Oficial. Ahí acaba la cadena, y si se cogen de un fichero del disco en vez de
+del boletín, la cadena deja de acabar en ninguna parte. Se comprueban a mano,
+las pocas veces que cambian.
+
 ### Una lista no es un montón de certificados
 
 Es la trampa del formato, y es la misma forma que ya tenía la revocación: **un
