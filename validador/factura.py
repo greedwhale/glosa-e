@@ -28,7 +28,7 @@ from pathlib import Path
 
 from lxml import etree
 
-from validador import codigo_unico, en16931, esquema, facturae
+from validador import codigo_unico, en16931, esquema, facturae, firma
 from validador.formato import CII, FACTURAE, UBL, Deteccion, detectar, parser
 from validador.esquema import Catalogo
 from validador.incidencias import ERROR, Incidencia, Informe
@@ -51,6 +51,7 @@ EUROPEA = "EN 16931"
 ESPANOLA = "RD 238/2026"
 FORMA = "Esquema XSD"
 NACIONAL = "formato Facturae"
+SELLO = "firma electrónica"
 CASA = "de la casa"
 OTRA = "Formato"
 
@@ -65,6 +66,8 @@ def origen(incidencia: Incidencia) -> str:
         return FORMA
     if incidencia.codigo.startswith("FE-"):
         return NACIONAL
+    if incidencia.codigo.startswith("FIRMA-"):
+        return SELLO
     if incidencia.codigo.startswith("NIF-"):
         # No lo firma el RD 238/2026 —el código único solo usa el NIF del
         # emisor—, así que no puede salir con su etiqueta. Es nuestra.
@@ -129,6 +132,7 @@ def _reglas(
     incidencias = list(esquema.reglas(raiz, deteccion, catalogo))
     incidencias.extend(en16931.reglas(raiz, deteccion, espanola=espanola))
     incidencias.extend(facturae.reglas(raiz, deteccion))
+    incidencias.extend(firma.reglas(raiz, deteccion))
     incidencias.extend(codigo_unico.reglas(raiz, deteccion, hoy=hoy))
     return _podar(incidencias)
 
@@ -253,6 +257,18 @@ class InformeLote:
             partes.append(f"{len(self.cruzadas)} incidencia(s) entre ficheros")
         return " · ".join(partes) + "."
 
+    @property
+    def firmados(self) -> bool:
+        """¿Venía firmado alguno de los ficheros del lote?
+
+        Cambia lo que el informe puede prometer: sobre un lote sin firmas no
+        tiene sentido explicar qué parte de la firma se mira y cuál no.
+        """
+        return any(
+            informe.deteccion is not None and informe.deteccion.firmado
+            for _, informe in self.informes
+        )
+
     def alcance(self, forma: bool = True) -> str:
         """Qué se ha mirado, dicho una vez y al final del informe.
 
@@ -289,11 +305,28 @@ class InformeLote:
                 "y cabecera de lote)"
             )
         mirado.append("el código único del RD 238/2026")
+        sin_mirar = []
+        if self.firmados:
+            mirado.append(
+                "que las firmas no estén rotas: que nadie haya tocado el "
+                "documento desde que se firmó, y que la firma cuadre con el "
+                "certificado que trae dentro"
+            )
+            # La mitad cara de validar una firma es esta, y es la que no se
+            # hace. Decir «firma comprobada» a secas dejaría creer que sí.
+            sin_mirar.append(
+                "de quién es el certificado ni si está revocado —para eso hace "
+                "falta la lista de confianza europea y salir a la red—"
+            )
+        else:
+            sin_mirar.append("la validez de las firmas electrónicas")
+        sin_mirar.append("si lo que dice la factura es cierto")
         return (
             "«Sin errores» quiere decir que se ha comprobado "
             + ", ".join(mirado)
-            + ".\nNo se comprueba la validez de las firmas electrónicas, ni si "
-            "lo que dice la factura es cierto."
+            + ".\nNo se comprueba "
+            + ", ni ".join(sin_mirar)
+            + "."
         )
 
     def detalle(self, forma: bool = True) -> str:
