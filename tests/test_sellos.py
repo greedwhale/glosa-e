@@ -401,8 +401,9 @@ class TestEnUnaFactura:
         assert "SELLO-FALTA" not in codigos(incidencias)
         texto = texto_de(incidencias, "SELLO-TIEMPO")
         assert "TSU de prueba" in texto
-        # Y dice lo que todavía no se sabe, que es la mitad del mensaje.
-        assert "lista de confianza del Estado" in texto
+        # De quién es esa autoridad no se contesta aquí: lo contesta
+        # `cadena.py`, igual que con la firma. Ver TestDeQuienEsLaAutoridad.
+        assert "la fecha que se usa para la vigencia" in texto
 
     def test_sin_sello_se_dice_de_quien_es_la_fecha(self):
         incidencias = quejas(documento())
@@ -594,6 +595,137 @@ class TestLaFechaLlegaAlResto:
 
         informe = validar(documento())
         assert "SELLO-FALTA" in {i.codigo for i in informe.incidencias}
+
+
+# --- De quién es la autoridad que sella ------------------------------------
+
+
+def almacenes(tmp_path, firma=(), sello=()):
+    """Dos carpetas hermanas: las anclas de firma y las de sellado."""
+    from validador.cadena import Almacen
+
+    (tmp_path / "anclas").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "anclas-sellos").mkdir(parents=True, exist_ok=True)
+    for indice, der in enumerate(firma):
+        (tmp_path / "anclas" / f"f{indice}.cer").write_bytes(der)
+    for indice, der in enumerate(sello):
+        (tmp_path / "anclas-sellos" / f"s{indice}.cer").write_bytes(der)
+    return Almacen(tmp_path / "anclas")
+
+
+def confianza(datos, almacen):
+    from validador import cadena
+
+    raiz = etree.fromstring(datos, parser=parser())
+    return cadena.sellos_del_documento(
+        raiz, detectar(datos), almacen.sellos if almacen else None
+    )
+
+
+class TestDeQuienEsLaAutoridad:
+    """Que el sello cuadre no dice quién lo puso. Es la otra mitad."""
+
+    def test_sin_anclas_de_sellado_no_se_inventa_nada(self, tmp_path):
+        almacen = almacenes(tmp_path)
+        salen = confianza(con_sello(), almacen)
+        assert codigos(salen) == {"SELLO-SIN-CONTRASTAR"}
+        assert salen[0].gravedad == AVISO
+        assert "se puede fabricar entero" in salen[0].mensaje
+
+    def test_la_propia_autoridad_como_ancla(self, tmp_path):
+        """Es el caso normal: la lista publica el certificado del TSU."""
+        tsu = sellos.leer(token()).certificados[0]
+        almacen = almacenes(tmp_path, sello=[tsu.der])
+        salen = confianza(con_sello(), almacen)
+        assert codigos(salen) == {"SELLO-CONFIANZA"}
+        assert salen[0].gravedad == NOTA
+        assert "publicada como autoridad de sellado" in salen[0].mensaje
+
+    def test_la_autoridad_que_la_emitio_como_ancla(self, tmp_path):
+        """El otro caso: la lista publica la CA, y el TSU cuelga de ella."""
+        ca = sellos.leer(token()).certificados[1]
+        almacen = almacenes(tmp_path, sello=[ca.der])
+        salen = confianza(con_sello(), almacen)
+        assert codigos(salen) == {"SELLO-CONFIANZA"}
+        assert "AC de sellos de prueba" in salen[0].mensaje
+
+    def test_una_autoridad_que_no_conocemos(self, tmp_path):
+        from tests.test_cadena import raiz as raiz_ajena
+
+        almacen = almacenes(tmp_path, sello=[raiz_ajena()])
+        salen = confianza(con_sello(), almacen)
+        assert codigos(salen) == {"SELLO-TSA-DESCONOCIDA"}
+        assert salen[0].gravedad == AVISO
+        # Y que diga dónde se queda la cadena, no jerga. El motivo interno de
+        # `construir` aquí es «cadena circular» —el sello trae su propia
+        # autoridad dentro y esa autoridad no es un ancla—, que manda a buscar
+        # un ciclo que no existe.
+        assert "AC de sellos de prueba" in salen[0].mensaje
+        assert "circular" not in salen[0].mensaje
+
+    def test_un_sello_que_no_cuadra_no_se_pregunta_de_quien_es(self, tmp_path):
+        """De un sello roto no hace falta saber de quién es: no acredita nada.
+
+        Y saberlo tampoco lo arreglaría, así que preguntarlo solo añadiría una
+        línea que se lee como si algo se hubiera dado por bueno.
+        """
+        tsu = sellos.leer(token("sin_permiso")).certificados[0]
+        almacen = almacenes(tmp_path, sello=[tsu.der])
+        assert confianza(con_sello(der=token("sin_permiso")), almacen) == []
+
+    def test_las_dos_carpetas_no_se_mezclan(self, tmp_path):
+        """La comprobación de sobre-confianza de esta parte.
+
+        Un ancla de sellado no vale para avalar la firma de una factura, y una
+        de firma no vale para avalar un sello. En la lista española nueve de las
+        69 autoridades de sellado son autoridades de certificación: si cayeran
+        en la carpeta de firma, cualquier certificado que emitieran serviría
+        para firmar una factura y nada lo diría.
+        """
+        uno = sellos.leer(token())
+        ca_de_sellos = uno.certificados[1]
+
+        # La CA de sellado puesta donde van las de firma: el sello no se avala.
+        almacen = almacenes(tmp_path, firma=[ca_de_sellos.der])
+        assert almacen.sellos.vacio, "la carpeta de sellado no está vacía"
+        assert codigos(confianza(con_sello(), almacen)) == {"SELLO-SIN-CONTRASTAR"}
+
+        # Y al revés: puesta donde van las de sellado, no avala ninguna firma.
+        otro = almacenes(tmp_path / "b", sello=[ca_de_sellos.der])
+        assert otro.vacio, "la carpeta de firma no está vacía"
+        assert not otro.sellos.vacio
+
+    def test_una_autoridad_de_sellado_retirada_se_declara(self, tmp_path):
+        """Igual que con las de firma: si ampara, se dice por qué."""
+        import datetime
+
+        from validador.cadena import CARPETA_DE_RETIRADAS, NOMBRE_DE_ESTADOS
+
+        tsu = sellos.leer(token()).certificados[0]
+        almacen = almacenes(tmp_path)
+        retiradas = tmp_path / "anclas-sellos" / CARPETA_DE_RETIRADAS
+        retiradas.mkdir()
+        (retiradas / "tsu.cer").write_bytes(tsu.der)
+        manana = (sellos.leer(token()).momento
+                  + datetime.timedelta(days=1)).date().isoformat()
+        (tmp_path / "anclas-sellos" / NOMBRE_DE_ESTADOS).write_text(
+            "%s\twithdrawn\t%s\tTSU de prueba\n"
+            % (tsu.huella().replace(":", "").lower(), manana),
+            encoding="utf-8",
+        )
+        salen = confianza(con_sello(), almacen)
+        assert codigos(salen) == {"SELLO-CONFIANZA"}
+        assert "dejó de ser cualificada" in salen[0].mensaje
+        assert "no porque siga vigente" in salen[0].mensaje
+
+    def test_el_informe_entero_pregunta_de_quien_es(self, tmp_path):
+        """Que la regla exista no sirve si el orquestador no la llama."""
+        from validador.factura import validar
+
+        tsu = sellos.leer(token()).certificados[0]
+        almacen = almacenes(tmp_path, sello=[tsu.der])
+        informe = validar(con_sello(), almacen=almacen)
+        assert "SELLO-CONFIANZA" in {i.codigo for i in informe.incidencias}
 
 
 # --- Fuera del círculo: una autoridad de sellado entera --------------------

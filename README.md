@@ -21,11 +21,11 @@ según el RD 238/2026.
 | `validador/cadena.py` | De quién es el certificado: la cadena hasta un ancla de confianza instalada | Terminado |
 | `validador/revocacion.py` | Si anularon el certificado: listas de revocación (CRL), sin salir a la red | Terminado |
 | `validador/tsl.py` | De dónde salen las anclas: la lista de confianza (TSL) del Estado, verificada | Terminado |
-| `validador/sellos.py` | El sello de tiempo (RFC 3161 dentro de XAdES): quién acredita la fecha de la firma | Falta de quién es la TSA |
+| `validador/sellos.py` | El sello de tiempo (RFC 3161 dentro de XAdES): quién acredita la fecha de la firma | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-849 tests, todos en verde.
+860 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1156,19 +1156,79 @@ Ninguna de las muestras del Gobierno lleva sello, así que esta nota es lo que
 sale hoy en la práctica. Es la misma política que con las anclas: **una
 decisión tomada por otro solo es aceptable si se declara**.
 
-### Lo que todavía no se comprueba
+### De quién es la autoridad que sella
 
-**De quién es la autoridad de sellado.** Se comprueba que el sello es coherente
-y que lo firmó el certificado que trae dentro; no que ese certificado sea de
-una TSA cualificada. Mientras eso falte, un sello se puede fabricar entero
-—autoridad incluida— y pasa las cinco comprobaciones de arriba, y por eso la
-nota lo dice con todas las letras en vez de dar un visto bueno a secas.
+Que el sello cuadre no dice quién lo puso. Es la otra mitad, y el reparto es el
+mismo que con la firma: `sellos.py` dice que el sello se sostiene, `cadena.py`
+dice de quién es. Primero que cuadre, después de quién es.
 
-Es el mismo orden en que se hizo la firma: primero que cuadre, después de quién
-es. La lista española publica **69 servicios de sellado concedidos**, así que la
-fuente está y el siguiente paso es montar ese conjunto —aparte del de las
-firmas, porque una autoridad cualificada solo para sellar no debe avalar la
-firma de una factura—.
+La fuente es la misma lista del Estado, que publica **69 servicios de sellado
+concedidos**. Se montan con la misma orden y en el mismo momento que las otras,
+porque salen de la misma lista:
+
+```
+Montadas 133 anclas en anclas.
+  de 243 servicios: 129 concedidos, 114 retirados (fuera), 0 sin certificado (fuera).
+
+Montadas 69 anclas de sellado en anclas-sellos.
+  de 120 servicios de sellado: 69 concedidos, 51 retirados (aparte).
+  van en otra carpeta a propósito: una autoridad cualificada solo para sellar
+  el tiempo no avala la firma de una factura.
+```
+
+Y cuando la autoridad se reconoce, se declara igual que con las anclas de
+firma:
+
+```
+[SELLO-CONFIANZA · firma electrónica] La fecha la acredita «TSU de prueba», que
+está publicada como autoridad de sellado en la lista de confianza del Estado:
+de la lista de confianza de ES, publicada por MINISTERIO DE ASUNTOS ECONOMICOS
+Y TRANSFORMACION DIGITAL el 2026-08-06.
+```
+
+Cuando no:
+
+```
+[SELLO-TSA-DESCONOCIDA · firma electrónica] El sello de tiempo de «TSU de
+prueba» cuadra, pero esa autoridad no llega a ninguna de las de sellado que hay
+instaladas: la cadena se queda en «AC de sellos de prueba», que no está entre
+ellas. El sello es coherente; lo que no consta es que quien lo firmó sea una
+autoridad de sellado cualificada.
+```
+
+Y cuando no hay ninguna instalada, se dice eso y no se calla, que es la misma
+política que con las anclas de firma:
+
+```
+[SELLO-SIN-CONTRASTAR · firma electrónica] El sello de tiempo de «TSU de
+prueba» cuadra, pero no hay anclas de sellado instaladas, así que no se ha
+comprobado que sea una autoridad cualificada. Un sello se puede fabricar
+entero, autoridad incluida, y este pasaría igual: la fecha vale lo que valga
+esa autoridad, y de eso aquí no consta nada.
+```
+
+### Dos carpetas, y por qué no una
+
+`anclas/` y `anclas-sellos/`, hermanas y no una dentro de otra. Es la misma
+lección de las retiradas —**ampliar el conjunto no debe ampliar la
+confianza**— aplicada a otra cosa.
+
+Los números lo dicen mejor que el argumento. De las 121 anclas de sellado que
+salen de la lista española, **solo 2 están también entre las de firma**. Las
+otras 119 son autoridades que el Estado tiene por cualificadas para sellar el
+tiempo y **no** para avalar la firma de una factura, y **once de ellas son
+autoridades de certificación**: juntando las carpetas, esas once pasarían a
+poder emitir certificados que el validador aceptaría como firmantes de
+facturas. Nadie lo habría decidido y nada lo diría.
+
+Que sean hermanas y no una dentro de la otra tiene un motivo concreto: el
+almacén recorre su carpeta entera con `rglob`, así que un subdirectorio se
+leería como anclas de firma. Puestas al lado, el error posible es el contrario
+—olvidarse de copiar la carpeta—, y entonces no se reconoce ninguna autoridad
+de sellado y **se dice**. Ese es el lado por el que hay que fallar.
+
+El almacén encuentra a su hermana solo, así que no hay que acordarse de nada:
+`anclas/` busca `anclas-sellos/` al lado, o donde diga `FACTURAE_ANCLAS_SELLOS`.
 
 ### Cómo se prueba sin ningún sello real
 
@@ -1650,6 +1710,7 @@ distinta para cada una.
 | Las **listas** (`listas/`) | se republican varias veces al año | la lista dice hasta cuándo responde por sí misma |
 | Las **anclas** (`anclas/`) | cuando cambia la lista | `--ver-anclas`, que avisa a 90 días de caducar |
 | Las **retiradas** (`anclas/retiradas/`) | se acumulan, no caducan | no hay que vigilarlas: solo amparan lo de antes |
+| Las de **sellado** (`anclas-sellos/`) | a la vez que las otras | salen de la misma orden y de la misma lista |
 | Las **huellas del DOUE** | años | un anuncio nuevo en el Diario Oficial |
 
 El mandato es siempre el mismo, y lo único que cambia entre una vez y la
@@ -1925,7 +1986,6 @@ Lo que queda, ordenado por lo que de verdad estorba.
 | Hueco | Por qué importa | Tamaño |
 |---|---|---|
 | **EDIFACT no se valida** | Es uno de los **cuatro** formatos que admite el RD 238/2026. Hoy se detecta y se contesta «no se ha podido validar» | grande |
-| **De quién es la autoridad de sellado** | El sello ya se comprueba entero; falta montar el conjunto de anclas de sellado desde la lista, que publica 69 servicios concedidos | pequeño |
 | **Respuestas OCSP embebidas (XAdES-XL)** | Las listas de revocación que trae el documento ya se leen; las respuestas OCSP no. Es la única forma de comprobar revocación sin red en un documento moderno | medio |
 | **Los mensajes de estado del RD** | `calendario.py` calcula el plazo de cuatro días hábiles, pero no se valida un documento de estado en sí | medio |
 | **El IVA por línea** | Que el tipo de cada línea case con lo que se vende no es EN 16931: es la Ley del IVA, y hace falta saber qué se vende | dudoso |
@@ -1934,10 +1994,11 @@ Lo que queda, ordenado por lo que de verdad estorba.
 se nota a la primera: el cliente suelta una factura y el validador contesta que
 no sabe.
 
-**El más cercano a estar hecho es el sellado.** Un sello de tiempo se lee, se
-comprueba entero y su fecha manda sobre la que declara quien firma; lo que
-falta es contrastar **de quién** es la autoridad que sella, y la fuente es la
-misma lista de la que ya salen las anclas de firma.
+**El sellado ya está entero**: un sello se lee, se comprueba, se contrasta
+contra las autoridades de sellado del Estado y su fecha manda sobre la que
+declara quien firma. Lo que queda de esa parte no es código sino ficheros:
+ninguna de las muestras que hay trae sello, así que todo lo que se sabe de cómo
+se comportan los sellos españoles de verdad está por ver.
 
 ### Producto
 
@@ -1964,10 +2025,11 @@ misma lista de la que ya salen las anclas de firma.
 
 ### Por dónde empezaría
 
-1. **Las anclas de sellado**, que es lo que le falta al sello de tiempo para
-   valer del todo, y es el trozo más corto de los tres.
-2. **EDIFACT**, por ser un cuarto del alcance.
-3. **Facturas reales**, que no es programar sino conseguirlas.
+1. **EDIFACT**, por ser un cuarto del alcance legal declarado y notarse a la
+   primera: el cliente suelta una factura y el validador contesta que no sabe.
+2. **Facturas reales**, que no es programar sino conseguirlas —y son las que
+   dirán si los sellos españoles se comportan como los de las pruebas—.
+3. **Las respuestas OCSP embebidas**, que completan la revocación sin red.
 
 ## Sin servidor: el validador dentro del navegador
 
@@ -1981,10 +2043,10 @@ La duda real no era si arrancaba Python, sino si esa compilación de lxml traía
 soporte de esquemas XSD: libxml2 se puede compilar sin él, y `esquema.py`
 entero depende de `etree.XMLSchema`. Lo trae.
 
-Las veintisiete comprobaciones de `web/prueba.py` dan el mismo resultado que
+Las veintiocho comprobaciones de `web/prueba.py` dan el mismo resultado que
 en Python nativo —mismos códigos, mismos importes— pese a que ahí libxml2 es
-2.9.10 y en local 2.11.9. Dieciocho son críticas: dos de curva elíptica, tres
-de la lista de confianza y dos de sellos de tiempo: que se verifique y se monte allí, y que una lista manipulada no
+2.9.10 y en local 2.11.9. Diecinueve son críticas: dos de curva elíptica, tres
+de la lista de confianza y tres de sellos de tiempo: que se verifique y se monte allí, y que una lista manipulada no
 monte nada. Esa parte depende de la canonicalización, que es lo más frágil de
 esa compilación. Medido: 42 s el primer arranque, 4,8 s con la caché caliente,
 10 ms por factura, y un lote de 200 en 2 segundos.

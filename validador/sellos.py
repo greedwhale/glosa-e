@@ -42,15 +42,17 @@ sello no sea anterior a la emisión del certificado —imposible— y que no sea
 posterior a su caducidad —posible, pero entonces no consta que la firma se
 hiciera mientras el certificado valía—.
 
-Qué no se comprueba, y hay que decirlo
---------------------------------------
+Qué no se comprueba aquí
+------------------------
 **De quién es esa autoridad de sellado.** Aquí se comprueba que el sello es
-coherente y que lo firmó el certificado que trae dentro; no que ese certificado
-sea de una TSA cualificada. Mientras eso falte, un sello se puede fabricar
-entero —autoridad incluida— y pasa las seis comprobaciones de arriba. Por eso
-la nota que emite este módulo lo dice con todas las letras en vez de dar un
-visto bueno a secas. Es el mismo orden en que se hizo la firma: primero que
-cuadre, después de quién es.
+coherente y que lo firmó el certificado que trae dentro; que ese certificado
+sea de una TSA cualificada lo responde `cadena.py`, encadenándolo hasta un
+ancla de sellado instalada. Sin ese paso un sello se puede fabricar entero
+—autoridad incluida— y pasa las seis comprobaciones de arriba.
+
+Es el mismo reparto que con la firma, y por el mismo motivo: `firma.py` dice
+que la firma cuadra y `cadena.py` dice de quién es. Primero que cuadre, después
+de quién es.
 
 Dos trampas que solo se ven probando
 ------------------------------------
@@ -800,9 +802,7 @@ def _correcto(sello: Sello, donde: str) -> Incidencia:
         f"{_cuando(sello.momento)}{precision}, y el sello cuadra: esa "
         "autoridad vio esta firma ese día, así que la firma ya existía "
         "entonces. Esa es la fecha que se usa para la vigencia y la "
-        "revocación, en vez de la que declara quien firma. Lo que todavía no "
-        "se comprueba es quién es esa autoridad: que el sello sea coherente no "
-        "dice que esté en la lista de confianza del Estado.",
+        "revocación, en vez de la que declara quien firma.",
         campo=f"{donde}Sello de tiempo",
         encontrado=f"sello de «{sello.quien}», serie {sello.serie}",
     )

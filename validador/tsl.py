@@ -117,6 +117,14 @@ CA_CUALIFICADA = "http://uri.etsi.org/TrstSvc/Svctype/CA/QC"
 RAIZ_NACIONAL = "http://uri.etsi.org/TrstSvc/Svctype/NationalRootCA-QC"
 TIPOS_QUE_EMITEN = (CA_CUALIFICADA, RAIZ_NACIONAL)
 
+# Las autoridades de sellado de tiempo. Van **aparte** de las de arriba, y
+# no por orden: una autoridad cualificada solo para sellar el tiempo no
+# tiene por qué avalar la firma de una factura. Mezclarlas sería ampliar la
+# confianza sin decirlo, que es el fallo que este módulo existe para no
+# cometer. Ver `montar` y `cadena.Almacen.sellos`.
+SELLADO_CUALIFICADO = "http://uri.etsi.org/TrstSvc/Svctype/TSA/QTST"
+TIPOS_QUE_SELLAN = (SELLADO_CUALIFICADO,)
+
 # El estado que cuenta. Los demás —`withdrawn`, y los antiguos de antes de
 # eIDAS que siguen apareciendo en el historial— significan que esa autoridad
 # ya no es cualificada.

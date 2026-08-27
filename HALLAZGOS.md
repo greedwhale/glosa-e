@@ -1391,3 +1391,58 @@ que es la misma política que se siguió con la firma antes de que existiera
 `cadena.py`: primero que cuadre, después de quién es.
 
 849 tests, 27 de 27 en el navegador (18 críticas).
+
+
+# Las anclas de sellado: dos carpetas, y por qué no una
+
+El sello de tiempo se comprobaba entero salvo lo principal: **de quién era la
+autoridad**. Sin eso, un sello se fabrica completo —autoridad incluida— y pasa
+todas las comprobaciones. La fuente estaba donde las demás: la lista del Estado
+publica 69 servicios de sellado concedidos.
+
+## Por qué no comparten carpeta
+
+Parecía una decisión de orden y es de confianza. El almacén recorre su carpeta
+entera con `rglob`, así que meter las de sellado en un subdirectorio de
+`anclas/` las convierte en anclas de firma.
+
+Los números de la lista española lo dejan claro. De las **121 anclas de sellado**
+que salen de ella, **solo 2 están también entre las de firma**. Las otras 119
+son autoridades cualificadas para sellar el tiempo y no para avalar la firma de
+una factura, y **once son autoridades de certificación**: juntas, esas once
+pasarían a poder emitir certificados que el validador aceptaría como firmantes.
+Nadie lo habría decidido y nada lo diría.
+
+Hermanas y no anidadas, además, porque el error posible cambia de lado. Anidadas,
+el olvido es una exclusión que alguien quita y once autoridades se cuelan en
+silencio. Al lado, el olvido es no copiar la carpeta, y entonces no se reconoce
+ninguna autoridad de sellado y **se dice**. Ese es el lado por el que hay que
+fallar.
+
+Para que nadie tenga que acordarse, el almacén encuentra a su hermana solo:
+`anclas/` busca `anclas-sellos/` al lado. Y las dos se montan con la misma orden
+y de la misma lista, porque dos órdenes serían dos conjuntos con dos fechas y
+uno de los dos se quedaría sin montar el día que alguien tuviera prisa.
+
+## Un mensaje que mandaba a buscar un ciclo que no existe
+
+La primera versión sacaba al informe el motivo interno de `construir`, y sobre
+un sello desconocido salía **«cadena circular»**. No es un fallo del motivo: es
+literalmente lo que pasa cuando el sello trae su propia autoridad dentro y esa
+autoridad no es un ancla, o sea el caso corriente de «no la conozco». Pero a
+quien lee el informe le manda a buscar un ciclo.
+
+Ahora dice dónde se queda: «la cadena se queda en «AC de sellos de prueba», que
+no está entre ellas». El motivo interno solo sale cuando dice algo —cuando el
+ancla estaba retirada—. Hay una prueba que exige que la palabra «circular» no
+aparezca.
+
+## Y una que no se veía desde dentro
+
+`--montar-anclas` escribe ahora una carpeta hermana, y `.gitignore` decía
+`anclas/`, que no la cubre. La primera vez que alguien montara el conjunto se le
+habrían versionado 120 certificados de autoridades de sellado sin enterarse, en
+un repositorio cuya regla es que las anclas no se versionan **nunca**. El patrón
+lleva comodín desde antes de que eso pudiera pasar.
+
+860 tests, 28 de 28 en el navegador (19 críticas).

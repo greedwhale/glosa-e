@@ -18,7 +18,13 @@ esquemas/
 # Las anclas de confianza. No se versionan a proposito, y no por tamanio:
 # quien controle ese fichero controla a quien cree el validador. Las instala
 # quien usa la herramienta y las contrasta con `--ver-anclas`.
+#
+# El patron lleva comodin porque las de sellado van en una carpeta hermana
+# —`anclas-sellos/`— y `anclas/` a secas no la cubre: sin el comodin, la
+# primera vez que alguien montara el conjunto se le versionarian 120
+# certificados de autoridades de sellado sin enterarse.
 anclas/
+anclas-*/
 
 # Las listas de revocacion. Estas no deciden en quien se confia, pero caducan
 # y hay que renovarlas: versionarlas seria repartir una foto vieja de quien

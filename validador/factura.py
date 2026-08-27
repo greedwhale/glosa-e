@@ -159,6 +159,11 @@ def _reglas(
     incidencias.extend(
         cadena.reglas_de_documento(raiz, deteccion, almacen, listas, hoy)
     )
+    incidencias.extend(
+        cadena.sellos_del_documento(
+            raiz, deteccion, almacen.sellos if almacen is not None else None
+        )
+    )
     incidencias.extend(codigo_unico.reglas(raiz, deteccion, hoy=hoy))
     return _podar(incidencias)
 

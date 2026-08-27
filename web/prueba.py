@@ -696,7 +696,8 @@ def _huella(der):
     return ":".join(crudo[i:i + 2] for i in range(0, len(crudo), 2))
 
 
-def _tsl_de_juguete(firmante_der, ancla_der, estado="granted"):
+def _tsl_de_juguete(firmante_der, ancla_der, estado="granted",
+                    tipo="http://uri.etsi.org/TrstSvc/Svctype/CA/QC"):
     """Una lista de confianza ETSI TS 119 612 firmada de verdad."""
     import base64, hashlib
     from lxml import etree
@@ -724,8 +725,7 @@ def _tsl_de_juguete(firmante_der, ancla_der, estado="granted"):
     t(t(t(prov, "TSPInformation"), "TSPName"), "Name",
       "Certificadora de juguete")
     serv = t(t(t(prov, "TSPServices"), "TSPService"), "ServiceInformation")
-    t(serv, "ServiceTypeIdentifier",
-      "http://uri.etsi.org/TrstSvc/Svctype/CA/QC")
+    t(serv, "ServiceTypeIdentifier", tipo)
     t(t(serv, "ServiceName"), "Name", "AC de juguete")
     ident = t(serv, "ServiceDigitalIdentity")
     t(t(ident, "DigitalId"), "X509Certificate",
@@ -909,5 +909,47 @@ def _():
     motivo = sellos.comprobar(sello)
     assert "sellar el tiempo" in motivo, "lo da por bueno: " + repr(motivo)
     return "firma valida, permiso no: se rechaza"
+
+
+@comprobar("las anclas de sellado van aparte de las de firma", critica=True)
+def _():
+    # Otra de sobre-confianza. En la lista espanola hay 121 anclas de sellado y
+    # solo 2 estan tambien entre las de firma: las otras 119 son autoridades que
+    # el Estado tiene por cualificadas para sellar el tiempo y **no** para
+    # avalar la firma de una factura, y once de ellas son autoridades de
+    # certificacion. Si las dos carpetas se juntaran, esas once pasarian a
+    # poder emitir certificados que el validador aceptaria como firmantes de
+    # facturas, y nada en el informe lo diria.
+    import os
+    from validador import tsl
+    from validador.cadena import Almacen, SUFIJO_DE_SELLOS
+    hoja = _certificado_del_ejemplo()
+    if hoja is None:
+        return "no hay ninguna firmada entre los ejemplos"
+
+    cert = _certificado_de_juguete()
+    una = tsl.leer(_tsl_de_juguete(cert, hoja.der, tipo=tsl.SELLADO_CUALIFICADO))
+    assert tsl.comprobar_firma(una, [_huella(cert)]) == "", "no se cree la lista"
+
+    # Con los tipos de siempre no sale nada: una autoridad de sellado no es una
+    # autoridad de certificacion, y montarla ahi seria ampliar la confianza.
+    destino = "/anclas-mezcla"
+    os.makedirs(destino, exist_ok=True)
+    assert tsl.montar(una, destino).escritas == 0, "monta un sellador como CA"
+
+    sellado = destino + SUFIJO_DE_SELLOS
+    os.makedirs(sellado, exist_ok=True)
+    resumen = tsl.montar(una, sellado, tsl.TIPOS_QUE_SELLAN)
+    assert resumen.escritas == 1, resumen.escritas
+
+    # Y el almacen encuentra la carpeta hermana sin que nadie se lo diga, pero
+    # no mete lo de una en la otra.
+    almacen = Almacen(destino)
+    assert str(almacen.sellos.carpeta).replace("\\", "/").endswith(SUFIJO_DE_SELLOS)
+    assert almacen.vacio, "la de firma no esta vacia"
+    assert not almacen.sellos.vacio, "la de sellado si deberia tener algo"
+    assert not almacen.contiene(hoja), "un ancla de sellado avala una firma"
+    assert almacen.sellos.contiene(hoja), "no reconoce su propia ancla de sellado"
+    return "el sellador no entra entre las de firma, y se encuentra al lado"
 
 json.dumps(resultados)

@@ -19,6 +19,7 @@ from pathlib import Path
 from validador import factura, tsl
 from validador.cadena import Almacen
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
+from validador.cadena import SUFIJO_DE_SELLOS
 from validador.cadena import VARIABLE_ENTORNO as ANCLAS_ENTORNO
 from validador.esquema import CARPETA_POR_DEFECTO, VARIABLE_ENTORNO, Catalogo
 from validador.incidencias import ERROR
@@ -508,10 +509,13 @@ def _montar_anclas(
         print(f"No me creo {ruta}: {fallo}.", file=sys.stderr)
         return 1
 
-    if not tsl.anclas_de(lista):
+    if not tsl.anclas_de(lista) and not tsl.anclas_de(
+        lista, tsl.TIPOS_QUE_SELLAN
+    ):
         print(
-            f"{ruta} está comprobada, pero no trae ninguna autoridad de "
-            "certificación cualificada concedida: no hay anclas que montar.",
+            f"{ruta} está comprobada, pero no trae ninguna autoridad "
+            "cualificada concedida, ni de certificación ni de sellado: no hay "
+            "anclas que montar.",
             file=sys.stderr,
         )
         return 2
@@ -546,6 +550,25 @@ def _montar_anclas(
             "sigue siendo cierto de aquel día; lo que haya cambiado desde "
             "entonces no está aquí."
         )
+    # Y las de sellado, que van en la carpeta hermana. Se montan aquí y no
+    # con otra orden porque salen de la misma lista y del mismo momento: dos
+    # órdenes serían dos conjuntos con dos fechas, y una que se olvida.
+    sellado = destino.parent / (destino.name + SUFIJO_DE_SELLOS)
+    de_sellado = tsl.montar(
+        lista, sellado, tsl.TIPOS_QUE_SELLAN, cuando=datetime.now(timezone.utc)
+    )
+    print()
+    print(f"Montadas {de_sellado.escritas} anclas de sellado en {sellado}.")
+    print(
+        f"  de {de_sellado.servicios_mirados} servicios de sellado: "
+        f"{de_sellado.concedidos} concedidos, {de_sellado.retirados} "
+        f"retirados (aparte)."
+    )
+    print(
+        "  van en otra carpeta a propósito: una autoridad cualificada solo "
+        "para sellar el tiempo no avala la firma de una factura."
+    )
+
     print()
     print(
         f"El porqué de cada cosa queda en {destino / tsl.NOMBRE_DEL_MANIFIESTO}, "

@@ -1106,6 +1106,64 @@ class TestLaConsola:
         assert len(list(destino.glob("*.cer"))) == 1
         assert (destino / cadena.NOMBRE_DEL_MANIFIESTO).exists()
 
+    def test_montar_tambien_las_de_sellado(self, tmp_path, capsys):
+        """Las dos clases salen de la misma lista, así que salen a la vez.
+
+        Con dos órdenes distintas serían dos conjuntos con dos fechas, y uno de
+        los dos se quedaría sin montar el día que alguien tuviera prisa.
+        """
+        ruta = _escribir(tmp_path, "es.xml", lista(servicios=[
+            Serv(certificados=(intermedia(),)),
+            Serv(nombre="TSU", tipo=SELLO_DE_TIEMPO, certificados=(hoja(),)),
+        ]))
+        destino = tmp_path / "anclas"
+        codigo = main([
+            "--montar-anclas", str(ruta),
+            "--firmante", huella_de(firmante()),
+            "--en", str(destino),
+        ])
+        assert codigo == 0
+        salida = capsys.readouterr().out
+        assert "Montadas 1 anclas de sellado" in salida
+
+        sellado = tmp_path / "anclas-sellos"
+        assert len(list(sellado.glob("*.cer"))) == 1
+        # Y en carpetas separadas, que es lo que hace que no se confundan.
+        assert len(list(destino.glob("*.cer"))) == 1
+        de_firma = (destino / next(iter(p.name for p in destino.glob("*.cer"))))
+        de_sello = (sellado / next(iter(p.name for p in sellado.glob("*.cer"))))
+        assert de_firma.read_bytes() != de_sello.read_bytes()
+
+    def test_el_almacen_encuentra_la_carpeta_hermana(self, tmp_path):
+        """Nadie tiene que acordarse de dónde quedaron las de sellado."""
+        ruta = _escribir(tmp_path, "es.xml", lista(servicios=[
+            Serv(certificados=(intermedia(),)),
+            Serv(nombre="TSU", tipo=SELLO_DE_TIEMPO, certificados=(hoja(),)),
+        ]))
+        destino = tmp_path / "anclas"
+        assert main([
+            "--montar-anclas", str(ruta),
+            "--firmante", huella_de(firmante()),
+            "--en", str(destino),
+        ]) == 0
+        almacen = cadena.Almacen(destino)
+        assert not almacen.vacio
+        assert not almacen.sellos.vacio
+        assert almacen.sellos.carpeta == tmp_path / "anclas-sellos"
+
+    def test_una_lista_solo_de_sellado_tambien_monta(self, tmp_path, capsys):
+        """Sin autoridades de firma ya no es «no hay nada que montar»."""
+        ruta = _escribir(tmp_path, "es.xml", lista(servicios=[
+            Serv(nombre="TSU", tipo=SELLO_DE_TIEMPO, certificados=(hoja(),)),
+        ]))
+        codigo = main([
+            "--montar-anclas", str(ruta),
+            "--firmante", huella_de(firmante()),
+            "--en", str(tmp_path / "anclas"),
+        ])
+        assert codigo == 0
+        assert "Montadas 1 anclas de sellado" in capsys.readouterr().out
+
     def test_montar_avisa_de_una_lista_vencida(self, tmp_path, capsys):
         ruta = _escribir(
             tmp_path, "es.xml",

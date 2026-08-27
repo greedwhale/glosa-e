@@ -50,9 +50,9 @@ caché —todo verde, y no es lo que crees que has probado—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, veintisiete comprobaciones que deben
-salir todas en verde; dieciocho están marcadas como **críticas** y son las que,
-si fallan, tumban la idea entera:
+Arriba, el tiempo de arranque. Abajo, veintiocho comprobaciones que deben
+salir todas en verde; diecinueve están marcadas como **críticas** y son las
+que, si fallan, tumban la idea entera:
 
 | Comprobación | Por qué es crítica |
 |---|---|
@@ -74,6 +74,7 @@ si fallan, tumban la idea entera:
 | una autoridad retirada solo vale para lo de antes | si la ventana no se aplica, 135 autoridades caducadas pasan a ser de confianza |
 | un sello de tiempo se lee y se comprueba aquí | de la fecha del sello cuelgan la caducidad y la revocación |
 | un sello sin permiso para sellar no vale | su firma es válida: lo único que falla es el permiso, y eso no salta solo |
+| las anclas de sellado van aparte de las de firma | juntas, once autoridades pasarían a avalar firmas de facturas |
 
 Las nueve últimas son de la firma, y la de la canonicalización es la que más podía
 doler. `firma.py` calcula el resumen de un documento canonicalizado y lo compara
@@ -115,7 +116,7 @@ visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
 0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
 menos de cinco.
 
-Los veintisiete resultados coinciden exactamente con los de la misma prueba
+Los veintiocho resultados coinciden exactamente con los de la misma prueba
 ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
 Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
 en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización

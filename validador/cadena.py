@@ -77,6 +77,19 @@ __all__ = ["Almacen", "Cadena", "construir", "reglas", "reglas_de_documento"]
 VARIABLE_ENTORNO = "FACTURAE_ANCLAS"
 CARPETA_POR_DEFECTO = "anclas"
 
+# Las anclas de sellado viven en una carpeta **hermana**, no dentro de la
+# otra, y la diferencia importa: el almacén recorre su carpeta entera con
+# `rglob`, así que un subdirectorio se leería como anclas de firma. De las
+# 69 autoridades de sellado de la lista española, nueve son autoridades de
+# certificación: metidas ahí dentro, cualquier certificado que emitieran
+# valdría para firmar una factura, y nada en el informe lo diría.
+#
+# Puestas al lado, el error posible es el contrario: olvidarse de copiar la
+# carpeta. Entonces no se reconoce ninguna autoridad de sellado y se dice,
+# que es el lado por el que hay que fallar.
+VARIABLE_DE_SELLOS = "FACTURAE_ANCLAS_SELLOS"
+SUFIJO_DE_SELLOS = "-sellos"
+
 _EXTENSIONES = (".cer", ".crt", ".der", ".pem", ".ca-bundle")
 
 # Un conjunto de anclas montado desde una lista de confianza deja aquí de dónde
@@ -142,6 +155,7 @@ class Almacen:
         default_factory=dict, repr=False
     )
     _retiradas: set[bytes] = field(default_factory=set, repr=False)
+    _sellos: "Almacen | None" = field(default=None, repr=False)
     _ilegibles: list[tuple[Path, str]] = field(default_factory=list, repr=False)
 
     def __post_init__(self) -> None:
@@ -158,6 +172,29 @@ class Almacen:
         if carpeta is None:
             carpeta = os.environ.get(VARIABLE_ENTORNO) or CARPETA_POR_DEFECTO
         return cls(Path(carpeta), procedencia)
+
+    @property
+    def sellos(self) -> Almacen:
+        """Las anclas de las autoridades de sellado, que son otras.
+
+        La carpeta hermana de esta, con `-sellos` detrás, o lo que diga
+        `FACTURAE_ANCLAS_SELLOS`. Se deriva aquí y en un solo sitio para que la
+        relación entre las dos carpetas no haya que recordarla en cada sitio
+        que las use.
+
+        **Son otro conjunto a propósito.** Que el Estado tenga por cualificada
+        a una autoridad para sellar el tiempo no dice que la tenga por
+        cualificada para emitir certificados de firma, y al revés. Compartir
+        carpeta sería confundir las dos cosas sin decirlo.
+        """
+        if self._sellos is None:
+            puesta = os.environ.get(VARIABLE_DE_SELLOS)
+            donde = (
+                Path(puesta) if puesta
+                else self.carpeta.parent / (self.carpeta.name + SUFIJO_DE_SELLOS)
+            )
+            self._sellos = Almacen(donde, self.procedencia)
+        return self._sellos
 
     @property
     def por_sujeto(self) -> dict[bytes, list[Certificado]]:
@@ -700,6 +737,107 @@ def reglas(
     )
     return incidencias
 
+
+
+def sellos_del_documento(raiz, deteccion, almacen: Almacen | None = None,
+                         donde_base: str = "") -> list[Incidencia]:
+    """De quién son las autoridades que sellaron las firmas del documento.
+
+    Vive aquí y no en `sellos.py` por lo mismo que `reglas_de_documento`: las
+    dependencias van en un solo sentido. `cadena` sabe de `sellos` y `sellos`
+    no sabe de `cadena`.
+
+    Solo se mira un sello que ya se sostenga por dentro. De uno que no cuadra
+    no hace falta averiguar de quién es: no acredita nada aunque su autoridad
+    sea la más cualificada de España.
+    """
+    if raiz is None or not deteccion:
+        return []
+    incidencias: list[Incidencia] = []
+    for numero, una in enumerate(firma.hay_firma(raiz), start=1):
+        donde = f"Firma {numero} · " if numero > 1 else donde_base
+        acreditado = sellos.momento_probado(una)
+        if acreditado is None:
+            continue
+        incidencias.extend(_confianza_del_sello(acreditado[1], almacen, donde))
+    return incidencias
+
+
+def _confianza_del_sello(sello, almacen: Almacen | None, donde: str):
+    """¿Es de una autoridad de sellado cualificada?"""
+    campo = f"{donde}Sello de tiempo"
+    quien = sello.quien
+    if almacen is None or almacen.vacio:
+        return [
+            Incidencia(
+                "SELLO-SIN-CONTRASTAR",
+                AVISO,
+                f"El sello de tiempo de «{quien}» cuadra, pero no hay anclas "
+                "de sellado instaladas, así que no se ha comprobado que sea "
+                "una autoridad cualificada. Un sello se puede fabricar entero, "
+                "autoridad incluida, y este pasaría igual: la fecha vale lo "
+                "que valga esa autoridad, y de eso aquí no consta nada.",
+                campo=campo,
+                esperado="una carpeta de anclas de sellado",
+                encontrado="(no hay ninguna)",
+            )
+        ]
+
+    # El propio certificado de la autoridad, y de escalón los demás que trae el
+    # sello dentro. Como con la firma: los de dentro solo sirven de escalón,
+    # porque los eligió quien selló.
+    otros = [c for c in sello.certificados if c.der != sello.firmante.der]
+    cadena = construir(sello.firmante, almacen, otros, cuando=sello.momento)
+    if not cadena.llega:
+        # El motivo interno solo se saca cuando dice algo: cuando el ancla
+        # estaba retirada. En los demás casos es jerga —«cadena circular» es lo
+        # que sale siempre que el sello trae su propia autoridad dentro y esa
+        # autoridad no es un ancla, o sea el caso corriente de «no la
+        # conozco»—, y mandaría a buscar un ciclo que no existe.
+        arriba = cadena.eslabones[-1].sujeto or "un certificado sin nombre"
+        detalle = (
+            cadena.motivo
+            if cadena.caducada
+            else f"la cadena se queda en «{arriba}», que no está entre ellas"
+        )
+        return [
+            Incidencia(
+                "SELLO-TSA-DESCONOCIDA",
+                AVISO,
+                f"El sello de tiempo de «{quien}» cuadra, pero esa autoridad "
+                f"no llega a ninguna de las de sellado que hay instaladas: "
+                f"{detalle}. El sello es coherente; lo que no consta es que "
+                "quien lo firmó sea una autoridad de sellado cualificada.",
+                campo=campo,
+                esperado="llegar a un ancla de sellado instalada",
+                encontrado=quien,
+            )
+        ]
+
+    ancla = cadena.ancla
+    como = (
+        "está publicada como autoridad de sellado"
+        if ancla.der == sello.firmante.der
+        else f"lleva a «{ancla.sujeto or 'un ancla instalada'}»"
+    )
+    retirada = ""
+    if almacen.retirada(ancla):
+        _, desde, _ = almacen.estado_de(ancla)
+        if desde is not None:
+            retirada = (
+                f" Esa autoridad dejó de ser cualificada el {desde.isoformat()}: "
+                "el sello se acepta porque es anterior, no porque siga vigente."
+            )
+    return [
+        Incidencia(
+            "SELLO-CONFIANZA",
+            NOTA,
+            f"La fecha la acredita «{quien}», que {como} en la lista de "
+            f"confianza del Estado: {almacen.procedencia_de(ancla)}.{retirada}",
+            campo=campo,
+            encontrado=f"ancla {ancla.huella()[:29]}…",
+        )
+    ]
 
 def reglas_de_documento(
     raiz, deteccion, almacen: Almacen | None = None, listas=None, hoy=None
