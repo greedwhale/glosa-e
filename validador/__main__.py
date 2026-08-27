@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import glob
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from validador import factura
@@ -196,6 +196,12 @@ def main(argumentos: list[str] | None = None) -> int:
 # para que el aviso no sea permanente.
 DIAS_DE_AVISO = 90
 
+# Para ordenar por caducidad cuando alguna no se ha podido leer. Va con
+# zona horaria porque las del certificado la llevan, y Python se niega a
+# comparar una fecha con hora con otra sin ella: sin esto, un ancla con la
+# fecha ilegible reventaba el listado a media impresion.
+_ETERNO = datetime.max.replace(tzinfo=timezone.utc)
+
 
 def _ver_anclas(almacen, hoy: date) -> int:
     """Las anclas instaladas, con su huella y su caducidad.
@@ -211,7 +217,7 @@ def _ver_anclas(almacen, hoy: date) -> int:
     print(f"Anclas de confianza en {almacen.carpeta}:")
     print()
     caducando = 0
-    for cert in sorted(almacen.todas(), key=lambda c: c.hasta or datetime.max.date()):
+    for cert in sorted(almacen.todas(), key=lambda c: c.hasta or _ETERNO):
         print(f"  {cert.sujeto or '(sin nombre común)'}")
         print(f"    SHA-256  {cert.huella()}")
         if cert.hasta is None:

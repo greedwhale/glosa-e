@@ -588,6 +588,42 @@ class TestSobreFacturasDeVerdad:
 # --- Lo que se ve desde la consola -----------------------------------------
 
 
+def _ancla_sin_fecha() -> bytes:
+    """Un certificado por lo demás correcto cuya validez no se puede leer.
+
+    No es rebuscado: basta un `GeneralizedTime` que no case con el formato
+    —lo escribe cualquier herramienta que se salga de la norma— para que
+    `Certificado.hasta` se quede en None.
+    """
+    import hashlib
+
+    modulo, _ = RAIZ
+    spki = _secuencia(
+        _secuencia(
+            _der(0x06, b"\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01"), _der(0x05, b"")
+        ),
+        _der(0x03, b"\x00" + _secuencia(_entero(modulo), _entero(65537))),
+    )
+    basura = _der(0x18, b"cuando sea")
+    tbs = _secuencia(
+        _der(0xA0, _entero(2)),
+        _entero(99),
+        _secuencia(_der(0x06, _OID_SHA256_RSA)),
+        _nombre("Sin fecha legible"),
+        _secuencia(basura, basura),
+        _nombre("Sin fecha legible"),
+        spki,
+    )
+    n, d = RAIZ
+    tamanio = (n.bit_length() + 7) // 8
+    di = firma._DIGESTINFO["sha256"] + hashlib.sha256(tbs).digest()
+    relleno = b"\x00\x01" + b"\xff" * (tamanio - len(di) - 3) + b"\x00" + di
+    valor = pow(int.from_bytes(relleno, "big"), d, n).to_bytes(tamanio, "big")
+    return _secuencia(
+        tbs, _secuencia(_der(0x06, _OID_SHA256_RSA)), _der(0x03, b"\x00" + valor)
+    )
+
+
 def factura_de_la_cadena(carpeta):
     """Un Facturae firmado por la hoja de la jerarquía de `test_cadena`."""
     from test_firma import documento
@@ -635,6 +671,21 @@ class TestLaConsola:
         salida = capsys.readouterr().out
         assert "quedan 46 días" in salida
         assert "consigue la nueva en la web de su autoridad" in salida
+
+    def test_ver_anclas_aguanta_un_ancla_sin_fecha_legible(self, tmp_path, capsys):
+        """Reventaba a media impresión, con la cabecera ya escrita.
+
+        `hasta` se queda en None cuando la fecha del certificado no se puede
+        leer, y ordenar por caducidad mezclaba entonces una fecha con hora y
+        otra sin ella. Python se niega a comparar las dos, así que un solo
+        fichero raro en la carpeta tiraba el listado entero.
+        """
+        (tmp_path / "buena.cer").write_bytes(raiz())
+        (tmp_path / "rara.cer").write_bytes(_ancla_sin_fecha())
+        assert consola.main(["--anclas", str(tmp_path), "--ver-anclas"]) == 0
+        salida = capsys.readouterr().out
+        assert "Raiz de pruebas" in salida
+        assert "no se ha podido leer" in salida
 
     def test_ver_anclas_avisa_de_las_ya_caducadas(self, tmp_path, capsys):
         (tmp_path / "raiz.cer").write_bytes(raiz())

@@ -913,4 +913,4 @@ diga, que lleve la huella y que **no** se cuele la ruta del disco virtual. Es
 la condición que hace aceptable traer las anclas puestas, así que si se rompe,
 se rompe la decisión de producto entera.
 
-658 tests.
+659 tests.
