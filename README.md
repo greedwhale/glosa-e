@@ -24,7 +24,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-783 tests, todos en verde.
+797 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1490,6 +1490,7 @@ distinta para cada una.
 |---|---|---|
 | Las **listas** (`listas/`) | se republican varias veces al año | la lista dice hasta cuándo responde por sí misma |
 | Las **anclas** (`anclas/`) | cuando cambia la lista | `--ver-anclas`, que avisa a 90 días de caducar |
+| Las **retiradas** (`anclas/retiradas/`) | se acumulan, no caducan | no hay que vigilarlas: solo amparan lo de antes |
 | Las **huellas del DOUE** | años | un anuncio nuevo en el Diario Oficial |
 
 El mandato es siempre el mismo, y lo único que cambia entre una vez y la
@@ -1650,6 +1651,68 @@ temporal que queda abierto: su raíz —«AC RAIZ DNIE»— figura en la lista c
 **retirada el 14 de septiembre de 2023**. La factura es de antes y era buena
 entonces.
 
+### Las autoridades retiradas, y la fecha de la firma
+
+Una factura se guarda años. La autoridad que la firmó puede haber dejado de ser
+cualificada desde entonces, y eso **no** invalida la factura: en la lista
+española hay 114 autoridades retiradas entre 2016 y 2026, y todas emitieron
+certificados buenos mientras estuvieron.
+
+Montando solo lo concedido hoy, esas facturas salían como «no llega a ninguna
+autoridad conocida»: ni era verdad ni era el motivo.
+
+Ahora la carpeta de anclas tiene dos plantas:
+
+```
+anclas/
+  ESTADOS.tsv                      qué dice la lista de cada una
+  ac-camerfirma-…-2016-3a80….cer   133 vigentes
+  …
+  retiradas/
+    ac-de-antano-…-7f21….cer       135 retiradas, con su fecha
+```
+
+Una retirada solo ampara lo que se firmó **antes** de la fecha en que la
+retiraron. Fuera de ahí no es que falle la firma: es que esa autoridad ya no
+respondía por ella, y se dice con un código propio.
+
+```
+[CADENA-RETIRADA · firma electrónica] El certificado que firma lleva a una
+autoridad que ya no era cualificada cuando se firmó: «AC de antaño» dejó de ser
+una autoridad cualificada el 2025-02-01, antes de la fecha de la firma. La
+firma puede ser auténtica; lo que no la ampara es la lista de confianza del
+Estado.
+```
+
+Y cuando sí ampara, **se declara**, porque aceptar una firma por una autoridad
+que ya no lo es —aunque sea correcto— es una decisión más discutible que la
+normal:
+
+```
+[CONFIANZA-ANCLA · firma electrónica] … Esa autoridad dejó de ser cualificada
+el 2025-02-01: se acepta porque la factura es anterior, no porque siga vigente.
+```
+
+**Por qué van en una subcarpeta, y no mezcladas.** Porque ampliar el conjunto
+no debe ampliar la confianza. Si estuvieran revueltas con las vigentes, copiar
+la carpeta sin `ESTADOS.tsv` convertiría 135 autoridades caducadas en 135
+autoridades de confianza sin fecha de caducidad, y nada en el informe lo diría.
+Separadas y con la tabla aparte, **si falta la fila, el ancla no se usa**: una
+ventana que no se sabe dónde acaba no es una ventana. Hay una prueba para eso,
+y otra en el navegador.
+
+**Una asimetría a propósito: solo se mira el final de la ventana.** El final es
+real —si el Estado retiró a una autoridad el 14 de septiembre de 2023, lo
+firmado después no está amparado—. El principio no dice lo que parece: casi
+todas las anclas concedidas ponen 2016-06-30, que no es el día en que esa
+autoridad se volvió fiable sino el día en que empezó a aplicarse eIDAS.
+Rechazar por ahí tiraría todas las facturas anteriores a 2016 de autoridades
+que existían y valían, contestando a una pregunta que la lista no responde.
+
+**Sin fecha de firma, una retirada no se usa.** Su único aval es la fecha; sin
+nada que comparar, dar por buena la lectura más generosa sería lo contrario de
+lo que hace este validador.
+
 ### La procedencia viaja con los ficheros
 
 Montar el conjunto deja un `PROCEDENCIA.txt` en la carpeta, y su primera línea
@@ -1723,13 +1786,6 @@ líneas, pero no que el tipo declarado en cada línea sea coherente con el
 producto. Eso ya no es EN 16931: es la Ley del IVA, y hace falta saber qué se
 vende.
 
-**Las anclas todavía no saben de fechas.** Es el hueco que dejó abierto la
-lista de confianza y el único que queda de esta parte: el conjunto se monta con
-las autoridades concedidas **hoy**, y una autoridad retirada el año pasado
-firmó certificados buenos hace dos. La lista trae la fecha de cada cambio de
-estado y aquí se lee; lo que falta es que el almacén sepa que un ancla vale
-para lo firmado dentro de su ventana y no fuera.
-
 **Un servicio, no solo una herramienta.** Todo esto se usa desde la consola o
 como biblioteca. Lo que hace falta para venderlo es que alguien pueda soltar un
 fichero y ver el informe sin instalar nada. Eso ya está comprobado que se puede
@@ -1747,10 +1803,10 @@ La duda real no era si arrancaba Python, sino si esa compilación de lxml traía
 soporte de esquemas XSD: libxml2 se puede compilar sin él, y `esquema.py`
 entero depende de `etree.XMLSchema`. Lo trae.
 
-Las veinticuatro comprobaciones de `web/prueba.py` dan el mismo resultado que
+Las veinticinco comprobaciones de `web/prueba.py` dan el mismo resultado que
 en Python nativo —mismos códigos, mismos importes— pese a que ahí libxml2 es
-2.9.10 y en local 2.11.9. Quince son críticas, dos de ellas de curva elíptica
-y dos de la lista de confianza: que se verifique y se monte allí, y que una lista manipulada no
+2.9.10 y en local 2.11.9. Dieciséis son críticas, dos de ellas de curva
+elíptica y tres de la lista de confianza: que se verifique y se monte allí, y que una lista manipulada no
 monte nada. Esa parte depende de la canonicalización, que es lo más frágil de
 esa compilación. Medido: 42 s el primer arranque, 4,8 s con la caché caliente,
 10 ms por factura, y un lote de 200 en 2 segundos.

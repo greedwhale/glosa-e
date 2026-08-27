@@ -1207,3 +1207,80 @@ publica su CRL— para comprobar que `cadena.py` encadena firmas ECDSA y que
 despachador tenía que enterarse de que la clave no es RSA.
 
 783 tests, 24 de 24 en el navegador (15 críticas).
+
+
+# La fecha de la firma manda sobre el ancla
+
+## El hueco que quedaba
+
+Una factura se guarda años, y la autoridad que la firmó puede haber dejado de
+ser cualificada desde entonces. Eso **no** invalida la factura: en la lista
+española hay 114 autoridades retiradas entre 2016 y 2026 —135 certificados— y
+todas emitieron certificados buenos mientras estuvieron.
+
+Montando solo lo concedido hoy, esas facturas salían como «no llega a ninguna
+autoridad conocida». Ni era verdad ni era el motivo, y el aviso no distinguía
+un conjunto incompleto de un certificado que nadie avala.
+
+## Ampliar el conjunto sin ampliar la confianza
+
+Es el problema de verdad de esta parte. Meter 135 certificados más en la
+carpeta de anclas es, literalmente, aumentar en 135 la lista de autoridades en
+las que el validador cree. Lo que lo hace aceptable es que **cada una solo vale
+dentro de su ventana**, y lo que hace que eso se sostenga es la forma de
+guardarlo:
+
+- van en una subcarpeta, `anclas/retiradas/`, visible para cualquiera que abra
+  la carpeta;
+- su fecha va en una tabla aparte, `ESTADOS.tsv`;
+- **si falta la fila, el ancla no se usa.**
+
+Esa última es la que importa. Sin ella, copiar la carpeta a medias —o soltar un
+`.cer` a mano en la subcarpeta— convertiría autoridades caducadas en
+autoridades de confianza sin fecha de caducidad, y nada en el informe lo diría.
+Hay una prueba que borra la tabla y exige que las retiradas queden inertes, y
+otra igual en el navegador, marcada como crítica: es una comprobación de
+**sobre**-confianza, y esas no avisan solas.
+
+## La asimetría de la ventana
+
+Solo se comprueba el final, no el principio, y parece un descuido.
+
+El final es real: si el Estado retiró a una autoridad el 14 de septiembre de
+2023, lo firmado después no está amparado por ella.
+
+El principio no dice lo que parece. Casi todas las anclas concedidas de la
+lista española ponen 2016-06-30, que no es el día en que esa autoridad se
+volvió fiable: es el día en que empezó a aplicarse eIDAS. Rechazar por ahí
+tiraría todas las facturas anteriores a 2016 de autoridades que existían y
+valían, contestando a una pregunta que la lista no responde.
+
+## Dos cosas que se dicen y antes no
+
+**Cuando no ampara**, la queja tiene código propio, `CADENA-RETIRADA`, y no se
+confunde con «no la reconozco»: aquí sí sabemos quién es la autoridad y sabemos
+que ya no valía. Son diagnósticos distintos y llevan a acciones distintas.
+
+**Cuando sí ampara**, se declara en la nota: «se acepta porque la factura es
+anterior, no porque siga vigente». Aceptar una firma por una autoridad que ya
+no lo es, aunque sea correcto, es una decisión más discutible que la normal, y
+quien lea el informe tiene que poder verla en vez de deducirla.
+
+## Un detalle de orden que sí se puede probar
+
+Las anclas fuera de ventana se descartan **antes** de encadenar, no después.
+Con dos instaladas —una vigente y una retirada— y la firma fuera del plazo de
+la retirada, descartar al final haría que la mala tapara a la buena: el
+resultado sería un aviso en vez de una firma correctamente atribuida. Hay una
+prueba que lo fija y se pone roja al mover el filtro.
+
+## Lo que esto no arregla
+
+Las cinco muestras firmadas del Gobierno siguen sin encadenar, y ahora se sabe
+con certeza que no es por el conjunto: **cada una lleva dentro un solo
+certificado, sin intermedios**. La del DNIe, además, la emitió «AC DNIE 001»,
+una subordinada que la lista no nombra —la lista publica su raíz, «AC RAIZ
+DNIE», retirada el 14 de septiembre de 2023—. Sin el intermedio no hay cadena
+que construir por completo que esté el almacén.
+
+797 tests, 25 de 25 en el navegador (16 críticas).

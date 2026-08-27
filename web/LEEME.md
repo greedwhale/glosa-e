@@ -50,9 +50,9 @@ caché —todo verde, y no es lo que crees que has probado—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, veinticuatro comprobaciones que deben
-salir todas en verde; quince están marcadas como **críticas** y son las que, si
-fallan, tumban la idea entera:
+Arriba, el tiempo de arranque. Abajo, veinticinco comprobaciones que deben
+salir todas en verde; dieciséis están marcadas como **críticas** y son las que,
+si fallan, tumban la idea entera:
 
 | Comprobación | Por qué es crítica |
 |---|---|
@@ -71,6 +71,7 @@ fallan, tumban la idea entera:
 | el informe declara de dónde salen las anclas | es la condición para traerlas puestas |
 | una lista de confianza se comprueba y se monta aquí | de ello depende `tsl.py`, y con él de dónde salen las anclas |
 | una lista de confianza manipulada no monta nada | un almacén mal montado no da un error: da un aprobado |
+| una autoridad retirada solo vale para lo de antes | si la ventana no se aplica, 135 autoridades caducadas pasan a ser de confianza |
 
 Las nueve últimas son de la firma, y la de la canonicalización es la que más podía
 doler. `firma.py` calcula el resumen de un documento canonicalizado y lo compara
@@ -112,7 +113,7 @@ visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
 0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
 menos de cinco.
 
-Los veinticuatro resultados coinciden exactamente con los de la misma prueba
+Los veinticinco resultados coinciden exactamente con los de la misma prueba
 ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
 Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
 en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización

@@ -589,7 +589,7 @@ def _huella(der):
     return ":".join(crudo[i:i + 2] for i in range(0, len(crudo), 2))
 
 
-def _tsl_de_juguete(firmante_der, ancla_der):
+def _tsl_de_juguete(firmante_der, ancla_der, estado="granted"):
     """Una lista de confianza ETSI TS 119 612 firmada de verdad."""
     import base64, hashlib
     from lxml import etree
@@ -624,7 +624,7 @@ def _tsl_de_juguete(firmante_der, ancla_der):
     t(t(ident, "DigitalId"), "X509Certificate",
       base64.b64encode(ancla_der).decode())
     t(serv, "ServiceStatus",
-      "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted")
+      "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/" + estado)
     t(serv, "StatusStartingTime", "2016-07-01T00:00:00Z")
 
     def c14n(nodo):
@@ -725,5 +725,47 @@ def _():
         raise AssertionError("monta anclas de una lista sin comprobar")
     return "rechaza la tocada y se niega sin firmante"
 
+
+
+@comprobar("una autoridad retirada solo vale para lo de antes", critica=True)
+def _():
+    # Es una comprobacion de sobre-confianza, que son las que no avisan: si la
+    # ventana no se aplicara aqui, 135 autoridades retiradas pasarian a ser
+    # autoridades de confianza sin fecha de caducidad, y el informe no diria
+    # nada raro.
+    import datetime
+    import os
+    from validador import tsl
+    from validador.cadena import Almacen, CARPETA_DE_RETIRADAS
+    hoja = _certificado_del_ejemplo()
+    if hoja is None:
+        return "no hay ninguna firmada entre los ejemplos"
+
+    cert = _certificado_de_juguete()
+    una = tsl.leer(_tsl_de_juguete(cert, hoja.der, estado="withdrawn"))
+    assert tsl.comprobar_firma(una, [_huella(cert)]) == "", "no se cree la lista"
+
+    destino = "/anclas-retiradas"
+    os.makedirs(destino, exist_ok=True)
+    resumen = tsl.montar(una, destino)
+    assert resumen.escritas == 0, "una retirada no es un ancla vigente"
+    assert resumen.escritas_retiradas == 1, resumen.escritas_retiradas
+    assert os.path.isdir(destino + "/" + CARPETA_DE_RETIRADAS), "sin subcarpeta"
+
+    almacen = Almacen(destino)
+    assert almacen.retirada(hoja), "no la reconoce como retirada"
+    utc = datetime.timezone.utc
+    antes = datetime.datetime(2015, 1, 1, tzinfo=utc)
+    despues = datetime.datetime(2020, 1, 1, tzinfo=utc)
+    assert almacen.vale_para(hoja, antes) == "", "no vale para lo de antes"
+    assert almacen.vale_para(hoja, despues), "vale para lo de despues, y no debe"
+    assert almacen.vale_para(hoja, None), "vale sin fecha, y no debe"
+
+    # Y sin la tabla de estados no se usa: es lo que hace que copiar la carpeta
+    # a medias no convierta las retiradas en anclas de confianza.
+    os.remove(destino + "/ESTADOS.tsv")
+    almacen.recargar()
+    assert almacen.vale_para(hoja, antes), "sin tabla se la da por buena"
+    return "vale antes de 2016-07-01, no despues, y sin la tabla no vale"
 
 json.dumps(resultados)

@@ -84,7 +84,11 @@ from pathlib import Path
 from lxml import etree
 
 from validador import firma
-from validador.cadena import NOMBRE_DEL_MANIFIESTO
+from validador.cadena import (
+    CARPETA_DE_RETIRADAS,
+    NOMBRE_DEL_MANIFIESTO,
+    NOMBRE_DE_ESTADOS,
+)
 from validador.firma import Certificado, ClaveNoSoportada, leer_certificado
 from validador.formato import parser
 
@@ -530,32 +534,45 @@ class Resumen:
     """Qué salió de montar el conjunto, para poder contarlo sin adivinar."""
 
     escritas: int
-    servicios_mirados: int
-    concedidos: int
-    retirados: int
+    # Las que se instalan en la subcarpeta de retiradas, con su ventana.
+    escritas_retiradas: int = 0
+    servicios_mirados: int = 0
+    concedidos: int = 0
+    retirados: int = 0
     # Servicios concedidos que no traen ningún certificado: se identifican de
     # otra forma. Legal, y no dan ancla.
-    sin_certificado: int
+    sin_certificado: int = 0
     # Servicios concedidos cuyo certificado **está** y no sabemos usar. Es la
     # cuenta que importa vigilar: mide lo que este validador se está perdiendo.
-    no_usables: int
+    no_usables: int = 0
     # Por qué, agrupado, para poder decirlo en vez de dar un número pelado.
-    motivos: tuple[tuple[str, int], ...]
-    repetidos: int
+    motivos: tuple[tuple[str, int], ...] = ()
+    repetidos: int = 0
     carpeta: Path | None = None
 
 
-def anclas_de(lista: Lista, tipos=TIPOS_QUE_EMITEN) -> list[tuple[Certificado, Servicio]]:
+def anclas_de(
+    lista: Lista, tipos=TIPOS_QUE_EMITEN, retiradas: bool = False
+) -> list[tuple[Certificado, Servicio]]:
     """Los certificados que sirven de ancla, con el servicio del que salen.
 
-    Solo los concedidos, y sin repetir: una autoridad que emite certificados
-    de firma y de sello aparece en dos servicios con el mismo certificado, y
-    sin quitar los repetidos el mismo fichero se escribiría dos veces.
+    Sin repetir: una autoridad que emite certificados de firma y de sello
+    aparece en dos servicios con el mismo certificado, y sin quitar los
+    repetidos el mismo fichero se escribiría dos veces.
+
+    Con `retiradas` salen también las que dejaron de ser cualificadas. **No es
+    lo mismo y no van al mismo sitio**: una retirada solo vale para lo que se
+    firmó antes de que la retiraran, y quien las use tiene que saber cuándo
+    fue. Ver `montar`.
     """
     salida: list[tuple[Certificado, Servicio]] = []
     vistos: set[bytes] = set()
     for servicio in lista.servicios:
-        if servicio.tipo not in tipos or not servicio.concedido:
+        if servicio.tipo not in tipos:
+            continue
+        if not servicio.concedido and not (retiradas and servicio.desde):
+            # Sin fecha de retirada no se instala aunque se pidan: una ventana
+            # que no se sabe dónde empieza no es una ventana.
             continue
         for cert in servicio.certificados:
             if cert.der in vistos:
@@ -656,6 +673,8 @@ def _manifiesto(lista: Lista, resumen: Resumen, cuando: datetime) -> str:
     lineas += [
         "",
         f"  anclas escritas  {resumen.escritas}",
+        f"  retiradas        {resumen.escritas_retiradas}  "
+        f"(en {CARPETA_DE_RETIRADAS}/, solo para lo firmado antes de su fecha)",
         f"  servicios que emiten certificados cualificados: "
         f"{resumen.servicios_mirados}",
         f"    {'concedidos':<16}{resumen.concedidos}",
@@ -674,12 +693,14 @@ def _manifiesto(lista: Lista, resumen: Resumen, cuando: datetime) -> str:
             lineas.append(f"    {cuantos:>4}  {cual}")
     lineas += [
         "",
-        "Ni los retirados ni los que no sabemos usar están en esta carpeta, y",
-        "las facturas de unos y otros saldrán igual: «no llega a ninguna",
-        "autoridad conocida». Es un aviso, no un error, y no se distingue de",
-        "que falte el certificado. Pero no es la misma noticia: una autoridad",
-        "retirada dejó de serlo, y una que no sabemos usar sigue siendo",
-        "cualificada —el corto es este validador—.",
+        "Las retiradas están en su subcarpeta y solo sirven para lo que se",
+        "firmó antes de la fecha que dice ESTADOS.tsv. Sin esa fila no se usan:",
+        "una ventana que no se sabe dónde acaba no es una ventana.",
+        "",
+        "Las que no sabemos usar no están en ninguna de las dos, y sus facturas",
+        "saldrán como «no llega a ninguna autoridad conocida». No es la misma",
+        "noticia que una retirada: esa autoridad sigue siendo cualificada y el",
+        "corto es este validador.",
         "",
         "Cada .cer se puede contrastar con la huella que publica su autoridad.",
     ]
@@ -691,6 +712,7 @@ def montar(
     carpeta: str | Path,
     tipos=TIPOS_QUE_EMITEN,
     cuando: datetime | None = None,
+    retiradas: bool = True,
 ) -> Resumen:
     """Escribe el conjunto de anclas en una carpeta, con su manifiesto.
 
@@ -698,6 +720,13 @@ def montar(
     de más: montar anclas de una lista sin verificar es fabricar exactamente el
     problema que este módulo existe para no tener, y hacerlo con un aviso en
     vez de una negativa sería dejar la decisión en manos del que tiene prisa.
+
+    Las **retiradas van aparte**, en una subcarpeta, y su fecha de retirada en
+    una tabla. Esa separación es la que hace que ampliar el conjunto no amplíe
+    la confianza: una autoridad retirada solo vale para lo que se firmó antes
+    de que la retiraran, y `cadena.py` se niega a usarla sin esa fecha. Si
+    fueran mezcladas con las demás, copiar la carpeta sin la tabla convertiría
+    114 autoridades caducadas en 114 autoridades de confianza.
     """
     if not lista.verificada:
         raise ValueError(
@@ -706,11 +735,57 @@ def montar(
         )
     carpeta = Path(carpeta)
     carpeta.mkdir(parents=True, exist_ok=True)
-    for cert, _ in anclas_de(lista, tipos):
+    estados: list[str] = []
+    escritas = 0
+    for cert, servicio in anclas_de(lista, tipos):
         (carpeta / _nombre_de_fichero(cert)).write_bytes(cert.der)
+        estados.append(_fila(cert, servicio))
+        escritas += 1
+
+    fuera = carpeta / CARPETA_DE_RETIRADAS
+    escritas_retiradas = 0
+    if retiradas:
+        con_fecha = [
+            (cert, servicio)
+            for cert, servicio in anclas_de(lista, tipos, retiradas=True)
+            if not servicio.concedido
+        ]
+        if con_fecha:
+            fuera.mkdir(exist_ok=True)
+            for cert, servicio in con_fecha:
+                (fuera / _nombre_de_fichero(cert)).write_bytes(cert.der)
+                estados.append(_fila(cert, servicio))
+                escritas_retiradas += 1
+
+    (carpeta / NOMBRE_DE_ESTADOS).write_text(
+        _cabecera_de_estados() + "".join(estados), encoding="utf-8"
+    )
     resumen = cuentas(lista, tipos)
+    resumen = Resumen(
+        **{**resumen.__dict__, "escritas_retiradas": escritas_retiradas}
+    )
     (carpeta / NOMBRE_DEL_MANIFIESTO).write_text(
         _manifiesto(lista, resumen, cuando or datetime.now(timezone.utc)),
         encoding="utf-8",
     )
     return Resumen(**{**resumen.__dict__, "carpeta": carpeta})
+
+
+def _fila(cert: Certificado, servicio: Servicio) -> str:
+    """Una línea de la tabla de estados: huella, estado, fecha y de quién."""
+    cuando = servicio.desde.date().isoformat() if servicio.desde else ""
+    quien = (servicio.prestador or servicio.nombre or "").replace("\t", " ")
+    return "%s\t%s\t%s\t%s\n" % (
+        cert.huella().replace(":", "").lower(),
+        "granted" if servicio.concedido else "withdrawn",
+        cuando,
+        quien,
+    )
+
+
+def _cabecera_de_estados() -> str:
+    return (
+        "# Qué dice la lista de confianza de cada ancla de esta carpeta.\n"
+        "# La lee `cadena.py`: sin la fila de una retirada, esa no se usa.\n"
+        "# huella SHA-256\testado\tdesde\tprestador\n"
+    )

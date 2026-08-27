@@ -60,7 +60,7 @@ import base64
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from validador import firma, revocacion
@@ -88,6 +88,19 @@ _EXTENSIONES = (".cer", ".crt", ".der", ".pem", ".ca-bundle")
 # quedará sin ella, y un conjunto de anclas que no dice de dónde viene es justo
 # lo que habíamos quedado en no repartir.
 NOMBRE_DEL_MANIFIESTO = "PROCEDENCIA.txt"
+
+# Qué dice la lista de confianza de cada ancla: si sigue concedida o se retiró,
+# y desde cuándo. Una tabla aparte y no un dato dentro del `.cer` porque no es
+# un dato del certificado: es lo que **el Estado** dice de esa autoridad, y
+# puede cambiar sin que el certificado cambie.
+NOMBRE_DE_ESTADOS = "ESTADOS.tsv"
+
+# Dónde van las anclas retiradas. Separadas del resto a propósito: una retirada
+# solo vale para lo que se firmó antes de que la retiraran, y mezclarlas con
+# las demás haría que copiar la carpeta sin la tabla de estados convirtiera
+# cien autoridades caducadas en cien autoridades de confianza. Aquí, si falta
+# la fila, el ancla no se usa.
+CARPETA_DE_RETIRADAS = "retiradas"
 _PEM = re.compile(
     rb"-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----", re.S
 )
@@ -124,6 +137,11 @@ class Almacen:
         default=None, repr=False
     )
     _de_donde: dict[bytes, Path] = field(default_factory=dict, repr=False)
+    # huella (sin dos puntos, en minúsculas) -> (estado, fecha, prestador)
+    _estados: dict[str, tuple[str, date | None, str]] = field(
+        default_factory=dict, repr=False
+    )
+    _retiradas: set[bytes] = field(default_factory=set, repr=False)
     _ilegibles: list[tuple[Path, str]] = field(default_factory=list, repr=False)
 
     def __post_init__(self) -> None:
@@ -147,6 +165,8 @@ class Almacen:
             encontradas: dict[bytes, list[Certificado]] = {}
             self._de_donde = {}
             self._ilegibles = []
+            self._estados = self._leer_estados()
+            self._retiradas = set()
             if self.carpeta.is_dir():
                 for ruta in sorted(self.carpeta.rglob("*")):
                     if ruta.suffix.lower() not in _EXTENSIONES or not ruta.is_file():
@@ -167,8 +187,85 @@ class Almacen:
                             continue
                         encontradas.setdefault(cert.sujeto_der, []).append(cert)
                         self._de_donde.setdefault(cert.der, ruta)
+                        if CARPETA_DE_RETIRADAS in ruta.parts:
+                            self._retiradas.add(cert.der)
             self._por_sujeto = encontradas
         return self._por_sujeto
+
+    def _leer_estados(self) -> dict[str, tuple[str, "date | None", str]]:
+        """La tabla que dice qué es cada ancla para la lista de confianza."""
+        salida: dict[str, tuple[str, date | None, str]] = {}
+        try:
+            texto = (self.carpeta / NOMBRE_DE_ESTADOS).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return salida
+        for linea in texto.splitlines():
+            if not linea.strip() or linea.lstrip().startswith("#"):
+                continue
+            trozos = linea.split("\t")
+            if len(trozos) < 3:
+                continue
+            huella, estado, cuando = trozos[0].strip().lower(), trozos[1].strip(), trozos[2].strip()
+            quien = trozos[3].strip() if len(trozos) > 3 else ""
+            try:
+                fecha = date.fromisoformat(cuando) if cuando else None
+            except ValueError:
+                fecha = None
+            salida[huella] = (estado, fecha, quien)
+        return salida
+
+    def estado_de(self, cert: Certificado) -> tuple[str, "date | None", str]:
+        """Qué dice la lista de confianza de esta ancla, si es que dice algo.
+
+        Sin fila, `("", None, "")`: no se sabe. Para una que está en la carpeta
+        normal eso es lo corriente —un ancla puesta a mano no tiene fila—; para
+        una que está entre las retiradas, es lo que hace que no se use.
+        """
+        self.por_sujeto  # fuerza el recorrido
+        return self._estados.get(cert.huella().replace(":", "").lower(),
+                                 ("", None, ""))
+
+    def retirada(self, cert: Certificado) -> bool:
+        self.por_sujeto
+        return cert.der in self._retiradas
+
+    def vale_para(self, cert: Certificado, cuando) -> str:
+        """¿Sirve esta ancla para algo firmado en esa fecha? El motivo, o «».
+
+        La regla tiene una asimetría que conviene explicar, porque parece un
+        descuido y no lo es: **solo se comprueba el final de la ventana, no el
+        principio**.
+
+        El final es real: si el Estado retiró a una autoridad el 14 de
+        septiembre de 2023, lo que se firmó después no está amparado por ella.
+
+        El principio, en cambio, no dice lo que parece. Casi todas las anclas
+        españolas concedidas ponen 2016-06-30, que no es el día en que esa
+        autoridad se volvió fiable: es el día en que empezó a aplicarse eIDAS.
+        Rechazar por ahí tiraría todas las facturas anteriores a 2016 de
+        autoridades que existían y eran válidas, y estaría contestando a una
+        pregunta que la lista no responde.
+        """
+        if not self.retirada(cert):
+            return ""
+        estado, desde, quien = self.estado_de(cert)
+        if desde is None:
+            return (
+                "está entre las retiradas y no consta desde cuándo, así que no "
+                "se puede saber para qué vale"
+            )
+        if cuando is None:
+            return (
+                f"dejó de ser una autoridad cualificada el {desde.isoformat()} "
+                "y el documento no dice cuándo se firmó"
+            )
+        fecha = cuando.date() if hasattr(cuando, "date") else cuando
+        if fecha >= desde:
+            return (
+                f"dejó de ser una autoridad cualificada el {desde.isoformat()}, "
+                f"antes de la fecha de la firma"
+            )
+        return ""
 
     @property
     def declarada(self) -> str:
@@ -218,6 +315,8 @@ class Almacen:
         self._por_sujeto = None
         self._de_donde = {}
         self._ilegibles = []
+        self._estados = {}
+        self._retiradas = set()
 
     def todas(self) -> list[Certificado]:
         return [c for lista in self.por_sujeto.values() for c in lista]
@@ -252,6 +351,9 @@ class Cadena:
     llega: bool
     motivo: str = ""
     ancla: Certificado | None = None
+    # La cadena habría llegado, pero el ancla ya no valía para esa fecha. Es
+    # información distinta de «no la reconozco» y por eso va aparte.
+    caducada: bool = False
 
     @property
     def hoja(self) -> Certificado | None:
@@ -294,7 +396,10 @@ def _eslabon(hijo: Certificado, padre: Certificado, hondo: int) -> str | None:
 
 
 def construir(
-    hoja: Certificado, almacen: Almacen, sueltos: list[Certificado] | None = None
+    hoja: Certificado,
+    almacen: Almacen,
+    sueltos: list[Certificado] | None = None,
+    cuando: datetime | None = None,
 ) -> Cadena:
     """Encadena desde la hoja hasta un ancla, si se puede.
 
@@ -304,7 +409,18 @@ def construir(
     porque los de dentro los eligió quien firmó.
     """
     sueltos = sueltos or []
-    if almacen.contiene(hoja):
+    # Las anclas que no valen para esta fecha se apartan **antes** de encadenar,
+    # no después: si se dejaran y se rechazara al final, una cadena que llega a
+    # una autoridad retirada taparía otra que llega a una vigente.
+    fuera: list[tuple[Certificado, str]] = []
+
+    def sirve(cert: Certificado) -> bool:
+        motivo = almacen.vale_para(cert, cuando)
+        if motivo:
+            fuera.append((cert, motivo))
+        return not motivo
+
+    if almacen.contiene(hoja) and sirve(hoja):
         return Cadena([hoja], llega=True, motivo="el propio certificado es un ancla",
                       ancla=hoja)
 
@@ -312,11 +428,22 @@ def construir(
     vistos = {hoja.der}
     actual = hoja
     for hondo in range(PROFUNDIDAD_MAXIMA):
-        candidatos = almacen.emisores_de(actual)
+        candidatos = [c for c in almacen.emisores_de(actual) if sirve(c)]
         anclas = {c.der for c in candidatos}
         candidatos += [c for c in sueltos if c.sujeto_der == actual.emisor_der]
         if not candidatos:
             quien = actual.emisor_nombre or "(sin nombre)"
+            if fuera:
+                # Teníamos su certificado y no vale para esta fecha. Decirlo así
+                # es la diferencia entre «no lo reconozco» y «lo reconozco y
+                # dejó de valer», que llevan a cosas distintas.
+                cual, motivo = fuera[0]
+                return Cadena(
+                    eslabones,
+                    llega=False,
+                    motivo=f"«{cual.sujeto or quien}» {motivo}",
+                    caducada=True,
+                )
             return Cadena(
                 eslabones,
                 llega=False,
@@ -427,6 +554,17 @@ def _nota_de_confianza(cadena: Cadena, almacen: Almacen, donde: str) -> Incidenc
     procedencia = almacen.procedencia_de(ancla) if ancla is not None else ""
     huella = ancla.huella() if ancla is not None else "(no se ha podido calcular)"
     quien = cadena.hoja.sujeto if cadena.hoja is not None else "el firmante"
+    # Si el ancla está retirada, la firma se ha dado por buena **por la fecha**,
+    # y eso hay que decirlo: es una decisión más discutible que la normal y
+    # quien lea el informe tiene que poder verla, no deducirla.
+    retirada = ""
+    if ancla is not None and almacen.retirada(ancla):
+        _, desde, _ = almacen.estado_de(ancla)
+        retirada = (
+            " Esa autoridad dejó de ser cualificada el "
+            f"{desde.isoformat() if desde else '(no consta)'}: se acepta porque "
+            "la factura es anterior, no porque siga vigente."
+        )
 
     if len(cadena.eslabones) == 1:
         cuerpo = (
@@ -444,7 +582,7 @@ def _nota_de_confianza(cadena: Cadena, almacen: Almacen, donde: str) -> Incidenc
         "CONFIANZA-ANCLA",
         NOTA,
         f"{cuerpo} Esta validación se fía de esa autoridad porque es un ancla "
-        f"{procedencia}, con huella SHA-256 {huella}.",
+        f"{procedencia}, con huella SHA-256 {huella}.{retirada}",
         campo=f"{donde}Cadena de confianza",
     )
 
@@ -488,9 +626,26 @@ def reglas(
         ]
 
     hoja, sueltos = certificados[0], certificados[1:]
-    cadena = construir(hoja, almacen, sueltos)
+    cadena = construir(hoja, almacen, sueltos, cuando=cuando)
 
     incidencias: list[Incidencia] = []
+    if not cadena.llega and cadena.caducada:
+        # Sí teníamos su autoridad, y la lista de confianza dice que dejó de
+        # serlo antes de esta firma. Es una queja distinta y más fuerte que «no
+        # la reconozco»: aquí sí sabemos quién es, y sabemos que ya no valía.
+        return [
+            Incidencia(
+                "CADENA-RETIRADA",
+                AVISO,
+                f"El certificado que firma lleva a una autoridad que ya no era "
+                f"cualificada cuando se firmó: {cadena.motivo}. La firma puede "
+                "ser auténtica; lo que no la ampara es la lista de confianza "
+                "del Estado.",
+                campo=f"{donde}Cadena de confianza",
+                esperado="una autoridad cualificada en la fecha de la firma",
+                encontrado=_describir(cadena),
+            )
+        ]
     if not cadena.llega:
         incidencias.append(
             Incidencia(

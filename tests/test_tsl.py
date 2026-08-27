@@ -39,7 +39,16 @@ from validador.__main__ import main
 from validador.cadena import Almacen
 from validador.tsl import CA_CUALIFICADA, CONCEDIDO, RAIZ_NACIONAL
 
-from test_cadena import HOJA, INTERMEDIA, INTRUSO, RAIZ, certificado, hoja, intermedia
+from test_cadena import (
+    HOJA,
+    INTERMEDIA,
+    INTRUSO,
+    RAIZ,
+    certificado,
+    hoja,
+    intermedia,
+    raiz,
+)
 from test_firma import _c14n, _der, _firmar, _resumen, _secuencia
 
 NS_TSL = "http://uri.etsi.org/02231/v2#"
@@ -601,7 +610,7 @@ class TestMontar:
         assert "Ed25519" in manifiesto
         # Y que no las mete en el mismo saco que las retiradas, porque no es
         # la misma noticia: esa autoridad sigue siendo cualificada.
-        assert "el corto es este validador" in manifiesto
+        assert "corto es este validador" in manifiesto
 
     def test_dos_autoridades_con_el_mismo_nombre_no_se_pisan(self, tmp_path):
         # Una autoridad que renueva su certificado se llama igual que ella
@@ -827,6 +836,187 @@ class TestLaListaDeListas:
                   punteros=[Punt("ES", "https://ejemplo.invalid/es.xml")])
         )
         assert tsl.anclas_de(una) == []
+
+
+# --- Las retiradas y su ventana -------------------------------------------
+
+
+def montada(tmp_path, servicios, **extra):
+    """Una carpeta de anclas montada desde una lista, para trastear con ella."""
+    una = creida(lista(servicios=servicios))
+    tsl.montar(una, tmp_path, cuando=HOY, **extra)
+    return Almacen(tmp_path)
+
+
+class TestLasRetiradas:
+    """Una autoridad retirada firmó certificados buenos mientras estuvo.
+
+    Es el hueco que dejó abierto la lista de confianza: el conjunto se montaba
+    con lo concedido **hoy**, y una factura de hace dos años de una autoridad
+    retirada el año pasado salía como «no llega a ninguna autoridad conocida».
+    Ni era verdad ni era el motivo.
+    """
+
+    def _con_una_retirada(self, tmp_path, desde="2025-02-01T00:00:00Z"):
+        return montada(tmp_path, [
+            Serv(nombre="vigente", certificados=(intermedia(),)),
+            Serv(prestador="La que se fue", nombre="retirada", estado=RETIRADO,
+                 desde=desde, certificados=(raiz(),)),
+        ])
+
+    def test_van_aparte_y_con_su_fecha(self, tmp_path):
+        almacen = self._con_una_retirada(tmp_path)
+        assert (tmp_path / cadena.CARPETA_DE_RETIRADAS).is_dir()
+        assert len(list((tmp_path / cadena.CARPETA_DE_RETIRADAS).glob("*.cer"))) == 1
+        # Y las dos, vigente y retirada, con su fila en la tabla de estados.
+        tabla = (tmp_path / cadena.NOMBRE_DE_ESTADOS).read_text("utf-8")
+        assert "granted" in tabla and "withdrawn" in tabla
+        assert "2025-02-01" in tabla
+        assert "La que se fue" in tabla
+
+    def test_el_almacen_las_carga_y_sabe_cuales_son(self, tmp_path):
+        almacen = self._con_una_retirada(tmp_path)
+        assert len(almacen.todas()) == 2
+        retiradas = [c for c in almacen.todas() if almacen.retirada(c)]
+        assert [c.sujeto for c in retiradas] == ["Raiz de pruebas"]
+
+    def test_vale_para_lo_de_antes_y_no_para_lo_de_despues(self, tmp_path):
+        almacen = self._con_una_retirada(tmp_path)
+        cual = next(c for c in almacen.todas() if almacen.retirada(c))
+        assert almacen.vale_para(cual, datetime(2024, 5, 1, tzinfo=timezone.utc)) == ""
+        motivo = almacen.vale_para(cual, datetime(2025, 5, 1, tzinfo=timezone.utc))
+        assert "dejó de ser una autoridad cualificada el 2025-02-01" in motivo
+
+    def test_el_mismo_dia_de_la_retirada_ya_no(self, tmp_path):
+        # El día en que la retiran, se acabó. Ponerlo al revés sería regalar un
+        # día entero de firma amparada por una autoridad que ya no lo era.
+        almacen = self._con_una_retirada(tmp_path)
+        cual = next(c for c in almacen.todas() if almacen.retirada(c))
+        assert almacen.vale_para(cual, datetime(2025, 2, 1, tzinfo=timezone.utc))
+
+    def test_sin_fecha_de_firma_no_se_usa_una_retirada(self, tmp_path):
+        # Una retirada solo vale por la fecha. Sin fecha no hay nada que
+        # comparar, y dar por buena la más generosa de las lecturas sería
+        # justo lo contrario de lo que hace este validador.
+        almacen = self._con_una_retirada(tmp_path)
+        cual = next(c for c in almacen.todas() if almacen.retirada(c))
+        assert "no dice cuándo se firmó" in almacen.vale_para(cual, None)
+
+    def test_una_vigente_no_depende_de_ninguna_fecha(self, tmp_path):
+        almacen = self._con_una_retirada(tmp_path)
+        cual = next(c for c in almacen.todas() if not almacen.retirada(c))
+        for anio in (2005, 2030):
+            assert almacen.vale_para(cual, datetime(anio, 1, 1,
+                                                    tzinfo=timezone.utc)) == ""
+
+    def test_sin_fila_en_la_tabla_una_retirada_no_se_usa(self, tmp_path):
+        """La propiedad que hace que ampliar el conjunto no amplíe la confianza.
+
+        Si alguien copia la carpeta sin la tabla, o mete un `.cer` a mano en la
+        subcarpeta, esas anclas quedan inertes en vez de convertirse en
+        autoridades de confianza sin fecha de caducidad.
+        """
+        almacen = self._con_una_retirada(tmp_path)
+        (tmp_path / cadena.NOMBRE_DE_ESTADOS).unlink()
+        almacen.recargar()
+        cual = next(c for c in almacen.todas() if almacen.retirada(c))
+        assert "no consta desde cuándo" in almacen.vale_para(
+            cual, datetime(2024, 5, 1, tzinfo=timezone.utc)
+        )
+
+    def test_una_retirada_sin_fecha_ni_se_instala(self, tmp_path):
+        # Una ventana que no se sabe dónde acaba no es una ventana.
+        una = creida(lista(servicios=[
+            Serv(nombre="a", certificados=(intermedia(),)),
+            Serv(nombre="sin fecha", estado=RETIRADO, desde="",
+                 certificados=(raiz(),)),
+        ]))
+        tsl.montar(una, tmp_path, cuando=HOY)
+        assert not (tmp_path / cadena.CARPETA_DE_RETIRADAS).exists()
+
+    def test_se_pueden_dejar_fuera(self, tmp_path):
+        almacen = montada(
+            tmp_path,
+            [Serv(nombre="retirada", estado=RETIRADO,
+                  desde="2025-02-01T00:00:00Z", certificados=(raiz(),))],
+            retiradas=False,
+        )
+        assert not (tmp_path / cadena.CARPETA_DE_RETIRADAS).exists()
+        assert almacen.vacio
+
+
+class TestLaCadenaConFecha:
+    def _almacen(self, tmp_path):
+        # La raíz retirada en 2025; la intermedia no está, así que la cadena
+        # tiene que pasar por ella como certificado suelto del documento.
+        return montada(tmp_path, [
+            Serv(prestador="La que se fue", nombre="raiz", estado=RETIRADO,
+                 desde="2025-02-01T00:00:00Z", certificados=(raiz(),)),
+        ])
+
+    def test_una_factura_anterior_a_la_retirada_si_encadena(self, tmp_path):
+        almacen = self._almacen(tmp_path)
+        resultado = cadena.construir(
+            cadena.leer_certificado(hoja()), almacen,
+            [cadena.leer_certificado(intermedia())],
+            cuando=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        )
+        assert resultado.llega, resultado.motivo
+        assert resultado.ancla.sujeto == "Raiz de pruebas"
+
+    def test_una_posterior_no_y_se_dice_por_que(self, tmp_path):
+        almacen = self._almacen(tmp_path)
+        resultado = cadena.construir(
+            cadena.leer_certificado(hoja()), almacen,
+            [cadena.leer_certificado(intermedia())],
+            cuando=datetime(2025, 5, 1, tzinfo=timezone.utc),
+        )
+        assert not resultado.llega
+        assert resultado.caducada
+        assert "dejó de ser una autoridad cualificada" in resultado.motivo
+
+    def test_la_queja_no_es_la_de_no_reconocerla(self, tmp_path):
+        # Son cosas distintas y llevan a acciones distintas: una dice «te falta
+        # un certificado», la otra «lo tengo y ya no valía».
+        almacen = self._almacen(tmp_path)
+        salen = cadena.reglas(
+            [cadena.leer_certificado(hoja()), cadena.leer_certificado(intermedia())],
+            almacen, cuando=datetime(2025, 5, 1, tzinfo=timezone.utc),
+        )
+        codigos = [i.codigo for i in salen]
+        assert codigos == ["CADENA-RETIRADA"]
+        assert "ya no era cualificada cuando se firmó" in salen[0].mensaje
+
+    def test_la_nota_declara_que_el_ancla_esta_retirada(self, tmp_path):
+        # Aceptar una firma por una autoridad que ya no lo es —aunque sea por
+        # la fecha, y esté bien— es una decisión más discutible que la normal.
+        # Quien lea el informe tiene que poder verla, no deducirla.
+        almacen = self._almacen(tmp_path)
+        salen = cadena.reglas(
+            [cadena.leer_certificado(hoja()), cadena.leer_certificado(intermedia())],
+            almacen, cuando=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        )
+        notas = [i for i in salen if i.codigo == "CONFIANZA-ANCLA"]
+        assert len(notas) == 1
+        assert "dejó de ser cualificada el 2025-02-01" in notas[0].mensaje
+        assert "porque la factura es anterior" in notas[0].mensaje
+
+    def test_una_retirada_fuera_de_plazo_no_tapa_a_una_vigente(self, tmp_path):
+        # Con las dos instaladas y la firma fuera del plazo de la retirada, la
+        # cadena tiene que seguir llegando a la vigente. Si las que no valen se
+        # descartaran al final en vez de al principio, la mala taparía a la
+        # buena y el resultado sería un aviso en vez de una firma atribuida.
+        almacen = montada(tmp_path, [
+            Serv(nombre="vigente", certificados=(intermedia(),)),
+            Serv(nombre="retirada", estado=RETIRADO,
+                 desde="2025-02-01T00:00:00Z", certificados=(raiz(),)),
+        ])
+        resultado = cadena.construir(
+            cadena.leer_certificado(hoja()), almacen,
+            cuando=datetime(2025, 5, 1, tzinfo=timezone.utc),
+        )
+        assert resultado.llega
+        assert resultado.ancla.sujeto == "CA intermedia"
 
 
 # --- La consola ------------------------------------------------------------
