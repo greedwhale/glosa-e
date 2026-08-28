@@ -72,21 +72,41 @@ Nunca «GLOSA» en versales: las mayúsculas de alarma son lo contrario del tono
 
 ### La marca gráfica
 
-La nota en el margen. Un bloque de texto y, fuera de él, a su izquierda, una
-sola marca corta. Monocromo, sin relleno, legible a 16 px.
+La nota en el margen. Un bloque de texto y, fuera de él, a su izquierda, un
+punto. Monocromo y sin relleno: hereda el color de donde esté con
+`currentColor`, así que vale igual sobre claro y sobre oscuro.
 
 ```svg
 <svg viewBox="0 0 48 40" xmlns="http://www.w3.org/2000/svg"
      fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-  <path d="M2 20 h6"/>
-  <path d="M18 10 h28"/>
-  <path d="M18 20 h28"/>
-  <path d="M18 30 h18"/>
+  <circle cx="5" cy="20" r="3" fill="currentColor" stroke="none"/>
+  <path d="M20 10 h26"/>
+  <path d="M20 20 h26"/>
+  <path d="M20 30 h16"/>
 </svg>
 ```
 
 Lo que dice el dibujo: el documento es del que lo emite y no se toca. Lo
-nuestro es lo de fuera, al lado.
+nuestro es lo de fuera, al lado. Las líneas van desiguales a propósito —así se
+leen como texto y no como una lista.
+
+**A 16 px hay otra.** La primera versión de esta marca era una rayita en vez
+del punto y tres líneas siempre. Puesta a tamaño de favicon y mirada, la raya
+se pegaba al bloque y el conjunto se leía como el icono de menú de cualquier
+aplicación. Con el punto ya no pasa, y aun así de 16 px para abajo se usa una
+reducción de dos líneas:
+
+```svg
+<svg viewBox="0 0 48 40" xmlns="http://www.w3.org/2000/svg"
+     fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round">
+  <circle cx="4" cy="20" r="3.5" fill="currentColor" stroke="none"/>
+  <path d="M22 12 h24"/>
+  <path d="M22 28 h24"/>
+</svg>
+```
+
+De 24 px para arriba, la de tres líneas. Comprobado a 96, 32, 24 y 16, sobre
+blanco y sobre negro.
 
 ## El tono, que ya estaba escrito
 
