@@ -43,13 +43,14 @@ avisar.
 
 from __future__ import annotations
 
+import re as _re
 from dataclasses import dataclass
 
 from lxml import etree
 
 from validador.formato import EDIFACT as FAMILIA
 from validador.formato import parser as _parser
-from validador.incidencias import AVISO, ERROR, Incidencia
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
 # --- Los caracteres de servicio --------------------------------------------
 
@@ -107,27 +108,57 @@ class Segmento:
 # --- Partir la tira --------------------------------------------------------
 
 
+def cuantos_de_servicio(datos: str) -> int:
+    """Cuántos caracteres declara el UNA: seis, cinco, o cero si no hay UNA.
+
+    La norma dice seis y en orden fijo: componente, elemento, decimal, escape,
+    un hueco reservado, y terminador. Pero hay quien escribe cinco y se salta
+    el hueco —«UNA:+.?\'» pegado al UNB— y esa variante no es rara: de los 64
+    ficheros ajenos con los que se ha probado esto la usan 23, con 18 emisores
+    distintos en el UNB.
+
+    Leerla no es adivinar. Después del UNA solo puede venir el UNB, porque
+    ISO 9735 no admite ninguna otra cosa ahí. Así que se prueban las dos
+    longitudes y se queda la que deja un UNB detrás; si ninguna lo deja, se
+    respeta lo que manda la norma y que el resto de las comprobaciones digan
+    lo que pasa.
+
+    Sin esto, un UNA de cinco hacía leer la «U» del UNB como terminador de
+    segmento: el fichero se partía por cada U, no aparecía ningún UNH, y el
+    validador contestaba «el fichero no trae ningún mensaje» sobre un fichero
+    con veinticuatro facturas dentro.
+    """
+    limpio = datos.lstrip()
+    if not limpio.upper().startswith("UNA") or len(limpio) < 8:
+        return 0
+    for cuantos in (6, 5):
+        if limpio[3 + cuantos :].lstrip().upper().startswith("UNB"):
+            return cuantos
+    return 6
+
+
 def servicio_de(datos: str) -> tuple[Servicio, int]:
     """Lee el UNA si lo hay. Devuelve los caracteres y por dónde seguir.
 
     El UNA es la única parte de un fichero EDIFACT que se lee sin saber ya los
-    separadores, porque es la que los declara. Son seis caracteres pegados a
-    «UNA» y en orden fijo; el quinto está reservado y se ignora.
+    separadores, porque es la que los declara.
     """
     limpio = datos.lstrip()
     salto = len(datos) - len(limpio)
-    if not limpio.upper().startswith("UNA") or len(limpio) < 9:
+    cuantos = cuantos_de_servicio(datos)
+    if not cuantos:
         return POR_DEFECTO, 0
-    seis = limpio[3:9]
+    letras = limpio[3 : 3 + cuantos]
     return (
         Servicio(
-            componente=seis[0],
-            elemento=seis[1],
-            decimal=seis[2],
-            escape=seis[3],
-            terminador=seis[5],
+            componente=letras[0],
+            elemento=letras[1],
+            decimal=letras[2],
+            escape=letras[3],
+            # El último es siempre el terminador, lo lleve el hueco o no.
+            terminador=letras[-1],
         ),
-        salto + 9,
+        salto + 3 + cuantos,
     )
 
 
@@ -873,12 +904,76 @@ def descifrar(datos: bytes) -> str:
     return datos.decode("latin-1", errors="replace")
 
 
+# Una etiqueta de segmento son tres caracteres y el primero es una letra. No
+# hay ninguna que no lo sea. Si al partir la tira sale otra cosa, lo que ha
+# pasado casi siempre es que dentro de un dato había un carácter de servicio
+# que el emisor no soltó con «?», y el segmento se partió por la mitad.
+_ETIQUETA = _re.compile(r"^[A-Z][A-Z0-9]{2}$")
+
+
+def _quitar_las_imposibles(
+    segmentos: list[Segmento],
+) -> tuple[list[Segmento], list[Segmento]]:
+    """Aparta los trozos que no son un segmento.
+
+    Se apartan **antes** de agrupar, y esa es la parte que importa. Un trozo
+    con una etiqueta que no está en la tabla de grupos no se queda fuera del
+    grupo: lo cierra. Un apóstrofo suelto en medio del nombre de una empresa
+    cerraría la línea, y los importes de esa línea pasarían a contarse como
+    totales de la factura sin dar ningún error.
+
+    Apartarlos también deja cuadrar la cuenta del UNT, que es la que prueba
+    que apartarlos era lo correcto: el emisor declara cuántos segmentos lleva
+    el mensaje, y ese número es el de antes de romperse.
+    """
+    buenos = [s for s in segmentos if _ETIQUETA.match(s.etiqueta)]
+    return buenos, [s for s in segmentos if not _ETIQUETA.match(s.etiqueta)]
+
+
+def _queja_de_etiqueta(imposibles: list[Segmento], servicio: Servicio) -> Incidencia:
+    muestra = _y([f"«{s.etiqueta[:40]}»" for s in imposibles[:3]])
+    de_mas = len(imposibles) - 3
+    if de_mas > 0:
+        muestra += f" y {de_mas} más"
+    return Incidencia(
+        "EDI-ETIQUETA-IMPOSIBLE",
+        ERROR,
+        "Hay texto donde tenía que haber una etiqueta de segmento: "
+        f"{muestra}. Una etiqueta son tres caracteres, así que eso no lo es. "
+        f"Lo que suele haber detrás es un «{servicio.terminador}» dentro de "
+        f"un dato que se escribió sin el «{servicio.escape}» delante, y el "
+        "segmento se partió por ahí. El trozo se ha dejado fuera para no "
+        "arrastrar el error al resto, pero el dato que llevara está perdido.",
+        campo="Etiqueta de segmento",
+        esperado="tres caracteres",
+        encontrado=imposibles[0].etiqueta[:60],
+    )
+
+
 def leer(datos: bytes) -> tuple[list[Segmento], Servicio, list[Incidencia]]:
     """Parte un EDIFACT plano en segmentos y comprueba las cuentas del sobre."""
     texto = descifrar(datos)
     servicio, desde = servicio_de(texto)
     segmentos, suelto = partir(texto[desde:], servicio)
     incidencias: list[Incidencia] = []
+    if cuantos_de_servicio(texto) == 5:
+        incidencias.append(
+            Incidencia(
+                "EDI-UNA-DE-CINCO",
+                NOTA,
+                "El UNA declara cinco caracteres de servicio en vez de los "
+                "seis que manda ISO 9735: falta el hueco reservado. Se ha "
+                "leído el último como terminador de segmento, que es la "
+                "única lectura posible porque detrás del UNA solo puede "
+                "venir el UNB.",
+                campo="UNA",
+                esperado="seis caracteres",
+                encontrado=texto.lstrip()[3:8],
+            )
+        )
+    segmentos, imposibles = _quitar_las_imposibles(segmentos)
+    if imposibles:
+        incidencias.append(_queja_de_etiqueta(imposibles, servicio))
     if suelto:
         incidencias.append(
             Incidencia(

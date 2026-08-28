@@ -39,6 +39,23 @@ MUESTRAS = pathlib.Path("muestras")
 EJEMPLOS_CEF = sorted(MUESTRAS.glob("cef_EDIFACT_EXAMPLE*.xml"))
 PLANOS = sorted(MUESTRAS.glob("edi_*.edi"))
 HARRASSOWITZ = MUESTRAS / "edi_folio_harrassowitz_d96a.edi"
+APOSTROFO = MUESTRAS / "edi_harrassowitz_apostrofo_d96a.edi"
+UNA_PROPIO = MUESTRAS / "edi_wshein_una_propio_d96a.edi"
+UNA_DE_CINCO = MUESTRAS / "edi_una_de_cinco_d96a.edi"
+
+# Lo que trae mal cada fichero ajeno, escrito aquí para que se vea que se
+# sabe. Los tres defectos los pusieron sus emisores; ninguno es de este código.
+DEFECTOS_DE_ORIGEN = {
+    # Declara dos grupos funcionales en el UNZ y trae uno.
+    "edi_ballerina_ung_d96a.edi": {"EDI-SOBRE-DESCONTADO"},
+    # Un apóstrofo sin soltar dentro del título de una revista checa parte un
+    # segmento en dos. Se lo metieron al preparar el fichero de prueba, no el
+    # emisor; pero el UNT sigue siendo el del emisor y por eso lo detecta.
+    "edi_harrassowitz_apostrofo_d96a.edi": {"EDI-ETIQUETA-IMPOSIBLE"},
+    # El UNZ no repite la referencia del UNB: dice 000000751 donde el UNB
+    # decía 000000767.
+    "edi_wshein_una_propio_d96a.edi": {"EDI-SOBRE-DESCUADRADO"},
+}
 
 
 def codigos(incidencias, gravedad=None) -> set[str]:
@@ -619,18 +636,17 @@ class TestContraFacturasPlanasDeVerdad:
             assert raiz.xpath("./S_BGM"), ruta.name
 
     def test_las_cuentas_que_traen_dentro_cuadran(self):
-        """Menos una, que viene mal de origen y se dice cuál.
+        """Menos tres, que vienen mal de origen y se dice cuál y por qué.
 
-        `edi_ballerina_ung_d96a.edi` declara dos grupos en el UNZ y trae uno.
-        Es un fichero de demostración y está mal; que salte es lo correcto.
+        Ninguno de los tres defectos es de aquí: son ficheros de otros, y lo
+        que se comprueba es que se detecte exactamente el que traen y ninguno
+        más. Un fichero de un tercero que salta por donde no es sería peor
+        que uno que no salta.
         """
         for ruta in PLANOS:
             incidencias = edifact.leer(ruta.read_bytes())[2]
             salen = codigos(incidencias, ERROR)
-            if ruta.name == "edi_ballerina_ung_d96a.edi":
-                assert salen == {"EDI-SOBRE-DESCONTADO"}
-            else:
-                assert not salen, f"{ruta.name}: {salen}"
+            assert salen == DEFECTOS_DE_ORIGEN.get(ruta.name, set()), ruta.name
 
 
 @pytest.mark.skipif(
@@ -701,3 +717,191 @@ class TestLoQueElResumenPromete:
         frase = lote.alcance(forma=True)
         assert "esquema XSD" in frase
         assert "cuentas que EDIFACT obliga" in frase
+
+
+class TestElUnaDeCinco:
+    """Un UNA de cinco caracteres en vez de seis.
+
+    La norma manda seis: componente, elemento, decimal, escape, un hueco
+    reservado y terminador. Hay quien se salta el hueco. De los 64 ficheros
+    ajenos con los que se ha probado esto lo hacen 23, con 18 emisores
+    distintos en el UNB, asi que no es la mania de uno.
+
+    Leerlo no es adivinar: detrás del UNA solo puede venir el UNB, y eso
+    decide cuál de las dos longitudes es.
+    """
+
+    CINCO = (
+        b"UNA:+.?'UNB+UNOC:3+A+B+260819:1200+1'"
+        b"UNH+1+INVOIC:D:96A:UN'BGM+380+F1'LIN+1'MOA+203:100'"
+        b"UNS+S'MOA+79:100'UNT+7+1'UNZ+1+1'"
+    )
+    SEIS = CINCO.replace(b"UNA:+.?'UNB", b"UNA:+.? 'UNB", 1)
+
+    def test_se_lee_igual_que_el_de_seis(self):
+        cinco = edifact.leer(self.CINCO)
+        seis = edifact.leer(self.SEIS)
+        assert cinco[1].terminador == seis[1].terminador == "'"
+        assert len(cinco[0]) == len(seis[0])
+        assert not codigos(cinco[2], ERROR)
+
+    def test_se_dice_que_venia_de_cinco(self):
+        """Se acepta, y se deja escrito sobre qué base se ha aceptado."""
+        incidencias = edifact.leer(self.CINCO)[2]
+        assert "EDI-UNA-DE-CINCO" in codigos(incidencias)
+        assert not codigos(edifact.leer(self.SEIS)[2])
+
+    def test_sin_esto_no_aparece_ningun_mensaje(self):
+        """El control: leyendo seis a la fuerza, el terminador sale «U».
+
+        Y entonces el fichero se parte por cada U, no hay ningún UNH, y la
+        respuesta es «este fichero no trae ningún mensaje» sobre una factura
+        que está entera.
+        """
+        limpio = self.CINCO.decode()
+        servicio = edifact.Servicio(terminador=limpio[8])
+        segmentos, _ = edifact.partir(limpio[9:], servicio)
+        assert servicio.terminador == "U"
+        assert not [s for s in segmentos if s.etiqueta == "UNH"]
+
+    def test_un_una_sin_unb_detras_se_lee_como_manda_la_norma(self):
+        """Si no hay UNB, no hay nada que decida: se cree lo que dice la norma."""
+        servicio, desde = edifact.servicio_de("UNA=*,! #")
+        assert servicio.terminador == "#"
+        assert desde == 9
+
+
+class TestLasEtiquetasImposibles:
+    """Un carácter de servicio dentro de un dato, sin soltar con «?».
+
+    Sale en tres de los 64 ficheros ajenos: un título de revista en checo y
+    dos nombres de empresa con apóstrofo —«…ER\'S HANDELSGESELLSCHAFT»—. En
+    los dos que se han podido rastrear, el apóstrofo no lo dejó suelto quien
+    emitió la factura: lo dejó suelto quien la manipuló después, al recortar
+    un fichero de prueba o al anonimizarlo. Da igual de quién sea: ficheros
+    así circulan, y lo que hacía este código con ellos era levantar un
+    `ValueError` de `lxml` y llevarse el lote entero por delante.
+    """
+
+    ROTO = (
+        b"UNB+UNOC:2+A+B+260819:1200+1'"
+        b"UNH+1+INVOIC:D:96A:UN'BGM+380+F1'"
+        b"LIN+1'IMD+L+050+:::Cesky Casopis'a Historicky'MOA+203:100'"
+        b"UNS+S'MOA+79:100'UNT+8+1'UNZ+1+1'"
+    )
+    ENTERO = ROTO.replace(b"Casopis'a", b"Casopis?'a", 1)
+
+    # El UNT dice 8, que son los que el emisor quiso escribir. Con el
+    # apostrofo suelto salen 9, y apartando el trozo roto vuelven a salir 8:
+    # es la misma cuenta que confirma la reparacion en el fichero de verdad.
+
+    def test_se_dice_y_no_revienta(self):
+        raiz, incidencias = edifact.convertir(self.ROTO)
+        assert raiz is not None
+        # Y solo esa. Apartando el trozo roto, los segmentos vuelven a ser los
+        # 8 que declara el UNT, asi que el descuadre no se queja por duplicado
+        # de la misma cosa.
+        assert codigos(incidencias, ERROR) == {"EDI-ETIQUETA-IMPOSIBLE"}
+
+    def test_el_trozo_roto_no_cierra_la_linea(self):
+        """Lo que de verdad hacía falta arreglar.
+
+        Un trozo con una etiqueta que no está en la tabla de grupos no se
+        queda fuera del grupo: **lo cierra**. Sin apartarlo, el `MOA+203` de
+        detrás dejaba de ser el importe de la línea y pasaba a contarse como
+        total de la factura, sin dar ningún error.
+        """
+        raiz, _ = edifact.convertir(self.ROTO)
+        mapa = sintaxis.SINTAXIS_EDIFACT
+        lineas = raiz.xpath(mapa.lineas)
+        assert len(lineas) == 1
+        assert sintaxis.importe(lineas[0], mapa.linea_importe, mapa) == Decimal("100")
+
+    def test_con_el_escape_puesto_no_hay_queja(self):
+        """El control. El mismo fichero con «?'» y no salta nada."""
+        raiz, incidencias = edifact.convertir(self.ENTERO)
+        assert not codigos(incidencias, ERROR)
+        assert raiz.xpath(".//*[S_LIN]//S_IMD//text()")
+
+
+@pytest.mark.skipif(not APOSTROFO.exists(), reason="no está la muestra")
+class TestLaOtraDeHarrassowitz:
+    """La misma factura que la de 138 segmentos, retocada por el camino.
+
+    Es el mismo documento —Otto Harrassowitz, número 246816, 8 de febrero de
+    2021— publicado en otro repositorio como fichero de prueba: le han
+    quitado la dirección del comprador y, sin querer o queriendo, le han
+    metido un apóstrofo en el título de una revista checa que parte el
+    segmento en dos.
+
+    Lo que la hace valiosa es que **no le tocaron el UNT**. Sigue declarando
+    138 segmentos, así que la cuenta del emisor sirve para detectar un
+    destrozo posterior al emisor. La misma comprobación caza las dos cosas —el
+    escape bien puesto en el original y el trozo roto en la copia— porque el
+    138 no lo ha escrito este código.
+    """
+
+    def test_el_apostrofo_suelto_se_dice(self):
+        incidencias = edifact.leer(APOSTROFO.read_bytes())[2]
+        assert codigos(incidencias, ERROR) == {"EDI-ETIQUETA-IMPOSIBLE"}
+
+    def test_apartando_el_trozo_roto_vuelven_a_salir_los_138(self):
+        """La prueba de que apartarlo era lo correcto, y no una comodidad."""
+        segmentos = edifact.leer(APOSTROFO.read_bytes())[0]
+        inicio, fin = edifact._mensajes(segmentos)[0]
+        assert segmentos[fin].dato(1) == "138"
+        assert fin - inicio + 1 == 138
+
+    def test_sin_apartarlo_sale_uno_de_mas(self):
+        """El control: con el trozo dentro salen 139 y la línea se parte."""
+        texto = edifact.descifrar(APOSTROFO.read_bytes())
+        servicio, desde = edifact.servicio_de(texto)
+        segmentos, _ = edifact.partir(texto[desde:], servicio)
+        inicio, fin = edifact._mensajes(segmentos)[0]
+        assert fin - inicio + 1 == 139
+
+    def test_se_le_leen_las_ocho_lineas_igual(self):
+        raiz, _ = edifact.convertir(APOSTROFO.read_bytes())
+        mapa = sintaxis.SINTAXIS_EDIFACT
+        assert sintaxis.texto(raiz, mapa.vendedor_nombre, mapa) == "OTTO HARRASSOWITZ"
+        assert len(raiz.xpath(mapa.lineas)) == 8
+
+
+@pytest.mark.skipif(not UNA_PROPIO.exists(), reason="no está la muestra")
+class TestElUnaConCaracteresPropios:
+    """El único de los 64 que no usa los separadores de siempre.
+
+    W.S. Hein factura a Cornell con `UNA^<.? >`: el componente es `^`, el
+    elemento `<` y el terminador `>`. Para eso existe el UNA, y hasta este
+    fichero no había ninguno que lo demostrara: todos los demás declaran los
+    de por defecto, así que un lector que se los saltara habría pasado igual.
+    """
+
+    def test_se_leen_los_que_declara_y_no_los_de_siempre(self):
+        servicio = edifact.leer(UNA_PROPIO.read_bytes())[1]
+        assert servicio.componente == "^"
+        assert servicio.elemento == "<"
+        assert servicio.terminador == ">"
+
+    def test_se_le_leen_los_datos(self):
+        raiz, _ = edifact.convertir(UNA_PROPIO.read_bytes())
+        mapa = sintaxis.SINTAXIS_EDIFACT
+        assert len(raiz.xpath(mapa.lineas)) == 4
+        assert sintaxis.texto(raiz, mapa.numero, mapa)
+
+    def test_el_unz_no_repite_la_referencia_del_unb(self):
+        """Un defecto de verdad del fichero, no de la lectura."""
+        incidencias = edifact.leer(UNA_PROPIO.read_bytes())[2]
+        assert codigos(incidencias, ERROR) == {"EDI-SOBRE-DESCUADRADO"}
+
+
+@pytest.mark.skipif(not UNA_DE_CINCO.exists(), reason="no está la muestra")
+class TestUnFicheroDeVerdadConUnaDeCinco:
+    """Y lo mismo, en uno que no ha escrito nadie de aquí."""
+
+    def test_se_lee_entero(self):
+        raiz, incidencias = edifact.convertir(UNA_DE_CINCO.read_bytes())
+        mapa = sintaxis.SINTAXIS_EDIFACT
+        assert not codigos(incidencias, ERROR)
+        assert "EDI-UNA-DE-CINCO" in codigos(incidencias)
+        assert len(raiz.xpath(mapa.lineas)) == 9

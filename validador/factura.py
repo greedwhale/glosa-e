@@ -234,15 +234,50 @@ def validar_archivo(
     """Igual que `validar`, leyendo de un fichero."""
     camino = Path(ruta)
     try:
+        datos = camino.read_bytes()
+    except OSError as error:
+        return Informe(deteccion=_no_se_puede_leer(camino, error))
+    try:
         return validar(
-            camino.read_bytes(),
+            datos,
             hoy=hoy,
             catalogo=catalogo,
             almacen=almacen,
             listas=listas,
         )
-    except OSError as error:
-        return Informe(deteccion=_no_se_puede_leer(camino, error))
+    except Exception as error:  # noqa: BLE001 - ver `_se_atraganta`
+        return _se_atraganta(camino, error)
+
+
+def _se_atraganta(camino: Path, error: Exception) -> Informe:
+    """El informe de un fichero que ha hecho fallar al validador mismo.
+
+    Esto no es una queja sobre la factura: es una queja sobre este programa.
+    Un fichero de otro puede venir de cualquier manera, y ninguna de ellas
+    justifica que el validador se caiga; pero mientras se cae, lo grave no es
+    la caída sino lo que se lleva por delante. Antes de esto, apuntar a una
+    carpeta de quinientas facturas y que la séptima estuviera mal terminaba en
+    una traza de Python y **ninguna** de las otras cuatrocientas noventa y
+    nueve revisada. Quien lo lanzara desde un script veía un código de salida
+    distinto de cero, que es lo mismo que ve cuando hay facturas con errores.
+
+    Así que se cuenta como un error del fichero —para que el lote no dé por
+    bueno lo que no ha mirado— y se dice de quién es la culpa.
+    """
+    informe = Informe(deteccion=Deteccion(motivo=f"No se ha podido validar {camino}."))
+    informe.incidencias.append(
+        Incidencia(
+            "VALIDADOR-SE-ATRAGANTA",
+            ERROR,
+            f"Este fichero ha hecho fallar al validador: {type(error).__name__}: "
+            f"{error}. El fallo es del validador, no necesariamente de la "
+            "factura, y hay que arreglarlo aquí. Los demás ficheros del lote "
+            "sí se han revisado.",
+            campo="Fichero",
+            encontrado=camino.name,
+        )
+    )
+    return informe
 
 
 def _no_se_puede_leer(camino: Path, error: OSError) -> Deteccion:
@@ -513,15 +548,19 @@ def validar_lote(
             )
             continue
 
-        deteccion = detectar(datos)
-        raiz, sintacticas = _arbol(datos, deteccion)
-        informe = Informe(deteccion=deteccion)
-        if deteccion:
-            informe.incidencias.extend(
-                _reglas(
-                    raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
+        try:
+            deteccion = detectar(datos)
+            raiz, sintacticas = _arbol(datos, deteccion)
+            informe = Informe(deteccion=deteccion)
+            if deteccion:
+                informe.incidencias.extend(
+                    _reglas(
+                        raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
+                    )
                 )
-            )
+        except Exception as error:  # noqa: BLE001 - ver `_se_atraganta`
+            lote.informes.append((camino, _se_atraganta(camino, error)))
+            continue
         lote.informes.append((camino, informe))
 
         # Al montón del lote solo van las facturas sujetas al reglamento

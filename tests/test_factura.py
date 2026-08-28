@@ -719,3 +719,55 @@ class TestConsola:
         """Si se descartara en silencio, el usuario no sabría que se equivocó."""
         fantasma = tmp_path / "no-esta.xml"
         assert consola.expandir([str(fantasma)]) == [fantasma]
+
+
+class TestUnFicheroNoSeLlevaElLote:
+    """Que el validador falle con un fichero no puede tapar a los demás.
+
+    Salió con una factura de verdad: un apóstrofo sin soltar dentro del
+    título de una revista hacía que el nombre del segmento no fuera un nombre
+    válido de etiqueta XML, y `lxml` levantaba un `ValueError`. Aquello no
+    salía por el informe: salía por la consola, como una traza de Python, y
+    se llevaba por delante todos los ficheros del lote que vinieran detrás.
+
+    Ese fallo concreto está arreglado, pero el que se lleve el lote por
+    delante es lo que había que arreglar aparte: los ficheros son de otros y
+    siempre habrá uno que traiga algo que aquí no se haya previsto.
+    """
+
+    def _carpeta(self, tmp_path):
+        buena = tmp_path / "buena.edi"
+        buena.write_bytes(
+            b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+INVOIC:D:96A:UN'BGM+380+F1'"
+            b"UNT+3+1'UNZ+1+1'"
+        )
+        mala = tmp_path / "mala.edi"
+        mala.write_bytes(b"UNB+UNOC:3+A+B+260819:1200+2'UNH+2+INVOIC:D:96A:UN'")
+        return mala, buena
+
+    def test_las_demas_se_revisan_igual(self, tmp_path, monkeypatch):
+        mala, buena = self._carpeta(tmp_path)
+        de_verdad = factura._arbol
+
+        def revienta(datos, deteccion):
+            if b"+2'" in datos:
+                raise RuntimeError("algo que no se habia previsto")
+            return de_verdad(datos, deteccion)
+
+        monkeypatch.setattr(factura, "_arbol", revienta)
+        lote = factura.validar_lote([mala, buena])
+        assert len(lote.informes) == 2
+        codigos = {
+            i.codigo for _, informe in lote.informes for i in informe.incidencias
+        }
+        assert "VALIDADOR-SE-ATRAGANTA" in codigos
+
+    def test_se_cuenta_como_error_y_no_como_correcto(self, tmp_path, monkeypatch):
+        """Si no, un lote daría por bueno un fichero que no ha mirado."""
+        mala, _ = self._carpeta(tmp_path)
+        monkeypatch.setattr(
+            factura, "_arbol", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x"))
+        )
+        informe = factura.validar_archivo(mala)
+        assert [i.codigo for i in informe.incidencias] == ["VALIDADOR-SE-ATRAGANTA"]
+        assert any(i.gravedad == ERROR for i in informe.incidencias)
