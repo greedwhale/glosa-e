@@ -2530,9 +2530,20 @@ Escrito web/paquete.zip (0.94 MB)
   montadas el 2026-08-27, la lista se renueva el 2027-02-02
 ```
 
-Ni el paquete ni las carpetas de las que sale se versionan, y no por su tamaño:
-**quien controle ese fichero controla en quién cree el validador.** Se arma
-desde las carpetas que uno ha montado y comprobado.
+Las carpetas de las que sale no se versionan; el zip sí, desde que la página se
+publica. Estuvo fuera mientras se servía en local, donde cada uno armaba el
+suyo. Al publicarla dejó de tener sentido: el sitio se construye desde este
+repositorio, y sin el zip comprobaría el contenido y nada más.
+
+La razón de no versionar anclas —**quien controle ese fichero controla en quién
+cree el validador**— no se va por dejarlo fuera del repositorio: publicar la
+página las reparte igual, a más gente y sin que nadie las mire. Lo que hace
+falta es poder contrastarlas, y para eso está el SHA-256 de arriba, que va en
+`PAQUETE.json` dentro del zip y fuera, y sale en la página.
+
+Hay que rehacerlo cada vez que se renueve la lista de confianza, unos seis
+meses. Si se olvida, lo dice el propio validador: `ANCLAS-SIN-RENOVAR` sale en
+cada informe y en el recuadro de la página.
 
 ### Dos cosas que el paquete se niega a hacer
 

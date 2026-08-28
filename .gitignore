@@ -37,12 +37,23 @@ revocaciones/
 # sino la carpeta que sale de el y su PROCEDENCIA.txt.
 listas/
 
-# El paquete que se lleva la pagina: los esquemas y las anclas en un zip. Sale
-# de esquemas/ y anclas/, que tampoco se versionan, y por la misma razon: quien
-# controle ese fichero controla en quien cree el validador. Se arma con
-# `python -m validador --empaquetar` desde las carpetas que uno ha montado.
-web/paquete.zip
-web/PAQUETE.json
+# El paquete que se lleva la pagina SI se versiona, y es la unica excepcion a
+# la regla de arriba. Estuvo fuera mientras la pagina se servia en local: alli
+# cada uno armaba el suyo desde sus carpetas. Al publicarla dejo de tener
+# sentido, porque el sitio se construye desde este repositorio y sin el zip
+# comprobaria el contenido y nada mas.
+#
+# La regla no se rompe: el motivo de no versionar anclas es que quien controle
+# ese fichero controla en quien cree el validador, y publicar la pagina ya las
+# reparte igual. Lo que hay que poder hacer es contrastarlas, y para eso va el
+# SHA-256 en PAQUETE.json, dentro del zip y fuera, y a la vista en la pagina.
+#
+# Lo que si sigue fuera son las carpetas de las que sale —esquemas/, anclas/ y
+# anclas-*/—: el zip es lo que se reparte, no la materia prima.
+#
+# Hay que rehacerlo cada vez que se renueve la lista de confianza, ~6 meses.
+# Si se olvida, el propio validador lo dice: ANCLAS-SIN-RENOVAR sale en cada
+# informe y en el recuadro de la pagina.
 
 # Lo que se sube a la web. Se monta desde aqui con `python -m validador
 # --sitio`, asi que versionarlo seria guardar una copia de lo que ya hay,

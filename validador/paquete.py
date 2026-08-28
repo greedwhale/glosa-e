@@ -13,12 +13,19 @@ Este módulo arma el fichero que viaja. Es un ZIP con las tres carpetas dentro
 lleva y de cuándo es. El navegador lo baja de una vez y lo descomprime en su
 disco virtual; sin esto habría que pedir doscientos ficheros sueltos.
 
-**Lo que no hace, a propósito.** No se mete en el repositorio. Ni el paquete ni
-las carpetas de las que sale: las anclas no se versionan porque quien controle
-ese fichero controla en quién cree el validador, y eso no puede depender de que
-nadie haya tocado un `.zip` en un repositorio. El paquete se arma con
+**De dónde sale y qué se versiona.** El paquete se arma con
 `python -m validador --empaquetar`, desde las carpetas que uno mismo ha montado
-y comprobado.
+y comprobado, y esas carpetas —`esquemas/`, `anclas/`, `anclas-sellos/`— no se
+versionan: son la materia prima, no lo que se reparte.
+
+El zip sí, desde que la página se publica. Estuvo fuera mientras se servía en
+local, donde cada uno armaba el suyo; al publicarla dejó de tener sentido,
+porque el sitio se construye desde el repositorio y sin el zip comprobaría el
+contenido y nada más. Y la razón de no versionar anclas —que quien controle ese
+fichero controla en quién cree el validador— no desaparece por dejarlo fuera:
+publicar la página las reparte igual. Lo que hace falta es poder contrastarlas,
+y para eso va el SHA-256 en `PAQUETE.json`, dentro del zip y fuera, y a la vista
+en la página.
 
 **Y dos negativas que valen más que el resto del módulo.** No se empaquetan
 anclas sin manifiesto, y no se empaquetan anclas cuya lista debía haberse
