@@ -646,6 +646,10 @@ class Hallado:
     sello: Sello | None = None
     motivo: str = ""  # por qué no se ha podido leer, si no hay sello
     c14n: str | None = None  # el algoritmo que el sello declara para su entrada
+    # El sello viene en una forma que existe y que no sabemos leer, en vez de
+    # venir roto. Son dos noticias distintas: una se arregla volviendo a
+    # sellar, la otra no se arregla, se implementa.
+    otro_formato: bool = False
 
     @property
     def sobre_la_firma(self) -> bool:
@@ -666,6 +670,18 @@ def sellos_de(firma) -> list[Hallado]:
         for nodo in firma.xpath(f".//*[local-name()='{clase}']"):
             metodo = _hijo(nodo, "CanonicalizationMethod")
             c14n = metodo.get("Algorithm") if metodo is not None else None
+            # XAdES admite el sello en dos formas: el token de RFC 3161 en
+            # base64 —`EncapsulatedTimeStamp`, que es la que se usa— y el
+            # mismo sello escrito como XML. Aquí solo se lee la primera; la
+            # segunda **se dice**, porque callarla hacía que un documento
+            # sellado saliera como si no lo estuviera.
+            if not nodo.xpath(".//*[local-name()='EncapsulatedTimeStamp']"):
+                if nodo.xpath(".//*[local-name()='XMLTimeStamp']"):
+                    salida.append(Hallado(
+                        clase, c14n=c14n, otro_formato=True,
+                        motivo="viene escrito como XML y no como un token de "
+                               "RFC 3161, que es la forma que sabemos leer"))
+                continue
             for texto in nodo.xpath(
                 ".//*[local-name()='EncapsulatedTimeStamp']/text()"
             ):
@@ -753,22 +769,45 @@ def _cuando(momento: datetime) -> str:
     return momento.strftime("%Y-%m-%d a las %H:%M:%S UTC")
 
 
-def _sin_sello(firma, donde: str) -> list[Incidencia]:
-    """Que la fecha la ponga el firmante es una decisión, no un silencio."""
+def _sin_sello(firma, donde: str, llevaba: bool = False) -> list[Incidencia]:
+    """Que la fecha la ponga el firmante es una decisión, no un silencio.
+
+    `llevaba` distingue los dos casos, que acaban en la misma fecha y no en la
+    misma noticia: un documento sin sello necesita que alguien lo selle; uno
+    con un sello que no sirve ya lo tiene puesto, y decirle que no lo lleva
+    manda a pedir dos veces lo mismo. El fallo salió con un fichero real que
+    traía el sello escrito en XML.
+    """
     declarada = momento_de_firma(firma)
     if declarada is not None:
         cual = f"la que declara quien firma, el {declarada.date().isoformat()}"
     else:
         cual = "ninguna, porque el documento tampoco dice cuándo se firmó"
+    aviso = (
+        "quien firma puede escribir la que quiera, y fechando hacia atrás se "
+        "esquivan la caducidad y la revocación a la vez."
+    )
+    if llevaba:
+        return [
+            Incidencia(
+                "SELLO-SIN-USAR",
+                NOTA,
+                "La firma lleva sello de tiempo, pero ninguno se ha podido "
+                "usar —arriba está el motivo de cada uno—. Así que la fecha "
+                "que se ha usado para comprobar la vigencia del certificado y "
+                f"la revocación es {cual}: {aviso}",
+                campo=f"{donde}Sello de tiempo",
+                esperado="un sello de tiempo que se sostenga y sea de esta firma",
+                encontrado="lleva sello, pero no sirve",
+            )
+        ]
     return [
         Incidencia(
             "SELLO-FALTA",
             NOTA,
             "La firma no lleva sello de tiempo de un tercero. La fecha que se "
             "ha usado para comprobar la vigencia del certificado y la "
-            f"revocación es {cual}: quien firma puede escribir la que quiera, "
-            "y fechando hacia atrás se esquivan las dos comprobaciones a la "
-            "vez.",
+            f"revocación es {cual}: {aviso}",
             campo=f"{donde}Sello de tiempo",
             esperado="un sello de tiempo de una autoridad de sellado",
             encontrado="(no lleva)",
@@ -944,6 +983,22 @@ def reglas(firma, cert: Certificado | None = None, donde: str = "") -> list[Inci
     incidencias: list[Incidencia] = []
     alguno_bueno = False
     for hallado in hallados:
+        if hallado.otro_formato:
+            incidencias.append(
+                Incidencia(
+                    "SELLO-OTRO-FORMATO",
+                    AVISO,
+                    f"La firma lleva un sello de tiempo {CLASES[hallado.clase]} "
+                    f"que {hallado.motivo}. El documento está sellado y el "
+                    "sello puede ser perfectamente bueno; lo que pasa es que "
+                    "este validador no sabe leer esa forma, así que su fecha "
+                    "no se ha usado.",
+                    campo=f"{donde}Sello de tiempo",
+                    esperado="el sello como token de RFC 3161 en base64",
+                    encontrado="un sello escrito en XML",
+                )
+            )
+            continue
         if hallado.sello is None:
             incidencias.append(
                 Incidencia(
@@ -1017,13 +1072,14 @@ def reglas(firma, cert: Certificado | None = None, donde: str = "") -> list[Inci
         incidencias.extend(_contradice(sello, firma, donde))
         incidencias.append(_correcto(sello, donde))
 
-    # Traer un sello roto no es lo mismo que no traer ninguno, pero acaba en el
-    # mismo sitio: la fecha vuelve a ser la que declara quien firma, y eso hay
-    # que decirlo. Cuando hay sellos de otra clase ya se ha dicho por ellos.
+    # Traer un sello que no sirve no es lo mismo que no traer ninguno, aunque
+    # acabe en la misma fecha: hay que decir con cuál se ha trabajado, y hay
+    # que decirlo sin negar un sello que está puesto. Cuando hay sellos de otra
+    # clase ya se ha dicho por ellos.
     if not alguno_bueno and not any(
         i.codigo == "SELLO-NO-COMPROBADO" for i in incidencias
     ):
-        incidencias.extend(_sin_sello(firma, donde))
+        incidencias.extend(_sin_sello(firma, donde, llevaba=bool(hallados)))
     return incidencias
 
 

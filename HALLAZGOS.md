@@ -1446,3 +1446,83 @@ un repositorio cuya regla es que las anclas no se versionan **nunca**. El patró
 lleva comodín desde antes de que eso pudiera pasar.
 
 860 tests, 28 de 28 en el navegador (19 críticas).
+
+
+# Contra sellos de verdad: dos defectos y una confirmación
+
+## Qué se pudo conseguir
+
+Facturae con sello **no hay publicadas**. Una factura sellada lleva datos
+reales de una empresa real, así que nadie las sube; en el índice de código de
+GitHub no aparece ninguna. Así que se hicieron dos cosas distintas.
+
+**Sellos españoles reales, aunque no de facturas.** El repositorio del cliente
+de firma oficial del Estado, `clienteafirma`, trae documentos XAdES-XL y
+XAdES-A firmados de verdad, sellados por «Sello de tiempo TS@ - @firma» entre
+2015 y 2019. Son 18 tokens; los 18 se leen y los 18 verifican.
+
+**Una factura española real con un sello cualificado real.** A las facturas
+firmadas oficiales de `facturae.gob.es` se les pidió un sello a la TSA pública
+de la ACCV, que está en la lista de confianza del Estado. Camino entero
+recorrido sobre una factura del Gobierno de 2007: sello leído, sello
+verificado, autoridad contrastada contra las anclas montadas de la TSL.
+
+De la factura no sale nada del ordenador: a una TSA se le mandan 59 bytes con
+el resumen del valor de la firma.
+
+## Defecto 1: un sello que no se sabe leer no es un sello que no está
+
+XAdES admite el token de dos formas: en base64 —`EncapsulatedTimeStamp`— y el
+mismo sello escrito como XML. Aquí solo se lee la primera, que es lo razonable.
+Lo que no era razonable es que la segunda se ignorara **en silencio**.
+
+Sobre `XAdES-XL_con_sello_xml.xml`, que lleva tres sellos del Estado dentro, el
+informe decía: «La firma no lleva sello de tiempo de un tercero». Es falso, y
+es falso en la dirección mala: da a entender que la fecha no la respalda nadie
+cuando sí la respalda alguien, solo que no sabemos leerlo.
+
+## Defecto 2: el que colgaba del primero, y es peor
+
+Al arreglarlo se vio que la frase no era exclusiva del caso XML: salía con
+**cualquier** sello inservible —roto, ilegible, o copiado de otro documento—.
+Una prueba escrita antes lo daba por bueno explícitamente.
+
+Los dos casos acaban en la misma fecha y no en la misma noticia. A un documento
+sin sello hay que ponerle uno; a uno que ya lo lleva, decirle que no lo lleva
+manda a poner dos veces lo mismo y a no mirar el sello que falla. Ahora son
+`SELLO-FALTA` y `SELLO-SIN-USAR`, con una prueba de cada una que exige que la
+otra no aparezca.
+
+## La confirmación: por qué las anclas van en dos carpetas
+
+Esto ya estaba decidido y argumentado, y el argumento era abstracto: «once
+autoridades de certificación pasarían a avalar firmas». El fichero real da el
+caso concreto y al revés.
+
+El sello de @firma lo firma un certificado que emite «DEFENSA-EC-WPG2016». Esa
+autoridad **está entre las anclas de firma y no entre las de sellado**: el
+Estado la publica como autoridad de certificación, no como autoridad de
+sellado.
+
+  · Separadas: «no consta que sea una autoridad de sellado cualificada». Cierto.
+  · Juntas:    encadena, y el validador afirma que lo es. Falso.
+
+Se comprobó copiando las dos carpetas en una y volviendo a preguntar. Hay una
+prueba que lo fija en las dos direcciones —que no encadene separadas, y que sí
+encadenaría juntas—, porque un test que solo comprueba la mitad buena no
+distingue una defensa que funciona de una que no está.
+
+## Lo que no se encontró
+
+Ningún fallo de lectura: 18 de 18 tokens reales leídos, 18 de 18 verificados,
+ninguna excepción. La reetiquetación a `SET OF`, el resumen sacado del
+`digestAlgorithm` y el SHA-256 por defecto del `ESSCertIDv2` —las tres trampas
+que salieron de `openssl`— se comportan igual contra tokens de @firma y de la
+ACCV, que no comparten nada con este código.
+
+Tampoco cambió nada que no debiera: comparando cada factura antes y después de
+sellarla, lo único que se mueve son los cuatro códigos del sello. La firma
+original sigue verificando byte a byte, que es lo que tiene que pasar cuando el
+sello va donde XAdES lo pone.
+
+865 tests, 28 de 28 en el navegador (19 críticas).

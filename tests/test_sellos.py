@@ -146,7 +146,7 @@ def valor_firmado(datos: bytes) -> bytes:
 
 
 def con_sello(datos: bytes = None, der: bytes = None, clase: str = "SignatureTimeStamp",
-              c14n: str | None = None) -> bytes:
+              c14n: str | None = None, en_xml: bool = False) -> bytes:
     """Añade un sello de tiempo a un Facturae ya firmado.
 
     El sello va en `UnsignedSignatureProperties`, que es donde XAdES lo pone y
@@ -167,9 +167,15 @@ def con_sello(datos: bytes = None, der: bytes = None, clase: str = "SignatureTim
     nodo = etree.SubElement(de_la_firma, xa(clase))
     if c14n is not None:
         etree.SubElement(nodo, ds("CanonicalizationMethod")).set("Algorithm", c14n)
-    etree.SubElement(nodo, xa("EncapsulatedTimeStamp")).text = base64.b64encode(
-        der
-    ).decode()
+    if en_xml:
+        # La otra forma que admite XAdES: el sello escrito como XML en vez de
+        # como token en base64. Aquí basta con que el elemento esté, porque lo
+        # que se comprueba es que **no se pase por alto**.
+        etree.SubElement(etree.SubElement(nodo, xa("XMLTimeStamp")), "Timestamp")
+    else:
+        etree.SubElement(nodo, xa("EncapsulatedTimeStamp")).text = (
+            base64.b64encode(der).decode()
+        )
     return etree.tostring(raiz, xml_declaration=True, encoding="UTF-8")
 
 
@@ -420,8 +426,12 @@ class TestEnUnaFactura:
         """El caso que `cubre` existe para cazar."""
         incidencias = quejas(con_sello(datos=documento(total="999.00")))
         assert "SELLO-NO-CUBRE" in codigos(incidencias, ERROR)
-        # Y la fecha vuelve a ser la del firmante, dicho explícitamente.
-        assert "SELLO-FALTA" in codigos(incidencias, NOTA)
+        # Y la fecha vuelve a ser la del firmante, dicho explícitamente. Pero
+        # sin negar el sello: el documento lleva uno, lo que pasa es que no
+        # sirve. Decir «no lleva sello» manda a poner el que ya está puesto.
+        assert "SELLO-SIN-USAR" in codigos(incidencias, NOTA)
+        assert "SELLO-FALTA" not in codigos(incidencias)
+        assert "lleva sello de tiempo" in texto_de(incidencias, "SELLO-SIN-USAR")
 
     def test_un_sello_sin_permiso_en_una_factura(self):
         incidencias = quejas(con_sello(der=token("sin_permiso")))
@@ -449,6 +459,51 @@ class TestEnUnaFactura:
         incidencias = quejas(con_sello(c14n=C14N))
         assert "SELLO-TIEMPO" in codigos(incidencias)
         assert codigos(incidencias, ERROR) == set()
+
+
+
+class TestUnSelloQueNoSabemosLeer:
+    """Salió de un fichero real: `XAdES-XL_con_sello_xml.xml`, de @firma.
+
+    XAdES admite el sello en dos formas: el token de RFC 3161 en base64 y el
+    mismo sello escrito como XML. Solo se lee la primera, que es la que se usa
+    en la práctica. Lo que no vale es **callar la segunda**: el fichero real
+    llevaba tres sellos del Estado y el informe decía «La firma no lleva sello
+    de tiempo de un tercero».
+    """
+
+    def test_no_se_pasa_por_alto(self):
+        incidencias = quejas(con_sello(en_xml=True))
+        assert "SELLO-OTRO-FORMATO" in codigos(incidencias, AVISO)
+        # Una queja por sello, no dos. Sin el corte, el mismo sello sale
+        # además como «no se ha podido leer», que es otra cosa —eso es un
+        # token roto— y manda a buscar una corrupción que no hay.
+        assert "SELLO-ILEGIBLE" not in codigos(incidencias)
+        assert len([i for i in incidencias
+                    if i.codigo == "SELLO-OTRO-FORMATO"]) == 1
+        texto = texto_de(incidencias, "SELLO-OTRO-FORMATO")
+        # El informe es texto plano en una consola: nada de asteriscos, que
+        # salen literales. Y tiene que decir que el documento sí está sellado.
+        assert "El documento está sellado" in texto
+        assert "**" not in texto
+
+    def test_y_no_se_dice_que_no_lleva(self):
+        incidencias = quejas(con_sello(en_xml=True))
+        assert "SELLO-FALTA" not in codigos(incidencias)
+        assert "SELLO-SIN-USAR" in codigos(incidencias, NOTA)
+
+    def test_su_fecha_no_se_da_por_buena(self):
+        """No leerlo no es lo mismo que creérselo."""
+        raiz = etree.fromstring(con_sello(en_xml=True))
+        firma = raiz.xpath(".//*[local-name()='Signature']")[0]
+        assert sellos.momento_probado(firma) is None
+
+    def test_sin_ningun_sello_sigue_diciendo_que_falta(self):
+        """El control: los dos casos no se pueden confundir en un solo mensaje."""
+        incidencias = quejas(documento())
+        assert "SELLO-FALTA" in codigos(incidencias, NOTA)
+        assert "SELLO-SIN-USAR" not in codigos(incidencias)
+        assert "no lleva sello" in texto_de(incidencias, "SELLO-FALTA")
 
 
 class TestLaFechaQueVale:
@@ -694,6 +749,45 @@ class TestDeQuienEsLaAutoridad:
         otro = almacenes(tmp_path / "b", sello=[ca_de_sellos.der])
         assert otro.vacio, "la carpeta de firma no está vacía"
         assert not otro.sellos.vacio
+
+    def test_un_emisor_de_firma_no_avala_un_sello(self, tmp_path):
+        """El caso que enseñó un documento real del Estado.
+
+        El sello de tiempo de @firma lo firma un certificado que emite
+        «DEFENSA-EC-WPG2016». Esa autoridad **sí** está en la lista de
+        confianza como autoridad de certificación —o sea, entre las anclas de
+        firma— y **no** está entre las de sellado: el Estado la publica para
+        emitir certificados, no para sellar el tiempo.
+
+        Con las carpetas separadas, ese sello sale como «no consta que sea una
+        autoridad de sellado cualificada», que es la verdad. Juntándolas
+        encadena, y el validador afirmaría que lo es. No es un caso de
+        laboratorio: pasa con un fichero de `clienteafirma`, el cliente de
+        firma oficial.
+        """
+        from tests.test_cadena import HOJA, RAIZ, almacen_con, raiz
+        from tests.test_cadena import certificado as cert_de
+        from validador import cadena
+        from validador.cadena import Almacen
+        from validador.firma import leer_certificado
+
+        # Una autoridad que solo esta entre las anclas de FIRMA.
+        ancla = raiz()
+        tsu = leer_certificado(
+            cert_de("TSU de un ministerio", "Raiz de pruebas", HOJA, RAIZ, serie=11)
+        )
+        almacen = almacenes(tmp_path, firma=[ancla])
+
+        # Como autoridad de sellado no llega, que es lo correcto.
+        assert not cadena.construir(tsu, almacen.sellos, []).llega
+
+        # Y el control, que es lo que da valor a lo de arriba: si estuviera
+        # entre las de sellado, llegaria. O sea que la separacion es lo unico
+        # que impide la afirmacion falsa.
+        carpeta = tmp_path / "juntas"
+        carpeta.mkdir(parents=True, exist_ok=True)
+        juntas = almacen_con(ancla, tmp_path=carpeta)
+        assert cadena.construir(tsu, juntas, []).llega
 
     def test_una_autoridad_de_sellado_retirada_se_declara(self, tmp_path):
         """Igual que con las de firma: si ampara, se dice por qué."""

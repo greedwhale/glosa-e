@@ -51,10 +51,13 @@ Salvo que lo anularan porque le robaron la clave, y entonces al revés: todo lo
 que esa clave firmó pasa a ser sospechoso, incluso lo anterior a la denuncia,
 porque quien la robó pudo firmar con fecha atrasada.
 
-Y hay una vuelta más: la fecha de firma **la escribe quien firma**. Sin un
-sello de tiempo de un tercero —XAdES-T, que ninguna muestra trae— comparar las
-dos fechas es fiarse de la palabra del firmante. Eso también se dice, en vez de
-enseñar un tic verde.
+Y hay una vuelta más: la fecha de firma **la escribe quien firma**. Comparar
+las dos fechas es entonces fiarse de la palabra del firmante, y eso se dice en
+vez de enseñar un tic verde.
+
+Cuando el documento trae sello de tiempo, la fecha ya no es suya y este módulo
+lo nota: `cadena.py` le pasa la del sello y, con ella, «se anuló después de
+firmar» deja de ser un aviso y pasa a ser una nota. Ver `sellos.py`.
 
 La trampa de la respuesta negativa
 ----------------------------------

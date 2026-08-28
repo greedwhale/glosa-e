@@ -25,7 +25,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-860 tests, todos en verde.
+865 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1152,8 +1152,8 @@ escribir la que quiera, y fechando hacia atrás se esquivan las dos
 comprobaciones a la vez.
 ```
 
-Ninguna de las muestras del Gobierno lleva sello, así que esta nota es lo que
-sale hoy en la práctica. Es la misma política que con las anclas: **una
+Ninguna de las muestras del Gobierno lleva sello de origen, así que esta nota
+es lo que sale en la práctica con lo que se descarga de `facturae.gob.es`. Es la misma política que con las anclas: **una
 decisión tomada por otro solo es aceptable si se declara**.
 
 ### De quién es la autoridad que sella
@@ -1229,6 +1229,84 @@ de sellado y **se dice**. Ese es el lado por el que hay que fallar.
 
 El almacén encuentra a su hermana solo, así que no hay que acordarse de nada:
 `anclas/` busca `anclas-sellos/` al lado, o donde diga `FACTURAE_ANCLAS_SELLOS`.
+
+### Pasado por sellos de verdad
+
+Las pruebas de arriba las escribe el mismo que escribió el código. Lo que dice
+si el módulo sirve es otra cosa: **tokens que no ha hecho este proyecto**.
+
+**Facturae con sello no hay publicadas.** Una factura sellada lleva datos
+reales de una empresa real, así que nadie las sube; en el índice de código de
+GitHub no aparece ninguna. Así que se hicieron dos cosas.
+
+**Una: sellos españoles de verdad, aunque no sean de facturas.** El repositorio
+del cliente de firma oficial del Estado —`clienteafirma`— trae documentos
+XAdES-XL y XAdES-A firmados de verdad, con sellos de «Sello de tiempo TS@ -
+@firma», la autoridad de sellado del Estado, entre 2015 y 2019. Son **18
+tokens**: los 18 se leen y los 18 verifican, con su cadena, sus OCSP y sus CRL
+dentro.
+
+**Dos: una factura española de verdad con un sello cualificado de verdad.** A
+las facturas firmadas oficiales de `facturae.gob.es` se les pidió un sello a la
+TSA pública de la **ACCV** —la Generalitat Valenciana, que está en la lista de
+confianza del Estado—. El sello es real y cualificado, y la factura no sale del
+ordenador: a una TSA se le mandan 59 bytes con el resumen del valor de la
+firma, que es exactamente para lo que existe.
+
+Y entonces el camino entero, sobre una factura del Gobierno de 2007:
+
+```
+[SELLO-TIEMPO · firma electrónica] La firma lleva un sello de tiempo de «TSA1
+ACCV 2016» del 2026-08-27 a las 23:53:44 UTC, con una precisión de ±0 s 500 ms
+1 µs, y el sello cuadra: esa autoridad vio esta firma ese día, así que la firma
+ya existía entonces. Esa es la fecha que se usa para la vigencia y la
+revocación, en vez de la que declara quien firma.
+
+[SELLO-CONFIANZA · firma electrónica] La fecha la acredita «TSA1 ACCV 2016»,
+que está publicada como autoridad de sellado en la lista de confianza del
+Estado: de la lista de confianza de ES, publicada por MINISTERIO DE ASUNTOS
+ECONOMICOS Y TRANSFORMACION DIGITAL el 2026-08-06.
+
+[SELLO-DESPUES-DE-CADUCAR · firma electrónica] El certificado (Usuario ejemplo
+FacturaE) caducó el 2008-12-10, y lo único que hay acreditado de esta firma es
+que ya existía el 2026-08-27, después. …
+```
+
+La última es correcta y conviene entenderla: son facturas de 2007-2009 selladas
+hoy, así que lo único acreditado de esas firmas es posterior a la caducidad de
+sus certificados. El aviso dice justo eso.
+
+### Dos defectos que solo enseñó el fichero real
+
+Los dos de la clase que no avisa sola.
+
+**Un sello que no sabemos leer se daba por un sello que no está.** XAdES admite
+el token de dos formas: en base64 —`EncapsulatedTimeStamp`, la que se usa— y el
+mismo sello escrito como XML. Solo se lee la primera, que está bien; lo que no
+estaba bien es que la segunda se ignorara **en silencio**. Sobre
+`XAdES-XL_con_sello_xml.xml`, un documento con tres sellos del Estado dentro,
+el informe decía «La firma no lleva sello de tiempo de un tercero».
+
+**Y de ahí colgaba uno peor.** La misma frase salía con *cualquier* sello
+inservible: roto, ilegible o copiado de otro documento. Las dos situaciones
+acaban en la misma fecha —la que declara quien firma— pero no son la misma
+noticia: a un documento sin sello hay que ponerle uno; a uno que ya lo lleva,
+decirle que no lo lleva manda a poner dos veces lo mismo. Ahora son
+`SELLO-FALTA` y `SELLO-SIN-USAR`, y hay una prueba de cada una que exige que la
+otra no salga.
+
+### Y una confirmación que vale más que el argumento
+
+El sello de @firma lo firma un certificado que emite «DEFENSA-EC-WPG2016». Esa
+autoridad **sí está entre las anclas de firma y no entre las de sellado**: el
+Estado la publica para emitir certificados, no para sellar el tiempo.
+
+Con las carpetas separadas, el validador dice la verdad —no consta que sea una
+autoridad de sellado cualificada—. Juntándolas, encadena, y afirmaría que lo
+es. No es un caso de laboratorio: pasa con un fichero del cliente de firma
+oficial del Estado. Es la razón de que `anclas/` y `anclas-sellos/` sean
+carpetas distintas, vista en un documento real, y hay una prueba que la fija en
+las dos direcciones.
 
 ### Cómo se prueba sin ningún sello real
 
@@ -2011,7 +2089,9 @@ se comportan los sellos españoles de verdad está por ver.
   dónde» están decididos y resueltos; falta empaquetarlos, y que la página
   **enseñe de cuándo son las anclas que trae**.
 - **Facturas de un cliente de verdad.** Es lo único que va a decir si los
-  mensajes están bien escritos, y suele mover la lista entera.
+  mensajes están bien escritos, y suele mover la lista entera. Los sellos ya
+  se han pasado por documentos reales del Estado y por una TSA cualificada
+  —ver «Pasado por sellos de verdad»—, y de ahí salieron dos defectos.
 
 ### Deuda conocida
 
