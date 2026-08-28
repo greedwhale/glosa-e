@@ -19,7 +19,7 @@ hay forma de comprobarlo.
 """
 
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -589,3 +589,188 @@ class TestSobreUnaFacturaDeVerdad:
         assert not [
             i for i in informe.incidencias if i.codigo.startswith("CADENA-")
         ]
+
+
+# --- De cuándo son las anclas ----------------------------------------------
+
+
+def _manifiesto_de(carpeta, publicada="2026-08-06", siguiente="2027-02-02"):
+    """Un manifiesto como el que deja `--montar-anclas`, con sus fechas.
+
+    Se escribe a mano aquí y no se monta una lista de verdad porque lo que se
+    prueba es la reacción a las fechas, no cómo se escriben. Que las dos
+    puntas —lo que escribe `tsl` y lo que lee `Almacen`— siguen entendiéndose
+    lo prueba `TestDeCuandoSonLasAnclas` en `test_tsl.py`, con una lista de
+    confianza firmada de verdad.
+    """
+    (carpeta / cadena.NOMBRE_DEL_MANIFIESTO).write_text(
+        "de la lista de confianza de ES, publicada por el Ministerio\n"
+        "\n"
+        f"  publicada        {publicada}\n"
+        f"  siguiente        {siguiente}\n"
+        "  montada          2026-08-27\n",
+        encoding="utf-8",
+    )
+
+
+class TestLasAnclasSinRenovar:
+    """Un conjunto de anclas no caduca; la lista de la que salió, sí.
+
+    Los certificados de dentro valen veinte años. Lo que vale seis meses es la
+    lista de **quién sigue estando autorizado**, y a una autoridad a la que le
+    retiren la cualificación en enero se le sigue creyendo en un conjunto
+    montado en agosto: su certificado está en vigor y la cadena llega.
+
+    Que la lista estuviera vencida se comprobaba **solo al montarla**, y
+    después no se volvía a mirar nunca. Mientras las anclas las instala quien
+    valida eso casi se nota, porque las montó él. En cuanto un conjunto viaja
+    con una herramienta —con la página, por ejemplo— quien lo usa no eligió
+    nada y no tiene forma de enterarse.
+    """
+
+    @tiene_ejemplo
+    def test_pasada_la_fecha_se_avisa(self, tmp_path):
+        from validador import factura
+
+        (tmp_path / "ejemplo.cer").write_bytes(_certificado_del_ejemplo())
+        _manifiesto_de(tmp_path)
+        informe = factura.validar_archivo(
+            EJEMPLO, almacen=Almacen(tmp_path), hoy=date(2027, 3, 4)
+        )
+        salta = [i for i in informe.incidencias if i.codigo == "ANCLAS-SIN-RENOVAR"]
+        assert len(salta) == 1
+        assert salta[0].gravedad == AVISO
+        # Los días de atraso, para que no haya que restar de cabeza.
+        assert "30 días" in salta[0].mensaje
+
+    @tiene_ejemplo
+    def test_antes_de_la_fecha_no_se_dice_nada(self, tmp_path):
+        from validador import factura
+
+        (tmp_path / "ejemplo.cer").write_bytes(_certificado_del_ejemplo())
+        _manifiesto_de(tmp_path)
+        informe = factura.validar_archivo(
+            EJEMPLO, almacen=Almacen(tmp_path), hoy=date(2026, 9, 20)
+        )
+        assert "ANCLAS-SIN-RENOVAR" not in {i.codigo for i in informe.incidencias}
+
+    @tiene_ejemplo
+    def test_la_cadena_sigue_llegando(self, tmp_path):
+        """Es un aviso, no un error: la firma es la que dice ser.
+
+        Lo que no se puede afirmar es que la autoridad siga cualificada hoy.
+        Convertirlo en error rechazaría facturas correctas por una lista sin
+        renovar, que es un problema de quien valida y no de quien factura.
+        """
+        from validador import factura
+
+        (tmp_path / "ejemplo.cer").write_bytes(_certificado_del_ejemplo())
+        _manifiesto_de(tmp_path)
+        informe = factura.validar_archivo(
+            EJEMPLO, almacen=Almacen(tmp_path), hoy=date(2027, 3, 4)
+        )
+        assert not [
+            i for i in informe.incidencias if i.codigo.startswith("CADENA-")
+        ]
+        assert informe.conforme
+
+    @tiene_ejemplo
+    def test_una_carpeta_sin_manifiesto_no_se_inventa_la_fecha(self, tmp_path):
+        """Sin fechas no se puede decir que esté vencida. Se calla."""
+        from validador import factura
+
+        (tmp_path / "ejemplo.cer").write_bytes(_certificado_del_ejemplo())
+        informe = factura.validar_archivo(
+            EJEMPLO, almacen=Almacen(tmp_path), hoy=date(2030, 1, 1)
+        )
+        assert "ANCLAS-SIN-RENOVAR" not in {i.codigo for i in informe.incidencias}
+
+    @tiene_ejemplo
+    def test_sin_anclas_la_queja_es_la_otra(self, tmp_path):
+        """Un almacén vacío no está sin renovar: está vacío, y ya se dice."""
+        from validador import factura
+
+        _manifiesto_de(tmp_path)
+        informe = factura.validar_archivo(
+            EJEMPLO, almacen=Almacen(tmp_path), hoy=date(2027, 3, 4)
+        )
+        codigos_salen = {i.codigo for i in informe.incidencias}
+        assert "CADENA-SIN-ANCLAS" in codigos_salen
+        assert "ANCLAS-SIN-RENOVAR" not in codigos_salen
+
+    def test_un_documento_sin_firma_no_dice_nada(self, tmp_path):
+        """El almacén solo importa si hay algo que contrastar con él."""
+        from validador import factura
+
+        (tmp_path / "una.cer").write_bytes(raiz())
+        _manifiesto_de(tmp_path)
+        ubl = (
+            '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">'
+            "</Invoice>"
+        )
+        informe = factura.validar(
+            ubl.encode(), almacen=Almacen(tmp_path), hoy=date(2027, 3, 4)
+        )
+        assert "ANCLAS-SIN-RENOVAR" not in {i.codigo for i in informe.incidencias}
+
+    @tiene_ejemplo
+    def test_sale_una_vez_y_no_una_por_firma(self, tmp_path):
+        """Es una propiedad del almacén, no de cada firma que se mire.
+
+        `cadena.reglas` corre una vez por firma; si la queja saliera de ahí,
+        un documento con tres firmas la diría tres veces. Sale del nivel de
+        arriba, y aquí se comprueba que abajo no está.
+        """
+        (tmp_path / "ejemplo.cer").write_bytes(_certificado_del_ejemplo())
+        _manifiesto_de(tmp_path)
+        quejas = cadena.reglas(
+            [firma.leer_certificado(_certificado_del_ejemplo())],
+            Almacen(tmp_path),
+            hoy=date(2027, 3, 4),
+        )
+        assert "ANCLAS-SIN-RENOVAR" not in {i.codigo for i in quejas}
+
+
+class TestDondeBuscaLasAnclasDeSellado:
+    """La carpeta hermana, y quién puede cambiarla.
+
+    Salió al empaquetar las anclas para la página. La página pone
+    `FACTURAE_ANCLAS_SELLOS` para que el validador encuentre las que trae
+    dentro, y con esa variable puesta **cualquier** almacén —incluido uno
+    creado a mano con una carpeta concreta— dejaba de mirar su propia hermana
+    y se iba a la del entorno. Para un programa con un solo almacén da igual;
+    para uno con dos, uno de los dos contesta por el otro, y lo que contesta
+    es qué autoridades pueden sellar el tiempo.
+    """
+
+    def _dos_carpetas(self, tmp_path):
+        firma_ = tmp_path / "mias"
+        sellado = tmp_path / ("mias" + cadena.SUFIJO_DE_SELLOS)
+        firma_.mkdir()
+        sellado.mkdir()
+        (sellado / "tsu.cer").write_bytes(raiz())
+        return firma_, sellado
+
+    def test_la_hermana_se_encuentra_sola(self, tmp_path):
+        firma_, sellado = self._dos_carpetas(tmp_path)
+        assert Almacen(firma_).sellos.carpeta == sellado
+        assert not Almacen(firma_).sellos.vacio
+
+    def test_el_entorno_no_desvia_un_almacen_con_nombre(self, tmp_path, monkeypatch):
+        firma_, sellado = self._dos_carpetas(tmp_path)
+        otra = tmp_path / "de-otro-sitio"
+        otra.mkdir()
+        monkeypatch.setenv(cadena.VARIABLE_DE_SELLOS, str(otra))
+        # Quien nombra una carpeta ya ha dicho cuál quiere.
+        assert Almacen(firma_).sellos.carpeta == sellado
+
+    def test_pero_si_manda_sobre_el_almacen_por_defecto(self, tmp_path, monkeypatch):
+        """Que es para lo que existe la variable: decir dónde están las tuyas."""
+        _, sellado = self._dos_carpetas(tmp_path)
+        monkeypatch.setenv(cadena.VARIABLE_DE_SELLOS, str(sellado))
+        assert Almacen.por_defecto().sellos.carpeta == sellado
+
+    def test_y_se_puede_decir_al_construirlo(self, tmp_path):
+        firma_, sellado = self._dos_carpetas(tmp_path)
+        almacen = Almacen(firma_, "", sellado)
+        assert almacen.sellos.carpeta == sellado

@@ -1255,3 +1255,43 @@ class TestLaConsola:
         ruta = _escribir(tmp_path, "no.xml", b"esto no es XML ni de lejos")
         assert main(["--ver-tsl", str(ruta)]) == 2
         assert "no parece una lista de confianza" in capsys.readouterr().err
+
+
+class TestDeCuandoSonLasAnclas:
+    """Las fechas del manifiesto, escritas por `montar` y leídas por `Almacen`.
+
+    Esta clase existe para atar las dos puntas. `tsl._manifiesto` escribe un
+    fichero para que lo lea una persona, y `Almacen.renovacion` lo lee con un
+    programa: dos formatos que no están declarados en ningún sitio y que se
+    pueden separar sin que nada se queje. Si alguien cambia el orden o el
+    nombre de una línea, lo que pasa sin esta prueba no es un error sino un
+    conjunto de anclas que deja de saber de cuándo es, en silencio.
+    """
+
+    def test_se_leen_las_tres_fechas_que_se_escribieron(self, tmp_path):
+        una = creida(lista(servicios=[Serv(certificados=(intermedia(),))]))
+        tsl.montar(una, tmp_path, cuando=HOY)
+        renovacion = Almacen(tmp_path).renovacion
+        assert renovacion.publicada.isoformat() == "2026-08-01"
+        assert renovacion.siguiente.isoformat() == "2026-11-01"
+        assert renovacion.montada == HOY.date()
+
+    def test_una_lista_sin_fecha_de_renovacion_no_revienta(self, tmp_path):
+        """El manifiesto pone «(no dice)», y eso no es una fecha."""
+        una = creida(
+            lista(siguiente="", servicios=[Serv(certificados=(intermedia(),))])
+        )
+        tsl.montar(una, tmp_path, cuando=HOY)
+        renovacion = Almacen(tmp_path).renovacion
+        assert renovacion.siguiente is None
+        assert not renovacion.vencida(datetime(2030, 1, 1).date())
+
+    def test_una_carpeta_llenada_a_mano_no_dice_de_cuando_es(self, tmp_path):
+        (tmp_path / "una.cer").write_bytes(intermedia())
+        assert not Almacen(tmp_path).renovacion.hay
+
+    def test_un_manifiesto_ilegible_no_revienta(self, tmp_path):
+        una = creida(lista(servicios=[Serv(certificados=(intermedia(),))]))
+        tsl.montar(una, tmp_path, cuando=HOY)
+        (tmp_path / cadena.NOMBRE_DEL_MANIFIESTO).write_bytes(b"\xff\xfe\x00rot")
+        assert not Almacen(tmp_path).renovacion.hay

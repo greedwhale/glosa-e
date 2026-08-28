@@ -108,6 +108,41 @@ NOMBRE_DEL_MANIFIESTO = "PROCEDENCIA.txt"
 # puede cambiar sin que el certificado cambie.
 NOMBRE_DE_ESTADOS = "ESTADOS.tsv"
 
+# Las tres fechas del manifiesto que dicen **de cuándo** es un conjunto de
+# anclas. Se leen de las mismas líneas que escribe `tsl._manifiesto`, y hay una
+# prueba que ata las dos puntas para que no se separen.
+#
+# Por qué importa lo suficiente como para tener su propio código. Un conjunto
+# de anclas no caduca como caduca un certificado: los certificados de dentro
+# siguen siendo válidos durante veinte años. Lo que caduca es **la lista de
+# quién sigue estando autorizado**, y esa la renueva el Estado cada seis meses.
+# Una autoridad a la que le retiren la cualificación en enero sigue estando
+# en un conjunto montado en agosto del año anterior, con su certificado
+# perfectamente en vigor, y todo lo que firme se dará por bueno.
+#
+# Mientras las anclas las instala quien valida, eso se nota: las montó él y
+# sabe cuándo. En cuanto un conjunto viaja con una herramienta —con esta
+# página, por ejemplo— quien lo usa no eligió nada y no tiene forma de saber
+# de cuándo es. Ahí es donde hay que decirlo.
+_FECHAS_DEL_MANIFIESTO = ("publicada", "siguiente", "montada")
+
+
+@dataclass(frozen=True)
+class Renovacion:
+    """De cuándo es un conjunto de anclas, según su propio manifiesto."""
+
+    publicada: date | None = None
+    siguiente: date | None = None
+    montada: date | None = None
+
+    def vencida(self, hoy: date) -> bool:
+        """La lista de la que salieron debía haberse renovado y no consta."""
+        return self.siguiente is not None and self.siguiente < hoy
+
+    @property
+    def hay(self) -> bool:
+        return any((self.publicada, self.siguiente, self.montada))
+
 # Dónde van las anclas retiradas. Separadas del resto a propósito: una retirada
 # solo vale para lo que se firmó antes de que la retiraran, y mezclarlas con
 # las demás haría que copiar la carpeta sin la tabla de estados convirtiera
@@ -146,6 +181,10 @@ class Almacen:
     # que decirlo aquí: «vienen con esta página». Es la diferencia entre una
     # decisión declarada y una tomada a espaldas de quien lee el informe.
     procedencia: str = ""
+    # Dónde están las anclas de sellado, cuando no son la carpeta hermana.
+    # Lo rellena `por_defecto` desde el entorno; un almacén construido con una
+    # carpeta concreta deriva la suya y no mira el entorno. Ver `sellos`.
+    sellos_en: Path | None = None
     _por_sujeto: dict[bytes, list[Certificado]] | None = field(
         default=None, repr=False
     )
@@ -169,18 +208,33 @@ class Almacen:
     def por_defecto(
         cls, carpeta: str | Path | None = None, procedencia: str = ""
     ) -> Almacen:
+        """El almacén que sale del entorno, o de las carpetas de siempre.
+
+        Aquí —y solo aquí— se mira `FACTURAE_ANCLAS_SELLOS`. Es un valor por
+        defecto para quien no ha dicho nada, no una redirección global.
+        """
         if carpeta is None:
             carpeta = os.environ.get(VARIABLE_ENTORNO) or CARPETA_POR_DEFECTO
-        return cls(Path(carpeta), procedencia)
+        puesta = os.environ.get(VARIABLE_DE_SELLOS)
+        return cls(Path(carpeta), procedencia, Path(puesta) if puesta else None)
 
     @property
     def sellos(self) -> Almacen:
         """Las anclas de las autoridades de sellado, que son otras.
 
-        La carpeta hermana de esta, con `-sellos` detrás, o lo que diga
-        `FACTURAE_ANCLAS_SELLOS`. Se deriva aquí y en un solo sitio para que la
-        relación entre las dos carpetas no haya que recordarla en cada sitio
-        que las use.
+        La carpeta hermana de esta, con `-sellos` detrás, salvo que a este
+        almacén le hayan dicho otra (`sellos_en`). Se deriva aquí y en un solo
+        sitio para que la relación entre las dos carpetas no haya que
+        recordarla en cada sitio que las use.
+
+        **El entorno no manda aquí**, y eso costó una comprobación en rojo. Con
+        `FACTURAE_ANCLAS_SELLOS` puesta —que es lo que hace la página web para
+        encontrar las anclas que trae dentro—, un `Almacen("otra/carpeta")`
+        creado a mano dejaba de mirar su propia hermana y se iba a la del
+        entorno sin decir nada. Para un programa con un solo almacén da igual;
+        para uno con dos, uno de los dos contesta por el otro. La variable la
+        lee `por_defecto`, que es quien construye «el almacén de este
+        programa»; quien nombra una carpeta ya ha dicho cuál quiere.
 
         **Son otro conjunto a propósito.** Que el Estado tenga por cualificada
         a una autoridad para sellar el tiempo no dice que la tenga por
@@ -188,10 +242,8 @@ class Almacen:
         carpeta sería confundir las dos cosas sin decirlo.
         """
         if self._sellos is None:
-            puesta = os.environ.get(VARIABLE_DE_SELLOS)
-            donde = (
-                Path(puesta) if puesta
-                else self.carpeta.parent / (self.carpeta.name + SUFIJO_DE_SELLOS)
+            donde = self.sellos_en or (
+                self.carpeta.parent / (self.carpeta.name + SUFIJO_DE_SELLOS)
             )
             self._sellos = Almacen(donde, self.procedencia)
         return self._sellos
@@ -319,6 +371,35 @@ class Almacen:
         except (OSError, UnicodeDecodeError):
             return ""
         return texto.strip().splitlines()[0].strip() if texto.strip() else ""
+
+    @property
+    def renovacion(self) -> Renovacion:
+        """Las fechas del manifiesto, si la carpeta lo trae.
+
+        Se leen del mismo fichero que la procedencia y no de otro sitio, por lo
+        mismo: lo que dice de dónde y de cuándo es un conjunto de anclas tiene
+        que viajar **con los ficheros**. Un segundo fichero al lado se separa
+        el día que alguien copie la carpeta.
+        """
+        try:
+            texto = (self.carpeta / NOMBRE_DEL_MANIFIESTO).read_text(
+                encoding="utf-8"
+            )
+        except (OSError, UnicodeDecodeError):
+            return Renovacion()
+        fechas: dict[str, date | None] = {}
+        for linea in texto.splitlines():
+            partes = linea.split()
+            if len(partes) != 2 or partes[0] not in _FECHAS_DEL_MANIFIESTO:
+                continue
+            try:
+                fechas[partes[0]] = date.fromisoformat(partes[1])
+            except ValueError:
+                # «(no dice)» y cualquier otra cosa que no sea una fecha. Se
+                # deja en None en vez de reventar: un manifiesto raro no puede
+                # impedir validar, solo dejar de contar una cosa.
+                continue
+        return Renovacion(**fechas)
 
     def procedencia_de(self, cert: Certificado) -> str:
         """De dónde salió esta ancla, para poder decirlo en el informe.
@@ -839,6 +920,51 @@ def _confianza_del_sello(sello, almacen: Almacen | None, donde: str):
         )
     ]
 
+def _anclas_sin_renovar(almacen: Almacen | None, hoy) -> Incidencia | None:
+    """Aviso si el conjunto de anclas se quedó sin renovar.
+
+    No es un error: la cadena llega, los certificados están en vigor y la
+    firma es la que dice ser. Lo que no se puede afirmar es que la autoridad
+    del final **siga** siendo cualificada hoy, porque eso lo dice una lista
+    que debía haberse renovado y no consta que se haya renovado.
+
+    Va como aviso y no como nota porque cuenta para el resumen: quien vea «2
+    avisos» abre y lo lee, y quien no vea nada da por hecho que las anclas
+    están al día. Que es lo que pasaba: la comprobación de que la lista no
+    estuviera vencida existía **solo al montarla**, y después no volvía a
+    mirarse nunca. Un conjunto montado hace dos años validaba igual de
+    calladamente que uno de esta mañana.
+    """
+    if almacen is None or almacen.vacio:
+        return None
+    renovacion = almacen.renovacion
+    dia = hoy or date.today()
+    if not renovacion.vencida(dia):
+        return None
+    atraso = (dia - renovacion.siguiente).days
+    montada = (
+        f", montado el {renovacion.montada.isoformat()}"
+        if renovacion.montada
+        else ""
+    )
+    return Incidencia(
+        "ANCLAS-SIN-RENOVAR",
+        AVISO,
+        "Las anclas de confianza salen de una lista que decía renovarse el "
+        f"{renovacion.siguiente.isoformat()}, y de eso hace {atraso} días"
+        f"{montada}. La cadena de esta firma llega igual, pero que una "
+        "autoridad estuviera cualificada entonces no dice que lo esté hoy: si "
+        "el Estado le ha retirado la cualificación después de esa fecha, aquí "
+        "se sigue creyendo. Hay que volver a montarlas: "
+        "`python -m validador --montar-anclas`.",
+        campo="Anclas de confianza",
+        esperado=f"una lista renovada después del {renovacion.siguiente.isoformat()}",
+        encontrado=f"la del {renovacion.publicada.isoformat()}"
+        if renovacion.publicada
+        else "(el manifiesto no dice de cuándo)",
+    )
+
+
 def reglas_de_documento(
     raiz, deteccion, almacen: Almacen | None = None, listas=None, hoy=None
 ):
@@ -853,6 +979,11 @@ def reglas_de_documento(
         return []
     firmas = firma.hay_firma(raiz)
     incidencias: list[Incidencia] = []
+    # Una vez por documento, no una por firma: es una propiedad del almacén,
+    # no de lo que se está mirando con él.
+    sin_renovar = _anclas_sin_renovar(almacen, hoy) if firmas else None
+    if sin_renovar is not None:
+        incidencias.append(sin_renovar)
     for numero, una in enumerate(firmas, start=1):
         donde = f"Firma {numero} · " if len(firmas) > 1 else ""
         # De dónde sale la fecha con la que se mide todo lo demás. Un sello
