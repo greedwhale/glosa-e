@@ -1,0 +1,283 @@
+"""El paquete que se lleva la página: los esquemas y las anclas en un zip.
+
+Lo que se prueba aquí no es comprimir, que eso lo hace la biblioteca estándar.
+Es lo otro: que dentro vaya **todo** lo que hace falta para que las tres
+comprobaciones sigan siendo tres al otro lado, y que no se empaquete un
+conjunto de anclas que no se puede repartir.
+
+Las dos negativas son la mitad del módulo. Un conjunto sin manifiesto no dice
+de dónde viene, y uno cuya lista venció sigue creyendo a autoridades a las que
+el Estado pudo retirarles la cualificación —con su certificado en vigor y su
+cadena llegando, sin que nada en el documento lo delate—. Las dos cosas se
+notan poco y se reparten fácil, que es la peor combinación.
+"""
+
+import json
+import zipfile
+from datetime import date
+from pathlib import Path
+
+import pytest
+
+from validador import cadena, paquete
+from validador.cadena import Almacen
+from validador.esquema import Catalogo
+
+MANIFIESTO = """de la lista de confianza de ES, publicada por el Ministerio el 2026-08-06
+
+  publicada        2026-08-06
+  siguiente        2027-02-02
+  montada          2026-08-27
+"""
+
+# Un XSD que compila, para no depender de los oficiales.
+XSD = """<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="cualquiera" type="xs:string"/>
+</xs:schema>
+"""
+
+
+@pytest.fixture
+def carpetas(tmp_path):
+    """Las tres carpetas de las que sale un paquete, en pequeño."""
+    esquemas = tmp_path / "esquemas"
+    esquemas.mkdir()
+    (esquemas / "Facturaev3_2_2.xsd").write_text(XSD, encoding="utf-8")
+    (esquemas / "ubl").mkdir()
+    (esquemas / "ubl" / "UBL-Invoice-2.1.xsd").write_text(XSD, encoding="utf-8")
+
+    anclas = tmp_path / "anclas"
+    (anclas / "retiradas").mkdir(parents=True)
+    (anclas / cadena.NOMBRE_DEL_MANIFIESTO).write_text(MANIFIESTO, encoding="utf-8")
+    (anclas / cadena.NOMBRE_DE_ESTADOS).write_text(
+        "# huella\testado\tdesde\tprestador\n", encoding="utf-8"
+    )
+    (anclas / "una.cer").write_bytes(b"\x30\x01\x00")
+    (anclas / "retiradas" / "vieja.cer").write_bytes(b"\x30\x01\x00")
+
+    sellos = tmp_path / "anclas-sellos"
+    sellos.mkdir()
+    (sellos / "tsu.cer").write_bytes(b"\x30\x01\x00")
+    return esquemas, anclas, sellos
+
+
+def dentro(zip_: Path) -> set[str]:
+    with zipfile.ZipFile(zip_) as z:
+        return set(z.namelist())
+
+
+class TestLoQueVaDentro:
+    def test_van_las_tres_carpetas(self, tmp_path, carpetas):
+        esquemas, anclas, sellos = carpetas
+        destino = tmp_path / "paquete.zip"
+        paquete.armar(destino, esquemas, anclas, sellos, hoy=date(2026, 9, 1))
+        nombres = dentro(destino)
+        assert "esquemas/Facturaev3_2_2.xsd" in nombres
+        assert "esquemas/ubl/UBL-Invoice-2.1.xsd" in nombres
+        assert "anclas/una.cer" in nombres
+        assert "anclas-sellos/tsu.cer" in nombres
+
+    def test_van_las_retiradas_y_su_tabla(self, tmp_path, carpetas):
+        """Las dos, o ninguna de las dos.
+
+        Una ancla retirada solo vale para lo que se firmó antes de que la
+        retiraran, y quién dice cuándo fue es `ESTADOS.tsv`. Sin esa tabla,
+        `cadena.py` no usa las retiradas —falla por el lado bueno— pero
+        empaquetar unas sin la otra sería repartir un conjunto que en la
+        página se comporta distinto que en consola, sin decirlo.
+        """
+        esquemas, anclas, sellos = carpetas
+        destino = tmp_path / "paquete.zip"
+        paquete.armar(destino, esquemas, anclas, sellos, hoy=date(2026, 9, 1))
+        nombres = dentro(destino)
+        assert "anclas/retiradas/vieja.cer" in nombres
+        assert f"anclas/{cadena.NOMBRE_DE_ESTADOS}" in nombres
+
+    def test_va_el_manifiesto(self, tmp_path, carpetas):
+        """Sin él, el informe no puede decir de dónde salen las anclas."""
+        esquemas, anclas, sellos = carpetas
+        destino = tmp_path / "paquete.zip"
+        paquete.armar(destino, esquemas, anclas, sellos, hoy=date(2026, 9, 1))
+        assert f"anclas/{cadena.NOMBRE_DEL_MANIFIESTO}" in dentro(destino)
+
+    def test_se_cuenta_lo_que_lleva(self, tmp_path, carpetas):
+        esquemas, anclas, sellos = carpetas
+        contenido = paquete.armar(
+            tmp_path / "paquete.zip", esquemas, anclas, sellos, hoy=date(2026, 9, 1)
+        )
+        assert contenido.esquemas == 2
+        assert contenido.anclas == 2  # la buena y la retirada
+        assert contenido.anclas_de_sellos == 1
+        # El papeleo no se cuenta como ancla: son dos certificados, no cuatro.
+        assert contenido.bytes > 0
+        assert len(contenido.huella) == 64
+
+    def test_las_fechas_salen_del_manifiesto(self, tmp_path, carpetas):
+        esquemas, anclas, sellos = carpetas
+        contenido = paquete.armar(
+            tmp_path / "paquete.zip", esquemas, anclas, sellos, hoy=date(2026, 9, 1)
+        )
+        assert contenido.publicada == "2026-08-06"
+        assert contenido.siguiente == "2027-02-02"
+        assert contenido.montada == "2026-08-27"
+        assert contenido.armado == "2026-09-01"
+        assert contenido.declarada.startswith("de la lista de confianza de ES")
+
+
+class TestElResumenDeFuera:
+    """El JSON de al lado, que la página lee antes de arrancar Python.
+
+    Va fuera además de dentro porque hasta que no terminan de bajar los 14 MB
+    del intérprete no hay forma de leer nada del zip, y de cuándo son las
+    anclas es justo lo que hay que poder decir cuanto antes.
+    """
+
+    def test_se_escribe_al_lado(self, tmp_path, carpetas):
+        esquemas, anclas, sellos = carpetas
+        paquete.armar(
+            tmp_path / "paquete.zip", esquemas, anclas, sellos, hoy=date(2026, 9, 1)
+        )
+        fuera = json.loads((tmp_path / paquete.MANIFIESTO).read_text("utf-8"))
+        assert fuera["anclas"] == 2
+        assert fuera["siguiente"] == "2027-02-02"
+
+    def test_el_de_dentro_y_el_de_fuera_cuentan_lo_mismo(self, tmp_path, carpetas):
+        """Salen de la misma vuelta, así que no pueden contar cosas distintas.
+
+        Menos el tamaño y la huella, que el de dentro no puede llevar: estarían
+        dentro de lo que miden.
+        """
+        esquemas, anclas, sellos = carpetas
+        destino = tmp_path / "paquete.zip"
+        paquete.armar(destino, esquemas, anclas, sellos, hoy=date(2026, 9, 1))
+        fuera = json.loads((tmp_path / paquete.MANIFIESTO).read_text("utf-8"))
+        with zipfile.ZipFile(destino) as z:
+            adentro = json.loads(z.read(paquete.MANIFIESTO))
+        aparte = {"bytes", "huella"}
+        assert {k: v for k, v in fuera.items() if k not in aparte} == {
+            k: v for k, v in adentro.items() if k not in aparte
+        }
+
+
+class TestLoQueNoSeEmpaqueta:
+    def test_sin_manifiesto_no_se_reparte(self, tmp_path, carpetas):
+        """Un conjunto que no dice de dónde viene no sale de aquí."""
+        esquemas, anclas, sellos = carpetas
+        (anclas / cadena.NOMBRE_DEL_MANIFIESTO).unlink()
+        with pytest.raises(paquete.SinManifiesto) as motivo:
+            paquete.armar(
+                tmp_path / "p.zip", esquemas, anclas, sellos, hoy=date(2026, 9, 1)
+            )
+        # Y se dice qué hacer, no solo que no.
+        assert "--montar-anclas" in str(motivo.value)
+        assert not (tmp_path / "p.zip").exists()
+
+    def test_con_la_lista_vencida_no_se_reparte(self, tmp_path, carpetas):
+        esquemas, anclas, sellos = carpetas
+        with pytest.raises(paquete.SinRenovar) as motivo:
+            paquete.armar(
+                tmp_path / "p.zip", esquemas, anclas, sellos, hoy=date(2027, 6, 1)
+            )
+        assert "2027-02-02" in str(motivo.value)
+        assert not (tmp_path / "p.zip").exists()
+
+    def test_un_dia_antes_todavia_se_reparte(self, tmp_path, carpetas):
+        """La frontera es la que dice la lista, no un margen inventado."""
+        esquemas, anclas, sellos = carpetas
+        paquete.armar(
+            tmp_path / "p.zip", esquemas, anclas, sellos, hoy=date(2027, 2, 2)
+        )
+        assert (tmp_path / "p.zip").exists()
+
+    def test_se_puede_forzar_para_probar(self, tmp_path, carpetas):
+        esquemas, anclas, sellos = carpetas
+        paquete.armar(
+            tmp_path / "p.zip",
+            esquemas,
+            anclas,
+            sellos,
+            hoy=date(2027, 6, 1),
+            aunque_esten_vencidas=True,
+        )
+        assert (tmp_path / "p.zip").exists()
+
+    def test_una_lista_sin_fecha_de_renovacion_no_bloquea(self, tmp_path, carpetas):
+        """No se puede afirmar que esté vencida, así que no se impide."""
+        esquemas, anclas, sellos = carpetas
+        (anclas / cadena.NOMBRE_DEL_MANIFIESTO).write_text(
+            "de una lista sin fecha de renovación\n\n  publicada        2020-01-01\n",
+            encoding="utf-8",
+        )
+        paquete.armar(
+            tmp_path / "p.zip", esquemas, anclas, sellos, hoy=date(2030, 1, 1)
+        )
+        assert (tmp_path / "p.zip").exists()
+
+
+# --- Con las carpetas de verdad, si están instaladas -----------------------
+
+ESQUEMAS = Path("esquemas")
+ANCLAS = Path("anclas")
+instaladas = pytest.mark.skipif(
+    not (ESQUEMAS.is_dir() and (ANCLAS / cadena.NOMBRE_DEL_MANIFIESTO).is_file()),
+    reason="no están los esquemas y las anclas montadas",
+)
+EJEMPLO = Path("ejemplos/fe-0001.xml")
+
+
+@instaladas
+class TestElPaqueteDeVerdad:
+    """Que lo que sale de aquí sirva al otro lado, que es de lo que se trata.
+
+    Las pruebas de arriba comprueban que el zip lleva lo que dice llevar. Esta
+    comprueba lo siguiente: que descomprimido en otro sitio, el validador
+    encuentra los esquemas y las anclas y hace las tres comprobaciones. Un
+    paquete bien formado del que no salga un catálogo utilizable es un paquete
+    que solo sirve para creer que la página está completa.
+    """
+
+    def armado(self, tmp_path) -> Path:
+        destino = tmp_path / "paquete.zip"
+        paquete.armar(destino, ESQUEMAS, ANCLAS, hoy=date(2026, 8, 28))
+        suelto = tmp_path / "suelto"
+        with zipfile.ZipFile(destino) as z:
+            z.extractall(suelto)
+        return suelto
+
+    def test_de_ahi_sale_un_catalogo_que_compila(self, tmp_path):
+        catalogo = Catalogo(self.armado(tmp_path) / "esquemas")
+        assert not catalogo.vacio
+        from validador.formato import detectar
+
+        datos = EJEMPLO.read_bytes()
+        assert catalogo.ruta_para(detectar(datos)) is not None
+
+    def test_de_ahi_sale_un_almacen_que_sabe_de_cuando_es(self, tmp_path):
+        almacen = Almacen(self.armado(tmp_path) / "anclas")
+        assert not almacen.vacio
+        assert almacen.declarada.startswith("de la lista de confianza")
+        assert almacen.renovacion.siguiente is not None
+
+    def test_y_las_anclas_de_sellado_van_al_lado_y_se_encuentran(self, tmp_path):
+        """La carpeta hermana, que es la que se olvida al copiar a mano."""
+        almacen = Almacen(self.armado(tmp_path) / "anclas")
+        assert not almacen.sellos.vacio
+
+    @pytest.mark.skipif(not EJEMPLO.exists(), reason="no está el ejemplo")
+    def test_el_informe_promete_las_tres_cosas(self, tmp_path):
+        """El resumen del final cambia según lo que de verdad se ha mirado.
+
+        Es la razón de ser de todo esto: sin el paquete, la página comprueba
+        el contenido y su propia frase final lo dice. Con él, dice las tres.
+        """
+        from validador import factura
+
+        suelto = self.armado(tmp_path)
+        con = factura.validar_lote(
+            [EJEMPLO],
+            catalogo=Catalogo(suelto / "esquemas"),
+            almacen=Almacen(suelto / "anclas"),
+        ).alcance(forma=True, anclas=True)
+        assert "esquema XSD" in con
+        assert "autoridad de confianza instalada" in con

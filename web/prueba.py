@@ -1097,4 +1097,124 @@ def _():
     return "se aparta el trozo roto, se dice, y no revienta nada"
 
 
+# --- Lo que la pagina trae puesto ------------------------------------------
+
+
+@comprobar("la promesa del informe cuadra con lo que hay instalado", critica=True)
+def _():
+    """La frase del final dice de que se ha fiado quien lee el informe.
+
+    Es la unica comprobacion de aqui que vale con paquete y sin el, porque no
+    mira si hay esquemas y anclas sino si lo que el informe dice haber mirado
+    es lo que habia con que mirarlo. Prometer de mas es el peor fallo que
+    puede tener un informe; prometer de menos, esconder trabajo hecho.
+    """
+    from validador import factura
+    from validador.cadena import Almacen
+    from validador.esquema import Catalogo
+
+    # Con una firmada, que si no la mitad de la frase no llega a escribirse:
+    # las anclas solo se prometen si hay algo que contrastar con ellas, y en
+    # un lote sin firmas no se promete ninguna aunque esten instaladas.
+    catalogo = Catalogo.por_defecto()
+    almacen = Almacen.por_defecto()
+    lote = factura.validar_lote(
+        [BASE + "/fe-0001.xml"], hoy=HOY, catalogo=catalogo, almacen=almacen
+    )
+    dice = lote.alcance(forma=not catalogo.vacio, anclas=not almacen.vacio)
+    assert ("esquema XSD" in dice) == (not catalogo.vacio), dice
+    assert ("autoridad de confianza instalada" in dice) == (not almacen.vacio), dice
+    return "promete %s la forma y %s las anclas" % (
+        "si" if not catalogo.vacio else "no",
+        "si" if not almacen.vacio else "no",
+    )
+
+
+@comprobar("los esquemas viajan con la pagina y comprueban la forma",
+           critica=True)
+def _():
+    """Sin esto, de las tres comprobaciones la pagina hace una.
+
+    La forma se comprueba contra los XSD oficiales, que son de sus organismos
+    y no estan en el codigo. Quien usa la consola se los instala; quien entra
+    en una pagina no se instala nada.
+    """
+    from validador import factura
+    from validador.esquema import Catalogo
+    from validador.formato import detectar
+
+    catalogo = Catalogo.por_defecto()
+    if catalogo.vacio:
+        # Se cuenta en vez de callarse, que es lo que dice la pagina tambien.
+        return "no hay paquete: la pagina comprobaria solo el contenido"
+    with open(BASE + "/f-0001.xml", "rb") as f:
+        datos = f.read()
+    assert catalogo.ruta_para(detectar(datos)) is not None, "sin XSD para Facturae"
+    informe = factura.validar(datos, hoy=HOY, catalogo=catalogo)
+    codigos = [i.codigo for i in informe.incidencias]
+    assert "XSD-SIN-ESQUEMA" not in codigos, codigos
+    return "%d esquemas dentro, y la forma se mide contra ellos" % len(
+        catalogo.indice)
+
+
+@comprobar("el esquema de Facturae compila sin red", critica=True)
+def _():
+    """Aqui no hay red, y por eso esta comprobacion vale.
+
+    Los cinco XSD de Facturae importan la firma XMLDSig **por direccion web**,
+    en su tercera linea. Compilar un esquema no lo hace el parser endurecido
+    de `formato.py` sino libxml2 por su cuenta, asi que ese import se bajaba
+    de w3.org cada vez que se comprobaba la forma de una factura del formato
+    nacional. Fuera no se notaba, porque funcionaba.
+
+    Se noto aqui: sin red el esquema no compilaba y salia «el esquema esta ahi
+    pero no se puede leer, suele ser una descarga a medias», mandando a
+    rebajar un fichero que estaba entero. Ahora se resuelve con la copia que
+    trae el paquete de UBL, y esta comprobacion es la unica que puede afirmar
+    que no se sale: en este navegador no hay a donde salir.
+    """
+    from lxml import etree
+    from validador.esquema import Catalogo
+    from validador.formato import detectar
+
+    catalogo = Catalogo.por_defecto()
+    if catalogo.vacio:
+        return "no hay paquete: no hay ningun esquema que compilar"
+    with open(BASE + "/fe-0001.xml", "rb") as f:
+        datos = f.read()
+    deteccion = detectar(datos)
+    esquema = catalogo.esquema_para(deteccion)
+    assert esquema is not None, catalogo.por_que_no_compila(deteccion)
+    assert esquema.validate(etree.fromstring(datos)), "no valida contra su XSD"
+    return "compila y valida sin poder pedirle nada a w3.org"
+
+
+@comprobar("las anclas viajan con la pagina y dicen de cuando son",
+           critica=True)
+def _():
+    """Y la otra mitad: de quien es el certificado que firma.
+
+    Con las anclas puestas hay que decir dos cosas que quien valida no puede
+    saber: de que lista salen —eso lo dice el manifiesto, que viaja con
+    ellas— y de cuando es esa lista. Un conjunto montado hace dos anios sigue
+    creyendo a autoridades a las que el Estado ya les retiro la
+    cualificacion, con su certificado en vigor y su cadena llegando.
+    """
+    from validador.cadena import Almacen
+
+    almacen = Almacen.por_defecto()
+    if almacen.vacio:
+        return "no hay paquete: no se comprueba de quien es el certificado"
+    assert almacen.declarada, "las anclas no dicen de donde vienen"
+    renovacion = almacen.renovacion
+    assert renovacion.hay, "las anclas no dicen de cuando son"
+    # Y las de sellado, que van en la carpeta hermana y son las que se olvidan.
+    assert not almacen.sellos.vacio, "faltan las anclas de sellado de tiempo"
+    return "%d anclas y %d de sellado, de una lista del %s" % (
+        len(almacen.todas()),
+        len(almacen.sellos.todas()),
+        renovacion.publicada.isoformat() if renovacion.publicada else "?",
+    )
+
+
 json.dumps(resultados)

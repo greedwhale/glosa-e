@@ -26,7 +26,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-949 tests, todos en verde.
+985 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -2094,9 +2094,10 @@ se comportan los sellos españoles de verdad está por ver.
 - **Los 14,7 MB del primer arranque.** Hay compilaciones de Pyodide más
   ligeras. La primera visita no va a ser instantánea nunca, y la página tiene
   que decirlo en vez de parecer rota.
-- **Repartir los esquemas y las anclas con la página.** El «quién» y el «de
-  dónde» están decididos y resueltos; falta empaquetarlos, y que la página
-  **enseñe de cuándo son las anclas que trae**.
+- ~~Repartir los esquemas y las anclas con la página.~~ **Hecho**:
+  `--empaquetar` arma el zip, la página lo carga y enseña de qué lista salen
+  las anclas, de cuándo son y cuándo toca renovarlas. Ver «Lo que la página se
+  lleva puesto».
 - **Facturas de un cliente de verdad.** Es lo único que va a decir si los
   mensajes están bien escritos, y suele mover la lista entera. Los sellos ya
   se han pasado por documentos reales del Estado y por una TSA cualificada
@@ -2119,7 +2120,8 @@ se comportan los sellos españoles de verdad está por ver.
    escritos, y ahora hay cuatro formatos que enseñar en vez de tres.
 2. **Las respuestas OCSP embebidas**, que completan la revocación sin red.
 3. **La página de verdad**, porque el validador ya hace lo que la ley pide y lo
-   que falta para que alguien lo use es la interfaz.
+   que falta para que alguien lo use es la interfaz. Los esquemas y las anclas
+   ya viajan con ella, así que lo que queda ahí es de forma, no de fondo.
 
 ## EDIFACT: el cuarto formato
 
@@ -2485,9 +2487,9 @@ La duda real no era si arrancaba Python, sino si esa compilación de lxml traía
 soporte de esquemas XSD: libxml2 se puede compilar sin él, y `esquema.py`
 entero depende de `etree.XMLSchema`. Lo trae.
 
-Las treinta y tres comprobaciones de `web/prueba.py` dan el mismo resultado
+Las treinta y siete comprobaciones de `web/prueba.py` dan el mismo resultado
 que en Python nativo —mismos códigos, mismos importes— pese a que ahí libxml2
-es 2.9.10 y en local 2.11.9. Veintitrés son críticas: dos de curva elíptica, tres
+es 2.9.10 y en local 2.11.9. Veintisiete son críticas: dos de curva elíptica, tres
 de la lista de confianza y tres de sellos de tiempo: que se verifique y se monte allí, y que una lista manipulada no
 monte nada. Esa parte depende de la canonicalización, que es lo más frágil de
 esa compilación. Medido: 42 s el primer arranque, 4,8 s con la caché caliente,
@@ -2499,6 +2501,126 @@ python -m http.server 8765
 ```
 
 Y abrir <http://127.0.0.1:8765/web/>. Los detalles, en [`web/LEEME.md`](web/LEEME.md).
+
+## Lo que la página se lleva puesto
+
+El validador comprueba tres cosas —la forma, el contenido y la firma— pero dos
+de las tres necesitan ficheros que no están en el código: los esquemas XSD, que
+son de sus organismos, y las anclas de confianza, que salen de la lista del
+Estado. Quien usa la consola se los instala. **Quien entra en una página no se
+instala nada**, así que o viajan con la página o esa página comprueba una de
+las tres y tiene que decirlo.
+
+Ahora viajan. `python -m validador --empaquetar` arma un ZIP con las tres
+carpetas dentro y un resumen al lado; el navegador lo baja de una vez y lo
+descomprime en su disco virtual, y el validador las encuentra por las mismas
+variables de entorno que usa fuera. Son **0,94 MB** —5,7 MB de ficheros, que
+comprimen bien— y tardan 0,09 s en cargarse, al lado de los 14,7 MB de Pyodide.
+
+```
+Escrito web/paquete.zip (0.94 MB)
+  SHA-256  364071b7337680b1e16de0f8e4e5d018e84a75c96f04c6ec7380c3b959626672
+
+  esquemas XSD          24
+  anclas de firma       268
+  anclas de sellado     121
+
+  de la lista de confianza de ES, publicada por MINISTERIO DE ASUNTOS
+  ECONOMICOS Y TRANSFORMACION DIGITAL el 2026-08-06
+  montadas el 2026-08-27, la lista se renueva el 2027-02-02
+```
+
+Ni el paquete ni las carpetas de las que sale se versionan, y no por su tamaño:
+**quien controle ese fichero controla en quién cree el validador.** Se arma
+desde las carpetas que uno ha montado y comprobado.
+
+### Dos cosas que el paquete se niega a hacer
+
+No empaqueta anclas **sin manifiesto**, porque un conjunto que no dice de dónde
+viene es justo lo que habíamos quedado en no repartir: quien lo recibe estaría
+creyendo a unas autoridades que nadie le ha dicho cuáles son.
+
+Y no empaqueta anclas **cuya lista debía haberse renovado**. Esta es la que
+importa y la que no era evidente.
+
+### Un conjunto de anclas no caduca; la lista de la que salió, sí
+
+Los certificados de dentro valen veinte o treinta años. Lo que vale seis meses
+es la lista de **quién sigue estando autorizado**, que es otra cosa. A una
+autoridad a la que el Estado le retire la cualificación en enero se le sigue
+creyendo en un conjunto montado en agosto: su certificado está en vigor, la
+cadena llega, y no hay nada en el documento que lo delate.
+
+Que la lista estuviera vencida se comprobaba **solo al montarla**. Después no
+se volvía a mirar nunca. Mientras las anclas se las instala quien valida eso
+casi se nota, porque las montó él; en cuanto un conjunto viaja con una
+herramienta, quien la usa no eligió nada y no tiene forma de enterarse.
+
+Así que ahora se mira en tres sitios, y los tres hacen falta:
+
+- Al **empaquetar**, negándose, porque quien arma el paquete es quien puede
+  arreglarlo con una orden.
+- En **cada informe**, como aviso —no como error: la firma es la que dice ser,
+  lo que no se puede afirmar es que la autoridad siga cualificada hoy—.
+- En **la página**, en un recuadro que dice qué trae, de qué lista sale, de
+  cuándo es y cuándo toca renovarla.
+
+Y cuando el paquete no está, el recuadro dice lo que deja de mirarse:
+
+```
+Esquemas XSD              no están
+Anclas de confianza       no están
+Entonces no se comprueba  la forma ni de quién es el certificado
+Para arreglarlo           python -m validador --empaquetar
+```
+
+El informe de cada factura dice además que las anclas **vienen con la página**.
+Que salgan de la lista del Estado es verdad y no es suficiente: lo que quien
+valida aquí no puede saber es que no las ha elegido él.
+
+### Y el agujero que apareció al no tener red
+
+Con el paquete puesto, la primera factura Facturae que pasó por el navegador
+contestó esto:
+
+```
+[XSD-ESQUEMA-ROTO] No se ha comprobado la forma: el esquema que le toca a este
+documento está ahí pero no se puede leer. Suele ser una descarga a medias;
+vuelve a bajarlo.
+```
+
+El fichero estaba entero. Lo que pasa es que los cinco XSD de Facturae importan
+la firma XMLDSig **por dirección web**, en su tercera línea:
+
+```xml
+<xs:import namespace="http://www.w3.org/2000/09/xmldsig#"
+  schemaLocation="http://www.w3.org/TR/xmldsig-core/xmldsig-core-schema.xsd"/>
+```
+
+El parser de `formato.py` lleva `no_network=True` desde el principio, con un
+comentario que dice que un fichero de fuera no debe poder hacer peticiones
+salientes. Eso vale para **leer el documento**. Compilar un esquema lo hace
+libxml2 por su cuenta y se saltaba el parser: comprobar la forma de una factura
+del formato nacional se bajaba un fichero de w3.org **cada vez**, y eso no
+estaba escrito en ninguna parte.
+
+No se veía porque funcionaba. Se ve donde no hay red. Confirmado aquí fuera
+apuntando el proxy a un puerto muerto:
+
+```
+con proxy muerto -> FALLA: The QName value 'Signature' does not resolve
+                    to a(n) element declaration., line 35
+```
+
+Los cinco de Facturae fallan; UBL y CII no, porque sus importaciones son
+relativas. Ahora se resuelve con la copia de XMLDSig que trae el paquete de UBL
+—mismo `targetNamespace`, mismo `Signature`—, sin bajar nada nuevo, y el
+resolvedor **se niega** a ir a buscar cualquier otra dirección de fuera en vez
+de dejar que libxml2 la baje. Cuando no hay copia local se dice la causa de
+verdad, en vez de mandar a rebajar un fichero que está perfectamente.
+
+La comprobación que lo prueba solo puede hacerse en el navegador, que es el
+único sitio donde «sin red» no es una opción sino un hecho.
 
 ## Fuentes
 

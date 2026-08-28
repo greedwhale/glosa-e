@@ -39,6 +39,11 @@
   #zona.encima { border-color: var(--bien); color: var(--bien); background: rgba(74,222,128,.06); }
   pre { background: #0d1015; border: 1px solid var(--borde); border-radius: 8px; padding: .9rem; overflow-x: auto; font: 13px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; margin: 1rem 0 0; }
   .nota { color: var(--tenue); font-size: .85rem; margin-top: .8rem; }
+  #trae div { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem 0; border-bottom: 1px dashed var(--borde); }
+  #trae div:last-child { border-bottom: 0; }
+  #trae .val { color: var(--tenue); font-family: ui-monospace, Consolas, monospace; font-size: .9em; text-align: right; }
+  #trae .aviso { color: var(--ojo); }
+  #trae .falta { color: var(--mal); }
 </style>
 </head>
 <body>
@@ -51,6 +56,15 @@
   <div class="caja">
     <h2>Arranque en fr&iacute;o</h2>
     <div id="fases"></div>
+  </div>
+
+  <div class="caja">
+    <h2>Lo que trae puesto</h2>
+    <div id="trae"><div><span>&hellip;</span></div></div>
+    <p class="nota">Sin esto la p&aacute;gina comprobar&iacute;a el contenido y nada m&aacute;s: la forma
+    necesita los esquemas XSD y la firma necesita las anclas de confianza del Estado. Van dentro
+    de la p&aacute;gina, as&iacute; que qui&eacute;n las eligi&oacute; y de cu&aacute;ndo son no
+    lo decide quien valida. Por eso se dice aqu&iacute;, y otra vez en cada informe.</p>
   </div>
 
   <div class="caja">
@@ -111,6 +125,90 @@ async function buscarWheel() {
   );
 }
 
+// Donde se descomprime el paquete dentro del disco virtual del navegador.
+// Las tres carpetas van tal cual salen del zip y el validador las encuentra
+// por las mismas variables de entorno que usa en consola: asi la pagina no le
+// pasa rutas a nadie, y lo que corre aqui es el mismo codigo que corre fuera.
+const DENTRO = "/opt/factura-e";
+let PAQUETE = null;
+
+function fila(clave, valor, clase) {
+  return "<div><span>" + clave + "</span><span class='val " +
+         (clase || "") + "'>" + valor + "</span></div>";
+}
+
+function contarLoQueTrae() {
+  const caja = $("trae");
+  if (!PAQUETE) {
+    // La ausencia se cuenta, y se cuenta diciendo **que se deja de mirar**.
+    // Un «no se ha podido cargar» a secas deja creyendo que falta un adorno.
+    caja.innerHTML =
+      fila("Esquemas XSD", "no est&aacute;n", "falta") +
+      fila("Anclas de confianza", "no est&aacute;n", "falta") +
+      fila("Entonces no se comprueba",
+           "la forma ni de qui&eacute;n es el certificado", "falta") +
+      fila("Para arreglarlo", "python -m validador --empaquetar", "");
+    return;
+  }
+  let filas =
+    fila("Esquemas XSD", PAQUETE.esquemas) +
+    fila("Anclas de firma", PAQUETE.anclas) +
+    fila("Anclas de sellado de tiempo", PAQUETE.anclas_de_sellos) +
+    fila("De d&oacute;nde salen", escapar(PAQUETE.declarada || "(no consta)")) +
+    fila("Montadas el", PAQUETE.montada || "(no consta)");
+  // La fecha que de verdad importa. Un conjunto de anclas no caduca —los
+  // certificados de dentro duran veinte anios— pero la lista de quien sigue
+  // estando autorizado se renueva cada seis meses, y pasada esa fecha aqui se
+  // sigue creyendo a quien el Estado ya haya retirado.
+  const siguiente = PAQUETE.siguiente;
+  if (!siguiente) {
+    filas += fila("Se renuevan el", "(la lista no lo dice)", "aviso");
+  } else if (new Date(siguiente) < new Date()) {
+    filas += fila("Deb&iacute;an renovarse el", siguiente, "aviso");
+    filas += fila("Mientras tanto",
+                  "se cree a autoridades que quiz&aacute; ya no lo sean", "aviso");
+  } else {
+    filas += fila("Se renuevan el", siguiente);
+  }
+  caja.innerHTML = filas;
+}
+
+async function traerPaquete() {
+  // El JSON primero y aparte: es un pellizco y permite decir de donde salen
+  // las anclas aunque el zip falle, que es justo cuando hace falta decirlo.
+  try {
+    const resumen = await fetch("./PAQUETE.json?v=" + Date.now());
+    if (resumen.ok) PAQUETE = await resumen.json();
+  } catch (e) { PAQUETE = null; }
+  contarLoQueTrae();
+  if (!PAQUETE) return;
+  try {
+    const zip = await fetch("./paquete.zip?v=" + Date.now());
+    if (!zip.ok) throw new Error("no esta el zip");
+    pyodide.FS.mkdirTree(DENTRO);
+    await pyodide.unpackArchive(await zip.arrayBuffer(), "zip",
+                                { extractDir: DENTRO });
+    pyodide.runPython(
+      "import os\n" +
+      "from pathlib import Path\n" +
+      "_d = Path(" + JSON.stringify(DENTRO) + ")\n" +
+      // Se comprueba que las tres carpetas han llegado de verdad en vez de
+      // darlo por hecho. Descomprimir sin error y dejarlas en otro sitio deja
+      // al validador con `Catalogo.vacio` y `Almacen.vacio`, que es la
+      // situacion de no traer nada, pero contada como si trajera.
+      "assert (_d / 'esquemas').is_dir(), 'sin esquemas'\n" +
+      "assert (_d / 'anclas').is_dir(), 'sin anclas'\n" +
+      "assert (_d / 'anclas-sellos').is_dir(), 'sin anclas de sellado'\n" +
+      "os.environ['FACTURAE_ESQUEMAS'] = str(_d / 'esquemas')\n" +
+      "os.environ['FACTURAE_ANCLAS'] = str(_d / 'anclas')\n" +
+      "os.environ['FACTURAE_ANCLAS_SELLOS'] = str(_d / 'anclas-sellos')\n"
+    );
+  } catch (e) {
+    PAQUETE = null;
+    contarLoQueTrae();
+  }
+}
+
 async function arrancar() {
   const cero = performance.now();
   let t = cero;
@@ -129,16 +227,25 @@ async function arrancar() {
   marcar("El validador (factura_e)", seg(performance.now() - t));
 
   t = performance.now();
+  await traerPaquete();
+  marcar("Esquemas y anclas de confianza", seg(performance.now() - t));
+
+  t = performance.now();
   pyodide.FS.mkdirTree("/ejemplos");
   await Promise.all(EJEMPLOS.map(async (nombre) => {
-    const respuesta = await fetch("../ejemplos/" + nombre);
+    const respuesta = await fetch("../ejemplos/" + nombre + "?v=" + Date.now());
     pyodide.FS.writeFile("/ejemplos/" + nombre,
                          new Uint8Array(await respuesta.arrayBuffer()));
   }));
   marcar("Facturas de ejemplo al disco virtual", seg(performance.now() - t));
   marcar("<b>Total hasta poder validar</b>", "<b>" + seg(performance.now() - cero) + "</b>");
 
-  const codigo = await (await fetch("./prueba.py")).text();
+  // El mismo `?v=` que el wheel, y por lo mismo. Sin el, el navegador puede
+  // servir de su cache una version vieja de este fichero: el banco correria
+  // sus comprobaciones de ayer contra el codigo de hoy y saldria todo verde.
+  // Paso: se anadieron tres comprobaciones, se recargo, y la pagina siguio
+  // diciendo «las 33 comprobaciones pasan» tan contenta.
+  const codigo = await (await fetch("./prueba.py?v=" + Date.now())).text();
   pintar(JSON.parse(await pyodide.runPythonAsync(codigo)));
 }
 
@@ -165,8 +272,14 @@ function pintar(resultados) {
   const caja = $("veredicto");
   if (fallan.length === 0) {
     caja.className = "veredicto si";
+    // «Entero» solo si de verdad esta entero. Sin el paquete, de las tres
+    // comprobaciones que hace este validador la pagina hace una, y decir
+    // «funciona entero» encima de un recuadro que dice que faltan los
+    // esquemas y las anclas seria contradecirse en dos lineas seguidas.
     caja.innerHTML = "S&iacute;: las " + resultados.length +
-      " comprobaciones pasan. El validador funciona entero dentro del navegador, sin servidor.";
+      (PAQUETE
+        ? " comprobaciones pasan. El validador funciona entero dentro del navegador, sin servidor."
+        : " comprobaciones pasan, pero sin el paquete: aqu&iacute; se comprueba el contenido y no la forma ni de qui&eacute;n es el certificado.");
   } else {
     caja.className = "veredicto no";
     caja.innerHTML = "Fallan " + fallan.length + " de " + resultados.length +
@@ -188,9 +301,25 @@ async function validarSueltos(ficheros) {
     rutas.push(destino);
   }
   pyodide.globals.set("_rutas", rutas);
+  // La procedencia se declara a mano y no se deja en la del manifiesto. El
+  // manifiesto dice de que lista salen, que es verdad y no es suficiente: lo
+  // que quien valida aqui no puede saber es que **no las ha elegido el**. Esa
+  // frase acaba en el informe de cada factura, al lado de la huella.
   $("salida").textContent = await pyodide.runPythonAsync(
     "from validador import factura\n" +
-    "factura.validar_lote(list(_rutas)).detalle()\n"
+    "from validador.cadena import Almacen\n" +
+    "from validador.esquema import Catalogo\n" +
+    "_a = Almacen.por_defecto()\n" +
+    "if _a.declarada:\n" +
+    "    _a = Almacen(_a.carpeta, 'que viene con esta pagina, ' + _a.declarada,\n" +
+    "                 _a.sellos_en)\n" +
+    "_c = Catalogo.por_defecto()\n" +
+    // La frase del final dice de que se ha fiado quien lee, y tiene que decir
+    // lo que ha pasado de verdad: con los defectos —forma si, anclas no—
+    // prometia haber comprobado la forma en una pagina sin esquemas y se
+    // callaba las anclas justo cuando las trae puestas.
+    "factura.validar_lote(list(_rutas), catalogo=_c, almacen=_a).detalle(\n" +
+    "    forma=not _c.vacio, anclas=not _a.vacio)\n"
   );
 }
 

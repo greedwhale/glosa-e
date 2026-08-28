@@ -36,3 +36,10 @@ revocaciones/
 # espanola pesa 2,8 MB y caduca; lo que hay que conservar no es el fichero,
 # sino la carpeta que sale de el y su PROCEDENCIA.txt.
 listas/
+
+# El paquete que se lleva la pagina: los esquemas y las anclas en un zip. Sale
+# de esquemas/ y anclas/, que tampoco se versionan, y por la misma razon: quien
+# controle ese fichero controla en quien cree el validador. Se arma con
+# `python -m validador --empaquetar` desde las carpetas que uno ha montado.
+web/paquete.zip
+web/PAQUETE.json

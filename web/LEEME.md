@@ -58,8 +58,8 @@ caché —todo verde, y no es lo que crees que has probado—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, treinta y tres comprobaciones que deben
-salir todas en verde; veintitrés están marcadas como **críticas** y son las
+Arriba, el tiempo de arranque. Abajo, treinta y siete comprobaciones que deben
+salir todas en verde; veintisiete están marcadas como **críticas** y son las
 que, si fallan, tumban la idea entera:
 
 | Comprobación | Por qué es crítica |
@@ -132,7 +132,7 @@ visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
 0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
 menos de cinco.
 
-Los treinta y tres resultados coinciden exactamente con los de la misma prueba
+Los treinta y siete resultados coinciden exactamente con los de la misma prueba
 ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
 Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
 en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización

@@ -1780,3 +1780,98 @@ de antes: python -m build --wheel --outdir dist
 
 Comprobado quitando `edifact.py` del wheel a mano: la queja sale en la tercera
 comprobación, que es donde está la causa, y no veintitantas más abajo.
+
+
+## Un parser endurecido, y el compilador de esquemas pasando por al lado
+
+`formato.py` tiene una función `parser()` con `no_network=True` y un comentario
+encima que dice, desde el primer día, que un fichero que llega de fuera no debe
+poder hacer peticiones salientes. Se usa en todas partes. Y sin embargo:
+
+```
+con proxy muerto -> FALLA: The QName value 'Signature' does not resolve
+                    to a(n) element declaration., line 35
+```
+
+Los cinco XSD de Facturae importan la firma XMLDSig **por dirección web**, en su
+tercera línea. Ese parser endurecido vale para **leer un documento**; las
+importaciones de un esquema las resuelve libxml2 por su cuenta y no pasan por
+él. Así que comprobar la forma de una factura del formato nacional se bajaba un
+fichero de w3.org cada vez que se compilaba el esquema.
+
+Lo interesante no es el fallo, que se arregla con un resolvedor de veinte
+líneas. Es cómo se escondía:
+
+- **Funcionaba.** Con red, que es lo que hay en la máquina de quien programa,
+  el import se resuelve y no pasa nada. No hay error, no hay log, no hay
+  lentitud apreciable.
+- **Había un comentario diciendo lo contrario.** Un `no_network=True` con su
+  explicación al lado es exactamente lo que hace que nadie vuelva a mirar. La
+  frase era cierta sobre lo que cubría, y lo que no cubría no se le veía.
+- **Solo se cae donde no hay red.** Apareció al meter los esquemas en la
+  página: en el navegador no hay a dónde salir, y el esquema no compiló.
+
+Y cuando se caía, mentía sobre la causa: «el esquema está ahí pero no se puede
+leer, suele ser una descarga a medias, vuelve a bajarlo», sobre un fichero
+entero y correcto. El mensaje mandaba a rehacer lo único que estaba bien.
+
+Ahora el resolvedor contesta con la copia de XMLDSig que trae el paquete de UBL
+y **se niega** a ir a buscar cualquier otra dirección de fuera. Negarse importa:
+devolver `None` ahí es lo natural de escribir y es justo lo que devuelve el
+control a libxml2, que la baja él. Hay una prueba que lo fija.
+
+## Lo que caduca no es lo que parece
+
+Un conjunto de anclas de confianza no caduca. Los certificados de dentro valen
+veinte o treinta años, y el día que caduquen se dice. Lo que caduca cada seis
+meses es otra cosa: **la lista de quién sigue estando autorizado**.
+
+La diferencia es toda. A una autoridad a la que el Estado le retire la
+cualificación en enero se le sigue creyendo en un conjunto montado en agosto:
+su certificado está en vigor, la cadena llega hasta ella, y no hay nada en el
+documento ni en el certificado que lo delate. Solo lo sabe la lista, y la lista
+es la que no se ha vuelto a mirar.
+
+Se comprobaba que la lista no estuviera vencida **al montarla**, y ahí se
+acababa. Después, nunca. Y eso casi se aguanta mientras las anclas se las
+instala quien valida —las montó él, sabe cuándo—; deja de aguantarse en cuanto
+un conjunto viaja con una herramienta. Quien entra en una página no eligió esas
+anclas ni sabe de cuándo son.
+
+Ahora se dice en los tres sitios donde alguien puede hacer algo: al empaquetar
+—negándose—, en cada informe donde una firma llega a un ancla, y en la página.
+Como aviso y no como error: la firma es la que dice ser, y lo que no se puede
+afirmar es otra cosa.
+
+## Una variable de entorno mandando sobre quien no la había llamado
+
+`FACTURAE_ANCLAS_SELLOS` dice dónde están las anclas de sellado de tiempo. Se
+leía dentro de `Almacen.sellos`, así que con esa variable puesta **cualquier**
+almacén —incluido uno construido a mano con una carpeta concreta— dejaba de
+mirar su carpeta hermana y se iba a la del entorno.
+
+Para un programa con un solo almacén da igual, y por eso llevaba así desde
+siempre. La página tiene dos: el suyo y el que fabrica cada comprobación del
+banco. Lo cazó una comprobación crítica que ya existía —la que vigila que las
+anclas de sellado no se mezclen con las de firma— en cuanto la página empezó a
+poner la variable.
+
+La variable es un valor **por defecto**: dice dónde están las tuyas cuando no
+has dicho nada. Ahora la lee `por_defecto`, que es quien construye «el almacén
+de este programa». Quien nombra una carpeta ya ha dicho cuál quiere.
+
+## El banco corriendo su propia versión de ayer
+
+Se añadieron tres comprobaciones al banco del navegador, se recargó la página, y
+siguió diciendo «las 33 comprobaciones pasan» tan contenta. El navegador servía
+`prueba.py` de su caché.
+
+El wheel sí llevaba un `?v=` con un comentario explicando exactamente este
+peligro —«sale todo verde y no es lo que crees que has probado»—. El fichero que
+contiene las comprobaciones, no. Ni las facturas de ejemplo contra las que se
+comprueban.
+
+Es la tercera vez en este proyecto que el mismo fallo aparece un nivel más
+arriba: primero el wheel viejo, luego la lista de módulos que no detectaba el
+wheel viejo, y ahora el banco entero. Cada vez, lo que falla no es la
+comprobación sino **de qué copia de sí misma se está fiando**.

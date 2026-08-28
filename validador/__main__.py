@@ -16,7 +16,7 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from validador import factura, tsl
+from validador import factura, paquete, tsl
 from validador.cadena import Almacen
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.cadena import SUFIJO_DE_SELLOS
@@ -174,6 +174,22 @@ def main(argumentos: list[str] | None = None) -> int:
         "usaria --anclas.",
     )
     analizador.add_argument(
+        "--empaquetar",
+        metavar="FICHERO",
+        nargs="?",
+        const="web/paquete.zip",
+        help="arma el paquete que la pagina web necesita para comprobar las "
+        "tres cosas: los esquemas XSD y las anclas de confianza, en un solo "
+        "zip. Sin el, la pagina solo comprueba el contenido. No se empaquetan "
+        "anclas sin manifiesto ni anclas cuya lista debia haberse renovado.",
+    )
+    analizador.add_argument(
+        "--aunque-esten-vencidas",
+        action="store_true",
+        help="empaqueta las anclas aunque su lista de confianza debiera "
+        "haberse renovado ya. Para probar, no para repartir.",
+    )
+    analizador.add_argument(
         "--solo-errores",
         action="store_true",
         help="calla los avisos y deja solo lo que impide cobrar",
@@ -196,6 +212,14 @@ def main(argumentos: list[str] | None = None) -> int:
         return _ver_anclas(almacen, opciones.hoy or date.today())
     if opciones.ver_revocaciones:
         return _ver_revocaciones(listas, opciones.hoy or date.today())
+    if opciones.empaquetar:
+        return _empaquetar(
+            Path(opciones.empaquetar),
+            opciones.esquemas,
+            almacen.carpeta,
+            opciones.hoy or date.today(),
+            opciones.aunque_esten_vencidas,
+        )
 
     caminos = expandir(opciones.rutas)
     if not caminos:
@@ -259,6 +283,57 @@ DIAS_DE_AVISO = 90
 # comparar una fecha con hora con otra sin ella: sin esto, un ancla con la
 # fecha ilegible reventaba el listado a media impresion.
 _ETERNO = datetime.max.replace(tzinfo=timezone.utc)
+
+
+def _empaquetar(
+    destino: Path, esquemas, anclas: Path, hoy: date, aunque_vencidas: bool
+) -> int:
+    """Arma el zip que la página se lleva puesto, o se niega y dice por qué.
+
+    Las dos negativas —sin manifiesto y sin renovar— salen por aquí en vez de
+    por una traza, porque son la parte que importa: no son fallos técnicos
+    sino la razón por la que ese paquete no se puede repartir.
+    """
+    from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
+
+    try:
+        contenido = paquete.armar(
+            destino,
+            esquemas=esquemas or ESQUEMAS_POR_DEFECTO,
+            anclas=anclas,
+            hoy=hoy,
+            aunque_esten_vencidas=aunque_vencidas,
+        )
+    except (paquete.SinManifiesto, paquete.SinRenovar) as motivo:
+        print(f"No se ha empaquetado nada.\n\n  {motivo}", file=sys.stderr)
+        return 2
+    except OSError as error:
+        print(f"No se ha podido escribir {destino}: {error}", file=sys.stderr)
+        return 2
+
+    print(f"Escrito {destino} ({contenido.bytes / 1024 / 1024:.2f} MB)")
+    print(f"  SHA-256  {contenido.huella}")
+    print()
+    print(f"  esquemas XSD          {contenido.esquemas}")
+    print(f"  anclas de firma       {contenido.anclas}")
+    print(f"  anclas de sellado     {contenido.anclas_de_sellos}")
+    print()
+    print(f"  {contenido.declarada}")
+    print(f"  montadas el {contenido.montada or '(no consta)'}, "
+          f"la lista se renueva el {contenido.siguiente or '(no dice)'}")
+    if contenido.siguiente:
+        quedan = (date.fromisoformat(contenido.siguiente) - hoy).days
+        # El aviso va aquí y no solo al validar porque quien arma el paquete es
+        # quien puede arreglarlo, y porque el paquete va a estar sirviéndose
+        # meses: lo que hoy vence dentro de tres semanas, en la página vence.
+        if quedan <= DIAS_DE_AVISO:
+            print(
+                f"\n  Ojo: quedan {quedan} días. Cuando pase esa fecha, la "
+                "página seguirá creyendo a autoridades que quizá ya no lo "
+                "sean, y lo dirá en cada informe. Vuelve a montar las anclas "
+                "y a empaquetar antes."
+            )
+    return 0
 
 
 def _ver_anclas(almacen, hoy: date) -> int:
