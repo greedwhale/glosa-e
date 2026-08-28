@@ -1,3 +1,25 @@
-* text=auto eol=lf
-*.xml text eol=lf
-*.edi text eol=lf
+# Los ficheros cuyos bytes tienen que llegar exactos.
+#
+# Este repositorio se escribe en Windows, con finales de linea CRLF, y se
+# construye en Linux. Git convierte los finales de linea de lo que considera
+# texto, y lo que es texto lo decide **adivinando**: `text=auto`. Para casi
+# todo esta bien.
+#
+# Para el paquete no. `web/paquete.zip` lleva los esquemas XSD y las anclas de
+# confianza que se reparten con la pagina, y su SHA-256 esta publicado en
+# PAQUETE.json —dentro y fuera del zip— y a la vista en la pagina, justamente
+# para que cualquiera pueda contrastarlo. Un solo byte cambiado al sacarlo del
+# repositorio y el zip no abre; el sitio publicado diria que no ha podido
+# descomprimir el paquete, y la causa no estaria a la vista en ningun sitio.
+#
+# Hoy git lo detecta bien. Esto es para que no dependa de que lo detecte.
+*.zip   binary
+*.whl   binary
+*.xsig  binary
+
+# Los certificados, por lo mismo: un ancla con un byte cambiado deja de
+# encadenar y el informe hablaria de una firma que no llega, en vez de un
+# fichero estropeado.
+*.cer   binary
+*.crt   binary
+*.der   binary
