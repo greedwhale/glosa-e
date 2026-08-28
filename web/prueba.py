@@ -181,15 +181,38 @@ def _():
 
 @comprobar("el paquete validador importa", critica=True)
 def _():
-    # Se recorre el paquete en vez de nombrar los modulos a mano. La lista
-    # escrita a mano se quedo corta cuando entro `revocacion`: esta
-    # comprobacion siguio en verde con un wheel viejo dentro y el fallo salio
-    # tres pruebas mas abajo, disfrazado de otra cosa.
+    # Se recorre el paquete Y ADEMAS se comprueba que estan los que tienen que
+    # estar. Las dos cosas, y por este orden de razones.
+    #
+    # Recorrerlo solo no vale. Se hizo asi cuando entro `revocacion`, porque
+    # una lista escrita a mano se habia quedado corta; pero recorrer el
+    # paquete pregunta que trae el wheel, no si el wheel es el de ahora.
+    # Volvio a pasar exactamente igual con `edifact`: el .whl de dist/ era de
+    # la vispera, esta comprobacion salio en verde diciendo «los 17 modulos»
+    # tan tranquila, y el fallo aparecio cinco pruebas mas abajo como un
+    # ImportError que no se parecia en nada a su causa.
+    #
+    # Una lista escrita a mano se queda corta, si; pero quedarse corta hace
+    # que esto FALLE, que es lo que tiene que pasar. Recorrer el paquete hace
+    # que PASE. De los dos fallos posibles, el caro es el segundo.
+    #
+    # Sobrar no molesta: un modulo nuevo que no este aqui no rompe nada.
+    # Faltar si, y se dice cual falta y que hay que hacer.
     import importlib
     import pkgutil
     import validador
+    ESPERADOS = {
+        "cadena", "calendario", "codigo_unico", "edifact", "en16931",
+        "esquema", "factura", "facturae", "firma", "formato", "incidencias",
+        "iva", "nif", "revocacion", "sellos", "sintaxis", "tsl",
+    }
     nombres = sorted(m.name for m in pkgutil.iter_modules(validador.__path__))
-    assert nombres, "el paquete no trae ningun modulo"
+    faltan = sorted(ESPERADOS - set(nombres))
+    assert not faltan, (
+        "al wheel de dist/ le faltan estos modulos: {}. Suele querer decir "
+        "que es de antes: python -m build --wheel --outdir dist".format(
+            ", ".join(faltan))
+    )
     for nombre in nombres:
         importlib.import_module("validador." + nombre)
     return "los {} modulos: {}".format(len(nombres), ", ".join(nombres))
@@ -1027,6 +1050,51 @@ def _():
     codigos = [i.codigo for i in informe.incidencias]
     assert "EDI-MENSAJE-DESCONTADO" in codigos, codigos
     return "el UNT no cuadra y se dice"
+
+
+@comprobar("un UNA de cinco caracteres se lee igual", critica=True)
+def _():
+    """La norma manda seis caracteres de servicio y hay quien escribe cinco.
+
+    Se salta el hueco reservado: «UNA:+.?'UNB...». De 64 ficheros EDIFACT
+    ajenos, 23 lo hacen. Sin leerlo bien, el terminador que sale es la «U»
+    del UNB, el fichero se parte por cada letra U, no aparece ningun UNH y la
+    respuesta es «este fichero no trae ningun mensaje» sobre una factura
+    entera. Es critica porque el fallo no se ve: no hay excepcion ninguna,
+    hay una frase bien escrita que dice algo falso.
+    """
+    from validador import factura
+
+    informe = factura.validar_archivo(BASE + "/edi-0003-una-de-cinco.edi", hoy=HOY)
+    codigos = [i.codigo for i in informe.incidencias]
+    assert "EDI-UNA-DE-CINCO" in codigos, codigos
+    assert "EDI-SIN-MENSAJE" not in codigos, codigos
+    assert not [i for i in informe.incidencias if i.gravedad == "error"], codigos
+    return "se lee la factura entera y se dice que el UNA venia de cinco"
+
+
+@comprobar("un separador sin soltar no tumba el lote", critica=True)
+def _():
+    """Un apostrofo dentro de un dato parte el segmento por la mitad.
+
+    El trozo de detras no es un segmento, y montar un elemento XML con su
+    «etiqueta» levantaba un ValueError de lxml que no salia por el informe
+    sino por la consola, llevandose por delante los demas ficheros. Aqui se
+    comprueba lo mismo dentro del navegador, donde una excepcion no atrapada
+    deja la pagina sin respuesta.
+    """
+    from validador import factura
+
+    roto = (
+        b"UNB+UNOC:2+A+B+260304:0930+1'"
+        b"UNH+1+INVOIC:D:96A:UN'BGM+380+F1'"
+        b"LIN+1'IMD+L+050+:::Cesky Casopis'a Historicky'MOA+203:100'"
+        b"UNS+S'MOA+79:100'UNT+8+1'UNZ+1+1'"
+    )
+    informe = factura.validar(roto, hoy=HOY)
+    codigos = [i.codigo for i in informe.incidencias]
+    assert "EDI-ETIQUETA-IMPOSIBLE" in codigos, codigos
+    return "se aparta el trozo roto, se dice, y no revienta nada"
 
 
 json.dumps(resultados)

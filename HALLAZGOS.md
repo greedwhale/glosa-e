@@ -1663,12 +1663,120 @@ uno. Es un fichero de demostración y está mal. La prueba lo dice con su nombre
 en vez de bajar el listón para que pase.
 
 Y una cosa que no se esperaba: los cualificadores de las guías antiguas **no
-sustituyen** a los de la norma, se mezclan con ellos. Las tres facturas con IVA
-escriben la suma de líneas con el 79, la base con el 125 y la cuota con el 124
-—los de EN 16931— y el total con el 77, el 86 o el 128, que no lo son. Un
-documento puede ir con los códigos de la norma en casi todo y salirse justo en
-el que más se mira, que es exactamente el caso en que «falta el importe total»
-manda a buscar un dato que está escrito dos líneas más arriba.
+sustituyen** a los de la norma, se mezclan con ellos. Se vio en cuatro facturas
+y se confirmó en 64, con 251 mensajes que llevan totales:
+
+- El `79` —la suma de las líneas, código de la norma— sale en 47 de los 64.
+- El `389` —el total sin impuestos, código de la norma— **no sale ni una vez**.
+- El `388` —el total con impuestos, código de la norma— sale en uno.
+- El `77`, que no es de la norma, sale en 31.
+
+192 de los 251 mensajes no usan ninguno de los tres cualificadores de total que
+EN 16931 mira. Un documento puede ir con los códigos de la norma en casi todo y
+salirse justo en el que más se mira, que es exactamente el caso en que «falta el
+importe total» manda a buscar un dato que está escrito dos líneas más arriba.
+No es la rareza de un emisor: en EDIFACT es lo normal, y por eso la queja tenía
+que decir el código que sí lleva en vez de dar el importe por ausente.
 
 932 tests, 31 comprobaciones en el navegador (21 críticas). Diez defensas
 comprobadas al revés: deshechas una a una, las diez ponen algo en rojo.
+
+
+## Una frase entera, bien escrita y falsa
+
+De 64 ficheros EDIFACT bajados de repositorios públicos de proyectos de EDI,
+23 escriben el UNA con cinco caracteres en vez de los seis que manda la norma:
+se saltan el hueco reservado. El lector cogía el sexto, que era la `U` del
+`UNB` que viene detrás, y partía el fichero por cada letra U. No aparecía
+ningún `UNH`, y la respuesta era «el fichero no trae ningún mensaje» sobre un
+fichero con veinticuatro facturas dentro.
+
+Lo que hace de esto un hallazgo y no un fallo cualquiera es que no se parece a
+un fallo: no hay excepción, no hay aviso a medias, no hay nada raro en la
+salida. Hay una frase en buen castellano que explica con precisión algo que no
+ha ocurrido. Quien la lea archivará el fichero como vacío.
+
+La lectura correcta no es una adivinanza: detrás del UNA solo puede venir el
+UNB, así que se prueban las dos longitudes y se queda la que deja un UNB
+detrás. Se acepta y se deja escrito sobre qué base, que es para lo que están
+las notas.
+
+## Que la cuenta la lleve otro
+
+Tres de los 64 traen un carácter de servicio dentro de un dato sin soltar con
+`?` —un apóstrofo en el título de una revista checa, otro en un nombre de
+empresa—, y el segmento se parte por ahí. El trozo de detrás no es un
+segmento, y montar un elemento XML con su «etiqueta» levantaba un `ValueError`
+que se llevaba por delante el lote entero.
+
+Rastreando de dónde salen, la sorpresa: el apóstrofo no lo dejó suelto el
+emisor. Ese fichero es la misma factura de Harrassowitz que ya estaba entre
+las muestras, republicada como caso de prueba en otro repositorio con la
+dirección del comprador recortada y el título de una revista retocado. En el
+corpus anonimizado, lo mismo con un anonimizador y un nombre de empresa.
+
+Y ahí está lo que vale la pena guardar. Al retocarlo **no tocaron el UNT**,
+que sigue declarando los 138 segmentos que escribió el emisor. Con el trozo
+roto dentro salen 139; apartándolo, 138. En el otro, 35 donde dice 32; los
+tres trozos apartados, 32. Una cuenta escrita por quien emitió la factura
+sirve para detectar un destrozo hecho por alguien que vino después.
+
+Es además el reverso de la comprobación que ya había: en el original de esa
+misma factura los 138 solo salen si el carácter de escape se trata bien, y en
+la copia manipulada solo salen si se aparta el trozo roto. La misma cuenta,
+las dos direcciones, y ninguna de las dos la aprueba quien la escribe.
+
+## El lote que se para en el séptimo
+
+El `ValueError` era un fallo concreto y está arreglado. Que se llevara los
+otros 63 ficheros por delante es otra cosa, y es peor: apuntar a una carpeta
+de quinientas facturas y que la séptima venga mal daba una traza de Python y
+ninguna de las cuatrocientas noventa y nueve restantes revisada. Desde un
+script, un código de salida distinto de cero — el mismo que cuando hay
+facturas con errores.
+
+Un validador de ficheros ajenos tiene que dar por hecho que le van a llegar
+cosas no previstas. Ahora eso se cuenta como error del fichero, para que el
+lote no dé por bueno lo que no ha mirado, y se dice que la culpa es del
+validador y no de la factura.
+
+
+## Recorrer el paquete no pregunta si el paquete es el de ahora
+
+El banco de pruebas del navegador instala el `.whl` que haya en `dist/`. Al
+pasarle las comprobaciones nuevas de EDIFACT salieron cinco en rojo, y una
+decía `ImportError: cannot import name 'edifact'`. El wheel era de la víspera.
+
+Lo que importa no es el despiste, que se arregla reconstruyendo. Lo que importa
+es que **la comprobación que existe justo para esto salió en verde**: «el
+paquete validador importa — los 17 módulos: …», tan tranquila, sin `edifact` en
+la lista y sin que a nadie le chirriara. El fallo apareció cinco pruebas más
+abajo, disfrazado de otra cosa.
+
+Y esa comprobación estaba escrita así **a propósito**, con un comentario encima
+explicando por qué: antes nombraba los módulos a mano, la lista se quedó corta
+cuando entró `revocacion`, y se cambió a recorrer el paquete para que no
+volviera a pasar. El comentario describe el fallo, y el código de debajo lo
+reintroduce.
+
+Porque las dos formas fallan, pero no igual:
+
+- Una lista escrita a mano se queda corta cuando entra un módulo nuevo, y
+  entonces **la comprobación falla**. Es un fallo molesto y barato: se lee el
+  mensaje y se añade el nombre.
+- Recorrer el paquete pregunta *qué trae el wheel*, no *si el wheel es el de
+  ahora*, así que con un wheel viejo dentro **la comprobación pasa**. Es un
+  fallo cómodo y caro: la página dice que todo está en verde probando código
+  que ya no existe.
+
+Ahora hace las dos cosas: recorre el paquete —para importarlos todos— y además
+comprueba que estén los que tienen que estar. Sobrar no molesta; faltar lo dice
+por su nombre y con lo que hay que teclear:
+
+```
+al wheel de dist/ le faltan estos modulos: edifact. Suele querer decir que es
+de antes: python -m build --wheel --outdir dist
+```
+
+Comprobado quitando `edifact.py` del wheel a mano: la queja sale en la tercera
+comprobación, que es donde está la causa, y no veintitantas más abajo.

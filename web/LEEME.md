@@ -39,19 +39,27 @@ lo importa y el wheel no lo trae. Pasó al añadir `facturae.py` —la página
 quedó rota sin que nada lo dijera, porque `dist/` no se versiona y los tests
 corren contra la carpeta, no contra el paquete—.
 
-Volvió a pasar al añadir `revocacion.py`, y por eso la comprobación «el paquete
-validador importa» ya no lleva una lista de módulos escrita a mano: **recorre
-el paquete instalado y los importa todos**, y dice cuántos y cuáles. Con la
-lista a mano, un wheel viejo salía en verde y el fallo aparecía tres pruebas
-más abajo disfrazado de otra cosa. Ahora sale ahí y dice qué falta. La página,
+Volvió a pasar al añadir `revocacion.py`, y la comprobación «el paquete
+validador importa» pasó a **recorrer el paquete instalado e importarlos todos**
+en vez de llevar una lista escrita a mano. Y eso, por sí solo, estaba mal: se
+volvió a comprobar al añadir `edifact.py`, con un wheel de la víspera dentro, y
+esa comprobación salió **en verde** diciendo «los 17 módulos» sin `edifact`
+entre ellos; el fallo apareció cinco pruebas más abajo como un `ImportError`.
+
+Recorrer el paquete pregunta qué trae el wheel, no si el wheel es el de ahora.
+Una lista escrita a mano se queda corta —y entonces **falla**, que es lo que
+tiene que pasar—; recorrer el paquete hace que **pase**. De los dos fallos, el
+caro es el segundo. Así que ahora hace las dos cosas: los recorre y los importa
+todos, y además comprueba que estén los que tienen que estar, diciendo cuál
+falta y que hay que reconstruir el wheel. La página,
 además, le añade un `?v=` a la URL del wheel: el nombre no cambia entre
 compilaciones de la misma versión, y sin eso el navegador puede servir el de su
 caché —todo verde, y no es lo que crees que has probado—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, treinta y una comprobaciones que deben
-salir todas en verde; veintiuna están marcadas como **críticas** y son las
+Arriba, el tiempo de arranque. Abajo, treinta y tres comprobaciones que deben
+salir todas en verde; veintitrés están marcadas como **críticas** y son las
 que, si fallan, tumban la idea entera:
 
 | Comprobación | Por qué es crítica |
@@ -124,7 +132,7 @@ visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
 0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
 menos de cinco.
 
-Los veintiocho resultados coinciden exactamente con los de la misma prueba
+Los treinta y tres resultados coinciden exactamente con los de la misma prueba
 ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
 Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
 en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización

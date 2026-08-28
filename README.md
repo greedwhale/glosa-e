@@ -26,7 +26,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-932 tests, todos en verde.
+949 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -2074,8 +2074,8 @@ Lo que queda, ordenado por lo que de verdad estorba.
 
 **EDIFACT ya está**, que era el más gordo por ser un cuarto del alcance legal
 declarado. Se lee en sus dos formas, los nueve ejemplos de la Comisión pasan
-limpios y cuatro facturas reales en tira cuadran con las cuentas que traen
-dentro. Lo que queda de esa parte es de grado, no de fondo: dos campos sin
+limpios, y 64 ficheros ajenos con 265 mensajes dentro —siete versiones del
+directorio, de 1993 a 2007— cuadran con las cuentas que traen dentro. Lo que queda de esa parte es de grado, no de fondo: dos campos sin
 situar —el redondeo (BT-114) y el código del motivo de exención (BT-121)—, que
 constan como hueco declarado en el mapa en vez de leerse de un sitio
 equivocado, porque un importe sacado del cajón de al lado entra en las cuentas
@@ -2261,15 +2261,32 @@ ejemplos\edi-0002-cortado.edi
 EN 16931 fijó qué cualificador va en cada campo, pero las facturas EDIFACT
 llevan décadas circulando con las guías de cada sector, que eligieron otros.
 
-Lo que enseñan las cuatro facturas reales no es que se ignore la norma, sino
-algo más incómodo: **se solapan**. Las tres que llevan IVA escriben la suma de
-líneas con el 79, la base con el 125 y la cuota con el 124 —los tres, los de la
-norma— y luego el total con el 77, el 86 o el 128, que no lo son. La cuarta no
-lleva IVA y no tiene total que escribir: declara el 79 y el 9, los dos de la
-norma, y no le falta nada.
+Lo que se vio primero en cuatro facturas reales no es que se ignore la norma,
+sino algo más incómodo: **se solapan**. Y contando los 64 ficheros ajenos —251
+mensajes con totales— la cosa sale más nítida de lo que parecía:
 
-O sea que un documento puede parecer conforme campo por campo y no serlo justo
-en el que más se mira.
+| Cualificador | Qué es | En cuántos de los 64 |
+|---|---|---|
+| `79` | suma de las líneas — **de la norma** | 47 |
+| `125` | base por categoría — **de la norma** | 44 |
+| `124` | cuota por categoría — **de la norma** | 40 |
+| `77` | total del documento — *no es de la norma* | 31 |
+| `9` | lo que hay que pagar — **de la norma** | 20 |
+| `86`, `131`, `129`, `128` | totales de guías de sector | 16, 6, 6, 1 |
+| `388` | total con impuestos — **de la norma** | 1 |
+| `389` | total sin impuestos — **de la norma** | **0** |
+
+Los códigos de la norma para las **líneas** están en casi todos: el 79 en 47 de
+los 64. Los códigos de la norma para el **total del documento** casi no están:
+el 389 no aparece ni una sola vez en 265 mensajes, y el 388 en uno solo. En su
+lugar, el 77 en 31 ficheros.
+
+De los 251 mensajes que llevan totales, **192 no usan ninguno** de los tres
+que EN 16931 mira, 43 los mezclan con otros y 16 usan solo los suyos.
+
+O sea que un documento puede ir con los códigos de la norma en casi todo y
+salirse justo en el que más se mira. Y no es una rareza de un emisor: es lo
+normal.
 
 Sin decirlo, esa factura recibe «falta el importe total con impuestos
 incluidos». Es verdad que falta donde la norma lo pone, pero quien lo lee
@@ -2323,6 +2340,139 @@ EDIFACT, donde no se había mirado ningún esquema, y a la vez **no se apuntaba
 las reglas EN 16931**, que sí se habían pasado. Prometía de más por un lado y de
 menos por el otro.
 
+### Contra 64 ficheros que no ha escrito nadie de aquí
+
+Los nueve ejemplos de la Comisión son facturas conformes hechas por quien
+escribió la norma, y por eso valen para comprobar el mapa de campos. Pero no
+se parecen a lo que llega: son limpios, todos del mismo directorio, y todos
+declaran los separadores de siempre. Así que se buscaron ficheros EDIFACT
+INVOIC en repositorios públicos de proyectos de EDI que traen casos de
+prueba, y se bajaron **64**: facturas de Otto Harrassowitz a bibliotecas
+universitarias, de Casalini Libri y W.S. Hein a Cornell, del mercado
+energético alemán, y un corpus anonimizado de un proyecto de validación.
+Siete versiones del directorio —D.93A, D.96A, D.96B, D.97A, D.01B, D.06A,
+D.07A—, seis subconjuntos de sector, y **265 mensajes**.
+
+**Lo que aguantó**, que es lo que más importa: la reconstrucción de grupos,
+la parte que puede fallar sin dar error. En los 64 se comprobaron tres
+cuentas que no dependen de este código —que cada `LIN` del fichero plano
+salga como una línea del árbol, que ningún `MOA+203` acabe fuera de su línea,
+y que las etiquetas sean etiquetas—. Las tres cuadran en todos. No apareció
+ningún caso nuevo del tipo del `PAC`.
+
+**Lo que no aguantó**: dos averías, y las dos de aquí.
+
+#### El UNA de cinco caracteres
+
+El UNA es lo que declara los separadores, y la norma dice seis caracteres:
+componente, elemento, decimal, escape, un hueco reservado y terminador. **23
+de los 64 escriben cinco**, saltándose el hueco: `UNA:+.?'UNB…` en vez de
+`UNA:+. Son 18 emisores distintos en el UNB, asi que
+no es la mania de uno.? 'UNB…`.
+
+El lector cogía el sexto carácter, que era la `U` del `UNB`, y partía el
+fichero por cada letra U. Ni un solo `UNH`, y la respuesta era esta:
+
+```
+[EDI-SIN-MENSAJE · ISO 9735] El fichero no trae ningún segmento UNH, que es
+el que abre un mensaje. Sin él no hay nada que validar: lo que hay es un
+sobre vacío.
+```
+
+Sobre un fichero con veinticuatro facturas dentro. Eso no se parece a un
+fallo: no hay excepción, no hay aviso a medias. Hay una frase entera, en buen
+castellano, que explica con precisión algo que no ha ocurrido — y quien la
+lea archivará el fichero como vacío.
+
+Leerlo bien no es adivinar. Detrás del UNA solo puede venir el UNB, porque
+ISO 9735 no admite otra cosa ahí; así que se prueban las dos longitudes y se
+queda la que deja un UNB detrás. Se acepta, y **se dice sobre qué base**:
+
+```
+[EDI-UNA-DE-CINCO · ISO 9735] El UNA declara cinco caracteres de servicio en
+vez de los seis que manda ISO 9735: falta el hueco reservado. Se ha leído el
+último como terminador de segmento, que es la única lectura posible porque
+detrás del UNA solo puede venir el UNB.
+```
+
+#### Un apóstrofo sin soltar, y una traza de Python
+
+Tres de los 64 traen un carácter de servicio dentro de un dato sin soltar con
+`?`: el título de una revista checa en uno, un nombre de empresa con
+apóstrofo —«…ER'S HANDELSGESELLSCHAFT MBH»— en los otros dos. El segmento se
+parte por ahí, y el trozo de detrás no es un segmento: su «etiqueta» era
+`A HISTORICKY <FORMERLY`. Con eso `lxml` no puede montar un elemento y
+levanta un `ValueError` — que no salía por el informe sino por la consola,
+como una traza, **y se llevaba por delante los otros 63 ficheros del lote**.
+
+Conviene decir de quién es el destrozo, porque no es de quien parece. Ese
+fichero es **la misma factura** que la de Harrassowitz que ya estaba entre
+las muestras —número 246816, 8 de febrero de 2021—, publicada en otro
+repositorio como caso de prueba: le quitaron la dirección del comprador y le
+metieron el apóstrofo. El emisor escribe bien el escape; lo rompió quien lo
+manipuló después. En el corpus anonimizado pasa algo parecido, con el
+anonimizador sustituyendo un nombre de empresa. Da igual: ficheros así
+circulan, y la respuesta a uno de ellos no puede ser una traza.
+
+Ahora se aparta el trozo y se dice qué pasa. Apartarlo importa por algo más
+que por no reventar: un trozo con una etiqueta que no está en la tabla de
+grupos no se queda fuera del grupo, **lo cierra**, que es exactamente lo del
+`PAC`. Si el corte cae dentro de una línea, los importes de esa línea pasan a
+contarse como totales de la factura sin dar ningún error.
+
+Y hay una forma de saber que apartarlo era lo correcto y no una comodidad:
+**la cuenta la lleva otro**. A ese fichero le tocaron el título pero no el
+UNT, que sigue declarando 138 segmentos. Con el trozo dentro salen 139;
+apartándolo, 138. El otro declara 32 y salen 35; apartando los tres, 32. Es
+decir: la cuenta que escribió el emisor sirve para detectar un destrozo
+posterior al emisor.
+
+Es además el reverso exacto de la muestra que ya había. En el original de esa
+misma factura el escape está bien puesto y los 138 solo salen si se trata; en
+la copia manipulada falta uno y los 138 solo salen si se aparta el trozo. La
+misma comprobación caza las dos cosas, en las dos direcciones, porque el 138
+no lo ha escrito este código.
+
+#### Y un fichero que se llevaba el lote por delante
+
+Ese `ValueError` está arreglado, pero que se llevara el lote es otra cosa y
+había que arreglarla aparte. Apuntar a una carpeta de quinientas facturas y
+que la séptima esté mal terminaba en una traza y **ninguna** de las otras
+cuatrocientas noventa y nueve revisada; desde un script, en un código de
+salida distinto de cero, que es el mismo que se ve cuando hay facturas con
+errores.
+
+Los ficheros son de otros y siempre habrá uno que traiga algo no previsto.
+Ahora eso se cuenta como un error del fichero —para que el lote no dé por
+bueno lo que no ha mirado— y se dice de quién es la culpa:
+
+```
+[VALIDADOR-SE-ATRAGANTA · Fichero] Este fichero ha hecho fallar al validador:
+ValueError: … El fallo es del validador, no necesariamente de la factura, y
+hay que arreglarlo aquí. Los demás ficheros del lote sí se han revisado.
+```
+
+#### Lo que los ficheros traían mal de origen
+
+De los 64, unos cuantos vienen con defectos suyos, y separarlos de los de
+aquí es la prueba de que las cuentas del sobre sirven:
+
+- **W.S. Hein** cierra el intercambio con una referencia distinta de la que
+  abrió: el UNB dice `000000767` y el UNZ `000000751`. Es también el único de
+  los 64 con separadores propios —`UNA^<.? >`: componente `^`, elemento `<`,
+  terminador `>`—, que es justo para lo que existe el UNA y hasta este
+  fichero no había ninguno que lo demostrara. Todos los demás declaran los de
+  por defecto, así que un lector que se saltara el UNA habría pasado igual.
+- Varios del corpus anonimizado declaran en el UNZ más mensajes de los que
+  llevan: se extrajo un trozo del intercambio y no se rehízo la cuenta.
+- Uno declara 48 segmentos en un mensaje y lleva 47. Los otros seis mensajes
+  del mismo fichero cuadran exactamente, y eso es lo que dice que el
+  descuadre es suyo y no de la lectura.
+
+Cinco de los 64 se han quedado como muestras permanentes, con su procedencia
+anotada. Como el resto de `muestras/`, no se versionan: son facturas de
+terceros.
+
 ## Sin servidor: el validador dentro del navegador
 
 `web/` no es la página del producto, es la prueba de que la página es posible.
@@ -2335,9 +2485,9 @@ La duda real no era si arrancaba Python, sino si esa compilación de lxml traía
 soporte de esquemas XSD: libxml2 se puede compilar sin él, y `esquema.py`
 entero depende de `etree.XMLSchema`. Lo trae.
 
-Las veintiocho comprobaciones de `web/prueba.py` dan el mismo resultado que
-en Python nativo —mismos códigos, mismos importes— pese a que ahí libxml2 es
-2.9.10 y en local 2.11.9. Diecinueve son críticas: dos de curva elíptica, tres
+Las treinta y tres comprobaciones de `web/prueba.py` dan el mismo resultado
+que en Python nativo —mismos códigos, mismos importes— pese a que ahí libxml2
+es 2.9.10 y en local 2.11.9. Veintitrés son críticas: dos de curva elíptica, tres
 de la lista de confianza y tres de sellos de tiempo: que se verifique y se monte allí, y que una lista manipulada no
 monte nada. Esa parte depende de la canonicalización, que es lo más frágil de
 esa compilación. Medido: 42 s el primer arranque, 4,8 s con la caché caliente,
