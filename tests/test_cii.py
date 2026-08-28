@@ -5,11 +5,20 @@ ejecuta sobre UBL y sobre CII con el mismo documento semántico. Si una regla
 dejara de funcionar en una de las dos sintaxis, la mitad de los tests caería.
 """
 
-import pytest
+import pathlib
 
-from validador import en16931
+import pytest
+from lxml import etree
+
+from validador import en16931, sintaxis
 from validador.en16931 import AVISO, ERROR
-from validador.formato import CII, UBL
+from validador.formato import CII, EDIFACT, UBL
+
+# Los ejemplos EDIFACT de la Comisión, si están. No se versionan —son de
+# terceros—, así que las pruebas que los usan se saltan cuando no están.
+MUESTRAS_EDIFACT = sorted(
+    pathlib.Path("muestras").glob("cef_EDIFACT_EXAMPLE*.xml")
+)
 
 # --- Construcción de facturas equivalentes en las dos sintaxis -------------
 
@@ -407,9 +416,17 @@ class TestPropioDeCII:
 </fe:Facturae>"""
         assert en16931.validar(facturae).incidencias == []
 
-    def test_edifact_no_revienta(self):
+    def test_edifact_ya_no_se_queda_sin_validar(self):
+        """Antes contestaba «solo se ha identificado». Ahora se valida.
+
+        La factura del ejemplo es una cabecera pelada: no trae ni partes ni
+        importes. Lo que se comprueba aquí es que las reglas **corren** sobre
+        ella —y por eso echan de menos lo que falta— en vez de rendirse.
+        """
         datos = b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+INVOIC:D:96A:UN'"
-        assert "SIN-SOPORTE" in codigos(en16931.validar(datos), AVISO)
+        informe = en16931.validar(datos)
+        assert "SIN-SOPORTE" not in codigos(informe, AVISO)
+        assert "BR-02" in codigos(informe, ERROR)
 
 
 class TestImpuestoEnVariasMonedas:
@@ -468,18 +485,44 @@ class TestElMapaEsSoloUnMapa:
         assert campos_ubl == campos_cii
 
     def test_ninguna_ruta_se_ha_quedado_a_medias(self):
-        for sintaxis in (en16931.SINTAXIS_UBL, en16931.SINTAXIS_CII):
-            for nombre, valor in vars(sintaxis).items():
-                if nombre in ("nombre", "espacios", "nombre_perfil"):
+        for mapa in en16931.SINTAXIS.values():
+            for nombre, valor in vars(mapa).items():
+                if nombre in (
+                    "nombre",
+                    "espacios",
+                    "nombre_perfil",
+                    "marcas_de_cargo",
+                ):
                     continue
-                assert valor.startswith("./"), f"{sintaxis.nombre}.{nombre} = {valor}"
+                # «self::» es tan relativa como «./», y hace falta en EDIFACT
+                # para filtrar por el propio nodo antes de subir a buscar.
+                assert valor.startswith(("./", "self::")), (
+                    f"{mapa.nombre}.{nombre} = {valor}"
+                )
+                # Los ejes de XPath llevan dos puntos dobles («self::») y no
+                # son prefijos de espacio de nombres. Sin quitarlos primero,
+                # un eje sale acusado de usar un espacio sin declarar.
+                sin_ejes = valor.replace("::", " ")
                 prefijos = {
                     trozo.split(":", 1)[0]
-                    for trozo in valor.removeprefix("./").split("/")
+                    for trozo in sin_ejes.removeprefix("./").split("/")
                     if ":" in trozo
                 }
-                sobran = prefijos - set(sintaxis.espacios)
-                assert not sobran, f"{sintaxis.nombre}.{nombre} usa {sobran}"
+                sobran = prefijos - set(mapa.espacios)
+                assert not sobran, f"{mapa.nombre}.{nombre} usa {sobran}"
 
     def test_las_familias_registradas_son_las_que_se_validan(self):
-        assert set(en16931.SINTAXIS) == {UBL, CII}
+        assert set(en16931.SINTAXIS) == {UBL, CII, EDIFACT}
+
+    def test_lo_que_no_se_sabe_leer_no_lee_nada(self):
+        """`SIN_MAPA` tiene que ser de verdad una ruta que no encuentra nada.
+
+        Es el hueco declarado de un campo que no se ha podido situar. Si
+        alguna vez casara con algo, se estaría metiendo un dato ajeno en las
+        cuentas por la puerta de atrás, que es justo lo que el hueco evita.
+        """
+        if not MUESTRAS_EDIFACT:
+            pytest.skip("no están las muestras de la Comisión")
+        for muestra in MUESTRAS_EDIFACT:
+            raiz = etree.fromstring(muestra.read_bytes())
+            assert raiz.xpath(sintaxis.SIN_MAPA) == []

@@ -31,20 +31,34 @@ from lxml import etree
 from validador import (
     cadena,
     codigo_unico,
+    edifact,
     en16931,
     esquema,
     facturae,
     firma,
     sellos,
 )
-from validador.formato import CII, FACTURAE, UBL, Deteccion, detectar, parser
+from validador.formato import (
+    CII,
+    EDIFACT,
+    FACTURAE,
+    UBL,
+    Deteccion,
+    detectar,
+    parser,
+)
 from validador.cadena import Almacen
 from validador.revocacion import AlmacenDeListas
 from validador.esquema import Catalogo
 from validador.incidencias import ERROR, Incidencia, Informe
 
-# Familias que son XML y por tanto se pueden parsear. EDIFACT no lo es.
+# Familias que vienen escritas en XML y se parsean tal cual.
 _FAMILIAS_XML = (UBL, FACTURAE, CII)
+
+# EDIFACT también acaba en un árbol, pero por dos caminos: si viene en XML
+# —la forma de ISO 20625, que es la que publica la Comisión— se parsea como
+# los demás, y si viene en tira se convierte antes. A partir de ahí las
+# reglas no notan la diferencia, que es justamente la idea.
 
 # Cuando la queja de la izquierda ya ha saltado, la de la derecha sobra: dicen
 # lo mismo con las palabras de dos reglamentos distintos.
@@ -62,6 +76,9 @@ ESPANOLA = "RD 238/2026"
 FORMA = "Esquema XSD"
 NACIONAL = "formato Facturae"
 SELLO = "firma electrónica"
+# La norma que manda en la sintaxis de EDIFACT: cómo se separan los
+# segmentos, y sobre todo las cuentas del sobre.
+SINTAXIS_EDI = "ISO 9735"
 CASA = "de la casa"
 OTRA = "Formato"
 
@@ -85,6 +102,8 @@ def origen(incidencia: Incidencia) -> str:
         # a todo lo de los sellos de tiempo, que es lo contrario de un problema
         # de formato: es de lo que cuelga la fecha de la firma.
         return SELLO
+    if incidencia.codigo.startswith("EDI-"):
+        return SINTAXIS_EDI
     if incidencia.codigo.startswith("NIF-"):
         # No lo firma el RD 238/2026 —el código único solo usa el NIF del
         # emisor—, así que no puede salir con su etiqueta. Es nuestra.
@@ -98,15 +117,26 @@ def origen(incidencia: Incidencia) -> str:
 
 
 def _arbol(datos: bytes, deteccion: Deteccion):
-    """El documento parseado, o None si no es XML."""
-    if not deteccion or deteccion.familia not in _FAMILIAS_XML:
-        return None
+    """El documento parseado y lo que se haya visto al parsearlo.
+
+    Devuelve el árbol —o None si no lo hay— y las quejas que salen de la
+    lectura misma. Solo EDIFACT trae de las segundas: las cuentas del sobre
+    (cuántos segmentos dice llevar el mensaje, cuántos mensajes el
+    intercambio) se comprueban al partir la tira y no se pueden mirar después,
+    porque el árbol ya no sabe cómo estaba escrito.
+    """
+    if not deteccion:
+        return None, []
+    if deteccion.familia == EDIFACT and edifact.es_plano(datos):
+        return edifact.convertir(datos)
+    if deteccion.familia not in _FAMILIAS_XML + (EDIFACT,):
+        return None, []
     try:
-        return etree.fromstring(datos, parser=parser())
+        return etree.fromstring(datos, parser=parser()), []
     except etree.XMLSyntaxError:
         # `detectar` ya lo parseó sin problemas, así que llegar aquí sería
         # raro. Aun así, mejor no reventar el lote entero por un fichero.
-        return None
+        return None, []
 
 
 def _podar(incidencias: list[Incidencia]) -> list[Incidencia]:
@@ -141,6 +171,7 @@ def _reglas(
     catalogo: Catalogo | None,
     almacen: Almacen | None = None,
     listas: AlmacenDeListas | None = None,
+    sintacticas: list[Incidencia] | None = None,
 ) -> list[Incidencia]:
     """Todas las reglas sobre un documento ya parseado y ya identificado.
 
@@ -151,8 +182,10 @@ def _reglas(
     # aplica a una factura extranjera, y tampoco tiene sentido medirle los
     # tipos de IVA contra los que se usan aquí.
     espanola = codigo_unico.obligado_en_espania(raiz, deteccion)
-    incidencias = list(esquema.reglas(raiz, deteccion, catalogo))
+    incidencias = list(sintacticas or [])
+    incidencias.extend(esquema.reglas(raiz, deteccion, catalogo))
     incidencias.extend(en16931.reglas(raiz, deteccion, espanola=espanola))
+    incidencias.extend(edifact.totales_de_otra_guia(raiz, deteccion))
     incidencias.extend(facturae.reglas(raiz, deteccion))
     incidencias.extend(firma.reglas(raiz, deteccion))
     incidencias.extend(sellos.reglas_de_documento(raiz, deteccion))
@@ -182,9 +215,10 @@ def validar(
         return informe
     if isinstance(datos, str):
         datos = datos.encode("utf-8")
+    raiz, sintacticas = _arbol(datos, deteccion)
     informe.incidencias.extend(
         _reglas(
-            _arbol(datos, deteccion), deteccion, hoy, catalogo, almacen, listas
+            raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
         )
     )
     return informe
@@ -340,8 +374,18 @@ class InformeLote:
             for _, informe in self.informes
             if informe.deteccion is not None and informe.deteccion.familia
         }
-        mirado = ["la forma contra el esquema XSD"] if forma else []
-        if familias & {UBL, CII}:
+        # El esquema solo se le puede pasar a lo que es XML. Un lote de puro
+        # EDIFACT no ha visto ningún XSD, y decir que sí sería apuntarse una
+        # comprobación que no se ha hecho, que es el peor error que puede
+        # tener esta frase: lo que promete es de lo que se fiará quien la lee.
+        con_esquema = familias - {EDIFACT}
+        mirado = ["la forma contra el esquema XSD"] if forma and con_esquema else []
+        if EDIFACT in familias:
+            mirado.append(
+                "las cuentas que EDIFACT obliga a llevar en el sobre (que el "
+                "mensaje traiga los segmentos que dice traer)"
+            )
+        if familias & {UBL, CII, EDIFACT}:
             mirado.append(
                 "las reglas EN 16931 (campos obligatorios, cuadre de totales y "
                 "desglose de IVA)"
@@ -470,11 +514,13 @@ def validar_lote(
             continue
 
         deteccion = detectar(datos)
-        raiz = _arbol(datos, deteccion)
+        raiz, sintacticas = _arbol(datos, deteccion)
         informe = Informe(deteccion=deteccion)
         if deteccion:
             informe.incidencias.extend(
-                _reglas(raiz, deteccion, hoy, catalogo, almacen, listas)
+                _reglas(
+                    raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
+                )
             )
         lote.informes.append((camino, informe))
 

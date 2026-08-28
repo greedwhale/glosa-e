@@ -60,8 +60,8 @@
 
   <div class="caja">
     <h2>Prueba de verdad: suelta una factura aqu&iacute;</h2>
-    <div id="zona">Arrastra un XML, o haz clic para elegirlo.<br>No se sube a ning&uacute;n sitio.</div>
-    <input type="file" id="fichero" accept=".xml,.xsig" hidden multiple>
+    <div id="zona">Arrastra un XML o un EDIFACT, o haz clic para elegirlo.<br>No se sube a ning&uacute;n sitio.</div>
+    <input type="file" id="fichero" accept=".xml,.xsig,.edi,.edifact,.txt" hidden multiple>
     <pre id="salida" hidden></pre>
     <p class="nota">Esto es exactamente lo que har&iacute;a la p&aacute;gina de producci&oacute;n: leer el fichero en el navegador, validarlo aqu&iacute; y mostrar el informe. El servidor solo sirve la p&aacute;gina.</p>
   </div>
@@ -75,7 +75,8 @@
 const VERSION_PYODIDE = "314.0.6";
 const RAIZ = "https://cdn.jsdelivr.net/pyodide/v" + VERSION_PYODIDE + "/full/";
 const EJEMPLOS = ["f-0001.xml", "f-0002.xml", "f-0002-bis.xml", "f-0006.xml",
-                  "r-0001.xml", "cii-A-0001.xml", "fe-0001.xml"];
+                  "r-0001.xml", "cii-A-0001.xml", "fe-0001.xml",
+                  "edi-0001.edi", "edi-0002-cortado.edi"];
 let pyodide = null;
 
 const $ = (id) => document.getElementById(id);

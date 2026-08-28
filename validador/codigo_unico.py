@@ -34,7 +34,7 @@ from datetime import date, datetime
 
 from lxml import etree
 
-from validador import nif
+from validador import edifact, nif
 from validador.formato import CII, FACTURAE, UBL, detectar, parser
 from validador.incidencias import AVISO, ERROR, Incidencia, Informe
 
@@ -841,7 +841,14 @@ def extraer(datos: bytes | str) -> list[CodigoUnico]:
         return []
     if isinstance(datos, str):
         datos = datos.encode("utf-8")
-    return extraer_de(etree.fromstring(datos, parser=parser()), deteccion)
+    # `arbol` y no `etree.fromstring`: un EDIFACT plano no es XML y esto
+    # reventaba con un error de sintaxis XML, que era verdad y no venía a
+    # cuento. Sacar el código único de un EDIFACT sigue dando cero —ahí no
+    # hay dónde escribirlo—, pero devolver cero no es lo mismo que reventar.
+    raiz, _ = edifact.arbol(datos, deteccion)
+    if raiz is None:
+        return []
+    return extraer_de(raiz, deteccion)
 
 
 def sin_codigo_unico() -> Incidencia:

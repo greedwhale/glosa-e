@@ -52,7 +52,38 @@ UBL = "UBL"
 CII = "CII"
 EDIFACT = "EDIFACT"
 
-_RE_EDIFACT_INVOIC = re.compile(rb"UNH\+[^+]*\+INVOIC", re.IGNORECASE)
+# La cabecera de mensaje: UNH+referencia+TIPO:D:96A:UN. De ahí sale el tipo
+# de mensaje y la versión del directorio.
+_RE_EDIFACT_UNH = re.compile(
+    rb"UNH\+[^+]*\+([A-Z]{6})(:[^']*)?", re.IGNORECASE
+)
+# Los saltos de línea entre segmentos son opcionales: unos ficheros vienen
+# en una sola tira y otros con un segmento por línea. Sin admitir los dos,
+# la mitad de las facturas se quedaban sin tipo de documento.
+_RE_EDIFACT_BGM = re.compile(
+    rb"(?:^|['\r\n])\s*BGM\+([0-9]{3})", re.IGNORECASE
+)
+_RE_EDIFACT_DIR = re.compile(rb"([0-9]{2}[A-Z])", re.IGNORECASE)
+_MARCADOR_EDIFACT = MARCADOR_EN16931.encode("latin-1")
+
+# En EDIFACT el tipo va en el mismo código que en CII: 380 factura, 381 abono.
+_TIPOS_EDIFACT = {b"380": "factura", b"381": "abono"}
+
+
+class _Vacio:
+    def group(self, _):
+        return b""
+
+
+_VACIO = _Vacio()
+
+
+def _version_edifact(bruto: bytes | None) -> str | None:
+    """La versión del directorio, «96A» o «14B», de donde venga."""
+    if not bruto:
+        return None
+    encontrado = _RE_EDIFACT_DIR.search(bruto)
+    return encontrado.group(1).decode("latin-1").upper() if encontrado else None
 
 
 @dataclass(frozen=True)
@@ -222,18 +253,67 @@ def _detectar_cii(raiz: etree._Element, namespace: str) -> Deteccion:
 
 
 def _detectar_edifact(datos: bytes) -> Deteccion | None:
+    """El EDIFACT de toda la vida: una tira de segmentos, no XML."""
     cabeza = datos.lstrip()[:3].upper()
-    if cabeza[:3] not in (b"UNA", b"UNB"):
+    if cabeza not in (b"UNA", b"UNB", b"UNH"):
         return None
-    if not _RE_EDIFACT_INVOIC.search(datos):
+    encontrado = _RE_EDIFACT_UNH.search(datos)
+    if encontrado is None:
         return Deteccion(
             familia=EDIFACT,
-            motivo="Mensaje EDIFACT, pero no parece un INVOIC (factura).",
+            motivo="Mensaje EDIFACT, pero sin cabecera UNH: no se ve de qué "
+            "tipo es.",
+        )
+    tipo = encontrado.group(1).decode("latin-1").upper()
+    if tipo != "INVOIC":
+        return Deteccion(
+            familia=EDIFACT,
+            version=_version_edifact(encontrado.group(2)),
+            motivo=f"Mensaje EDIFACT de tipo {tipo}, que no es una factura. "
+            "El mensaje de factura es el INVOIC.",
         )
     return Deteccion(
         familia=EDIFACT,
-        tipo_documento="factura",
-        motivo="Mensaje EDIFACT INVOIC. La validación EDIFACT no está implementada.",
+        version=_version_edifact(encontrado.group(2)),
+        tipo_documento=_TIPOS_EDIFACT.get(
+            (_RE_EDIFACT_BGM.search(datos) or _VACIO).group(1) or b"", None
+        ),
+        conforme_en16931=_MARCADOR_EDIFACT in datos,
+        motivo="Formato reconocido.",
+    )
+
+
+def _detectar_edifact_xml(raiz: etree._Element, nombre: str) -> Deteccion:
+    """El mismo EDIFACT escrito como XML, que es la forma de ISO 20625.
+
+    Es la que publica la Comisión Europea en sus ejemplos de EN 16931, y
+    hasta ahora salía por la puerta de «formato no reconocido»: el validador
+    decía no saber qué era un fichero que es justamente uno de los cuatro
+    formatos que admite la ley, y encima el de referencia.
+    """
+    perfil = _texto(raiz, "//S_FTX[D_4451='DOC']/C_C108/D_4440", {})
+    codigo = _texto(raiz, "//S_BGM/C_C002/D_1001", {})
+    directorio = _texto(raiz, "//S_UNH/C_S009/D_0054", {})
+    familia_mensaje = (_texto(raiz, "//S_UNH/C_S009/D_0065", {}) or "").upper()
+    if nombre != "M_INVOIC" and familia_mensaje != "INVOIC":
+        return Deteccion(
+            familia=EDIFACT,
+            version=_version_edifact(
+                (directorio or "").encode("latin-1")
+            ),
+            motivo=f"Mensaje EDIFACT en XML de tipo {familia_mensaje or nombre}, "
+            "que no es una factura.",
+        )
+    return Deteccion(
+        familia=EDIFACT,
+        version=_version_edifact((directorio or "").encode("latin-1")),
+        tipo_documento=_TIPOS_EDIFACT.get((codigo or "").encode("latin-1")),
+        perfil=perfil,
+        conforme_en16931=bool(perfil and perfil.startswith(MARCADOR_EN16931)),
+        firmado=_tiene_firma(raiz),
+        motivo="Formato reconocido."
+        if perfil
+        else "Sin perfil declarado: no dice a qué guía se ajusta.",
     )
 
 
@@ -275,12 +355,14 @@ def detectar(datos: bytes | str) -> Deteccion:
         return _detectar_ubl(raiz, namespace, nombre)
     if namespace == NS_CII and nombre == "CrossIndustryInvoice":
         return _detectar_cii(raiz, namespace)
+    if namespace is None and nombre.startswith("M_"):
+        return _detectar_edifact_xml(raiz, nombre)
 
     return Deteccion(
         namespace=namespace,
         motivo=(
             f"XML válido, pero su elemento raíz «{nombre}» no corresponde a "
-            "Facturae, UBL ni CII."
+            "Facturae, UBL, CII ni EDIFACT."
         ),
     )
 

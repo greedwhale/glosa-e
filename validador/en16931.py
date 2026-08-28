@@ -27,7 +27,7 @@ from decimal import Decimal
 
 from lxml import etree
 
-from validador import iva
+from validador import edifact, iva
 from validador.formato import FACTURAE, detectar, parser
 from validador.incidencias import AVISO, ERROR, Incidencia, Informe
 from validador.sintaxis import (
@@ -275,7 +275,7 @@ def _reglas_ajustes(
         if cantidad is None:
             continue
         marca = (texto(nodo, sintaxis.cargo_es_cargo, sintaxis) or "").lower()
-        detallados[marca in ("true", "1")] += cantidad
+        detallados[marca in sintaxis.marcas_de_cargo] += cantidad
         hay_alguno = True
 
     # Si no se detalla ni uno, no se compara nada: de esa factura ya se queja
@@ -544,7 +544,7 @@ def validar(datos: bytes | str) -> Informe:
     if deteccion.familia in SINTAXIS:
         if isinstance(datos, str):
             datos = datos.encode("utf-8")
-        raiz = etree.fromstring(datos, parser=parser())
+        raiz, _ = edifact.arbol(datos, deteccion)
 
     informe.incidencias.extend(reglas(raiz, deteccion))
     return informe

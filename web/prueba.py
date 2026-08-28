@@ -952,4 +952,81 @@ def _():
     assert almacen.sellos.contiene(hoja), "no reconoce su propia ancla de sellado"
     return "el sellador no entra entre las de firma, y se encuentra al lado"
 
+
+# --- EDIFACT ---------------------------------------------------------------
+
+
+@comprobar("un EDIFACT plano se lee y se valida aqui", critica=True)
+def _():
+    """El cuarto formato de la ley, y el unico que no es XML.
+
+    Se parte a mano, en Python puro, asi que aqui no deberia haber sorpresas.
+    Lo que si las puede dar es lo de despues: el arbol se monta con lxml y se
+    lee con XPath, y de eso se encarga la comprobacion siguiente.
+    """
+    from validador import factura
+
+    informe = factura.validar_archivo(BASE + "/edi-0001.edi", hoy=HOY)
+    assert informe.deteccion.familia == "EDIFACT", informe.deteccion.resumen()
+    assert informe.deteccion.version == "96A", informe.deteccion.version
+    assert informe.deteccion.conforme_en16931, "no ve el perfil"
+    errores = [i.codigo for i in informe.incidencias if i.gravedad == "error"]
+    assert not errores, errores
+    return "una factura EDIFACT correcta sale correcta"
+
+
+@comprobar("las rutas de EDIFACT valen con este libxml2", critica=True)
+def _():
+    """Aqui esta el riesgo de verdad de EDIFACT en el navegador.
+
+    El mapa de EDIFACT no puede nombrar los grupos, porque su numeracion
+    cambia con la version del directorio, asi que pregunta por lo que hay
+    dentro: «el grupo que contiene un S_LIN». Eso sale con predicados y con el
+    eje `self::`, que es mas XPath del que usan UBL y CII, y esta compilacion
+    de libxml2 es mas vieja que la de fuera.
+
+    Si algo de esto no funcionara aqui, el validador no daria error: daria una
+    factura sin lineas y sin desglose, o sea sin nada que comprobar, y diria
+    que esta bien.
+    """
+    from lxml import etree
+    from validador import edifact, sintaxis
+
+    with open(BASE + "/edi-0001.edi", "rb") as f:
+        raiz, _ = edifact.convertir(f.read())
+    mapa = sintaxis.SINTAXIS_EDIFACT
+
+    assert len(raiz.xpath(mapa.lineas)) == 2, "no encuentra las dos lineas"
+    assert len(raiz.xpath(mapa.desglose)) == 1, "no encuentra el desglose"
+    assert len(raiz.xpath(mapa.cargos)) == 1, "no encuentra el cargo"
+    assert sintaxis.texto(raiz, mapa.vendedor_nombre, mapa) == (
+        "Suministros Ibericos SL"
+    )
+    assert sintaxis.importe(raiz, mapa.con_impuestos, mapa) is not None
+
+    # El eje `self::` con un filtro y una subida, que es lo mas raro del mapa.
+    grupo = raiz.xpath(mapa.desglose)[0]
+    assert grupo.xpath(mapa.desglose_motivo) == [], "un tipo general sin exencion"
+
+    # Y el `SIN_MAPA`, que tiene que no encontrar nada nunca.
+    assert raiz.xpath(sintaxis.SIN_MAPA) == []
+    return "predicados, ejes y subidas funcionan igual que fuera"
+
+
+@comprobar("un intercambio cortado se caza por la cuenta")
+def _():
+    """Lo unico que delata un EDIFACT al que le falta un trozo.
+
+    Los segmentos que quedan estan bien formados, asi que no hay error de
+    lectura por ninguna parte. Lo que no sale es la cuenta que el propio
+    mensaje declara en su UNT.
+    """
+    from validador import factura
+
+    informe = factura.validar_archivo(BASE + "/edi-0002-cortado.edi", hoy=HOY)
+    codigos = [i.codigo for i in informe.incidencias]
+    assert "EDI-MENSAJE-DESCONTADO" in codigos, codigos
+    return "el UNT no cuadra y se dice"
+
+
 json.dumps(resultados)

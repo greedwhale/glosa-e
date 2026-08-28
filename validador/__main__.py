@@ -27,7 +27,17 @@ from validador.revocacion import CARPETA_POR_DEFECTO as LISTAS_POR_DEFECTO
 from validador.revocacion import VARIABLE_ENTORNO as LISTAS_ENTORNO
 from validador.revocacion import AlmacenDeListas
 
-EXTENSIONES = (".xml", ".xsig")
+# Las extensiones que se recogen al apuntar a una carpeta. Sin las de EDIFACT,
+# apuntar a una carpeta con facturas EDIFACT dentro las saltaba **en
+# silencio** y el resumen contaba solo las que si habia mirado, que es la
+# forma de dejar a alguien creyendo que ha revisado un lote entero.
+#
+# `.txt` no entra, aunque tambien haya EDIFACT que viaje asi: una carpeta de
+# facturas suele tener ademas un leeme o unas notas, y recogerlos llenaria el
+# informe de «formato no reconocido» sobre ficheros que nadie dijo que fueran
+# facturas. Un `.txt` que si lo sea se valida nombrandolo: un fichero pedido
+# por su nombre se lee siempre, tenga la extension que tenga.
+EXTENSIONES = (".xml", ".xsig", ".edi", ".edifact")
 
 
 def _fecha(texto: str) -> date:

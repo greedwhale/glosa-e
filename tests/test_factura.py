@@ -188,8 +188,9 @@ class TestValidar:
     def test_edifact_no_revienta(self):
         datos = b"UNB+UNOC:3+EMISOR+RECEPTOR+260819:1200+1'UNH+1+INVOIC:D:96A:UN'"
         informe = factura.validar(datos, hoy=HOY)
-        assert "SIN-SOPORTE" in codigos(informe, AVISO)
-        # No se ha podido leer nada, así que tampoco se reprocha nada.
+        assert "SIN-SOPORTE" not in codigos(informe, AVISO)
+        # El código único no se reprocha: EDIFACT no tiene dónde escribirlo,
+        # así que no es que falte, es que no se ha mirado.
         assert "CU-00" not in codigos(informe)
 
     def test_documento_ajeno(self):
@@ -667,6 +668,42 @@ class TestConsola:
         escribir(tmp_path, "notas.txt", "esto no es una factura")
         caminos = consola.expandir([str(tmp_path)])
         assert [c.name for c in caminos] == ["a.xml"]
+
+    def test_una_carpeta_recoge_tambien_los_edifact(self, tmp_path):
+        """Sin esto, apuntar a una carpeta los saltaba en silencio.
+
+        Y el resumen contaba los que si habia mirado, que es como se deja a
+        alguien creyendo que ha revisado un lote entero cuando le faltaba un
+        cuarto.
+        """
+        escribir(tmp_path, "a.xml", ubl())
+        (tmp_path / "b.edi").write_bytes(
+            b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+INVOIC:D:96A:UN'"
+            b"BGM+380+F-1'UNT+3+1'UNZ+1+1'"
+        )
+        caminos = consola.expandir([str(tmp_path)])
+        assert [c.name for c in caminos] == ["a.xml", "b.edi"]
+
+    def test_pero_un_txt_suelto_sigue_sin_ser_una_factura(self, tmp_path):
+        """Una carpeta de facturas suele traer ademas un leeme.
+
+        Recogerlo llenaria el informe de «formato no reconocido» sobre
+        ficheros que nadie dijo que fueran facturas.
+        """
+        escribir(tmp_path, "a.xml", ubl())
+        escribir(tmp_path, "leeme.txt", "esto no es una factura")
+        assert [c.name for c in consola.expandir([str(tmp_path)])] == ["a.xml"]
+
+    def test_y_aun_asi_se_puede_validar_nombrandolo(self, tmp_path):
+        """Hay EDIFACT que viaja en `.txt`. Pedido por su nombre, se lee."""
+        ruta = tmp_path / "factura.txt"
+        ruta.write_bytes(
+            b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+INVOIC:D:96A:UN'"
+            b"BGM+380+F-1'UNT+3+1'UNZ+1+1'"
+        )
+        assert consola.expandir([str(ruta)]) == [ruta]
+        informe = factura.validar_archivo(ruta)
+        assert informe.deteccion.familia == "EDIFACT"
 
     def test_un_fichero_suelto(self, tmp_path):
         ruta = escribir(tmp_path, "a.xml", ubl())

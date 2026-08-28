@@ -419,11 +419,16 @@ class TestOtrosFormatos:
 </fe:Facturae>"""
         assert en16931.validar(xml).incidencias == []
 
-    def test_edifact_si_sigue_sin_soporte(self):
-        """Lo que de verdad no se valida se sigue diciendo, y con estas letras."""
-        datos = b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+INVOIC:D:96A:UN'"
+    def test_un_edifact_ilegible_si_lo_dice(self):
+        """Lo que de verdad no se puede leer se sigue diciendo.
+
+        `SIN-SOPORTE` dejó de salir sobre EDIFACT el día que EDIFACT se pudo
+        validar, pero no se ha quedado sin uso: sigue siendo lo que se
+        contesta cuando el fichero no da ni para montar un árbol.
+        """
+        datos = b"UNB+UNOC:3+A+B'UNH+1+INVOIC:D:96A:UN"
         aviso = [i for i in en16931.validar(datos).avisos if i.codigo == "SIN-SOPORTE"]
-        assert aviso and "UBL y para CII" in aviso[0].mensaje
+        assert aviso and "solo se ha identificado" in aviso[0].mensaje
 
     def test_documento_irreconocible(self):
         informe = en16931.validar(b"<pedido/>")

@@ -34,8 +34,8 @@ from pathlib import Path
 
 from lxml import etree
 
-from validador.formato import CII, FACTURAE, UBL, detectar, parser
-from validador.incidencias import AVISO, ERROR, Incidencia, Informe
+from validador.formato import CII, EDIFACT, FACTURAE, UBL, detectar, parser
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia, Informe
 
 # Variable de entorno con la carpeta de esquemas, si no se quiere la de al lado.
 VARIABLE_ENTORNO = "FACTURAE_ESQUEMAS"
@@ -560,6 +560,29 @@ def reglas(raiz, deteccion, catalogo: Catalogo | None = None) -> list[Incidencia
         # Sin esquemas instalados no hay nada que decir en cada fichero: lo
         # dice una vez quien orquesta, y no una vez por factura.
         return []
+
+    if deteccion.familia == EDIFACT:
+        # A un EDIFACT no le falta el esquema: es que no tiene. En su forma de
+        # siempre no es XML, así que no hay XSD que aplicarle, y decir «falta
+        # el esquema» manda a instalar un fichero que no existe. Lo que hace
+        # ese papel es lo que la norma obliga a contar en el sobre, y eso sí
+        # se comprueba: va con los códigos EDI-.
+        #
+        # Es una nota y no un aviso porque no hay nada que arreglar: es una
+        # decisión tomada por quien lee —dar por buena la forma sin esquema—
+        # y las decisiones tomadas por otro solo valen si se declaran.
+        return [
+            Incidencia(
+                "XSD-NO-APLICA",
+                NOTA,
+                "La forma no se ha comprobado contra un esquema XSD, y no "
+                "hace falta: EDIFACT no es XML y no tiene ninguno. En su "
+                "lugar se han comprobado las cuentas que la propia norma "
+                "obliga a llevar en el sobre.",
+                campo="Esquema",
+                encontrado=f"{deteccion.familia} {deteccion.version or ''}".strip(),
+            )
+        ]
 
     esquema = catalogo.esquema_para(deteccion)
     if esquema is None:

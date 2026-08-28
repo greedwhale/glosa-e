@@ -161,16 +161,31 @@ class TestCII:
 
 class TestEdifact:
     def test_invoic(self):
-        d = formato.detectar(b"UNB+UNOC:3+EMISOR+RECEPTOR+260819:1200+1'UNH+1+INVOIC:D:96A:UN'")
+        d = formato.detectar(
+            b"UNB+UNOC:3+EMISOR+RECEPTOR+260819:1200+1'"
+            b"UNH+1+INVOIC:D:96A:UN'BGM+380+F-1'"
+        )
         assert d.familia == EDIFACT
+        assert d.version == "96A"
         assert d.tipo_documento == "factura"
-        assert "no está implementada" in d.motivo
+
+    def test_un_abono_no_es_una_factura(self):
+        d = formato.detectar(
+            b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+INVOIC:D:96A:UN'BGM+381+A-1'"
+        )
+        assert d.tipo_documento == "abono"
+
+    def test_sin_bgm_no_se_inventa_el_tipo(self):
+        """Antes decía «factura» siempre, y eso no se sabe sin leer el BGM."""
+        d = formato.detectar(b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+INVOIC:D:96A:UN'")
+        assert d.familia == EDIFACT
+        assert d.tipo_documento is None
 
     def test_edifact_que_no_es_factura(self):
         d = formato.detectar(b"UNB+UNOC:3+A+B+260819:1200+1'UNH+1+ORDERS:D:96A:UN'")
         assert d.familia == EDIFACT
         assert d.tipo_documento is None
-        assert "no parece un INVOIC" in d.motivo
+        assert "ORDERS" in d.motivo and "no es una factura" in d.motivo
 
 
 class TestCasosLimite:

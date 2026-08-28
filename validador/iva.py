@@ -218,7 +218,7 @@ def _leer_apuntes(raiz, sintaxis: Sintaxis) -> list[Apunte]:
         if cantidad is None:
             continue
         marca = (texto(nodo, sintaxis.cargo_es_cargo, sintaxis) or "").lower()
-        es_cargo = marca in ("true", "1")
+        es_cargo = marca in sintaxis.marcas_de_cargo
         apuntes.append(
             Apunte(
                 descripcion=("cargo" if es_cargo else "descuento") + f" {indice}",
