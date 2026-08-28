@@ -2622,6 +2622,25 @@ verdad, en vez de mandar a rebajar un fichero que está perfectamente.
 La comprobación que lo prueba solo puede hacerse en el navegador, que es el
 único sitio donde «sin red» no es una opción sino un hecho.
 
+## La marca
+
+Lo construido se llama **Glosa**, y en [MARCA.md](MARCA.md) está por qué y qué
+promete.
+
+Una glosa es la explicación que se escribe al lado de un texto que no se
+entiende solo: va en el margen, no toca el original y no lo sustituye. Es lo
+que hace esto con un XML que nadie puede leer.
+
+Lo que decidió el nombre fue lo que hay que descartar. **Cotejo**, que por
+significado era el mejor, es la palabra oficial de la AEAT —la app de la
+Agencia tiene «Cotejo de facturas VERI\*FACTU»—, y con ella prometeríamos
+comprobar contra el registro de Hacienda, que no es lo que hacemos. Y queda
+fuera todo nombre que signifique certificar o dar fe: el valor de este informe
+es que **no afirma de más**, y un nombre que prometa fe pública pelea con el
+producto todos los días. Una glosa explica; no certifica.
+
+> Glosa — lo que dice tu factura, y lo que no se ha podido mirar.
+
 ## Fuentes
 
 - [RD 238/2026 en el Observatorio de Contratación Pública](https://obcp.es/noticias/real-decreto-2382026-de-25-de-marzo-por-el-que-se-desarrolla-el-sistema-de-facturacion)
