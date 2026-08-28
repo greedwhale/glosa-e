@@ -582,3 +582,106 @@ class TestConsolaConEsquemas:
         # ruido: quien no tiene los esquemas puestos ya lo sabe.
         assert salida.count("No se ha comprobado la forma") == 1
         assert "XSD-SIN-ESQUEMA" not in salida
+
+
+# --- Compilar un esquema no sale a la red ----------------------------------
+
+# Un esquema mínimo que importa otro **por dirección web**, que es lo que
+# hacen los cinco XSD de Facturae con la firma XMLDSig.
+FUERA = "http://www.w3.org/TR/xmldsig-core/xmldsig-core-schema.xsd"
+IMPORTA_DE_FUERA = f"""<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+           xmlns="urn:prueba" targetNamespace="urn:prueba">
+  <xs:import namespace="http://www.w3.org/2000/09/xmldsig#"
+             schemaLocation="{FUERA}"/>
+  <xs:element name="Invoice">
+    <xs:complexType><xs:sequence>
+      <xs:element ref="ds:Signature" minOccurs="0"/>
+    </xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>
+"""
+
+# Y una copia local de lo que ese import pide, con el nombre que le da UBL.
+COPIA_DE_XMLDSIG = """<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://www.w3.org/2000/09/xmldsig#"
+           targetNamespace="http://www.w3.org/2000/09/xmldsig#">
+  <xs:element name="Signature" type="xs:anyType"/>
+</xs:schema>
+"""
+
+
+class TestCompilarNoSaleALaRed:
+    """Compilar un esquema es otra cosa que leer un documento, y no lo parecía.
+
+    El parser de `formato.py` lleva `no_network=True` desde el principio, con
+    un comentario que dice que un fichero de fuera no debe poder hacer
+    peticiones salientes. Eso vale para leer el documento. Las importaciones
+    de un esquema las resuelve libxml2 por su cuenta, y se saltaban el parser:
+    comprobar la forma de una factura Facturae —el formato nacional— se bajaba
+    un XSD de w3.org cada vez, sin decirlo en ninguna parte.
+
+    No se veía porque funcionaba. Se vio en el navegador, donde no hay red, y
+    se confirmó aquí fuera apuntando el proxy a un puerto muerto.
+    """
+
+    def _catalogo(self, tmp_path, con_copia: bool) -> Catalogo:
+        (tmp_path / "Facturaev3_2_2.xsd").write_text(
+            IMPORTA_DE_FUERA, encoding="utf-8"
+        )
+        if con_copia:
+            (tmp_path / "UBL-xmldsig-core-schema-2.1.xsd").write_text(
+                COPIA_DE_XMLDSIG, encoding="utf-8"
+            )
+        return Catalogo(tmp_path)
+
+    def _facturae(self):
+        from validador.formato import FACTURAE, Deteccion
+
+        return Deteccion(familia=FACTURAE, version="3.2.2", tipo_documento="factura")
+
+    def test_con_la_copia_instalada_compila(self, tmp_path):
+        catalogo = self._catalogo(tmp_path, con_copia=True)
+        assert catalogo.esquema_para(self._facturae()) is not None
+
+    def test_sin_la_copia_no_compila_y_no_va_a_buscarla(self, tmp_path):
+        """La prueba de que no sale: sin copia local, no hay esquema.
+
+        Si se cayera a la red, este esquema compilaría —la URL existe— y la
+        comprobación no valdría nada. Que falle es lo que dice que no ha
+        salido.
+        """
+        catalogo = self._catalogo(tmp_path, con_copia=False)
+        assert catalogo.esquema_para(self._facturae()) is None
+
+    def test_y_se_dice_la_causa_de_verdad(self, tmp_path):
+        """No «vuelve a bajarlo», que manda a rebajar un fichero que está bien.
+
+        El mensaje de siempre para un esquema que no compila habla de una
+        descarga a medias, porque es lo que suele ser. Aquí el fichero está
+        entero: lo que falta es otro, y encima uno que el esquema pide por una
+        dirección web.
+        """
+        catalogo = self._catalogo(tmp_path, con_copia=False)
+        catalogo.esquema_para(self._facturae())
+        _, motivo = catalogo.por_que_no_compila(self._facturae())
+        assert FUERA in motivo
+        assert "no sale a la red" in motivo
+
+    def test_el_resolvedor_nunca_deja_pasar_una_direccion_de_fuera(self):
+        """Devolver None sería dejar que libxml2 la bajase él.
+
+        Es la línea que hace el trabajo, y la que es fácil «simplificar» sin
+        darse cuenta de que con eso vuelve la red.
+        """
+        resolvedor = esquema._SinRed({})
+        assert resolvedor.resolve("http://ejemplo.invalido/x.xsd", None, None) is not None
+        assert resolvedor.no_estaban == ["http://ejemplo.invalido/x.xsd"]
+
+    def test_lo_de_casa_se_resuelve_como_siempre(self):
+        """Un `include` relativo no tiene nada de malo y no se toca."""
+        resolvedor = esquema._SinRed({})
+        assert resolvedor.resolve("comun/UBL-CommonBasicComponents-2.1.xsd", None, None) is None
+        assert resolvedor.no_estaban == []

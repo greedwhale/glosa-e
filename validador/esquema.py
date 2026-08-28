@@ -66,6 +66,69 @@ def _nombres_esperados(deteccion) -> tuple[str, ...]:
     return ()
 
 
+# Lo que un esquema oficial puede pedir por dirección web, y con qué se le
+# contesta desde aquí.
+#
+# **El agujero que esto tapa.** Los cinco XSD de Facturae importan la firma
+# XMLDSig por URL, en su tercera línea:
+#
+#     <xs:import namespace="http://www.w3.org/2000/09/xmldsig#"
+#       schemaLocation="http://www.w3.org/TR/xmldsig-core/xmldsig-core-schema.xsd"/>
+#
+# El parser de `formato.py` lleva `no_network=True` desde el principio y un
+# comentario que dice que un fichero de fuera no debe poder hacer peticiones
+# salientes. Eso vale para **leer el documento**; compilar un esquema es otra
+# cosa, y esa la resuelve libxml2 por su cuenta, saltándose el parser. Así que
+# comprobar la forma de una factura Facturae —el formato nacional— se bajaba
+# un fichero de w3.org cada vez, sin decirlo en ninguna parte.
+#
+# No se veía porque funcionaba. Se ve en el navegador, donde no hay red: allí
+# el esquema no compila y sale «el esquema está ahí pero no se puede leer,
+# suele ser una descarga a medias», que manda a rebajar un fichero que está
+# perfectamente. Y se ve con un proxy muerto, que es como se ha confirmado.
+#
+# UBL trae en su paquete una copia del mismo esquema —mismo `targetNamespace`,
+# mismo `Signature`— y con eso se resuelve, sin bajar nada nuevo. Si alguien
+# deja el fichero del W3C con su nombre, también vale.
+_COPIAS_LOCALES = {
+    "xmldsig-core-schema.xsd": (
+        "xmldsig-core-schema.xsd",
+        "UBL-xmldsig-core-schema-2.1.xsd",
+    ),
+}
+
+_REMOTO = ("http://", "https://", "ftp://")
+
+
+class _SinRed(etree.Resolver):
+    """Resuelve con lo que hay instalado, y no sale a buscar nada.
+
+    Las direcciones locales se dejan pasar —las resuelve libxml2 como
+    siempre— y las remotas se contestan con la copia que haya en la carpeta.
+    Cuando no la hay, se contesta con un documento vacío **a propósito**: el
+    esquema no compilará y se dirá, que es mejor que ir a buscarlo. Devolver
+    `None` aquí sería justo lo que se viene a quitar, porque entonces libxml2
+    lo baja él.
+    """
+
+    def __init__(self, indice: dict[str, Path]) -> None:
+        self.indice = indice
+        # Lo que se ha pedido de fuera y no estaba, para poder decirlo en vez
+        # de dejar que se lea como una descarga a medias.
+        self.no_estaban: list[str] = []
+
+    def resolve(self, url, id_, context):
+        if not str(url).lower().startswith(_REMOTO):
+            return None
+        nombre = str(url).rsplit("/", 1)[-1]
+        for candidato in _COPIAS_LOCALES.get(nombre, (nombre,)):
+            ruta = self.indice.get(candidato)
+            if ruta is not None:
+                return self.resolve_filename(str(ruta), context)
+        self.no_estaban.append(str(url))
+        return self.resolve_string(b"", context)
+
+
 @dataclass
 class Catalogo:
     """Los esquemas que hay instalados, si es que hay alguno.
@@ -156,12 +219,18 @@ class Catalogo:
         if ruta is None or ruta in self._rotos:
             return None
         if ruta not in self._compilados:
+            # El parser lleva el resolvedor pegado porque las importaciones de
+            # un esquema las resuelve libxml2 con los del parser que leyó el
+            # documento. Uno por compilación: guarda qué se ha pedido de fuera.
+            lector = parser()
+            sin_red = _SinRed(self.indice)
+            lector.resolvers.add(sin_red)
             try:
                 self._compilados[ruta] = etree.XMLSchema(
-                    etree.parse(str(ruta), parser=parser())
+                    etree.parse(str(ruta), parser=lector)
                 )
             except (etree.LxmlError, OSError) as error:
-                self._rotos[ruta] = str(error)
+                self._rotos[ruta] = _por_que(sin_red, error)
                 return None
         return self._compilados[ruta]
 
@@ -171,6 +240,25 @@ class Catalogo:
         if ruta is None or ruta not in self._rotos:
             return None
         return (ruta, self._rotos[ruta])
+
+
+def _por_que(sin_red: _SinRed, error: Exception) -> str:
+    """Por qué no ha compilado, diciendo la causa y no el síntoma.
+
+    Si el esquema pedía un fichero de fuera que no está instalado, el error de
+    libxml2 habla de una referencia que no resuelve, y el mensaje de siempre
+    —«suele ser una descarga a medias, vuelve a bajarlo»— manda a rebajar un
+    fichero que está perfectamente.
+    """
+    if not sin_red.no_estaban:
+        return str(error)
+    return (
+        f"este esquema importa {sin_red.no_estaban[0]} por dirección web y no "
+        "hay ninguna copia instalada. El validador no sale a la red a "
+        "buscarla: instala el paquete de esquemas que la trae —el de UBL 2.1 "
+        "la incluye— o deja el fichero en la carpeta de esquemas. "
+        f"({error})"
+    )
 
 
 # --- Traducción de los mensajes de libxml2 ---------------------------------
