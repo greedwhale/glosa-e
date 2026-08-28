@@ -1526,3 +1526,149 @@ original sigue verificando byte a byte, que es lo que tiene que pasar cuando el
 sello va donde XAdES lo pone.
 
 865 tests, 28 de 28 en el navegador (19 críticas).
+
+
+# EDIFACT: lo que enseñó conectar el cuarto formato
+
+## Lo que estaba peor de lo que decía el aviso
+
+El README decía que un EDIFACT «se detecta y se contesta *no se ha podido
+validar*». Eso era verdad para la tira de toda la vida. Para los **ejemplos
+oficiales de la Comisión Europea** no: se publican en ISO 20625 —el mismo
+mensaje escrito como XML— y salían por la puerta de «formato no reconocido».
+
+El validador decía no saber qué era el fichero de referencia de uno de los
+cuatro formatos que admite la ley. Y lo decía el propio README, sin enterarse,
+porque nadie había pasado esos nueve ficheros por el validador.
+
+## La parte que puede fallar sin dar error
+
+Leer los segmentos es mecánico. Lo que no lo es: **EDIFACT no marca los
+grupos**. Todo va al mismo nivel y quién cuelga de quién se deduce del orden.
+
+```
+LIN+1   QTY+47:100   MOA+203:18550   TAX+7+VAT+++:::21+S   LIN+2
+```
+
+Ese TAX es el de la línea 1 porque viene detrás del LIN y antes del siguiente.
+Si se colgara del documento, no habría error de lectura por ninguna parte:
+habría un desglose de IVA con una entrada de más, y una factura correcta
+saldría descuadrada. O al revés, y una mala pasaría.
+
+Por eso el algoritmo es una pila y no una lista de casos, y por eso hay una
+prueba de que un ALC dentro de una línea —un descuento de línea, que trae su
+propio TAX un piso más abajo— no se confunde con el IVA de esa línea.
+
+## Los cualificadores no se copian: se comprueban
+
+En EDIFACT el total sin impuestos y el importe de una línea son los dos un
+`MOA`. Lo único que los distingue es el código de al lado: 389 y 203. Escribir
+ese mapa de memoria es la forma más fácil de que un importe entre en las
+cuentas por el sitio equivocado.
+
+Se comprobaron haciendo la cuenta en los nueve ejemplos de la Comisión: el 79
+es la suma de los 203 en los nueve, el 388 es el 389 más el 176 en los nueve.
+Con eso, los nueve pasan ahora sin un solo error.
+
+Lo mismo con el directorio de posiciones, y ahí los ficheros reales corrigieron
+lo que estaba escrito de memoria: en el segmento TAX la cuarta posición es un
+dato simple y el compuesto con el tipo impositivo es el **quinto**. Puesto en
+la cuarta, el porcentaje del IVA se va de sitio en todas las facturas.
+`TAX+7+VAT+++:::21+S` solo cuadra con la quinta.
+
+## Lo que no se lee no se queda fuera: cierra el grupo
+
+La tabla de qué cuelga de qué se dedujo de los nueve ejemplos de la Comisión.
+Le faltaba media docena de segmentos que esos nueve no usan, y eso parecía
+inofensivo: lo que no está en la tabla no se lee.
+
+No es lo que pasa. Un segmento desconocido **cierra** el grupo abierto. Un
+`PAC` —el embalaje de una línea— cerraba la línea, y el `MOA` de detrás dejaba
+de ser el importe de esa línea para convertirse en un total de la factura. Sin
+un solo error: una factura de almacén saldría con los importes de sus líneas
+contados como totales.
+
+Se contrastó contra la gramática D.96A de `bots-edi`, un proyecto de EDI ajeno
+a este, y salieron once grupos que faltaban. La tabla de ahora es la unión: lo
+que enseñan los ejemplos de la D.14B y lo que dice esa gramática de la D.96A.
+
+De paso, esa gramática confirmó lo que sí estaba: `LIN` con sus `ALC`, `MOA` y
+`TAX` dentro, `NAD` con sus `RFF` y `CTA`, `TAX` con su `MOA`, y los grupos de
+totales después del `UNS`. Coincidir con una fuente que no es la tuya vale más
+que volver a leerse la propia.
+
+## Tres campos que el mapa no supo situar, y qué se hizo con ellos
+
+El redondeo (BT-114) y el código del motivo de exención (BT-121) no aparecen en
+ninguna muestra y no se pudo confirmar con qué código se escriben. Están en el
+mapa como `SIN_MAPA`: una ruta válida que no encuentra nada nunca, con una
+prueba de que de verdad no encuentra nada.
+
+Es a propósito. Un cualificador inventado no da error: se traga el importe del
+cajón de al lado y lo mete en las cuentas. No leerlo equivale a que no lo haya,
+que es el caso de todas las facturas vistas; leerlo mal, no.
+
+El tercero sí se situó, y de una forma que costó dos intentos. El motivo de una
+exención no va dentro del grupo de impuesto sino suelto en un `FTX+AGM` del
+documento, y lo único que lo ata a una categoría es que explica la que no
+tributa. Al subir a buscarlo desde el grupo, el motivo del tipo exento se le
+aparecía también a los tipos generales, y `EDIFACT_EXAMPLE2` salía con dos
+`BR-S-10` inventados: acusado de llevar un motivo que no lleva. El vínculo lo
+tiene que poner la ruta, porque el documento no lo escribe.
+
+## Tres cosas que se saltaban en silencio, y ninguna es de EDIFACT
+
+- **`codigo_unico.extraer` reventaba** con un `XMLSyntaxError` ante cualquier
+  EDIFACT plano. Se comprobó en un árbol de trabajo del commit anterior para
+  saber de quién era: era de antes, no de esta rama. Un fallo ajeno no se
+  atribuye, y uno propio no se escapa.
+- **Apuntar a una carpeta no recogía los `.edi`**, y el resumen contaba los
+  ficheros que sí había mirado. Es la forma exacta de dejar a alguien creyendo
+  que ha revisado un lote entero. Se recogen `.edi` y `.edifact`, y **no**
+  `.txt`: una carpeta de facturas suele traer además un leeme, y recogerlo
+  llenaría el informe de «formato no reconocido» sobre ficheros que nadie dijo
+  que fueran facturas. Un `.txt` que sí lo sea se valida nombrándolo.
+- **El navegador no dejaba ni elegir un EDIFACT.** El selector admitía `.xml` y
+  `.xsig`, así que el cuarto formato era invisible ahí por mucho que el motor
+  lo entendiera.
+
+## Y dos frases que prometían de más
+
+Es el peor fallo que puede tener un informe: lo que promete es de lo que se fía
+quien lo lee.
+
+La primera se contradecía en dos mitades —«**falta** el esquema de este
+formato. Los que le tocan se llaman **(ninguno)**»— sobre algo que no tiene
+esquema porque no es XML. Ahora es una nota, que es el nivel de lo que se ha
+dado por bueno y con qué.
+
+La segunda es la frase del final, la que enumera de qué se ha fiado quien lee.
+Se apuntaba «se ha comprobado la forma contra el esquema XSD» en un lote de
+puro EDIFACT, donde no se había mirado ninguno, y a la vez **no se apuntaba las
+reglas EN 16931**, que sí se habían pasado. Prometía de más por un lado y de
+menos por el otro, que son el mismo defecto.
+
+## Lo que dijeron los ficheros que no ha escrito este proyecto
+
+18 tokens de sello, en su día. Ahora: nueve ejemplos de la Comisión, cero
+errores; cuatro facturas en tira, y las cuentas que traen dentro cuadran.
+
+La de Otto Harrassowitz declara 138 segmentos en su UNT. Salen 138 si el
+carácter de escape se trata bien y 139 si no, porque lleva apóstrofos dentro de
+los títulos de las revistas. Ese número lo escribió el sistema de una librería
+alemana en 2021, y es la clase de prueba que no se aprueba uno solo.
+
+Una de ellas viene mal de origen: dice llevar dos grupos funcionales y lleva
+uno. Es un fichero de demostración y está mal. La prueba lo dice con su nombre
+en vez de bajar el listón para que pase.
+
+Y una cosa que no se esperaba: los cualificadores de las guías antiguas **no
+sustituyen** a los de la norma, se mezclan con ellos. Las tres facturas con IVA
+escriben la suma de líneas con el 79, la base con el 125 y la cuota con el 124
+—los de EN 16931— y el total con el 77, el 86 o el 128, que no lo son. Un
+documento puede ir con los códigos de la norma en casi todo y salirse justo en
+el que más se mira, que es exactamente el caso en que «falta el importe total»
+manda a buscar un dato que está escrito dos líneas más arriba.
+
+932 tests, 31 comprobaciones en el navegador (21 críticas). Diez defensas
+comprobadas al revés: deshechas una a una, las diez ponen algo en rojo.

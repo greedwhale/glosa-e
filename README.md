@@ -10,8 +10,8 @@ según el RD 238/2026.
 | `validador/nif.py` | Valida NIF, NIE y CIF con sus dígitos de control | Terminado |
 | `validador/calendario.py` | Días hábiles españoles y plazo de 4 días de los estados | Terminado |
 | `validador/formato.py` | Detección de formato y versión (Facturae, UBL, CII, EDIFACT) | Terminado |
-| `validador/sintaxis.py` | El mapa: dónde vive cada campo de EN 16931 en UBL y en CII | Terminado |
-| `validador/en16931.py` | Campos obligatorios y cuadre aritmético, sobre UBL y CII | Terminado |
+| `validador/sintaxis.py` | El mapa: dónde vive cada campo de EN 16931 en UBL, CII y EDIFACT | Terminado |
+| `validador/en16931.py` | Campos obligatorios y cuadre aritmético, sobre UBL, CII y EDIFACT | Terminado |
 | `validador/iva.py` | El desglose de IVA: bases, cuotas, categorías y exenciones | Terminado |
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
@@ -22,10 +22,11 @@ según el RD 238/2026.
 | `validador/revocacion.py` | Si anularon el certificado: listas de revocación (CRL), sin salir a la red | Terminado |
 | `validador/tsl.py` | De dónde salen las anclas: la lista de confianza (TSL) del Estado, verificada | Terminado |
 | `validador/sellos.py` | El sello de tiempo (RFC 3161 dentro de XAdES): quién acredita la fecha de la firma | Terminado |
+| `validador/edifact.py` | El cuarto formato: la tira de ISO 9735, sus grupos y sus cuentas | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-865 tests, todos en verde.
+932 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -75,10 +76,13 @@ es lo peor que puede hacer un validador; era el fallo más grave que ha tenido
 este proyecto y no lo cazó ningún test: lo cazó un usuario escribiendo mal una
 carpeta.
 
-En la carpeta `ejemplos/` hay siete documentos preparados: dos facturas
+En la carpeta `ejemplos/` hay nueve documentos preparados: dos facturas
 correctas, una repetida en otro fichero, otra cuyas líneas no cuadran con el
 total, una en sintaxis CII con dos tipos de IVA en las líneas y uno solo en el
-desglose, un abono correcto, y un Facturae 3.2.2 firmado (`fe-0001.xml`).
+desglose, un abono correcto, un Facturae 3.2.2 firmado (`fe-0001.xml`) y dos
+en EDIFACT: `edi-0001.edi`, correcta, y `edi-0002-cortado.edi`, a la que le
+faltan tres segmentos y lo único que la delata es que la cuenta del sobre no
+sale.
 
 La firma de ese último está hecha con la clave de juguete de
 `tests/test_firma.py`, y el fichero lo dice en un comentario: sirve para
@@ -2063,14 +2067,19 @@ Lo que queda, ordenado por lo que de verdad estorba.
 
 | Hueco | Por qué importa | Tamaño |
 |---|---|---|
-| **EDIFACT no se valida** | Es uno de los **cuatro** formatos que admite el RD 238/2026. Hoy se detecta y se contesta «no se ha podido validar» | grande |
+| **El directorio de EDIFACT, por partes** | Se leen los segmentos que INVOIC usa de verdad, no el directorio entero. Un segmento que no esté escrito se guarda por posiciones y no lo mira ninguna regla | pequeño |
 | **Respuestas OCSP embebidas (XAdES-XL)** | Las listas de revocación que trae el documento ya se leen; las respuestas OCSP no. Es la única forma de comprobar revocación sin red en un documento moderno | medio |
 | **Los mensajes de estado del RD** | `calendario.py` calcula el plazo de cuatro días hábiles, pero no se valida un documento de estado en sí | medio |
 | **El IVA por línea** | Que el tipo de cada línea case con lo que se vende no es EN 16931: es la Ley del IVA, y hace falta saber qué se vende | dudoso |
 
-**El más gordo es EDIFACT**, porque es un cuarto del alcance legal declarado y
-se nota a la primera: el cliente suelta una factura y el validador contesta que
-no sabe.
+**EDIFACT ya está**, que era el más gordo por ser un cuarto del alcance legal
+declarado. Se lee en sus dos formas, los nueve ejemplos de la Comisión pasan
+limpios y cuatro facturas reales en tira cuadran con las cuentas que traen
+dentro. Lo que queda de esa parte es de grado, no de fondo: dos campos sin
+situar —el redondeo (BT-114) y el código del motivo de exención (BT-121)—, que
+constan como hueco declarado en el mapa en vez de leerse de un sitio
+equivocado, porque un importe sacado del cajón de al lado entra en las cuentas
+y las descuadra sin avisar.
 
 **El sellado ya está entero**: un sello se lee, se comprueba, se contrasta
 contra las autoridades de sellado del Estado y su fecha manda sobre la que
@@ -2105,11 +2114,214 @@ se comportan los sellos españoles de verdad está por ver.
 
 ### Por dónde empezaría
 
-1. **EDIFACT**, por ser un cuarto del alcance legal declarado y notarse a la
-   primera: el cliente suelta una factura y el validador contesta que no sabe.
-2. **Facturas reales**, que no es programar sino conseguirlas —y son las que
-   dirán si los sellos españoles se comportan como los de las pruebas—.
-3. **Las respuestas OCSP embebidas**, que completan la revocación sin red.
+1. **Facturas reales de un cliente**, que ya no es programar sino
+   conseguirlas. Es lo único que va a decir si los mensajes están bien
+   escritos, y ahora hay cuatro formatos que enseñar en vez de tres.
+2. **Las respuestas OCSP embebidas**, que completan la revocación sin red.
+3. **La página de verdad**, porque el validador ya hace lo que la ley pide y lo
+   que falta para que alguien lo use es la interfaz.
+
+## EDIFACT: el cuarto formato
+
+El RD 238/2026 admite cuatro formatos y este validador entendía tres. A un
+EDIFACT le contestaba «solo se ha identificado, no validado», que para quien
+recibe la factura es lo mismo que no tener validador.
+
+Y había algo peor de lo que decía el aviso: **los ejemplos EDIFACT de la propia
+Comisión Europea ni siquiera llegaban a esa frase**. Se publican en ISO 20625
+—el mismo mensaje escrito como XML— y, como su raíz no es Facturae ni UBL ni
+CII, salían por la puerta de «formato no reconocido». El validador decía no
+saber qué era el fichero de referencia de uno de los cuatro formatos que admite
+la ley.
+
+### Por qué EDIFACT cuesta más que añadir un mapa
+
+Los otros tres formatos son XML: se parsean con lxml y se leen con XPath, y por
+eso a cada uno le basta con rellenar una `Sintaxis` en `sintaxis.py`. EDIFACT no
+es XML. Es una tira de segmentos separados por apóstrofos donde **el significado
+de cada dato es su posición**:
+
+```
+NAD+SU+++OTTO HARRASSOWITZ+KREUZBERGER RING 7C-D+WIESBADEN++65174+DE
+```
+
+Ahí no pone «nombre» ni «país» en ninguna parte. Pone que el cuarto elemento del
+NAD es el nombre y el noveno el país, y eso hay que saberlo de antes.
+
+**Y la dificultad de verdad: EDIFACT tampoco marca los grupos.** En XML, que una
+línea tenga su propio IVA se ve porque el IVA está dentro de la línea. Aquí va
+todo al mismo nivel y quién cuelga de quién se deduce del orden:
+
+```
+LIN+1   QTY+47:100   MOA+203:18550   TAX+7+VAT+++:::21+S   LIN+2
+```
+
+Ese TAX es el de la línea 1, y se sabe solo porque viene detrás del LIN y antes
+del siguiente. Reconstruir esa jerarquía es casi todo el módulo, y es la parte
+que puede fallar **en silencio**: un IVA de línea colgado del documento no da
+error de lectura, da un desglose equivocado.
+
+### La decisión que ahorra el resto
+
+Una vez reconstruida la jerarquía se escribe como XML, con la forma de
+ISO 20625. A partir de ahí no hay nada especial: las reglas de EN 16931 y la
+aritmética del IVA son las de siempre, sobre un árbol y con XPath. Las dos
+maneras de traer un EDIFACT —la tira y el XML— acaban en el mismo sitio, y las
+reglas se escriben una sola vez.
+
+`sintaxis.py` prometía desde el primer día que «añadir una sintaxis nueva
+debería ser rellenar otra `Sintaxis` sin tocar ninguna regla». Nadie lo había
+comprobado. Resultó ser cierto salvo en **un campo**: UBL y CII escriben «esto
+suma» con un booleano y EDIFACT con una letra —C de cargo, A de descuento—, así
+que la comparación con «true» daba descuento en todos los cargos y los restaba
+en vez de sumarlos. Es un campo más en el mapa, no un `if` en las reglas.
+
+### El mapa no nombra ningún grupo, y es lo importante
+
+En EDIFACT los grupos van numerados —SG1, SG2, SG27— y **esa numeración depende
+de la versión del directorio**. En la D.14B que publica la Comisión, las líneas
+son el SG27; en otras versiones, otro. Un mapa con el número dentro obligaría a
+una tabla por versión y a no saber leer las que no estuvieran, y las facturas
+reales no usan la misma versión que los ejemplos oficiales.
+
+Preguntando en cambio por lo que hay dentro —«el grupo que contiene un
+`S_LIN`»— la misma ruta vale para las dos, y para las que vengan.
+
+### El hueco que no era inofensivo
+
+La tabla de qué cuelga de qué se dedujo al principio de los nueve ejemplos de
+la Comisión, y le faltaba media docena de segmentos que esos nueve no usan.
+Parecía inofensivo: lo que no está en la tabla, no se lee.
+
+No es eso lo que pasa. **Un segmento que no está en el grupo no se queda fuera:
+lo cierra.** Un `PAC` —el embalaje de una línea, que muchas facturas de almacén
+llevan— cerraba la línea, y el `MOA` que viniera detrás dejaba de ser el
+importe de esa línea para convertirse en un total de la factura. Sin un solo
+error por ninguna parte: los importes de las líneas contados como totales.
+
+Así que la tabla se contrastó contra la gramática D.96A de `bots-edi`, un
+proyecto de EDI que no tiene nada que ver con este. Salieron once grupos que
+faltaban, y la tabla de ahora es la unión de las dos: lo que enseñan los
+ejemplos de la D.14B y lo que dice esa gramática de la D.96A. La prueba del
+`PAC` va con su control: quitando ese segmento de la tabla, el importe de la
+línea se pierde.
+
+Lo que distingue un dato de otro no es dónde está sino el **cualificador**: el
+total sin impuestos y el importe de una línea son los dos un `MOA`, y lo único
+que los separa es que uno dice 389 y el otro 203. Esos códigos no se copiaron de
+una tabla: se comprobaron **haciendo la cuenta en los nueve ejemplos de la
+Comisión**. El 79 es la suma de los 203 en los nueve; el 388 es el 389 más el
+176 en los nueve. Es la única manera de saber que un cualificador significa lo
+que uno cree.
+
+### Contra ficheros que no ha escrito este proyecto
+
+**Los nueve ejemplos de la Comisión pasan sin un solo error.** Antes ni se
+reconocían. Y no es que no se lea nada: hay una prueba de que a los nueve se les
+encuentran las líneas, el desglose y los totales, porque una factura de la que
+no se saca ningún importe tampoco da errores de cuadre.
+
+**Y cuatro facturas en tira, de las que viajan.** Estas traen dentro su propia
+respuesta: el UNT declara cuántos segmentos lleva el mensaje y el UNZ cuántos
+mensajes el sobre. Esas cuentas las escribió quien emitió la factura, así que
+cuadrar con ellas es una prueba que no se aprueba uno solo.
+
+La de **Otto Harrassowitz** es la que más dice: una librería alemana facturando
+suscripciones a una biblioteca universitaria, 2.964 caracteres en una sola tira
+sin un salto de línea, con apóstrofos dentro de los títulos de las revistas.
+Declara 138 segmentos. **Salen 138 si el carácter de escape se trata bien y 139
+si no**, y hay una prueba de las dos cosas: la que comprueba que salen, y la que
+comprueba que sin tratarlo no saldrían.
+
+De ese lote, una viene mal de origen: la de `ballerina` dice llevar dos grupos
+funcionales y lleva uno. Es un fichero de demostración y está mal; que salte es
+lo correcto, y la prueba lo dice con su nombre en vez de bajar el listón.
+
+### Lo que la norma obliga a contar
+
+Un EDIFACT al que le falta un trozo **sigue pareciendo legible**: los segmentos
+que quedan están perfectamente formados. Lo único que lo delata es que la cuenta
+no sale. Por eso `ejemplos/edi-0002-cortado.edi` es la misma factura que
+`edi-0001.edi` con tres segmentos menos y sin tocar el UNT:
+
+```
+ejemplos\edi-0002-cortado.edi
+  EDIFACT v96A (factura) · conforme EN 16931 — 1 error(es), 1 aviso(s).
+
+  [EDI-MENSAJE-DESCONTADO · ISO 9735] El mensaje dice tener un número de
+  segmentos distinto del que tiene. Esa cuenta incluye el UNH y el UNT, y es
+  lo único que delata un fichero al que le falta un trozo.
+    Campo: UNT, número de segmentos
+    Debería ser: 38
+    Tiene: 35
+```
+
+### Un total que está, pero con el código de antes de la norma
+
+EN 16931 fijó qué cualificador va en cada campo, pero las facturas EDIFACT
+llevan décadas circulando con las guías de cada sector, que eligieron otros.
+
+Lo que enseñan las cuatro facturas reales no es que se ignore la norma, sino
+algo más incómodo: **se solapan**. Las tres que llevan IVA escriben la suma de
+líneas con el 79, la base con el 125 y la cuota con el 124 —los tres, los de la
+norma— y luego el total con el 77, el 86 o el 128, que no lo son. La cuarta no
+lleva IVA y no tiene total que escribir: declara el 79 y el 9, los dos de la
+norma, y no le falta nada.
+
+O sea que un documento puede parecer conforme campo por campo y no serlo justo
+en el que más se mira.
+
+Sin decirlo, esa factura recibe «falta el importe total con impuestos
+incluidos». Es verdad que falta donde la norma lo pone, pero quien lo lee
+entiende que no está y se va a buscar un dato que su factura ya trae. Decirlo
+entero cuesta una línea y cambia la tarea:
+
+```
+[EDI-TOTALES-DE-OTRA-GUIA · ISO 9735] Los totales de esta factura no llevan los
+códigos que usa EN 16931, sino estos: 128 (el total). Por eso las reglas
+europeas dan por ausente el total sin impuestos, el total con impuestos y lo
+que hay que pagar: el importe está escrito, pero con un código que la norma no
+mira. Es lo normal en las facturas EDIFACT de antes de la norma, y para
+cumplirla hay que cambiar el código, no añadir el importe.
+  Debería ser: 389 sin impuestos, 388 con impuestos, 9 a pagar
+  Tiene: 128
+```
+
+### Tres cosas que se saltaban en silencio
+
+Salieron al conectar EDIFACT, y ninguna es de EDIFACT:
+
+- **`codigo_unico.extraer` reventaba** con un `XMLSyntaxError` ante cualquier
+  EDIFACT plano. Era verdad que no es XML, y no venía a cuento. Estaba así desde
+  antes de esta rama, y se comprobó en un árbol de trabajo del commit anterior
+  para no atribuirse un fallo ajeno ni escaparse de uno propio.
+- **Apuntar a una carpeta no recogía los `.edi`**, y el resumen contaba los
+  ficheros que sí había mirado. Es la forma exacta de dejar a alguien creyendo
+  que ha revisado un lote entero.
+- **El navegador no dejaba ni elegir un EDIFACT**: el selector admitía `.xml` y
+  `.xsig`, así que el cuarto formato era invisible ahí.
+
+### Y dos frases que prometían de más
+
+Prometer de más es el peor fallo que puede tener un informe, porque lo que
+promete es de lo que se fía quien lo lee.
+
+La primera decía «no se ha comprobado la forma: **falta** el esquema de este
+formato. Los que le tocan se llaman **(ninguno)**» —dos mitades que se
+contradicen— sobre algo que no tiene esquema porque no es XML. Ahora es una
+nota, que es lo que corresponde a algo que se ha dado por bueno y con qué:
+
+```
+[XSD-NO-APLICA · Esquema XSD] La forma no se ha comprobado contra un esquema
+XSD, y no hace falta: EDIFACT no es XML y no tiene ninguno. En su lugar se han
+comprobado las cuentas que la propia norma obliga a llevar en el sobre.
+```
+
+La segunda es la frase del final, la que dice de qué se ha fiado quien lee. Se
+apuntaba «se ha comprobado la forma contra el esquema XSD» en un lote de puro
+EDIFACT, donde no se había mirado ningún esquema, y a la vez **no se apuntaba
+las reglas EN 16931**, que sí se habían pasado. Prometía de más por un lado y de
+menos por el otro.
 
 ## Sin servidor: el validador dentro del navegador
 

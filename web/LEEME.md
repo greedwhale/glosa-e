@@ -50,8 +50,8 @@ caché —todo verde, y no es lo que crees que has probado—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, veintiocho comprobaciones que deben
-salir todas en verde; diecinueve están marcadas como **críticas** y son las
+Arriba, el tiempo de arranque. Abajo, treinta y una comprobaciones que deben
+salir todas en verde; veintiuna están marcadas como **críticas** y son las
 que, si fallan, tumban la idea entera:
 
 | Comprobación | Por qué es crítica |
@@ -75,8 +75,16 @@ que, si fallan, tumban la idea entera:
 | un sello de tiempo se lee y se comprueba aquí | de la fecha del sello cuelgan la caducidad y la revocación |
 | un sello sin permiso para sellar no vale | su firma es válida: lo único que falla es el permiso, y eso no salta solo |
 | las anclas de sellado van aparte de las de firma | juntas, once autoridades pasarían a avalar firmas de facturas |
+| un EDIFACT plano se lee y se valida aquí | es el cuarto formato de la ley, y el único que no es XML |
+| las rutas de EDIFACT valen con este libxml2 | van con predicados y con el eje `self::`, más XPath del que usan UBL y CII; si fallaran no darían error, darían una factura sin líneas ni desglose —o sea, sin nada que comprobar— y diría que está bien |
 
-Las nueve últimas son de la firma, y la de la canonicalización es la que más podía
+Las dos últimas son de EDIFACT, y la segunda es la que de verdad podía doler
+ahí: el mapa de ese formato no puede nombrar los grupos —su numeración cambia con
+la versión del directorio— y por eso pregunta por lo que hay dentro, con más
+XPath del que necesitan los otros dos. Esta compilación de libxml2 es más vieja
+que la de fuera.
+
+De las anteriores, nueve son de la firma, y la de la canonicalización es la que más podía
 doler. `firma.py` calcula el resumen de un documento canonicalizado y lo compara
 con el que guarda la firma. Si lxml en WebAssembly escribiera un solo byte
 distinto —un atributo en otro orden, un namespace colocado de otra manera— el

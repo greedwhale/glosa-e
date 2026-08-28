@@ -395,38 +395,72 @@ class Grupo:
 
 
 # El mapa está escrito por **segmento que dispara**, no por número de grupo, y
-# eso es a propósito. En EDIFACT los grupos se numeran (SG1, SG2, SG26…) y esa
-# numeración cambia con la versión del directorio: el grupo de las líneas es el
-# SG26 en la D.96A y el SG27 en la D.14B. Un mapa por números obligaría a tener
-# una tabla por versión y a no saber leer las versiones que no estuvieran.
+# eso es a propósito. En EDIFACT los grupos se numeran (SG1, SG2, SG27…) y esa
+# numeración cambia con la versión del directorio: en la D.14B que publica la
+# Comisión el grupo de las líneas es el SG27, y en otras versiones no. Un mapa
+# por números obligaría a tener una tabla por versión y a no saber leer las
+# versiones que no estuvieran.
 #
 # Por dónde cuelga cada cosa, en cambio, no cambia: el IVA de una línea va
 # detrás de su línea en todas las versiones, porque si no, no sería de esa
 # línea. Escribiéndolo así, la misma tabla lee la D.96A que traen las facturas
 # de verdad y la D.14B que publica la Comisión Europea.
+#
+# De dónde sale. La primera versión se dedujo de los nueve ejemplos de la
+# Comisión, y le faltaba media docena de segmentos que esos nueve no usan. Eso
+# no es un hueco inofensivo: un segmento que no esté en la tabla **no se queda
+# fuera del grupo, lo cierra**. Un PAC —el embalaje de una línea— cerraba la
+# línea, y el MOA que viniera detrás ya no era el importe de esa línea sino un
+# total de la factura. Sin dar ningún error.
+#
+# Así que la tabla se contrastó contra la gramática D.96A de `bots-edi`, un
+# proyecto de EDI que no tiene nada que ver con este, y es la unión de las dos:
+# lo que enseñan los ejemplos de la D.14B y lo que dice esa gramática de la
+# D.96A. Once grupos más de los que había.
 GRUPOS: dict[str, Grupo] = {
-    "RFF": Grupo(sueltos=frozenset({"DTM", "GIR"})),
-    "NAD": Grupo(
-        sueltos=frozenset({"LOC", "FII"}),
-        dentro=frozenset({"RFF", "CTA"}),
+    "AJT": Grupo(sueltos=frozenset({"FTX"})),
+    "ALC": Grupo(
+        sueltos=frozenset({"ALI", "DTM", "FTX"}),
+        dentro=frozenset({"MOA", "PCD", "QTY", "RFF", "RTE", "TAX"}),
     ),
     "CTA": Grupo(sueltos=frozenset({"COM"})),
     "CUX": Grupo(sueltos=frozenset({"DTM"})),
-    "PAT": Grupo(sueltos=frozenset({"DTM", "PCD", "MOA", "PAI"})),
-    "PYT": Grupo(sueltos=frozenset({"DTM", "PCD", "MOA", "PAI"})),
-    "ALC": Grupo(
-        sueltos=frozenset({"ALI", "FTX"}),
-        dentro=frozenset({"PCD", "MOA", "RTE", "TAX"}),
-    ),
+    "DOC": Grupo(sueltos=frozenset({"DTM"})),
     "EFI": Grupo(sueltos=frozenset({"COM", "RFF"})),
+    "INP": Grupo(sueltos=frozenset({"FTX"})),
     "LIN": Grupo(
-        sueltos=frozenset({"PIA", "IMD", "MEA", "QTY", "ALI", "DTM", "FTX", "GIN"}),
-        dentro=frozenset({"MOA", "PRI", "RFF", "TAX", "ALC", "LOC", "NAD"}),
+        sueltos=frozenset(
+            {
+                "ALI", "DTM", "EQD", "FTX", "GIN", "GIR", "IMD", "MEA", "PCD",
+                "PIA", "QTY", "QVR"
+            }
+        ),
+        dentro=frozenset(
+            {
+                "ALC", "LOC", "MOA", "NAD", "PAC", "PAT", "PRI", "RCS", "RFF",
+                "TAX", "TDT", "TOD"
+            }
+        ),
     ),
-    "TAX": Grupo(sueltos=frozenset({"MOA", "LOC", "FTX"})),
-    "MOA": Grupo(sueltos=frozenset({"CUX"})),
-    "PRI": Grupo(sueltos=frozenset({"CUX", "APR", "RNG", "DTM"})),
+    "LOC": Grupo(sueltos=frozenset({"DTM", "QTY"})),
+    "MOA": Grupo(sueltos=frozenset({"CUX", "RNG"}), dentro=frozenset({"RFF"})),
+    "NAD": Grupo(
+        sueltos=frozenset({"FII", "LOC"}),
+        dentro=frozenset({"CTA", "DOC", "RFF"}),
+    ),
+    "PAC": Grupo(sueltos=frozenset({"MEA"}), dentro=frozenset({"PCI"})),
+    "PAT": Grupo(sueltos=frozenset({"DTM", "FII", "MOA", "PAI", "PCD"})),
     "PCD": Grupo(sueltos=frozenset({"RNG"})),
+    "PCI": Grupo(sueltos=frozenset({"DTM", "GIN", "RFF"})),
+    "PRI": Grupo(sueltos=frozenset({"APR", "CUX", "DTM", "RNG"})),
+    "PYT": Grupo(sueltos=frozenset({"DTM", "MOA", "PAI", "PCD"})),
+    "QTY": Grupo(sueltos=frozenset({"RNG"})),
+    "RCS": Grupo(sueltos=frozenset({"DTM", "FTX", "RFF"})),
+    "RFF": Grupo(sueltos=frozenset({"DTM", "GIR"})),
+    "RTE": Grupo(sueltos=frozenset({"RNG"})),
+    "TAX": Grupo(sueltos=frozenset({"FTX", "LOC", "MOA"})),
+    "TDT": Grupo(dentro=frozenset({"LOC", "RFF"})),
+    "TOD": Grupo(sueltos=frozenset({"LOC"})),
 }
 
 # Segmentos de servicio: ni abren grupo ni se meten en ninguno. UNS es el que

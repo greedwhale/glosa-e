@@ -26,6 +26,7 @@ que no dependen de ellos —las de sintaxis, que son la mayoría— corren siemp
 """
 
 import pathlib
+from decimal import Decimal
 
 import pytest
 from lxml import etree
@@ -348,6 +349,42 @@ class TestLosGrupos:
         raiz, _ = edifact.convertir(sobre(cuerpo))
         linea = raiz.xpath(".//*[S_LIN]")[0]
         assert linea.xpath("string(./*[S_TAX]/S_TAX/C_C243/D_5278)") == "21"
+
+    def test_un_segmento_que_no_este_en_la_tabla_cierra_la_linea(self):
+        """El fallo que enseño contrastar la tabla con una gramatica ajena.
+
+        Un segmento que no esta en el grupo no se queda fuera: **lo cierra**.
+        Un PAC —el embalaje de una linea— cerraba la linea, y el MOA de detras
+        dejaba de ser el importe de esa linea para convertirse en un total de
+        la factura. Sin dar ningun error: una factura con embalajes salia con
+        los importes de sus lineas contados como totales.
+        """
+        cuerpo = CUERPO.replace(
+            "QTY+47:10'", "QTY+47:10'PAC+2++CT'MEA+PD+AAB+KGM:12'"
+        )
+        raiz, _ = edifact.convertir(sobre(cuerpo))
+        linea = raiz.xpath(".//*[S_LIN]")[0]
+        mapa = sintaxis.SINTAXIS_EDIFACT
+        assert sintaxis.importe(linea, mapa.linea_importe, mapa) == Decimal("1000")
+
+    def test_y_el_control_de_esa(self):
+        """Sacando PAC de la tabla, el importe de la linea se pierde."""
+        marco = edifact.GRUPOS["LIN"]
+        recortado = edifact.Grupo(
+            sueltos=marco.sueltos, dentro=marco.dentro - {"PAC"}
+        )
+        cuerpo = CUERPO.replace(
+            "QTY+47:10'", "QTY+47:10'PAC+2++CT'MEA+PD+AAB+KGM:12'"
+        )
+        original = edifact.GRUPOS["LIN"]
+        edifact.GRUPOS["LIN"] = recortado
+        try:
+            raiz, _ = edifact.convertir(sobre(cuerpo))
+        finally:
+            edifact.GRUPOS["LIN"] = original
+        linea = raiz.xpath(".//*[S_LIN]")[0]
+        mapa = sintaxis.SINTAXIS_EDIFACT
+        assert sintaxis.importe(linea, mapa.linea_importe, mapa) is None
 
 
 class TestElDirectorio:
