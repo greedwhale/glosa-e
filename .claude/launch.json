@@ -4,8 +4,24 @@
     {
       "name": "web",
       "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "http.server", "8321"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8321"
+      ],
       "port": 8321
+    },
+    {
+      "name": "sitio",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8322",
+        "--directory",
+        "sitio"
+      ],
+      "port": 8322
     }
   ]
 }

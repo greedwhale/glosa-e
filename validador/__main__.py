@@ -190,6 +190,16 @@ def main(argumentos: list[str] | None = None) -> int:
         "haberse renovado ya. Para probar, no para repartir.",
     )
     analizador.add_argument(
+        "--sitio",
+        metavar="CARPETA",
+        nargs="?",
+        const="sitio",
+        help="monta en CARPETA lo que hay que publicar y nada mas: la pagina, "
+        "el wheel con su rueda.json, las facturas de ejemplo y el paquete de "
+        "esquemas y anclas si esta armado. No sube el repositorio entero, que "
+        "lleva facturas de terceros y anclas sueltas.",
+    )
+    analizador.add_argument(
         "--solo-errores",
         action="store_true",
         help="calla los avisos y deja solo lo que impide cobrar",
@@ -212,6 +222,8 @@ def main(argumentos: list[str] | None = None) -> int:
         return _ver_anclas(almacen, opciones.hoy or date.today())
     if opciones.ver_revocaciones:
         return _ver_revocaciones(listas, opciones.hoy or date.today())
+    if opciones.sitio:
+        return _montar_sitio(Path(opciones.sitio))
     if opciones.empaquetar:
         return _empaquetar(
             Path(opciones.empaquetar),
@@ -333,6 +345,40 @@ def _empaquetar(
                 "sean, y lo dirá en cada informe. Vuelve a montar las anclas "
                 "y a empaquetar antes."
             )
+    return 0
+
+
+def _montar_sitio(destino: Path) -> int:
+    """Deja listo lo que se sube, y dice si va completo o cojo.
+
+    El aviso de que falta el paquete no es decorativo: un sitio sin esquemas ni
+    anclas arranca, valida y no comprueba ni la forma ni de quién es la firma.
+    La página lo dice en su recuadro, pero quien publica se entera aquí, que es
+    cuando todavía puede armarlo.
+    """
+    try:
+        sitio = paquete.montar_sitio(destino)
+    except (paquete.SinRueda, paquete.SinPagina) as motivo:
+        print(f"No se ha montado nada.\n\n  {motivo}", file=sys.stderr)
+        return 2
+    except OSError as error:
+        print(f"No se ha podido montar {destino}: {error}", file=sys.stderr)
+        return 2
+
+    print(f"Montado {sitio.carpeta} ({sitio.bytes / 1024 / 1024:.2f} MB)")
+    print()
+    print(f"  validador             {sitio.rueda}")
+    print(f"  facturas de ejemplo   {sitio.ejemplos}")
+    if sitio.con_paquete:
+        print("  esquemas y anclas     van dentro")
+    else:
+        print("  esquemas y anclas     NO VAN")
+        print()
+        print(
+            "  Este sitio arranca y valida el contenido, pero no comprueba ni "
+            "la\n  forma ni de quién es la firma, y lo dirá en cada informe. "
+            "Ármalo\n  antes con `python -m validador --empaquetar`."
+        )
     return 0
 
 

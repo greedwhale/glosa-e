@@ -281,3 +281,128 @@ class TestElPaqueteDeVerdad:
         ).alcance(forma=True, anclas=True)
         assert "esquema XSD" in con
         assert "autoridad de confianza instalada" in con
+
+
+# --- El sitio que se publica -----------------------------------------------
+
+# La página tal como está en el repositorio, reducida a las dos líneas que
+# importan aquí. Son las que dicen dónde busca el wheel y los ejemplos.
+PAGINA = """<!doctype html>
+<script>
+const DIST = "../dist/";
+const EJEMPLOS_EN = "../ejemplos/";
+async function buscarWheel() { return await fetch(DIST + "rueda.json"); }
+</script>
+"""
+
+
+@pytest.fixture
+def repositorio(tmp_path):
+    """Un repositorio en pequeño: la página, un wheel y unos ejemplos."""
+    (tmp_path / "web").mkdir()
+    (tmp_path / "web" / "index.html").write_text(PAGINA, encoding="utf-8")
+    (tmp_path / "web" / "prueba.py").write_text("# el banco\n", encoding="utf-8")
+    (tmp_path / "web" / "LEEME.md").write_text("# la pagina\n", encoding="utf-8")
+    (tmp_path / "dist").mkdir()
+    (tmp_path / "dist" / "factura_e-0.1.0-py3-none-any.whl").write_bytes(b"PK\x03\x04")
+    (tmp_path / "ejemplos").mkdir()
+    (tmp_path / "ejemplos" / "f-0001.xml").write_text("<a/>", encoding="utf-8")
+    (tmp_path / "ejemplos" / "edi-0001.edi").write_text("UNA", encoding="utf-8")
+    # Facturas de terceros, que no salen de aquí.
+    (tmp_path / "muestras").mkdir()
+    (tmp_path / "muestras" / "de-un-cliente.xml").write_text("<a/>", encoding="utf-8")
+    return tmp_path
+
+
+def _montar(repositorio, destino="sitio"):
+    return paquete.montar_sitio(
+        repositorio / destino,
+        pagina=repositorio / "web",
+        ruedas=repositorio / "dist",
+        ejemplos=repositorio / "ejemplos",
+    )
+
+
+class TestElSitioQueSePublica:
+    """Lo que se sube es lo que se ha montado, no el repositorio."""
+
+    def test_va_la_pagina_el_wheel_y_los_ejemplos(self, repositorio):
+        sitio = _montar(repositorio)
+        raiz = repositorio / "sitio"
+        assert (raiz / "index.html").is_file()
+        assert (raiz / "prueba.py").is_file()
+        assert (raiz / "dist" / "factura_e-0.1.0-py3-none-any.whl").is_file()
+        assert (raiz / "ejemplos" / "f-0001.xml").is_file()
+        assert sitio.ejemplos == 2
+
+    def test_el_wheel_se_anuncia_porque_no_hay_listado(self, repositorio):
+        """Lo que hace publicable el sitio.
+
+        Sirviendo la carpeta en desarrollo, la página encuentra el `.whl`
+        leyendo el listado del directorio. Un sitio publicado no tiene
+        listado: devuelve 404 y la página se queda sin validador después de
+        bajarse catorce megas de Pyodide.
+        """
+        _montar(repositorio)
+        anuncio = repositorio / "sitio" / "dist" / paquete.NOMBRE_DE_LA_RUEDA
+        assert json.loads(anuncio.read_text(encoding="utf-8")) == {
+            "rueda": "factura_e-0.1.0-py3-none-any.whl"
+        }
+
+    def test_las_rutas_dejan_de_apuntar_un_nivel_arriba(self, repositorio):
+        """En el sitio publicado, encima de la raíz no hay nada."""
+        _montar(repositorio)
+        html = (repositorio / "sitio" / "index.html").read_text(encoding="utf-8")
+        assert 'const DIST = "./dist/";' in html
+        assert 'const EJEMPLOS_EN = "./ejemplos/";' in html
+        assert "../" not in html
+
+    def test_las_facturas_de_terceros_no_se_publican(self, repositorio):
+        """La razón de montar el sitio en vez de subir el repositorio."""
+        _montar(repositorio)
+        salidos = {f.name for f in (repositorio / "sitio").rglob("*") if f.is_file()}
+        assert "de-un-cliente.xml" not in salidos
+
+    def test_sin_wheel_no_se_monta_y_se_dice_como(self, repositorio):
+        (repositorio / "dist" / "factura_e-0.1.0-py3-none-any.whl").unlink()
+        with pytest.raises(paquete.SinRueda) as fallo:
+            _montar(repositorio)
+        assert "python -m build" in str(fallo.value)
+
+    def test_si_la_pagina_cambia_de_rutas_se_para_aqui(self, repositorio):
+        """Y no en el navegador de un desconocido.
+
+        La sustitución busca una línea concreta. El día que alguien la
+        renombre, lo que no puede pasar es que el sitio se suba igual y pida
+        sus ficheros por encima de su propia raíz.
+        """
+        indice = repositorio / "web" / "index.html"
+        indice.write_text(
+            PAGINA.replace('const DIST = "../dist/";', 'const RUEDAS = "../dist/";'),
+            encoding="utf-8",
+        )
+        with pytest.raises(paquete.SinPagina) as fallo:
+            _montar(repositorio)
+        assert "_RUTAS_DEL_SITIO" in str(fallo.value)
+
+    def test_sin_paquete_se_monta_igual_pero_se_cuenta(self, repositorio):
+        """La página ya sabe decir qué deja de comprobar; el que publica, no."""
+        sitio = _montar(repositorio)
+        assert sitio.con_paquete is False
+        assert not (repositorio / "sitio" / paquete.NOMBRE).exists()
+
+    def test_con_paquete_viajan_el_zip_y_su_resumen(self, repositorio):
+        (repositorio / "web" / paquete.NOMBRE).write_bytes(b"PK\x03\x04")
+        (repositorio / "web" / paquete.MANIFIESTO).write_text("{}", encoding="utf-8")
+        sitio = _montar(repositorio)
+        assert sitio.con_paquete is True
+        assert (repositorio / "sitio" / paquete.NOMBRE).is_file()
+        assert (repositorio / "sitio" / paquete.MANIFIESTO).is_file()
+
+    def test_montar_dos_veces_no_deja_restos(self, repositorio):
+        """Un wheel viejo que sobreviva al remontado es el fallo de siempre."""
+        _montar(repositorio)
+        viejo = repositorio / "sitio" / "dist" / "factura_e-0.0.9-py3-none-any.whl"
+        viejo.write_bytes(b"PK\x03\x04")
+        _montar(repositorio)
+        assert not viejo.exists()

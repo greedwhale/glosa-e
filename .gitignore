@@ -43,3 +43,8 @@ listas/
 # `python -m validador --empaquetar` desde las carpetas que uno ha montado.
 web/paquete.zip
 web/PAQUETE.json
+
+# Lo que se sube a la web. Se monta desde aqui con `python -m validador
+# --sitio`, asi que versionarlo seria guardar una copia de lo que ya hay,
+# con el riesgo de que se quede vieja y nadie lo note.
+sitio/

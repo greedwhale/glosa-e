@@ -88,6 +88,13 @@
 // sola, el dia que algo se rompa no se sabra que ha cambiado.
 const VERSION_PYODIDE = "314.0.6";
 const RAIZ = "https://cdn.jsdelivr.net/pyodide/v" + VERSION_PYODIDE + "/full/";
+
+// Donde estan el wheel y las facturas de ejemplo. Sirviendo el repositorio
+// entero quedan un nivel mas arriba; en el sitio publicado van al lado de la
+// pagina. `python -m validador --sitio` cambia estas dos lineas al montarlo,
+// asi que aqui se dejan tal como funcionan en desarrollo.
+const DIST = "../dist/";
+const EJEMPLOS_EN = "../ejemplos/";
 const EJEMPLOS = ["f-0001.xml", "f-0002.xml", "f-0002-bis.xml", "f-0006.xml",
                   "r-0001.xml", "cii-A-0001.xml", "fe-0001.xml",
                   "edi-0001.edi", "edi-0002-cortado.edi",
@@ -107,7 +114,20 @@ function marcar(etiqueta, ms) {
 // de ../dist en vez de escribirlo a mano: si no, cada vez que suba la version
 // en pyproject.toml esta pagina dejaria de arrancar sin decir por que.
 async function buscarWheel() {
-  const listado = await fetch("../dist/");
+  // Un sitio publicado no tiene listado de directorio: Vercel devuelve 404 y
+  // aqui no habria wheel que instalar. Por eso `--sitio` deja un rueda.json
+  // al lado diciendo cual es. En desarrollo no existe y se cae al listado,
+  // que es lo que sirve la carpeta.
+  try {
+    const manifiesto = await fetch(DIST + "rueda.json?v=" + Date.now());
+    if (manifiesto.ok) {
+      const { rueda } = await manifiesto.json();
+      if (rueda) return DIST + rueda + "?v=" + Date.now();
+    }
+  } catch (_) {
+    // Un rueda.json ilegible no es motivo para no probar el listado.
+  }
+  const listado = await fetch(DIST);
   if (listado.ok) {
     const nombres = [...(await listado.text()).matchAll(/href="([^"]+\.whl)"/g)]
       .map((m) => decodeURIComponent(m[1].split("/").pop()));
@@ -117,11 +137,12 @@ async function buscarWheel() {
     // validador sin decirlo. Es el peor fallo posible en un banco de pruebas:
     // sale todo verde y no es lo que crees que has probado.
     if (nombres.length) {
-      return "../dist/" + nombres.sort().pop() + "?v=" + Date.now();
+      return DIST + nombres.sort().pop() + "?v=" + Date.now();
     }
   }
   throw new Error(
-    "No hay ningun .whl en dist/. Construyelo antes: python -m build --wheel --outdir dist"
+    "No hay ningun .whl en " + DIST + ", ni suelto ni anunciado en "
+    + "rueda.json. Construyelo antes: python -m build --wheel --outdir dist"
   );
 }
 
@@ -233,7 +254,7 @@ async function arrancar() {
   t = performance.now();
   pyodide.FS.mkdirTree("/ejemplos");
   await Promise.all(EJEMPLOS.map(async (nombre) => {
-    const respuesta = await fetch("../ejemplos/" + nombre + "?v=" + Date.now());
+    const respuesta = await fetch(EJEMPLOS_EN + nombre + "?v=" + Date.now());
     pyodide.FS.writeFile("/ejemplos/" + nombre,
                          new Uint8Array(await respuesta.arrayBuffer()));
   }));

@@ -48,7 +48,18 @@ from validador.cadena import (
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
 
-__all__ = ["NOMBRE", "MANIFIESTO", "Contenido", "SinManifiesto", "SinRenovar", "armar"]
+__all__ = [
+    "NOMBRE",
+    "MANIFIESTO",
+    "Contenido",
+    "Sitio",
+    "SinManifiesto",
+    "SinRenovar",
+    "SinRueda",
+    "SinPagina",
+    "armar",
+    "montar_sitio",
+]
 
 # El nombre del zip y el del resumen que va al lado. El resumen va **fuera**
 # además de dentro para que la página pueda decir de cuándo son las anclas sin
@@ -196,3 +207,136 @@ def armar(
         contenido.como_json(), encoding="utf-8"
     )
     return contenido
+
+
+# --- El sitio que se publica -----------------------------------------------
+
+# El manifiesto del wheel. La página necesita saber cómo se llama el `.whl`
+# para instalarlo, y el nombre lleva la versión dentro. Sirviendo la carpeta
+# en desarrollo basta con leer el listado del directorio; **un sitio publicado
+# no tiene listado**: Vercel devuelve 404 y la página se queda sin validador.
+# Así que al montar el sitio se deja escrito cuál es.
+NOMBRE_DE_LA_RUEDA = "rueda.json"
+
+# Las dos líneas de `index.html` que dicen dónde están el wheel y los
+# ejemplos. En el repositorio apuntan un nivel arriba, porque en desarrollo se
+# sirve el repositorio entero; en el sitio publicado van al lado. Se sustituyen
+# aquí en vez de dejar que la página lo adivine en tiempo de ejecución: si
+# alguien renombra la constante, esto falla al montar y no en el navegador de
+# un desconocido.
+_RUTAS_DEL_SITIO = (
+    ('const DIST = "../dist/";', 'const DIST = "./dist/";'),
+    ('const EJEMPLOS_EN = "../ejemplos/";', 'const EJEMPLOS_EN = "./ejemplos/";'),
+)
+
+# Lo que se copia tal cual desde `web/`. El LEEME va porque explica qué es esta
+# página y cómo leer el banco; sin él, quien llegue de fuera ve una lista de
+# comprobaciones sin saber qué prueban.
+_DE_LA_PAGINA = ("prueba.py", "LEEME.md")
+
+
+class SinRueda(Exception):
+    """No hay wheel que servir, así que la página no arrancaría."""
+
+
+class SinPagina(Exception):
+    """Falta el index.html, o ya no dice dónde busca sus cosas."""
+
+
+@dataclass(frozen=True)
+class Sitio:
+    """Qué ha quedado montado, para poder decirlo antes de publicarlo."""
+
+    carpeta: Path
+    rueda: str
+    ejemplos: int
+    con_paquete: bool
+    bytes: int
+
+
+def _pesa(carpeta: Path) -> int:
+    return sum(f.stat().st_size for f in carpeta.rglob("*") if f.is_file())
+
+
+def montar_sitio(
+    destino: str | Path,
+    pagina: str | Path = "web",
+    ruedas: str | Path = "dist",
+    ejemplos: str | Path = "ejemplos",
+) -> Sitio:
+    """Deja en `destino` lo que hay que subir, y nada más.
+
+    Se monta desde el repositorio en vez de subirlo entero por dos razones. La
+    primera es que hay carpetas que no pueden salir de aquí: `muestras/` son
+    facturas de terceros y `anclas/` no se reparte suelta, sino dentro del
+    paquete que uno ha armado y comprobado. La segunda es que la página busca
+    sus cosas en sitios distintos según dónde esté, y eso se arregla al montar.
+
+    No se niega a montar un sitio **sin** el paquete de esquemas y anclas: la
+    página ya sabe decir qué deja de comprobar cuando no está. Lo que sí hace
+    es contarlo, porque publicar eso sin enterarse es otra cosa.
+    """
+    import shutil
+
+    destino = Path(destino)
+    pagina, ruedas, ejemplos = Path(pagina), Path(ruedas), Path(ejemplos)
+
+    indice = pagina / "index.html"
+    if not indice.is_file():
+        raise SinPagina(f"No hay «{indice}», que es la página que se publica.")
+
+    encontradas = sorted(ruedas.glob("*.whl"))
+    if not encontradas:
+        raise SinRueda(
+            f"No hay ningún .whl en «{ruedas}», y sin él la página no tiene "
+            "validador que instalar: arrancaría, bajaría catorce megas de "
+            "Pyodide y se pararía. Constrúyelo antes con "
+            "`python -m build --wheel --outdir dist`."
+        )
+    rueda = encontradas[-1]
+
+    if destino.exists():
+        shutil.rmtree(destino)
+    (destino / "dist").mkdir(parents=True)
+    (destino / "ejemplos").mkdir(parents=True)
+
+    html = indice.read_text(encoding="utf-8")
+    for busca, pon in _RUTAS_DEL_SITIO:
+        if busca not in html:
+            raise SinPagina(
+                f"«{indice}» ya no lleva la línea `{busca}`. Esa línea dice "
+                "dónde busca la página el wheel y los ejemplos, y aquí se "
+                "cambia para el sitio publicado. Si se ha renombrado, hay que "
+                "cambiarla también en `_RUTAS_DEL_SITIO`; si no, el sitio se "
+                "subiría buscando ficheros un nivel por encima de su raíz."
+            )
+        html = html.replace(busca, pon)
+    (destino / "index.html").write_text(html, encoding="utf-8")
+
+    for nombre in _DE_LA_PAGINA:
+        if (pagina / nombre).is_file():
+            shutil.copy2(pagina / nombre, destino / nombre)
+
+    shutil.copy2(rueda, destino / "dist" / rueda.name)
+    (destino / "dist" / NOMBRE_DE_LA_RUEDA).write_text(
+        json.dumps({"rueda": rueda.name}, indent=2) + "\n", encoding="utf-8"
+    )
+
+    cuantos = 0
+    for fichero in sorted(ejemplos.glob("*")):
+        if fichero.is_file():
+            shutil.copy2(fichero, destino / "ejemplos" / fichero.name)
+            cuantos += 1
+
+    con_paquete = (pagina / NOMBRE).is_file() and (pagina / MANIFIESTO).is_file()
+    if con_paquete:
+        shutil.copy2(pagina / NOMBRE, destino / NOMBRE)
+        shutil.copy2(pagina / MANIFIESTO, destino / MANIFIESTO)
+
+    return Sitio(
+        carpeta=destino,
+        rueda=rueda.name,
+        ejemplos=cuantos,
+        con_paquete=con_paquete,
+        bytes=_pesa(destino),
+    )
