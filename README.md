@@ -2089,8 +2089,12 @@ se comportan los sellos españoles de verdad está por ver.
 
 ### Producto
 
-- **La página de verdad.** `web/` es un banco de pruebas, no la página: falta
-  la interfaz que ve quien suelta una factura.
+- ~~La página de verdad.~~ **Hecha**: `web/index.html` es **Glosa**, la
+  herramienta —se suelta una factura y sale su glosa, con las incidencias
+  separadas por gravedad y el alcance debajo—, y el banco de pruebas se ha
+  movido a `web/banco.html`, que sigue siendo la prueba de que todo esto corre
+  en el navegador de quien la usa. Lo que queda no es interfaz: es qué se
+  vende encima.
 - **Los 14,7 MB del primer arranque.** Hay compilaciones de Pyodide más
   ligeras. La primera visita no va a ser instantánea nunca, y la página tiene
   que decirlo en vez de parecer rota.
@@ -2119,9 +2123,8 @@ se comportan los sellos españoles de verdad está por ver.
    conseguirlas. Es lo único que va a decir si los mensajes están bien
    escritos, y ahora hay cuatro formatos que enseñar en vez de tres.
 2. **Las respuestas OCSP embebidas**, que completan la revocación sin red.
-3. **La página de verdad**, porque el validador ya hace lo que la ley pide y lo
-   que falta para que alguien lo use es la interfaz. Los esquemas y las anclas
-   ya viajan con ella, así que lo que queda ahí es de forma, no de fondo.
+3. ~~La página de verdad.~~ **Hecha.** Lo que queda es lo de después:
+   publicarla, y decidir qué servicio va encima de la herramienta gratis.
 
 ## EDIFACT: el cuarto formato
 

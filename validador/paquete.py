@@ -225,21 +225,42 @@ def armar(
 # Así que al montar el sitio se deja escrito cuál es.
 NOMBRE_DE_LA_RUEDA = "rueda.json"
 
-# Las dos líneas de `index.html` que dicen dónde están el wheel y los
-# ejemplos. En el repositorio apuntan un nivel arriba, porque en desarrollo se
-# sirve el repositorio entero; en el sitio publicado van al lado. Se sustituyen
-# aquí en vez de dejar que la página lo adivine en tiempo de ejecución: si
-# alguien renombra la constante, esto falla al montar y no en el navegador de
-# un desconocido.
+# Quién sabe dónde están el wheel y las facturas de ejemplo. Lo saben las dos
+# páginas —la herramienta y el banco—, y por eso está escrito una sola vez en
+# el cargador que las dos cargan: dos copias son la forma de que un día
+# arreglen cosas distintas y nadie sepa cuál corre.
+_CARGADOR = "glosa.js"
+
+# Cómo lo llaman las páginas. Al montar, esta línea se cambia por la misma con
+# `?v=` y la huella del fichero detrás.
+#
+# **Por qué.** Es la tercera vez que este proyecto se tropieza con lo mismo: el
+# navegador sirve de su caché una copia vieja y lo que corre no es lo que se
+# acaba de cambiar. Pasó con el wheel, pasó con el fichero de comprobaciones
+# —se añadieron tres, se recargó, y la página siguió diciendo «las 33 pasan»—,
+# y pasó otra vez con esta página mientras se escribía. Nunca se rompe nada:
+# sale todo bien y no es lo que crees que has probado, que es el peor fallo que
+# puede tener algo que existe para comprobar cosas.
+#
+# La huella es del contenido, así que la dirección solo cambia cuando el
+# fichero cambia de verdad.
+_LLAMADA_AL_CARGADOR = '<script src="./glosa.js"></script>' 
+
+# Las dos líneas del cargador que dicen dónde están. En el repositorio apuntan
+# un nivel arriba, porque en desarrollo se sirve el repositorio entero; en el
+# sitio publicado van al lado. Se sustituyen aquí en vez de dejar que la página
+# lo adivine en tiempo de ejecución: si alguien renombra la constante, esto
+# falla al montar y no en el navegador de un desconocido.
 _RUTAS_DEL_SITIO = (
     ('const DIST = "../dist/";', 'const DIST = "./dist/";'),
     ('const EJEMPLOS_EN = "../ejemplos/";', 'const EJEMPLOS_EN = "./ejemplos/";'),
 )
 
-# Lo que se copia tal cual desde `web/`. El LEEME va porque explica qué es esta
-# página y cómo leer el banco; sin él, quien llegue de fuera ve una lista de
-# comprobaciones sin saber qué prueban.
-_DE_LA_PAGINA = ("prueba.py", "LEEME.md")
+# Lo que se copia tal cual desde `web/`. El banco va porque es la mitad de la
+# promesa: la herramienta dice que corre entera en el navegador de quien la
+# usa, y el banco es donde eso se comprueba sin creernos a nosotros. El LEEME,
+# porque explica qué prueba cada comprobación.
+_DE_LA_PAGINA = ("index.html", "banco.html", "prueba.py", "LEEME.md")
 
 
 class SinRueda(Exception):
@@ -291,6 +312,13 @@ def montar_sitio(
     indice = pagina / "index.html"
     if not indice.is_file():
         raise SinPagina(f"No hay «{indice}», que es la página que se publica.")
+    cargador = pagina / _CARGADOR
+    if not cargador.is_file():
+        raise SinPagina(
+            f"No hay «{cargador}», que es quien sabe dónde buscar el wheel y "
+            "las facturas de ejemplo. Sin él las dos páginas arrancan y se "
+            "quedan sin validador."
+        )
 
     encontradas = sorted(ruedas.glob("*.whl"))
     if not encontradas:
@@ -307,22 +335,42 @@ def montar_sitio(
     (destino / "dist").mkdir(parents=True)
     (destino / "ejemplos").mkdir(parents=True)
 
-    html = indice.read_text(encoding="utf-8")
+    codigo = cargador.read_text(encoding="utf-8")
     for busca, pon in _RUTAS_DEL_SITIO:
-        if busca not in html:
+        if busca not in codigo:
             raise SinPagina(
-                f"«{indice}» ya no lleva la línea `{busca}`. Esa línea dice "
+                f"«{cargador}» ya no lleva la línea `{busca}`. Esa línea dice "
                 "dónde busca la página el wheel y los ejemplos, y aquí se "
                 "cambia para el sitio publicado. Si se ha renombrado, hay que "
                 "cambiarla también en `_RUTAS_DEL_SITIO`; si no, el sitio se "
                 "subiría buscando ficheros un nivel por encima de su raíz."
             )
-        html = html.replace(busca, pon)
-    (destino / "index.html").write_text(html, encoding="utf-8")
+        codigo = codigo.replace(busca, pon)
+    (destino / _CARGADOR).write_text(codigo, encoding="utf-8")
 
+    firma = hashlib.sha256(codigo.encode("utf-8")).hexdigest()[:8]
+    llamada = f'<script src="./{_CARGADOR}?v={firma}"></script>'
+    firmadas = 0
     for nombre in _DE_LA_PAGINA:
-        if (pagina / nombre).is_file():
-            shutil.copy2(pagina / nombre, destino / nombre)
+        origen = pagina / nombre
+        if not origen.is_file():
+            continue
+        if origen.suffix != ".html":
+            shutil.copy2(origen, destino / nombre)
+            continue
+        texto = origen.read_text(encoding="utf-8")
+        if _LLAMADA_AL_CARGADOR in texto:
+            texto = texto.replace(_LLAMADA_AL_CARGADOR, llamada)
+            firmadas += 1
+        (destino / nombre).write_text(texto, encoding="utf-8")
+    if not firmadas:
+        raise SinPagina(
+            f"Ninguna página llama al cargador con `{_LLAMADA_AL_CARGADOR}`, "
+            "así que no se le ha podido poner la huella y el navegador puede "
+            "servir de su caché una copia vieja. Si la llamada se ha escrito "
+            "de otra forma, hay que cambiarla también en "
+            "`_LLAMADA_AL_CARGADOR`."
+        )
 
     shutil.copy2(rueda, destino / "dist" / rueda.name)
     (destino / "dist" / NOMBRE_DE_LA_RUEDA).write_text(

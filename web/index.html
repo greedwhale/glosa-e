@@ -3,361 +3,607 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Prueba de Pyodide &middot; Factura-e</title>
+<title>Glosa · La factura electrónica, en castellano</title>
+<meta name="description" content="Lee tu factura electrónica y te dice qué pone, contra qué norma se ha comprobado y qué no se ha podido mirar. Se lee en tu ordenador: el fichero no sale de ahí.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 40' fill='none' stroke='%231c4e80' stroke-width='4' stroke-linecap='round'%3E%3Ccircle cx='4' cy='20' r='3.5' fill='%231c4e80' stroke='none'/%3E%3Cpath d='M22 12 h24'/%3E%3Cpath d='M22 28 h24'/%3E%3C/svg%3E">
 <style>
+/* ---------------------------------------------------------------------------
+   La paleta.
+   Claro por defecto y no oscuro, que es lo que tenia el banco de pruebas: esto
+   es una herramienta de cumplimiento, se mira de dia y al lado de documentos.
+   El papel tira a calido para que no parezca una consola.
+   Ningun tipo de letra viene de fuera. Podria: quedaria mejor. Pero la pagina
+   promete que el fichero no sale de este ordenador, y pedirle la letra a un
+   servidor ajeno cada visita es contradecirlo en la primera linea del HTML.
+--------------------------------------------------------------------------- */
+:root {
+  --papel: #fbfaf7;
+  --panel: #ffffff;
+  --panel-2: #f4f2ec;
+  --borde: #e3e0d7;
+  --borde-fuerte: #cfcabd;
+  --tinta: #16181c;
+  --tinta-2: #454b54;
+  --tenue: #767c86;
+  --acento: #1c4e80;
+  --acento-flojo: #eaf0f7;
+  --error: #a3231c;
+  --error-flojo: #fbeceb;
+  --aviso: #85560a;
+  --aviso-flojo: #fbf3e3;
+  --nota: #1c4e80;
+  --nota-flojo: #eef3f8;
+  --bien: #1f6b45;
+  --bien-flojo: #e9f4ee;
+  --sombra: 0 1px 2px rgba(20,24,28,.05), 0 8px 24px -12px rgba(20,24,28,.14);
+  --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
   :root {
-    --fondo: #12151a; --papel: #1a1f27; --borde: #2b323d;
-    --texto: #e6e9ee; --tenue: #8b95a5;
-    --bien: #4ade80; --mal: #f87171; --ojo: #fbbf24;
+    --papel: #14161a;
+    --panel: #1a1d22;
+    --panel-2: #22262d;
+    --borde: #2c313a;
+    --borde-fuerte: #3d444f;
+    --tinta: #e8eaee;
+    --tinta-2: #b3bac4;
+    --tenue: #868d99;
+    --acento: #8ab4e0;
+    --acento-flojo: #1b2a3a;
+    --error: #f0938c;
+    --error-flojo: #2e1b1a;
+    --aviso: #ddb15e;
+    --aviso-flojo: #2b2318;
+    --nota: #8ab4e0;
+    --nota-flojo: #1b2530;
+    --bien: #79c79c;
+    --bien-flojo: #16261e;
+    --sombra: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 2rem 1.25rem; background: var(--fondo); color: var(--texto);
-    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
-  }
-  main { max-width: 860px; margin: 0 auto; }
-  h1 { font-size: 1.4rem; margin: 0 0 .3rem; }
-  .sub { color: var(--tenue); margin: 0 0 1.75rem; }
-  .caja { background: var(--papel); border: 1px solid var(--borde); border-radius: 10px; padding: 1rem 1.15rem; margin-bottom: 1.25rem; }
-  .caja h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--tenue); margin: 0 0 .8rem; font-weight: 600; }
-  #fases div { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem 0; border-bottom: 1px dashed var(--borde); }
-  #fases div:last-child { border-bottom: 0; }
-  #fases .ms { color: var(--tenue); font-variant-numeric: tabular-nums; font-family: ui-monospace, Consolas, monospace; }
-  table { width: 100%; border-collapse: collapse; }
-  td { padding: .45rem .5rem; border-bottom: 1px solid var(--borde); vertical-align: top; }
-  tr:last-child td { border-bottom: 0; }
-  .marca { width: 1.6rem; font-weight: 700; }
-  .ok .marca { color: var(--bien); } .no .marca { color: var(--mal); }
-  .no td { background: rgba(248,113,113,.07); }
-  .det { color: var(--tenue); font-size: .85em; font-family: ui-monospace, Consolas, monospace; word-break: break-word; }
-  .ms { color: var(--tenue); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: .85em; }
-  .veredicto { font-size: 1.05rem; font-weight: 600; padding: .9rem 1.15rem; border-radius: 10px; margin-bottom: 1.25rem; }
-  .veredicto.si { background: rgba(74,222,128,.12); border: 1px solid rgba(74,222,128,.35); color: var(--bien); }
-  .veredicto.no { background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.35); color: var(--mal); }
-  .veredicto.esperando { background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.3); color: var(--ojo); }
-  #zona { border: 2px dashed var(--borde); border-radius: 10px; padding: 2rem 1rem; text-align: center; color: var(--tenue); cursor: pointer; transition: .15s; }
-  #zona.encima { border-color: var(--bien); color: var(--bien); background: rgba(74,222,128,.06); }
-  pre { background: #0d1015; border: 1px solid var(--borde); border-radius: 8px; padding: .9rem; overflow-x: auto; font: 13px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; margin: 1rem 0 0; }
-  .nota { color: var(--tenue); font-size: .85rem; margin-top: .8rem; }
-  #trae div { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem 0; border-bottom: 1px dashed var(--borde); }
-  #trae div:last-child { border-bottom: 0; }
-  #trae .val { color: var(--tenue); font-family: ui-monospace, Consolas, monospace; font-size: .9em; text-align: right; }
-  #trae .aviso { color: var(--ojo); }
-  #trae .falta { color: var(--mal); }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--tinta);
+  font: 16px/1.6 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--acento); text-decoration-thickness: 1px; text-underline-offset: .18em; }
+h1, h2, h3 { line-height: 1.2; margin: 0; font-weight: 600; }
+p { margin: 0 0 1em; }
+p:last-child { margin-bottom: 0; }
+
+.envoltorio { max-width: 60rem; margin: 0 auto; padding: 0 1.5rem; }
+.texto { max-width: 42rem; }
+
+/* --- Cabecera ------------------------------------------------------------ */
+header {
+  border-bottom: 1px solid var(--borde);
+  background: color-mix(in srgb, var(--papel) 88%, transparent);
+  backdrop-filter: blur(8px);
+  position: sticky; top: 0; z-index: 10;
+}
+.barra { display: flex; align-items: center; gap: 1.5rem; padding: .9rem 0; }
+.marca { display: flex; align-items: center; gap: .6rem; color: var(--tinta); text-decoration: none; }
+.marca svg { width: 1.55rem; height: auto; display: block; color: var(--acento); }
+.marca b { font: 500 1.3rem/1 var(--serif); letter-spacing: .01em; }
+.barra nav { margin-left: auto; display: flex; gap: 1.35rem; font-size: .875rem; }
+.barra nav a { color: var(--tinta-2); text-decoration: none; }
+.barra nav a:hover { color: var(--acento); text-decoration: underline; }
+
+/* --- Portada ------------------------------------------------------------- */
+.portada { padding: 4.5rem 0 2.5rem; }
+.portada h1 {
+  font: 400 clamp(2.1rem, 5.5vw, 3.1rem)/1.1 var(--serif);
+  letter-spacing: -.015em; margin-bottom: 1rem;
+}
+.portada .lema { font-size: 1.15rem; color: var(--tinta-2); max-width: 34rem; }
+.portada .lema b { color: var(--tinta); font-weight: 600; }
+.hechos { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.75rem; }
+.hecho {
+  font-size: .8rem; color: var(--tinta-2); background: var(--panel);
+  border: 1px solid var(--borde); border-radius: 999px; padding: .3rem .75rem;
+}
+.hecho b { color: var(--tinta); font-weight: 600; }
+
+/* --- Bloques ------------------------------------------------------------- */
+section { padding: 2.5rem 0; }
+.rotulo {
+  font-size: .75rem; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--tenue); font-weight: 600; margin-bottom: .9rem;
+}
+h2.titulo { font: 400 1.75rem/1.2 var(--serif); margin-bottom: .8rem; }
+.panel {
+  background: var(--panel); border: 1px solid var(--borde);
+  border-radius: 12px; padding: 1.5rem;
+}
+
+/* --- La herramienta ------------------------------------------------------ */
+#herramienta { scroll-margin-top: 5rem; }
+.caja-suelta { box-shadow: var(--sombra); padding: 0; overflow: hidden; }
+#zona {
+  padding: 3rem 1.5rem; text-align: center; cursor: pointer;
+  border: 2px dashed var(--borde-fuerte); border-radius: 12px; margin: -1px;
+  background: var(--panel); transition: background .15s, border-color .15s;
+}
+#zona[aria-disabled="true"] { cursor: progress; opacity: .65; }
+#zona.encima { border-color: var(--acento); background: var(--acento-flojo); }
+#zona .icono { color: var(--acento); }
+#zona .icono svg { width: 2.5rem; height: auto; }
+#zona .grande { font-size: 1.1rem; font-weight: 600; margin: .8rem 0 .3rem; }
+#zona .chica { color: var(--tenue); font-size: .9rem; }
+
+.arranque { padding: 1.15rem 1.5rem; border-top: 1px solid var(--borde); background: var(--panel-2); }
+.arranque .cabeza { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+.arranque .cabeza strong { font-size: .9rem; }
+.arranque .cabeza span { color: var(--tenue); font-size: .85rem; }
+.riel { height: 3px; background: var(--borde); border-radius: 2px; margin: .8rem 0 .7rem; overflow: hidden; }
+.riel i { display: block; height: 100%; width: 0; background: var(--acento); transition: width .4s ease; }
+.fases { display: flex; flex-wrap: wrap; gap: .35rem .9rem; font-size: .8rem; color: var(--tenue); }
+.fases span { font-variant-numeric: tabular-nums; }
+.fases span.hecha::before { content: "✓ "; color: var(--bien); }
+.arranque.listo .riel { display: none; }
+
+/* --- El informe ---------------------------------------------------------- */
+#informe { margin-top: 1.5rem; }
+.veredicto {
+  border: 1px solid var(--borde); border-left: 4px solid var(--tenue);
+  border-radius: 10px; padding: 1.15rem 1.35rem; background: var(--panel);
+  margin-bottom: 1.25rem;
+}
+.veredicto.si { border-left-color: var(--bien); background: var(--bien-flojo); }
+.veredicto.no { border-left-color: var(--error); background: var(--error-flojo); }
+.veredicto.ojo { border-left-color: var(--aviso); background: var(--aviso-flojo); }
+.veredicto h3 { font-size: 1.15rem; margin-bottom: .35rem; }
+.veredicto.si h3 { color: var(--bien); }
+.veredicto.no h3 { color: var(--error); }
+.veredicto.ojo h3 { color: var(--aviso); }
+.veredicto p { font-size: .92rem; color: var(--tinta-2); }
+
+.documento { border: 1px solid var(--borde); border-radius: 10px; background: var(--panel); margin-bottom: 1rem; overflow: hidden; }
+.documento > header {
+  position: static; background: var(--panel-2); border: 0; border-bottom: 1px solid var(--borde);
+  padding: .8rem 1.15rem; backdrop-filter: none;
+}
+.documento > header .nombre { font-family: var(--mono); font-size: .85rem; color: var(--tinta); word-break: break-all; }
+.documento > header .estado { font-size: .88rem; color: var(--tinta-2); margin-top: .15rem; }
+
+/* La glosa: la nota al margen. El codigo va fuera del bloque, a su izquierda,
+   igual que el punto de la marca. Es el dibujo de la marca hecho maqueta. */
+.glosa { display: grid; grid-template-columns: 9.5rem 1fr; gap: 0 1.25rem; padding: 1.05rem 1.15rem; border-top: 1px dashed var(--borde); }
+.documento .glosa:first-of-type { border-top: 0; }
+.glosa .margen { text-align: right; padding-top: .1rem; }
+.glosa .grave { font-size: .68rem; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; display: block; margin-bottom: .15rem; }
+.glosa .codigo { font-family: var(--mono); font-size: .78rem; font-weight: 600; display: block; word-break: break-all; }
+.glosa .norma { font-size: .72rem; color: var(--tenue); display: block; margin-top: .1rem; }
+.glosa .cuerpo { border-left: 2px solid var(--borde); padding-left: 1.25rem; margin-left: -1.35rem; }
+.glosa .mensaje { font-size: .95rem; }
+.glosa dl { display: grid; grid-template-columns: auto 1fr; gap: .15rem .7rem; margin: .55rem 0 0; font-size: .85rem; }
+.glosa dt { color: var(--tenue); }
+.glosa dd { margin: 0; font-family: var(--mono); font-size: .95em; word-break: break-all; }
+.glosa.error .codigo, .glosa.error .grave { color: var(--error); }
+.glosa.error .cuerpo { border-left-color: var(--error); }
+.glosa.aviso .codigo, .glosa.aviso .grave { color: var(--aviso); }
+.glosa.aviso .cuerpo { border-left-color: var(--aviso); }
+.glosa.nota .codigo, .glosa.nota .grave { color: var(--nota); }
+.glosa.nota .cuerpo { border-left-color: var(--nota); }
+
+.alcance {
+  border: 1px solid var(--borde); border-radius: 10px; padding: 1.15rem 1.35rem;
+  background: var(--panel-2); font-size: .92rem; color: var(--tinta-2);
+}
+.alcance .rotulo { margin-bottom: .5rem; }
+
+/* --- Lo que trae puesto -------------------------------------------------- */
+.trae dl { display: grid; grid-template-columns: 1fr auto; gap: 0; margin: 0; }
+.trae dt, .trae dd { padding: .55rem 0; border-bottom: 1px dashed var(--borde); margin: 0; }
+.trae dd { text-align: right; font-family: var(--mono); font-size: .88rem; color: var(--tinta-2); }
+.trae dt:last-of-type, .trae dl > :nth-last-child(-n+2) { border-bottom: 0; }
+.trae dd.mal { color: var(--error); }
+.trae dd.ojo { color: var(--aviso); }
+
+/* --- Tres columnas ------------------------------------------------------- */
+.tres { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+.tres .panel h3 { font-size: 1rem; margin-bottom: .45rem; display: flex; align-items: center; gap: .5rem; }
+.tres .panel h3 .num { font: 500 .75rem/1.6 var(--mono); color: var(--acento); background: var(--acento-flojo); border-radius: 999px; width: 1.6rem; height: 1.6rem; display: grid; place-items: center; flex: none; }
+.tres .panel p { font-size: .9rem; color: var(--tinta-2); }
+
+.limites { border-left: 3px solid var(--borde-fuerte); padding-left: 1.25rem; }
+.limites li { margin-bottom: .5rem; color: var(--tinta-2); font-size: .95rem; }
+.limites li:last-child { margin-bottom: 0; }
+.limites b { color: var(--tinta); }
+
+/* --- El escalon de pago -------------------------------------------------- */
+.escalon { background: var(--panel-2); border: 1px solid var(--borde); border-radius: 12px; padding: 2rem; }
+.escalon h2 { font: 400 1.6rem/1.2 var(--serif); margin-bottom: .7rem; }
+.boton {
+  display: inline-block; background: var(--acento); color: #fff; text-decoration: none;
+  padding: .7rem 1.4rem; border-radius: 8px; font-weight: 600; font-size: .95rem;
+  border: 0; cursor: pointer; margin-top: .5rem;
+}
+@media (prefers-color-scheme: dark) { .boton { color: #10161d; } }
+.boton:hover { filter: brightness(1.08); }
+
+/* --- Pie ----------------------------------------------------------------- */
+footer { border-top: 1px solid var(--borde); margin-top: 3rem; padding: 2rem 0 3rem; font-size: .875rem; color: var(--tenue); }
+footer .aviso-legal { border: 1px solid var(--borde); border-radius: 10px; padding: 1rem 1.15rem; background: var(--panel); margin-bottom: 1.5rem; color: var(--tinta-2); }
+footer nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+
+@media (max-width: 34rem) {
+  .glosa { grid-template-columns: 1fr; gap: .5rem; }
+  .glosa .margen { text-align: left; }
+  .glosa .cuerpo { border-left: 2px solid var(--borde); padding-left: 1rem; margin-left: 0; }
+  .portada { padding-top: 3rem; }
+}
 </style>
 </head>
 <body>
+
+<header>
+  <div class="envoltorio barra">
+    <a class="marca" href="./">
+      <svg viewBox="0 0 48 40" xmlns="http://www.w3.org/2000/svg" fill="none"
+           stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+        <circle cx="5" cy="20" r="3" fill="currentColor" stroke="none"/>
+        <path d="M20 10 h26"/><path d="M20 20 h26"/><path d="M20 30 h16"/>
+      </svg>
+      <b>glosa</b>
+    </a>
+    <nav>
+      <a href="#que-mira">Qué mira</a>
+      <a href="#trae">Con qué</a>
+      <a href="./banco.html">Banco de pruebas</a>
+    </nav>
+  </div>
+</header>
+
 <main>
-  <h1>&iquest;Funciona Factura-e dentro del navegador?</h1>
-  <p class="sub">Pyodide + lxml compilados a WebAssembly. Ning&uacute;n fichero sale de este ordenador.</p>
+  <div class="envoltorio">
 
-  <div id="veredicto" class="veredicto esperando">Arrancando&hellip;</div>
+    <div class="portada">
+      <h1>La factura electrónica,<br>en castellano.</h1>
+      <p class="lema"><b>Lo que dice tu factura, y lo que no se ha podido mirar.</b>
+      Suelta un fichero y te decimos qué pone, contra qué norma se ha comprobado
+      y qué se ha quedado fuera.</p>
+      <div class="hechos">
+        <span class="hecho">Se lee <b>en tu ordenador</b></span>
+        <span class="hecho"><b>EN 16931</b> y <b>RD 238/2026</b></span>
+        <span class="hecho">Facturae · UBL · CII · EDIFACT</span>
+        <span class="hecho">Gratis, <b>sin registro</b></span>
+      </div>
+    </div>
 
-  <div class="caja">
-    <h2>Arranque en fr&iacute;o</h2>
-    <div id="fases"></div>
-  </div>
+    <section id="herramienta">
+      <div class="panel caja-suelta">
+        <div id="zona" role="button" tabindex="0" aria-disabled="true">
+          <div class="icono">
+            <svg viewBox="0 0 48 40" xmlns="http://www.w3.org/2000/svg" fill="none"
+                 stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+              <circle cx="5" cy="20" r="3" fill="currentColor" stroke="none"/>
+              <path d="M20 10 h26"/><path d="M20 20 h26"/><path d="M20 30 h16"/>
+            </svg>
+          </div>
+          <p class="grande" id="zona-titulo">Preparando el validador…</p>
+          <p class="chica" id="zona-pie">Un momento: se está descargando entero.</p>
+        </div>
+        <input type="file" id="fichero" accept=".xml,.xsig,.edi,.edifact,.txt" hidden multiple>
 
-  <div class="caja">
-    <h2>Lo que trae puesto</h2>
-    <div id="trae"><div><span>&hellip;</span></div></div>
-    <p class="nota">Sin esto la p&aacute;gina comprobar&iacute;a el contenido y nada m&aacute;s: la forma
-    necesita los esquemas XSD y la firma necesita las anclas de confianza del Estado. Van dentro
-    de la p&aacute;gina, as&iacute; que qui&eacute;n las eligi&oacute; y de cu&aacute;ndo son no
-    lo decide quien valida. Por eso se dice aqu&iacute;, y otra vez en cada informe.</p>
-  </div>
+        <div class="arranque" id="arranque">
+          <div class="cabeza">
+            <strong id="arranque-titulo">Descargando el validador</strong>
+            <span id="arranque-nota">Son unos 15 MB la primera vez. Después se queda en el navegador y no vuelve a bajarse.</span>
+          </div>
+          <div class="riel"><i id="riel"></i></div>
+          <div class="fases" id="fases"></div>
+        </div>
+      </div>
 
-  <div class="caja">
-    <h2>Comprobaciones</h2>
-    <table><tbody id="tabla"><tr><td class="det">esperando a que arranque Python&hellip;</td></tr></tbody></table>
-  </div>
+      <div id="informe"></div>
+    </section>
 
-  <div class="caja">
-    <h2>Prueba de verdad: suelta una factura aqu&iacute;</h2>
-    <div id="zona">Arrastra un XML o un EDIFACT, o haz clic para elegirlo.<br>No se sube a ning&uacute;n sitio.</div>
-    <input type="file" id="fichero" accept=".xml,.xsig,.edi,.edifact,.txt" hidden multiple>
-    <pre id="salida" hidden></pre>
-    <p class="nota">Esto es exactamente lo que har&iacute;a la p&aacute;gina de producci&oacute;n: leer el fichero en el navegador, validarlo aqu&iacute; y mostrar el informe. El servidor solo sirve la p&aacute;gina.</p>
+    <section id="que-mira">
+      <p class="rotulo">Qué mira</p>
+      <h2 class="titulo">Tres comprobaciones, y se dice cuáles se han hecho.</h2>
+      <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Un
+      «válida» a secas no significa nada si no dice contra qué. Cada informe
+      termina diciendo qué se ha mirado y con qué, para que no haya que
+      suponerlo.</p>
+      <div class="tres">
+        <div class="panel">
+          <h3><span class="num">1</span> La forma</h3>
+          <p>Que el fichero cumpla su esquema XSD oficial: el de Facturae, el de
+          UBL o el de CII. Es lo primero que rechaza un receptor.</p>
+        </div>
+        <div class="panel">
+          <h3><span class="num">2</span> El contenido</h3>
+          <p>Los campos obligatorios de EN 16931, el cuadre de las cuentas, el
+          desglose de IVA y las reglas españolas del RD 238/2026.</p>
+        </div>
+        <div class="panel">
+          <h3><span class="num">3</span> La firma</h3>
+          <p>Que la firma sea íntegra, de quién dice ser, y que su certificado
+          lleve a una autoridad de la lista de confianza del Estado.</p>
+        </div>
+      </div>
+
+      <h3 style="margin:2rem 0 .9rem;font-size:1.05rem">Lo que no hace</h3>
+      <ul class="limites">
+        <li><b>No es un servicio de la AEAT</b> ni de FACe ni de ningún
+        organismo, y no tiene relación con ellos.</li>
+        <li><b>No comprueba VeriFactu.</b> Eso es otra cosa: contrastar contra
+        el registro de Hacienda si una factura consta. Aquí no se contrasta
+        contra nada de fuera, porque no se sale a la red.</li>
+        <li><b>No dice que una factura sea válida</b> a secas. Dice qué
+        comprobaciones ha pasado y cuáles no se han podido hacer.</li>
+        <li><b>No guarda ni envía tu fichero.</b> No hay a dónde: el validador
+        corre dentro de tu navegador.</li>
+      </ul>
+    </section>
+
+    <section id="trae">
+      <p class="rotulo">Con qué</p>
+      <h2 class="titulo">Las anclas de confianza vienen con la página.</h2>
+      <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Para
+      comprobar de quién es una firma hacen falta los certificados de las
+      autoridades en las que se confía. Aquí no los eliges tú: viajan dentro.
+      Por eso se dice de qué lista salen, de cuándo son y cuándo les toca
+      renovarse — y vuelve a decirse en cada informe.</p>
+      <div class="panel trae"><dl id="trae-lista"><dt>Cargando…</dt><dd>—</dd></dl></div>
+    </section>
+
+    <section id="escalon" hidden>
+      <div class="escalon">
+        <h2>Cuando hace falta mirar más de una.</h2>
+        <p class="texto" style="color:var(--tinta-2)">Esta herramienta mira las
+        facturas de una en una y no guarda nada. Para lo otro —revisar la
+        facturación de un periodo entero, entender por qué un cliente rechaza
+        lo que emites, o preparar la entrada del RD 238/2026— hacemos auditorías
+        de facturación con el mismo criterio que ves aquí: lo que se ha mirado,
+        con qué, y lo que se ha quedado fuera.</p>
+        <a class="boton" id="escalon-boton" href="#">Escríbenos</a>
+      </div>
+    </section>
+
   </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/pyodide/v314.0.6/full/pyodide.js"></script>
-<script>
-// Esta version se fija a proposito y no se sigue a «latest»: lo que se prueba
-// aqui es una combinacion concreta de Pyodide, lxml y libxml2. Si se mueve
-// sola, el dia que algo se rompa no se sabra que ha cambiado.
-const VERSION_PYODIDE = "314.0.6";
-const RAIZ = "https://cdn.jsdelivr.net/pyodide/v" + VERSION_PYODIDE + "/full/";
+<footer>
+  <div class="envoltorio">
+    <p class="aviso-legal"><b>Aviso.</b> Glosa es una herramienta privada e
+    independiente. No es un servicio oficial de la Agencia Tributaria, de FACe
+    ni de ninguna administración, y su resultado no acredita nada ante ellas.
+    Comprueba lo que dicen las normas públicas EN 16931 y RD 238/2026 y lo dice
+    en cada informe; la responsabilidad de la factura sigue siendo de quien la
+    emite.</p>
+    <nav>
+      <a href="./banco.html">Banco de pruebas</a>
+      <a href="#que-mira">Qué mira</a>
+      <a href="#trae">Con qué</a>
+    </nav>
+  </div>
+</footer>
 
-// Donde estan el wheel y las facturas de ejemplo. Sirviendo el repositorio
-// entero quedan un nivel mas arriba; en el sitio publicado van al lado de la
-// pagina. `python -m validador --sitio` cambia estas dos lineas al montarlo,
-// asi que aqui se dejan tal como funcionan en desarrollo.
-const DIST = "../dist/";
-const EJEMPLOS_EN = "../ejemplos/";
-const EJEMPLOS = ["f-0001.xml", "f-0002.xml", "f-0002-bis.xml", "f-0006.xml",
-                  "r-0001.xml", "cii-A-0001.xml", "fe-0001.xml",
-                  "edi-0001.edi", "edi-0002-cortado.edi",
-                  "edi-0003-una-de-cinco.edi"];
-let pyodide = null;
+<script src="https://cdn.jsdelivr.net/pyodide/v314.0.6/full/pyodide.js"></script>
+<script src="./glosa.js"></script>
+<script>
+// El correo al que escribe quien quiere una auditoria. Mientras este vacio, el
+// bloque de abajo no se pinta: una pagina publicada con un boton que no lleva
+// a ningun sitio es peor que una pagina sin boton.
+const CORREO = "";
 
 const $ = (id) => document.getElementById(id);
-const seg = (t) => (t / 1000).toFixed(2) + " s";
+const escapar = (s) => String(s)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function marcar(etiqueta, ms) {
-  const fila = document.createElement("div");
-  fila.innerHTML = "<span>" + etiqueta + "</span><span class='ms'>" + ms + "</span>";
-  $("fases").appendChild(fila);
+const FASES_TOTALES = 5;
+let hechas = 0;
+
+function marcar(etiqueta, segundos) {
+  hechas += 1;
+  const span = document.createElement("span");
+  span.className = "hecha";
+  span.textContent = etiqueta + " " + segundos + " s";
+  $("fases").appendChild(span);
+  $("riel").style.width = Math.round((hechas / FASES_TOTALES) * 100) + "%";
 }
 
-// El nombre del wheel lleva la version dentro, asi que se busca en el listado
-// de ../dist en vez de escribirlo a mano: si no, cada vez que suba la version
-// en pyproject.toml esta pagina dejaria de arrancar sin decir por que.
-async function buscarWheel() {
-  // Un sitio publicado no tiene listado de directorio: Vercel devuelve 404 y
-  // aqui no habria wheel que instalar. Por eso `--sitio` deja un rueda.json
-  // al lado diciendo cual es. En desarrollo no existe y se cae al listado,
-  // que es lo que sirve la carpeta.
-  try {
-    const manifiesto = await fetch(DIST + "rueda.json?v=" + Date.now());
-    if (manifiesto.ok) {
-      const { rueda } = await manifiesto.json();
-      if (rueda) return DIST + rueda + "?v=" + Date.now();
-    }
-  } catch (_) {
-    // Un rueda.json ilegible no es motivo para no probar el listado.
-  }
-  const listado = await fetch(DIST);
-  if (listado.ok) {
-    const nombres = [...(await listado.text()).matchAll(/href="([^"]+\.whl)"/g)]
-      .map((m) => decodeURIComponent(m[1].split("/").pop()));
-    // El `?v=` es por precaucion: el nombre del wheel no cambia entre
-    // compilaciones de la misma version, asi que sin esto el navegador puede
-    // servir el de la cache y la pagina probaria una version vieja del
-    // validador sin decirlo. Es el peor fallo posible en un banco de pruebas:
-    // sale todo verde y no es lo que crees que has probado.
-    if (nombres.length) {
-      return DIST + nombres.sort().pop() + "?v=" + Date.now();
-    }
-  }
-  throw new Error(
-    "No hay ningun .whl en " + DIST + ", ni suelto ni anunciado en "
-    + "rueda.json. Construyelo antes: python -m build --wheel --outdir dist"
-  );
-}
+function pintarLoQueTrae(paquete) {
+  const lista = $("trae-lista");
+  const fila = (clave, valor, clase) =>
+    "<dt>" + clave + "</dt><dd class='" + (clase || "") + "'>" + valor + "</dd>";
 
-// Donde se descomprime el paquete dentro del disco virtual del navegador.
-// Las tres carpetas van tal cual salen del zip y el validador las encuentra
-// por las mismas variables de entorno que usa en consola: asi la pagina no le
-// pasa rutas a nadie, y lo que corre aqui es el mismo codigo que corre fuera.
-const DENTRO = "/opt/factura-e";
-let PAQUETE = null;
-
-function fila(clave, valor, clase) {
-  return "<div><span>" + clave + "</span><span class='val " +
-         (clase || "") + "'>" + valor + "</span></div>";
-}
-
-function contarLoQueTrae() {
-  const caja = $("trae");
-  if (!PAQUETE) {
-    // La ausencia se cuenta, y se cuenta diciendo **que se deja de mirar**.
-    // Un «no se ha podido cargar» a secas deja creyendo que falta un adorno.
-    caja.innerHTML =
-      fila("Esquemas XSD", "no est&aacute;n", "falta") +
-      fila("Anclas de confianza", "no est&aacute;n", "falta") +
-      fila("Entonces no se comprueba",
-           "la forma ni de qui&eacute;n es el certificado", "falta") +
-      fila("Para arreglarlo", "python -m validador --empaquetar", "");
+  if (!paquete) {
+    // La ausencia se cuenta, y se cuenta diciendo **qué se deja de mirar**. Un
+    // «no se ha podido cargar» a secas deja creyendo que falta un adorno.
+    lista.innerHTML =
+      fila("Esquemas XSD", "no están", "mal") +
+      fila("Anclas de confianza", "no están", "mal") +
+      fila("Entonces no se comprueba", "la forma ni de quién es el certificado", "mal");
     return;
   }
   let filas =
-    fila("Esquemas XSD", PAQUETE.esquemas) +
-    fila("Anclas de firma", PAQUETE.anclas) +
-    fila("Anclas de sellado de tiempo", PAQUETE.anclas_de_sellos) +
-    fila("De d&oacute;nde salen", escapar(PAQUETE.declarada || "(no consta)")) +
-    fila("Montadas el", PAQUETE.montada || "(no consta)");
+    fila("Esquemas XSD", paquete.esquemas) +
+    fila("Anclas de firma", paquete.anclas) +
+    fila("Anclas de sellado de tiempo", paquete.anclas_de_sellos) +
+    fila("De dónde salen", escapar(paquete.declarada || "(no consta)")) +
+    fila("Montadas el", paquete.montada || "(no consta)");
   // La fecha que de verdad importa. Un conjunto de anclas no caduca —los
-  // certificados de dentro duran veinte anios— pero la lista de quien sigue
-  // estando autorizado se renueva cada seis meses, y pasada esa fecha aqui se
+  // certificados de dentro duran veinte años— pero la lista de quién sigue
+  // estando autorizado se renueva cada seis meses, y pasada esa fecha aquí se
   // sigue creyendo a quien el Estado ya haya retirado.
-  const siguiente = PAQUETE.siguiente;
+  const siguiente = paquete.siguiente;
   if (!siguiente) {
-    filas += fila("Se renuevan el", "(la lista no lo dice)", "aviso");
+    filas += fila("Se renuevan el", "(la lista no lo dice)", "ojo");
   } else if (new Date(siguiente) < new Date()) {
-    filas += fila("Deb&iacute;an renovarse el", siguiente, "aviso");
-    filas += fila("Mientras tanto",
-                  "se cree a autoridades que quiz&aacute; ya no lo sean", "aviso");
+    filas += fila("Debían renovarse el", siguiente, "ojo");
+    filas += fila("Mientras tanto", "se cree a autoridades que quizá ya no lo sean", "ojo");
   } else {
     filas += fila("Se renuevan el", siguiente);
   }
-  caja.innerHTML = filas;
+  lista.innerHTML = filas;
 }
 
-async function traerPaquete() {
-  // El JSON primero y aparte: es un pellizco y permite decir de donde salen
-  // las anclas aunque el zip falle, que es justo cuando hace falta decirlo.
-  try {
-    const resumen = await fetch("./PAQUETE.json?v=" + Date.now());
-    if (resumen.ok) PAQUETE = await resumen.json();
-  } catch (e) { PAQUETE = null; }
-  contarLoQueTrae();
-  if (!PAQUETE) return;
-  try {
-    const zip = await fetch("./paquete.zip?v=" + Date.now());
-    if (!zip.ok) throw new Error("no esta el zip");
-    pyodide.FS.mkdirTree(DENTRO);
-    await pyodide.unpackArchive(await zip.arrayBuffer(), "zip",
-                                { extractDir: DENTRO });
-    pyodide.runPython(
-      "import os\n" +
-      "from pathlib import Path\n" +
-      "_d = Path(" + JSON.stringify(DENTRO) + ")\n" +
-      // Se comprueba que las tres carpetas han llegado de verdad en vez de
-      // darlo por hecho. Descomprimir sin error y dejarlas en otro sitio deja
-      // al validador con `Catalogo.vacio` y `Almacen.vacio`, que es la
-      // situacion de no traer nada, pero contada como si trajera.
-      "assert (_d / 'esquemas').is_dir(), 'sin esquemas'\n" +
-      "assert (_d / 'anclas').is_dir(), 'sin anclas'\n" +
-      "assert (_d / 'anclas-sellos').is_dir(), 'sin anclas de sellado'\n" +
-      "os.environ['FACTURAE_ESQUEMAS'] = str(_d / 'esquemas')\n" +
-      "os.environ['FACTURAE_ANCLAS'] = str(_d / 'anclas')\n" +
-      "os.environ['FACTURAE_ANCLAS_SELLOS'] = str(_d / 'anclas-sellos')\n"
-    );
-  } catch (e) {
-    PAQUETE = null;
-    contarLoQueTrae();
-  }
-}
+// --- El informe ------------------------------------------------------------
 
-async function arrancar() {
-  const cero = performance.now();
-  let t = cero;
-
-  pyodide = await loadPyodide({ indexURL: RAIZ });
-  marcar("Int&eacute;rprete de Python (WebAssembly)", seg(performance.now() - t));
-
-  t = performance.now();
-  await pyodide.loadPackage("lxml");
-  marcar("lxml + libxml2", seg(performance.now() - t));
-
-  t = performance.now();
-  await pyodide.loadPackage("micropip");
-  const micropip = pyodide.pyimport("micropip");
-  await micropip.install(await buscarWheel());
-  marcar("El validador (factura_e)", seg(performance.now() - t));
-
-  t = performance.now();
-  await traerPaquete();
-  marcar("Esquemas y anclas de confianza", seg(performance.now() - t));
-
-  t = performance.now();
-  pyodide.FS.mkdirTree("/ejemplos");
-  await Promise.all(EJEMPLOS.map(async (nombre) => {
-    const respuesta = await fetch(EJEMPLOS_EN + nombre + "?v=" + Date.now());
-    pyodide.FS.writeFile("/ejemplos/" + nombre,
-                         new Uint8Array(await respuesta.arrayBuffer()));
-  }));
-  marcar("Facturas de ejemplo al disco virtual", seg(performance.now() - t));
-  marcar("<b>Total hasta poder validar</b>", "<b>" + seg(performance.now() - cero) + "</b>");
-
-  // El mismo `?v=` que el wheel, y por lo mismo. Sin el, el navegador puede
-  // servir de su cache una version vieja de este fichero: el banco correria
-  // sus comprobaciones de ayer contra el codigo de hoy y saldria todo verde.
-  // Paso: se anadieron tres comprobaciones, se recargo, y la pagina siguio
-  // diciendo «las 33 comprobaciones pasan» tan contenta.
-  const codigo = await (await fetch("./prueba.py?v=" + Date.now())).text();
-  pintar(JSON.parse(await pyodide.runPythonAsync(codigo)));
-}
-
-function escapar(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function pintar(resultados) {
-  const cuerpo = $("tabla");
-  cuerpo.innerHTML = "";
-  for (const r of resultados) {
-    const fila = document.createElement("tr");
-    fila.className = r.ok ? "ok" : "no";
-    fila.innerHTML =
-      "<td class='marca'>" + (r.ok ? "&#10003;" : "&#10007;") + "</td>" +
-      "<td>" + escapar(r.nombre) +
-      (r.critica ? " <span class='ms'>cr&iacute;tica</span>" : "") +
-      "<div class='det'>" + escapar(r.detalle) + "</div></td>" +
-      "<td class='ms'>" + r.ms + " ms</td>";
-    cuerpo.appendChild(fila);
-  }
-  const fallan = resultados.filter((r) => !r.ok);
-  const criticas = fallan.filter((r) => r.critica);
-  const caja = $("veredicto");
-  if (fallan.length === 0) {
-    caja.className = "veredicto si";
-    // «Entero» solo si de verdad esta entero. Sin el paquete, de las tres
-    // comprobaciones que hace este validador la pagina hace una, y decir
-    // «funciona entero» encima de un recuadro que dice que faltan los
-    // esquemas y las anclas seria contradecirse en dos lineas seguidas.
-    caja.innerHTML = "S&iacute;: las " + resultados.length +
-      (PAQUETE
-        ? " comprobaciones pasan. El validador funciona entero dentro del navegador, sin servidor."
-        : " comprobaciones pasan, pero sin el paquete: aqu&iacute; se comprueba el contenido y no la forma ni de qui&eacute;n es el certificado.");
-  } else {
-    caja.className = "veredicto no";
-    caja.innerHTML = "Fallan " + fallan.length + " de " + resultados.length +
-      (criticas.length ? " (" + criticas.length + " cr&iacute;tica(s)): " +
-       escapar(criticas[0].nombre) : "") + ".";
-  }
-}
-
-async function validarSueltos(ficheros) {
-  if (!pyodide || !ficheros.length) return;
-  $("salida").hidden = false;
-  $("salida").textContent = "Validando " + ficheros.length + " fichero(s)…";
-  pyodide.FS.mkdirTree("/entrada");
-  const rutas = [];
-  for (const f of ficheros) {
-    // El nombre se limpia porque acaba siendo una ruta en el disco virtual.
-    const destino = "/entrada/" + f.name.replace(/[^\w.\-]/g, "_");
-    pyodide.FS.writeFile(destino, new Uint8Array(await f.arrayBuffer()));
-    rutas.push(destino);
-  }
-  pyodide.globals.set("_rutas", rutas);
-  // La procedencia se declara a mano y no se deja en la del manifiesto. El
-  // manifiesto dice de que lista salen, que es verdad y no es suficiente: lo
-  // que quien valida aqui no puede saber es que **no las ha elegido el**. Esa
-  // frase acaba en el informe de cada factura, al lado de la huella.
-  $("salida").textContent = await pyodide.runPythonAsync(
-    "from validador import factura\n" +
-    "from validador.cadena import Almacen\n" +
-    "from validador.esquema import Catalogo\n" +
-    "_a = Almacen.por_defecto()\n" +
-    "if _a.declarada:\n" +
-    "    _a = Almacen(_a.carpeta, 'que viene con esta pagina, ' + _a.declarada,\n" +
-    "                 _a.sellos_en)\n" +
-    "_c = Catalogo.por_defecto()\n" +
-    // La frase del final dice de que se ha fiado quien lee, y tiene que decir
-    // lo que ha pasado de verdad: con los defectos —forma si, anclas no—
-    // prometia haber comprobado la forma en una pagina sin esquemas y se
-    // callaba las anclas justo cuando las trae puestas.
-    "factura.validar_lote(list(_rutas), catalogo=_c, almacen=_a).detalle(\n" +
-    "    forma=not _c.vacio, anclas=not _a.vacio)\n"
+function pintarGlosa(inc) {
+  const detalles = [];
+  if (inc.campo) detalles.push(["Campo", inc.campo]);
+  if (inc.esperado !== null && inc.esperado !== undefined)
+    detalles.push(["Debería ser", inc.esperado]);
+  if (inc.encontrado !== null && inc.encontrado !== undefined)
+    detalles.push(["Tiene", inc.encontrado]);
+  return (
+    "<div class='glosa " + escapar(inc.gravedad) + "'>" +
+      "<div class='margen'>" +
+        // La gravedad, escrita. Las tres son distintas y la NOTA es la que se
+        // pierde si solo se distingue por un color: dice qué se ha dado por
+        // bueno y con qué base, que es justo lo que hay que leer para saber
+        // cuánto vale el resto.
+        "<span class='grave'>" + escapar(inc.gravedad) + "</span>" +
+        "<span class='codigo'>" + escapar(inc.codigo) + "</span>" +
+        "<span class='norma'>" + escapar(inc.norma || "") + "</span>" +
+      "</div>" +
+      "<div class='cuerpo'>" +
+        "<div class='mensaje'>" + escapar(inc.mensaje) + "</div>" +
+        (detalles.length
+          ? "<dl>" + detalles.map(([k, v]) =>
+              "<dt>" + k + "</dt><dd>" + escapar(v) + "</dd>").join("") + "</dl>"
+          : "") +
+      "</div>" +
+    "</div>"
   );
 }
 
+function pintarInforme(datos) {
+  const partes = [];
+
+  // «Sin errores» es el mensaje más peligroso que da esto, y un titular que
+  // diga «no ha fallado nada» encima de tres avisos —uno de ellos, que la
+  // firma no lleva a ninguna autoridad conocida— es exactamente la falsa
+  // tranquilidad que el resto de la página se dedica a evitar.
+  const todas = datos.documentos
+    .reduce((acc, d) => acc.concat(d.incidencias), [])
+    .concat(datos.cruzadas);
+  const avisos = todas.filter((i) => i.gravedad === "aviso").length;
+  const sinMirar = datos.documentos.filter((d) => !d.validado).length;
+
+  let clase = "si";
+  let titulo = "No ha fallado ninguna comprobación";
+  if (!datos.conforme) {
+    clase = "no";
+    titulo = sinMirar ? "Hay ficheros que no se han podido mirar"
+                      : "Hay algo que arreglar";
+  } else if (avisos) {
+    clase = "ojo";
+    titulo = "Sin errores, con " + avisos + " aviso" + (avisos > 1 ? "s" : "");
+  }
+
+  partes.push(
+    "<div class='veredicto " + clase + "'>" +
+      "<h3>" + titulo + "</h3>" +
+      "<p>" + escapar(datos.resumen) + "</p>" +
+    "</div>"
+  );
+
+  for (const doc of datos.documentos) {
+    let estado = escapar(doc.resumen);
+    if (doc.choca && doc.conforme) estado += " Choca con otro fichero (ver abajo).";
+    partes.push(
+      "<div class='documento'>" +
+        "<header><div class='nombre'>" + escapar(doc.nombre) + "</div>" +
+        "<div class='estado'>" + estado + "</div></header>" +
+        doc.incidencias.map(pintarGlosa).join("") +
+      "</div>"
+    );
+  }
+
+  if (datos.cruzadas.length) {
+    partes.push(
+      "<div class='documento'>" +
+        "<header><div class='nombre'>Entre ficheros</div>" +
+        "<div class='estado'>Solo se ve mirándolos todos a la vez.</div></header>" +
+        datos.cruzadas.map(pintarGlosa).join("") +
+      "</div>"
+    );
+  }
+
+  // La frase del final: de qué se ha fiado quien lee. Va tal cual sale de
+  // Python, que es donde está escrita.
+  partes.push(
+    "<div class='alcance'><p class='rotulo'>Qué se ha mirado</p>" +
+    escapar(datos.alcance) + "</div>"
+  );
+
+  $("informe").innerHTML = partes.join("");
+  $("informe").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// --- Arranque --------------------------------------------------------------
+
+let listo = false;
+
+async function empezar() {
+  try {
+    const { total, paquete } = await Glosa.arrancar(marcar);
+    listo = true;
+    pintarLoQueTrae(paquete);
+    $("zona").setAttribute("aria-disabled", "false");
+    $("zona-titulo").textContent = "Suelta aquí tu factura";
+    $("zona-pie").innerHTML =
+      "XML, XSIG o EDIFACT. O haz clic para elegirla. " +
+      "<b>No se sube a ningún sitio.</b>";
+    $("arranque").classList.add("listo");
+    $("arranque-titulo").textContent = "Listo en " + total + " s";
+    $("arranque-nota").textContent = paquete
+      ? "Ya no hace falta conexión: el validador, los esquemas y las anclas están en tu navegador."
+      : "Sin el paquete de esquemas y anclas: aquí solo se comprueba el contenido.";
+  } catch (error) {
+    $("zona-titulo").textContent = "No ha arrancado";
+    $("zona-pie").textContent = String(error);
+    $("arranque").hidden = true;
+    console.error(error);
+  }
+}
+
+async function soltar(ficheros) {
+  if (!listo || !ficheros.length) return;
+  $("informe").innerHTML =
+    "<div class='veredicto'><h3>Leyendo…</h3><p>" +
+    ficheros.length + " fichero(s).</p></div>";
+  try {
+    pintarInforme(await Glosa.validar(ficheros));
+  } catch (error) {
+    $("informe").innerHTML =
+      "<div class='veredicto no'><h3>No se ha podido leer</h3><p>" +
+      escapar(String(error)) + "</p></div>";
+    console.error(error);
+  }
+}
+
 const zona = $("zona");
-zona.addEventListener("click", () => $("fichero").click());
-$("fichero").addEventListener("change", (e) => validarSueltos([...e.target.files]));
+zona.addEventListener("click", () => { if (listo) $("fichero").click(); });
+zona.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); zona.click(); }
+});
+$("fichero").addEventListener("change", (e) => soltar([...e.target.files]));
 ["dragenter", "dragover"].forEach((ev) =>
-  zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.add("encima"); }));
+  zona.addEventListener(ev, (e) => { e.preventDefault(); if (listo) zona.classList.add("encima"); }));
 ["dragleave", "drop"].forEach((ev) =>
   zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.remove("encima"); }));
-zona.addEventListener("drop", (e) => validarSueltos([...e.dataTransfer.files]));
+zona.addEventListener("drop", (e) => soltar([...e.dataTransfer.files]));
 
-arrancar().catch((error) => {
-  $("veredicto").className = "veredicto no";
-  $("veredicto").textContent = "No ha arrancado: " + error;
-  console.error(error);
-});
+if (CORREO) {
+  $("escalon").hidden = false;
+  $("escalon-boton").href = "mailto:" + CORREO + "?subject=" +
+    encodeURIComponent("Auditoría de facturación");
+}
+
+empezar();
 </script>
 </body>
 </html>

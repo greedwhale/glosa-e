@@ -285,14 +285,16 @@ class TestElPaqueteDeVerdad:
 
 # --- El sitio que se publica -----------------------------------------------
 
-# La página tal como está en el repositorio, reducida a las dos líneas que
-# importan aquí. Son las que dicen dónde busca el wheel y los ejemplos.
-PAGINA = """<!doctype html>
-<script>
-const DIST = "../dist/";
+# El cargador tal como está en el repositorio, reducido a las dos líneas que
+# importan aquí. Son las que dicen dónde busca el wheel y los ejemplos, y las
+# comparten las dos páginas.
+CARGADOR = """const DIST = "../dist/";
 const EJEMPLOS_EN = "../ejemplos/";
 async function buscarWheel() { return await fetch(DIST + "rueda.json"); }
-</script>
+"""
+
+PAGINA = """<!doctype html><title>glosa</title>
+<script src="./glosa.js"></script>
 """
 
 
@@ -301,6 +303,8 @@ def repositorio(tmp_path):
     """Un repositorio en pequeño: la página, un wheel y unos ejemplos."""
     (tmp_path / "web").mkdir()
     (tmp_path / "web" / "index.html").write_text(PAGINA, encoding="utf-8")
+    (tmp_path / "web" / "banco.html").write_text(PAGINA, encoding="utf-8")
+    (tmp_path / "web" / "glosa.js").write_text(CARGADOR, encoding="utf-8")
     (tmp_path / "web" / "prueba.py").write_text("# el banco\n", encoding="utf-8")
     (tmp_path / "web" / "LEEME.md").write_text("# la pagina\n", encoding="utf-8")
     (tmp_path / "dist").mkdir()
@@ -330,6 +334,8 @@ class TestElSitioQueSePublica:
         sitio = _montar(repositorio)
         raiz = repositorio / "sitio"
         assert (raiz / "index.html").is_file()
+        assert (raiz / "banco.html").is_file()
+        assert (raiz / "glosa.js").is_file()
         assert (raiz / "prueba.py").is_file()
         assert (raiz / "dist" / "factura_e-0.1.0-py3-none-any.whl").is_file()
         assert (raiz / "ejemplos" / "f-0001.xml").is_file()
@@ -352,10 +358,58 @@ class TestElSitioQueSePublica:
     def test_las_rutas_dejan_de_apuntar_un_nivel_arriba(self, repositorio):
         """En el sitio publicado, encima de la raíz no hay nada."""
         _montar(repositorio)
-        html = (repositorio / "sitio" / "index.html").read_text(encoding="utf-8")
-        assert 'const DIST = "./dist/";' in html
-        assert 'const EJEMPLOS_EN = "./ejemplos/";' in html
-        assert "../" not in html
+        codigo = (repositorio / "sitio" / "glosa.js").read_text(encoding="utf-8")
+        assert 'const DIST = "./dist/";' in codigo
+        assert 'const EJEMPLOS_EN = "./ejemplos/";' in codigo
+        assert "../" not in codigo
+
+    def test_el_cargador_se_llama_con_su_huella(self, repositorio):
+        """Para que la caché del navegador no sirva el de ayer.
+
+        Es la tercera vez que este proyecto se tropieza con lo mismo. Nunca se
+        rompe nada: sale todo bien y no es lo que crees que has probado.
+        """
+        _montar(repositorio)
+        for nombre in ("index.html", "banco.html"):
+            texto = (repositorio / "sitio" / nombre).read_text(encoding="utf-8")
+            assert 'src="./glosa.js?v=' in texto, nombre
+            assert 'src="./glosa.js"' not in texto, nombre
+
+    def test_la_huella_cambia_solo_si_cambia_el_cargador(self, repositorio):
+        """Si cambiara en cada montado, la caché no serviría para nada."""
+        _montar(repositorio)
+        antes = (repositorio / "sitio" / "index.html").read_text(encoding="utf-8")
+        _montar(repositorio)
+        assert (repositorio / "sitio" / "index.html").read_text(encoding="utf-8") == antes
+        (repositorio / "web" / "glosa.js").write_text(
+            CARGADOR + "\n// una linea mas\n", encoding="utf-8"
+        )
+        _montar(repositorio)
+        despues = (repositorio / "sitio" / "index.html").read_text(encoding="utf-8")
+        assert despues != antes
+
+    def test_si_la_llamada_al_cargador_cambia_se_para_aqui(self, repositorio):
+        """Sin huella, la página publicada podría correr un cargador viejo."""
+        (repositorio / "web" / "index.html").write_text(
+            PAGINA.replace('<script src="./glosa.js"></script>',
+                           '<script defer src="./glosa.js"></script>'),
+            encoding="utf-8",
+        )
+        (repositorio / "web" / "banco.html").write_text(
+            PAGINA.replace('<script src="./glosa.js"></script>',
+                           '<script defer src="./glosa.js"></script>'),
+            encoding="utf-8",
+        )
+        with pytest.raises(paquete.SinPagina) as fallo:
+            _montar(repositorio)
+        assert "_LLAMADA_AL_CARGADOR" in str(fallo.value)
+
+    def test_sin_cargador_no_se_monta(self, repositorio):
+        """Las dos páginas lo cargan; sin él arrancan y se quedan a medias."""
+        (repositorio / "web" / "glosa.js").unlink()
+        with pytest.raises(paquete.SinPagina) as fallo:
+            _montar(repositorio)
+        assert "glosa.js" in str(fallo.value)
 
     def test_las_facturas_de_terceros_no_se_publican(self, repositorio):
         """La razón de montar el sitio en vez de subir el repositorio."""
@@ -376,9 +430,9 @@ class TestElSitioQueSePublica:
         renombre, lo que no puede pasar es que el sitio se suba igual y pida
         sus ficheros por encima de su propia raíz.
         """
-        indice = repositorio / "web" / "index.html"
-        indice.write_text(
-            PAGINA.replace('const DIST = "../dist/";', 'const RUEDAS = "../dist/";'),
+        cargador = repositorio / "web" / "glosa.js"
+        cargador.write_text(
+            CARGADOR.replace('const DIST = "../dist/";', 'const RUEDAS = "../dist/";'),
             encoding="utf-8",
         )
         with pytest.raises(paquete.SinPagina) as fallo:

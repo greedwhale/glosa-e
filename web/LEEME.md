@@ -1,8 +1,22 @@
 # El validador dentro del navegador
 
-Esto no es la web del producto. Es la prueba de que el producto es posible:
-comprueba que Factura-e funciona entero dentro de un navegador, sin servidor y
-sin que la factura salga del ordenador de quien la mira.
+En `web/` hay dos páginas y un módulo que las dos cargan:
+
+| Fichero | Qué es |
+|---|---|
+| `index.html` | **Glosa**, la herramienta: se suelta una factura y sale su glosa |
+| `banco.html` | el banco de pruebas, que es de lo que trata este documento |
+| `glosa.js` | arrancar Pyodide, instalar el wheel y traer el paquete |
+
+Este documento va del **banco**. No es la web del producto: es la prueba de que
+el producto es posible, y comprueba que Factura-e funciona entero dentro de un
+navegador, sin servidor y sin que la factura salga del ordenador de quien la
+mira.
+
+Las dos páginas arrancan igual y con el mismo código, y eso importa: lo que el
+banco comprueba es exactamente lo que la herramienta ejecuta. Si el arranque
+viviera dos veces, un día arreglarían cosas distintas y el banco daría verde
+sobre algo que la herramienta no hace.
 
 La pregunta que contesta no es «¿arranca Python en el navegador?» —eso ya se
 sabía— sino **«¿trae esta compilación de lxml todo lo que el validador usa?»**.
@@ -27,7 +41,8 @@ python -m build --wheel --outdir dist
 python -m http.server 8765
 ```
 
-Y abrir <http://127.0.0.1:8765/web/>.
+Y abrir <http://127.0.0.1:8765/web/> para la herramienta, o
+<http://127.0.0.1:8765/web/banco.html> para el banco.
 
 La página busca sola el `.whl` más reciente de `dist/`, así que no hay que
 tocar nada al subir la versión en `pyproject.toml`.
