@@ -113,12 +113,39 @@ de un cálculo, no de mirarlo.
 dibujo, si viajara como `<text>` cada máquina lo compondría con la serif que
 tuviera a mano —Iowan Old Style en un Mac, Palatino Linotype en Windows,
 Georgia si no hay ninguna— y la marca cambiaría de forma sin que nadie la
-tocara. Está trazada de **Palatino Linotype**, que es la que resuelve hoy la
-pila `--serif` de `glosa.css` y por tanto la que se ha aprobado mirándola.
+tocara. Trazada, es la misma en todas partes.
 
-**Falta, y no lo he hecho porque no me toca:** comprobar la licencia de
-Palatino Linotype para llevar sus trazos dentro de una marca. Va en el mismo
-montón que la búsqueda en la OEPM y en la EUIPO.
+**Está trazada de Literata, peso 400** (Google, 2017), bajo **SIL Open Font
+License 1.1**.
+
+**Y estuvo trazada de Palatino Linotype durante unas horas del 30 de agosto de
+2026.** Se cambió el mismo día, y no por gusto: Palatino viene con Windows, no
+es redistribuible, y su licencia no dice nada de llevar sus contornos dentro de
+una marca. O sea que la marca colgaba de un permiso que nadie había mirado. La
+OFL sí lo dice —*«permission… to use, study, copy, merge, embed, modify,
+redistribute, and sell»*—, y sus dos condiciones que podrían morder aquí no
+muerden: no vender la fuente suelta, y acompañar el fichero de su licencia si
+se redistribuye. Una marca no lleva el fichero dentro, solo contornos. No es un
+dictamen legal y sigo sin ser quien para darlo; la diferencia es que ahora hay
+un texto que autoriza, y antes no había ninguno.
+
+**Se eligió mirando las cuatro, y se eligió la que menos se nota.** La marca se
+aprobó mirándola, así que el cambio de letra tenía que costar lo menos posible:
+la palabra en Literata sale de **126,9** unidades de ancho contra las **124,9**
+de Palatino sobre un bloque de 285, y la altura de la equis es **507/1000**
+contra **519**. Las otras tres candidatas —Source Serif 4, EB Garamond y Libre
+Baskerville, las tres OFL— quedaron descartadas por lo mismo al revés: EB
+Garamond tiene la equis en 400/1000 y a 15 px se afina; Libre Baskerville sale
+ancha y con aire de libro inglés. La geometría no se tocó en ninguna prueba
+—bloque 2,85:1, signo al 62 %, mismo hueco, misma altura de tinta— para que lo
+único que se estuviera comparando fuera la letra.
+
+**La pila `--serif` de la página no se ha tocado**, así que los titulares
+siguen componiéndose con la serif que cada máquina tenga a mano y ya no son la
+misma letra que la marca. Es lo correcto: una marca es un dibujo y no tiene por
+qué ser el mismo tipo que el texto. Si algún día se sirve Literata como fuente
+web —cabe, y el sitio ya se sirve entero a sí mismo—, entonces coincidirían;
+hoy no, y no hace falta.
 
 **El favicon es un segundo dibujo.** A 16 px el nombre no cabe de ninguna
 manera, así que la pestaña lleva el cuadro con el signo solo, en la reducción
@@ -157,34 +184,72 @@ principio. Queda aquí para que la página no se salga.
   es un aviso, y sale.
 - Conformidad con VeriFactu, que es otra cosa y no la hacemos.
 
-## Estado de la marca a 28 de agosto de 2026
+## Estado de la marca a 30 de agosto de 2026
 
-> **Esto se comprobó para «Glosa», no para «Glosa-e».** El nombre cambió el 30
-> de agosto de 2026 y lo de abajo no se ha vuelto a mirar: ni la coincidencia
-> con empresas, ni los dominios. `laglosa.es` no es la dirección de una marca
-> que ahora se llama Glosa-e. Hay que rehacerlo antes de registrar nada.
+Comprobado por mí, y no es una búsqueda legal.
 
-Comprobado por mí, y no es una búsqueda legal:
+### La dirección: `glosa-e.com`
+
+**La página se llama Glosa-e y su dirección es `glosa-e.com`.** Decidido el 30
+de agosto de 2026. Está **libre y sin registrar**: lo primero está medido, lo
+segundo es que nadie lo ha comprado todavía, ni yo compro dominios.
+
+Medido contra el **RDAP de Verisign**, que es el registro del `.com` y no un
+revendedor con interés en que algo parezca libre:
+
+| Dominio | RDAP | Qué hay |
+|---|---|---|
+| `glosa-e.com` | 404, sin cuerpo | **libre**, y sin servidores de nombres |
+| `glosae.com` | 200 | registrado el 25-06-2026 en Name.com, apuntando a Vercel |
+| `laglosa.com` | 200 | registrado el 22-08-2026 en Name.com, apuntando a Vercel |
+| `glosa.com` | 200 | registrado el 27-07-1995, hoy en Dynadot y servido desde `namepros-dns.com` |
+| `google.com` | 200 | el control |
+
+El control no está de adorno. En la primera pasada el `curl` de un 404 dejaba
+el fichero de la respuesta anterior sin tocar, así que un dominio libre
+parecía devolver la ficha de `google.com`. Es el fallo de siempre de este
+repositorio —algo viejo haciéndose pasar por lo de hoy— y por eso cada consulta
+borra su fichero antes y se comprueba que el `ldhName` que vuelve es el que se
+preguntó.
+
+**El guion no es un adorno: es lo que deja el dominio libre.** `glosae.com`,
+que es este mismo nombre sin guion, lo registró un tercero en junio de 2026 y
+lo tiene servido desde Vercel, igual que este proyecto. Quien teclee el nombre
+de memoria y se salte el guion acabará ahí. No impide nada —son dominios
+distintos y la marca es *Glosa-e*, con guion, desde el 30 de agosto— pero
+obliga a dos cosas: escribir siempre el guion, y no dar por hecho que el
+vecino esté disponible el día que se quiera comprar como defensa.
+
+`laglosa.com` también es de un tercero y también está en Vercel. Se registró
+el 22-08-2026, seis días antes del estudio anterior, que proponía justamente
+salir con `laglosa.es`. Esa salida ya no existe.
+
+`glosa.com` lleva registrado desde 1995 y hoy se sirve desde los servidores de
+NamePros, que es el foro donde se compran y venden dominios: encaja con lo que
+decía el estudio anterior —un inversor— y ahora está medido en vez de supuesto.
+
+**El `.es` no se ha medido, y no se va a fingir que sí.** El whois del puerto
+43 de `nic.es` solo atiende a direcciones IP autorizadas por Red.es, y no hay
+RDAP público del `.es`. Lo único que se puede ver desde fuera es que
+`glosa-e.es` y `glosae.es` no tienen servidores de nombres, y eso **no
+significa libre**: un dominio registrado y sin delegar se ve exactamente
+igual. Si alguna vez se quiere `glosa-e.es` como defensa, hay que mirarlo en
+otro sitio.
+
+**Lo que se pierde al elegir `.com`.** Un `.es` diría «España» sin decirlo, y
+esto valida facturas españolas contra normas españolas. Se ha elegido `.com`
+sabiéndolo. Y se apila con el riesgo que ya estaba escrito arriba: *Factura-e*
+es el nombre del formato del Estado, así que `glosa-e.com` se lee, de un
+vistazo, como la web de un formato oficial. Es el mismo riesgo de siempre, en
+la dirección esta vez.
+
+### Lo demás, que sigue siendo de «Glosa» y no se ha vuelto a mirar
 
 - **No hay ninguna empresa de software llamada Glosa en España.** Hay una
   *Glosa Ten S.L.* en Móstoles, de impresión de bolsas de plástico, y una
   *Editorial Glosa S.L.* en Barcelona, de libros. Actividades distintas y
-  clases distintas de las nuestras (9 y 42).
-- **Dominios**, mirando los NS el 28-08-2026:
-
-  | Dominio | Estado |
-  |---|---|
-  | `laglosa.es` | libre |
-  | `glosade.es` | libre |
-  | `glosa.es` | registrado, sin web (hosting español) |
-  | `glosa.com` | registrado por un inversor de dominios |
-  | `glosa.app` | aparcado en Afternic, o sea en venta |
-  | `glosa.dev` | registrado |
-
-  Camino práctico: salir con **`laglosa.es`**, que además se dice bien en
-  castellano —«La Glosa»—, y dejar `glosa.es` o `glosa.com` como compra
-  posterior si el negocio lo justifica. La marca es *Glosa*; el dominio es una
-  dirección.
+  clases distintas de las nuestras (9 y 42). Comprobado el 28-08-2026 para
+  «Glosa»; para «Glosa-e» no se ha repetido.
 
 Falta, y no lo he hecho porque no me toca: la búsqueda de marca en la **OEPM**
 y en **EUIPO** para las clases 9 y 42, y la reserva de **denominación social**
@@ -199,6 +264,8 @@ decide si el paquete pasa a llamarse `glosa` —tiene sentido para publicar en
 PyPI— o se queda.
 
 ## Segundos y terceros, por si no convence
+
+> Los dominios de esta sección se miraron el 28-08-2026 por sus servidores de nombres, que es la medición floja que se acaba de tirar arriba. Los nombres valen; el «libre» de cada uno, no.
 
 - **Veedor.** El que mira por cuenta de otro; un oficio español de verdad
   (veedor de cuentas, de obras). Mira e informa, no certifica: mismo acierto de

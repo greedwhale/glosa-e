@@ -123,7 +123,10 @@ prueba que están escritos.
   ./.venv/Scripts/python.exe -m validador --sitio sitio
   ```
 - **Un push a `main` despliega a producción** (Vercel lee `vercel.json`).
-  Publicado en <https://glosa-dhm7.vercel.app>. No hay dominio propio todavía.
+  Publicado en <https://glosa-dhm7.vercel.app>. La dirección decidida es
+  **`glosa-e.com`** —libre el 30-08-2026, medido contra el RDAP de Verisign—
+  pero **no está registrada**: hasta que lo esté, la única dirección real es
+  la de Vercel. El porqué y los vecinos, en `MARCA.md`.
 
 ## Lo que está sin decidir
 
