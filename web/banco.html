@@ -6,45 +6,14 @@
 <title>Banco de pruebas · Glosa</title>
 <meta name="description" content="Las comprobaciones que corre el validador dentro de tu propio navegador, con su resultado y su tiempo. Puedes correrlas tú.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 40' fill='none' stroke='%231c4e80' stroke-width='4' stroke-linecap='round'%3E%3Ccircle cx='4' cy='20' r='3.5' fill='%231c4e80' stroke='none'/%3E%3Cpath d='M22 12 h24'/%3E%3Cpath d='M22 28 h24'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="./glosa.css">
 <style>
-:root {
-  --papel: #fbfaf7; --panel: #ffffff; --panel-2: #f4f2ec;
-  --borde: #e3e0d7; --tinta: #16181c; --tinta-2: #454b54; --tenue: #767c86;
-  --acento: #1c4e80; --acento-flojo: #eaf0f7;
-  --error: #a3231c; --error-flojo: #fbeceb;
-  --aviso: #85560a; --bien: #1f6b45; --bien-flojo: #e9f4ee;
-  --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --papel: #14161a; --panel: #1a1d22; --panel-2: #22262d;
-    --borde: #2c313a; --tinta: #e8eaee; --tinta-2: #b3bac4; --tenue: #868d99;
-    --acento: #8ab4e0; --acento-flojo: #1b2a3a;
-    --error: #f0938c; --error-flojo: #2e1b1a;
-    --aviso: #ddb15e; --bien: #79c79c; --bien-flojo: #16261e;
-  }
-}
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--papel); color: var(--tinta); font: 16px/1.6 var(--sans); }
-a { color: var(--acento); text-underline-offset: .18em; }
-h1, h2 { line-height: 1.2; margin: 0; font-weight: 600; }
-p { margin: 0 0 1em; }
-.envoltorio { max-width: 60rem; margin: 0 auto; padding: 0 1.5rem; }
-header { border-bottom: 1px solid var(--borde); }
-.barra { display: flex; align-items: center; gap: 1.5rem; padding: .9rem 0; }
-.marca { display: flex; align-items: center; gap: .6rem; color: var(--tinta); text-decoration: none; }
-.marca svg { width: 1.55rem; height: auto; display: block; color: var(--acento); }
-.marca b { font: 500 1.3rem/1 var(--serif); }
-.barra nav { margin-left: auto; font-size: .875rem; }
-.barra nav a { color: var(--tinta-2); text-decoration: none; }
-.barra nav a:hover { color: var(--acento); text-decoration: underline; }
-
+/* Lo propio del banco. La base —paleta, tipos, cabecera y pie— sale de
+   glosa.css: aqui estaba repetida y ya se habia quedado sin cinco variables
+   que index.html si tenia. */
 .portada { padding: 3rem 0 1.5rem; }
-.portada h1 { font: 400 clamp(1.8rem, 4.5vw, 2.5rem)/1.15 var(--serif); margin-bottom: .8rem; }
+.portada h1 { font-size: clamp(1.8rem, 4.5vw, 2.5rem); margin-bottom: .8rem; }
 .portada p { color: var(--tinta-2); max-width: 42rem; }
-.rotulo { font-size: .75rem; text-transform: uppercase; letter-spacing: .1em; color: var(--tenue); font-weight: 600; margin: 0 0 .9rem; }
 .caja { background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; padding: 1.35rem 1.5rem; margin-bottom: 1.25rem; }
 .veredicto { border: 1px solid var(--borde); border-left: 4px solid var(--tenue); border-radius: 10px; padding: 1.1rem 1.35rem; background: var(--panel); margin-bottom: 1.25rem; font-weight: 600; }
 .veredicto.si { border-left-color: var(--bien); background: var(--bien-flojo); color: var(--bien); }
@@ -64,7 +33,6 @@ tr:last-child td { border-bottom: 0; }
 .critica { color: var(--tenue); font-size: .75em; text-transform: uppercase; letter-spacing: .06em; }
 .ms { color: var(--tenue); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: .85em; }
 .nota { color: var(--tenue); font-size: .875rem; margin-top: .9rem; }
-footer { border-top: 1px solid var(--borde); margin-top: 3rem; padding: 2rem 0 3rem; font-size: .875rem; color: var(--tenue); }
 </style>
 </head>
 <body>
@@ -116,7 +84,10 @@ footer { border-top: 1px solid var(--borde); margin-top: 3rem; padding: 2rem 0 3
 
 <footer>
   <div class="envoltorio">
-    <a href="./">Volver a la herramienta</a>
+    <nav>
+      <a href="./">Volver a la herramienta</a>
+      <a href="./legal.html">Aviso legal y privacidad</a>
+    </nav>
   </div>
 </footer>
 

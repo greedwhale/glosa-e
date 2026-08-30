@@ -2095,6 +2095,11 @@ se comportan los sellos españoles de verdad está por ver.
   movido a `web/banco.html`, que sigue siendo la prueba de que todo esto corre
   en el navegador de quien la usa. Lo que queda no es interfaz: es qué se
   vende encima.
+- **Alojar Pyodide aquí.** Hoy los 7,8 MB del intérprete vienen de
+  `cdn.jsdelivr.net`, así que cada visita manda la IP del visitante a un
+  tercero antes de que haga nada. La factura sigue sin salir —eso está
+  medido—, pero es la única petición a alguien de fuera y la página presume de
+  no hacer ninguna. Está declarado en la política de privacidad mientras tanto.
 - **Los 14,7 MB del primer arranque.** Hay compilaciones de Pyodide más
   ligeras. La primera visita no va a ser instantánea nunca, y la página tiene
   que decirlo en vez de parecer rota.

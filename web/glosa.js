@@ -5,6 +5,34 @@
 // veces —una en cada pagina— y esa es la forma de que un dia arreglen cosas
 // distintas y nadie se entere de cual de las dos es la que corre.
 
+// --- Quien esta detras -----------------------------------------------------
+//
+// Vacio a proposito, y esto no es un hueco olvidado.
+//
+// Mientras no haya empresa ni nada de pago, esto es una herramienta gratuita
+// sin actividad economica: el aviso legal con identificacion del titular que
+// pide el articulo 10 de la LSSI no le aplica todavia. En cuanto se ofrezca un
+// servicio de pago si aplica, y hay que publicar quien lo ofrece.
+//
+// Por eso las dos cosas van atadas al mismo sitio: **sin titular completo no
+// se pinta la seccion comercial**. No se puede ofrecer una auditoria sin decir
+// quien la hace, y la forma de garantizarlo es que no haya forma de encender
+// lo uno sin lo otro. Rellenar esto es lo unico que hace falta.
+const TITULAR = {
+  nombre: "",     // razon social, o nombre y apellidos si es autonomo
+  nif: "",
+  domicilio: "",
+  correo: "",
+  registro: "",   // datos de inscripcion registral, solo si es sociedad
+};
+
+// Lo minimo que la LSSI pide antes de poder ofrecer algo de pago: quien eres,
+// con que NIF, donde estas y por donde se te escribe.
+function puedeVender() {
+  return Boolean(TITULAR.nombre && TITULAR.nif && TITULAR.domicilio &&
+                 TITULAR.correo);
+}
+
 // Esta version se fija a proposito y no se sigue a «latest»: lo que se prueba
 // aqui es una combinacion concreta de Pyodide, lxml y libxml2. Si se mueve
 // sola, el dia que algo se rompa no se sabra que ha cambiado.
@@ -218,4 +246,8 @@ async function correrBanco() {
   return JSON.parse(await pyodide.runPythonAsync(codigo));
 }
 
-window.Glosa = { arrancar, validar, correrBanco, get paquete() { return PAQUETE; } };
+window.Glosa = {
+  arrancar, validar, correrBanco, puedeVender,
+  titular: TITULAR,
+  get paquete() { return PAQUETE; },
+};

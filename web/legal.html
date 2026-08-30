@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aviso legal y privacidad &middot; Glosa</title>
+<meta name="description" content="Qué datos trata Glosa y quién está detrás. La factura no sale de tu navegador; aquí se dice qué sí ocurre.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 40' fill='none' stroke='%231c4e80' stroke-width='4' stroke-linecap='round'%3E%3Ccircle cx='4' cy='20' r='3.5' fill='%231c4e80' stroke='none'/%3E%3Cpath d='M22 12 h24'/%3E%3Cpath d='M22 28 h24'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="./glosa.css">
+<style>
+/* Lo propio de esta página. La base sale de glosa.css. */
+.portada { padding: 3rem 0 1rem; }
+.portada h1 { font-size: clamp(1.8rem, 4.5vw, 2.5rem); margin-bottom: .8rem; }
+.portada p { color: var(--tinta-2); max-width: 42rem; }
+
+article { max-width: 42rem; }
+article h3 { font: 500 1.15rem/1.3 var(--serif); margin: 2rem 0 .6rem; }
+article h3:first-of-type { margin-top: 0; }
+article p, article li { color: var(--tinta-2); }
+article b { color: var(--tinta); font-weight: 600; }
+article ul { padding-left: 1.15rem; margin: 0 0 1em; }
+article li { margin-bottom: .4rem; }
+
+.medido {
+  background: var(--panel-2); border: 1px solid var(--borde); border-radius: 10px;
+  padding: 1.1rem 1.35rem; margin: 0 0 1.25rem;
+}
+.medido dl { display: grid; grid-template-columns: 1fr auto; gap: 0; margin: 0; }
+.medido dt, .medido dd { padding: .4rem 0; margin: 0; border-bottom: 1px dashed var(--borde); }
+.medido dd { text-align: right; font-family: var(--mono); font-size: .88rem; color: var(--tinta); }
+.medido dl > :nth-last-child(-n+2) { border-bottom: 0; }
+
+.hueco { border-left: 3px solid var(--aviso); background: var(--aviso-flojo); padding: 1.1rem 1.35rem; border-radius: 0 10px 10px 0; margin: 0 0 1.25rem; }
+.hueco b { color: var(--aviso); }
+
+.ficha { display: grid; grid-template-columns: 10rem 1fr; gap: .5rem 1rem; margin: 0 0 1.25rem; }
+.ficha dt { color: var(--tenue); font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; }
+.ficha dd { margin: 0; color: var(--tinta); }
+
+.fecha { color: var(--tenue); font-size: .875rem; }
+@media (max-width: 34rem) { .ficha { grid-template-columns: 1fr; gap: .1rem 0; } .ficha dd { margin-bottom: .6rem; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="envoltorio barra">
+    <a class="marca" href="./">
+      <svg viewBox="0 0 48 40" xmlns="http://www.w3.org/2000/svg" fill="none"
+           stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+        <circle cx="5" cy="20" r="3" fill="currentColor" stroke="none"/>
+        <path d="M20 10 h26"/><path d="M20 20 h26"/><path d="M20 30 h16"/>
+      </svg>
+      <b>glosa</b>
+    </a>
+    <nav>
+      <a href="./">La herramienta</a>
+      <a href="./banco.html">Banco de pruebas</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="envoltorio">
+
+    <div class="portada">
+      <h1>Aviso legal y privacidad</h1>
+      <p>Lo de siempre en estas páginas es una lista de cosas que podrían pasar
+      con tus datos. Aquí se puede ser más concreto, porque la factura no llega
+      a ningún servidor: se lee dentro de tu navegador. Esto cuenta qué ocurre
+      de verdad, incluido lo que no nos gusta.</p>
+    </div>
+
+    <section id="privacidad">
+      <p class="rotulo">Privacidad</p>
+      <h2 class="titulo">Tu factura no se trata, y eso no es una promesa.</h2>
+
+      <article>
+        <p>Una promesa es «no miramos tus ficheros». Esto es otra cosa: el
+        validador entero —Python, lxml, los esquemas y las anclas— se descarga
+        y corre <b>dentro de tu navegador</b>. No hay servidor al que subir la
+        factura, así que no hay nada que prometer sobre qué haríamos con ella.
+        No llega.</p>
+
+        <p>Se puede comprobar sin creernos. Abre las herramientas de desarrollo
+        de tu navegador, ve a la pestaña de red, y suelta una factura. Esto es
+        lo que se midió el 28 de agosto de 2026 al validar
+        <code>fe-0001.xml</code>:</p>
+
+        <div class="medido">
+          <dl>
+            <dt>Peticiones de red al validar</dt><dd>0</dd>
+            <dt>Cookies</dt><dd>ninguna</dd>
+            <dt>Almacenamiento local del navegador</dt><dd>vacío</dd>
+            <dt>Almacenamiento de sesión</dt><dd>vacío</dd>
+          </dl>
+        </div>
+
+        <h3>Lo que sí ocurre</h3>
+
+        <p>Dos cosas, y las dos pasan al <b>abrir</b> la página, no al validar.</p>
+
+        <p><b>1. El servidor que sirve la página deja un registro.</b> Como
+        cualquier servidor web: tu dirección IP, la fecha, qué fichero pediste
+        y qué navegador usas. No lleva nada de tu factura, porque tu factura no
+        pasa por ahí. La base legal es el interés legítimo en servir y proteger
+        el sitio, y esos registros se conservan el tiempo que los conserve el
+        proveedor de alojamiento, que hoy es <b>Vercel Inc.</b> (Estados
+        Unidos): eso supone una transferencia internacional, amparada en sus
+        cláusulas contractuales tipo.</p>
+
+        <p><b>2. El intérprete de Python viene de un servidor ajeno.</b> Esta
+        es la parte incómoda y por eso va escrita con el mismo detalle que el
+        resto.</p>
+
+        <div class="hueco">
+          <p><b>El hueco que queda.</b> Al abrir la página, tu navegador pide
+          siete ficheros —unos 7,8 MB: el intérprete, la biblioteca estándar y
+          lxml— a <code>cdn.jsdelivr.net</code>. Esa petición lleva tu IP y tu
+          navegador a un tercero antes de que hayas hecho nada.</p>
+          <p>No afecta a tu factura, que sigue sin salir de aquí. Pero es una
+          petición a alguien de fuera, y una página que presume de no hacer
+          ninguna tiene que decirlo en vez de esperar a que se note. <b>Tiene
+          arreglo</b>: esos siete ficheros pueden servirse desde este mismo
+          sitio, y entonces esta sección sobra. Está pendiente de hacerse.</p>
+        </div>
+
+        <h3>Ni cookies, ni analítica, ni rastreo</h3>
+        <p>No hay cookies. No hay analítica —ni propia ni de terceros—, no hay
+        píxeles, no hay identificadores, y no se guarda nada en tu navegador
+        entre visitas. Por eso tampoco hay ventana de consentimiento: no habría
+        nada que consentir, y un banner que no gestiona nada solo sirve para
+        aparentar diligencia.</p>
+
+        <h3>Tus derechos</h3>
+        <p>Puedes ejercer los derechos de acceso, rectificación, supresión,
+        limitación, oposición y portabilidad sobre los datos que se traten. En
+        la práctica, lo único que existe son los registros de acceso descritos
+        arriba. Si crees que tus datos se han tratado mal, puedes reclamar ante
+        la <b>Agencia Española de Protección de Datos</b> (<a
+        href="https://www.aepd.es" rel="noopener">aepd.es</a>).</p>
+        <p id="derechos-contacto" hidden>Para ejercerlos, escribe a <a
+        id="derechos-correo" href="#">el correo de contacto</a>.</p>
+      </article>
+    </section>
+
+    <section id="aviso">
+      <p class="rotulo">Aviso legal</p>
+
+      <!-- Sin titular: no hay actividad económica que identificar, y decirlo
+           es más honesto que publicar una ficha vacía o inventada. -->
+      <div id="aviso-sin-titular">
+        <h2 class="titulo">Todavía no hay nada que vender.</h2>
+        <article>
+          <p>Glosa es hoy una herramienta gratuita. No se ofrece ningún
+          servicio de pago, no se cobra nada, no hay publicidad y no se recogen
+          datos para venderlos ni cederlos.</p>
+          <p>El artículo 10 de la <b>LSSI</b> obliga a identificar a quien
+          presta un servicio por internet cuando hay actividad económica
+          detrás: nombre o razón social, NIF, domicilio, correo y datos
+          registrales. En cuanto se ofrezca algo de pago, esa ficha aparecerá
+          aquí. La página está hecha de forma que <b>no se pueda ofrecer un
+          servicio de pago sin publicarla</b>: si no está rellenada, la sección
+          comercial ni siquiera se pinta.</p>
+        </article>
+      </div>
+
+      <div id="aviso-con-titular" hidden>
+        <h2 class="titulo">Quién está detrás.</h2>
+        <article>
+          <dl class="ficha">
+            <dt>Titular</dt><dd id="t-nombre"></dd>
+            <dt>NIF</dt><dd id="t-nif"></dd>
+            <dt>Domicilio</dt><dd id="t-domicilio"></dd>
+            <dt>Correo</dt><dd id="t-correo"></dd>
+            <dt id="t-registro-et" hidden>Registro</dt><dd id="t-registro" hidden></dd>
+          </dl>
+        </article>
+      </div>
+
+      <article>
+        <h3>Qué se puede esperar de esta herramienta, y qué no</h3>
+        <p>Glosa comprueba una factura contra normas <b>públicas</b>: los
+        esquemas XSD de Facturae, UBL y CII, la norma europea EN 16931 y el
+        RD 238/2026. Cada informe termina diciendo qué comprobaciones se han
+        hecho y cuáles no se han podido hacer, y esa frase forma parte del
+        resultado tanto como el resto.</p>
+        <ul>
+          <li><b>No es un servicio oficial</b> de la Agencia Tributaria, de
+          FACe ni de ninguna administración, ni tiene relación con ellas. Su
+          resultado no acredita nada ante ningún organismo.</li>
+          <li><b>No comprueba VeriFactu.</b> Eso es contrastar contra el
+          registro de Hacienda si una factura consta, y aquí no se contrasta
+          contra nada de fuera porque no se sale a la red.</li>
+          <li><b>No sustituye</b> a la comprobación que haga el receptor de la
+          factura, ni al criterio de un asesor fiscal.</li>
+          <li>La responsabilidad de lo que dice una factura, y de emitirla bien,
+          sigue siendo de quien la emite.</li>
+        </ul>
+        <p>La herramienta se ofrece tal cual, sin garantía de que esté
+        disponible ni de que esté libre de errores. Se ha hecho con cuidado y
+        se prueba a conciencia —hay un <a href="./banco.html">banco de
+        pruebas</a> abierto para que se vea—, y aun así puede equivocarse.</p>
+
+        <h3>De quién es cada cosa</h3>
+        <p>El código del validador y los textos de esta página son de su autor.
+        Los esquemas XSD son de sus organismos —la Agencia Tributaria para
+        Facturae, OASIS para UBL, UN/CEFACT para CII—, y las anclas de confianza
+        salen de la lista de confianza publicada por el Estado español; ni unos
+        ni otras son nuestros, viajan con la página para poder comprobar sin
+        conexión y se dice de dónde salen y de cuándo son.</p>
+
+        <h3>Ley aplicable</h3>
+        <p>Esta página se rige por la legislación española.</p>
+
+        <p class="fecha">Última actualización: 28 de agosto de 2026.</p>
+      </article>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <div class="envoltorio">
+    <p class="aviso-legal"><b>Aviso.</b> Glosa es una herramienta privada e
+    independiente. No es un servicio oficial de la Agencia Tributaria, de FACe
+    ni de ninguna administración, y su resultado no acredita nada ante ellas.</p>
+    <nav>
+      <a href="./">La herramienta</a>
+      <a href="./banco.html">Banco de pruebas</a>
+      <a href="#privacidad">Privacidad</a>
+      <a href="#aviso">Aviso legal</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="./glosa.js"></script>
+<script>
+// El titular vive en glosa.js, con la seccion comercial de la portada. Aqui se
+// pinta si esta completo; mientras no lo este, esta pagina dice justamente eso
+// y no una ficha a medias.
+const $ = (id) => document.getElementById(id);
+const t = Glosa.titular;
+
+if (Glosa.puedeVender()) {
+  $("aviso-sin-titular").hidden = true;
+  $("aviso-con-titular").hidden = false;
+  $("t-nombre").textContent = t.nombre;
+  $("t-nif").textContent = t.nif;
+  $("t-domicilio").textContent = t.domicilio;
+  $("t-correo").innerHTML = "";
+  const a = document.createElement("a");
+  a.href = "mailto:" + t.correo;
+  a.textContent = t.correo;
+  $("t-correo").appendChild(a);
+  if (t.registro) {
+    $("t-registro-et").hidden = false;
+    $("t-registro").hidden = false;
+    $("t-registro").textContent = t.registro;
+  }
+}
+
+if (t.correo) {
+  $("derechos-contacto").hidden = false;
+  $("derechos-correo").href = "mailto:" + t.correo;
+  $("derechos-correo").textContent = t.correo;
+}
+</script>
+</body>
+</html>

@@ -294,8 +294,11 @@ async function buscarWheel() { return await fetch(DIST + "rueda.json"); }
 """
 
 PAGINA = """<!doctype html><title>glosa</title>
+<link rel="stylesheet" href="./glosa.css">
 <script src="./glosa.js"></script>
 """
+
+ESTILO = ":root { --papel: #fbfaf7; }\n"
 
 
 @pytest.fixture
@@ -304,7 +307,9 @@ def repositorio(tmp_path):
     (tmp_path / "web").mkdir()
     (tmp_path / "web" / "index.html").write_text(PAGINA, encoding="utf-8")
     (tmp_path / "web" / "banco.html").write_text(PAGINA, encoding="utf-8")
+    (tmp_path / "web" / "legal.html").write_text(PAGINA, encoding="utf-8")
     (tmp_path / "web" / "glosa.js").write_text(CARGADOR, encoding="utf-8")
+    (tmp_path / "web" / "glosa.css").write_text(ESTILO, encoding="utf-8")
     (tmp_path / "web" / "prueba.py").write_text("# el banco\n", encoding="utf-8")
     (tmp_path / "web" / "LEEME.md").write_text("# la pagina\n", encoding="utf-8")
     (tmp_path / "dist").mkdir()
@@ -335,7 +340,9 @@ class TestElSitioQueSePublica:
         raiz = repositorio / "sitio"
         assert (raiz / "index.html").is_file()
         assert (raiz / "banco.html").is_file()
+        assert (raiz / "legal.html").is_file()
         assert (raiz / "glosa.js").is_file()
+        assert (raiz / "glosa.css").is_file()
         assert (raiz / "prueba.py").is_file()
         assert (raiz / "dist" / "factura_e-0.1.0-py3-none-any.whl").is_file()
         assert (raiz / "ejemplos" / "f-0001.xml").is_file()
@@ -370,10 +377,12 @@ class TestElSitioQueSePublica:
         rompe nada: sale todo bien y no es lo que crees que has probado.
         """
         _montar(repositorio)
-        for nombre in ("index.html", "banco.html"):
+        for nombre in ("index.html", "banco.html", "legal.html"):
             texto = (repositorio / "sitio" / nombre).read_text(encoding="utf-8")
             assert 'src="./glosa.js?v=' in texto, nombre
             assert 'src="./glosa.js"' not in texto, nombre
+            assert 'href="./glosa.css?v=' in texto, nombre
+            assert 'href="./glosa.css"' not in texto, nombre
 
     def test_la_huella_cambia_solo_si_cambia_el_cargador(self, repositorio):
         """Si cambiara en cada montado, la caché no serviría para nada."""
@@ -395,14 +404,36 @@ class TestElSitioQueSePublica:
                            '<script defer src="./glosa.js"></script>'),
             encoding="utf-8",
         )
-        (repositorio / "web" / "banco.html").write_text(
-            PAGINA.replace('<script src="./glosa.js"></script>',
-                           '<script defer src="./glosa.js"></script>'),
-            encoding="utf-8",
-        )
+        for otra in ("banco.html", "legal.html"):
+            (repositorio / "web" / otra).write_text(
+                PAGINA.replace('<script src="./glosa.js"></script>',
+                               '<script defer src="./glosa.js"></script>'),
+                encoding="utf-8",
+            )
         with pytest.raises(paquete.SinPagina) as fallo:
             _montar(repositorio)
         assert "_LLAMADA_AL_CARGADOR" in str(fallo.value)
+
+    def test_el_estilo_tambien_se_firma_por_separado(self, repositorio):
+        """Tocar solo los colores tiene que cambiar solo la dirección del CSS."""
+        _montar(repositorio)
+        antes = (repositorio / "sitio" / "index.html").read_text(encoding="utf-8")
+        (repositorio / "web" / "glosa.css").write_text(
+            ESTILO + "body { margin: 0; }\n", encoding="utf-8"
+        )
+        _montar(repositorio)
+        despues = (repositorio / "sitio" / "index.html").read_text(encoding="utf-8")
+        assert despues != antes
+        saca = lambda t, q: t.split(q)[1].split('"')[0]
+        assert saca(antes, 'glosa.js?v=') == saca(despues, 'glosa.js?v=')
+        assert saca(antes, 'glosa.css?v=') != saca(despues, 'glosa.css?v=')
+
+    def test_sin_estilo_no_se_monta(self, repositorio):
+        """Sin los colores, las tres páginas salen en blanco y negro del navegador."""
+        (repositorio / "web" / "glosa.css").unlink()
+        with pytest.raises(paquete.SinPagina) as fallo:
+            _montar(repositorio)
+        assert "glosa.css" in str(fallo.value)
 
     def test_sin_cargador_no_se_monta(self, repositorio):
         """Las dos páginas lo cargan; sin él arrancan y se quedan a medias."""

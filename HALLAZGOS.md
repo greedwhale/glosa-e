@@ -1875,3 +1875,44 @@ Es la tercera vez en este proyecto que el mismo fallo aparece un nivel más
 arriba: primero el wheel viejo, luego la lista de módulos que no detectaba el
 wheel viejo, y ahora el banco entero. Cada vez, lo que falla no es la
 comprobación sino **de qué copia de sí misma se está fiando**.
+
+
+# La página no hacía ninguna petición, menos siete
+
+Escribiendo la política de privacidad había que decir qué peticiones hace la
+página. La respuesta parecía obvia —ninguna, ese es el argumento— así que en
+vez de escribirla se midió.
+
+```
+localhost         15 peticiones   1.221 KB
+cdn.jsdelivr.net   7 peticiones   7.795 KB
+```
+
+Los siete son Pyodide: el intérprete, la biblioteca estándar, lxml y micropip.
+Salen al **abrir** la página, antes de que el visitante toque nada, y llevan su
+IP y su navegador a un tercero.
+
+Lo que se prometía sigue siendo verdad: **la factura no sale**. Eso también se
+midió, y es un cero limpio —cero peticiones al validar, cero cookies, cero
+almacenamiento antes y después—. Pero «no se hace ninguna petición a nadie» no
+era verdad, y es la clase de frase que se dice de más sin darse cuenta porque
+uno está pensando en el fichero del usuario, no en el arranque.
+
+Lo que hace que valga la pena contarlo es que **este mismo criterio ya se había
+aplicado, y bien, en la misma página**. Al elegir tipografía se descartó Google
+Fonts por escrito, con este comentario en el CSS:
+
+> Ningún tipo de letra viene de fuera. Podría: quedaría mejor. Pero la página
+> promete que el fichero no sale de este ordenador, y pedirle la letra a un
+> servidor ajeno cada visita es contradecirlo en la primera línea del HTML.
+
+La letra se miró. Los 7,8 MB de intérprete que van justo al lado, no: llevaban
+ahí desde el primer día del banco de pruebas, cuando la página era un
+experimento y nadie iba a visitarla. Lo que era una decisión de comodidad se
+quedó puesto cuando el contexto cambió y pasó a ser una promesa pública.
+
+Mientras no se arregle, está escrito en la política de privacidad con el mismo
+detalle que el resto, con el número de ficheros y los megas. Se arregla
+sirviendo esos siete ficheros desde el propio sitio; son 7,8 MB y no dependen
+de nada. Está pendiente.
+

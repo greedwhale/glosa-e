@@ -6,123 +6,8 @@
 <title>Glosa · La factura electrónica, en castellano</title>
 <meta name="description" content="Lee tu factura electrónica y te dice qué pone, contra qué norma se ha comprobado y qué no se ha podido mirar. Se lee en tu ordenador: el fichero no sale de ahí.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 40' fill='none' stroke='%231c4e80' stroke-width='4' stroke-linecap='round'%3E%3Ccircle cx='4' cy='20' r='3.5' fill='%231c4e80' stroke='none'/%3E%3Cpath d='M22 12 h24'/%3E%3Cpath d='M22 28 h24'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="./glosa.css">
 <style>
-/* ---------------------------------------------------------------------------
-   La paleta.
-   Claro por defecto y no oscuro, que es lo que tenia el banco de pruebas: esto
-   es una herramienta de cumplimiento, se mira de dia y al lado de documentos.
-   El papel tira a calido para que no parezca una consola.
-   Ningun tipo de letra viene de fuera. Podria: quedaria mejor. Pero la pagina
-   promete que el fichero no sale de este ordenador, y pedirle la letra a un
-   servidor ajeno cada visita es contradecirlo en la primera linea del HTML.
---------------------------------------------------------------------------- */
-:root {
-  --papel: #fbfaf7;
-  --panel: #ffffff;
-  --panel-2: #f4f2ec;
-  --borde: #e3e0d7;
-  --borde-fuerte: #cfcabd;
-  --tinta: #16181c;
-  --tinta-2: #454b54;
-  --tenue: #767c86;
-  --acento: #1c4e80;
-  --acento-flojo: #eaf0f7;
-  --error: #a3231c;
-  --error-flojo: #fbeceb;
-  --aviso: #85560a;
-  --aviso-flojo: #fbf3e3;
-  --nota: #1c4e80;
-  --nota-flojo: #eef3f8;
-  --bien: #1f6b45;
-  --bien-flojo: #e9f4ee;
-  --sombra: 0 1px 2px rgba(20,24,28,.05), 0 8px 24px -12px rgba(20,24,28,.14);
-  --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --papel: #14161a;
-    --panel: #1a1d22;
-    --panel-2: #22262d;
-    --borde: #2c313a;
-    --borde-fuerte: #3d444f;
-    --tinta: #e8eaee;
-    --tinta-2: #b3bac4;
-    --tenue: #868d99;
-    --acento: #8ab4e0;
-    --acento-flojo: #1b2a3a;
-    --error: #f0938c;
-    --error-flojo: #2e1b1a;
-    --aviso: #ddb15e;
-    --aviso-flojo: #2b2318;
-    --nota: #8ab4e0;
-    --nota-flojo: #1b2530;
-    --bien: #79c79c;
-    --bien-flojo: #16261e;
-    --sombra: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
-  }
-}
-
-* { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0;
-  background: var(--papel);
-  color: var(--tinta);
-  font: 16px/1.6 var(--sans);
-  -webkit-font-smoothing: antialiased;
-}
-a { color: var(--acento); text-decoration-thickness: 1px; text-underline-offset: .18em; }
-h1, h2, h3 { line-height: 1.2; margin: 0; font-weight: 600; }
-p { margin: 0 0 1em; }
-p:last-child { margin-bottom: 0; }
-
-.envoltorio { max-width: 60rem; margin: 0 auto; padding: 0 1.5rem; }
-.texto { max-width: 42rem; }
-
-/* --- Cabecera ------------------------------------------------------------ */
-header {
-  border-bottom: 1px solid var(--borde);
-  background: color-mix(in srgb, var(--papel) 88%, transparent);
-  backdrop-filter: blur(8px);
-  position: sticky; top: 0; z-index: 10;
-}
-.barra { display: flex; align-items: center; gap: 1.5rem; padding: .9rem 0; }
-.marca { display: flex; align-items: center; gap: .6rem; color: var(--tinta); text-decoration: none; }
-.marca svg { width: 1.55rem; height: auto; display: block; color: var(--acento); }
-.marca b { font: 500 1.3rem/1 var(--serif); letter-spacing: .01em; }
-.barra nav { margin-left: auto; display: flex; gap: 1.35rem; font-size: .875rem; }
-.barra nav a { color: var(--tinta-2); text-decoration: none; }
-.barra nav a:hover { color: var(--acento); text-decoration: underline; }
-
-/* --- Portada ------------------------------------------------------------- */
-.portada { padding: 4.5rem 0 2.5rem; }
-.portada h1 {
-  font: 400 clamp(2.1rem, 5.5vw, 3.1rem)/1.1 var(--serif);
-  letter-spacing: -.015em; margin-bottom: 1rem;
-}
-.portada .lema { font-size: 1.15rem; color: var(--tinta-2); max-width: 34rem; }
-.portada .lema b { color: var(--tinta); font-weight: 600; }
-.hechos { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.75rem; }
-.hecho {
-  font-size: .8rem; color: var(--tinta-2); background: var(--panel);
-  border: 1px solid var(--borde); border-radius: 999px; padding: .3rem .75rem;
-}
-.hecho b { color: var(--tinta); font-weight: 600; }
-
-/* --- Bloques ------------------------------------------------------------- */
-section { padding: 2.5rem 0; }
-.rotulo {
-  font-size: .75rem; text-transform: uppercase; letter-spacing: .1em;
-  color: var(--tenue); font-weight: 600; margin-bottom: .9rem;
-}
-h2.titulo { font: 400 1.75rem/1.2 var(--serif); margin-bottom: .8rem; }
-.panel {
-  background: var(--panel); border: 1px solid var(--borde);
-  border-radius: 12px; padding: 1.5rem;
-}
-
 /* --- La herramienta ------------------------------------------------------ */
 #herramienta { scroll-margin-top: 5rem; }
 .caja-suelta { box-shadow: var(--sombra); padding: 0; overflow: hidden; }
@@ -229,16 +114,10 @@ h2.titulo { font: 400 1.75rem/1.2 var(--serif); margin-bottom: .8rem; }
 @media (prefers-color-scheme: dark) { .boton { color: #10161d; } }
 .boton:hover { filter: brightness(1.08); }
 
-/* --- Pie ----------------------------------------------------------------- */
-footer { border-top: 1px solid var(--borde); margin-top: 3rem; padding: 2rem 0 3rem; font-size: .875rem; color: var(--tenue); }
-footer .aviso-legal { border: 1px solid var(--borde); border-radius: 10px; padding: 1rem 1.15rem; background: var(--panel); margin-bottom: 1.5rem; color: var(--tinta-2); }
-footer nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
-
 @media (max-width: 34rem) {
   .glosa { grid-template-columns: 1fr; gap: .5rem; }
   .glosa .margen { text-align: left; }
   .glosa .cuerpo { border-left: 2px solid var(--borde); padding-left: 1rem; margin-left: 0; }
-  .portada { padding-top: 3rem; }
 }
 </style>
 </head>
@@ -382,6 +261,7 @@ footer nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
     emite.</p>
     <nav>
       <a href="./banco.html">Banco de pruebas</a>
+      <a href="./legal.html">Aviso legal y privacidad</a>
       <a href="#que-mira">Qué mira</a>
       <a href="#trae">Con qué</a>
     </nav>
@@ -391,11 +271,6 @@ footer nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
 <script src="https://cdn.jsdelivr.net/pyodide/v314.0.6/full/pyodide.js"></script>
 <script src="./glosa.js"></script>
 <script>
-// El correo al que escribe quien quiere una auditoria. Mientras este vacio, el
-// bloque de abajo no se pinta: una pagina publicada con un boton que no lleva
-// a ningun sitio es peor que una pagina sin boton.
-const CORREO = "";
-
 const $ = (id) => document.getElementById(id);
 const escapar = (s) => String(s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -597,9 +472,13 @@ $("fichero").addEventListener("change", (e) => soltar([...e.target.files]));
   zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.remove("encima"); }));
 zona.addEventListener("drop", (e) => soltar([...e.dataTransfer.files]));
 
-if (CORREO) {
+// La seccion comercial solo aparece si hay titular completo en glosa.js. No es
+// prudencia: ofrecer un servicio de pago obliga a decir quien lo ofrece —NIF y
+// domicilio incluidos—, y la unica forma de que eso no se olvide es que no
+// haya manera de encender lo uno sin lo otro.
+if (Glosa.puedeVender()) {
   $("escalon").hidden = false;
-  $("escalon-boton").href = "mailto:" + CORREO + "?subject=" +
+  $("escalon-boton").href = "mailto:" + Glosa.titular.correo + "?subject=" +
     encodeURIComponent("Auditoría de facturación");
 }
 

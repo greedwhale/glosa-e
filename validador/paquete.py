@@ -244,7 +244,14 @@ _CARGADOR = "glosa.js"
 #
 # La huella es del contenido, así que la dirección solo cambia cuando el
 # fichero cambia de verdad.
-_LLAMADA_AL_CARGADOR = '<script src="./glosa.js"></script>' 
+_LLAMADA_AL_CARGADOR = '<script src="./glosa.js"></script>'
+
+# Y el estilo, por lo mismo. Estuvo repetido dentro de cada página hasta que
+# fueron tres: la copia del banco ya se había quedado sin cinco variables de
+# color que la de la herramienta sí tenía, y nada parecía roto —simplemente
+# había reglas que no pintaban lo que decían pintar—.
+_ESTILO = "glosa.css"
+_LLAMADA_AL_ESTILO = '<link rel="stylesheet" href="./glosa.css">' 
 
 # Las dos líneas del cargador que dicen dónde están. En el repositorio apuntan
 # un nivel arriba, porque en desarrollo se sirve el repositorio entero; en el
@@ -260,7 +267,9 @@ _RUTAS_DEL_SITIO = (
 # promesa: la herramienta dice que corre entera en el navegador de quien la
 # usa, y el banco es donde eso se comprueba sin creernos a nosotros. El LEEME,
 # porque explica qué prueba cada comprobación.
-_DE_LA_PAGINA = ("index.html", "banco.html", "prueba.py", "LEEME.md")
+_DE_LA_PAGINA = (
+    "index.html", "banco.html", "legal.html", "prueba.py", "LEEME.md"
+)
 
 
 class SinRueda(Exception):
@@ -348,9 +357,33 @@ def montar_sitio(
         codigo = codigo.replace(busca, pon)
     (destino / _CARGADOR).write_text(codigo, encoding="utf-8")
 
-    firma = hashlib.sha256(codigo.encode("utf-8")).hexdigest()[:8]
-    llamada = f'<script src="./{_CARGADOR}?v={firma}"></script>'
-    firmadas = 0
+    # Lo compartido viaja firmado por su contenido: la dirección cambia solo
+    # cuando el fichero cambia, y así la caché del navegador no puede servir el
+    # de ayer.
+    estilo = pagina / _ESTILO
+    if not estilo.is_file():
+        raise SinPagina(f"No hay «{estilo}», que es de donde salen los colores.")
+    shutil.copy2(estilo, destino / _ESTILO)
+
+    def _huella(texto: str) -> str:
+        return hashlib.sha256(texto.encode("utf-8")).hexdigest()[:8]
+
+    sellos = (
+        (
+            _LLAMADA_AL_CARGADOR,
+            f'<script src="./{_CARGADOR}?v={_huella(codigo)}"></script>',
+            "_LLAMADA_AL_CARGADOR",
+        ),
+        (
+            _LLAMADA_AL_ESTILO,
+            '<link rel="stylesheet" href="./{}?v={}">'.format(
+                _ESTILO, _huella(estilo.read_text(encoding="utf-8"))
+            ),
+            "_LLAMADA_AL_ESTILO",
+        ),
+    )
+
+    firmadas = {constante: 0 for _, _, constante in sellos}
     for nombre in _DE_LA_PAGINA:
         origen = pagina / nombre
         if not origen.is_file():
@@ -359,17 +392,20 @@ def montar_sitio(
             shutil.copy2(origen, destino / nombre)
             continue
         texto = origen.read_text(encoding="utf-8")
-        if _LLAMADA_AL_CARGADOR in texto:
-            texto = texto.replace(_LLAMADA_AL_CARGADOR, llamada)
-            firmadas += 1
+        for busca, pon, constante in sellos:
+            if busca in texto:
+                texto = texto.replace(busca, pon)
+                firmadas[constante] += 1
         (destino / nombre).write_text(texto, encoding="utf-8")
-    if not firmadas:
+
+    huerfanos = sorted(c for c, cuantas in firmadas.items() if not cuantas)
+    if huerfanos:
         raise SinPagina(
-            f"Ninguna página llama al cargador con `{_LLAMADA_AL_CARGADOR}`, "
-            "así que no se le ha podido poner la huella y el navegador puede "
-            "servir de su caché una copia vieja. Si la llamada se ha escrito "
-            "de otra forma, hay que cambiarla también en "
-            "`_LLAMADA_AL_CARGADOR`."
+            "Ninguna página llama a lo compartido como dice "
+            + ", ".join(f"`{c}`" for c in huerfanos)
+            + ", así que no se le ha podido poner la huella y el navegador "
+            "puede servir de su caché una copia vieja. Si la llamada se ha "
+            "escrito de otra forma, hay que cambiarla también ahí."
         )
 
     shutil.copy2(rueda, destino / "dist" / rueda.name)
