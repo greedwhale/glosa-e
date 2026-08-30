@@ -159,7 +159,7 @@
 
     <section id="herramienta">
       <div class="panel caja-suelta">
-        <div id="zona" role="button" tabindex="0" aria-disabled="true">
+        <div id="zona" role="button" tabindex="0" aria-disabled="false">
           <div class="icono">
             <svg viewBox="0 0 48 40" xmlns="http://www.w3.org/2000/svg" fill="none"
                  stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
@@ -167,8 +167,8 @@
               <path d="M20 10 h26"/><path d="M20 20 h26"/><path d="M20 30 h16"/>
             </svg>
           </div>
-          <p class="grande" id="zona-titulo">Preparando el validador…</p>
-          <p class="chica" id="zona-pie">Un momento: se está descargando entero.</p>
+          <p class="grande" id="zona-titulo">Suelta ya tu factura</p>
+          <p class="chica" id="zona-pie">Se está preparando el validador; la tuya se valida en cuanto acabe. <b>No se sube a ningún sitio.</b></p>
         </div>
         <input type="file" id="fichero" accept=".xml,.xsig,.edi,.edifact,.txt" hidden multiple>
 
@@ -422,14 +422,24 @@ function pintarInforme(datos) {
 
 // --- Arranque --------------------------------------------------------------
 
+// El arranque cuesta unos siete segundos de cómputo aunque esté todo en la
+// caché: compilar el intérprete, descomprimir la biblioteca estándar, instalar
+// lxml y el validador, y desplegar los esquemas y las anclas. Eso no se puede
+// quitar. Lo que sí se puede quitar es que sea una **espera**.
+//
+// Quien llega aquí se pasa esos segundos leyendo de qué va esto y buscando su
+// factura. Si la zona acepta el fichero mientras carga y valida en cuanto está
+// lista, para la mayoría el arranque desaparece dentro de un tiempo que iban a
+// gastar de todas formas. No es más rápido; es que ya no hay nada que esperar.
 let listo = false;
+let fallo = false;
+let elArranque = null;
 
 async function empezar() {
   try {
     const { total, paquete } = await Glosa.arrancar(marcar);
     listo = true;
     pintarLoQueTrae(paquete);
-    $("zona").setAttribute("aria-disabled", "false");
     $("zona-titulo").textContent = "Suelta aquí tu factura";
     $("zona-pie").innerHTML =
       "XML, XSIG o EDIFACT. O haz clic para elegirla. " +
@@ -440,6 +450,11 @@ async function empezar() {
       ? "Ya no hace falta conexión: el validador, los esquemas y las anclas están en tu navegador."
       : "Sin el paquete de esquemas y anclas: aquí solo se comprueba el contenido.";
   } catch (error) {
+    // El fallo se marca además de pintarse: quien haya soltado una factura
+    // mientras cargaba está esperando una respuesta, y hay que dársela en vez
+    // de dejarlo con el «en cuanto termine» puesto para siempre.
+    fallo = true;
+    $("zona").setAttribute("aria-disabled", "true");
     $("zona-titulo").textContent = "No ha arrancado";
     $("zona-pie").textContent = String(error);
     $("arranque").hidden = true;
@@ -448,7 +463,28 @@ async function empezar() {
 }
 
 async function soltar(ficheros) {
-  if (!listo || !ficheros.length) return;
+  if (fallo || !ficheros.length) return;
+
+  if (!listo) {
+    $("informe").innerHTML =
+      "<div class='veredicto'><h3>En cuanto termine de cargar</h3>" +
+      "<p>" + ficheros.length + " fichero(s) esperando. Se validan aquí " +
+      "mismo, en tu navegador, sin subirse a ningún sitio.</p></div>";
+    $("informe").scrollIntoView({ behavior: "smooth", block: "start" });
+    await elArranque;
+    if (!listo) {
+      // El arranque se ha caído. Lo cuenta también aquí y no solo en la zona:
+      // quien soltó una factura está mirando este hueco esperando su informe,
+      // y dejarle el «en cuanto termine» puesto para siempre es peor que no
+      // haber aceptado el fichero. Pasó en la prueba, tal cual.
+      $("informe").innerHTML =
+        "<div class='veredicto no'><h3>No se ha podido validar</h3>" +
+        "<p>El validador no ha llegado a arrancar, así que tu factura no se " +
+        "ha llegado a mirar. Arriba está el motivo.</p></div>";
+      return;
+    }
+  }
+
   $("informe").innerHTML =
     "<div class='veredicto'><h3>Leyendo…</h3><p>" +
     ficheros.length + " fichero(s).</p></div>";
@@ -463,13 +499,13 @@ async function soltar(ficheros) {
 }
 
 const zona = $("zona");
-zona.addEventListener("click", () => { if (listo) $("fichero").click(); });
+zona.addEventListener("click", () => { if (!fallo) $("fichero").click(); });
 zona.addEventListener("keydown", (e) => {
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); zona.click(); }
 });
 $("fichero").addEventListener("change", (e) => soltar([...e.target.files]));
 ["dragenter", "dragover"].forEach((ev) =>
-  zona.addEventListener(ev, (e) => { e.preventDefault(); if (listo) zona.classList.add("encima"); }));
+  zona.addEventListener(ev, (e) => { e.preventDefault(); if (!fallo) zona.classList.add("encima"); }));
 ["dragleave", "drop"].forEach((ev) =>
   zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.remove("encima"); }));
 zona.addEventListener("drop", (e) => soltar([...e.dataTransfer.files]));
@@ -484,7 +520,7 @@ if (Glosa.puedeVender()) {
     encodeURIComponent("Auditoría de facturación");
 }
 
-empezar();
+elArranque = empezar();
 </script>
 </body>
 </html>

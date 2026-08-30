@@ -122,24 +122,44 @@ function conHuella(direccion, clave) {
 // El nombre del wheel lleva la version dentro, asi que no se escribe a mano:
 // si no, cada vez que suba la version en pyproject.toml la pagina dejaria de
 // arrancar sin decir por que.
+//
+// La direccion que devuelve **acaba en `.whl` y no lleva `?v=`**, y eso no es
+// un detalle de estilo: `loadPackage` saca el nombre y la version del propio
+// nombre del fichero con `/^.*?([^\/]*)\.whl$/`, asi que una query detras se
+// la rechaza en la cara —«is not a valid package name or URL»—. Comprobado.
+//
+// Por eso la huella del wheel viaja **en la ruta**: `--sitio` lo monta en
+// `dist/<huella>/nombre.whl`. Sigue estando protegido contra la cache —si el
+// wheel cambia, cambia la carpeta y con ella la direccion— y ademas se puede
+// servir con permiso para guardarlo un ano.
 async function buscarWheel() {
   // Un sitio publicado no tiene listado de directorio: Vercel devuelve 404 y
   // aqui no habria wheel que instalar. Por eso `--sitio` deja el manifiesto al
   // lado diciendo cual es. En desarrollo no existe y se cae al listado, que es
   // lo que sirve la carpeta.
   const { rueda } = await leerElManifiesto();
-  if (rueda) return conHuella(DIST + rueda, "dist/" + rueda);
+  if (rueda) return DIST + rueda;
 
   const listado = await fetch(DIST);
   if (listado.ok) {
     const nombres = [...(await listado.text()).matchAll(/href="([^"]+\.whl)"/g)]
       .map((m) => decodeURIComponent(m[1].split("/").pop()));
-    // Sin manifiesto no hay huella, asi que aqui `conHuella` cae al reloj. En
-    // desarrollo es justo lo que se quiere: el wheel se reconstruye a cada
-    // rato y lo ultimo que hace falta es una cache defendiendolo.
     if (nombres.length) {
-      const cual = nombres.sort().pop();
-      return conHuella(DIST + cual, "dist/" + cual);
+      const donde = DIST + nombres.sort().pop();
+      // En desarrollo el nombre del wheel no cambia entre compilaciones de la
+      // misma version, asi que sin esto el navegador sirve el de ayer y la
+      // pagina corre un validador viejo sin decirlo. Paso de verdad.
+      //
+      // Aqui no vale el `?v=` de siempre, porque `loadPackage` lo rechaza. Lo
+      // que si vale es pedirlo una vez con `cache: "reload"`: **misma**
+      // direccion, pero obligando al navegador a bajarlo otra vez y a dejar
+      // esa copia en su cache. Cuando `loadPackage` pida esa direccion, lo que
+      // encuentre ya es lo de hoy.
+      //
+      // En el sitio publicado esto no corre —hay manifiesto y la huella va en
+      // la ruta—, que es lo que hay que hacer alli: nada.
+      await fetch(donde, { cache: "reload" });
+      return donde;
     }
   }
   throw new Error(
@@ -222,10 +242,31 @@ async function arrancar(avisar) {
   await pyodide.loadPackage("lxml");
   decir("lxml + libxml2", seg(performance.now() - t));
 
+  // Aqui habia tres pasos —bajar micropip, importarlo, y pedirle que resolviera
+  // e instalara— para meter **un** wheel del que ya sabemos el nombre, la
+  // version y que no tiene dependencias (se construye con `--no-deps`).
+  // `loadPackage` acepta la direccion de un `.whl` directamente, asi que
+  // micropip sobraba: eran 115 KB de descarga y un paso de resolucion que no
+  // resolvia nada.
   t = performance.now();
-  await pyodide.loadPackage("micropip");
-  const micropip = pyodide.pyimport("micropip");
-  await micropip.install(await buscarWheel());
+  const elWheel = await buscarWheel();
+  await pyodide.loadPackage(elWheel);
+  // `loadPackage` **no se queja** si el wheel no llega: escribe un aviso en la
+  // consola y devuelve como si todo hubiera ido bien. Con micropip esto fallaba
+  // aqui mismo; sin el, el arranque dice «Listo en 5 s» sin validador dentro y
+  // el fallo sale mucho despues, al soltar una factura, disfrazado de
+  // `ModuleNotFoundError`. Comprobado apuntando el manifiesto a un wheel que no
+  // existe: la pagina se pintaba lista y rota a la vez.
+  //
+  // Asi que se mira. Es una linea, y es la diferencia entre fallar donde pasa
+  // el fallo y fallar en otro sitio media hora despues.
+  try {
+    pyodide.pyimport("validador");
+  } catch (_) {
+    throw new Error(
+      "El validador no ha llegado: `" + elWheel + "` no se ha podido instalar."
+    );
+  }
   decir("El validador", seg(performance.now() - t));
 
   t = performance.now();

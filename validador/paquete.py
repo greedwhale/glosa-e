@@ -249,7 +249,11 @@ _NUCLEO = (
     "python_stdlib.zip",
     "pyodide-lock.json",
 )
-_PAQUETES_DE_PYODIDE = ("lxml", "micropip")
+# Solo lxml. micropip estaba aqui para instalar el wheel del validador, y ya
+# no hace falta: `loadPackage` acepta la direccion de un `.whl` y el wheel se
+# construye sin dependencias, asi que no habia nada que resolver. Son 115 KB
+# menos en cada primera visita. lxml no depende de el (mirado en el candado).
+_PAQUETES_DE_PYODIDE = ("lxml",)
 
 CARPETA_DE_PYODIDE = "vendor/pyodide"
 NOMBRE_DE_HUELLAS = "HUELLAS.txt"
@@ -578,7 +582,19 @@ def montar_sitio(
     for nombre in _lo_que_hace_falta(Path(pyodide)):
         shutil.copy2(Path(pyodide) / nombre, bajo_version / nombre)
 
-    shutil.copy2(rueda, destino / "dist" / rueda.name)
+    # El wheel va bajo una carpeta con su huella dentro: `dist/<huella>/x.whl`.
+    #
+    # La huella tiene que ir en la **ruta** y no detras con `?v=`, porque quien
+    # lo instala es `loadPackage`, y saca el nombre y la version del nombre del
+    # fichero con `/^.*?([^/]*)\.whl$/`. Con una query detras lo rechaza: «is
+    # not a valid package name or URL». Comprobado contra el sitio publicado.
+    #
+    # Asi se consiguen las dos cosas: la direccion cambia cuando el wheel
+    # cambia —que es lo que impide correr el validador de ayer— y se puede
+    # servir con permiso para guardarlo un ano.
+    huella_rueda = hashlib.sha256(rueda.read_bytes()).hexdigest()[:8]
+    (destino / "dist" / huella_rueda).mkdir(parents=True)
+    shutil.copy2(rueda, destino / "dist" / huella_rueda / rueda.name)
 
     cuantos = 0
     for fichero in sorted(ejemplos.glob("*")):
@@ -611,7 +627,7 @@ def montar_sitio(
         huellas[relativo] = hashlib.sha256(camino.read_bytes()).hexdigest()[:8]
 
     (destino / "dist" / NOMBRE_DE_LA_RUEDA).write_text(
-        json.dumps({"rueda": rueda.name, "huellas": huellas},
+        json.dumps({"rueda": f"{huella_rueda}/{rueda.name}", "huellas": huellas},
                    indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )

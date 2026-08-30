@@ -365,7 +365,8 @@ class TestElSitioQueSePublica:
         assert (raiz / "glosa.js").is_file()
         assert (raiz / "glosa.css").is_file()
         assert (raiz / "prueba.py").is_file()
-        assert (raiz / "dist" / "factura_e-0.1.0-py3-none-any.whl").is_file()
+        rueda, = (raiz / "dist").glob("*/factura_e-0.1.0-py3-none-any.whl")
+        assert rueda.is_file()
         assert (raiz / "ejemplos" / "f-0001.xml").is_file()
         assert sitio.ejemplos == 2
 
@@ -380,7 +381,8 @@ class TestElSitioQueSePublica:
         _montar(repositorio)
         anuncio = repositorio / "sitio" / "dist" / paquete.NOMBRE_DE_LA_RUEDA
         dicho = json.loads(anuncio.read_text(encoding="utf-8"))
-        assert dicho["rueda"] == "factura_e-0.1.0-py3-none-any.whl"
+        assert dicho["rueda"].endswith("/factura_e-0.1.0-py3-none-any.whl")
+        assert (repositorio / "sitio" / "dist" / dicho["rueda"]).is_file()
 
     def test_las_rutas_dejan_de_apuntar_un_nivel_arriba(self, repositorio):
         """En el sitio publicado, encima de la raíz no hay nada."""
@@ -512,15 +514,58 @@ class TestElSitioQueSePublica:
         anuncio = repositorio / "sitio" / "dist" / paquete.NOMBRE_DE_LA_RUEDA
         huellas = json.loads(anuncio.read_text(encoding="utf-8"))["huellas"]
         for pedido in ("paquete.zip", "PAQUETE.json", "prueba.py",
-                       "glosa.js", "glosa.css",
-                       "ejemplos/f-0001.xml",
-                       "dist/factura_e-0.1.0-py3-none-any.whl"):
+                       "glosa.js", "glosa.css", "ejemplos/f-0001.xml"):
             assert pedido in huellas, pedido
             assert len(huellas[pedido]) == 8
 
         # El propio manifiesto no se firma: es lo único que se pide siempre
         # fresco, porque de él salen las demás huellas.
         assert f"dist/{paquete.NOMBRE_DE_LA_RUEDA}" not in huellas
+
+    def test_el_wheel_va_bajo_una_carpeta_con_su_huella(self, repositorio):
+        """La huella del wheel va en la ruta, y no detrás con `?v=`.
+
+        Quien lo instala es `loadPackage`, que saca el nombre y la versión del
+        nombre del fichero con `/^.*?([^/]*)\\.whl$/`. Con una query detrás lo
+        rechaza en la cara: «is not a valid package name or URL». Está
+        comprobado contra el sitio publicado, no deducido.
+
+        Con la huella en la carpeta se consiguen las dos cosas que hacían falta:
+        la dirección cambia cuando el wheel cambia —que es lo que impide correr
+        el validador de ayer— y acaba en `.whl`, así que `loadPackage` la toma.
+        """
+        _montar(repositorio)
+        anuncio = repositorio / "sitio" / "dist" / paquete.NOMBRE_DE_LA_RUEDA
+        dicho = json.loads(anuncio.read_text(encoding="utf-8"))["rueda"]
+
+        carpeta, nombre = dicho.split("/")
+        assert len(carpeta) == 8
+        assert nombre.endswith(".whl")
+        # Lo que anuncia es lo que hay, y la carpeta es de verdad su huella.
+        montado = repositorio / "sitio" / "dist" / dicho
+        assert montado.is_file()
+        import hashlib
+        assert hashlib.sha256(montado.read_bytes()).hexdigest()[:8] == carpeta
+
+        # Y la página la pide tal cual, sin añadirle nada detrás.
+        codigo = (repositorio / "sitio" / "glosa.js").read_text(encoding="utf-8")
+        assert "conHuella(DIST + rueda" not in codigo
+
+    def test_micropip_ya_no_viaja(self, repositorio):
+        """Estaba solo para instalar un wheel que no tiene dependencias.
+
+        `loadPackage` acepta la dirección de un `.whl`, así que micropip era un
+        paso de resolución que no resolvía nada y 115 KB en cada primera
+        visita. lxml no depende de él: mirado en el candado que se ha bajado, no
+        supuesto. Lo que se comprueba aquí es lo que depende del código —que ya
+        no se pide ni se importa—; que el fichero no viaje depende además del
+        candado, y si algún día lxml pasara a depender de micropip volvería a
+        viajar, que es justo lo que debe pasar.
+        """
+        assert "micropip" not in paquete._PAQUETES_DE_PYODIDE
+        _montar(repositorio)
+        codigo = (repositorio / "sitio" / "glosa.js").read_text(encoding="utf-8")
+        assert "micropip" not in codigo.split("// Aqui habia tres pasos")[0]
 
     def test_la_huella_del_paquete_cambia_solo_si_cambia_el_paquete(
         self, repositorio
