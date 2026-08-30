@@ -86,10 +86,39 @@ header {
   backdrop-filter: blur(8px);
   position: sticky; top: 0; z-index: 10;
 }
-.barra { display: flex; align-items: center; gap: 1.5rem; padding: .9rem 0; }
-.marca { display: flex; align-items: center; gap: .6rem; color: var(--tinta); text-decoration: none; }
-.marca svg { width: 1.55rem; height: auto; display: block; color: var(--acento); }
-.marca b { font: 500 1.3rem/1 var(--serif); letter-spacing: .01em; }
+/* El padding lateral se repite aqui a proposito. `.barra` va despues de
+   `.envoltorio` y con la misma especificidad, asi que su `padding` gana entero
+   y le borraba el `0 1.5rem` lateral: la cabecera nunca ha alineado con la
+   columna del resto de la pagina, y la ultima entrada del menu se salia por la
+   derecha. Con un icono de rayitas no se notaba; con la marca en un bloque
+   plateado, salta a la vista. */
+.barra { display: flex; align-items: center; gap: 1.5rem; padding: .9rem 1.5rem; }
+/* La marca ya no hereda el color del sitio: desde que el nombre vive dentro
+   del bloque plateado se trae su propio fondo y se ve igual sobre los dos
+   papeles. Por eso es una imagen y no un icono con `currentColor`.
+
+   Va una sola vez, aqui, y las tres paginas solo llevan el enlace. Tres
+   copias de un dibujo de 5 KB se acaban separando, y una marca que dice una
+   cosa en la portada y otra en el aviso legal no se nota hasta que ya esta
+   publicada.
+
+   La palabra va **trazada**, no como texto: si viajara como <text>, cada
+   maquina la compondria con la serif que tuviera a mano y la marca cambiaria
+   de forma sin que nadie la tocara.
+
+   `print-color-adjust` va por adelantado. Hoy no hay hoja de impresion; el
+   dia que la haya, los navegadores quitan los fondos por su cuenta y la marca
+   desapareceria del papel sin avisar a nadie. */
+.marca {
+  display: block; width: 114px; height: 40px; text-decoration: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 285 100' width='285' height='100' role='img' aria-label='Glosa-e'%3E %3Crect width='285' height='100' fill='%23949494'/%3E %3Cg transform='translate(41.03 24.17) scale(1.29167)' fill='none' stroke='%23FFFFFF' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E %3Cpath d='M16 7 H8 V33 H16'/%3E %3Cpath d='M25 12 h21'/%3E %3Cpath d='M25 20 h21'/%3E %3Cpath d='M25 28 h13'/%3E %3C/g%3E %3Cpath transform='translate(117.86 63.01) scale(0.018311 -0.018311)' fill='%23000000' d='M1498.0 545.0V515.0L1494.0 503.0L1445.0 474.0Q1427.0 463.0 1424.0 457.0Q1421.0 451.0 1416.5 397.5Q1412.0 344.0 1412.0 267.0Q1412.0 180.0 1423.0 78.0L1417.0 68.0Q1143.0 -37.0 854.0 -37.0Q632.0 -37.0 453.0 47.0Q274.0 131.0 169.0 296.0Q64.0 461.0 64.0 688.0Q64.0 1034.0 300.5 1238.0Q537.0 1442.0 918.0 1442.0Q1198.0 1442.0 1421.0 1347.0L1428.0 1336.0Q1410.0 1269.0 1386.0 1055.0L1378.0 1048.0H1332.0L1324.0 1056.0L1319.0 1162.0Q1316.0 1214.0 1312.5 1223.0Q1309.0 1232.0 1291.0 1246.5Q1273.0 1261.0 1198.5 1292.5Q1124.0 1324.0 1049.0 1338.5Q974.0 1353.0 888.0 1353.0Q705.0 1353.0 564.0 1277.0Q423.0 1201.0 351.5 1055.5Q280.0 910.0 280.0 732.0Q280.0 548.0 357.0 389.5Q434.0 231.0 578.0 142.0Q722.0 53.0 913.0 53.0Q996.0 53.0 1082.5 69.5Q1169.0 86.0 1225.0 116.0Q1234.0 148.0 1234.0 245.0V356.0Q1234.0 435.0 1224.0 454.5Q1214.0 474.0 1174.5 482.0Q1135.0 490.0 1004.0 492.0L995.0 501.0V545.0L1004.0 554.0L1065.0 552.0Q1222.0 547.0 1321.0 547.0Q1378.0 547.0 1488.0 553.0ZM1957.5 1481.0 1976.5 1469.0Q1965.5 1354.0 1965.5 1008.0V381.0Q1965.5 359.0 1969.5 239.5Q1973.5 120.0 1978.0 100.0Q1982.5 80.0 1991.5 71.0Q2000.5 62.0 2013.5 59.5Q2026.5 57.0 2121.5 51.0L2130.5 43.0V1.0L2122.5 -8.0Q1997.5 0.0 1881.5 0.0Q1766.5 0.0 1641.5 -8.0L1632.5 1.0V43.0L1641.5 51.0Q1738.5 57.0 1751.0 60.0Q1763.5 63.0 1773.0 72.5Q1782.5 82.0 1786.0 101.5Q1789.5 121.0 1794.0 230.5Q1798.5 340.0 1798.5 396.0V914.0L1794.5 1126.0Q1791.5 1237.0 1788.0 1280.0Q1784.5 1323.0 1778.5 1331.0Q1772.5 1339.0 1757.5 1343.0Q1742.5 1347.0 1636.5 1347.0L1627.5 1356.0V1398.0L1635.5 1407.0Q1826.5 1429.0 1957.5 1481.0ZM2268.0 458.0Q2268.0 577.0 2317.0 687.5Q2366.0 798.0 2487.5 878.5Q2609.0 959.0 2776.0 959.0Q2986.0 959.0 3118.0 826.5Q3250.0 694.0 3250.0 486.0Q3250.0 257.0 3098.5 109.0Q2947.0 -39.0 2733.0 -39.0Q2593.0 -39.0 2483.0 36.5Q2373.0 112.0 2320.5 221.0Q2268.0 330.0 2268.0 458.0ZM2457.0 527.0Q2457.0 387.0 2493.0 276.5Q2529.0 166.0 2607.0 99.0Q2685.0 32.0 2785.0 32.0Q2903.0 32.0 2980.0 125.5Q3057.0 219.0 3057.0 407.0Q3057.0 620.0 2973.5 756.0Q2890.0 892.0 2733.0 892.0Q2603.0 892.0 2530.0 798.0Q2457.0 704.0 2457.0 527.0ZM2760.0 1016.0ZM2745.0 -60.0ZM3439.4 294.0H3482.4L3491.4 285.0Q3493.4 201.0 3501.4 141.0Q3532.4 94.0 3608.4 64.5Q3684.4 35.0 3758.4 35.0Q3864.4 35.0 3927.9 92.0Q3991.4 149.0 3991.4 228.0Q3991.4 271.0 3968.4 302.5Q3945.4 334.0 3898.9 354.5Q3852.4 375.0 3732.4 403.0Q3629.4 427.0 3588.4 440.5Q3547.4 454.0 3509.4 486.0Q3471.4 518.0 3451.4 564.5Q3431.4 611.0 3431.4 667.0Q3431.4 801.0 3537.9 881.5Q3644.4 962.0 3803.4 962.0Q3870.4 962.0 3949.4 943.5Q4028.4 925.0 4069.4 908.0L4078.4 894.0Q4070.4 854.0 4068.4 684.0L4059.4 675.0H4019.4L4010.4 684.0Q4006.4 745.0 3999.4 769.5Q3992.4 794.0 3963.4 822.5Q3934.4 851.0 3881.4 870.5Q3828.4 890.0 3769.4 890.0Q3708.4 890.0 3666.9 872.0Q3625.4 854.0 3599.9 817.5Q3574.4 781.0 3574.4 729.0Q3574.4 691.0 3589.9 661.0Q3605.4 631.0 3637.4 612.5Q3669.4 594.0 3704.4 586.0L3813.4 558.0Q3953.4 524.0 4013.9 499.0Q4074.4 474.0 4107.4 423.5Q4140.4 373.0 4140.4 301.0Q4140.4 163.0 4026.4 64.0Q3912.4 -35.0 3733.4 -35.0Q3670.4 -35.0 3576.9 -21.0Q3483.4 -7.0 3417.4 10.0L3412.4 23.0L3422.4 90.0Q3427.4 121.0 3428.4 152.5Q3429.4 184.0 3430.4 285.0ZM4438.9 678.0 4399.9 688.0 4391.9 698.0V822.0Q4569.9 954.0 4737.9 954.0Q4852.9 954.0 4928.9 911.0Q5004.9 868.0 5038.9 803.5Q5072.9 739.0 5072.9 653.0L5067.9 452.0V154.0Q5067.9 93.0 5076.4 80.0Q5084.9 67.0 5095.9 62.5Q5106.9 58.0 5136.9 55.0L5193.9 50.0L5201.9 41.0V1.0L5193.9 -7.0Q5120.9 -1.0 5057.9 -1.0Q4997.9 -1.0 4913.9 -7.0L4898.9 7.0L4902.9 168.0L4684.9 -2.0Q4629.9 -25.0 4564.9 -25.0Q4484.9 -25.0 4427.4 4.0Q4369.9 33.0 4339.4 85.0Q4308.9 137.0 4308.9 211.0Q4308.9 358.0 4400.9 440.5Q4492.9 523.0 4902.9 581.0Q4902.9 729.0 4836.9 789.5Q4770.9 850.0 4659.9 850.0Q4601.9 850.0 4554.4 833.0Q4506.9 816.0 4499.9 805.5Q4492.9 795.0 4445.9 683.0ZM4902.9 520.0Q4622.9 473.0 4553.9 419.0Q4484.9 365.0 4484.9 252.0Q4484.9 96.0 4639.9 96.0Q4772.9 96.0 4902.9 250.0ZM4732.9 1016.0ZM4711.9 -60.0ZM5316.4 430.0V444.0L5361.4 578.0H5896.4V563.0L5848.4 430.0ZM6857.9 147.0 6825.9 75.0Q6721.9 8.0 6640.4 -12.0Q6558.9 -32.0 6494.9 -32.0Q6374.9 -32.0 6267.4 15.0Q6159.9 62.0 6092.4 174.0Q6024.9 286.0 6024.9 444.0Q6024.9 549.0 6050.9 633.5Q6076.9 718.0 6105.4 759.0Q6133.9 800.0 6201.9 850.0Q6269.9 900.0 6345.9 930.0Q6421.9 960.0 6509.9 960.0Q6629.9 960.0 6721.4 903.5Q6812.9 847.0 6849.9 759.0Q6886.9 671.0 6886.9 572.0Q6886.9 541.0 6883.9 512.0L6872.9 501.0Q6804.9 486.0 6689.9 481.0Q6574.9 476.0 6537.9 476.0H6216.9Q6218.9 269.0 6320.9 171.0Q6422.9 73.0 6570.9 73.0Q6640.9 73.0 6705.4 97.0Q6769.9 121.0 6841.9 164.0ZM6216.9 556.0Q6234.9 553.0 6355.4 549.0Q6475.9 545.0 6533.9 545.0Q6672.9 545.0 6702.9 550.0Q6703.9 574.0 6703.9 587.0Q6703.9 742.0 6640.9 817.5Q6577.9 893.0 6468.9 893.0Q6349.9 893.0 6283.4 808.0Q6216.9 723.0 6216.9 556.0ZM6495.9 1016.0ZM6483.9 -60.0Z'/%3E %3C/svg%3E") center / contain no-repeat;
+  print-color-adjust: exact; -webkit-print-color-adjust: exact;
+}
+/* El nombre esta dibujado; esto es para quien no ve el dibujo. */
+.marca .nombre {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
 .barra nav { margin-left: auto; display: flex; gap: 1.35rem; font-size: .875rem; }
 .barra nav a { color: var(--tinta-2); text-decoration: none; }
 .barra nav a:hover { color: var(--acento); text-decoration: underline; }

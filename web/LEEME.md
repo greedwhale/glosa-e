@@ -4,7 +4,7 @@ En `web/` hay dos páginas y un módulo que las dos cargan:
 
 | Fichero | Qué es |
 |---|---|
-| `index.html` | **Glosa**, la herramienta: se suelta una factura y sale su glosa |
+| `index.html` | **Glosa-e**, la herramienta: se suelta una factura y sale su glosa |
 | `banco.html` | el banco de pruebas, que es de lo que trata este documento |
 | `glosa.js` | arrancar Pyodide, instalar el wheel y traer el paquete |
 

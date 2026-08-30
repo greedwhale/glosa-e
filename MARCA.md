@@ -1,6 +1,6 @@
 # La marca
 
-**Glosa.**
+**Glosa-e.**
 
 Una glosa es la explicación que se escribe al lado de un texto que no se
 entiende por sí solo. Se pone en el margen, no dentro: no toca el original, no
@@ -48,7 +48,7 @@ base**.
 
 ## La frase
 
-> **Glosa — lo que dice tu factura, y lo que no se ha podido mirar.**
+> **Glosa-e — lo que dice tu factura, y lo que no se ha podido mirar.**
 
 Las dos mitades hacen falta. La primera es lo que se compra; la segunda es por
 qué se puede creer la primera. Casi nadie pone la segunda, y ahí está el hueco.
@@ -65,48 +65,74 @@ Un competidor que valide en la nube no puede decirla.
 
 ## Cómo se escribe
 
-Wordmark en minúscula: **glosa**. Sin punto, sin eslogan pegado, sin tilde
-—no la lleva—. En texto corrido, mayúscula inicial: Glosa.
+**Glosa-e**, con ge alta y con guion. Decidido el 30 de agosto de 2026, y es un
+cambio de lo que decía este mismo documento: el wordmark estaba fijado en
+minúscula —«glosa»— porque las mayúsculas de alarma son lo contrario del tono.
+Queda escrito que se cambió, en vez de borrado.
 
-Nunca «GLOSA» en versales: las mayúsculas de alarma son lo contrario del tono.
+Nunca «GLOSA-E» en versales. Eso sí sigue en pie.
+
+**Lo que arrastra el «-e», dicho aquí y no en una nota al pie.** *Factura-e* es
+el nombre del formato del Estado, y este documento descartó toda la familia
+*veri-* precisamente por eso: por dar a entender que somos oficiales. *Glosa-e*
+se construye igual que *Factura-e*. Se ha elegido con ese riesgo encima de la
+mesa —dice a qué mundo pertenece la herramienta—, pero es el riesgo que este
+documento decidió no correr en agosto. Si algún día llega una queja, vendrá por
+aquí.
 
 ### La marca gráfica
 
-La nota en el margen. Un bloque de texto y, fuera de él, a su izquierda, un
-punto. Monocromo y sin relleno: hereda el color de donde esté con
-`currentColor`, así que vale igual sobre claro y sobre oscuro.
+Un bloque apaisado de plata, con el signo en blanco a la izquierda y el nombre
+en negro a la derecha.
 
-```svg
-<svg viewBox="0 0 48 40" xmlns="http://www.w3.org/2000/svg"
-     fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-  <circle cx="5" cy="20" r="3" fill="currentColor" stroke="none"/>
-  <path d="M20 10 h26"/>
-  <path d="M20 20 h26"/>
-  <path d="M20 30 h16"/>
-</svg>
-```
+**La marca ya no hereda el color del sitio.** Se trae el suyo, y por eso se ve
+igual sobre el papel claro y sobre el oscuro. Es lo contrario de lo que decía
+la versión anterior —monocroma, con `currentColor`— y es a propósito: con el
+nombre dentro del dibujo, el negro sobre el papel de noche daba **1,16:1**, que
+no es que se leyera mal, es que no estaba.
 
-Lo que dice el dibujo: el documento es del que lo emite y no se toca. Lo
-nuestro es lo de fuera, al lado. Las líneas van desiguales a propósito —así se
-leen como texto y no como una lista.
+El signo es el corchete al margen: lo que se pone, desde siempre, para señalar
+el pasaje que se comenta. Abarca el texto entero y no toca una sola línea.
 
-**A 16 px hay otra.** La primera versión de esta marca era una rayita en vez
-del punto y tres líneas siempre. Puesta a tamaño de favicon y mirada, la raya
-se pegaba al bloque y el conjunto se leía como el icono de menú de cualquier
-aplicación. Con el punto ya no pasa, y aun así de 16 px para abajo se usa una
-reducción de dos líneas:
+| Qué | Valor |
+|---|---|
+| Plata del bloque | `#949494` |
+| Signo | blanco `#ffffff` |
+| Nombre | negro `#000000` |
+| Proporción | 2,85:1 |
+| En la cabecera | 114 × 40 px |
 
-```svg
-<svg viewBox="0 0 48 40" xmlns="http://www.w3.org/2000/svg"
-     fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round">
-  <circle cx="4" cy="20" r="3.5" fill="currentColor" stroke="none"/>
-  <path d="M22 12 h24"/>
-  <path d="M22 28 h24"/>
-</svg>
-```
+**Por qué esa plata y no la plata.** Se pidió `#C0C0C0`. Con ella el signo
+blanco queda en **1,82:1** sobre su propio fondo, y el mínimo para que una
+forma gráfica se distinga es 3:1. `#949494` es el gris más claro que llega
+—**3,03:1**— y no perjudica al nombre, que se queda en **6,92:1** cuando el
+texto pequeño pide 4,5:1. Medido con la fórmula de WCAG 2.1; las cifras salen
+de un cálculo, no de mirarlo.
 
-De 24 px para arriba, la de tres líneas. Comprobado a 96, 32, 24 y 16, sobre
-blanco y sobre negro.
+**La palabra va trazada, no como texto.** Desde que el nombre vive dentro del
+dibujo, si viajara como `<text>` cada máquina lo compondría con la serif que
+tuviera a mano —Iowan Old Style en un Mac, Palatino Linotype en Windows,
+Georgia si no hay ninguna— y la marca cambiaría de forma sin que nadie la
+tocara. Está trazada de **Palatino Linotype**, que es la que resuelve hoy la
+pila `--serif` de `glosa.css` y por tanto la que se ha aprobado mirándola.
+
+**Falta, y no lo he hecho porque no me toca:** comprobar la licencia de
+Palatino Linotype para llevar sus trazos dentro de una marca. Va en el mismo
+montón que la búsqueda en la OEPM y en la EUIPO.
+
+**El favicon es un segundo dibujo.** A 16 px el nombre no cabe de ninguna
+manera, así que la pestaña lleva el cuadro con el signo solo, en la reducción
+de dos líneas. Son dos dibujos que hay que mantener iguales, y ese es el precio
+de haber metido la palabra dentro.
+
+**En la zona de soltar va el signo solo**, heredando `--acento`. El signo es
+lengua de la marca; el bloque plateado es la firma, y una firma puesta de
+adorno dentro de la propia herramienta sobra.
+
+**Dónde vive.** Una sola vez, en `web/glosa.css`, como imagen de fondo de
+`.marca`; las tres páginas solo llevan el enlace. Tres copias de un dibujo de
+5 KB se acaban separando, y una marca que dice una cosa en la portada y otra en
+el aviso legal no se nota hasta que ya está publicada.
 
 ## El tono, que ya estaba escrito
 
@@ -132,6 +158,11 @@ principio. Queda aquí para que la página no se salga.
 - Conformidad con VeriFactu, que es otra cosa y no la hacemos.
 
 ## Estado de la marca a 28 de agosto de 2026
+
+> **Esto se comprobó para «Glosa», no para «Glosa-e».** El nombre cambió el 30
+> de agosto de 2026 y lo de abajo no se ha vuelto a mirar: ni la coincidencia
+> con empresas, ni los dominios. `laglosa.es` no es la dirección de una marca
+> que ahora se llama Glosa-e. Hay que rehacerlo antes de registrar nada.
 
 Comprobado por mí, y no es una búsqueda legal:
 

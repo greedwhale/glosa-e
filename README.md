@@ -2089,7 +2089,7 @@ se comportan los sellos españoles de verdad está por ver.
 
 ### Producto
 
-- ~~La página de verdad.~~ **Hecha**: `web/index.html` es **Glosa**, la
+- ~~La página de verdad.~~ **Hecha**: `web/index.html` es **Glosa-e**, la
   herramienta —se suelta una factura y sale su glosa, con las incidencias
   separadas por gravedad y el alcance debajo—, y el banco de pruebas se ha
   movido a `web/banco.html`, que sigue siendo la prueba de que todo esto corre
@@ -2641,7 +2641,7 @@ La comprobación que lo prueba solo puede hacerse en el navegador, que es el
 
 ## La marca
 
-Lo construido se llama **Glosa**, y en [MARCA.md](MARCA.md) está por qué y qué
+Lo construido se llama **Glosa-e**, y en [MARCA.md](MARCA.md) está por qué y qué
 promete.
 
 Una glosa es la explicación que se escribe al lado de un texto que no se
@@ -2656,7 +2656,7 @@ fuera todo nombre que signifique certificar o dar fe: el valor de este informe
 es que **no afirma de más**, y un nombre que prometa fe pública pelea con el
 producto todos los días. Una glosa explica; no certifica.
 
-> Glosa — lo que dice tu factura, y lo que no se ha podido mirar.
+> Glosa-e — lo que dice tu factura, y lo que no se ha podido mirar.
 
 ## Fuentes
 
