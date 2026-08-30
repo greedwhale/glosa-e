@@ -220,6 +220,13 @@ distintos y la marca es *Glosa-e*, con guion, desde el 30 de agosto— pero
 obliga a dos cosas: escribir siempre el guion, y no dar por hecho que el
 vecino esté disponible el día que se quiera comprar como defensa.
 
+**Y lo que hay en los vecinos está mirado, no supuesto.** `glosae.com` sirve
+una aplicación de aprender idiomas y `laglosa.com` un sitio mexicano de
+opinión política. Ninguno de los dos está en facturación, y eso convierte el
+guion perdido en lo que es: una visita despistada, no una confusión de marca
+dentro del propio mercado. Si algún día cambia lo que sirven, cambia el
+tamaño del problema.
+
 `laglosa.com` también es de un tercero y también está en Vercel. Se registró
 el 22-08-2026, seis días antes del estudio anterior, que proponía justamente
 salir con `laglosa.es`. Esa salida ya no existe.
@@ -235,6 +242,38 @@ RDAP público del `.es`. Lo único que se puede ver desde fuera es que
 significa libre**: un dominio registrado y sin delegar se ve exactamente
 igual. Si alguna vez se quiere `glosa-e.es` como defensa, hay que mirarlo en
 otro sitio.
+
+### `glosa-electronica`, mirado y descartado el 30-08-2026
+
+Se midió igual, contra el RDAP de Verisign, con `verisign.net` de control:
+
+| Dominio | RDAP | Qué hay |
+|---|---|---|
+| `glosa-electronica.com` | 404, sin cuerpo | libre |
+| `glosaelectronica.com` | 404, sin cuerpo | libre |
+| `glosa-electronica.net` | 404, sin cuerpo | libre |
+| `glosaelectronica.net` | 404, sin cuerpo | libre |
+
+Las cuatro libres, que es más de lo que puede decir `glosa-e`: ahí el gemelo
+sin guion ya está cogido. Aun así se descarta, por tres razones y en este
+orden:
+
+- **No es el nombre.** La marca dice *Glosa-e*, el bloque plateado dice
+  *Glosa-e* y los títulos de las tres páginas dicen *Glosa-e*. Una dirección
+  distinta del nombre obliga a explicarla cada vez que se dice en voz alta.
+- **«Glosa electrónica» no existe.** Lo que existe es *factura* electrónica.
+  La dirección se inventaría una categoría, y de paso empujaría justo donde
+  este documento ya avisa: se leería todavía más como la web de un formato
+  oficial que `glosa-e.com`. El riesgo que se aceptó a sabiendas subiría en
+  vez de bajar.
+- **El único argumento serio a favor se cayó al mirar.** Era la confusión con
+  el vecino sin guion; el vecino resultó ser una aplicación de idiomas.
+
+**Lo que sí valdría la pena, y no lo he hecho porque no compro dominios:**
+registrar `glosa-electronica.com` y `glosaelectronica.com` y redirigirlos a
+`glosa-e.com`. Hoy están libres las dos grafías, cuestan poco, atrapan a quien
+busque el término en castellano y no obligan a nada. Es defensa barata, no un
+cambio de dirección.
 
 **Lo que se pierde al elegir `.com`.** Un `.es` diría «España» sin decirlo, y
 esto valida facturas españolas contra normas españolas. Se ha elegido `.com`
