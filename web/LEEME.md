@@ -225,9 +225,17 @@ WebAssembly, sin que el fichero salga del ordenador.
   de versión habría gente corriendo la vieja durante un año y ninguna forma de
   avisarles. `--sitio` **se niega a montar** si `glosa.js` y `paquete.py` no
   declaran la misma versión.
-- **Los esquemas XSD oficiales.** No están en el repositorio y aquí tampoco:
-  la prueba los da por ausentes y comprueba que eso no revienta nada. Con ellos
-  habría que bajar unos megas más.
+- **Los esquemas XSD oficiales sí están aquí**, y esto decía lo contrario. Van
+  dentro de `paquete.zip`: 24 ficheros —Facturae 3.0, 3.1, 3.2, 3.2.1 y 3.2.2,
+  CII D16B y UBL 2.1—, y la página los enseña contados en «lo que trae». Lo que
+  sigue siendo cierto es lo otro, y son dos cosas distintas que esta lista tenía
+  juntas: **no están versionados** —`git ls-files esquemas` no devuelve nada— y
+  **la suite corre sin ellos a propósito**, porque un test cuyo resultado
+  dependa de si quien lo ejecuta se ha bajado los XSD no prueba nada.
+
+  De modo que en el navegador la comprobación de forma **se hace**. Lo que
+  falta de verdad aquí no es tenerlos: es que el peso del paquete crece con
+  ellos, y eso ya está contado arriba en los 9,4 MB.
 - **Las anclas de confianza, en el navegador.** Encadenar funciona aquí —está
   comprobado—, y las anclas hay que meterlas en el disco virtual, igual que las
   facturas de ejemplo: unos cientos de KB que se cachean.
@@ -244,8 +252,11 @@ WebAssembly, sin que el fichero salga del ordenador.
   verificada. El conjunto se monta con `--montar-anclas` y se mete en el disco
   virtual ya montado, con su `PROCEDENCIA.txt` al lado —que es lo que hace que
   el informe sepa decir de dónde vienen sin que la página tenga que acordarse
-  de contarlo—. Lo que falta es operativo: cada cuánto se vuelve a montar, y
-  que la página enseñe de cuándo es el que trae.
+  de contarlo—. **Y la página ya enseña de cuándo es el que trae**: la fecha en
+  que se montó, de qué lista salió y cuándo toca renovarla, con aviso en ámbar
+  si esa fecha ya pasó. Lo que queda es lo único que no puede resolver el
+  código: cada cuánto se vuelve a montar, que es una costumbre y no una
+  función.
 
   Lo que sí es innegociable es **decirlo**. El informe declara a qué ancla ha
   llegado, de dónde salió y con qué huella —`Almacen(..., procedencia="viene
