@@ -1911,8 +1911,25 @@ ahí desde el primer día del banco de pruebas, cuando la página era un
 experimento y nadie iba a visitarla. Lo que era una decisión de comodidad se
 quedó puesto cuando el contexto cambió y pasó a ser una promesa pública.
 
-Mientras no se arregle, está escrito en la política de privacidad con el mismo
-detalle que el resto, con el número de ficheros y los megas. Se arregla
-sirviendo esos siete ficheros desde el propio sitio; son 7,8 MB y no dependen
-de nada. Está pendiente.
+**Arreglado el mismo día.** Los siete ficheros se bajan al construir con
+`python -m validador --traer-pyodide` y se sirven desde el propio sitio. Medido
+otra vez después:
+
+```
+antes   localhost  15 peticiones     cdn.jsdelivr.net  7 peticiones  7.795 KB
+ahora   localhost  23 peticiones     terceros          0
+```
+
+Lo que sostiene el arreglo no es haberlo hecho, es que **no se pueda deshacer
+sin enterarse**. `--sitio` se niega a montar si falta un solo fichero del
+intérprete, y lo dice con esas palabras: «la página volvería a pedírselos a un
+CDN ajeno, y la política de privacidad dice que no lo hace». Sin esa negativa,
+el día que alguien clone el repositorio y monte el sitio sin haberlos bajado,
+lo que se publicaría es una página que vuelve al CDN con un documento al lado
+jurando que no lo hace.
+
+Hay un detalle que obligaba a comprobarlo en vez de darlo por hecho: el propio
+`pyodide.js` lleva dentro la dirección del CDN como respaldo, para cuando no se
+le pasa `indexURL`. Se le pasa. Pero eso es exactamente lo que hay que mirar y
+no suponer, así que se cargó la página y se contaron las peticiones.
 

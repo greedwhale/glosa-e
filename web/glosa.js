@@ -37,7 +37,19 @@ function puedeVender() {
 // aqui es una combinacion concreta de Pyodide, lxml y libxml2. Si se mueve
 // sola, el dia que algo se rompa no se sabra que ha cambiado.
 const VERSION_PYODIDE = "314.0.6";
-const RAIZ = "https://cdn.jsdelivr.net/pyodide/v" + VERSION_PYODIDE + "/full/";
+// De donde sale el interprete. **No de un CDN ajeno**, y esto no es manía.
+//
+// La pagina promete que la factura no sale de este ordenador, y es verdad: al
+// validar hace cero peticiones, medido. Lo que no era verdad es la frase de al
+// lado —«no se hace ninguna peticion a nadie»—: al abrir, el navegador pedia
+// siete ficheros y 7,8 MB a cdn.jsdelivr.net, y esa peticion lleva la IP de
+// quien visita a un tercero antes de que haya tocado nada.
+//
+// Se bajan con `python -m validador --traer-pyodide` y se sirven desde aqui.
+// `--sitio` cambia esta linea al montar, y **se niega a montar si no estan**:
+// sin eso, un despiste publicaria una pagina que vuelve al CDN con una
+// politica de privacidad al lado diciendo que no lo hace.
+const PYODIDE_EN = "../vendor/pyodide/";
 
 // Donde estan el wheel y las facturas de ejemplo. Sirviendo el repositorio
 // entero quedan un nivel mas arriba; en el sitio publicado van al lado de la
@@ -128,6 +140,25 @@ async function traerPaquete() {
   }
 }
 
+// `pyodide.js` se carga desde aqui y no con una etiqueta <script> en cada
+// pagina. Escrito en el HTML estaria tres veces —la herramienta, el banco y el
+// legal— y habria tres sitios donde acordarse de cambiar la direccion; con
+// esto solo hay uno, y es el mismo que `--sitio` sustituye al montar.
+function cargarElArranque() {
+  if (window.loadPyodide) return Promise.resolve();
+  return new Promise((bien, mal) => {
+    const etiqueta = document.createElement("script");
+    etiqueta.src = PYODIDE_EN + "pyodide.js";
+    etiqueta.onload = bien;
+    etiqueta.onerror = () =>
+      mal(new Error(
+        "No esta el interprete en " + PYODIDE_EN + ". Traelo con " +
+        "`python -m validador --traer-pyodide`."
+      ));
+    document.head.appendChild(etiqueta);
+  });
+}
+
 // Arranca el validador entero. `avisar(etiqueta, segundos)` se llama al
 // terminar cada fase, para que cada pagina lo cuente como quiera.
 async function arrancar(avisar) {
@@ -136,7 +167,8 @@ async function arrancar(avisar) {
   let t = cero;
   const seg = (ms) => (ms / 1000).toFixed(2);
 
-  pyodide = await loadPyodide({ indexURL: RAIZ });
+  await cargarElArranque();
+  pyodide = await loadPyodide({ indexURL: PYODIDE_EN });
   decir("Intérprete de Python (WebAssembly)", seg(performance.now() - t));
 
   t = performance.now();

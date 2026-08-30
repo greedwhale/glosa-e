@@ -200,6 +200,15 @@ def main(argumentos: list[str] | None = None) -> int:
         "lleva facturas de terceros y anclas sueltas.",
     )
     analizador.add_argument(
+        "--traer-pyodide",
+        metavar="CARPETA",
+        nargs="?",
+        const=paquete.CARPETA_DE_PYODIDE,
+        help="baja el interprete de Python para WebAssembly y lo deja en "
+        "CARPETA, para servirlo desde el propio sitio en vez de pedirselo a un "
+        "CDN ajeno en cada visita. Son unos 8 MB y se baja una vez.",
+    )
+    analizador.add_argument(
         "--solo-errores",
         action="store_true",
         help="calla los avisos y deja solo lo que impide cobrar",
@@ -222,6 +231,8 @@ def main(argumentos: list[str] | None = None) -> int:
         return _ver_anclas(almacen, opciones.hoy or date.today())
     if opciones.ver_revocaciones:
         return _ver_revocaciones(listas, opciones.hoy or date.today())
+    if opciones.traer_pyodide:
+        return _traer_pyodide(Path(opciones.traer_pyodide))
     if opciones.sitio:
         return _montar_sitio(Path(opciones.sitio))
     if opciones.empaquetar:
@@ -348,6 +359,34 @@ def _empaquetar(
     return 0
 
 
+def _traer_pyodide(destino: Path) -> int:
+    """Baja el intérprete que se sirve con la página.
+
+    Se baja aquí, al construir, y no en el navegador de quien visita: que este
+    ordenador hable con el CDN no le importa a nadie; que hable el navegador de
+    un desconocido, sí, porque le lleva su IP a un tercero antes de que haya
+    hecho nada.
+    """
+    try:
+        traidos = paquete.traer_pyodide(destino)
+    except OSError as error:
+        print(
+            f"No se ha podido traer el intérprete: {error}\n\n  Hace falta "
+            "conexión, y solo esta vez: después se sirve desde el sitio.",
+            file=sys.stderr,
+        )
+        return 2
+
+    pesa = sum(f.stat().st_size for f in destino.rglob("*") if f.is_file())
+    if traidos:
+        print(f"Traídos {len(traidos)} fichero(s) a {destino}.")
+    else:
+        print(f"Ya estaban todos en {destino}.")
+    print(f"  Pyodide {paquete.VERSION_DE_PYODIDE}, {pesa / 1024 / 1024:.2f} MB")
+    print(f"  Huellas en {destino / paquete.NOMBRE_DE_HUELLAS}")
+    return 0
+
+
 def _montar_sitio(destino: Path) -> int:
     """Deja listo lo que se sube, y dice si va completo o cojo.
 
@@ -358,7 +397,7 @@ def _montar_sitio(destino: Path) -> int:
     """
     try:
         sitio = paquete.montar_sitio(destino)
-    except (paquete.SinRueda, paquete.SinPagina) as motivo:
+    except (paquete.SinRueda, paquete.SinPagina, paquete.SinPyodide) as motivo:
         print(f"No se ha montado nada.\n\n  {motivo}", file=sys.stderr)
         return 2
     except OSError as error:

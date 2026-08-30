@@ -57,6 +57,8 @@ from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
 
 __all__ = [
     "NOMBRE",
+    "SinPyodide",
+    "traer_pyodide",
     "MANIFIESTO",
     "Contenido",
     "Sitio",
@@ -216,6 +218,135 @@ def armar(
     return contenido
 
 
+# --- Pyodide, alojado aquí -------------------------------------------------
+#
+# **Por qué está esto.** La página promete que la factura no sale del ordenador
+# de quien la mira, y es verdad: se midió, y al validar hace cero peticiones.
+# Lo que no era verdad es la frase de al lado, «no se hace ninguna petición a
+# nadie». Al abrir la página el navegador pedía siete ficheros —unos 7,8 MB: el
+# intérprete, la biblioteca estándar y lxml— a `cdn.jsdelivr.net`, y esa
+# petición lleva la IP y el navegador del visitante a un tercero antes de que
+# haya hecho nada.
+#
+# Lo llamativo es que el mismo criterio ya estaba aplicado al lado: se descartó
+# Google Fonts por escrito, por esto exactamente. La letra se miró; los 7,8 MB
+# que van dos líneas más abajo, no. Llevaban ahí desde que la página era un
+# experimento que no iba a visitar nadie.
+#
+# Así que se bajan una vez y se sirven desde el propio sitio. Se bajan **al
+# construir**, no al visitar: que este ordenador hable con el CDN no le importa
+# a nadie; que hable el navegador de un desconocido, sí.
+VERSION_DE_PYODIDE = "314.0.6"
+DE_DONDE_SE_BAJA = "https://cdn.jsdelivr.net/pyodide/v{}/full/"
+
+# Los del intérprete. Los de los paquetes no se escriben aquí porque sus
+# nombres llevan la versión dentro: salen de `pyodide-lock.json`, que es quien
+# lo sabe.
+_NUCLEO = (
+    "pyodide.js",
+    "pyodide.asm.mjs",
+    "pyodide.asm.wasm",
+    "python_stdlib.zip",
+    "pyodide-lock.json",
+)
+_PAQUETES_DE_PYODIDE = ("lxml", "micropip")
+
+CARPETA_DE_PYODIDE = "vendor/pyodide"
+NOMBRE_DE_HUELLAS = "HUELLAS.txt"
+
+
+class SinPyodide(Exception):
+    """No está el intérprete alojado aquí, así que no se monta el sitio."""
+
+
+def _bajar(url: str, destino: Path) -> bytes:
+    from urllib.request import urlopen
+
+    with urlopen(url) as respuesta:  # noqa: S310 - es una URL fija nuestra
+        crudo = respuesta.read()
+    destino.write_bytes(crudo)
+    return crudo
+
+
+def _lo_que_hace_falta(carpeta: Path) -> list[str]:
+    """Los ficheros del intérprete más los de los paquetes y sus dependencias.
+
+    El candado dice cómo se llama el fichero de cada paquete y de qué depende.
+    Preguntárselo a él, en vez de escribir los nombres a mano, es lo que evita
+    que subir la versión de Pyodide deje la página pidiendo un `.whl` que ya no
+    existe —y que eso no se note hasta que alguien la abra—.
+    """
+    candado = json.loads((carpeta / "pyodide-lock.json").read_text(encoding="utf-8"))
+    paquetes = candado.get("packages", {})
+    porNombre = {n.lower(): d for n, d in paquetes.items()}
+
+    ficheros = list(_NUCLEO)
+    pendientes = list(_PAQUETES_DE_PYODIDE)
+    vistos: set[str] = set()
+    while pendientes:
+        nombre = pendientes.pop().lower()
+        if nombre in vistos:
+            continue
+        vistos.add(nombre)
+        datos = porNombre.get(nombre)
+        if datos is None:
+            continue
+        ficheros.append(datos["file_name"])
+        pendientes.extend(datos.get("depends", []))
+    return ficheros
+
+
+def traer_pyodide(
+    destino: str | Path = CARPETA_DE_PYODIDE,
+    version: str = VERSION_DE_PYODIDE,
+) -> list[str]:
+    """Baja el intérprete y deja sus huellas escritas al lado.
+
+    Las huellas no son ceremonia. Estos ficheros se sirven a quien visite la
+    página, así que lo que se reparte tiene que poder contrastarse con lo que
+    se bajó: si un día el CDN sirviera otra cosa, la única forma de enterarse
+    es tener apuntado lo de antes.
+    """
+    carpeta = Path(destino)
+    carpeta.mkdir(parents=True, exist_ok=True)
+    raiz = DE_DONDE_SE_BAJA.format(version)
+
+    # El candado primero: sin él no se sabe qué más hace falta.
+    _bajar(raiz + "pyodide-lock.json", carpeta / "pyodide-lock.json")
+
+    huellas: dict[str, str] = {}
+    traidos: list[str] = []
+    for nombre in _lo_que_hace_falta(carpeta):
+        ruta = carpeta / nombre
+        if ruta.is_file():
+            crudo = ruta.read_bytes()
+        else:
+            crudo = _bajar(raiz + nombre, ruta)
+            traidos.append(nombre)
+        huellas[nombre] = hashlib.sha256(crudo).hexdigest()
+
+    lineas = [
+        f"# Pyodide {version}, bajado de {raiz}",
+        "# Se sirve desde el propio sitio para que el navegador de quien visita",
+        "# la pagina no tenga que hablar con nadie mas.",
+        "",
+    ]
+    lineas += [f"{h}  {n}" for n, h in sorted(huellas.items())]
+    (carpeta / NOMBRE_DE_HUELLAS).write_text("\n".join(lineas) + "\n", encoding="utf-8")
+    return traidos
+
+
+def _revisar_pyodide(carpeta: Path) -> list[str]:
+    """Qué falta de lo que el candado dice que hace falta."""
+    if not (carpeta / "pyodide-lock.json").is_file():
+        raise SinPyodide(
+            f"No está «{carpeta}», que es donde vive el intérprete que se "
+            "sirve con la página. Tráelo con `python -m validador "
+            "--traer-pyodide`. Se baja una vez y pesa unos 8 MB."
+        )
+    return [n for n in _lo_que_hace_falta(carpeta) if not (carpeta / n).is_file()]
+
+
 # --- El sitio que se publica -----------------------------------------------
 
 # El manifiesto del wheel. La página necesita saber cómo se llama el `.whl`
@@ -261,6 +392,8 @@ _LLAMADA_AL_ESTILO = '<link rel="stylesheet" href="./glosa.css">'
 _RUTAS_DEL_SITIO = (
     ('const DIST = "../dist/";', 'const DIST = "./dist/";'),
     ('const EJEMPLOS_EN = "../ejemplos/";', 'const EJEMPLOS_EN = "./ejemplos/";'),
+    ('const PYODIDE_EN = "../vendor/pyodide/";',
+     'const PYODIDE_EN = "./pyodide/";'),
 )
 
 # Lo que se copia tal cual desde `web/`. El banco va porque es la mitad de la
@@ -300,6 +433,7 @@ def montar_sitio(
     pagina: str | Path = "web",
     ruedas: str | Path = "dist",
     ejemplos: str | Path = "ejemplos",
+    pyodide: str | Path = CARPETA_DE_PYODIDE,
 ) -> Sitio:
     """Deja en `destino` lo que hay que subir, y nada más.
 
@@ -327,6 +461,17 @@ def montar_sitio(
             f"No hay «{cargador}», que es quien sabe dónde buscar el wheel y "
             "las facturas de ejemplo. Sin él las dos páginas arrancan y se "
             "quedan sin validador."
+        )
+
+    faltan_de_pyodide = _revisar_pyodide(Path(pyodide))
+    if faltan_de_pyodide:
+        raise SinPyodide(
+            "Faltan {} ficheros del intérprete en «{}»: {}. Sin ellos la "
+            "página volvería a pedírselos a un CDN ajeno, y la política de "
+            "privacidad dice que no lo hace. Tráelos con `python -m validador "
+            "--traer-pyodide`.".format(
+                len(faltan_de_pyodide), pyodide, ", ".join(faltan_de_pyodide[:3])
+            )
         )
 
     encontradas = sorted(ruedas.glob("*.whl"))
@@ -407,6 +552,10 @@ def montar_sitio(
             "puede servir de su caché una copia vieja. Si la llamada se ha "
             "escrito de otra forma, hay que cambiarla también ahí."
         )
+
+    (destino / "pyodide").mkdir(parents=True)
+    for nombre in _lo_que_hace_falta(Path(pyodide)):
+        shutil.copy2(Path(pyodide) / nombre, destino / "pyodide" / nombre)
 
     shutil.copy2(rueda, destino / "dist" / rueda.name)
     (destino / "dist" / NOMBRE_DE_LA_RUEDA).write_text(

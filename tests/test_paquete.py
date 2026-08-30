@@ -290,8 +290,19 @@ class TestElPaqueteDeVerdad:
 # comparten las dos páginas.
 CARGADOR = """const DIST = "../dist/";
 const EJEMPLOS_EN = "../ejemplos/";
+const PYODIDE_EN = "../vendor/pyodide/";
 async function buscarWheel() { return await fetch(DIST + "rueda.json"); }
 """
+
+# El candado de Pyodide en pequeño. Dice cómo se llama el fichero de cada
+# paquete, que es lo que evita escribir a mano unos nombres que llevan la
+# versión dentro.
+CANDADO = {
+    "packages": {
+        "lxml": {"file_name": "lxml-0.0.0.whl", "depends": ["micropip"]},
+        "micropip": {"file_name": "micropip-0.0.0.whl", "depends": []},
+    }
+}
 
 PAGINA = """<!doctype html><title>glosa</title>
 <link rel="stylesheet" href="./glosa.css">
@@ -317,6 +328,14 @@ def repositorio(tmp_path):
     (tmp_path / "ejemplos").mkdir()
     (tmp_path / "ejemplos" / "f-0001.xml").write_text("<a/>", encoding="utf-8")
     (tmp_path / "ejemplos" / "edi-0001.edi").write_text("UNA", encoding="utf-8")
+    # El intérprete que se sirve con la página, en pequeño.
+    py = tmp_path / "vendor" / "pyodide"
+    py.mkdir(parents=True)
+    (py / "pyodide-lock.json").write_text(json.dumps(CANDADO), encoding="utf-8")
+    for nombre in ("pyodide.js", "pyodide.asm.mjs", "pyodide.asm.wasm",
+                   "python_stdlib.zip", "lxml-0.0.0.whl", "micropip-0.0.0.whl"):
+        (py / nombre).write_bytes(b"x")
+
     # Facturas de terceros, que no salen de aquí.
     (tmp_path / "muestras").mkdir()
     (tmp_path / "muestras" / "de-un-cliente.xml").write_text("<a/>", encoding="utf-8")
@@ -329,6 +348,7 @@ def _montar(repositorio, destino="sitio"):
         pagina=repositorio / "web",
         ruedas=repositorio / "dist",
         ejemplos=repositorio / "ejemplos",
+        pyodide=repositorio / "vendor" / "pyodide",
     )
 
 
@@ -427,6 +447,42 @@ class TestElSitioQueSePublica:
         saca = lambda t, q: t.split(q)[1].split('"')[0]
         assert saca(antes, 'glosa.js?v=') == saca(despues, 'glosa.js?v=')
         assert saca(antes, 'glosa.css?v=') != saca(despues, 'glosa.css?v=')
+
+    def test_el_interprete_viaja_con_el_sitio(self, repositorio):
+        """Para que el navegador de quien visita no hable con un CDN ajeno."""
+        _montar(repositorio)
+        dentro = repositorio / "sitio" / "pyodide"
+        assert (dentro / "pyodide.js").is_file()
+        assert (dentro / "pyodide.asm.wasm").is_file()
+        # Los de los paquetes salen del candado, no de una lista escrita a mano.
+        assert (dentro / "lxml-0.0.0.whl").is_file()
+        assert (dentro / "micropip-0.0.0.whl").is_file()
+
+    def test_la_pagina_deja_de_apuntar_al_cdn(self, repositorio):
+        _montar(repositorio)
+        codigo = (repositorio / "sitio" / "glosa.js").read_text(encoding="utf-8")
+        assert 'const PYODIDE_EN = "./pyodide/";' in codigo
+        assert "jsdelivr" not in codigo
+
+    def test_sin_interprete_no_se_monta(self, repositorio):
+        """La negativa que sostiene la política de privacidad.
+
+        Sin esto, un despiste publicaría una página que vuelve al CDN con un
+        documento al lado diciendo que no lo hace. Que falle al montar es la
+        única forma de que eso no dependa de acordarse.
+        """
+        (repositorio / "vendor" / "pyodide" / "pyodide.asm.wasm").unlink()
+        with pytest.raises(paquete.SinPyodide) as fallo:
+            _montar(repositorio)
+        assert "--traer-pyodide" in str(fallo.value)
+
+    def test_sin_carpeta_de_interprete_se_dice_como_traerlo(self, repositorio):
+        import shutil as _sh
+
+        _sh.rmtree(repositorio / "vendor" / "pyodide")
+        with pytest.raises(paquete.SinPyodide) as fallo:
+            _montar(repositorio)
+        assert "--traer-pyodide" in str(fallo.value)
 
     def test_sin_estilo_no_se_monta(self, repositorio):
         """Sin los colores, las tres páginas salen en blanco y negro del navegador."""

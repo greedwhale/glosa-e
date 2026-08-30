@@ -98,9 +98,9 @@ article li { margin-bottom: .4rem; }
 
         <h3>Lo que sí ocurre</h3>
 
-        <p>Dos cosas, y las dos pasan al <b>abrir</b> la página, no al validar.</p>
+        <p>Una sola cosa, y pasa al <b>abrir</b> la página, no al validar.</p>
 
-        <p><b>1. El servidor que sirve la página deja un registro.</b> Como
+        <p><b>El servidor que sirve la página deja un registro.</b> Como
         cualquier servidor web: tu dirección IP, la fecha, qué fichero pediste
         y qué navegador usas. No lleva nada de tu factura, porque tu factura no
         pasa por ahí. La base legal es el interés legítimo en servir y proteger
@@ -109,21 +109,26 @@ article li { margin-bottom: .4rem; }
         Unidos): eso supone una transferencia internacional, amparada en sus
         cláusulas contractuales tipo.</p>
 
-        <p><b>2. El intérprete de Python viene de un servidor ajeno.</b> Esta
-        es la parte incómoda y por eso va escrita con el mismo detalle que el
-        resto.</p>
+        <p><b>Y nada más.</b> No hay una segunda. Todo lo que la página
+        necesita —el intérprete de Python, la biblioteca estándar, lxml, los
+        esquemas, las anclas de confianza y el propio validador— se sirve desde
+        este mismo sitio. Tu navegador no habla con ningún otro dominio.</p>
 
-        <div class="hueco">
-          <p><b>El hueco que queda.</b> Al abrir la página, tu navegador pide
-          siete ficheros —unos 7,8 MB: el intérprete, la biblioteca estándar y
-          lxml— a <code>cdn.jsdelivr.net</code>. Esa petición lleva tu IP y tu
-          navegador a un tercero antes de que hayas hecho nada.</p>
-          <p>No afecta a tu factura, que sigue sin salir de aquí. Pero es una
-          petición a alguien de fuera, y una página que presume de no hacer
-          ninguna tiene que decirlo en vez de esperar a que se note. <b>Tiene
-          arreglo</b>: esos siete ficheros pueden servirse desde este mismo
-          sitio, y entonces esta sección sobra. Está pendiente de hacerse.</p>
+        <div class="medido">
+          <dl>
+            <dt>Dominios de terceros contactados</dt><dd>0</dd>
+            <dt>Tipos de letra externos</dt><dd>ninguno</dd>
+            <dt>Bibliotecas desde un CDN</dt><dd>ninguna</dd>
+          </dl>
         </div>
+
+        <p>Esto no siempre fue así, y merece decirse. Hasta el 30 de agosto de
+        2026 el intérprete se pedía a <code>cdn.jsdelivr.net</code>: siete
+        ficheros y unos 7,8 MB que salían al abrir la página y llevaban tu IP a
+        un tercero antes de que hubieras hecho nada. Tu factura nunca pasó por
+        ahí, pero la frase «no se hace ninguna petición a nadie» no era exacta.
+        Ahora sí lo es, porque esos ficheros se descargan al construir el sitio
+        y se sirven desde aquí.</p>
 
         <h3>Ni cookies, ni analítica, ni rastreo</h3>
         <p>No hay cookies. No hay analítica —ni propia ni de terceros—, no hay
@@ -213,7 +218,7 @@ article li { margin-bottom: .4rem; }
         <h3>Ley aplicable</h3>
         <p>Esta página se rige por la legislación española.</p>
 
-        <p class="fecha">Última actualización: 28 de agosto de 2026.</p>
+        <p class="fecha">Última actualización: 30 de agosto de 2026.</p>
       </article>
     </section>
 

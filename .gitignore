@@ -59,3 +59,10 @@ listas/
 # --sitio`, asi que versionarlo seria guardar una copia de lo que ya hay,
 # con el riesgo de que se quede vieja y nadie lo note.
 sitio/
+
+
+# El interprete de Python para WebAssembly, que se sirve con la pagina para que
+# el navegador de quien la visita no tenga que pedirselo a un CDN ajeno. Son
+# 14 MB de binarios de terceros y no se versionan: se traen con
+# `python -m validador --traer-pyodide`, que deja sus SHA-256 en HUELLAS.txt.
+vendor/

@@ -37,9 +37,16 @@ Hacen falta dos cosas: el paquete construido como *wheel*, y un servidor local
 —un `file://` no vale, porque el navegador no deja cargar módulos así.
 
 ```
+python -m validador --traer-pyodide
 python -m build --wheel --outdir dist
 python -m http.server 8765
 ```
+
+Lo primero solo hace falta una vez: baja el intérprete de Python para
+WebAssembly —unos 15 MB— a `vendor/pyodide/`, que no se versiona. Se sirve
+desde aquí en vez de pedírselo a un CDN, porque cada visita a un CDN ajeno
+manda la IP de quien mira la página a un tercero, y la página promete que no
+habla con nadie. `--sitio` **se niega a montar** si falta.
 
 Y abrir <http://127.0.0.1:8765/web/> para la herramienta, o
 <http://127.0.0.1:8765/web/banco.html> para el banco.
