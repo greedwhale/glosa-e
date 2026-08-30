@@ -74,6 +74,36 @@ de que cambió*. La respuesta de este repositorio es la huella del contenido:
 admite query (`dist/<huella>/x.whl`, porque `loadPackage` rechaza cualquier cosa
 detrás del `.whl`).
 
+## Los ganchos, y por qué el cableado no viaja con ellos
+
+Hay dos, los dos `PreToolUse`, los dos bloquean con **código 2**:
+
+| Gancho | Dispara con | Hace |
+|---|---|---|
+| `.claude/hooks/antes-de-empujar.py`, versionado | `Bash`, `PowerShell` | ante un `git push`, corre la suite antes y no deja publicar en rojo (36 s medidos el 2026-08-30; `--dry-run` se aparta, que no publica) |
+| `.claude/hooks/guardian-de-rutas.py` de la **carpeta de trabajo**, fuera del repositorio | `Write`, `Edit`, `NotebookEdit` | se niega a escribir en lo que no se toca, y solo dentro de `C:\Users\PC\Claude\`, para no estorbar en otros proyectos de la máquina |
+
+**Se declaran en los ajustes de usuario**, `C:\Users\PC\.claude\settings.json`,
+no en los del proyecto. La razón está medida: con la declaración en
+`C:\Users\PC\Claude\.claude\settings.json` —la carpeta de trabajo—, una
+sesión arrancada en `Factura-e` no los cargaba y los dos dejaban pasar todo.
+Los ajustes de proyecto se leen de la raíz de la sesión, no de sus ancestros;
+los de usuario se leen siempre.
+
+**El script viaja con el repositorio; la declaración no.** En una máquina nueva
+`antes-de-empujar.py` está ahí y la puerta no existe: no falla, no avisa, y el
+push publica igual. Es el disfraz de siempre —sale todo verde y no es lo que
+crees que has probado—, así que **la única comprobación que vale es
+provocarlos**, no leer el `settings.json` ni fiarse de que el fichero exista:
+
+```
+git push remoto-que-no-existe main   # con gancho tarda ~36 s; sin él, uno
+```
+
+y un `Write` a `sitio/loquesea` tiene que salir bloqueado. El panel de `/hooks`
+solo existe en la terminal interactiva, y allí tampoco prueba que corran:
+prueba que están escritos.
+
 ## Detalles operativos
 
 - **La carpeta de trabajo es la padre**, `C:\Users\PC\Claude`. Los enlaces
