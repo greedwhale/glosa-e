@@ -131,7 +131,7 @@ un texto que autoriza, y antes no había ninguno.
 
 **Se eligió mirando las cuatro, y se eligió la que menos se nota.** La marca se
 aprobó mirándola, así que el cambio de letra tenía que costar lo menos posible:
-la palabra en Literata sale de **126,9** unidades de ancho contra las **124,9**
+la palabra en Literata sale de **126,8** unidades de ancho contra las **124,9**
 de Palatino sobre un bloque de 285, y la altura de la equis es **507/1000**
 contra **519**. Las otras tres candidatas —Source Serif 4, EB Garamond y Libre
 Baskerville, las tres OFL— quedaron descartadas por lo mismo al revés: EB
@@ -156,10 +156,20 @@ de haber metido la palabra dentro.
 lengua de la marca; el bloque plateado es la firma, y una firma puesta de
 adorno dentro de la propia herramienta sobra.
 
-**Dónde vive.** Una sola vez, en `web/glosa.css`, como imagen de fondo de
-`.marca`; las tres páginas solo llevan el enlace. Tres copias de un dibujo de
-5 KB se acaban separando, y una marca que dice una cosa en la portada y otra en
-el aviso legal no se nota hasta que ya está publicada.
+**Dónde vive.** El original en `web/marca/glosa-e.svg`, y el mismo dibujo
+incrustado una sola vez en `web/glosa.css` como imagen de fondo de `.marca`;
+las tres páginas solo llevan el enlace. Tres copias de un dibujo de 5 KB se
+acaban separando, y una marca que dice una cosa en la portada y otra en el
+aviso legal no se nota hasta que ya está publicada.
+
+**Y se regenera, no se redibuja.** `web/marca/trazar.py` la vuelve a trazar de
+la fuente y escribe las dos copias en la misma pasada —el SVG y la url del
+CSS—, porque dejar la segunda a mano es pedirle a alguien que se acuerde. Y
+para cuando alguien no se acuerde igualmente, `tests/test_marca.py` se pone
+rojo en cuanto las dos dejan de ser el mismo dibujo, o en cuanto los tres
+favicons dejan de ser el mismo, o en cuanto la plata cambia y estas cifras de
+contraste pasan a ser falsas. Las cuatro comprobaciones se han provocado una a
+una: sin verlas rojas no valdrían nada.
 
 ## El tono, que ya estaba escrito
 

@@ -26,11 +26,16 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-985 tests, todos en verde.
+1018 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
 ```
+
+Ese número lo vigila `tests/test_documentacion.py`: recolecta la suite y se
+pone rojo si esta línea se queda atrás. Antes decía 985 y hacía meses que no
+era cierto —nadie mintió, es lo que hacen los números escritos a mano—, y en
+la primera pantalla de un producto cuya tesis es no afirmar de más eso pesa.
 
 ## Instalación
 
