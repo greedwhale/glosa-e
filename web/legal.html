@@ -10,11 +10,11 @@
 <style>
 /* Lo propio de esta página. La base sale de glosa.css. */
 .portada { padding: 3rem 0 1rem; }
-.portada h1 { font-size: clamp(1.8rem, 4.5vw, 2.5rem); margin-bottom: .8rem; }
+.portada h1 { font-size: var(--t5); margin-bottom: .8rem; }
 .portada p { color: var(--tinta-2); max-width: 42rem; }
 
 article { max-width: 42rem; }
-article h3 { font: 500 1.15rem/1.3 var(--serif); margin: 2rem 0 .6rem; }
+article h3 { font: 500 var(--t3)/1.3 var(--serif); margin: 2rem 0 .6rem; }
 article h3:first-of-type { margin-top: 0; }
 article p, article li { color: var(--tinta-2); }
 article b { color: var(--tinta); font-weight: 600; }
@@ -27,17 +27,17 @@ article li { margin-bottom: .4rem; }
 }
 .medido dl { display: grid; grid-template-columns: 1fr auto; gap: 0; margin: 0; }
 .medido dt, .medido dd { padding: .4rem 0; margin: 0; border-bottom: 1px dashed var(--borde); }
-.medido dd { text-align: right; font-family: var(--mono); font-size: .88rem; color: var(--tinta); }
+.medido dd { text-align: right; font-family: var(--mono); font-size: var(--t1); color: var(--tinta); }
 .medido dl > :nth-last-child(-n+2) { border-bottom: 0; }
 
 .hueco { border-left: 3px solid var(--aviso); background: var(--aviso-flojo); padding: 1.1rem 1.35rem; border-radius: 0 10px 10px 0; margin: 0 0 1.25rem; }
 .hueco b { color: var(--aviso); }
 
 .ficha { display: grid; grid-template-columns: 10rem 1fr; gap: .5rem 1rem; margin: 0 0 1.25rem; }
-.ficha dt { color: var(--tenue); font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; }
+.ficha dt { color: var(--tenue); font-size: var(--t1); text-transform: uppercase; letter-spacing: .06em; }
 .ficha dd { margin: 0; color: var(--tinta); }
 
-.fecha { color: var(--tenue); font-size: .875rem; }
+.fecha { color: var(--tenue); font-size: var(--t1); }
 @media (max-width: 34rem) { .ficha { grid-template-columns: 1fr; gap: .1rem 0; } .ficha dd { margin-bottom: .6rem; } }
 </style>
 </head>

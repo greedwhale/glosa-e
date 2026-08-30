@@ -19,21 +19,34 @@
   --panel: #ffffff;
   --panel-2: #f4f2ec;
   --borde: #e3e0d7;
-  --borde-fuerte: #cfcabd;
+  --borde-fuerte: #948b78;
   --tinta: #16181c;
   --tinta-2: #454b54;
-  --tenue: #767c86;
+  --tenue: #6e747e;
   --acento: #1c4e80;
   --acento-flojo: #eaf0f7;
   --error: #a3231c;
   --error-flojo: #fbeceb;
   --aviso: #85560a;
   --aviso-flojo: #fbf3e3;
-  --nota: #1c4e80;
-  --nota-flojo: #eef3f8;
+  --nota: #3f4d63;
+  --nota-flojo: #eef0f4;
   --bien: #1f6b45;
   --bien-flojo: #e9f4ee;
   --sombra: 0 1px 2px rgba(20,24,28,.05), 0 8px 24px -12px rgba(20,24,28,.14);
+  /* --- Escala tipografica ---------------------------------------------
+     Seis pasos, y ninguno mas. Antes habia catorce tamanos distintos en la
+     portada, cinco de ellos entre 13,6 y 15,2 px: eso no se percibe como
+     jerarquia, se percibe como descuido. Si hace falta un tamano nuevo, la
+     pregunta correcta es cual de estos seis sirve. */
+  --t0: .75rem;                            /* 12px  rotulos, etiquetas    */
+  --t1: .875rem;                           /* 14px  secundario, datos     */
+  --t2: 1rem;                              /* 16px  cuerpo                */
+  --t3: 1.125rem;                          /* 18px  entradilla            */
+  --t4: 1.75rem;                           /* 28px  titulo de seccion     */
+  --t5: clamp(1.8rem, 4.5vw, 2.5rem);      /*       titulo de pagina      */
+  --t6: clamp(2.1rem, 5.5vw, 3.1rem);      /*       portada               */
+
   --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
@@ -44,7 +57,7 @@
     --panel: #1a1d22;
     --panel-2: #22262d;
     --borde: #2c313a;
-    --borde-fuerte: #3d444f;
+    --borde-fuerte: #646d7e;
     --tinta: #e8eaee;
     --tinta-2: #b3bac4;
     --tenue: #868d99;
@@ -54,8 +67,8 @@
     --error-flojo: #2e1b1a;
     --aviso: #ddb15e;
     --aviso-flojo: #2b2318;
-    --nota: #8ab4e0;
-    --nota-flojo: #1b2530;
+    --nota: #9aa7bd;
+    --nota-flojo: #1e232c;
     --bien: #79c79c;
     --bien-flojo: #16261e;
     --sombra: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
@@ -119,39 +132,44 @@ header {
   position: absolute; width: 1px; height: 1px; margin: -1px;
   overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
-.barra nav { margin-left: auto; display: flex; gap: 1.35rem; font-size: .875rem; }
+.barra nav { margin-left: auto; display: flex; gap: 1.35rem; font-size: var(--t1); }
 .barra nav a { color: var(--tinta-2); text-decoration: none; }
 .barra nav a:hover { color: var(--acento); text-decoration: underline; }
 
 /* --- Portada ------------------------------------------------------------- */
 .portada { padding: 4.5rem 0 2.5rem; }
 .portada h1 {
-  font: 400 clamp(2.1rem, 5.5vw, 3.1rem)/1.1 var(--serif);
+  font: 400 var(--t6)/1.1 var(--serif);
   letter-spacing: -.015em; margin-bottom: 1rem;
 }
-.portada .lema { font-size: 1.15rem; color: var(--tinta-2); max-width: 34rem; }
+.portada .lema { font-size: var(--t3); color: var(--tinta-2); max-width: 34rem; }
 .portada .lema b { color: var(--tinta); font-weight: 600; }
-.hechos { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.75rem; }
-.hecho {
-  font-size: .8rem; color: var(--tinta-2); background: var(--panel);
-  border: 1px solid var(--borde); border-radius: 999px; padding: .3rem .75rem;
+/* La ficha de la portada. Antes eran cuatro pildoras redondeadas, que es el
+   gesto de una landing de producto, no el de una herramienta con la que se
+   cumple una norma. Esto es lo que lleva la cabecera de un documento tecnico:
+   campo y valor, separados por un filete. Dice exactamente lo mismo. */
+.ficha { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin: 1.75rem 0 0; }
+.ficha > div { padding-left: .9rem; border-left: 1px solid var(--borde-fuerte); }
+.ficha dt {
+  font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em;
+  color: var(--tenue); font-weight: 600;
 }
-.hecho b { color: var(--tinta); font-weight: 600; }
+.ficha dd { margin: .25rem 0 0; font-size: var(--t1); color: var(--tinta); }
 
 /* --- Bloques ------------------------------------------------------------- */
 section { padding: 2.5rem 0; }
 .rotulo {
-  font-size: .75rem; text-transform: uppercase; letter-spacing: .1em;
+  font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em;
   color: var(--tenue); font-weight: 600; margin-bottom: .9rem;
 }
-h2.titulo { font: 400 1.75rem/1.2 var(--serif); margin-bottom: .8rem; }
+h2.titulo { font: 400 var(--t4)/1.2 var(--serif); margin-bottom: .8rem; }
 .panel {
   background: var(--panel); border: 1px solid var(--borde);
   border-radius: 12px; padding: 1.5rem;
 }
 
 /* --- Pie ----------------------------------------------------------------- */
-footer { border-top: 1px solid var(--borde); margin-top: 3rem; padding: 2rem 0 3rem; font-size: .875rem; color: var(--tenue); }
+footer { border-top: 1px solid var(--borde); margin-top: 3rem; padding: 2rem 0 3rem; font-size: var(--t1); color: var(--tenue); }
 footer .aviso-legal { border: 1px solid var(--borde); border-radius: 10px; padding: 1rem 1.15rem; background: var(--panel); margin-bottom: 1.5rem; color: var(--tinta-2); }
 footer nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
 

@@ -12,7 +12,7 @@
    glosa.css: aqui estaba repetida y ya se habia quedado sin cinco variables
    que index.html si tenia. */
 .portada { padding: 3rem 0 1.5rem; }
-.portada h1 { font-size: clamp(1.8rem, 4.5vw, 2.5rem); margin-bottom: .8rem; }
+.portada h1 { font-size: var(--t5); margin-bottom: .8rem; }
 .portada p { color: var(--tinta-2); max-width: 42rem; }
 .caja { background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; padding: 1.35rem 1.5rem; margin-bottom: 1.25rem; }
 .veredicto { border: 1px solid var(--borde); border-left: 4px solid var(--tenue); border-radius: 10px; padding: 1.1rem 1.35rem; background: var(--panel); margin-bottom: 1.25rem; font-weight: 600; }
@@ -21,7 +21,7 @@
 .veredicto.esperando { border-left-color: var(--aviso); color: var(--tinta-2); }
 #fases div, .trae div { display: flex; justify-content: space-between; gap: 1rem; padding: .4rem 0; border-bottom: 1px dashed var(--borde); }
 #fases div:last-child, .trae div:last-child { border-bottom: 0; }
-#fases .val, .trae .val { color: var(--tinta-2); font-family: var(--mono); font-size: .88rem; text-align: right; }
+#fases .val, .trae .val { color: var(--tinta-2); font-family: var(--mono); font-size: var(--t1); text-align: right; }
 .trae .ojo { color: var(--aviso); } .trae .mal { color: var(--error); }
 table { width: 100%; border-collapse: collapse; }
 td { padding: .55rem .5rem; border-bottom: 1px solid var(--borde); vertical-align: top; }
@@ -32,7 +32,7 @@ tr:last-child td { border-bottom: 0; }
 .det { color: var(--tenue); font-size: .85em; font-family: var(--mono); word-break: break-word; }
 .critica { color: var(--tenue); font-size: .75em; text-transform: uppercase; letter-spacing: .06em; }
 .ms { color: var(--tenue); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: .85em; }
-.nota { color: var(--tenue); font-size: .875rem; margin-top: .9rem; }
+.nota { color: var(--tenue); font-size: var(--t1); margin-top: .9rem; }
 </style>
 </head>
 <body>
