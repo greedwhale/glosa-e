@@ -81,7 +81,10 @@ body {
   margin: 0;
   background: var(--papel);
   color: var(--tinta);
-  font: 16px/1.6 var(--sans);
+  /* El token, y no 16px, para que un 16px literal no pise el tamano de letra
+     que haya elegido quien mira: --t2 es 1rem y 1rem sigue a la raiz, que es
+     donde vive esa preferencia. Con 16px, subirla no hacia nada. */
+  font: var(--t2)/1.6 var(--sans);
   -webkit-font-smoothing: antialiased;
 }
 a { color: var(--acento); text-decoration-thickness: 1px; text-underline-offset: .18em; }
