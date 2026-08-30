@@ -36,6 +36,14 @@ function puedeVender() {
 // Esta version se fija a proposito y no se sigue a «latest»: lo que se prueba
 // aqui es una combinacion concreta de Pyodide, lxml y libxml2. Si se mueve
 // sola, el dia que algo se rompa no se sabra que ha cambiado.
+//
+// En el sitio publicado esta version **va dentro de la direccion**:
+// `./pyodide/314.0.6/`. No es un adorno. Esos ficheros se sirven con permiso
+// para guardarlos un ano entero, y eso solo se puede prometer si al subir la
+// version la direccion cambia; si no, un navegador seguiria un ano con el
+// interprete viejo y no habria forma de avisarle. `--sitio` monta la carpeta
+// con este numero y **se niega a montar** si este de aqui y el de
+// `validador/paquete.py` no dicen lo mismo.
 const VERSION_PYODIDE = "314.0.6";
 // De donde sale el interprete. **No de un CDN ajeno**, y esto no es manía.
 //
@@ -71,33 +79,68 @@ const DENTRO = "/opt/factura-e";
 
 let pyodide = null;
 let PAQUETE = null;
+let MANIFIESTO = null;
+
+// El manifiesto que `--sitio` deja en dist/: dice cual es el wheel y la huella
+// de cada fichero que la pagina se baja. Es lo unico que se pide **siempre**
+// fresco, porque es la raiz de la cadena: si este se sirviera de la cache, las
+// huellas serian las de ayer y todo lo demas tambien.
+//
+// En desarrollo no existe, y no pasa nada: se cae al listado de directorio,
+// que es lo que sirve `python -m http.server`.
+async function leerElManifiesto() {
+  if (MANIFIESTO !== null) return MANIFIESTO;
+  try {
+    const respuesta = await fetch(DIST + "rueda.json?v=" + Date.now());
+    MANIFIESTO = respuesta.ok ? await respuesta.json() : {};
+  } catch (_) {
+    MANIFIESTO = {};
+  }
+  return MANIFIESTO;
+}
+
+// La direccion de un fichero con su huella detras.
+//
+// Antes aqui habia `?v=" + Date.now()`, y estaba puesto por un motivo real: sin
+// nada, el navegador servia de su cache el wheel de ayer y la pagina corria una
+// version vieja del validador sin decirlo. Paso de verdad, y mas de una vez.
+//
+// Lo que no se vio entonces es lo que costaba. `Date.now()` cambia en cada
+// visita, asi que ninguno de esos ficheros se podia guardar **jamas**: el
+// paquete de esquemas y anclas, el wheel y los diez ejemplos —1,2 MB— se
+// bajaban enteros cada vez que alguien abria la pagina, para siempre, tambien
+// la decima vez y aunque no hubiera cambiado una coma.
+//
+// La huella del contenido hace las dos cosas a la vez: cambia cuando el
+// fichero cambia —asi que el de ayer sigue sin poder servirse— y no cambia
+// cuando no cambia, asi que el navegador puede guardarlo un ano.
+function conHuella(direccion, clave) {
+  const huella = MANIFIESTO && MANIFIESTO.huellas && MANIFIESTO.huellas[clave];
+  return direccion + "?v=" + (huella || Date.now());
+}
 
 // El nombre del wheel lleva la version dentro, asi que no se escribe a mano:
 // si no, cada vez que suba la version en pyproject.toml la pagina dejaria de
 // arrancar sin decir por que.
 async function buscarWheel() {
   // Un sitio publicado no tiene listado de directorio: Vercel devuelve 404 y
-  // aqui no habria wheel que instalar. Por eso `--sitio` deja un rueda.json al
+  // aqui no habria wheel que instalar. Por eso `--sitio` deja el manifiesto al
   // lado diciendo cual es. En desarrollo no existe y se cae al listado, que es
   // lo que sirve la carpeta.
-  try {
-    const manifiesto = await fetch(DIST + "rueda.json?v=" + Date.now());
-    if (manifiesto.ok) {
-      const { rueda } = await manifiesto.json();
-      if (rueda) return DIST + rueda + "?v=" + Date.now();
-    }
-  } catch (_) {
-    // Un rueda.json ilegible no es motivo para no probar el listado.
-  }
+  const { rueda } = await leerElManifiesto();
+  if (rueda) return conHuella(DIST + rueda, "dist/" + rueda);
+
   const listado = await fetch(DIST);
   if (listado.ok) {
     const nombres = [...(await listado.text()).matchAll(/href="([^"]+\.whl)"/g)]
       .map((m) => decodeURIComponent(m[1].split("/").pop()));
-    // El `?v=` es por precaucion: el nombre del wheel no cambia entre
-    // compilaciones de la misma version, asi que sin esto el navegador puede
-    // servir el de la cache y la pagina correria una version vieja del
-    // validador sin decirlo.
-    if (nombres.length) return DIST + nombres.sort().pop() + "?v=" + Date.now();
+    // Sin manifiesto no hay huella, asi que aqui `conHuella` cae al reloj. En
+    // desarrollo es justo lo que se quiere: el wheel se reconstruye a cada
+    // rato y lo ultimo que hace falta es una cache defendiendolo.
+    if (nombres.length) {
+      const cual = nombres.sort().pop();
+      return conHuella(DIST + cual, "dist/" + cual);
+    }
   }
   throw new Error(
     "No hay ningun .whl en " + DIST + ", ni suelto ni anunciado en rueda.json."
@@ -108,14 +151,14 @@ async function traerPaquete() {
   // El JSON primero y aparte: es un pellizco y permite decir de donde salen
   // las anclas aunque el zip falle, que es justo cuando hace falta decirlo.
   try {
-    const resumen = await fetch("./PAQUETE.json?v=" + Date.now());
+    const resumen = await fetch(conHuella("./PAQUETE.json", "PAQUETE.json"));
     if (resumen.ok) PAQUETE = await resumen.json();
   } catch (_) {
     PAQUETE = null;
   }
   if (!PAQUETE) return;
   try {
-    const zip = await fetch("./paquete.zip?v=" + Date.now());
+    const zip = await fetch(conHuella("./paquete.zip", "paquete.zip"));
     if (!zip.ok) throw new Error("no esta el zip");
     pyodide.FS.mkdirTree(DENTRO);
     await pyodide.unpackArchive(await zip.arrayBuffer(), "zip",
@@ -167,6 +210,10 @@ async function arrancar(avisar) {
   let t = cero;
   const seg = (ms) => (ms / 1000).toFixed(2);
 
+  // Lo primero de todo, y antes de los quince megas del interprete: es un
+  // pellizco y de el salen las huellas con las que se piden los demas.
+  await leerElManifiesto();
+
   await cargarElArranque();
   pyodide = await loadPyodide({ indexURL: PYODIDE_EN });
   decir("Intérprete de Python (WebAssembly)", seg(performance.now() - t));
@@ -188,7 +235,8 @@ async function arrancar(avisar) {
   t = performance.now();
   pyodide.FS.mkdirTree("/ejemplos");
   await Promise.all(EJEMPLOS.map(async (nombre) => {
-    const respuesta = await fetch(EJEMPLOS_EN + nombre + "?v=" + Date.now());
+    const respuesta = await fetch(
+      conHuella(EJEMPLOS_EN + nombre, "ejemplos/" + nombre));
     pyodide.FS.writeFile("/ejemplos/" + nombre,
                          new Uint8Array(await respuesta.arrayBuffer()));
   }));
@@ -268,13 +316,15 @@ async function validar(ficheros) {
   return JSON.parse(await pyodide.runPythonAsync(INFORME));
 }
 
-// El banco de pruebas corre su propio fichero de comprobaciones. El `?v=` es
-// por lo mismo que el del wheel: sin el, el navegador sirve de su cache una
+// El banco de pruebas corre su propio fichero de comprobaciones. La huella es
+// por lo mismo que la del wheel: sin ella, el navegador sirve de su cache una
 // version vieja y el banco correria sus comprobaciones de ayer contra el
 // codigo de hoy, saliendo todo verde. Paso: se anadieron tres, se recargo, y
 // la pagina siguio diciendo «las 33 comprobaciones pasan» tan contenta.
 async function correrBanco() {
-  const codigo = await (await fetch("./prueba.py?v=" + Date.now())).text();
+  await leerElManifiesto();
+  const codigo = await (
+    await fetch(conHuella("./prueba.py", "prueba.py"))).text();
   return JSON.parse(await pyodide.runPythonAsync(codigo));
 }
 

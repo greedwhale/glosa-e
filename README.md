@@ -2098,7 +2098,7 @@ se comportan los sellos españoles de verdad está por ver.
 - ~~Alojar Pyodide aquí.~~ **Hecho**: `--traer-pyodide` lo baja y `--sitio` lo
   mete dentro, y se niega a montar si falta. Medido después: **cero** dominios
   de terceros.
-- **Los 15 MB del primer arranque.** Hay compilaciones de Pyodide más
+- **Los 9,4 MB del primer arranque** (15 en disco, 9,4 por el cable). Hay compilaciones de Pyodide más
   ligeras. La primera visita no va a ser instantánea nunca, y la página tiene
   que decirlo en vez de parecer rota.
 - ~~Repartir los esquemas y las anclas con la página.~~ **Hecho**:

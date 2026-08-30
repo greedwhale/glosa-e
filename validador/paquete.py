@@ -392,8 +392,13 @@ _LLAMADA_AL_ESTILO = '<link rel="stylesheet" href="./glosa.css">'
 _RUTAS_DEL_SITIO = (
     ('const DIST = "../dist/";', 'const DIST = "./dist/";'),
     ('const EJEMPLOS_EN = "../ejemplos/";', 'const EJEMPLOS_EN = "./ejemplos/";'),
+    # La version va **dentro de la direccion**, y no por gusto: el sitio se
+    # sirve diciendo que estos ficheros se pueden guardar un ano entero, y eso
+    # solo se puede prometer si al subir la version cambia la direccion. Con
+    # `./pyodide/` a secas, el dia que se subiera de version habria navegadores
+    # corriendo el interprete viejo durante un ano sin forma de avisarles.
     ('const PYODIDE_EN = "../vendor/pyodide/";',
-     'const PYODIDE_EN = "./pyodide/";'),
+     f'const PYODIDE_EN = "./pyodide/{VERSION_DE_PYODIDE}/";'),
 )
 
 # Lo que se copia tal cual desde `web/`. El banco va porque es la mitad de la
@@ -490,6 +495,21 @@ def montar_sitio(
     (destino / "ejemplos").mkdir(parents=True)
 
     codigo = cargador.read_text(encoding="utf-8")
+
+    # La version esta escrita en dos sitios —aqui y en el cargador— y ahora una
+    # de las dos acaba dentro de una direccion que se sirve con permiso para
+    # guardarla un ano. Si se separan, el sitio se monta bajo un numero y la
+    # pagina dice otro, y esa mentira dura un ano en la cache de quien pase.
+    declarada = f'const VERSION_PYODIDE = "{VERSION_DE_PYODIDE}";'
+    if declarada not in codigo:
+        raise SinPagina(
+            f"«{cargador}» no declara `VERSION_PYODIDE = "
+            f'"{VERSION_DE_PYODIDE}"`, que es la versión que se monta. El '
+            "número va dentro de la dirección del intérprete y esos ficheros "
+            "se sirven para guardarse un año: si los dos sitios no dicen lo "
+            "mismo, se publicaría una versión bajo el nombre de otra."
+        )
+
     for busca, pon in _RUTAS_DEL_SITIO:
         if busca not in codigo:
             raise SinPagina(
@@ -553,14 +573,12 @@ def montar_sitio(
             "escrito de otra forma, hay que cambiarla también ahí."
         )
 
-    (destino / "pyodide").mkdir(parents=True)
+    bajo_version = destino / "pyodide" / VERSION_DE_PYODIDE
+    bajo_version.mkdir(parents=True)
     for nombre in _lo_que_hace_falta(Path(pyodide)):
-        shutil.copy2(Path(pyodide) / nombre, destino / "pyodide" / nombre)
+        shutil.copy2(Path(pyodide) / nombre, bajo_version / nombre)
 
     shutil.copy2(rueda, destino / "dist" / rueda.name)
-    (destino / "dist" / NOMBRE_DE_LA_RUEDA).write_text(
-        json.dumps({"rueda": rueda.name}, indent=2) + "\n", encoding="utf-8"
-    )
 
     cuantos = 0
     for fichero in sorted(ejemplos.glob("*")):
@@ -572,6 +590,31 @@ def montar_sitio(
     if con_paquete:
         shutil.copy2(pagina / NOMBRE, destino / NOMBRE)
         shutil.copy2(pagina / MANIFIESTO, destino / MANIFIESTO)
+
+    # El manifiesto, y va el ultimo a proposito: firma lo que ya esta montado.
+    #
+    # Lo que la pagina se baja llevaba hasta ahora `?v=` con la hora, para que
+    # el navegador no sirviera de su cache un wheel de ayer. Cumplia, y costaba
+    # carisimo: con la hora dentro, la direccion cambia en cada visita y esos
+    # ficheros —el paquete, el wheel, los ejemplos: 1,2 MB— **no se podian
+    # guardar nunca**. Se bajaban enteros cada vez que alguien abria la pagina.
+    #
+    # Con la huella del contenido se consiguen las dos cosas: cambia cuando el
+    # fichero cambia, y no cambia cuando no. La pagina la lee de aqui.
+    huellas = {}
+    for camino in sorted(destino.rglob("*")):
+        if not camino.is_file():
+            continue
+        relativo = camino.relative_to(destino).as_posix()
+        if relativo == f"dist/{NOMBRE_DE_LA_RUEDA}":
+            continue
+        huellas[relativo] = hashlib.sha256(camino.read_bytes()).hexdigest()[:8]
+
+    (destino / "dist" / NOMBRE_DE_LA_RUEDA).write_text(
+        json.dumps({"rueda": rueda.name, "huellas": huellas},
+                   indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     return Sitio(
         carpeta=destino,

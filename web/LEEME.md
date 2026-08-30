@@ -199,10 +199,32 @@ WebAssembly, sin que el fichero salga del ordenador.
 
 ## Lo que queda por resolver antes de que esto sea un producto
 
-- **Los 14,7 MB del primer arranque.** Se pueden bajar: hay una compilación de
-  Pyodide sin la biblioteca estándar completa, y el `.whl` de lxml es fijo y
-  cacheable. Pero la primera visita nunca va a ser instantánea, y la página
-  tiene que decirlo en vez de parecer rota.
+- **Los 9,4 MB del primer arranque.** Eso es lo que viaja por el cable con
+  Brotli puesto —el `.wasm` pesa 9,6 MB en disco y 3,6 por el cable—, y no hay
+  mucho que rascar sin quitar cosas: 3,6 el intérprete, 2,5 la biblioteca
+  estándar, 1,6 lxml, 1,0 los esquemas y las anclas. La primera visita nunca va
+  a ser instantánea, y la página lo dice en vez de parecer rota.
+
+  Lo que sí se arregló es **la segunda visita**, que estaba rota de una forma
+  que no se veía. Cada fichero se pedía con `?v=` y la hora dentro, para que el
+  navegador no sirviera de su caché un wheel de ayer —pasó de verdad, y más de
+  una vez—. Cumplía. Y el precio era que la dirección cambiaba en cada visita,
+  así que 1,2 MB (el paquete, el wheel y los diez ejemplos) **no se podían
+  guardar nunca**: se bajaban enteros la décima vez igual que la primera. A eso
+  se sumaba que Vercel servía todo con `max-age=0, must-revalidate`, o sea 23
+  peticiones de ida y vuelta antes de empezar.
+
+  Ahora `--sitio` firma cada fichero por su contenido y lo anuncia en
+  `dist/rueda.json`; la página pide `?v=<huella>`, que cambia cuando el fichero
+  cambia y no cuando no. Con eso se puede servir el sitio diciendo `immutable,
+  max-age=1 año` sin mentir. El manifiesto es lo único que se pide siempre
+  fresco: es la raíz de la cadena.
+
+  El intérprete va bajo `/pyodide/314.0.6/` por lo mismo. Sin la versión en la
+  dirección, prometer un año de caché sería una trampa: el día que se subiera
+  de versión habría gente corriendo la vieja durante un año y ninguna forma de
+  avisarles. `--sitio` **se niega a montar** si `glosa.js` y `paquete.py` no
+  declaran la misma versión.
 - **Los esquemas XSD oficiales.** No están en el repositorio y aquí tampoco:
   la prueba los da por ausentes y comprueba que eso no revienta nada. Con ellos
   habría que bajar unos megas más.

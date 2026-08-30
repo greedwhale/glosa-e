@@ -288,11 +288,12 @@ class TestElPaqueteDeVerdad:
 # El cargador tal como está en el repositorio, reducido a las dos líneas que
 # importan aquí. Son las que dicen dónde busca el wheel y los ejemplos, y las
 # comparten las dos páginas.
-CARGADOR = """const DIST = "../dist/";
+CARGADOR = """const VERSION_PYODIDE = "{}";
+const DIST = "../dist/";
 const EJEMPLOS_EN = "../ejemplos/";
 const PYODIDE_EN = "../vendor/pyodide/";
-async function buscarWheel() { return await fetch(DIST + "rueda.json"); }
-"""
+async function buscarWheel() {{ return await fetch(DIST + "rueda.json"); }}
+""".format(paquete.VERSION_DE_PYODIDE)
 
 # El candado de Pyodide en pequeño. Dice cómo se llama el fichero de cada
 # paquete, que es lo que evita escribir a mano unos nombres que llevan la
@@ -378,9 +379,8 @@ class TestElSitioQueSePublica:
         """
         _montar(repositorio)
         anuncio = repositorio / "sitio" / "dist" / paquete.NOMBRE_DE_LA_RUEDA
-        assert json.loads(anuncio.read_text(encoding="utf-8")) == {
-            "rueda": "factura_e-0.1.0-py3-none-any.whl"
-        }
+        dicho = json.loads(anuncio.read_text(encoding="utf-8"))
+        assert dicho["rueda"] == "factura_e-0.1.0-py3-none-any.whl"
 
     def test_las_rutas_dejan_de_apuntar_un_nivel_arriba(self, repositorio):
         """En el sitio publicado, encima de la raíz no hay nada."""
@@ -451,18 +451,97 @@ class TestElSitioQueSePublica:
     def test_el_interprete_viaja_con_el_sitio(self, repositorio):
         """Para que el navegador de quien visita no hable con un CDN ajeno."""
         _montar(repositorio)
-        dentro = repositorio / "sitio" / "pyodide"
+        dentro = (repositorio / "sitio" / "pyodide"
+                  / paquete.VERSION_DE_PYODIDE)
         assert (dentro / "pyodide.js").is_file()
         assert (dentro / "pyodide.asm.wasm").is_file()
         # Los de los paquetes salen del candado, no de una lista escrita a mano.
         assert (dentro / "lxml-0.0.0.whl").is_file()
         assert (dentro / "micropip-0.0.0.whl").is_file()
 
+    def test_el_interprete_va_bajo_su_version(self, repositorio):
+        """Lo que hace honesto el «guárdalo un año».
+
+        Estos siete ficheros se sirven con permiso para quedarse un año en la
+        caché de quien pase. Eso solo se puede prometer si al subir de versión
+        cambia la dirección: con `/pyodide/` a secas, el día que se cambiara de
+        intérprete habría gente corriendo el viejo durante un año y ninguna
+        forma de avisarles.
+        """
+        _montar(repositorio)
+        raiz = repositorio / "sitio" / "pyodide"
+        assert [c.name for c in raiz.iterdir()] == [paquete.VERSION_DE_PYODIDE]
+        codigo = (repositorio / "sitio" / "glosa.js").read_text(encoding="utf-8")
+        assert f'const PYODIDE_EN = "./pyodide/{paquete.VERSION_DE_PYODIDE}/";' \
+            in codigo
+
+    def test_si_las_dos_versiones_no_dicen_lo_mismo_se_para_aqui(
+        self, repositorio
+    ):
+        """Publicar una versión bajo el nombre de otra dura un año."""
+        cargador = repositorio / "web" / "glosa.js"
+        cargador.write_text(
+            CARGADOR.replace(paquete.VERSION_DE_PYODIDE, "0.0.0"),
+            encoding="utf-8",
+        )
+        with pytest.raises(paquete.SinPagina) as fallo:
+            _montar(repositorio)
+        assert "VERSION_PYODIDE" in str(fallo.value)
+
     def test_la_pagina_deja_de_apuntar_al_cdn(self, repositorio):
         _montar(repositorio)
         codigo = (repositorio / "sitio" / "glosa.js").read_text(encoding="utf-8")
-        assert 'const PYODIDE_EN = "./pyodide/";' in codigo
+        assert 'const PYODIDE_EN = "./pyodide/' in codigo
         assert "jsdelivr" not in codigo
+
+    def test_el_manifiesto_firma_todo_lo_que_la_pagina_se_baja(
+        self, repositorio
+    ):
+        """Lo que permite que la caché del navegador sirva de algo.
+
+        Antes cada uno de estos ficheros se pedía con `?v=` y la hora dentro,
+        para que el navegador no sirviera el wheel de ayer. Cumplía, y el
+        precio era que la dirección cambiaba en cada visita: el paquete, el
+        wheel y los ejemplos —1,2 MB— **no se podían guardar nunca** y se
+        bajaban enteros cada vez que alguien abría la página.
+        """
+        (repositorio / "web" / paquete.NOMBRE).write_bytes(b"PK\x03\x04")
+        (repositorio / "web" / paquete.MANIFIESTO).write_text(
+            "{}", encoding="utf-8")
+        _montar(repositorio)
+        anuncio = repositorio / "sitio" / "dist" / paquete.NOMBRE_DE_LA_RUEDA
+        huellas = json.loads(anuncio.read_text(encoding="utf-8"))["huellas"]
+        for pedido in ("paquete.zip", "PAQUETE.json", "prueba.py",
+                       "glosa.js", "glosa.css",
+                       "ejemplos/f-0001.xml",
+                       "dist/factura_e-0.1.0-py3-none-any.whl"):
+            assert pedido in huellas, pedido
+            assert len(huellas[pedido]) == 8
+
+        # El propio manifiesto no se firma: es lo único que se pide siempre
+        # fresco, porque de él salen las demás huellas.
+        assert f"dist/{paquete.NOMBRE_DE_LA_RUEDA}" not in huellas
+
+    def test_la_huella_del_paquete_cambia_solo_si_cambia_el_paquete(
+        self, repositorio
+    ):
+        """Si cambiara en cada montado no habría caché que valiera."""
+        (repositorio / "web" / paquete.NOMBRE).write_bytes(b"PK\x03\x04")
+        (repositorio / "web" / paquete.MANIFIESTO).write_text(
+            "{}", encoding="utf-8")
+        _montar(repositorio)
+        anuncio = repositorio / "sitio" / "dist" / paquete.NOMBRE_DE_LA_RUEDA
+
+        def huella(cual):
+            return json.loads(anuncio.read_text(encoding="utf-8"))["huellas"][cual]
+
+        antes = huella("paquete.zip")
+        _montar(repositorio)
+        assert huella("paquete.zip") == antes
+
+        (repositorio / "web" / paquete.NOMBRE).write_bytes(b"otro zip cualquiera")
+        _montar(repositorio)
+        assert huella("paquete.zip") != antes
 
     def test_sin_interprete_no_se_monta(self, repositorio):
         """La negativa que sostiene la política de privacidad.
