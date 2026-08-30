@@ -109,9 +109,17 @@ def main() -> int:
         return 0
 
     orden = (entrada.get("tool_input") or {}).get("command", "")
-    # `git push` de verdad, no `git push --help` ni un `echo "git push"`.
+    # Un `git push` en cualquier punto de la orden, no solo al principio:
+    # aqui llegan cosas como `cd /ruta/al/repo && git push`. El precio de
+    # buscar la subcadena es que tambien disparan `git push --help` y hasta un
+    # `echo "git push"`, que no publican nada y se comen igual la suite (36 s
+    # medidos el 2026-08-30). Se deja asi a proposito: es el mismo sesgo que en
+    # `hay_que_mirar()` —equivocarse hacia parar cuesta esos segundos, y
+    # equivocarse hacia dejar pasar publica algo roto sin enterarse—. Lo unico
+    # que la `\b` final descarta es lo que solo se le parece: `git pushear`.
     if not re.search(r"\bgit\s+(?:-\S+\s+)*push\b", orden):
         return 0
+    # Un ensayo no publica, asi que no hay puerta que guardar.
     if "--dry-run" in orden:
         return 0
     if not hay_que_mirar(donde_corre(entrada)):
