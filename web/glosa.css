@@ -127,9 +127,17 @@ p:last-child { margin-bottom: 0; }
 /* --- Cabecera ------------------------------------------------------------ */
 header {
   border-bottom: 1px solid var(--borde);
+  position: sticky; top: 0; z-index: 10;
+}
+/* El papel translúcido va en un pseudoelemento y no en la propia cabecera, y
+   no es manía: `backdrop-filter` convierte al elemento en el marco de
+   referencia de todo lo que lleve dentro en `position: fixed`. Con el filtro
+   puesto en <header>, la tapa que cierra el menú al pulsar fuera se medía
+   contra la barra y solo cubría la barra. Se ve más abajo, en `.menu .tapa`. */
+header::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
   background: color-mix(in srgb, var(--papel) 88%, transparent);
   backdrop-filter: blur(8px);
-  position: sticky; top: 0; z-index: 10;
 }
 /* El padding lateral se repite aqui a proposito. `.barra` va despues de
    `.envoltorio` y con la misma especificidad, asi que su `padding` gana entero
@@ -164,9 +172,60 @@ header {
   position: absolute; width: 1px; height: 1px; margin: -1px;
   overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
-.barra nav { margin-left: auto; display: flex; gap: 1.35rem; font-size: var(--t1); }
-.barra nav a { color: var(--tinta-2); text-decoration: none; }
-.barra nav a:hover { color: var(--acento); text-decoration: underline; }
+
+/* --- La pestaña ----------------------------------------------------------
+   La barra llevaba cuatro enlaces y el pie seis, y cada página nueva alargaba
+   las dos listas: una navegación que crece con el proyecto acaba siendo el
+   índice de lo que hay, no el camino a lo que se busca. Ahora la barra tiene
+   dos cosas —la marca y esta pestaña— y lo demás se despliega.
+
+   Es un <details>, no un menú de JavaScript. Se abre con el teclado por su
+   cuenta, no espera a que cargue nada y no puede quedarse trabado: si algo
+   fallara, lo peor que sale es una lista abierta. Las páginas de consulta no
+   cargan ni una línea de código a propósito, y esto no las obliga a empezar.
+
+   Los enlaces llevan una línea debajo diciendo qué hay al otro lado. «Banco
+   de pruebas» no significa nada para quien llega de un buscador, y un menú
+   que hay que probar entrando no es un menú. */
+.menu { margin-left: auto; position: relative; font-size: var(--t1); }
+.menu > summary {
+  display: inline-flex; align-items: center; gap: .45rem; cursor: pointer;
+  padding: .35rem .7rem; border: 1px solid var(--borde); border-radius: 8px;
+  background: var(--panel); color: var(--tinta-2); list-style: none;
+  -webkit-user-select: none; user-select: none;
+}
+.menu > summary::-webkit-details-marker { display: none; }
+.menu > summary:hover { color: var(--acento); border-color: var(--borde-fuerte); }
+.menu[open] > summary { color: var(--tinta); border-color: var(--borde-fuerte); }
+.galon { width: .55rem; height: auto; fill: none; stroke: currentColor; stroke-width: 1.6; transition: transform .15s ease; }
+.menu[open] .galon { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .galon { transition: none; } }
+
+/* La tapa. Mientras el menú está abierto cubre la ventana entera y, como vive
+   dentro del <summary>, pulsarla cuenta como pulsar el botón: cierra. Es
+   «cerrar al pulsar fuera» sin una línea de código. El <nav> va por encima
+   con su `z-index`, que si no la tapa se comería sus propios enlaces. */
+.menu .tapa { display: none; }
+.menu[open] .tapa { display: block; position: fixed; inset: 0; }
+
+.menu > nav {
+  position: absolute; right: 0; top: calc(100% + .55rem); z-index: 1;
+  width: min(24rem, calc(100vw - 3rem));
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--borde);
+  border-radius: 12px; box-shadow: var(--sombra); overflow: hidden;
+}
+.menu > nav a {
+  padding: .7rem .9rem; text-decoration: none; color: var(--tinta);
+  border-top: 1px solid var(--borde);
+}
+.menu > nav a:first-child { border-top: 0; }
+.menu > nav a:hover, .menu > nav a:focus-visible { background: var(--panel-2); }
+.menu > nav b { display: block; font-weight: 600; }
+.menu > nav span {
+  display: block; color: var(--tenue); font-size: var(--t0);
+  line-height: 1.45; margin-top: .1rem;
+}
 
 /* --- Portada ------------------------------------------------------------- */
 .portada { padding: 4.5rem 0 2.5rem; }

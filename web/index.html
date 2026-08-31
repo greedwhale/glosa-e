@@ -169,6 +169,48 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
   .glosa .margen { text-align: left; }
   .glosa .cuerpo { border-left: 2px solid var(--borde); padding-left: 1rem; margin-left: 0; }
 }
+
+/* --- Las preguntas -------------------------------------------------------
+   Vienen de `preguntas.html`, que era una página aparte y ahora vive al
+   final de esta. Se mudaron enteras porque una página de preguntas a la
+   que hay que ir es una página que no se lee: quien acaba de ver su
+   primer informe tiene las dudas **ahí**, no dentro de un menú. */
+/* Pregunta y respuesta con el mismo gesto que la glosa del informe: lo que se
+   pregunta a la izquierda contra un filete, la respuesta al lado. No es
+   decoración: es la misma forma para la misma relación —una afirmación corta y
+   lo que hay detrás—, y quien viene del informe la reconoce. */
+.qa { display: grid; gap: 0; max-width: 52rem; }
+.qa > div {
+  display: grid; grid-template-columns: 15rem 1fr; gap: 0 1.5rem;
+  padding: 1.4rem 0; border-top: 1px dashed var(--borde);
+  scroll-margin-top: 5rem;
+}
+.qa > div:first-child { border-top: 0; }
+.qa h3 {
+  font: 400 var(--t3)/1.3 var(--serif); text-align: right;
+  color: var(--tinta); margin: 0;
+}
+.qa .r { border-left: 2px solid var(--borde); padding-left: 1.5rem; margin-left: -1.6rem; }
+.qa .r p { color: var(--tinta-2); }
+.qa .r b { color: var(--tinta); font-weight: 600; }
+.qa .r code { font-family: var(--mono); font-size: var(--t1); }
+
+/* La respuesta corta, arriba y en una palabra. Quien busca «¿esto certifica?»
+   quiere el sí o el no antes del párrafo. */
+.corta {
+  display: inline-block; font-size: var(--t0); text-transform: uppercase;
+  letter-spacing: .08em; font-weight: 700; padding: .15rem .5rem;
+  border-radius: 999px; border: 1px solid currentColor; margin-bottom: .5rem;
+}
+.corta.no { color: var(--error); }
+.corta.si { color: var(--bien); }
+.corta.depende { color: var(--aviso); }
+
+@media (max-width: 46rem) {
+  .qa > div { grid-template-columns: 1fr; gap: .6rem; }
+  .qa h3 { text-align: left; }
+  .qa .r { margin-left: 0; }
+}
 </style>
 </head>
 <body>
@@ -176,12 +218,25 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 <header>
   <div class="envoltorio barra">
     <a class="marca" href="./"><span class="nombre">Glosa-e</span></a>
-    <nav>
-      <a href="#que-mira">Qué mira</a>
-      <a href="./preguntas.html">Preguntas</a>
-      <a href="./incidencias.html">Qué significa cada aviso</a>
-      <a href="./banco.html">Banco de pruebas</a>
-    </nav>
+    <!-- MENU: este bloque es el mismo, letra por letra, en las cinco
+         páginas. Que lo siga siendo lo comprueba tests/test_documentacion.py:
+         cinco copias de un menú se separan solas, y entonces cada página dice
+         que el sitio tiene una cosa distinta. -->
+    <details class="menu">
+      <summary>
+        <span>Menú</span>
+        <svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+        <span class="tapa"></span>
+      </summary>
+      <nav>
+        <a href="./"><b>La herramienta</b><span>Validar una factura y leer el informe.</span></a>
+        <a href="./incidencias.html"><b>Qué significa cada aviso</b><span>Cada código que puede salir, con la norma de la que sale.</span></a>
+        <a href="./tesis.html"><b>Por qué se explica en vez de certificar</b><span>La tesis del proyecto, y el caso que la puso a prueba.</span></a>
+        <a href="./banco.html"><b>Banco de pruebas</b><span>Las comprobaciones, corriéndolas tu navegador delante de ti.</span></a>
+        <a href="./legal.html"><b>Aviso legal y privacidad</b><span>Qué se mide, qué no se guarda y qué no acredita esto.</span></a>
+      </nav>
+    </details>
+    <!-- FIN MENU -->
   </div>
 </header>
 
@@ -307,6 +362,162 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       <div class="panel trae"><dl id="trae-lista"><dt>Cargando…</dt><dd>—</dd></dl></div>
     </section>
 
+    <section id="preguntas">
+      <p class="rotulo">Preguntas frecuentes</p>
+      <h2 class="titulo">Las que hace todo el que abre un informe por primera vez.</h2>
+      <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Están
+      contestadas con lo que esta herramienta hace de verdad, que en varios
+      casos es menos de lo que a uno le gustaría que hiciera.</p>
+      <div class="qa">
+
+        <div id="certifica">
+          <h3>¿Esto certifica que mi factura es válida?</h3>
+          <div class="r">
+            <span class="corta no">No</span>
+            <p>Y no es una cautela legal: es lo que el producto es. Una glosa
+            explica, no certifica. Lo que hace es <b>comprobar cosas concretas
+            y decirte cuáles ha comprobado y cuáles no</b>, para que decidas
+            tú. Ninguna herramienta privada puede darle validez a una factura;
+            eso lo hace la ley y, si acaso, quien la recibe.</p>
+            <p>Por eso el informe termina siempre con una línea que dice qué se
+            ha mirado. Es la parte más importante y la más fácil de saltarse.</p>
+          </div>
+        </div>
+
+        <div id="aeat">
+          <h3>¿Vale ante la Agencia Tributaria o ante FACe?</h3>
+          <div class="r">
+            <span class="corta no">No</span>
+            <p>Glosa-e es una herramienta privada e independiente. <b>No es un
+            servicio oficial de ninguna administración</b> y su resultado no
+            acredita nada ante ellas. Que aquí salga sin errores no impide que
+            un organismo rechace la factura por sus propios motivos, ni al
+            revés.</p>
+            <p>Lo que sí es útil: las normas que comprueba —EN 16931 y el
+            RD 238/2026— son públicas, y aquí se dice regla por regla cuál ha
+            fallado, con su código. Eso se puede llevar a quien corresponda.</p>
+          </div>
+        </div>
+
+        <div id="sube">
+          <h3>¿Mi factura se sube a algún servidor?</h3>
+          <div class="r">
+            <span class="corta no">No</span>
+            <p>El validador entero corre <b>dentro de tu navegador</b>, en
+            WebAssembly. Tu fichero se escribe en un disco virtual que vive en
+            la memoria de tu pestaña y se va cuando la cierras. No hay ninguna
+            petición al validar: ni de tu documento, ni de un resumen suyo, ni
+            de nada.</p>
+            <p>Eso está medido y publicado en el
+            <a href="./legal.html">aviso legal</a>, con el número de peticiones
+            y de dominios de terceros. Al arrancar la página sí se descargan
+            ficheros —el intérprete, los esquemas, las anclas—, todos desde este
+            mismo sitio y ninguno de un tercero.</p>
+          </div>
+        </div>
+
+        <div id="no-comprobado">
+          <h3>¿Por qué dice «no se ha comprobado» en vez de decir si está bien?</h3>
+          <div class="r">
+            <span class="corta depende">Porque no lo sabe</span>
+            <p>Es la decisión de diseño más importante de esta herramienta.
+            Cuando falta la prueba para contestar algo, <b>lo dice en vez de
+            pintar un tic verde</b>. Un validador que calla lo que no ha mirado
+            es más cómodo y bastante peor: te deja creyendo que se comprobó
+            algo que nadie comprobó.</p>
+            <p>El caso típico es la revocación: saber si anularon un
+            certificado exige una lista o una respuesta del emisor, y si el
+            documento no la trae y no la tienes instalada, no hay forma de
+            saberlo sin salir a preguntar. Aquí no se pregunta, y se explica por
+            qué en <a href="./incidencias.html#familia-REVOCACION">la familia
+            REVOCACION</a>.</p>
+          </div>
+        </div>
+
+        <div id="gravedades">
+          <h3>¿Qué diferencia hay entre error, aviso y nota?</h3>
+          <div class="r">
+            <p><b>Error</b>: algo incumple una norma y hay que arreglarlo.
+            <b>Aviso</b>: algo no se ha podido comprobar, o se ha comprobado y
+            depende de un dato del que no hay que fiarse del todo. <b>Nota</b>:
+            no es una queja — dice <b>qué se ha dado por bueno y con qué
+            base</b>.</p>
+            <p>La nota es la que más se ignora y la que sostiene el resto. «No
+            consta anulado ningún certificado» no significa nada si no dice
+            según qué lista y de qué día, y eso es lo que va en la nota.</p>
+          </div>
+        </div>
+
+        <div id="formatos">
+          <h3>¿Qué formatos acepta?</h3>
+          <div class="r">
+            <span class="corta si">Los cuatro de la ley</span>
+            <p>Facturae (incluido <code>.xsig</code> firmado), UBL, CII y
+            EDIFACT. Son los cuatro que el RD 238/2026 admite. Se detecta solo:
+            no hay que decirle cuál es.</p>
+            <p>Si el fichero no es ninguno de los cuatro, lo dice y no lo
+            valida — que es distinto de decir que está mal.</p>
+          </div>
+        </div>
+
+        <div id="firma">
+          <h3>Mi factura está firmada. ¿Comprueba la firma?</h3>
+          <div class="r">
+            <span class="corta si">Sí, y en tres pasos</span>
+            <p>Primero, que <b>el documento no se haya tocado</b> después de
+            firmarlo y que la aritmética de la firma cuadre. Segundo, <b>de
+            quién es el certificado</b>: se sigue su cadena hasta una autoridad
+            de la lista de confianza del Estado. Y tercero, <b>si lo
+            anularon</b> antes de firmar con él.</p>
+            <p>Los tres se dicen por separado, porque fallan por separado. Una
+            firma puede cuadrar perfectamente y estar hecha con un certificado
+            que su emisor anuló el mes anterior.</p>
+          </div>
+        </div>
+
+        <div id="anclas">
+          <h3>¿De dónde salen las autoridades en las que confía?</h3>
+          <div class="r">
+            <p>De la lista de confianza del Estado español, la misma que
+            publica el organismo competente. Vienen ya montadas con la página,
+            y el informe <b>declara de qué lista salen, de qué día es y con qué
+            huella</b>, porque quien lee el informe no las eligió.</p>
+            <p>Si esa lista se ha quedado vieja, el informe también lo dice: una
+            lista antigua sigue creyendo a autoridades a las que el Estado ya
+            les retiró la cualificación.</p>
+          </div>
+        </div>
+
+        <div id="cuesta">
+          <h3>¿Cuánto cuesta y qué datos pedís?</h3>
+          <div class="r">
+            <span class="corta si">Gratis, y ninguno</span>
+            <p>No hay registro, no hay cuenta, no hay publicidad y no se
+            recogen datos. Tampoco hay cookies ni almacenamiento: está medido y
+            publicado en el <a href="./legal.html">aviso legal</a>.</p>
+            <p>Mientras no se ofrezca ningún servicio de pago, la ley no obliga
+            a publicar la ficha de quien está detrás, y no está publicada. El
+            día que se ofrezca algo de pago aparecerá — la página está hecha de
+            forma que no se pueda hacer lo uno sin lo otro.</p>
+          </div>
+        </div>
+
+        <div id="fiarme">
+          <h3>¿Por qué debería fiarme de lo que dice?</h3>
+          <div class="r">
+            <p>Lo justo, y por eso está el <a href="./banco.html">banco de
+            pruebas</a>: <b>tu propio navegador corre las comprobaciones</b>
+            —las mismas que usa el validador— delante de ti, y si algo sale en
+            rojo lo ves tú, no nosotros.</p>
+            <p>Y la parte incómoda: esta herramienta se equivoca como cualquier
+            otra. Lo que promete no es acertar siempre, sino <b>no afirmar más
+            de lo que ha comprobado</b>. Cuando algo no se ha mirado, lo dice.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
     <section id="escalon" hidden>
       <div class="escalon">
         <h2>Cuando hace falta mirar más de una.</h2>
@@ -332,12 +543,8 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
     en cada informe; la responsabilidad de la factura sigue siendo de quien la
     emite.</p>
     <nav>
-      <a href="./preguntas.html">Preguntas</a>
-      <a href="./incidencias.html">Qué significa cada aviso</a>
-      <a href="./tesis.html">Por qué se explica en vez de certificar</a>
-      <a href="./banco.html">Banco de pruebas</a>
+      <a href="#preguntas">Preguntas frecuentes</a>
       <a href="./legal.html">Aviso legal y privacidad</a>
-      <a href="#trae">Con qué</a>
     </nav>
   </div>
 </footer>

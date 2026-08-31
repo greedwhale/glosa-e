@@ -132,3 +132,49 @@ def test_el_catalogo_no_se_puede_publicar_vacio():
     assert plantilla.is_file(), "no está la plantilla del catálogo"
     assert pagina_incidencias.HUECO in plantilla.read_text(encoding="utf-8"), (
         f"«{plantilla.name}» ya no lleva {pagina_incidencias.HUECO}")
+
+
+# --- El menú -----------------------------------------------------------------
+# Las cinco páginas llevan el mismo menú copiado, porque no hay plantilla que
+# lo monte: se sirven tal cual están en `web/`, y en desarrollo se abren desde
+# el repositorio sin construir nada. Copiado no es problema; copiado y
+# **divergiendo**, sí: se toca una página, se olvida otra, y el sitio empieza a
+# decir que tiene cosas distintas según por dónde se entre. Nadie ve el fallo,
+# porque cada página por separado está bien.
+#
+# Se comprueba letra por letra a propósito. «Que estén los mismos enlaces» deja
+# pasar un texto cambiado en una sola, que es justo la forma en que esto se
+# rompe de verdad.
+PAGINAS = ("index.html", "banco.html", "legal.html", "incidencias.html",
+           "tesis.html")
+PRINCIPIO, FIN = "<!-- MENU", "<!-- FIN MENU -->"
+
+
+def _menu_de(pagina: Path) -> str:
+    texto = pagina.read_text(encoding="utf-8")
+    assert PRINCIPIO in texto and FIN in texto, (
+        f"«{pagina.name}» se ha quedado sin el menú: entre {PRINCIPIO}… y "
+        f"{FIN} es donde va, y ahí no hay nada.")
+    return texto[texto.index(PRINCIPIO):texto.index(FIN) + len(FIN)]
+
+
+def test_el_menu_es_el_mismo_en_las_cinco_paginas():
+    menus = {p: _menu_de(RAIZ / "web" / p) for p in PAGINAS}
+    referencia = menus["index.html"]
+    distintas = [p for p, m in menus.items() if m != referencia]
+    assert not distintas, (
+        "el menú de la portada y el de "
+        + ", ".join(f"«{p}»" for p in distintas)
+        + " ya no son el mismo. Se copia entero, no se retoca en una sola: "
+        "quien entre por esa página verá un sitio distinto del que ve quien "
+        "entre por otra.")
+
+
+def test_el_menu_no_apunta_a_paginas_que_no_existen():
+    """Un menú con un enlace roto es peor que uno corto: manda a un 404."""
+    import re
+
+    menu = _menu_de(RAIZ / "web" / "index.html")
+    for destino in re.findall(r'href="\./([^"#]+)"', menu):
+        assert (RAIZ / "web" / destino).is_file(), (
+            f"el menú lleva a «{destino}» y ese fichero no está en web/")

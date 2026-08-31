@@ -423,7 +423,7 @@ _DE_LA_PAGINA = (
     "index.html", "banco.html", "legal.html", "prueba.py", "LEEME.md",
     # Las tres de consulta. `incidencias.html` no va aquí sino por su propio
     # camino: es la plantilla del catálogo y hay que generarla, no copiarla.
-    "preguntas.html", "tesis.html",
+    "tesis.html",
 )
 
 
