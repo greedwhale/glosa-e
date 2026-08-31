@@ -241,3 +241,32 @@ def test_si_la_pagina_se_identifica_la_privacidad_dice_quien_responde():
     assert '$("p-responsable").textContent = t.nombre;' in legal, (
         "el responsable ya no se rellena desde la ficha de glosa.js, y dos "
         "sitios que dicen quien esta detras acaban diciendo cosas distintas")
+
+
+def test_el_menu_escribe_a_la_direccion_de_la_ficha():
+    """La única copia de la dirección que no sale de `glosa.js`.
+
+    El menú es HTML plano en cinco páginas, y dos de ellas -el catálogo y la
+    tesis- no cargan `glosa.js` a propósito: son páginas de consulta y no
+    arrastran el validador para pintar una tabla. Asi que el correo del menú va
+    escrito, no inyectado, y esa es la única forma de que exista una segunda
+    copia de la dirección.
+
+    Una dirección en dos sitios se separa el día que se cambia una. Aquí no
+    puede: si dejan de decir lo mismo, esto se queja. Y si la ficha se vacía, el
+    menú no puede seguir mandando correo a nadie.
+    """
+    correo = _ficha().get("correo", "")
+    menu = _menu_de(RAIZ / "web" / "index.html")
+    escritos = re.findall(r'href="mailto:([^"?]+)', menu)
+
+    if not correo:
+        assert not escritos, (
+            "la ficha de `glosa.js` no tiene correo y el menú sigue llevando "
+            f"{escritos}: manda a escribir a una dirección que ya no es de nadie")
+        return
+
+    assert escritos == [correo], (
+        f"el menú escribe a {escritos} y la ficha de `glosa.js` dice "
+        f"«{correo}». Son la misma dirección o no son nada: quien cambie una "
+        "tiene que cambiar la otra.")
