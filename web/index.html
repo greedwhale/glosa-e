@@ -179,18 +179,49 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
    pregunta a la izquierda contra un filete, la respuesta al lado. No es
    decoración: es la misma forma para la misma relación —una afirmación corta y
    lo que hay detrás—, y quien viene del informe la reconoce. */
-.qa { display: grid; gap: 0; max-width: 52rem; }
-.qa > div {
-  display: grid; grid-template-columns: 15rem 1fr; gap: 0 1.5rem;
-  padding: 1.4rem 0; border-top: 1px dashed var(--borde);
-  scroll-margin-top: 5rem;
+/* Las dos medidas de la retícula viven aquí porque las usan tres reglas: la
+   del <summary>, que es quien de verdad reparte las columnas, y la de la
+   respuesta, que se indenta a mano hasta donde empieza la segunda.
+
+   Y se indenta a mano por un fallo que se vio abriendo la primera pregunta en
+   el sitio montado: la respuesta salía en 266 px debajo de la pregunta, no en
+   los 594 de al lado. `<details>` ya no entrega sus hijos al grid del padre
+   —los navegadores nuevos los envuelven en `::details-content`—, así que lo
+   que se colocaba en la columna 2 era esa caja invisible y la respuesta se
+   quedaba donde cayera. Con el grid solo en el <summary> no hay nada que
+   suponer. */
+.qa { display: grid; gap: 0; max-width: 52rem; --columna: 15rem; --hueco: 1.5rem; }
+.qa > details {
+  border-top: 1px dashed var(--borde); scroll-margin-top: 5rem;
 }
-.qa > div:first-child { border-top: 0; }
+.qa > details:first-child { border-top: 0; }
+.qa summary {
+  display: grid; grid-template-columns: var(--columna) 1fr;
+  column-gap: var(--hueco); cursor: pointer; list-style: none;
+}
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 3px; border-radius: 4px; }
 .qa h3 {
   font: 400 var(--t3)/1.3 var(--serif); text-align: right;
-  color: var(--tinta); margin: 0;
+  color: var(--tinta); margin: 0; padding: 1.1rem 0;
 }
-.qa .r { border-left: 2px solid var(--borde); padding-left: 1.5rem; margin-left: -1.6rem; }
+.qa summary:hover h3 { color: var(--acento); }
+
+/* El filete va en los hijos y no en el <summary>, que si no se corta arriba y
+   abajo por su relleno y la línea del margen aparece a trozos. Así baja
+   entero desde la pregunta hasta el final de la respuesta abierta. */
+.qa .a {
+  display: flex; align-items: center; gap: .7rem; padding: 1.1rem 0;
+  border-left: 2px solid var(--borde); padding-left: 1.5rem; margin-left: -1.6rem;
+}
+.qa .a .galon { margin-left: auto; color: var(--tenue); }
+.qa details[open] .galon { transform: rotate(180deg); }
+.qa .r {
+  margin-left: calc(var(--columna) + var(--hueco) - 1.6rem);
+  border-left: 2px solid var(--borde);
+  padding-left: 1.5rem; padding-bottom: 1.4rem;
+}
+.qa .r p:last-child { margin-bottom: 0; }
 .qa .r p { color: var(--tinta-2); }
 .qa .r b { color: var(--tinta); font-weight: 600; }
 .qa .r code { font-family: var(--mono); font-size: var(--t1); }
@@ -205,11 +236,13 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 .corta.no { color: var(--error); }
 .corta.si { color: var(--bien); }
 .corta.depende { color: var(--aviso); }
+.corta.dato { color: var(--nota); }
 
 @media (max-width: 46rem) {
-  .qa > div { grid-template-columns: 1fr; gap: .6rem; }
-  .qa h3 { text-align: left; }
-  .qa .r { margin-left: 0; }
+  .qa > details, .qa summary { grid-template-columns: 1fr; }
+  .qa h3 { text-align: left; padding-bottom: .3rem; }
+  .qa .a { padding: 0 0 1.1rem; margin-left: 0; padding-left: 0; border-left: 0; }
+  .qa .r { margin-left: 0; padding-left: 1rem; }
 }
 </style>
 </head>
@@ -370,10 +403,12 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       casos es menos de lo que a uno le gustaría que hiciera.</p>
       <div class="qa">
 
-        <div id="certifica">
-          <h3>¿Esto certifica que mi factura es válida?</h3>
+        <details id="certifica">
+          <summary>
+            <h3>¿Esto certifica que mi factura es válida?</h3>
+            <span class="a"><span class="corta no">No</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+          </summary>
           <div class="r">
-            <span class="corta no">No</span>
             <p>Y no es una cautela legal: es lo que el producto es. Una glosa
             explica, no certifica. Lo que hace es <b>comprobar cosas concretas
             y decirte cuáles ha comprobado y cuáles no</b>, para que decidas
@@ -382,12 +417,14 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             <p>Por eso el informe termina siempre con una línea que dice qué se
             ha mirado. Es la parte más importante y la más fácil de saltarse.</p>
           </div>
-        </div>
+        </details>
 
-        <div id="aeat">
-          <h3>¿Vale ante la Agencia Tributaria o ante FACe?</h3>
+        <details id="aeat">
+          <summary>
+            <h3>¿Vale ante la Agencia Tributaria o ante FACe?</h3>
+            <span class="a"><span class="corta no">No</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+          </summary>
           <div class="r">
-            <span class="corta no">No</span>
             <p>Glosa-e es una herramienta privada e independiente. <b>No es un
             servicio oficial de ninguna administración</b> y su resultado no
             acredita nada ante ellas. Que aquí salga sin errores no impide que
@@ -397,12 +434,14 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             RD 238/2026— son públicas, y aquí se dice regla por regla cuál ha
             fallado, con su código. Eso se puede llevar a quien corresponda.</p>
           </div>
-        </div>
+        </details>
 
-        <div id="sube">
-          <h3>¿Mi factura se sube a algún servidor?</h3>
+        <details id="sube">
+          <summary>
+            <h3>¿Mi factura se sube a algún servidor?</h3>
+            <span class="a"><span class="corta no">No</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+          </summary>
           <div class="r">
-            <span class="corta no">No</span>
             <p>El validador entero corre <b>dentro de tu navegador</b>, en
             WebAssembly. Tu fichero se escribe en un disco virtual que vive en
             la memoria de tu pestaña y se va cuando la cierras. No hay ninguna
@@ -414,12 +453,14 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             ficheros —el intérprete, los esquemas, las anclas—, todos desde este
             mismo sitio y ninguno de un tercero.</p>
           </div>
-        </div>
+        </details>
 
-        <div id="no-comprobado">
-          <h3>¿Por qué dice «no se ha comprobado» en vez de decir si está bien?</h3>
+        <details id="no-comprobado">
+          <summary>
+            <h3>¿Por qué dice «no se ha comprobado» en vez de decir si está bien?</h3>
+            <span class="a"><span class="corta depende">Porque no lo sabe</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+          </summary>
           <div class="r">
-            <span class="corta depende">Porque no lo sabe</span>
             <p>Es la decisión de diseño más importante de esta herramienta.
             Cuando falta la prueba para contestar algo, <b>lo dice en vez de
             pintar un tic verde</b>. Un validador que calla lo que no ha mirado
@@ -432,10 +473,13 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             qué en <a href="./incidencias.html#familia-REVOCACION">la familia
             REVOCACION</a>.</p>
           </div>
-        </div>
+        </details>
 
-        <div id="gravedades">
-          <h3>¿Qué diferencia hay entre error, aviso y nota?</h3>
+        <details id="gravedades">
+          <summary>
+            <h3>¿Qué diferencia hay entre error, aviso y nota?</h3>
+            <span class="a"><span class="corta dato">Son tres, no dos</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+          </summary>
           <div class="r">
             <p><b>Error</b>: algo incumple una norma y hay que arreglarlo.
             <b>Aviso</b>: algo no se ha podido comprobar, o se ha comprobado y
@@ -446,24 +490,28 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             consta anulado ningún certificado» no significa nada si no dice
             según qué lista y de qué día, y eso es lo que va en la nota.</p>
           </div>
-        </div>
+        </details>
 
-        <div id="formatos">
-          <h3>¿Qué formatos acepta?</h3>
+        <details id="formatos">
+          <summary>
+            <h3>¿Qué formatos acepta?</h3>
+            <span class="a"><span class="corta si">Los cuatro de la ley</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+          </summary>
           <div class="r">
-            <span class="corta si">Los cuatro de la ley</span>
             <p>Facturae (incluido <code>.xsig</code> firmado), UBL, CII y
             EDIFACT. Son los cuatro que el RD 238/2026 admite. Se detecta solo:
             no hay que decirle cuál es.</p>
             <p>Si el fichero no es ninguno de los cuatro, lo dice y no lo
             valida — que es distinto de decir que está mal.</p>
           </div>
-        </div>
+        </details>
 
-        <div id="firma">
-          <h3>Mi factura está firmada. ¿Comprueba la firma?</h3>
+        <details id="firma">
+          <summary>
+            <h3>Mi factura está firmada. ¿Comprueba la firma?</h3>
+            <span class="a"><span class="corta si">Sí, y en tres pasos</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+          </summary>
           <div class="r">
-            <span class="corta si">Sí, y en tres pasos</span>
             <p>Primero, que <b>el documento no se haya tocado</b> después de
             firmarlo y que la aritmética de la firma cuadre. Segundo, <b>de
             quién es el certificado</b>: se sigue su cadena hasta una autoridad
@@ -473,10 +521,13 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             firma puede cuadrar perfectamente y estar hecha con un certificado
             que su emisor anuló el mes anterior.</p>
           </div>
-        </div>
+        </details>
 
-        <div id="anclas">
-          <h3>¿De dónde salen las autoridades en las que confía?</h3>
+        <details id="anclas">
+          <summary>
+            <h3>¿De dónde salen las autoridades en las que confía?</h3>
+            <span class="a"><span class="corta dato">De la lista del Estado</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+          </summary>
           <div class="r">
             <p>De la lista de confianza del Estado español, la misma que
             publica el organismo competente. Vienen ya montadas con la página,
@@ -486,12 +537,14 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             lista antigua sigue creyendo a autoridades a las que el Estado ya
             les retiró la cualificación.</p>
           </div>
-        </div>
+        </details>
 
-        <div id="cuesta">
-          <h3>¿Cuánto cuesta y qué datos pedís?</h3>
+        <details id="cuesta">
+          <summary>
+            <h3>¿Cuánto cuesta y qué datos pedís?</h3>
+            <span class="a"><span class="corta si">Gratis, y ninguno</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+          </summary>
           <div class="r">
-            <span class="corta si">Gratis, y ninguno</span>
             <p>No hay registro, no hay cuenta, no hay publicidad y no se
             recogen datos. Tampoco hay cookies ni almacenamiento: está medido y
             publicado en el <a href="./legal.html">aviso legal</a>.</p>
@@ -500,10 +553,13 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             día que se ofrezca algo de pago aparecerá — la página está hecha de
             forma que no se pueda hacer lo uno sin lo otro.</p>
           </div>
-        </div>
+        </details>
 
-        <div id="fiarme">
-          <h3>¿Por qué debería fiarme de lo que dice?</h3>
+        <details id="fiarme">
+          <summary>
+            <h3>¿Por qué debería fiarme de lo que dice?</h3>
+            <span class="a"><span class="corta dato">Lo justo</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+          </summary>
           <div class="r">
             <p>Lo justo, y por eso está el <a href="./banco.html">banco de
             pruebas</a>: <b>tu propio navegador corre las comprobaciones</b>
@@ -513,7 +569,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             otra. Lo que promete no es acertar siempre, sino <b>no afirmar más
             de lo que ha comprobado</b>. Cuando algo no se ha mirado, lo dice.</p>
           </div>
-        </div>
+        </details>
 
       </div>
     </section>
@@ -849,6 +905,19 @@ if (Glosa.puedeVender()) {
   $("escalon-boton").href = "mailto:" + Glosa.titular.correo + "?subject=" +
     encodeURIComponent("Auditoría de facturación");
 }
+
+// Una pregunta enlazada desde fuera tiene que abrirse sola. El ancla existe
+// —`#certifica`, `#sube`— y promete llevar a la respuesta; sin esto lleva a
+// la pregunta cerrada, que es peor que no tener ancla: parece que no está.
+function abrirLaPreguntaDelAncla() {
+  const donde = document.getElementById(location.hash.slice(1));
+  if (donde && donde.tagName === "DETAILS") {
+    donde.open = true;
+    donde.scrollIntoView();
+  }
+}
+addEventListener("hashchange", abrirLaPreguntaDelAncla);
+abrirLaPreguntaDelAncla();
 
 elArranque = empezar();
 </script>
