@@ -310,7 +310,8 @@ PAGINA = """<!doctype html><title>glosa</title>
 <script src="./glosa.js"></script>
 """
 
-ESTILO = ":root { --papel: #fbfaf7; }\n"
+ESTILO = ('@font-face { src: url("./letra/literata.woff2?v=abc12345"); }\n'
+          ":root { --papel: #fbfaf7; }\n")
 
 
 @pytest.fixture
@@ -324,6 +325,11 @@ def repositorio(tmp_path):
     (tmp_path / "web" / "glosa.css").write_text(ESTILO, encoding="utf-8")
     (tmp_path / "web" / "prueba.py").write_text("# el banco\n", encoding="utf-8")
     (tmp_path / "web" / "LEEME.md").write_text("# la pagina\n", encoding="utf-8")
+    # La letra y su licencia. Van juntas porque la OFL obliga a que la segunda
+    # viaje con la primera, y el montaje lo comprueba.
+    (tmp_path / "web" / "letra").mkdir()
+    (tmp_path / "web" / "letra" / "literata.woff2").write_bytes(b"wOF2 de mentira")
+    (tmp_path / "web" / "letra" / "OFL.txt").write_text("OFL 1.1\n", encoding="utf-8")
     (tmp_path / "dist").mkdir()
     _rueda_de_verdad(tmp_path / "dist" / "factura_e-0.1.0-py3-none-any.whl")
     (tmp_path / "ejemplos").mkdir()
@@ -660,6 +666,43 @@ class TestElSitioQueSePublica:
         with pytest.raises(paquete.SinRueda) as fallo:
             _montar(repositorio)
         assert "python -m build" in str(fallo.value)
+
+    def test_la_letra_y_su_licencia_viajan(self, repositorio):
+        """La marca es Literata trazada; sin el fichero, el texto de al lado se
+        componía con la serif del sistema —Georgia en Windows— y la cabecera
+        salía con dos letras distintas a dos centímetros."""
+        _montar(repositorio)
+        raiz = repositorio / "sitio"
+        assert (raiz / "letra" / "literata.woff2").is_file()
+        assert (raiz / "letra" / "OFL.txt").is_file(), (
+            "la OFL exige que la licencia viaje con la fuente")
+
+    def test_sin_la_letra_no_se_monta(self, repositorio):
+        """De los fallos que no dan error: un `@font-face` que apunta a lo que
+        no está compone con la del sistema y la página parece correcta."""
+        (repositorio / "web" / "letra" / "literata.woff2").unlink()
+        with pytest.raises(paquete.SinPagina) as fallo:
+            _montar(repositorio)
+        assert "no da error" in str(fallo.value)
+        assert "web/marca/letra.py" in str(fallo.value)
+
+    def test_sin_la_licencia_tampoco(self, repositorio):
+        """Publicar la fuente sin su licencia incumple la unica condicion que
+        la OFL pone, y es la clase de cosa que nadie mira hasta que alguien
+        pregunta."""
+        (repositorio / "web" / "letra" / "OFL.txt").unlink()
+        with pytest.raises(paquete.SinPagina) as fallo:
+            _montar(repositorio)
+        assert "OFL" in str(fallo.value)
+
+    def test_una_pagina_que_no_pida_letra_se_monta_igual(self, repositorio):
+        """La negativa mira el CSS, no la carpeta: si nadie pide la letra, no
+        hay nada que echar en falta."""
+        (repositorio / "web" / "glosa.css").write_text(
+            ":root { --papel: #fbfaf7; }\n", encoding="utf-8")
+        (repositorio / "web" / "letra" / "literata.woff2").unlink()
+        (repositorio / "web" / "letra" / "OFL.txt").unlink()
+        assert _montar(repositorio).carpeta.is_dir()
 
     def test_un_wheel_de_anteayer_no_se_monta(self, repositorio):
         """Salió montando el sitio de verdad, no leyendo el código.

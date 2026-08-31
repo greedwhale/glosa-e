@@ -388,6 +388,13 @@ _LLAMADA_AL_CARGADOR = '<script src="./glosa.js"></script>'
 # color que la de la herramienta sí tenía, y nada parecía roto —simplemente
 # había reglas que no pintaban lo que decían pintar—.
 _ESTILO = "glosa.css"
+# La carpeta de la letra. `literata.woff2` la genera `web/marca/letra.py`, y
+# `OFL.txt` va al lado porque es la única condición que la licencia pone al
+# redistribuir la fuente: publicarla sin ella sería incumplirla.
+_LETRA = "letra"
+_TIPOGRAFIA = "literata.woff2"
+_LICENCIA_DE_LA_LETRA = "OFL.txt"
+_ESTILO_PIDE_LETRA = "./letra/literata.woff2"
 _LLAMADA_AL_ESTILO = '<link rel="stylesheet" href="./glosa.css">' 
 
 # Las dos líneas del cargador que dicen dónde están. En el repositorio apuntan
@@ -589,6 +596,32 @@ def montar_sitio(
     if not estilo.is_file():
         raise SinPagina(f"No hay «{estilo}», que es de donde salen los colores.")
     shutil.copy2(estilo, destino / _ESTILO)
+
+    # La letra, y la licencia que la ley de la letra obliga a llevar al lado.
+    #
+    # Va con negativa porque este es de los que no dan error: un `@font-face`
+    # apuntando a un fichero que no está no rompe nada, el navegador compone
+    # con la del sistema y la página sale «bien». En Windows eso es Georgia
+    # junto a un logotipo que es Literata, y nadie se entera hasta que lo ve
+    # publicado.
+    letra = pagina / _LETRA
+    faltan_de_la_letra = [
+        n for n in (_TIPOGRAFIA, _LICENCIA_DE_LA_LETRA)
+        if not (letra / n).is_file()
+    ]
+    if _ESTILO_PIDE_LETRA in estilo.read_text(encoding="utf-8") and faltan_de_la_letra:
+        raise SinPagina(
+            "«{}» pide la letra con `{}` y en «{}» falta {}. Un @font-face que "
+            "apunta a lo que no está no da error: el navegador compone con la "
+            "del sistema y la página parece correcta. Genérala con `python "
+            "web/marca/letra.py Literata.ttf OFL.txt`.{}".format(
+                estilo, _ESTILO_PIDE_LETRA, letra, ", ".join(faltan_de_la_letra),
+                " La licencia OFL exige que viaje con la fuente."
+                if _LICENCIA_DE_LA_LETRA in faltan_de_la_letra else "",
+            )
+        )
+    if letra.is_dir():
+        shutil.copytree(letra, destino / _LETRA, dirs_exist_ok=True)
 
     def _huella(texto: str) -> str:
         return hashlib.sha256(texto.encode("utf-8")).hexdigest()[:8]

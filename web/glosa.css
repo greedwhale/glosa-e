@@ -10,10 +10,36 @@
    es una herramienta de cumplimiento, se mira de día y al lado de documentos.
    El papel tira a cálido para que no parezca una consola.
 
-   Ningún tipo de letra viene de fuera. Podría: quedaría mejor. Pero la página
-   promete que el fichero no sale de este ordenador, y pedirle la letra a un
-   servidor ajeno cada visita es contradecirlo en la primera línea del HTML.
+   Ningún tipo de letra viene de fuera, y eso sigue siendo verdad. Pedirle la
+   letra a un servidor ajeno cada visita contradiría en la primera línea del
+   HTML la promesa de que el fichero no sale de este ordenador.
+
+   Lo que sí viene es Literata, **servida desde aquí mismo**, que es otra cosa:
+   cero peticiones a terceros, que es lo que la política de privacidad publica
+   medido. Y hacía falta. La marca es Literata trazada a contornos desde
+   `web/marca/trazar.py`, pero `--serif` era una lista de respaldos —Iowan,
+   Palatino, Georgia—, así que en Windows el lema salía en Georgia a dos
+   centímetros de un logotipo que es Literata. La genera `web/marca/letra.py`
+   con el mismo `opsz` 12 que la marca, y son 49 KB al lado de nueve megas de
+   intérprete.
+
+   Solo la serif. El cuerpo, los datos y el informe siguen en la del sistema:
+   esto se lee en tablas, y una serif de 16 px en una tabla densa se lee peor.
+   La serif es la voz; la sans, el vehículo.
 --------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Literata";
+  /* La huella la pone `letra.py`, y va detrás con `?v=` porque el fichero se
+     sirve con permiso para guardarlo un año. Sin ella, el día que la letra
+     cambie el navegador seguiría dando la de antes: no daría error, daría otra
+     letra, que es el fallo que este repositorio se cansó de perseguir. */
+  src: url("./letra/literata.woff2?v=4bc36eb5") format("woff2");
+  font-weight: 400 600;
+  font-style: normal;
+  /* La página tarda en arrancar por Pyodide, no por esto; que el texto se lea
+     desde el primer momento importa más que evitar el salto. */
+  font-display: swap;
+}
 :root {
   --papel: #fbfaf7;
   --panel: #ffffff;
@@ -47,7 +73,7 @@
   --t5: clamp(1.8rem, 4.5vw, 2.5rem);      /*       titulo de pagina      */
   --t6: clamp(2.1rem, 5.5vw, 3.1rem);      /*       portada               */
 
-  --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --serif: "Literata", ui-serif, "Iowan Old Style", Palatino, Georgia, serif;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
 }
