@@ -66,6 +66,8 @@ __all__ = [
     "SinRenovar",
     "SinRueda",
     "SinPagina",
+    "RuedaVieja",
+    "rueda_desfasada",
     "armar",
     "montar_sitio",
 ]
@@ -422,6 +424,47 @@ class SinPagina(Exception):
     """Falta el index.html, o ya no dice dónde busca sus cosas."""
 
 
+class RuedaVieja(Exception):
+    """El wheel de `dist/` no es el del código que hay ahora mismo."""
+
+
+def rueda_desfasada(rueda: Path, fuentes: Path | None = None) -> list[str]:
+    """Qué módulos del paquete no son los que lleva ese `.whl`.
+
+    Existe por un fallo que salió montando el sitio: `--sitio` no construye el
+    wheel, coge el que haya en `dist/`, y el que había era de tres días antes
+    de que existiera `ocsp.py`. Dijo «Montado sitio» en verde. La página habría
+    arrancado, bajado catorce megas de intérprete e importado un
+    `revocacion.py` que hace `from validador import ocsp`: ImportError, y el
+    validador entero sin arrancar.
+
+    Se comparan **los bytes**, no las fechas. Una fecha depende del orden en
+    que se copiaron los ficheros y de la máquina; los bytes son lo que se va a
+    ejecutar. Y así se caza también el caso que una lista de módulos no
+    cazaría: un fichero que ya estaba y ha cambiado.
+    """
+    fuentes = Path(fuentes) if fuentes is not None else Path(__file__).parent
+    dentro: dict[str, bytes] = {}
+    try:
+        with zipfile.ZipFile(rueda) as zip_de_la_rueda:
+            for nombre in zip_de_la_rueda.namelist():
+                if nombre.startswith("validador/") and nombre.endswith(".py"):
+                    dentro[nombre.rsplit("/", 1)[-1]] = zip_de_la_rueda.read(nombre)
+    except (zipfile.BadZipFile, OSError) as error:
+        # Un wheel que ni se abre es peor que uno viejo, y lo que no puede
+        # pasar es que salga como un BadZipFile a media función, que no se
+        # parece en nada a su causa.
+        return [f"no se puede abrir el wheel ({error})"]
+
+    desfasados = []
+    for ruta in sorted(fuentes.glob("*.py")):
+        if ruta.name not in dentro:
+            desfasados.append(f"{ruta.name} (no viaja en el wheel)")
+        elif dentro[ruta.name] != ruta.read_bytes():
+            desfasados.append(f"{ruta.name} (el del wheel es otro)")
+    return desfasados
+
+
 @dataclass(frozen=True)
 class Sitio:
     """Qué ha quedado montado, para poder decirlo antes de publicarlo."""
@@ -492,6 +535,19 @@ def montar_sitio(
             "`python -m build --wheel --outdir dist`."
         )
     rueda = encontradas[-1]
+
+    desfasados = rueda_desfasada(rueda)
+    if desfasados:
+        raise RuedaVieja(
+            "El wheel de «{}» no es el del código que hay ahora: {}. Es el "
+            "fallo de siempre de este proyecto —algo de una caché haciéndose "
+            "pasar por lo de hoy—, y aquí no se nota sin mirar dentro: el "
+            "sitio se monta, la página arranca, se baja catorce megas de "
+            "intérprete y revienta al importar. Reconstrúyelo con `python -m "
+            "build --wheel --outdir dist`.".format(
+                rueda, ", ".join(desfasados[:4])
+            )
+        )
 
     if destino.exists():
         shutil.rmtree(destino)

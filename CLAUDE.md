@@ -47,7 +47,9 @@ funcionar no se ha visto.
 
 **Negarse vale más que acordarse.** Cuando algo puede romperse en silencio, la
 solución es que **no se pueda montar** sin enterarse: `SinRueda`, `SinPagina`,
-`SinPyodide`, y la negativa cuando `glosa.js` y `paquete.py` declaran versiones
+`SinPyodide`, `RuedaVieja` —el `.whl` de `dist/` comparado byte a byte con el
+paquete, porque `--sitio` no lo construye—, y la negativa cuando `glosa.js` y
+`paquete.py` declaran versiones
 distintas de Pyodide. Es el patrón de este proyecto; úsalo antes que un
 comentario que pida memoria.
 

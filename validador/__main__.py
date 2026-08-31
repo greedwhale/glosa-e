@@ -397,7 +397,8 @@ def _montar_sitio(destino: Path) -> int:
     """
     try:
         sitio = paquete.montar_sitio(destino)
-    except (paquete.SinRueda, paquete.SinPagina, paquete.SinPyodide) as motivo:
+    except (paquete.SinRueda, paquete.SinPagina, paquete.SinPyodide,
+            paquete.RuedaVieja) as motivo:
         print(f"No se ha montado nada.\n\n  {motivo}", file=sys.stderr)
         return 2
     except OSError as error:

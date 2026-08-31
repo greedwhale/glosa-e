@@ -325,7 +325,7 @@ def repositorio(tmp_path):
     (tmp_path / "web" / "prueba.py").write_text("# el banco\n", encoding="utf-8")
     (tmp_path / "web" / "LEEME.md").write_text("# la pagina\n", encoding="utf-8")
     (tmp_path / "dist").mkdir()
-    (tmp_path / "dist" / "factura_e-0.1.0-py3-none-any.whl").write_bytes(b"PK\x03\x04")
+    _rueda_de_verdad(tmp_path / "dist" / "factura_e-0.1.0-py3-none-any.whl")
     (tmp_path / "ejemplos").mkdir()
     (tmp_path / "ejemplos" / "f-0001.xml").write_text("<a/>", encoding="utf-8")
     (tmp_path / "ejemplos" / "edi-0001.edi").write_text("UNA", encoding="utf-8")
@@ -341,6 +341,33 @@ def repositorio(tmp_path):
     (tmp_path / "muestras").mkdir()
     (tmp_path / "muestras" / "de-un-cliente.xml").write_text("<a/>", encoding="utf-8")
     return tmp_path
+
+
+def _rueda_de_verdad(destino: Path) -> None:
+    """Un wheel con los módulos del paquete de verdad dentro.
+
+    Antes bastaba con escribir `b"PK\x03\x04"` y llamarlo wheel, porque nadie
+    miraba lo que llevaba. Desde que el montaje se niega a publicar un wheel
+    que no sea el del código de ahora, hace falta uno de verdad: si no, la
+    prueba de que un wheel bueno pasa no prueba nada.
+    """
+    fuentes = Path(paquete.__file__).parent
+    with zipfile.ZipFile(destino, "w") as zip_de_la_rueda:
+        for ruta in sorted(fuentes.glob("*.py")):
+            zip_de_la_rueda.writestr(f"validador/{ruta.name}", ruta.read_bytes())
+
+
+def _tocar_la_rueda(destino: Path, quitar=(), cambiar=()) -> None:
+    """Vuelve a escribir el wheel sin un módulo, o con uno cambiado."""
+    with zipfile.ZipFile(destino) as vieja:
+        dentro = {n: vieja.read(n) for n in vieja.namelist()}
+    for nombre in quitar:
+        dentro.pop(nombre, None)
+    for nombre in cambiar:
+        dentro[nombre] = dentro[nombre] + b"\n# de anteayer\n"
+    with zipfile.ZipFile(destino, "w") as nueva:
+        for nombre, crudo in dentro.items():
+            nueva.writestr(nombre, crudo)
 
 
 def _montar(repositorio, destino="sitio"):
@@ -633,6 +660,40 @@ class TestElSitioQueSePublica:
         with pytest.raises(paquete.SinRueda) as fallo:
             _montar(repositorio)
         assert "python -m build" in str(fallo.value)
+
+    def test_un_wheel_de_anteayer_no_se_monta(self, repositorio):
+        """Salió montando el sitio de verdad, no leyendo el código.
+
+        `--sitio` no construye el wheel: coge el que haya en `dist/`. El que
+        había era de tres días antes de que existiera `ocsp.py`, y el montaje
+        dijo «Montado sitio (15.79 MB)» en verde. La página habría arrancado,
+        bajado catorce megas de intérprete y reventado al importar un
+        `revocacion.py` que hace `from validador import ocsp`.
+        """
+        rueda = repositorio / "dist" / "factura_e-0.1.0-py3-none-any.whl"
+        _tocar_la_rueda(rueda, quitar=["validador/ocsp.py"])
+        with pytest.raises(paquete.RuedaVieja) as fallo:
+            _montar(repositorio)
+        assert "ocsp.py (no viaja en el wheel)" in str(fallo.value)
+        assert "python -m build" in str(fallo.value)
+
+    def test_y_tampoco_con_un_modulo_que_esta_pero_es_otro(self, repositorio):
+        """Lo que una lista de módulos escrita a mano no cazaría: el fichero
+        está, y no es el que se va a ejecutar. Por eso se comparan los bytes."""
+        rueda = repositorio / "dist" / "factura_e-0.1.0-py3-none-any.whl"
+        _tocar_la_rueda(rueda, cambiar=["validador/revocacion.py"])
+        with pytest.raises(paquete.RuedaVieja) as fallo:
+            _montar(repositorio)
+        assert "revocacion.py (el del wheel es otro)" in str(fallo.value)
+
+    def test_un_wheel_que_ni_se_abre_lo_dice_con_esas_palabras(self, repositorio):
+        """Y no como un `BadZipFile` a media función, que no se parece en nada
+        a su causa."""
+        rueda = repositorio / "dist" / "factura_e-0.1.0-py3-none-any.whl"
+        rueda.write_bytes(b"PK\x03\x04 y nada mas")
+        with pytest.raises(paquete.RuedaVieja) as fallo:
+            _montar(repositorio)
+        assert "no se puede abrir el wheel" in str(fallo.value)
 
     def test_si_la_pagina_cambia_de_rutas_se_para_aqui(self, repositorio):
         """Y no en el navegador de un desconocido.
