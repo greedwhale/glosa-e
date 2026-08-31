@@ -31,7 +31,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from validador import __main__ as consola
-from validador import cadena, firma, revocacion
+from validador import cadena, firma, ocsp, revocacion
 from validador.incidencias import AVISO, ERROR, NOTA
 from validador.revocacion import AlmacenDeListas, comprobar, leer_lista
 from test_cadena import (
@@ -49,6 +49,15 @@ from test_cadena import (
     raiz,
 )
 from test_firma import _der, _entero, _nombre, _secuencia, _tiempo
+from test_ocsp import (
+    BUENO,
+    SIN_SABER,
+    _anulado as _anulado_ocsp,
+    _basica,
+    _certid,
+    _envuelta,
+    _single,
+)
 
 _OID_SHA256_RSA = b"\x2a\x86\x48\x86\xf7\x0d\x01\x01\x0b"
 _OID_NUMERO = b"\x55\x1d\x14"
@@ -860,3 +869,238 @@ def test_una_lista_hecha_por_openssl_se_lee_igual(tmp_path):
     assert revocacion.donde_esta_la_lista(la_hoja) == [
         "http://pki.ejemplo.invalid/ca.crl"
     ]
+
+
+# --- Las respuestas OCSP que trae el documento -----------------------------
+#
+# `test_ocsp.py` prueba que se leen y que se verifican. Lo que se prueba aquí
+# es lo otro, que es lo que ve quien valida una factura: que el informe las
+# consulta, que las trata con las mismas reglas de fecha que a una CRL, y que
+# ninguna de las maneras de no valer se convierte en un tic verde.
+#
+# La fábrica es la de `test_ocsp`, apuntada a la jerarquía de este fichero: la
+# hoja es «Talleres Paco SL» con serie 3, y quien la emitió —y por tanto quien
+# puede responder por ella— es «CA intermedia».
+
+
+def _respuesta(
+    estado=BUENO, mirada=None, quien="CA intermedia", clave=INTERMEDIA, serie=3,
+    hasta=None,
+):
+    """Una respuesta OCSP sobre la hoja de este fichero, ya troceada."""
+    single = _single(
+        _certid("CA intermedia", INTERMEDIA, serie), estado,
+        mirada=mirada or HOY, hasta=hasta,
+    )
+    return ocsp.leer_respuesta(
+        _envuelta(_basica([single], quien, clave))
+    )
+
+
+def con_ocsp(*respuestas, listas=(), cuando=None, hoy=None):
+    return revocacion.reglas(
+        [LA_HOJA, LA_INTERMEDIA, leer(raiz())],
+        list(listas),
+        cuando=cuando,
+        hoy=hoy,
+        respuestas_ocsp=list(respuestas),
+    )
+
+
+class TestElInformeConsultaElOcsp:
+    def test_una_respuesta_buena_cierra_la_pregunta(self):
+        """Sin ninguna CRL, y aun así no queda nada por comprobar."""
+        salen = con_ocsp(_respuesta(), cuando=HOY - timedelta(days=1))
+        assert codigos(salen, ERROR) == set()
+        assert codigos(salen, AVISO) == set()
+        assert codigos(salen, NOTA) == {"CONFIANZA-REVOCACION"}
+
+    def test_y_dice_de_dónde_salió_lo_que_afirma(self):
+        """«No consta anulado» sin decir según qué prueba y de qué día es un
+        tic verde con más letras, igual que con las listas."""
+        salen = con_ocsp(_respuesta(), cuando=HOY - timedelta(days=1))
+        assert "respuesta OCSP" in salen[0].mensaje
+        assert "CA intermedia" in salen[0].mensaje
+        assert HOY.date().isoformat() in salen[0].mensaje
+        # Y que no promete de hoy lo que solo sabe de aquel día.
+        assert "no cómo está hoy" in salen[0].mensaje
+
+    def test_anulado_antes_de_firmar_es_error(self):
+        salen = con_ocsp(
+            _respuesta(_anulado_ocsp(HOY - timedelta(days=30))), cuando=HOY
+        )
+        assert codigos(salen) == {"REVOCADO"}
+        assert salen[0].gravedad == ERROR
+        assert "respuesta OCSP" in salen[0].encontrado
+
+    def test_anulado_por_clave_robada_sigue_siendo_error_hacia_atrás(self):
+        """El motivo pesa más que la fecha, venga de una lista o de aquí."""
+        salen = con_ocsp(
+            _respuesta(_anulado_ocsp(HOY, motivo=1)), cuando=HOY - timedelta(days=90)
+        )
+        assert codigos(salen) == {"REVOCACION-COMPROMISO"}
+        assert salen[0].gravedad == ERROR
+
+    def test_anulado_después_de_firmar_es_aviso(self):
+        salen = con_ocsp(
+            _respuesta(_anulado_ocsp(HOY - timedelta(days=1))),
+            cuando=HOY - timedelta(days=30),
+        )
+        assert codigos(salen) == {"REVOCACION-POSTERIOR"}
+        assert salen[0].gravedad == AVISO
+
+    def test_un_no_lo_sé_no_es_un_visto_bueno(self):
+        """«unknown» es el fallo que caería del lado peligroso."""
+        salen = con_ocsp(_respuesta(SIN_SABER), cuando=HOY - timedelta(days=1))
+        assert codigos(salen) == {"REVOCACION-OCSP-NO-VALE"}
+        assert codigos(salen, NOTA) == set()
+        assert "unknown" in salen[0].mensaje
+
+    def test_una_respuesta_firmada_por_otro_no_vale(self):
+        """Es la que importa: la respuesta la mete quien firma el documento, y
+        sin comprobarla cualquiera adjunta un «está perfectamente» suyo."""
+        salen = con_ocsp(
+            _respuesta(quien="CA intermedia", clave=INTRUSO),
+            cuando=HOY - timedelta(days=1),
+        )
+        assert codigos(salen) == {"REVOCACION-OCSP-NO-VALE"}
+        assert codigos(salen, NOTA) == set()
+
+    def test_una_respuesta_de_otro_certificado_no_lo_cubre(self):
+        """Mismo emisor, otra serie: no habla de este."""
+        salen = con_ocsp(_respuesta(serie=999), cuando=HOY - timedelta(days=1))
+        assert codigos(salen) == {"REVOCACION-OCSP-NO-VALE"}
+        assert "ninguna" in salen[0].mensaje
+
+    def test_una_respuesta_anterior_sin_plazo_no_dice_nada_de_la_firma(self):
+        """Se miró antes de firmar y el respondedor no dijo hasta cuándo valía,
+        que es su manera de pedir que no se guarde."""
+        salen = con_ocsp(
+            _respuesta(mirada=HOY - timedelta(days=30)), cuando=HOY
+        )
+        assert codigos(salen) == {"REVOCACION-OCSP-NO-VALE"}
+        assert "30 días antes de esta firma" in salen[0].mensaje
+        assert "no dijo hasta cuándo" in salen[0].mensaje
+
+    def test_una_respuesta_anterior_pero_todavía_vigente_sí_vale(self):
+        """El caso de verdad, medido: en `78353__XAdES_A_Detached.xml` la
+        respuesta se pidió 27 segundos antes de la firma y se daba por vigente
+        cuatro horas. Así se hace un XAdES-XL —preguntar, firmar, sellar—, y
+        tratarlo como «no se sabe» levantaría el aviso en casi toda factura
+        archivada. Quien dice que seguía valiendo no es este validador: es el
+        respondedor, con su `nextUpdate`."""
+        salen = con_ocsp(
+            _respuesta(
+                mirada=HOY - timedelta(seconds=27),
+                hasta=HOY + timedelta(hours=4),
+            ),
+            cuando=HOY,
+        )
+        assert codigos(salen, AVISO) == set()
+        assert codigos(salen, NOTA) == {"CONFIANZA-REVOCACION"}
+        # Y la nota tiene que decir sobre qué se aceptó, no callarlo.
+        assert "27 segundos antes de la firma" in salen[0].mensaje
+        assert "el propio respondedor la daba por vigente hasta" in salen[0].mensaje
+
+    def test_una_respuesta_anterior_y_ya_caducada_no_vale(self):
+        """Si el plazo que se dio a sí misma acabó antes de la firma, no llega
+        hasta ella y volvemos a no saber."""
+        salen = con_ocsp(
+            _respuesta(
+                mirada=HOY - timedelta(days=3), hasta=HOY - timedelta(days=2)
+            ),
+            cuando=HOY,
+        )
+        assert codigos(salen) == {"REVOCACION-OCSP-NO-VALE"}
+        assert "solo la daba por vigente hasta" in salen[0].mensaje
+
+    def test_una_ilegible_no_pasa_por_no_haber_traído_nada(self):
+        """Un documento con una respuesta rota no es un documento sin pruebas,
+        y decir «no tenemos ninguna lista de esa autoridad» sería falso."""
+        rota = ocsp.Respuesta(
+            estado_global=-1, ilegible="el base64 no se descodifica"
+        )
+        salen = con_ocsp(rota, cuando=HOY)
+        assert codigos(salen) == {"REVOCACION-OCSP-NO-VALE"}
+        assert "no se pudo ni abrir" in salen[0].mensaje
+
+    def test_sin_respuestas_el_aviso_es_el_de_siempre(self):
+        """Que exista el camino nuevo no puede cambiar el viejo."""
+        salen = revocacion.reglas(
+            [LA_HOJA, LA_INTERMEDIA, leer(raiz())], [], cuando=HOY
+        )
+        assert codigos(salen) == {"REVOCACION-SIN-COMPROBAR"}
+
+
+class TestCuandoLasDosPruebasNoDicenLoMismo:
+    """Una CRL y una respuesta OCSP contestan lo mismo y pueden discrepar.
+
+    La regla es la que `comprobar` ya aplica entre dos CRL: manda la más nueva
+    de las que contestan. Y tiene el mismo motivo, que no es la comodidad sino
+    las suspensiones: una que se levanta desaparece de la prueba siguiente, así
+    que quedarse con la vieja resucitaría una anulación que ya no existe.
+    """
+
+    def test_una_acusación_nueva_gana_a_una_lista_limpia_vieja(self):
+        # Las dos se contradicen a propósito: una lista publicada después de
+        # la firma y sin la hoja dentro, y una respuesta más nueva que dice que
+        # se anuló antes. Es artificial, y es la única forma de fijar la regla
+        # sin que se cuele la coincidencia.
+        limpia = leer_lista(lista(lineas=[], desde=HOY - timedelta(days=10)))
+        salen = con_ocsp(
+            _respuesta(_anulado_ocsp(HOY - timedelta(days=30)), mirada=HOY),
+            listas=[limpia],
+            cuando=HOY - timedelta(days=20),
+        )
+        assert codigos(salen) == {"REVOCADO"}
+
+    def test_y_un_visto_bueno_nuevo_gana_a_una_acusación_vieja(self):
+        """Es el caso de la suspensión levantada, y por eso no se puede
+        contestar «lo que acuse, gana»: se rechazaría una factura buena."""
+        acusa = leer_lista(
+            lista(
+                lineas=[_linea(HOJA_SERIE, HOY - timedelta(days=50), motivo=6)],
+                desde=HOY - timedelta(days=40),
+            )
+        )
+        salen = con_ocsp(
+            _respuesta(mirada=HOY - timedelta(days=1)),
+            listas=[acusa],
+            cuando=HOY - timedelta(days=2),
+        )
+        assert codigos(salen, ERROR) == set()
+        assert codigos(salen, AVISO) == set()
+        assert codigos(salen, NOTA) == {"CONFIANZA-REVOCACION"}
+
+    def test_y_al_revés_también_manda_la_lista_si_es_la_nueva(self):
+        """La simétrica de la anterior, y no sobra: sin ella, «se queda con la
+        respuesta OCSP» y «se queda con la prueba más nueva» dan lo mismo en
+        todas las pruebas del fichero, que es como una regla se convierte en
+        una casualidad que nadie vigila."""
+        acusa = leer_lista(
+            lista(
+                lineas=[_linea(HOJA_SERIE, HOY - timedelta(days=50))],
+                desde=HOY - timedelta(days=5),
+            )
+        )
+        salen = con_ocsp(
+            _respuesta(mirada=HOY - timedelta(days=30)),
+            listas=[acusa],
+            cuando=HOY - timedelta(days=40),
+        )
+        assert codigos(salen) == {"REVOCADO"}
+        assert "según la lista de" in salen[0].encontrado
+
+    def test_si_ninguna_sabe_se_cuenta_lo_del_ocsp_y_dónde_bajar_la_lista(self):
+        """Las dos cosas son ciertas y las dos hacen falta: por qué no sirvió
+        lo que traía el documento, y qué se puede instalar para saberlo."""
+        con_punto = leer(hoja(extensiones=_puntos("http://pki.ejemplo.es/ca.crl")))
+        salen = revocacion.reglas(
+            [con_punto, LA_INTERMEDIA],
+            [],
+            cuando=HOY,
+            respuestas_ocsp=[_respuesta(SIN_SABER)],
+        )
+        assert codigos(salen) == {"REVOCACION-OCSP-NO-VALE"}
+        assert "unknown" in salen[0].mensaje
+        assert "http://pki.ejemplo.es/ca.crl" in salen[0].mensaje

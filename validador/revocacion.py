@@ -12,11 +12,12 @@ esta es la única parte del validador que necesita algo de fuera.
 
 Tres formas de conseguir esa prueba, y la que no se usa
 -------------------------------------------------------
-1. **Que la traiga el documento.** XAdES-XL guarda dentro de la firma las
-   listas de revocación del momento en que se firmó. Es lo que la norma
-   inventó para que una firma se pueda comprobar dentro de veinte años, cuando
-   la autoridad que la emitió ya no exista. Cero red, y es la única forma que
-   sigue funcionando cuando la lista de entonces ya no está publicada.
+1. **Que la traiga el documento.** XAdES-XL guarda dentro de la firma la
+   prueba de revocación del momento en que se firmó: listas (CRL) o respuestas
+   OCSP, y a menudo lo segundo y no lo primero. Es lo que la norma inventó para
+   que una firma se pueda comprobar dentro de veinte años, cuando la autoridad
+   que la emitió ya no exista. Cero red, y es la única forma que sigue
+   funcionando cuando la lista de entonces ya no está publicada.
 2. **Una lista instalada en una carpeta**, igual que los esquemas XSD y las
    anclas. Se baja una vez y sirve para todas las facturas de esa autoridad
    hasta que caduque.
@@ -25,8 +26,8 @@ Tres formas de conseguir esa prueba, y la que no se usa
    lista le falta y dónde dice el propio certificado que está. Bajarla es un
    acto explícito de quien usa la herramienta, no algo que pase de fondo.
 
-Por qué CRL y no OCSP
----------------------
+Por qué no se pregunta por OCSP, y qué sí se lee
+------------------------------------------------
 Las dos contestan lo mismo y filtran cosas muy distintas.
 
 Una **CRL** es la lista entera de anulados de una autoridad. Al bajarla no se
@@ -42,6 +43,14 @@ Esto no es teórico. De las cinco facturas firmadas que hay de muestra, cuatro
 apuntan a una CRL y **la firmada con DNIe no publica CRL ninguna**: solo OCSP.
 Con ese certificado no hay forma de comprobar la revocación sin decirle al
 emisor qué se está mirando. Se dice, y que elija quien valida.
+
+Ahora bien: eso es **preguntar**. Leer la respuesta que ya viene dentro del
+documento es lo contrario —no abre ninguna conexión, no le cuenta nada a nadie,
+y aprovecha algo que el firmante metió ahí justamente para que se pudiera
+comprobar sin red—. Eso sí se hace: `ocsp.py` las lee y las verifica, y aquí se
+consultan con las mismas tres preguntas que a una CRL. Un XAdES-XL moderno
+guarda OCSP y muchas veces no guarda CRL, así que sin esto la revocación de
+esos documentos no se comprobaba nunca.
 
 El problema de las fechas, que es el que casi nadie cuenta
 ----------------------------------------------------------
@@ -74,10 +83,11 @@ import base64
 import binascii
 import os
 import re
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from validador import ocsp
 from validador.firma import (
     _OID_ALGORITMO,
     Certificado,
@@ -94,14 +104,15 @@ __all__ = [
     "AlmacenDeListas",
     "Anulacion",
     "Lista",
+    "PruebaOcsp",
     "Veredicto",
     "comprobar",
+    "comprobar_ocsp",
     "donde_esta_el_ocsp",
     "donde_esta_la_lista",
     "leer_lista",
     "listas_del_documento",
     "reglas",
-    "trae_ocsp",
 ]
 
 VARIABLE_ENTORNO = "FACTURAE_REVOCACIONES"
@@ -525,13 +536,41 @@ _PRINCIPIO = datetime.min.replace(tzinfo=timezone.utc)
 
 
 @dataclass(frozen=True)
+class PruebaOcsp:
+    """Una respuesta OCSP que se ha creído, y por qué se la ha creído.
+
+    `quien` es quien la firmó **comprobado**, no lo que diga un campo: o la
+    propia autoridad, o un respondedor al que ella delegó. Y `mirada` es el
+    `thisUpdate`, el momento del que la respuesta habla. Sin esa fecha no se
+    puede decir qué se ha dado por bueno: una respuesta OCSP es una foto con
+    hora, no un estado permanente.
+    """
+
+    quien: str
+    porque: str  # «la firma la propia autoridad», o delegada por ella
+    mirada: datetime | None
+    # Hasta cuándo la daba por vigente **el propio respondedor** (`nextUpdate`),
+    # y cuánto se miró antes de la firma, cuando se miró antes. Las dos hacen
+    # falta para poder decir sobre qué se aceptó, que es lo que distingue una
+    # nota de un tic verde.
+    vale_hasta: datetime | None = None
+    hueco: timedelta | None = None
+
+
+@dataclass(frozen=True)
 class Veredicto:
-    """Lo que se ha podido averiguar, y con qué lista se ha averiguado."""
+    """Lo que se ha podido averiguar, y con qué prueba se ha averiguado."""
 
     estado: str  # "anulado", "vigente" o "sin_saber"
     lista: Lista | None = None
     anulacion: Anulacion | None = None
     motivo: str = ""  # por qué no se sabe, cuando no se sabe
+    # Cuando la prueba no fue una CRL sino una respuesta OCSP de las que trae
+    # el documento. Va en su propio campo y no dentro de `lista` porque no es
+    # una lista, y el informe tiene que poder decir de dónde salió lo que
+    # afirma: «según la lista de X» y «según la respuesta OCSP de Y» no son la
+    # misma frase ni la misma prueba.
+    ocsp: PruebaOcsp | None = None
 
 
 def _sirve(lista: Lista, emisor: Certificado, cert: Certificado) -> str:
@@ -629,6 +668,164 @@ def comprobar(
     return Veredicto("vigente", lista=mejor)
 
 
+def comprobar_ocsp(
+    cert: Certificado,
+    emisor: Certificado,
+    respuestas: list,
+    cuando: datetime | None = None,
+) -> Veredicto:
+    """Lo mismo que `comprobar`, pero con las respuestas OCSP del documento.
+
+    Las mismas tres preguntas que a una CRL y en el mismo orden: de quién
+    habla, quién la firma y de cuándo es. Quien las contesta es `ocsp.py`; aquí
+    solo se decide qué significa cada respuesta para el informe.
+
+    Con una diferencia que importa: que una respuesta hable de **otro**
+    certificado no es un fallo, es que no venía a cuento. Solo se verifican las
+    que dicen algo de este —`casa_con` es aritmética y no hace falta creerse
+    nada para saber si el CertID cuadra—, y así un documento con cuatro
+    respuestas no suelta cuatro quejas por cada eslabón de la cadena.
+    """
+    if not respuestas:
+        return Veredicto("sin_saber", motivo="el documento no trae respuestas OCSP")
+
+    fallos: list[str] = []
+    suyas: list[tuple] = []
+    for respuesta in respuestas:
+        propios = [uno for uno in respuesta.estados if ocsp.casa_con(uno, cert, emisor)]
+        if not propios and respuesta.estados:
+            continue
+        vale, porque = ocsp.verificar_respuesta(respuesta, emisor)
+        if not vale:
+            fallos.append(porque)
+            continue
+        # Ya está verificada; esto es solo para poder nombrar en el informe a
+        # quien la firmó, que es la mitad de lo que hace útil a una nota.
+        quien, _ = ocsp.quien_la_firma(respuesta, emisor)
+        nombre = (quien.sujeto if quien is not None else "") or "su autoridad"
+        for uno in propios:
+            suyas.append(
+                (uno, PruebaOcsp(nombre, porque, uno.mirada, uno.vale_hasta))
+            )
+
+    if not suyas:
+        if fallos:
+            return Veredicto("sin_saber", motivo=fallos[0])
+        return Veredicto(
+            "sin_saber",
+            motivo=(
+                "ninguna de las respuestas OCSP que trae el documento habla de "
+                "este certificado"
+            ),
+        )
+
+    # Manda la más nueva, y por lo mismo que entre dos CRL: una suspensión que
+    # se levanta desaparece de las respuestas siguientes, así que quedarse con
+    # la más vieja resucitaría una anulación que ya no existe.
+    estado, prueba = max(suyas, key=lambda par: par[0].mirada or _PRINCIPIO)
+
+    if estado.anulado:
+        return Veredicto(
+            "anulado",
+            anulacion=Anulacion(cert.serie, estado.anulado_el, motivo=estado.motivo),
+            ocsp=prueba,
+        )
+    if estado.sin_saber:
+        # «unknown» no es «good». El respondedor dice que ese certificado no le
+        # consta, y eso puede ser tanto que nunca existió como que no es suyo.
+        return Veredicto(
+            "sin_saber",
+            ocsp=prueba,
+            motivo=(
+                "el respondedor contestó que no sabe nada de ese certificado "
+                "(«unknown»), que no es lo mismo que decir que está bien"
+            ),
+        )
+    if cuando is not None and prueba.mirada is not None and prueba.mirada < cuando:
+        # Se miró antes de firmar, que es lo normal y no lo excepcional: un
+        # XAdES-XL se hace preguntando el estado, firmando y sellando, por ese
+        # orden. Medido sobre las muestras, el hueco es de 27 segundos en
+        # `78353__XAdES_A_Detached.xml` y de poco más de una hora en
+        # `firma_cofirma_xades_longeva.xml`. Tratar eso como «no se sabe»
+        # levantaría el aviso en casi toda factura archivada, y un aviso que
+        # sale siempre deja de leerse.
+        #
+        # Quien dice si la respuesta seguía valiendo en ese momento no es este
+        # validador: es el respondedor, con su `nextUpdate`. Si lo cubre, se
+        # acepta y la nota dice el hueco y en qué se apoya. Si no lo dice
+        # —que es su manera de pedir que no se guarde—, o si dice que ya no
+        # valía, se sigue sin saber.
+        prueba = replace(prueba, hueco=cuando - prueba.mirada)
+        if estado.vale_hasta is None or estado.vale_hasta < cuando:
+            hasta = (
+                "el respondedor no dijo hasta cuándo la daba por vigente"
+                if estado.vale_hasta is None
+                else "el propio respondedor solo la daba por vigente hasta el "
+                f"{estado.vale_hasta.isoformat(' ', 'seconds')}"
+            )
+            return Veredicto(
+                "sin_saber",
+                ocsp=prueba,
+                motivo=(
+                    f"la respuesta OCSP miró el certificado {_cuanto(prueba.hueco)} "
+                    f"antes de esta firma y {hasta}: no pudo enterarse de una "
+                    "anulación posterior"
+                ),
+            )
+    return Veredicto("vigente", ocsp=prueba)
+
+
+def _cuanto(hueco: timedelta) -> str:
+    """Un rato, en la unidad que lo hace legible.
+
+    Existe porque el mensaje imprimía dos fechas iguales y decía que una era
+    anterior a la otra: entre pedir el estado del certificado y firmar pasan
+    segundos, y en días eso no se ve.
+    """
+    segundos = int(hueco.total_seconds())
+    if segundos < 60:
+        return f"{segundos} segundo{'' if segundos == 1 else 's'}"
+    minutos = segundos // 60
+    if minutos < 60:
+        return f"{minutos} minuto{'' if minutos == 1 else 's'}"
+    horas = minutos // 60
+    if horas < 48:
+        return f"{horas} hora{'' if horas == 1 else 's'}"
+    dias = horas // 24
+    return f"{dias} día{'' if dias == 1 else 's'}"
+
+
+def _cuando_mira(veredicto: Veredicto) -> datetime:
+    """De qué momento habla la prueba con la que se contestó."""
+    if veredicto.ocsp is not None and veredicto.ocsp.mirada is not None:
+        return veredicto.ocsp.mirada
+    if veredicto.lista is not None and veredicto.lista.desde is not None:
+        return veredicto.lista.desde
+    return _PRINCIPIO
+
+
+def _juntar(por_lista: Veredicto, por_ocsp: Veredicto | None) -> Veredicto:
+    """Dos pruebas para la misma pregunta, y qué se hace si no coinciden.
+
+    Manda **la más nueva de las que contestan**, que es exactamente la regla
+    que `comprobar` ya aplica entre dos CRL de la misma autoridad, y por el
+    mismo motivo: una suspensión levantada desaparece de la prueba siguiente,
+    así que quedarse con la vieja resucitaría una anulación que ya no existe.
+    Contestar es decir «anulado» o «vigente»; «no lo sé» no compite.
+
+    Y si ninguna sabe, se queda el motivo del OCSP. No es capricho: si el
+    documento traía respuestas, lo que hay que contar es por qué no han
+    servido. Que además falte la CRL sigue en el aviso, con la dirección donde
+    bajarla.
+    """
+    if por_ocsp is None:
+        return por_lista
+    contestan = [uno for uno in (por_lista, por_ocsp) if uno.estado != "sin_saber"]
+    if not contestan:
+        return por_ocsp
+    return max(contestan, key=_cuando_mira)
+
+
 # --- Lo que trae el propio documento ---------------------------------------
 
 
@@ -648,15 +845,6 @@ def listas_del_documento(firma) -> list[Lista]:
         except (ValueError, IndexError, binascii.Error):
             continue
     return salida
-
-
-def trae_ocsp(firma) -> bool:
-    """¿La firma trae respuestas OCSP guardadas dentro?
-
-    Se detectan para poder decir que están ahí y que no se leen todavía. Callar
-    daría a entender que el documento no traía nada.
-    """
-    return bool(firma.xpath(".//*[local-name()='EncapsulatedOCSPValue']"))
 
 
 # --- Las reglas ------------------------------------------------------------
@@ -690,10 +878,20 @@ def _anulado(
     anulacion = veredicto.anulacion
     quien = _quien(cert, primero)
     fecha = anulacion.cuando.date().isoformat() if anulacion.cuando else "una fecha que no se lee"
-    encontrado = (
-        f"anulado el {fecha} {anulacion.texto_motivo}, según la lista de "
-        f"«{veredicto.lista.emisor_nombre or 'su autoridad'}»"
-    )
+    if veredicto.ocsp is not None:
+        miro = (
+            veredicto.ocsp.mirada.date().isoformat()
+            if veredicto.ocsp.mirada
+            else "una fecha que no se lee"
+        )
+        segun = (
+            f"según la respuesta OCSP de «{veredicto.ocsp.quien}» que trae el "
+            f"propio documento, del {miro}"
+        )
+    else:
+        nombre = veredicto.lista.emisor_nombre if veredicto.lista else ""
+        segun = f"según la lista de «{nombre or 'su autoridad'}»"
+    encontrado = f"anulado el {fecha} {anulacion.texto_motivo}, {segun}"
 
     if anulacion.compromiso:
         desde = ""
@@ -784,21 +982,27 @@ def reglas(
     cuando: datetime | None = None,
     hoy=None,
     donde: str = "",
-    hay_ocsp: bool = False,
+    respuestas_ocsp: list | None = None,
     sello=None,
 ) -> list[Incidencia]:
     """¿Anularon alguno de los certificados de esta cadena?
 
     `eslabones` viene de `cadena.construir`: el primero es el que firma y el
     último es el ancla. Se mira cada pareja (hijo, padre), porque para creerle
-    una lista a alguien hace falta la clave de quien la firma, y esa es la del
+    una prueba a alguien hace falta la clave de quien la firma, y esa es la del
     padre. **El ancla no se mira**: por encima no hay nadie que pueda firmar
     una lista que la anule, y en el almacén está porque quien lo mantiene la
     puso; sacarla de ahí es la forma de dejar de creerla.
+
+    Hay dos fuentes y valen las dos: las listas —las instaladas y las que trae
+    el documento— y las respuestas OCSP que trae el documento. Se consultan las
+    dos siempre, se contrastan en `_juntar`, y lo que decide se dice en el
+    informe con su nombre.
     """
     if len(eslabones) < 2:
         return []
     dentro = listas_dentro or []
+    respuestas = respuestas_ocsp or []
     incidencias: list[Incidencia] = []
     ya_dicho = False
     # Contra qué se ha contrastado, para poder declararlo al final. Un «no
@@ -806,11 +1010,14 @@ def reglas(
     # respuesta: es un tic verde con más letras.
     limpios = 0
     usadas: list[Lista] = []
+    usados: list[PruebaOcsp] = []
 
     for numero, (hijo, padre) in enumerate(zip(eslabones, eslabones[1:])):
         primero = numero == 0
         candidatas = [una for una in dentro + listas_puestas if una.emisor_der == hijo.emisor_der]
-        veredicto = comprobar(hijo, padre, candidatas, cuando)
+        por_lista = comprobar(hijo, padre, candidatas, cuando)
+        por_ocsp = comprobar_ocsp(hijo, padre, respuestas, cuando) if respuestas else None
+        veredicto = _juntar(por_lista, por_ocsp)
 
         if veredicto.estado == "anulado":
             incidencias.append(
@@ -823,6 +1030,16 @@ def reglas(
             limpios += 1
             if lista is not None and not any(o is lista for o in usadas):
                 usadas.append(lista)
+            prueba = veredicto.ocsp
+            if prueba is not None and not any(
+                o.quien == prueba.quien and o.mirada == prueba.mirada for o in usados
+            ):
+                usados.append(prueba)
+            # Aquí no hay equivalente de REVOCACION-LISTA-VIEJA, y es a
+            # propósito: una respuesta OCSP que llega hasta aquí ya ha tenido
+            # que ser posterior a la firma, y lo que prueba de aquel momento no
+            # caduca. Que su `nextUpdate` pasara hace años es lo normal en un
+            # documento archivado, y decirlo en cada factura vieja sería ruido.
             if lista and lista.hasta and hoy is not None and lista.hasta.date() < hoy:
                 incidencias.append(
                     Incidencia(
@@ -847,63 +1064,111 @@ def reglas(
         if ya_dicho or not primero:
             continue
         ya_dicho = True
-        incidencias.append(_no_se_sabe(hijo, veredicto, donde, hay_ocsp))
+        incidencias.append(_no_se_sabe(hijo, veredicto, donde, respuestas))
 
     if limpios:
-        incidencias.append(_nota_de_limpieza(limpios, usadas, donde))
+        incidencias.append(_nota_de_limpieza(limpios, usadas, usados, donde))
     return incidencias
 
 
-def _nota_de_limpieza(cuantos: int, usadas: list[Lista], donde: str) -> Incidencia:
+def _nota_de_limpieza(
+    cuantos: int, usadas: list[Lista], usados: list[PruebaOcsp], donde: str
+) -> Incidencia:
     """Declarar contra qué se ha contrastado, cuando no consta anulado.
 
     Una sola nota por firma y no una por eslabón: en un lote de doscientas
     facturas, la misma línea repetida por cada certificado de cada cadena deja
-    de leerse, y lo que hay que poder leer es de qué día es la lista.
+    de leerse, y lo que hay que poder leer es de qué día es la prueba.
+
+    Y **qué clase de prueba fue**. Una CRL y una respuesta OCSP no dicen lo
+    mismo: la lista responde por lo que su autoridad sabía el día que la
+    publicó, y la respuesta por el estado de un certificado concreto en la hora
+    en que se miró. Meter las dos en la misma frase escondería justo el dato
+    que hace falta para juzgar el «no consta anulado».
     """
     detalles = []
     for lista in usadas:
         cuando = lista.desde.date().isoformat() if lista.desde else "fecha ilegible"
         quien = lista.emisor_nombre or "una autoridad sin nombre común"
         detalles.append(f"«{quien}», publicada el {cuando}")
-    cuales = "; ".join(detalles) or "las listas disponibles"
     contados = (
         "se ha comprobado 1 certificado"
         if cuantos == 1
         else f"se han comprobado {cuantos} certificados"
     )
+    if not usados:
+        cuales = "; ".join(detalles) or "las listas disponibles"
+        return Incidencia(
+            "CONFIANZA-REVOCACION",
+            NOTA,
+            f"No consta anulado ningún certificado de la cadena: {contados} "
+            f"contra la lista de {cuales}. Una lista solo responde por lo que se "
+            "sabía el día que se publicó.",
+            campo=f"{donde}Revocación",
+        )
+    pruebas = [f"la lista de {uno}" for uno in detalles]
+    for prueba in usados:
+        # Con hora, y no solo el día: entre mirar el estado y firmar pasan
+        # segundos, y en días ese hueco no se ve.
+        cuando = (
+            prueba.mirada.isoformat(" ", "seconds")
+            if prueba.mirada
+            else "fecha ilegible"
+        )
+        detalle = (
+            f"la respuesta OCSP de «{prueba.quien}» que trae el propio "
+            f"documento, del {cuando}"
+        )
+        if prueba.hueco is not None:
+            # Se miró antes de firmar. Se aceptó, y hay que decir sobre qué:
+            # sobre la palabra del respondedor, no sobre la nuestra.
+            detalle += (
+                f" —mirada {_cuanto(prueba.hueco)} antes de la firma, y el "
+                f"propio respondedor la daba por vigente hasta el "
+                f"{prueba.vale_hasta.isoformat(' ', 'seconds')}—"
+            )
+        pruebas.append(detalle)
     return Incidencia(
         "CONFIANZA-REVOCACION",
         NOTA,
         f"No consta anulado ningún certificado de la cadena: {contados} "
-        f"contra la lista de {cuales}. Una lista solo responde por lo que se "
-        "sabía el día que se publicó.",
+        f"contra {'; '.join(pruebas)}. Una respuesta OCSP dice cómo estaba el "
+        "certificado el día y la hora en que se miró, no cómo está hoy.",
         campo=f"{donde}Revocación",
     )
 
 
 def _no_se_sabe(
-    cert: Certificado, veredicto: Veredicto, donde: str, hay_ocsp: bool
+    cert: Certificado, veredicto: Veredicto, donde: str, respuestas: list
 ) -> Incidencia:
-    ocsp = donde_esta_el_ocsp(cert)
-    if hay_ocsp:
-        return Incidencia(
-            "REVOCACION-SOLO-OCSP",
-            AVISO,
-            "El documento trae dentro una respuesta OCSP con el estado del "
-            "certificado, y este validador todavía no sabe leerla. No se ha "
-            "comprobado si el certificado estaba anulado.",
-            campo=f"{donde}Revocación",
-            esperado="una lista de revocación (CRL)",
-            encontrado="una respuesta OCSP, que no se lee todavía",
+    servicio = donde_esta_el_ocsp(cert)
+    if respuestas:
+        # El documento traía respuestas y ninguna ha servido. Salir con «no
+        # tenemos ninguna lista de esa autoridad» sería falso por omisión: sí
+        # traía una prueba, y lo que hay que contar es por qué no vale.
+        cual = (
+            "una respuesta OCSP"
+            if len(respuestas) == 1
+            else f"{len(respuestas)} respuestas OCSP"
         )
-    if not donde_esta_la_lista(cert) and ocsp:
+        con_ella = "ella" if len(respuestas) == 1 else "ellas"
+        return Incidencia(
+            "REVOCACION-OCSP-NO-VALE",
+            AVISO,
+            f"El documento trae dentro {cual}, y con {con_ella} no se ha podido "
+            f"comprobar si el certificado estaba anulado: "
+            f"{veredicto.motivo}.{_donde_buscarla(cert)}",
+            campo=f"{donde}Revocación",
+            esperado="una respuesta OCSP verificable, o una lista de revocación (CRL)",
+            encontrado=veredicto.motivo,
+        )
+    if not donde_esta_la_lista(cert) and servicio:
         return Incidencia(
             "REVOCACION-SOLO-OCSP",
             AVISO,
             "No se ha comprobado si el certificado está anulado: su autoridad "
             "no publica lista de revocación, solo un servicio de consulta "
-            f"({ocsp[0]}). Preguntarle lleva dentro el número de serie del "
+            f"({servicio[0]}). Preguntarle lleva dentro el número de serie del "
             "certificado, o sea que le diría a la autoridad qué factura se "
             "está mirando y cuándo. Esa consulta no se hace desde aquí: quien "
             "quiera hacerla, que la haga sabiendo lo que cuenta.",

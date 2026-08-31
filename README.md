@@ -20,14 +20,14 @@ según el RD 238/2026.
 | `validador/firma.py` | La firma XAdES: integridad del documento y verificación RSA y ECDSA, sin salir a la red | Terminado |
 | `validador/cadena.py` | De quién es el certificado: la cadena hasta un ancla de confianza instalada | Terminado |
 | `validador/revocacion.py` | Si anularon el certificado: listas de revocación (CRL), sin salir a la red | Terminado |
-| `validador/ocsp.py` | Las respuestas OCSP que el documento trae dentro: leídas y verificadas | Sin enchufar al informe |
+| `validador/ocsp.py` | Las respuestas OCSP que el documento trae dentro: leídas, verificadas y consultadas por el informe | Terminado |
 | `validador/tsl.py` | De dónde salen las anclas: la lista de confianza (TSL) del Estado, verificada | Terminado |
 | `validador/sellos.py` | El sello de tiempo (RFC 3161 dentro de XAdES): quién acredita la fecha de la firma | Terminado |
 | `validador/edifact.py` | El cuarto formato: la tira de ISO 9735, sus grupos y sus cuentas | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1038 tests, todos en verde.
+1057 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1572,6 +1572,61 @@ de serie del certificado, o sea que le diría a la autoridad qué factura se est
 mirando y cuándo. Esa consulta no se hace desde aquí.
 ```
 
+### Y la respuesta OCSP que ya viene dentro, que sí se lee
+
+Preguntar es una cosa. **Leer la respuesta que el documento ya trae** es la
+contraria: no abre ninguna conexión, no le cuenta nada a nadie, y aprovecha
+algo que el firmante metió ahí justamente para que se pudiera comprobar sin
+red. Un XAdES-XL moderno guarda OCSP y muchas veces no guarda CRL, así que sin
+esto la revocación de esos documentos no se comprobaba nunca.
+
+Que la traiga quien firma no la hace de fiar, y ahí está el trabajo: la mete él,
+así que sin verificarla cualquiera adjunta un «este certificado está
+perfectamente» escrito por sí mismo. Se le exigen tres cosas —las mismas que a
+una lista—: que el `CertID` cuadre con este certificado y su emisor, que la
+firme la autoridad o un respondedor con `id-kp-OCSPSigning` **emitido por ella
+de verdad**, y que la firma cuadre. Si falla una, la respuesta no se usa y se
+dice cuál falló.
+
+**Y el hueco de los 27 segundos.** Un XAdES-XL se construye preguntando el
+estado, firmando y sellando, por ese orden: la respuesta es *anterior* a la
+firma casi siempre. Medido sobre los seis documentos de muestra que traen OCSP,
+el hueco va de 27 segundos a poco más de una hora. Tratarlo como «no se sabe»
+levantaría el aviso en prácticamente toda factura archivada, y un aviso que
+sale siempre deja de leerse.
+
+Quien dice si la respuesta seguía valiendo en el momento de firmar no es este
+validador: es el respondedor, con su `nextUpdate`. Si lo cubre, se acepta y la
+nota dice el hueco y en qué se apoya. Si el respondedor no dijo hasta cuándo
+valía —su manera de pedir que no se guarde— o dijo que ya no, se sigue sin
+saber:
+
+```
+[CONFIANZA-REVOCACION · firma electrónica] No consta anulado ningún certificado
+de la cadena: se ha comprobado 1 certificado contra la respuesta OCSP de
+«Servidor de OCSP - Fabrica Nacional de Moneda y Timbre Q2826004J» que trae el
+propio documento, del 2015-12-16 14:41:55+00:00 —mirada 27 segundos antes de la
+firma, y el propio respondedor la daba por vigente hasta el 2015-12-16
+18:42:22+00:00—. Una respuesta OCSP dice cómo estaba el certificado el día y la
+hora en que se miró, no cómo está hoy.
+```
+
+Cuando la respuesta que trae el documento no sirve, se dice cuál era el
+problema en vez de dejarlo en un «no se ha comprobado» genérico:
+
+```
+[REVOCACION-OCSP-NO-VALE · firma electrónica] El documento trae dentro 4
+respuestas OCSP, y con ellas no se ha podido comprobar si el certificado estaba
+anulado: el respondedor contestó que no sabe nada de ese certificado
+(«unknown»), que no es lo mismo que decir que está bien.
+```
+
+La lista (CRL) se queda más estricta a propósito: una publicada antes de la
+firma no cuenta, aunque su plazo llegue. La ventana de una respuesta OCSP se
+mide en horas y la de una lista en días o semanas, así que aplicar allí el
+mismo argumento se tragaría un plazo mucho mayor. Queda dicho, que es distinto
+de quedar escondido.
+
 ### El problema de las fechas, que casi nadie cuenta
 
 Una revocación tiene fecha, y la firma también. Que un certificado esté anulado
@@ -2074,7 +2129,6 @@ Lo que queda, ordenado por lo que de verdad estorba.
 | Hueco | Por qué importa | Tamaño |
 |---|---|---|
 | **El directorio de EDIFACT, por partes** | Se leen los segmentos que INVOIC usa de verdad, no el directorio entero. Un segmento que no esté escrito se guarda por posiciones y no lo mira ninguna regla | pequeño |
-| **Enchufar el OCSP embebido al informe** | `validador/ocsp.py` ya lee y verifica las respuestas que trae el documento —firma del respondedor, delegación por la autoridad y emparejamiento con el certificado—, y está probado contra seis documentos reales. Lo que falta es que `cadena.py` las consulte en vez de pasar un booleano: hoy el informe sigue diciendo que no sabe leerlas | pequeño |
 | **Los mensajes de estado del RD** | `calendario.py` calcula el plazo de cuatro días hábiles, pero no se valida un documento de estado en sí | medio |
 | **El IVA por línea** | Que el tipo de cada línea case con lo que se vende no es EN 16931: es la Ley del IVA, y hace falta saber qué se vende | dudoso |
 

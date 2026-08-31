@@ -355,11 +355,32 @@ class TestDelDocumento:
         assert len(ocsp.respuestas_del_documento(self._firma_con(una, una))) == 2
 
     def test_una_ilegible_no_se_lleva_a_las_demas(self, mundo):
-        """Un documento con cuatro respuestas y una rota sigue teniendo tres."""
+        """Un documento con tres respuestas y una rota tiene dos que valen."""
         buena = _envuelta(_basica([_para_la_hoja()], "AC de prueba", RAIZ))
         rota = b"\x30\x82\xff\xff esto no es DER"
         salen = ocsp.respuestas_del_documento(self._firma_con(buena, rota, buena))
-        assert len(salen) == 2
+        assert len([una for una in salen if not una.ilegible]) == 2
+
+    def test_una_ilegible_no_desaparece(self, mundo):
+        """Y tampoco se tira: se cuenta, diciendo que no se supo abrir.
+
+        Tirarla dejaría un documento que trae una prueba rota exactamente igual
+        que uno que no trae ninguna, y el informe diría «no tenemos ninguna
+        lista de esa autoridad». Traía algo, y no se supo leer.
+        """
+        rota = b"\x30\x82\xff\xff esto no es DER"
+        salen = ocsp.respuestas_del_documento(self._firma_con(rota))
+        assert len(salen) == 1
+        assert salen[0].ilegible
+        assert not salen[0].correcta
+
+    def test_una_ilegible_no_se_cuela_como_verificada(self, mundo):
+        """Que se guarde no la hace creíble: verificarla tiene que fallar."""
+        rota = b"\x30\x82\xff\xff esto no es DER"
+        una = ocsp.respuestas_del_documento(self._firma_con(rota))[0]
+        vale, porque = ocsp.verificar_respuesta(una, mundo["autoridad"])
+        assert not vale
+        assert "no se pudo ni abrir" in porque
 
     def test_sin_respuestas_no_inventa_ninguna(self):
         assert ocsp.respuestas_del_documento(self._firma_con()) == []

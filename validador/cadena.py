@@ -63,7 +63,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from validador import firma, revocacion, sellos
+from validador import firma, ocsp, revocacion, sellos
 from validador.firma import (
     ALGORITMOS_ROTOS,
     Certificado,
@@ -721,7 +721,7 @@ def reglas(
     listas: list | None = None,
     listas_dentro: list | None = None,
     hoy=None,
-    hay_ocsp: bool = False,
+    respuestas_ocsp: list | None = None,
     sello=None,
 ) -> list[Incidencia]:
     """De quién es el certificado que firma, hasta donde se pueda saber.
@@ -812,7 +812,7 @@ def reglas(
             cuando=cuando,
             hoy=hoy,
             donde=donde,
-            hay_ocsp=hay_ocsp,
+            respuestas_ocsp=respuestas_ocsp,
             sello=sello,
         )
     )
@@ -1002,7 +1002,7 @@ def reglas_de_documento(
                 listas=listas.todas() if listas is not None else [],
                 listas_dentro=revocacion.listas_del_documento(una),
                 hoy=hoy,
-                hay_ocsp=revocacion.trae_ocsp(una),
+                respuestas_ocsp=ocsp.respuestas_del_documento(una),
                 sello=acreditado[1] if acreditado else None,
             )
         )

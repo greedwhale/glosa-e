@@ -1933,3 +1933,54 @@ Hay un detalle que obligaba a comprobarlo en vez de darlo por hecho: el propio
 le pasa `indexURL`. Se le pasa. Pero eso es exactamente lo que hay que mirar y
 no suponer, así que se cargó la página y se contaron las peticiones.
 
+
+# La regla correcta que habría avisado en todas las facturas
+
+Al enchufar las respuestas OCSP al informe, la regla salió sola y por analogía
+con las listas: si la prueba es **anterior** a la firma, no puede saber lo que
+pasó después, así que no cierra la pregunta. Todas las pruebas en verde, ocho
+sabotajes cazados, y el módulo entero probado rompiéndolo.
+
+Después se pasó por los seis documentos reales que traen OCSP dentro. Esto es
+lo que decía el informe:
+
+```
+[AVISO] El documento trae dentro 4 respuestas OCSP, y con ellas no se ha podido
+comprobar si el certificado estaba anulado: la respuesta OCSP miró el estado del
+certificado el 2015-12-16 y la firma dice ser del 2015-12-16: se miró antes.
+```
+
+**La misma fecha a los dos lados, y una frase diciendo que una es anterior a la
+otra.** Eso es lo que se veía. Lo que había debajo, al medirlo:
+
+| Documento | Se miró el estado | Firma acreditada | Hueco |
+|---|---|---|---|
+| `78353__XAdES_A_Detached` | 14:41:55 | 14:42:22 | **27 s** |
+| `78353__XAdES_A_Enveloping` | 14:51:00 | 14:51:38 | 38 s |
+| `firma_cofirma_xades_longeva` | 09:51:34 | 10:58:13 | 1 h 07 min |
+| `XAdES-XL_con_sello_binario` | 15:42:48 | 15:42:47.9 | posterior |
+| `XAdES-XL_con_sello_xml` | 12:22:28 | 12:20:20 | posterior |
+
+Un XAdES-XL se construye así y no de otra manera: **se pregunta el estado, se
+firma, se sella**. La respuesta es anterior a la firma casi siempre, y por
+segundos. La regla no estaba mal razonada —una foto de hace 27 segundos no
+prueba lo de ahora—; estaba mal calibrada, y habría levantado el aviso en
+prácticamente toda factura archivada de verdad. Un aviso que sale siempre deja
+de leerse, y entonces no avisa de nada.
+
+Lo que lo cerró no fue elegir un margen. Elegir «medio minuto pasa» habría sido
+inventarse una cifra y llamarla criterio. **Quien dice si una respuesta seguía
+valiendo en un momento dado es el respondedor**, y lo dice por escrito dentro de
+la propia respuesta: `nextUpdate`. En la de los 27 segundos son las 18:42:22,
+cuatro horas por delante de la firma. Si el plazo llega a la firma, se acepta y
+la nota dice el hueco y en qué se apoya; si el respondedor no dijo hasta cuándo
+valía —su manera de pedir que no se guarde— o dijo que ya no, se sigue sin
+saber. El umbral no lo pone este validador.
+
+Quedan dos cosas dichas y no escondidas. Una, que la CRL se queda más estricta:
+su ventana se mide en días o semanas y la de una respuesta OCSP en horas, así
+que el mismo argumento allí se tragaría un plazo mucho mayor. Y otra, la que de
+verdad importa: **las pruebas no lo habrían encontrado nunca**. Estaban
+todas verdes, y todas escritas contra fechas inventadas por la misma mano que
+escribió la regla. Lo encontró abrir seis ficheros que no ha escrito este
+proyecto y leer lo que salía.

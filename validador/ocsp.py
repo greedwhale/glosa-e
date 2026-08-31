@@ -177,6 +177,10 @@ class Respuesta:
     # ResponderID: o el nombre del respondedor, o el resumen de su clave.
     por_nombre: bytes | None = None
     por_clave: bytes | None = None
+    # Por qué no se pudo ni trocear, cuando no se pudo. Una respuesta ilegible
+    # se guarda en vez de tirarse: el informe tiene que poder distinguir «no
+    # traía ninguna» de «traía una y no se supo leer».
+    ilegible: str = ""
 
     @property
     def correcta(self) -> bool:
@@ -425,21 +429,29 @@ def leer_respuesta(der: bytes) -> Respuesta:
 def respuestas_del_documento(firma_xml) -> list[Respuesta]:
     """Las respuestas OCSP guardadas dentro de una firma XAdES.
 
-    Una que no se pueda ni trocear se descarta aquí y no rompe las demás: un
-    documento con cuatro respuestas y una rota sigue teniendo tres.
+    Una que no se pueda trocear **no se tira**: se devuelve marcada como
+    ilegible. Descartarla dejaría un documento con una respuesta rota igual que
+    uno sin ninguna, y no es lo mismo —el primero trae una prueba que alguien
+    quiso dejar ahí y no se sabe leer, y eso hay que decirlo—. Las demás siguen
+    sirviendo: cuatro respuestas y una rota son tres que valen y una que se
+    cuenta.
     """
     salida = []
     for nodo in firma_xml.xpath(".//*[local-name()='EncapsulatedOCSPValue']"):
         if nodo.text is None:
+            salida.append(Respuesta(estado_global=-1, ilegible="viene vacía"))
             continue
         try:
             der = base64.b64decode("".join(nodo.text.split()))
         except (binascii.Error, ValueError):
+            salida.append(
+                Respuesta(estado_global=-1, ilegible="el base64 no se descodifica")
+            )
             continue
         try:
             salida.append(leer_respuesta(der))
-        except (ValueError, IndexError):
-            continue
+        except (ValueError, IndexError) as error:
+            salida.append(Respuesta(estado_global=-1, ilegible=str(error)))
     return salida
 
 
@@ -592,6 +604,8 @@ def verificar_respuesta(
     Sin esto, cualquiera podría adjuntar a su documento un «este certificado
     está perfectamente» escrito por él mismo.
     """
+    if respuesta.ilegible:
+        return False, f"la respuesta no se pudo ni abrir: {respuesta.ilegible}"
     if not respuesta.correcta:
         return False, f"la respuesta viene {respuesta.que_paso}"
     if not respuesta.tbs or not respuesta.firma:

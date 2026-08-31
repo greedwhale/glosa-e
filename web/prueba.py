@@ -204,7 +204,7 @@ def _():
     ESPERADOS = {
         "cadena", "calendario", "codigo_unico", "edifact", "en16931",
         "esquema", "factura", "facturae", "firma", "formato", "incidencias",
-        "iva", "nif", "revocacion", "sellos", "sintaxis", "tsl",
+        "iva", "nif", "ocsp", "revocacion", "sellos", "sintaxis", "tsl",
     }
     nombres = sorted(m.name for m in pkgutil.iter_modules(validador.__path__))
     faltan = sorted(ESPERADOS - set(nombres))
@@ -513,6 +513,47 @@ def _lista_de_juguete(emisor_der, serie=None, delta=False):
     return _seq(tbs, _seq(_der(0x06, oid)), _der(0x03, bytes([0]) + valor))
 
 
+def _respuesta_de_juguete(cert):
+    """Una respuesta OCSP de verdad: firmada, con su CertID y su motivo.
+
+    El `CertID` no lleva el certificado dentro: lleva el numero de serie y dos
+    resumenes del emisor —de su nombre y de su clave—. Se calculan aqui, que es
+    la parte que de verdad hay que ver funcionar dentro de WebAssembly: es el
+    unico sitio del validador donde entra SHA-1, y no por descuido sino porque
+    el RFC 6960 lo fija para esto.
+    """
+    import hashlib
+    from validador import firma
+    from validador.ocsp import _clave_cruda
+    n = P_JUGUETE * Q_JUGUETE
+    d = pow(65537, -1, (P_JUGUETE - 1) * (Q_JUGUETE - 1))
+    oid_rsa = bytes([0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x0B])
+    oid_sha1 = bytes([0x2B, 0x0E, 0x03, 0x02, 0x1A])
+    oid_basica = bytes([0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x01])
+
+    certid = _seq(
+        _seq(_der(0x06, oid_sha1), _der(0x05, b"")),
+        _der(0x04, hashlib.sha1(cert.sujeto_der).digest()),
+        _der(0x04, hashlib.sha1(_clave_cruda(cert)).digest()),
+        _entero(cert.serie),
+    )
+    # revoked [1] IMPLICIT, con su fecha y su motivo: clave comprometida.
+    anulado = _der(0xA1, _tiempo("20260101000000Z")
+                   + _der(0xA0, _der(0x0A, bytes([1]))))
+    single = _seq(certid, anulado, _tiempo("20260901000000Z"))
+    datos = _seq(_der(0xA1, cert.sujeto_der), _tiempo("20260901000000Z"),
+                 _seq(single))
+
+    tam = (n.bit_length() + 7) // 8
+    di = firma._DIGESTINFO["sha256"] + hashlib.sha256(datos).digest()
+    bloque = bytes([0, 1]) + bytes([0xFF]) * (tam - len(di) - 3) + bytes([0]) + di
+    valor = pow(int.from_bytes(bloque, "big"), d, n).to_bytes(tam, "big")
+    basica = _seq(datos, _seq(_der(0x06, oid_rsa), _der(0x05, b"")),
+                  _der(0x03, bytes([0]) + valor))
+    return _seq(_der(0x0A, bytes([0])),
+                _der(0xA0, _seq(_der(0x06, oid_basica), _der(0x04, basica))))
+
+
 def _certificado_del_ejemplo():
     import base64, glob
     from lxml import etree
@@ -582,6 +623,38 @@ def _():
     assert otra.estado == "sin_saber", "se cree una lista con la firma rota"
     assert "no la firmo" in otra.motivo.replace("ó", "o"), otra.motivo
     return "lee la lista, la verifica y rechaza la manipulada"
+
+
+@comprobar("una respuesta OCSP del documento se verifica aqui", critica=True)
+def _():
+    # Un XAdES-XL moderno guarda respuestas OCSP y a menudo no guarda CRL, asi
+    # que sin esto la revocacion de esos documentos no se comprueba nunca. Se
+    # leen sin salir a la red: vienen dentro del fichero.
+    #
+    # Y lo que hay que ver aqui es lo mismo que con la lista: que **no se cree
+    # la que no cuadra**. La respuesta la mete en el documento quien firma, asi
+    # que sin verificarla cualquiera adjunta un «este certificado esta
+    # perfectamente» escrito por si mismo.
+    from validador import ocsp
+    from validador.revocacion import comprobar_ocsp
+    hoja = _certificado_del_ejemplo()
+    if hoja is None:
+        return "no hay ninguna firmada entre los ejemplos"
+
+    crudo = _respuesta_de_juguete(hoja)
+    una = ocsp.leer_respuesta(crudo)
+    assert una.correcta, "no ha leido la respuesta: " + una.que_paso
+    assert len(una.estados) == 1, "no ha leido el estado del certificado"
+    assert ocsp.casa_con(una.estados[0], hoja, hoja),         "el CertID no cuadra: SHA-1 no da lo mismo aqui dentro"
+
+    salida = comprobar_ocsp(hoja, hoja, [una])
+    assert salida.estado == "anulado", "no lo da por anulado: " + salida.estado
+    assert salida.ocsp is not None, "no dice de que respuesta lo ha sacado"
+
+    roto = bytearray(crudo); roto[-3] ^= 0xFF
+    otra = comprobar_ocsp(hoja, hoja, [ocsp.leer_respuesta(bytes(roto))])
+    assert otra.estado == "sin_saber", "se cree una respuesta con la firma rota"
+    return "lee la respuesta, la verifica y rechaza la manipulada"
 
 
 @comprobar("una lista incremental no da a nadie por vigente")

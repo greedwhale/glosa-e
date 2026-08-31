@@ -80,7 +80,7 @@ caché —todo verde, y no es lo que crees que has probado—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, treinta y siete comprobaciones que deben
+Arriba, el tiempo de arranque. Abajo, treinta y ocho comprobaciones que deben
 salir todas en verde; veintisiete están marcadas como **críticas** y son las
 que, si fallan, tumban la idea entera:
 
@@ -98,6 +98,7 @@ que, si fallan, tumban la idea entera:
 | las curvas son las de verdad, también aquí | una errata en un parámetro no da error: da «no verifica» |
 | la cadena de confianza se encadena aquí | de ello depende `cadena.py` |
 | una lista de revocación se lee y se comprueba aquí | de ello depende `revocacion.py` |
+| una respuesta OCSP del documento se verifica aquí | un XAdES-XL moderno guarda OCSP y a menudo no guarda CRL: sin esto, de esos documentos la revocación no se comprueba nunca. Y es el único sitio donde entra SHA-1 |
 | el informe declara de dónde salen las anclas | es la condición para traerlas puestas |
 | una lista de confianza se comprueba y se monta aquí | de ello depende `tsl.py`, y con él de dónde salen las anclas |
 | una lista de confianza manipulada no monta nada | un almacén mal montado no da un error: da un aprobado |
@@ -141,6 +142,7 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Verificar una firma XAdES | 17 ms |
 | Encadenar hasta un ancla de confianza | 3,2 ms |
 | Leer y verificar una lista de revocación | 4,8 ms |
+| Leer y verificar una respuesta OCSP del documento | 5,7–7,7 ms |
 | Declarar el ancla en el informe | 1,5 ms |
 | Verificar una firma ECDSA (P-256 / P-384 / P-521) | 10 / 16 / 29 ms |
 | Verificar una lista de confianza y montar el ancla | 20,8 ms |
