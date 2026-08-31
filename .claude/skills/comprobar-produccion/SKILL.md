@@ -12,7 +12,11 @@ contra local**, porque lo que se rompe al publicar es justo lo que en local no
 se ve: las cabeceras que pone Vercel, las rutas reales y lo que el navegador de
 un desconocido pide de verdad.
 
-Sitio: <https://glosa-dhm7.vercel.app>
+Sitio: **<https://www.glosa-e.com>**, que es el dominio canónico desde el
+31-08-2026 —el ápice redirige a él con un 308—. <https://glosa-dhm7.vercel.app>
+sigue sirviendo el mismo despliegue, pero lo que hay que comprobar es lo que
+visita la gente: las cabeceras y las redirecciones son del dominio, no del
+despliegue.
 
 ## 1. Que el despliegue nuevo esté arriba
 
@@ -20,7 +24,7 @@ El manifiesto es lo único que se sirve siempre fresco, así que es lo que dice
 si ya está lo de ahora:
 
 ```bash
-curl -s https://glosa-dhm7.vercel.app/dist/rueda.json | head -5
+curl -s https://www.glosa-e.com/dist/rueda.json | head -5
 ```
 
 El wheel viaja bajo una carpeta con su huella (`c628aa92/factura_e-…whl`) y esa
@@ -32,7 +36,7 @@ byte—, así que sirve para saber si el despliegue es el nuevo.
 Nueve reglas en `vercel.json`. Lo que se guarda un año y lo que no:
 
 ```bash
-u=https://glosa-dhm7.vercel.app
+u=https://www.glosa-e.com
 for f in /pyodide/314.0.6/pyodide.asm.wasm /paquete.zip /ejemplos/fe-0001.xml /glosa.js /glosa.css /prueba.py /PAQUETE.json /dist/rueda.json /; do
   printf "  %-42s %s\n" "$f" "$(curl -sI "$u$f" | grep -i '^cache-control' | tr -d '\r' | sed 's/[Cc]ache-[Cc]ontrol: //')"
 done
@@ -77,13 +81,30 @@ const b = await (await fetch("/ejemplos/fe-0001.xml")).blob();
 const d = await window.Glosa.validar([new File([b], "fe-0001.xml")]);
 const inc = d.documentos.flatMap(x => x.incidencias || []);
 const p = window.Glosa.paquete;
-({conforme: d.conforme, gravedades: inc.map(i=>i.gravedad), alcance: !!d.alcance,
+({conforme: d.conforme, alcance: !!d.alcance,
+  incidencias: inc.map(i => i.codigo + " · " + i.gravedad),
   esquemas: p.esquemas, anclas: p.anclas, sellos: p.anclas_de_sellos, publicada: p.publicada})
 ```
 
-**Lo esperado:** `conforme: true`, gravedades `["nota","aviso","aviso"]`, 24
-esquemas, 268 anclas de firma, 121 de sellado. Si el número de anclas ha
-cambiado sin que nadie haya montado el paquete, algo va mal.
+**Lo esperado:** `conforme: true`, 24 esquemas, 268 anclas de firma, 121 de
+sellado, y estas tres incidencias:
+
+```
+FIRMA-DEBIL · aviso
+CADENA-DESCONOCIDA · aviso
+SELLO-FALTA · nota
+```
+
+El código va al lado de la gravedad **a propósito**. Antes aquí ponía
+`["nota","aviso","aviso"]` a secas y se quedó atrás: las tres incidencias
+siguen siendo exactamente las mismas y lo único que cambió fue el orden, pero
+con tres palabras sueltas eso no se distingue de una incidencia que ha
+desaparecido —y quien corre esto se queda sin saber si mirar o seguir—. Con el
+código delante, un cambio se lee de un vistazo. Medido el 31-08-2026 sobre
+`www.glosa-e.com`.
+
+Si el número de anclas ha cambiado sin que nadie haya montado el paquete, algo
+va mal.
 
 ## 5. El banco, en producción
 
@@ -102,12 +123,28 @@ Esa cifra sube cada vez que entra una comprobación al banco, así que **la que
 manda es la de `web/prueba.py`**: si no cuadra con la de aquí, mira primero cuál
 de las dos se ha quedado atrás antes de dar nada por roto.
 
-## 6. La ficha del titular sigue oculta
+## 6. La ficha dice quién está detrás, y la tienda sigue apagada
 
-En `/legal`, mientras `TITULAR` esté vacío en `glosa.js`, la ficha de
-identificación no puede aparecer —y la sección comercial de la portada tampoco—.
-Las dos están atadas al mismo `puedeVender()` a propósito: no se ofrece un
-servicio de pago sin decir quién lo ofrece.
+Desde el 31-08-2026 son **dos puertas y no una**, así que aquí se miran dos
+cosas distintas:
+
+```js
+({identificacion: window.Glosa.hayIdentificacion(),
+  puedeVender: window.Glosa.puedeVender(),
+  correo: window.Glosa.titular.correo,
+  nif: window.Glosa.titular.nif, domicilio: window.Glosa.titular.domicilio})
+```
+
+**Lo esperado hoy:** `identificacion: true`, `puedeVender: false`, el correo
+puesto, y NIF y domicilio vacíos. En `/legal` tiene que salir la ficha con el
+titular y el correo —y el responsable del tratamiento, arriba en privacidad—,
+sin filas de NIF ni de domicilio. En la portada, `#escalon` **oculto**.
+
+Que la tienda cuelgue de `puedeVender()` es lo que no puede aflojarse: el
+artículo 10 de la LSSI pide la ficha entera antes de cobrar. Si algún día
+`puedeVender()` saliera `true` sin NIF y sin domicilio, eso sí es un fallo.
+Aquí se mira; que no pueda ocurrir lo guardan dos pruebas de
+`tests/test_documentacion.py`.
 
 ## Al terminar
 
