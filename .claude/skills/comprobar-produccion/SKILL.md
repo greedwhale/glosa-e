@@ -96,7 +96,11 @@ const c = res.comprobaciones || res;
   criticas_que_fallan: c.filter(x=>x.critica && !x.ok).map(x=>x.nombre)})
 ```
 
-El campo es **`ok`**, no `pasa`. Esperado: 37 comprobaciones, 0 fallan.
+El campo es **`ok`**, no `pasa`. Esperado: 38 comprobaciones, 0 fallan.
+
+Esa cifra sube cada vez que entra una comprobación al banco, así que **la que
+manda es la de `web/prueba.py`**: si no cuadra con la de aquí, mira primero cuál
+de las dos se ha quedado atrás antes de dar nada por roto.
 
 ## 6. La ficha del titular sigue oculta
 
