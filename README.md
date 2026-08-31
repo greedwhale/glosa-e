@@ -20,13 +20,14 @@ según el RD 238/2026.
 | `validador/firma.py` | La firma XAdES: integridad del documento y verificación RSA y ECDSA, sin salir a la red | Terminado |
 | `validador/cadena.py` | De quién es el certificado: la cadena hasta un ancla de confianza instalada | Terminado |
 | `validador/revocacion.py` | Si anularon el certificado: listas de revocación (CRL), sin salir a la red | Terminado |
+| `validador/ocsp.py` | Las respuestas OCSP que el documento trae dentro: leídas y verificadas | Sin enchufar al informe |
 | `validador/tsl.py` | De dónde salen las anclas: la lista de confianza (TSL) del Estado, verificada | Terminado |
 | `validador/sellos.py` | El sello de tiempo (RFC 3161 dentro de XAdES): quién acredita la fecha de la firma | Terminado |
 | `validador/edifact.py` | El cuarto formato: la tira de ISO 9735, sus grupos y sus cuentas | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1018 tests, todos en verde.
+1038 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -2073,7 +2074,7 @@ Lo que queda, ordenado por lo que de verdad estorba.
 | Hueco | Por qué importa | Tamaño |
 |---|---|---|
 | **El directorio de EDIFACT, por partes** | Se leen los segmentos que INVOIC usa de verdad, no el directorio entero. Un segmento que no esté escrito se guarda por posiciones y no lo mira ninguna regla | pequeño |
-| **Respuestas OCSP embebidas (XAdES-XL)** | Las listas de revocación que trae el documento ya se leen; las respuestas OCSP no. Es la única forma de comprobar revocación sin red en un documento moderno | medio |
+| **Enchufar el OCSP embebido al informe** | `validador/ocsp.py` ya lee y verifica las respuestas que trae el documento —firma del respondedor, delegación por la autoridad y emparejamiento con el certificado—, y está probado contra seis documentos reales. Lo que falta es que `cadena.py` las consulte en vez de pasar un booleano: hoy el informe sigue diciendo que no sabe leerlas | pequeño |
 | **Los mensajes de estado del RD** | `calendario.py` calcula el plazo de cuatro días hábiles, pero no se valida un documento de estado en sí | medio |
 | **El IVA por línea** | Que el tipo de cada línea case con lo que se vende no es EN 16931: es la Ley del IVA, y hace falta saber qué se vende | dudoso |
 
