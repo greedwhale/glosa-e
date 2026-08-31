@@ -19,15 +19,33 @@
 // quien la hace, y la forma de garantizarlo es que no haya forma de encender
 // lo uno sin lo otro. Rellenar esto es lo unico que hace falta.
 const TITULAR = {
-  nombre: "",     // razon social, o nombre y apellidos si es autonomo
+  nombre: "Glosa-e",              // nombre comercial; no hay razon social que
+                                  // publicar mientras no se venda nada
   nif: "",
   domicilio: "",
-  correo: "",
+  correo: "contacto@glosa-e.com",
   registro: "",   // datos de inscripcion registral, solo si es sociedad
 };
 
-// Lo minimo que la LSSI pide antes de poder ofrecer algo de pago: quien eres,
-// con que NIF, donde estas y por donde se te escribe.
+// Dos puertas, y la diferencia entre ellas es la razon de que existan.
+//
+// `hayIdentificacion()` es lo minimo para que quien usa esto sepa a quien le
+// escribe: un nombre y un correo. Con eso se pinta la ficha del aviso legal y
+// el correo donde se ejercen los derechos del RGPD.
+//
+// `puedeVender()` es lo que el articulo 10 de la LSSI pide **antes de cobrar**:
+// ademas de lo anterior, NIF y domicilio. La seccion comercial de la portada
+// sigue colgando de esta, asi que no se puede ofrecer nada de pago sin decir
+// quien lo ofrece.
+//
+// Antes las dos cosas colgaban de la misma puerta, y eso obligaba a elegir mal:
+// o no se decia quien esta detras, o se encendia la tienda para poder decirlo.
+// Separarlas permite lo que hace falta hoy —identificarse gratis— sin aflojar
+// lo que importa: la tienda sigue necesitando la ficha entera.
+function hayIdentificacion() {
+  return Boolean(TITULAR.nombre && TITULAR.correo);
+}
+
 function puedeVender() {
   return Boolean(TITULAR.nombre && TITULAR.nif && TITULAR.domicilio &&
                  TITULAR.correo);
@@ -397,6 +415,7 @@ async function correrBanco() {
 
 window.Glosa = {
   arrancar, validar, validarEjemplo, correrBanco, puedeVender,
+  hayIdentificacion,
   titular: TITULAR,
   get paquete() { return PAQUETE; },
 };

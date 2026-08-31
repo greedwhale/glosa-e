@@ -178,3 +178,66 @@ def test_el_menu_no_apunta_a_paginas_que_no_existen():
     for destino in re.findall(r'href="\./([^"#]+)"', menu):
         assert (RAIZ / "web" / destino).is_file(), (
             f"el menú lleva a «{destino}» y ese fichero no está en web/")
+
+
+# --- La ficha de quien esta detras -------------------------------------------
+# Desde que la pagina se identifica, hay dos puertas donde antes habia una:
+# `hayIdentificacion()` -nombre y correo- enciende la ficha del aviso legal, y
+# `puedeVender()` -ademas, NIF y domicilio- enciende la seccion comercial.
+#
+# Separarlas resolvio un problema real, pero abre otro: es facil, tocando esto
+# con prisa, dejar la tienda colgando de la puerta floja. Entonces la pagina
+# ofreceria un servicio de pago sin decir quien lo ofrece, que es exactamente lo
+# que el articulo 10 de la LSSI no permite, y no fallaria nada.
+GLOSA_JS = RAIZ / "web" / "glosa.js"
+PORTADA = RAIZ / "web" / "index.html"
+LEGAL = RAIZ / "web" / "legal.html"
+
+
+def _ficha() -> dict:
+    """Lo que dice el literal TITULAR de `glosa.js`, campo a campo."""
+    codigo = GLOSA_JS.read_text(encoding="utf-8")
+    dentro = codigo[codigo.index("const TITULAR = {"):]
+    dentro = dentro[:dentro.index("};")]
+    return dict(re.findall(r'(\w+):\s*"([^"]*)"', dentro))
+
+
+def test_no_se_puede_encender_la_tienda_sin_la_ficha_entera():
+    codigo = GLOSA_JS.read_text(encoding="utf-8")
+    cuerpo = codigo[codigo.index("function puedeVender()"):]
+    cuerpo = cuerpo[:cuerpo.index("}")]
+    for campo in ("nombre", "nif", "domicilio", "correo"):
+        assert f"TITULAR.{campo}" in cuerpo, (
+            f"`puedeVender()` ya no mira TITULAR.{campo}. Los cuatro son lo que "
+            "el articulo 10 de la LSSI pide antes de cobrar; si sobra uno, la "
+            "seccion comercial puede encenderse sin el.")
+
+    portada = PORTADA.read_text(encoding="utf-8")
+    assert "if (Glosa.puedeVender()) {" in portada, (
+        "la seccion comercial de la portada ya no cuelga de `puedeVender()`")
+    encendido = portada[portada.index("if (Glosa.puedeVender()) {"):]
+    encendido = encendido[:encendido.index("\n}")]
+    assert '$("escalon").hidden = false;' in encendido, (
+        "el escalon comercial se enciende fuera del `if (Glosa.puedeVender())`")
+
+
+def test_si_la_pagina_se_identifica_la_privacidad_dice_quien_responde():
+    """Publicar un correo de contacto y no decir quien trata los datos, no.
+
+    El RGPD pide identificar al responsable del tratamiento. Mientras la ficha
+    estuvo vacia no habia nada que decir; desde que hay nombre y correo, la
+    politica tiene que llevarlos, y los lleva de la misma fuente que el aviso
+    legal para que no puedan decir cosas distintas.
+    """
+    ficha = _ficha()
+    if not (ficha.get("nombre") and ficha.get("correo")):
+        pytest.skip("la ficha esta vacia: no hay nada que publicar todavia")
+
+    legal = LEGAL.read_text(encoding="utf-8")
+    for hueco in ('id="p-responsable"', 'id="p-correo"'):
+        assert hueco in legal, (
+            f"la politica de privacidad ya no tiene {hueco}, asi que no dice "
+            "quien responde del tratamiento")
+    assert '$("p-responsable").textContent = t.nombre;' in legal, (
+        "el responsable ya no se rellena desde la ficha de glosa.js, y dos "
+        "sitios que dicen quien esta detras acaban diciendo cosas distintas")

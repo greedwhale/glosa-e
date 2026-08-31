@@ -84,6 +84,25 @@ article li { margin-bottom: .4rem; }
       <h2 class="titulo">Tu factura no se trata, y eso no es una promesa.</h2>
 
       <article>
+        <!-- NOTA INTERNA, para quien toque esto el día que se cobre.
+             =========================================================
+             El artículo 27 del RGPD obliga a designar por escrito un
+             REPRESENTANTE EN LA UNIÓN al responsable que **no está
+             establecido en la UE** y ofrece bienes o servicios a personas que
+             sí lo están. Ese representante hay que nombrarlo y **publicarlo en
+             esta política**, con su nombre y su dirección, para que la AEPD y
+             cualquier interesado puedan dirigirse a él.
+
+             Cuando Glosa-e pase a cobrar de forma recurrente, hay que revisar
+             esto y añadirlo si procede. Va aquí y no en un cuaderno aparte
+             porque este es el fichero que habrá que tocar; y no dice quién es
+             el responsable ni dónde vive, porque un comentario en HTML viaja
+             al navegador como todo lo demás. -->
+        <dl class="ficha" style="margin-bottom:1.5rem">
+          <dt>Responsable del tratamiento</dt><dd id="p-responsable">—</dd>
+          <dt>Contacto</dt><dd id="p-correo">—</dd>
+        </dl>
+
         <p>Una promesa es «no miramos tus ficheros». Esto es otra cosa: el
         validador entero —Python, lxml, los esquemas y las anclas— se descarga
         y corre <b>dentro de tu navegador</b>. No hay servidor al que subir la
@@ -160,21 +179,14 @@ article li { margin-bottom: .4rem; }
     <section id="aviso">
       <p class="rotulo">Aviso legal</p>
 
-      <!-- Sin titular: no hay actividad económica que identificar, y decirlo
-           es más honesto que publicar una ficha vacía o inventada. -->
-      <div id="aviso-sin-titular">
+      <!-- Sin nada que publicar. Queda para el caso de que alguien vacíe la
+           ficha de `glosa.js`: decirlo es más honesto que una ficha vacía. -->
+      <div id="aviso-sin-titular" hidden>
         <h2 class="titulo">Todavía no hay nada que vender.</h2>
         <article>
           <p>Glosa-e es hoy una herramienta gratuita. No se ofrece ningún
           servicio de pago, no se cobra nada, no hay publicidad y no se recogen
           datos para venderlos ni cederlos.</p>
-          <p>El artículo 10 de la <b>LSSI</b> obliga a identificar a quien
-          presta un servicio por internet cuando hay actividad económica
-          detrás: nombre o razón social, NIF, domicilio, correo y datos
-          registrales. En cuanto se ofrezca algo de pago, esa ficha aparecerá
-          aquí. La página está hecha de forma que <b>no se pueda ofrecer un
-          servicio de pago sin publicarla</b>: si no está rellenada, la sección
-          comercial ni siquiera se pinta.</p>
         </article>
       </div>
 
@@ -183,11 +195,21 @@ article li { margin-bottom: .4rem; }
         <article>
           <dl class="ficha">
             <dt>Titular</dt><dd id="t-nombre"></dd>
-            <dt>NIF</dt><dd id="t-nif"></dd>
-            <dt>Domicilio</dt><dd id="t-domicilio"></dd>
+            <dt id="t-nif-et" hidden>NIF</dt><dd id="t-nif" hidden></dd>
+            <dt id="t-domicilio-et" hidden>Domicilio</dt><dd id="t-domicilio" hidden></dd>
             <dt>Correo</dt><dd id="t-correo"></dd>
             <dt id="t-registro-et" hidden>Registro</dt><dd id="t-registro" hidden></dd>
           </dl>
+          <p id="sin-venta" hidden>Esa ficha no lleva NIF ni domicilio, y no es
+          un olvido. El artículo 10 de la <b>LSSI</b> los exige cuando hay
+          <b>actividad económica</b> detrás, y aquí todavía no la hay: Glosa-e
+          es gratis, no hay publicidad y no se venden ni se ceden datos.
+          Publicar el domicilio de una persona antes de que haga falta es dar
+          datos personales de más, y lo que se publica no se despublica.</p>
+          <p id="sin-venta-2" hidden>El día que se ofrezca algo de pago,
+          aparecerán aquí. La página está hecha de forma que <b>no se pueda
+          cobrar sin publicarlos</b>: la sección comercial de la portada cuelga
+          de esa ficha completa, y sin ella no se pinta.</p>
         </article>
       </div>
 
@@ -255,22 +277,44 @@ article li { margin-bottom: .4rem; }
 const $ = (id) => document.getElementById(id);
 const t = Glosa.titular;
 
-if (Glosa.puedeVender()) {
-  $("aviso-sin-titular").hidden = true;
-  $("aviso-con-titular").hidden = false;
-  $("t-nombre").textContent = t.nombre;
-  $("t-nif").textContent = t.nif;
-  $("t-domicilio").textContent = t.domicilio;
-  $("t-correo").innerHTML = "";
+// Un correo enlazado, y no escrito a mano tres veces: la direccion vive en
+// glosa.js y solo hay una.
+function ponElCorreo(donde) {
+  donde.innerHTML = "";
   const a = document.createElement("a");
   a.href = "mailto:" + t.correo;
   a.textContent = t.correo;
-  $("t-correo").appendChild(a);
-  if (t.registro) {
-    $("t-registro-et").hidden = false;
-    $("t-registro").hidden = false;
-    $("t-registro").textContent = t.registro;
-  }
+  donde.appendChild(a);
+}
+
+// Cada dato opcional, con su etiqueta. Sin esto, un NIF a medio rellenar salia
+// como una fila vacia con su titulo, que parece un dato perdido y no un dato
+// que todavia no toca publicar.
+function ponSiHay(valor, etiqueta, celda) {
+  if (!valor) return;
+  $(etiqueta).hidden = false;
+  $(celda).hidden = false;
+  $(celda).textContent = valor;
+}
+
+if (Glosa.hayIdentificacion()) {
+  $("aviso-sin-titular").hidden = true;
+  $("aviso-con-titular").hidden = false;
+  $("t-nombre").textContent = t.nombre;
+  ponSiHay(t.nif, "t-nif-et", "t-nif");
+  ponSiHay(t.domicilio, "t-domicilio-et", "t-domicilio");
+  ponSiHay(t.registro, "t-registro-et", "t-registro");
+  ponElCorreo($("t-correo"));
+
+  // La explicacion de por que faltan el NIF y el domicilio solo tiene sentido
+  // mientras falten. El dia que la ficha este completa, sobra.
+  $("sin-venta").hidden = Glosa.puedeVender();
+  $("sin-venta-2").hidden = Glosa.puedeVender();
+
+  $("p-responsable").textContent = t.nombre;
+  ponElCorreo($("p-correo"));
+} else {
+  $("aviso-sin-titular").hidden = false;
 }
 
 if (t.correo) {

@@ -125,15 +125,27 @@ prueba que están escritos.
   ./.venv/Scripts/python.exe -m validador --sitio sitio
   ```
 - **Un push a `main` despliega a producción** (Vercel lee `vercel.json`).
-  Publicado en <https://glosa-dhm7.vercel.app>. La dirección decidida es
-  **`glosa-e.com`** —libre el 30-08-2026, medido contra el RDAP de Verisign—
-  pero **no está registrada**: hasta que lo esté, la única dirección real es
-  la de Vercel. El porqué y los vecinos, en `MARCA.md`.
+  La dirección es **`glosa-e.com`**, registrada en Vercel el 31-08-2026. El
+  dominio canónico es **`www.glosa-e.com`** y el ápice redirige a él con un
+  308; <https://glosa-dhm7.vercel.app> sigue sirviendo lo mismo. El porqué del
+  nombre y los vecinos, en `MARCA.md`.
 
-## Lo que está sin decidir
+## Las dos puertas de la ficha del titular
 
-Los datos del titular (`TITULAR` en `web/glosa.js`) están vacíos **a
-propósito**: mientras no haya actividad económica, el artículo 10 de la LSSI no
-obliga a identificarse. Rellenarlos enciende a la vez el aviso legal y la
-sección comercial, y no hay forma de encender lo uno sin lo otro. Eso no es un
-descuido: es el diseño.
+`TITULAR` en `web/glosa.js` ya no está vacío: lleva **nombre comercial y
+correo**, y nada más. De ahí salen dos puertas distintas, y la diferencia es lo
+que hay que respetar al tocarlo:
+
+| Puerta | Pide | Enciende |
+|---|---|---|
+| `hayIdentificacion()` | nombre y correo | la ficha del aviso legal y el responsable del tratamiento |
+| `puedeVender()` | además, NIF y domicilio | la sección comercial de la portada |
+
+**La tienda cuelga de la segunda y tiene que seguir colgando de ella**: el
+artículo 10 de la LSSI pide la ficha entera *antes de cobrar*, no antes de
+existir. Antes las dos cosas colgaban de la misma puerta y obligaban a elegir
+mal —o no decir quién está detrás, o encender la tienda para poder decirlo—.
+Lo guardan dos pruebas en `tests/test_documentacion.py`, las dos provocadas.
+
+No se publican NIF ni domicilio **a propósito**: mientras no haya actividad
+económica no hacen falta, y lo que se publica no se despublica.

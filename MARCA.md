@@ -201,8 +201,12 @@ Comprobado por mí, y no es una búsqueda legal.
 ### La dirección: `glosa-e.com`
 
 **La página se llama Glosa-e y su dirección es `glosa-e.com`.** Decidido el 30
-de agosto de 2026. Está **libre y sin registrar**: lo primero está medido, lo
-segundo es que nadie lo ha comprado todavía, ni yo compro dominios.
+de agosto de 2026 y **registrado el 31**, en Vercel. Sirve desde entonces, con
+`www.glosa-e.com` como dirección canónica y el ápice redirigiendo con un 308.
+
+Lo que sigue se midió el 28 y el 30 de agosto, *antes* de comprarlo, y se deja
+tal cual: es lo que sostenía la decisión, y un porqué reescrito después de
+acertar no vale nada.
 
 Medido contra el **RDAP de Verisign**, que es el registro del `.com` y no un
 revendedor con interés en que algo parezca libre:
