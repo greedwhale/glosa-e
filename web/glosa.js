@@ -326,7 +326,14 @@ for _camino, _informe in _lote.informes:
         "validado": _informe.validado,
         "choca": _camino.name in _senialados,
         "incidencias": [_inc(i) for i in
-                        _informe.notas + _informe.errores + _informe.avisos],
+                        # Por gravedad y de mayor a menor: lo que hay que
+                        # arreglar primero, y las notas al final. Estaban en
+                        # notas-errores-avisos, que no es ninguno de los dos
+                        # ordenes posibles y dejaba el error debajo de tres
+                        # parrafos de contexto. Las notas cierran a proposito:
+                        # dicen que se dio por bueno y con que base, y eso se
+                        # lee mejor despues de saber que fallo.
+                        _informe.errores + _informe.avisos + _informe.notas],
     })
 
 json.dumps({

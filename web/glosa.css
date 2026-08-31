@@ -119,7 +119,10 @@ p { margin: 0 0 1em; }
 p:last-child { margin-bottom: 0; }
 
 .envoltorio { max-width: 60rem; margin: 0 auto; padding: 0 1.5rem; }
-.texto { max-width: 42rem; }
+/* 36rem y no 42: a 16 px, 42rem dan mas de ochenta caracteres por linea y el
+   ojo pierde el renglon al volver. Sesenta y pico es donde se lee sin
+   esfuerzo, y es la medida que ya usaba el lema de la portada. */
+.texto { max-width: 36rem; }
 
 /* --- Cabecera ------------------------------------------------------------ */
 header {
@@ -186,12 +189,19 @@ header {
 .ficha dd { margin: .25rem 0 0; font-size: var(--t1); color: var(--tinta); }
 
 /* --- Bloques ------------------------------------------------------------- */
-section { padding: 2.5rem 0; }
+/* Aire y filete entre secciones. Con 2,5rem y sin separador, las cuatro
+   secciones de la portada se leian como un unico bloque largo: la jerarquia
+   estaba en los titulos y en nada mas. El filete no decora, dice donde acaba
+   una cosa y empieza otra, que es informacion. */
+section { padding: 3.5rem 0; }
+section + section { border-top: 1px solid var(--borde); }
 .rotulo {
   font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em;
   color: var(--tenue); font-weight: 600; margin-bottom: .9rem;
 }
-h2.titulo { font: 400 var(--t4)/1.2 var(--serif); margin-bottom: .8rem; }
+/* El mismo ajuste de prosa que el h1: Literata a 28 px viene un pelo suelta
+   para un titulo, y sin esto el titular y la seccion no parecen la misma voz. */
+h2.titulo { font: 400 var(--t4)/1.2 var(--serif); letter-spacing: -.012em; margin-bottom: .8rem; }
 .panel {
   background: var(--panel); border: 1px solid var(--borde);
   border-radius: 12px; padding: 1.5rem;

@@ -49,6 +49,17 @@
 .veredicto.no h3 { color: var(--error); }
 .veredicto.ojo h3 { color: var(--aviso); }
 .veredicto p { font-size: var(--t1); color: var(--tinta-2); }
+/* El recuento. Va en fichas y no en una frase porque se mira, no se lee: lo
+   que se busca aquí es «¿cuánto hay de lo malo?» antes de bajar a leerlo. */
+.veredicto .cuentas { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .75rem; }
+.veredicto .cuenta {
+  font-size: var(--t0); text-transform: uppercase; letter-spacing: .07em;
+  font-weight: 700; padding: .2rem .55rem; border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.veredicto .cuenta.error { color: var(--error); }
+.veredicto .cuenta.aviso { color: var(--aviso); }
+.veredicto .cuenta.nota  { color: var(--nota); }
 
 .documento { border: 1px solid var(--borde); border-radius: 10px; background: var(--panel); margin-bottom: 1rem; overflow: hidden; }
 .documento > header {
@@ -404,10 +415,26 @@ function pintarInforme(datos) {
     titulo = "Sin errores, con " + avisos + " aviso" + (avisos > 1 ? "s" : "");
   }
 
+  // El recuento por gravedad, al lado del titular. Antes había que contar las
+  // glosas a ojo para saber si los tres avisos eran tres avisos o uno repetido
+  // en tres ficheros. Y la NOTA aparece aquí aunque no sea una queja: es la
+  // que dice qué se ha dado por bueno y con qué base, y si no se nombra,
+  // quien lee no sabe que existe.
+  const cuenta = (g) => todas.filter((i) => i.gravedad === g).length;
+  const plural = (n, uno, varios) => n + " " + (n === 1 ? uno : varios);
+  const marcadores = [["error", "error", "errores"],
+                      ["aviso", "aviso", "avisos"],
+                      ["nota", "nota", "notas"]]
+    .filter(([g]) => cuenta(g))
+    .map(([g, uno, varios]) =>
+      "<span class='cuenta " + g + "'>" + plural(cuenta(g), uno, varios) + "</span>")
+    .join("");
+
   partes.push(
     "<div class='veredicto " + clase + "'>" +
       "<h3>" + titulo + "</h3>" +
       "<p>" + escapar(datos.resumen) + "</p>" +
+      (marcadores ? "<div class='cuentas'>" + marcadores + "</div>" : "") +
     "</div>"
   );
 
