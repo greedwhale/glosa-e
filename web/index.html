@@ -95,6 +95,26 @@
 }
 .alcance .rotulo { margin-bottom: .5rem; }
 
+/* --- Ver un informe sin soltar nada -------------------------------------- */
+.probar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; margin: 1rem 0 0; }
+.probar span { font-size: var(--t1); color: var(--tenue); }
+.probar button {
+  font: 600 var(--t1)/1 var(--sans); color: var(--acento);
+  background: var(--acento-flojo); border: 1px solid var(--acento);
+  border-radius: 8px; padding: .55rem .95rem; cursor: pointer;
+}
+.probar button:hover:not(:disabled) { background: var(--panel); }
+.probar button:disabled { color: var(--tenue); border-color: var(--borde); background: var(--panel-2); cursor: default; }
+.probar button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+/* La aclaración va con el mismo gesto que una NOTA del informe: filete a la
+   izquierda y texto sobrio. No es una queja, es contexto —de quién es esta
+   factura—, y en este producto eso tiene una forma concreta. */
+.es-ejemplo {
+  border-left: 3px solid var(--nota); background: var(--nota-flojo);
+  padding: .7rem 1rem; border-radius: 0 8px 8px 0; margin-bottom: 1.25rem;
+  font-size: var(--t1); color: var(--tinta-2);
+}
+
 /* --- Lo que trae puesto -------------------------------------------------- */
 .trae dl { display: grid; grid-template-columns: 1fr auto; gap: 0; margin: 0; }
 .trae dt, .trae dd { padding: .55rem 0; border-bottom: 1px dashed var(--borde); margin: 0; }
@@ -158,7 +178,8 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
     <a class="marca" href="./"><span class="nombre">Glosa-e</span></a>
     <nav>
       <a href="#que-mira">Qué mira</a>
-      <a href="#trae">Con qué</a>
+      <a href="./preguntas.html">Preguntas</a>
+      <a href="./incidencias.html">Qué significa cada aviso</a>
       <a href="./banco.html">Banco de pruebas</a>
     </nav>
   </div>
@@ -195,6 +216,19 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
           <p class="chica" id="zona-pie">Se está preparando el validador; la tuya se valida en cuanto acabe. <b>No se sube a ningún sitio.</b></p>
         </div>
         <input type="file" id="fichero" accept=".xml,.xsig,.edi,.edifact,.txt" hidden multiple>
+
+        <!-- Ver el informe antes de soltar nada.
+
+             Es lo único que esta herramienta tiene que enseñar, y hasta ahora
+             había que darle una factura para verlo. Quien llega por primera
+             vez no sabe si esto le sirve, y pedirle el documento por delante
+             es pedirle confianza antes de haberla dado. La factura es de
+             ejemplo y viaja con la página: no hay nada que subir ni que
+             elegir. -->
+        <p class="probar">
+          <button type="button" id="ver-ejemplo" disabled>Ver un informe de ejemplo</button>
+          <span>Sobre una factura de muestra que ya viene con la página. Sin soltar nada.</span>
+        </p>
 
         <div class="arranque" id="arranque">
           <div class="cabeza">
@@ -298,9 +332,11 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
     en cada informe; la responsabilidad de la factura sigue siendo de quien la
     emite.</p>
     <nav>
+      <a href="./preguntas.html">Preguntas</a>
+      <a href="./incidencias.html">Qué significa cada aviso</a>
+      <a href="./tesis.html">Por qué se explica en vez de certificar</a>
       <a href="./banco.html">Banco de pruebas</a>
       <a href="./legal.html">Aviso legal y privacidad</a>
-      <a href="#que-mira">Qué mira</a>
       <a href="#trae">Con qué</a>
     </nav>
   </div>
@@ -496,6 +532,7 @@ async function empezar() {
       "XML, XSIG o EDIFACT. O haz clic para elegirla. " +
       "<b>No se sube a ningún sitio.</b>";
     $("arranque").classList.add("listo");
+    $("ver-ejemplo").disabled = false;
     $("arranque-titulo").textContent = "Listo en " + total + " s";
     $("arranque-nota").textContent = paquete
       ? "Ya no hace falta conexión: el validador, los esquemas y las anclas están en tu navegador."
@@ -510,6 +547,40 @@ async function empezar() {
     $("zona-pie").textContent = String(error);
     $("arranque").hidden = true;
     console.error(error);
+  }
+}
+
+// La factura de ejemplo. Es la firmada a propósito: enseña las tres gravedades
+// —lo que falla, lo que no se ha podido comprobar y con qué base se aceptó el
+// resto—, que es lo que hay que ver para entender qué da esta herramienta. Una
+// factura limpia enseñaría un tic verde y ninguna de las tres.
+const FACTURA_DE_EJEMPLO = "fe-0001.xml";
+
+async function verElEjemplo() {
+  const boton = $("ver-ejemplo");
+  boton.disabled = true;
+  const antes = boton.textContent;
+  boton.textContent = "Validando…";
+  try {
+    const datos = await Glosa.validarEjemplo(FACTURA_DE_EJEMPLO);
+    pintarInforme(datos);
+    // Encima del informe y no debajo: quien llega desde el botón tiene que
+    // saber de quién es esta factura antes de leer lo que dice de ella.
+    $("informe").insertAdjacentHTML("afterbegin",
+      "<p class='es-ejemplo'>Este informe es de <b>" + FACTURA_DE_EJEMPLO +
+      "</b>, una factura de muestra que viene con la página. La tuya se " +
+      "valida igual, y tampoco sale de tu ordenador.</p>");
+  } catch (error) {
+    // Que el ejemplo falle no es un detalle: si esto no funciona, tampoco va a
+    // funcionar con la factura de quien mira, y decirlo es más útil que dejar
+    // el botón muerto.
+    $("informe").innerHTML =
+      "<div class='veredicto no'><h3>El ejemplo no ha salido</h3><p>" +
+      escapar(String(error)) + "</p></div>";
+    console.error(error);
+  } finally {
+    boton.textContent = antes;
+    boton.disabled = false;
   }
 }
 
@@ -555,6 +626,7 @@ zona.addEventListener("keydown", (e) => {
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); zona.click(); }
 });
 $("fichero").addEventListener("change", (e) => soltar([...e.target.files]));
+$("ver-ejemplo").addEventListener("click", verElEjemplo);
 ["dragenter", "dragover"].forEach((ev) =>
   zona.addEventListener(ev, (e) => { e.preventDefault(); if (!fallo) zona.classList.add("encima"); }));
 ["dragleave", "drop"].forEach((ev) =>

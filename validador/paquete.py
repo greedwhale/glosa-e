@@ -52,6 +52,7 @@ from validador.cadena import (
     SUFIJO_DE_SELLOS,
     Almacen,
 )
+from validador import pagina_incidencias
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
 
@@ -419,7 +420,10 @@ _RUTAS_DEL_SITIO = (
 # usa, y el banco es donde eso se comprueba sin creernos a nosotros. El LEEME,
 # porque explica qué prueba cada comprobación.
 _DE_LA_PAGINA = (
-    "index.html", "banco.html", "legal.html", "prueba.py", "LEEME.md"
+    "index.html", "banco.html", "legal.html", "prueba.py", "LEEME.md",
+    # Las tres de consulta. `incidencias.html` no va aquí sino por su propio
+    # camino: es la plantilla del catálogo y hay que generarla, no copiarla.
+    "preguntas.html", "tesis.html",
 )
 
 
@@ -655,6 +659,28 @@ def montar_sitio(
                 texto = texto.replace(busca, pon)
                 firmadas[constante] += 1
         (destino / nombre).write_text(texto, encoding="utf-8")
+
+    # El catálogo de códigos, generado del código fuente al montar. No es una
+    # página que se escriba: se escriben las explicaciones, y los códigos se
+    # leen de las propias llamadas a `Incidencia(...)`. Así no puede faltar
+    # aquí uno que exista, que es el único fallo que importa en un catálogo:
+    # mandar a buscar a un sitio donde no está.
+    plantilla = pagina / pagina_incidencias.NOMBRE
+    if plantilla.is_file():
+        salida = destino / pagina_incidencias.NOMBRE
+        texto = plantilla.read_text(encoding="utf-8")
+        for busca, pon, constante in sellos:
+            if busca in texto:
+                firmadas[constante] += 1
+        try:
+            pagina_incidencias.montar_pagina(plantilla, salida)
+        except ValueError as error:
+            raise SinPagina(str(error)) from error
+        # La huella se pone después de generar, sobre el fichero ya montado.
+        generada = salida.read_text(encoding="utf-8")
+        for busca, pon, _ in sellos:
+            generada = generada.replace(busca, pon)
+        salida.write_text(generada, encoding="utf-8")
 
     huerfanos = sorted(c for c, cuantas in firmadas.items() if not cuantas)
     if huerfanos:

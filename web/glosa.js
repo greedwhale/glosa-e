@@ -364,6 +364,25 @@ async function validar(ficheros) {
   return JSON.parse(await pyodide.runPythonAsync(INFORME));
 }
 
+// La misma maquinaria, sobre una factura que ya viene con la pagina.
+//
+// Existe para que se pueda ver un informe **antes** de soltar nada. Quien
+// llega por primera vez no sabe si esto le sirve, y pedirle la factura por
+// delante es pedirle confianza antes de haberla dado.
+//
+// No baja nada: los ejemplos ya estan en el disco virtual desde el arranque,
+// asi que esto es exactamente el mismo camino que sigue una factura de
+// verdad, sin una ruta aparte que pudiera portarse distinto. Si el ejemplo no
+// esta, se dice cual falta en vez de devolver un informe vacio.
+async function validarEjemplo(nombre) {
+  if (!EJEMPLOS.includes(nombre)) {
+    throw new Error(
+      "«" + nombre + "» no es una de las facturas que trae la pagina.");
+  }
+  pyodide.globals.set("_rutas", ["/ejemplos/" + nombre]);
+  return JSON.parse(await pyodide.runPythonAsync(INFORME));
+}
+
 // El banco de pruebas corre su propio fichero de comprobaciones. La huella es
 // por lo mismo que la del wheel: sin ella, el navegador sirve de su cache una
 // version vieja y el banco correria sus comprobaciones de ayer contra el
@@ -377,7 +396,7 @@ async function correrBanco() {
 }
 
 window.Glosa = {
-  arrancar, validar, correrBanco, puedeVender,
+  arrancar, validar, validarEjemplo, correrBanco, puedeVender,
   titular: TITULAR,
   get paquete() { return PAQUETE; },
 };

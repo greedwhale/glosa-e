@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qué significa cada aviso &middot; Glosa-e</title>
+<meta name="description" content="Los códigos de incidencia de Glosa-e explicados uno a uno: qué gravedad tienen, a qué norma responden y dónde se emiten. Generado del código fuente.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23949494'/%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M25 17 H15 V47 H25'/%3E%3Cpath d='M34 24 h16'/%3E%3Cpath d='M34 40 h16'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="./glosa.css">
+<style>
+/* Lo propio de esta página. La base sale de glosa.css. */
+.portada { padding: 3rem 0 1rem; }
+.portada h1 { font-size: var(--t5); margin-bottom: .8rem; }
+.portada p { color: var(--tinta-2); max-width: 36rem; }
+
+/* El buscador. Filtra en el cliente y sin pedir nada: son 126 fichas ya
+   pintadas, y montar una búsqueda que salga a un servidor para recorrer una
+   lista que ya está en la página sería cobrar por nada. */
+.buscador { margin: 1.5rem 0 0; display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: center; }
+.buscador input {
+  font: var(--t2)/1 var(--mono); color: var(--tinta);
+  background: var(--panel); border: 1px solid var(--borde-fuerte);
+  border-radius: 8px; padding: .6rem .8rem; min-width: 16rem; flex: 1 1 16rem;
+}
+.buscador input:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
+.buscador .cuantos { font-size: var(--t1); color: var(--tenue); }
+
+/* La ficha de un código: el mismo gesto que la glosa del informe —el código
+   fuera, a la izquierda, contra un filete— para que quien llega aquí desde un
+   informe reconozca la forma antes de leer nada. */
+.fichas { display: grid; gap: 0; }
+.codigo-ficha {
+  display: grid; grid-template-columns: 11rem 1fr; gap: 0 1.25rem;
+  padding: 1.15rem 0; border-top: 1px dashed var(--borde);
+  scroll-margin-top: 5rem;
+}
+.codigo-ficha:first-child { border-top: 0; }
+.codigo-ficha:target { background: var(--acento-flojo); border-radius: 10px; padding-left: 1rem; padding-right: 1rem; }
+.codigo-ficha .margen { text-align: right; }
+.codigo-ficha .codigo {
+  font-family: var(--mono); font-size: var(--t1); font-weight: 600;
+  color: var(--tinta); text-decoration: none; display: block; word-break: break-all;
+}
+.codigo-ficha .codigo:hover { color: var(--acento); text-decoration: underline; }
+.codigo-ficha .cuenta {
+  font-size: var(--t0); text-transform: uppercase; letter-spacing: .07em;
+  font-weight: 700; display: inline-block; margin-top: .35rem; margin-left: .3rem;
+  padding: .1rem .45rem; border-radius: 999px; border: 1px solid currentColor;
+}
+.codigo-ficha .cuenta.error { color: var(--error); }
+.codigo-ficha .cuenta.aviso { color: var(--aviso); }
+.codigo-ficha .cuenta.nota  { color: var(--nota); }
+.codigo-ficha .cuerpo { border-left: 2px solid var(--borde); padding-left: 1.25rem; margin-left: -1.35rem; }
+.codigo-ficha .cuerpo p { font-size: var(--t2); color: var(--tinta-2); margin-bottom: .5rem; }
+.codigo-ficha .de-familia, .codigo-ficha .sin-explicar { font-size: var(--t1); color: var(--tenue); }
+.codigo-ficha dl { display: grid; grid-template-columns: auto 1fr; gap: .15rem .7rem; margin: .5rem 0 0; font-size: var(--t1); }
+.codigo-ficha dt { color: var(--tenue); }
+.codigo-ficha dd { margin: 0; color: var(--tinta-2); }
+.codigo-ficha dd:last-of-type { font-family: var(--mono); font-size: var(--t1); }
+
+@media (max-width: 46rem) {
+  .codigo-ficha { grid-template-columns: 1fr; gap: .5rem; }
+  .codigo-ficha .margen { text-align: left; }
+  .codigo-ficha .cuerpo { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="envoltorio barra">
+    <a class="marca" href="./"><span class="nombre">Glosa-e</span></a>
+    <nav>
+      <a href="./">La herramienta</a>
+      <a href="./preguntas.html">Preguntas</a>
+      <a href="./banco.html">Banco de pruebas</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="envoltorio">
+
+    <div class="portada">
+      <h1>Qué significa cada aviso</h1>
+      <p>Si te ha salido un código en un informe, aquí está lo que quiere
+      decir: qué gravedad tiene, a qué norma responde y en qué parte del
+      validador se emite. Cada uno tiene su propia dirección, así que se puede
+      enlazar: <code>#REVOCACION-OCSP-NO-VALE</code>.</p>
+
+      <p class="buscador">
+        <input type="search" id="filtro" placeholder="Filtrar por código o por texto"
+               aria-label="Filtrar los códigos">
+        <span class="cuantos" id="cuantos"></span>
+      </p>
+    </div>
+
+<!-- AQUI VA EL CATALOGO -->
+
+  </div>
+</main>
+
+<footer>
+  <div class="envoltorio">
+    <p class="aviso-legal"><b>Aviso.</b> Glosa-e es una herramienta privada e
+    independiente. No es un servicio oficial de la Agencia Tributaria, de FACe
+    ni de ninguna administración, y su resultado no acredita nada ante ellas.</p>
+    <nav>
+      <a href="./">La herramienta</a>
+      <a href="./preguntas.html">Preguntas</a>
+      <a href="./banco.html">Banco de pruebas</a>
+      <a href="./legal.html">Aviso legal y privacidad</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+// El filtro. Sin dependencias y sin red: las fichas ya están en la página.
+const filtro = document.getElementById("filtro");
+const cuantos = document.getElementById("cuantos");
+const fichas = [...document.querySelectorAll(".codigo-ficha")];
+const secciones = [...document.querySelectorAll("main section")];
+
+function filtrar() {
+  const q = filtro.value.trim().toLowerCase();
+  let vistos = 0;
+  for (const f of fichas) {
+    const cabe = !q || f.textContent.toLowerCase().includes(q);
+    f.hidden = !cabe;
+    if (cabe) vistos += 1;
+  }
+  // Una sección cuyas fichas se han escondido todas se esconde también: dejar
+  // el título de una familia vacía hace parecer que no hay nada donde sí lo
+  // hay, solo que filtrado.
+  for (const s of secciones) {
+    if (s.id === "resumen") continue;
+    s.hidden = ![...s.querySelectorAll(".codigo-ficha")].some((f) => !f.hidden);
+  }
+  cuantos.textContent = q
+    ? vistos + (vistos === 1 ? " código" : " códigos") + " de " + fichas.length
+    : fichas.length + " códigos";
+}
+
+filtro.addEventListener("input", filtrar);
+filtrar();
+</script>
+</body>
+</html>

@@ -70,3 +70,65 @@ def test_el_readme_dice_cuantas_pruebas_hay_de_verdad():
     assert dice == hay, (
         f"README.md:{linea} dice «{dice} tests» y hay {hay}. No es un fallo "
         f"de código: es una cifra que se quedó atrás. Cámbiala a {hay}.")
+
+
+# --- Las cifras que la página publica --------------------------------------
+#
+# El mismo problema, un piso más arriba. El libro blanco (`web/tesis.html`)
+# publica cuatro cifras como argumento de credibilidad, y dos de ellas se
+# mueven solas: los códigos de incidencia crecen cuando alguien añade una
+# regla, y las comprobaciones del navegador cuando alguien añade una al banco.
+#
+# Una cifra vieja ahí es peor que en el README, porque el README lo lee quien
+# trabaja en esto y la página la lee quien está decidiendo si fiarse.
+
+TESIS = RAIZ / "web" / "tesis.html"
+BANCO = RAIZ / "web" / "prueba.py"
+
+
+def _cifra_de_la_tesis(rotulo: str) -> int:
+    """La cifra que la página publica bajo ese rótulo."""
+    texto = TESIS.read_text(encoding="utf-8")
+    patron = (
+        r"<dt>" + re.escape(rotulo) + r"</dt>\s*<dd>(\d+)"
+    )
+    hallado = re.search(patron, texto)
+    assert hallado, f"«{rotulo}» ya no está en {TESIS.name} con la forma esperada"
+    return int(hallado.group(1))
+
+
+def test_la_tesis_dice_cuantos_codigos_hay_de_verdad():
+    from validador.codigos import codigos_del_paquete
+
+    hay = len(codigos_del_paquete())
+    dice = _cifra_de_la_tesis("Códigos de aviso")
+    assert dice == hay, (
+        f"web/tesis.html dice «{dice} códigos de aviso» y hay {hay}. La página "
+        f"la lee quien está decidiendo si fiarse. Cámbiala a {hay}.")
+
+
+def test_la_tesis_dice_cuantas_comprobaciones_corre_el_navegador():
+    # Se cuentan los decoradores del banco, que es donde están de verdad. La
+    # otra forma sería correr el banco entero aquí, que necesita el paquete
+    # montado y los ejemplos: esta prueba tiene que valer en un clon recién
+    # bajado.
+    hay = len(re.findall(r"^@comprobar\(", BANCO.read_text(encoding="utf-8"),
+                         re.MULTILINE))
+    dice = _cifra_de_la_tesis("Comprobaciones en tu navegador")
+    assert dice == hay, (
+        f"web/tesis.html dice «{dice} comprobaciones» y el banco tiene {hay}. "
+        f"Cámbiala a {hay}.")
+
+
+def test_el_catalogo_no_se_puede_publicar_vacio():
+    """La plantilla tiene que llevar la marca donde se pega el catálogo.
+
+    Si desaparece, montar el sitio no falla: publica una página de consulta con
+    cero códigos y un título que dice que están todos.
+    """
+    from validador import pagina_incidencias
+
+    plantilla = RAIZ / "web" / pagina_incidencias.NOMBRE
+    assert plantilla.is_file(), "no está la plantilla del catálogo"
+    assert pagina_incidencias.HUECO in plantilla.read_text(encoding="utf-8"), (
+        f"«{plantilla.name}» ya no lleva {pagina_incidencias.HUECO}")

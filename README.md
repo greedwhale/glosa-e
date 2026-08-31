@@ -27,7 +27,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1064 tests, todos en verde.
+1067 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Por qué un validador debe explicarse &middot; Glosa-e</title>
+<meta name="description" content="La tesis de Glosa-e: por qué un validador de facturas debe decir qué no ha comprobado, y qué cuesta hacerlo así. Con las cifras medidas.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23949494'/%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M25 17 H15 V47 H25'/%3E%3Cpath d='M34 24 h16'/%3E%3Cpath d='M34 40 h16'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="./glosa.css">
+<style>
+/* Lo propio de esta página: es un documento largo, así que manda la columna de
+   lectura y el ritmo, no la retícula. La base sale de glosa.css. */
+.portada { padding: 3rem 0 1rem; }
+.portada h1 { font: 400 var(--t5)/1.15 var(--serif); letter-spacing: -.015em; margin-bottom: .8rem; max-width: 26rem; }
+.portada .entrada { font-size: var(--t3); color: var(--tinta-2); max-width: 36rem; }
+
+article { max-width: 36rem; }
+article h2 { font: 400 var(--t4)/1.2 var(--serif); letter-spacing: -.012em; margin: 3rem 0 .9rem; }
+article h2:first-of-type { margin-top: 1rem; }
+article h3 { font: 600 var(--t2)/1.4 var(--sans); margin: 1.8rem 0 .5rem; }
+article p, article li { color: var(--tinta-2); }
+article b { color: var(--tinta); font-weight: 600; }
+article code { font-family: var(--mono); font-size: var(--t1); }
+article ul { padding-left: 1.1rem; margin: 0 0 1em; }
+article li { margin-bottom: .4rem; }
+
+/* La cita al margen: una afirmación que se sostiene sola. Se usa poco a
+   propósito — si estuviera cada dos párrafos dejaría de destacar nada. */
+.tesis {
+  font: 400 var(--t3)/1.45 var(--serif); color: var(--tinta);
+  border-left: 3px solid var(--borde-fuerte); padding-left: 1.25rem;
+  margin: 2rem 0; max-width: 32rem;
+}
+
+/* Las cifras. Van en su propia retícula porque se miran, no se leen. */
+.cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1.25rem 1.5rem; margin: 1.5rem 0 2rem; max-width: 42rem; }
+.cifras div { border-left: 1px solid var(--borde-fuerte); padding-left: .9rem; }
+.cifras dt { font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em; color: var(--tenue); font-weight: 600; }
+.cifras dd { margin: .2rem 0 0; font: 400 var(--t4)/1.1 var(--serif); color: var(--tinta); }
+.cifras .pie { font-size: var(--t1); color: var(--tenue); display: block; margin-top: .15rem; font-family: var(--sans); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="envoltorio barra">
+    <a class="marca" href="./"><span class="nombre">Glosa-e</span></a>
+    <nav>
+      <a href="./">La herramienta</a>
+      <a href="./preguntas.html">Preguntas</a>
+      <a href="./incidencias.html">Qué significa cada aviso</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="envoltorio">
+
+    <div class="portada">
+      <h1>Por qué un validador debe explicarse</h1>
+      <p class="entrada">La tesis de Glosa-e, con lo que cuesta sostenerla.
+      Un validador que calla lo que no ha mirado es más cómodo de usar y
+      bastante peor: deja creyendo que se comprobó algo que nadie comprobó.</p>
+    </div>
+
+    <article>
+
+      <h2>El problema no es validar. Es lo que se afirma al validar.</h2>
+
+      <p>Comprobar una factura electrónica contra la norma europea EN 16931 y
+      contra el Real Decreto 238/2026 es trabajo, pero es trabajo conocido:
+      están las reglas escritas y están los esquemas. Lo difícil no es eso.</p>
+
+      <p>Lo difícil es que <b>casi ninguna comprobación se puede hacer del
+      todo</b>, y que las que no se pueden hacer son justo las que más pesan.
+      Saber si un certificado estaba anulado el día que se firmó exige una
+      prueba que el certificado no lleva dentro. Saber si la fecha de firma es
+      cierta exige un sello de tiempo de un tercero. Cuando falta cualquiera de
+      las dos, un validador tiene dos opciones: decirlo, o pintar el tic verde
+      y callarse.</p>
+
+      <p class="tesis">Pintar el tic verde es la opción por defecto de casi
+      todo el software, y no por mala fe: es que un aprobado limpio se entiende
+      solo y una explicación de por qué no se sabe algo, no.</p>
+
+      <h2>Las tres gravedades, y por qué son tres</h2>
+
+      <p>De esa decisión sale toda la forma del producto. Un informe de Glosa-e
+      no tiene dos estados sino tres:</p>
+
+      <ul>
+        <li><b>Error</b> — algo incumple una norma concreta, y se dice cuál.</li>
+        <li><b>Aviso</b> — algo no se ha podido comprobar, o depende de un dato
+        que lo escribe la parte interesada.</li>
+        <li><b>Nota</b> — no es una queja: dice <b>qué se ha dado por bueno y
+        con qué base</b>.</li>
+      </ul>
+
+      <p>La tercera es la que casi nadie tiene y la que sostiene a las otras
+      dos. «No consta anulado ningún certificado de la cadena» no significa
+      nada por sí solo. Significa algo cuando va seguido de <i>según la lista
+      de tal autoridad, publicada tal día</i>, porque entonces quien lee puede
+      juzgar cuánto vale esa afirmación. Sin eso es un tic verde con más
+      letras.</p>
+
+      <h2>Un caso, con sus segundos</h2>
+
+      <p>Un ejemplo de lo que cuesta esto, sacado del propio desarrollo y no de
+      un manual.</p>
+
+      <p>Una firma electrónica de larga duración guarda dentro del documento la
+      prueba de que el certificado no estaba anulado. La regla evidente es: si
+      esa prueba es <b>anterior</b> a la firma, no puede saber lo que pasó
+      después, así que no cierra la pregunta. Se implementó así, con sus
+      pruebas en verde.</p>
+
+      <p>Al pasarla por seis documentos reales, el informe decía que la prueba
+      se había mirado <i>antes</i> de la firma y enseñaba <b>la misma fecha a
+      los dos lados</b>. Debajo había veintisiete segundos. Un documento de este
+      tipo se construye preguntando el estado, firmando y sellando, por ese
+      orden: la prueba es anterior a la firma <b>casi siempre</b>, y por
+      segundos. La regla no estaba mal razonada; estaba mal calibrada, y habría
+      levantado el aviso en prácticamente toda factura archivada de verdad.</p>
+
+      <p class="tesis">Un aviso que sale siempre deja de leerse, y entonces no
+      avisa de nada.</p>
+
+      <p>Lo que lo cerró no fue elegir un margen. Elegir «medio minuto pasa»
+      habría sido inventarse una cifra y llamarla criterio. <b>Quien dice si
+      una prueba seguía valiendo en un momento dado es quien la emitió</b>, y
+      lo dice por escrito dentro de la propia respuesta. Si su plazo llega
+      hasta la firma, se acepta y el informe dice el hueco y en qué se apoya;
+      si no, se sigue sin saber.</p>
+
+      <p>Las pruebas automáticas no habrían encontrado esto nunca. Estaban
+      todas verdes y todas escritas contra fechas inventadas por la misma mano
+      que escribió la regla. Lo encontró abrir seis ficheros que no había
+      escrito este proyecto y leer lo que salía.</p>
+
+      <h2>Lo que se mide, y lo que no se dice</h2>
+
+      <p>La misma exigencia se aplica al producto. Ninguna afirmación sobre
+      rendimiento, red o comportamiento entra sin el número que la sostiene, y
+      si no está medido, se dice que no está medido.</p>
+
+      <dl class="cifras">
+        <div>
+          <dt>Peticiones a terceros</dt>
+          <dd>0<span class="pie">al arrancar, al validar y en el banco</span></dd>
+        </div>
+        <div>
+          <dt>Formatos</dt>
+          <dd>4<span class="pie">Facturae, UBL, CII y EDIFACT</span></dd>
+        </div>
+        <div>
+          <dt>Códigos de aviso</dt>
+          <dd>126<span class="pie">cada uno con su norma y su explicación</span></dd>
+        </div>
+        <div>
+          <dt>Comprobaciones en tu navegador</dt>
+          <dd>38<span class="pie">las corre tu máquina, no la nuestra</span></dd>
+        </div>
+      </dl>
+
+      <p>La cifra de arriba a la izquierda es la que define el producto. El
+      validador entero corre dentro del navegador, sobre WebAssembly: tu
+      factura no sale de tu ordenador porque <b>no hay adónde enviarla</b>. Eso
+      no es una promesa, es una propiedad de cómo está montado, y está medida
+      con el número de peticiones y de dominios ajenos en el
+      <a href="./legal.html">aviso legal</a>.</p>
+
+      <h3>Lo que esto no hace</h3>
+
+      <p>Que quede escrito aquí y no solo en la letra pequeña:</p>
+
+      <ul>
+        <li><b>No certifica nada.</b> Una glosa explica; no da validez. La
+        validez la da la ley y, si acaso, quien recibe la factura.</li>
+        <li><b>No es un servicio oficial</b> de la Agencia Tributaria, de FACe
+        ni de ninguna administración.</li>
+        <li><b>No sale a la red a comprobar la revocación</b>, porque esa
+        consulta lleva dentro el número de serie del certificado: le diría a la
+        autoridad qué factura estás mirando y cuándo.</li>
+        <li><b>No acierta siempre.</b> Se equivoca como cualquier software. Lo
+        que promete no es acertar, sino no afirmar más de lo que ha
+        comprobado.</li>
+      </ul>
+
+      <h2>Por qué se llama así</h2>
+
+      <p>Una <i>glosa</i> es una nota al margen que explica un texto sin
+      sustituirlo. No dice si el documento es bueno: dice qué pone y qué hay
+      que saber para entenderlo. Es exactamente lo que hace esta herramienta, y
+      el nombre está elegido para que no pueda prometer otra cosa sin
+      contradecirse.</p>
+
+      <p>Por eso los informes tienen forma de glosa: el código al margen, la
+      explicación al lado, y una línea al final que dice contra qué se ha
+      mirado todo lo anterior.</p>
+
+      <p style="margin-top:2rem"><a href="./">Probar la herramienta</a> ·
+      <a href="./preguntas.html">Preguntas frecuentes</a> ·
+      <a href="./incidencias.html">Qué significa cada aviso</a></p>
+
+    </article>
+
+  </div>
+</main>
+
+<footer>
+  <div class="envoltorio">
+    <p class="aviso-legal"><b>Aviso.</b> Glosa-e es una herramienta privada e
+    independiente. No es un servicio oficial de la Agencia Tributaria, de FACe
+    ni de ninguna administración, y su resultado no acredita nada ante ellas.</p>
+    <nav>
+      <a href="./">La herramienta</a>
+      <a href="./preguntas.html">Preguntas</a>
+      <a href="./incidencias.html">Qué significa cada aviso</a>
+      <a href="./banco.html">Banco de pruebas</a>
+      <a href="./legal.html">Aviso legal y privacidad</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
