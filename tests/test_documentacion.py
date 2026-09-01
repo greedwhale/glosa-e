@@ -270,3 +270,28 @@ def test_el_menu_escribe_a_la_direccion_de_la_ficha():
         f"el menú escribe a {escritos} y la ficha de `glosa.js` dice "
         f"«{correo}». Son la misma dirección o no son nada: quien cambie una "
         "tiene que cambiar la otra.")
+
+
+def test_si_hay_buzon_publicado_la_politica_dice_quien_lo_aloja():
+    """Publicar una dirección es abrir un tratamiento, y hay que contarlo.
+
+    El día que se puso el correo, el buzón se fue a Zoho y a un centro de datos
+    de Estados Unidos: un encargado del tratamiento y una transferencia
+    internacional que antes no existían. La política lo dice.
+
+    Lo que esta prueba impide es lo fácil: cambiar de proveedor -o poner una
+    direccion de otro dominio- y dejar la política contando el anterior. No
+    puede comprobar a quién apuntan los MX, que eso es la red y aquí no se sale;
+    comprueba lo que sí puede, que es que el apartado exista mientras haya
+    buzón que explicar.
+    """
+    if not _ficha().get("correo"):
+        pytest.skip("no hay correo publicado: no hay buzón que explicar")
+
+    legal = LEGAL.read_text(encoding="utf-8")
+    assert "Y si me escribes" in legal, (
+        "hay un correo publicado y la política de privacidad no tiene el "
+        "apartado que explica qué pasa con lo que se manda ahí")
+    assert "encargado" in legal, (
+        "la política no dice que el buzón lo lleva un encargado del "
+        "tratamiento, que es lo que es en cuanto el correo no lo alojas tú")
