@@ -295,3 +295,59 @@ def test_si_hay_buzon_publicado_la_politica_dice_quien_lo_aloja():
     assert "encargado" in legal, (
         "la política no dice que el buzón lo lleva un encargado del "
         "tratamiento, que es lo que es en cuanto el correo no lo alojas tú")
+
+
+# Qué texto tiene que haber al lado de cada etiqueta SPDX. La tabla es corta a
+# propósito y **rechaza lo que no conoce**: cambiar `license` a algo que no
+# esté aquí no puede salir en verde por no saber contra qué comparar, que es
+# como se cuela una licencia sin texto.
+TEXTO_DE_CADA_LICENCIA = {
+    "AGPL-3.0-only": ("GNU AFFERO GENERAL PUBLIC LICENSE", "Version 3",
+                      "13. Remote Network Interaction"),
+    "MIT": ("MIT License",),
+}
+
+
+def test_la_licencia_declarada_trae_su_texto_al_lado():
+    """Una etiqueta SPDX sin el texto es una licencia que no se ha puesto.
+
+    El 01-09-2026 esto pasó de MIT a AGPL-3.0-only, y hasta ese día el
+    repositorio no tenía `LICENSE` **ninguno**: la licencia vivía en una línea
+    de `pyproject.toml`, la rueda anunciaba «MIT» y no adjuntaba condiciones, y
+    todo el mundo se la bajaba así. Con una copyleft eso ya no es un descuido
+    de forma: las condiciones son el producto de la licencia.
+
+    Se comprueban las dos direcciones. Que hay texto, y que el texto es el de
+    la etiqueta —no vale dejar el de antes—.
+    """
+    from validador.paquete import licencia_declarada
+
+    declarada = licencia_declarada(RAIZ)
+    assert declarada, "`pyproject.toml` no declara ninguna licencia"
+    assert declarada in TEXTO_DE_CADA_LICENCIA, (
+        f"«{declarada}» no está en la tabla de esta prueba, así que nadie ha "
+        "mirado qué texto le corresponde. Añádela con sus señas antes de "
+        "declararla")
+
+    licencia = RAIZ / "LICENSE"
+    assert licencia.is_file(), (
+        f"el proyecto se publica como «{declarada}» y no hay fichero LICENSE: "
+        "la rueda anunciaría unas condiciones que no entrega")
+
+    texto = licencia.read_text(encoding="utf-8")
+    for senal in TEXTO_DE_CADA_LICENCIA[declarada]:
+        assert senal in texto, (
+            f"LICENSE no parece el texto de «{declarada}»: le falta "
+            f"«{senal}». ¿Se cambió la etiqueta y se dejó el texto anterior?")
+
+
+def test_el_readme_dice_bajo_que_licencia_se_publica():
+    """Quien se baja la rueda se lleva la licencia dentro; quien lee el
+    repositorio, no. La primera pantalla de un proyecto copyleft tiene que
+    decir cuál es, y con la etiqueta exacta —«AGPL» a secas no distingue
+    `only` de `or-later`, que es justo lo que aquí se decidió a mano."""
+    from validador.paquete import licencia_declarada
+
+    declarada = licencia_declarada(RAIZ)
+    assert declarada in README.read_text(encoding="utf-8"), (
+        f"el proyecto se publica como «{declarada}» y el README no lo dice")

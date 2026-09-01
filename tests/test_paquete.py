@@ -349,18 +349,38 @@ def repositorio(tmp_path):
     return tmp_path
 
 
-def _rueda_de_verdad(destino: Path) -> None:
+DIST_INFO = "factura_e-0.1.0.dist-info"
+
+
+def _rueda_de_verdad(destino: Path, licencia: str | None = "la declarada",
+                     con_texto: bool = True) -> None:
     """Un wheel con los módulos del paquete de verdad dentro.
 
     Antes bastaba con escribir `b"PK\x03\x04"` y llamarlo wheel, porque nadie
     miraba lo que llevaba. Desde que el montaje se niega a publicar un wheel
     que no sea el del código de ahora, hace falta uno de verdad: si no, la
     prueba de que un wheel bueno pasa no prueba nada.
+
+    Y desde que el montaje también mira la licencia, hace falta el `dist-info`:
+    un wheel sin él no anuncia ninguna, que es justo uno de los casos que hay
+    que poder provocar. `licencia=None` lo deja fuera; `con_texto=False` anuncia
+    la licencia sin adjuntar sus condiciones.
     """
     fuentes = Path(paquete.__file__).parent
+    if licencia == "la declarada":
+        licencia = paquete.licencia_declarada(fuentes.parent)
     with zipfile.ZipFile(destino, "w") as zip_de_la_rueda:
         for ruta in sorted(fuentes.glob("*.py")):
             zip_de_la_rueda.writestr(f"validador/{ruta.name}", ruta.read_bytes())
+        if licencia is None:
+            return
+        zip_de_la_rueda.writestr(
+            f"{DIST_INFO}/METADATA",
+            "Metadata-Version: 2.4\nName: factura-e\nVersion: 0.1.0\n"
+            f"License-Expression: {licencia}\n\nEl README iría aquí.\n")
+        if con_texto:
+            zip_de_la_rueda.writestr(f"{DIST_INFO}/licenses/LICENSE",
+                                     "El texto de la licencia.\n")
 
 
 def _tocar_la_rueda(destino: Path, quitar=(), cambiar=()) -> None:
@@ -728,6 +748,44 @@ class TestElSitioQueSePublica:
         with pytest.raises(paquete.RuedaVieja) as fallo:
             _montar(repositorio)
         assert "revocacion.py (el del wheel es otro)" in str(fallo.value)
+
+    def test_un_wheel_con_la_licencia_de_antes_no_se_monta(self, repositorio):
+        """El caso que la comparación de módulos no caza, y el que más duele.
+
+        Cambiar de licencia es tocar `pyproject.toml`, y `pyproject.toml` no
+        viaja dentro del wheel. Los veinticuatro módulos siguen siendo idénticos
+        byte a byte, así que sin esto el montaje daba el visto bueno y la página
+        repartía a cada visitante un motor que se anuncia con la licencia
+        anterior —la que ya no rige— sin que se notara en ninguna pantalla.
+        """
+        rueda = repositorio / "dist" / "factura_e-0.1.0-py3-none-any.whl"
+        _rueda_de_verdad(rueda, licencia="MIT")
+        with pytest.raises(paquete.RuedaVieja) as fallo:
+            _montar(repositorio)
+        assert "la licencia" in str(fallo.value)
+        assert "MIT" in str(fallo.value)
+
+    def test_un_wheel_que_no_dice_ninguna_licencia_tampoco(self, repositorio):
+        """No decir nada no es lo mismo que decir lo de hoy, y aquí no cuela."""
+        rueda = repositorio / "dist" / "factura_e-0.1.0-py3-none-any.whl"
+        _rueda_de_verdad(rueda, licencia=None)
+        with pytest.raises(paquete.RuedaVieja) as fallo:
+            _montar(repositorio)
+        assert "no dice ninguna" in str(fallo.value)
+
+    def test_un_wheel_que_anuncia_la_licencia_y_no_la_lleva_dentro_tampoco(
+            self, repositorio):
+        """Anunciar unas condiciones sin entregarlas es no haberlas puesto.
+
+        Es lo que saldría el día que alguien renombre `LICENSE` o quite
+        `license-files` del `pyproject.toml`: la etiqueta sigue en su sitio y el
+        texto deja de viajar, en silencio.
+        """
+        rueda = repositorio / "dist" / "factura_e-0.1.0-py3-none-any.whl"
+        _rueda_de_verdad(rueda, con_texto=False)
+        with pytest.raises(paquete.RuedaVieja) as fallo:
+            _montar(repositorio)
+        assert "no lleva el texto dentro" in str(fallo.value)
 
     def test_un_wheel_que_ni_se_abre_lo_dice_con_esas_palabras(self, repositorio):
         """Y no como un `BadZipFile` a media función, que no se parece en nada

@@ -27,7 +27,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1073 tests, todos en verde.
+1078 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -2717,6 +2717,37 @@ es que **no afirma de más**, y un nombre que prometa fe pública pelea con el
 producto todos los días. Una glosa explica; no certifica.
 
 > Glosa-e — lo que dice tu factura, y lo que no se ha podido mirar.
+
+## La licencia
+
+**AGPL-3.0-only**, desde el 1 de septiembre de 2026. El texto entero está en
+[`LICENSE`](LICENSE) y viaja **dentro de la propia rueda**, en
+`factura_e-0.1.0.dist-info/licenses/LICENSE`.
+
+**Antes era MIT, y MIT no encajaba con lo que esto es.** Aquí no hay un
+servidor que guarde el motor: la página se lo baja al navegador de quien la
+abre, y lo que se baja es un `.whl` con los veinticuatro módulos **en claro**.
+Es decir que el código fuente completo se entrega, sin excepción, a todo el que
+visita la página. Eso no es un descuido —es la arquitectura, y es lo que hace
+que la factura no salga del ordenador—, pero con MIT significaba regalar el
+producto con permiso para cerrarlo.
+
+**La AGPL no impide llevárselo. Impide llevárselo y cerrarlo.** Cualquiera
+puede seguir bajando la rueda, leerla, estudiarla, modificarla y usarla; lo que
+tiene que hacer si la distribuye o monta un servicio encima es entregar su
+fuente bajo la misma licencia. El artículo 13 es el que cierra el caso que aquí
+importaba: **montar un servicio web sobre este motor sin devolver nada**.
+
+**`only` y no `or-later`, a propósito.** Es la misma regla que con Pyodide y
+lxml: las versiones se fijan y no se siguen a `latest`. Lo que se cede tiene
+que estar escrito y no moverse solo, y si algún día hay licencia comercial —el
+otro lado de una copyleft— los términos que se dispensan han de ser unos
+concretos y conocidos.
+
+**Lo que la AGPL no arregla, y conviene no confundir.** No hace privado nada:
+el repositorio puede seguir cerrado, pero quien recibe la rueda recibe con ella
+el derecho a redistribuirla. Tampoco convierte en infracción competir; solo
+obliga a que quien construya encima juegue con las mismas cartas.
 
 ## Fuentes
 

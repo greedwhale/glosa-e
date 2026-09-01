@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import zipfile
 from dataclasses import dataclass
 from datetime import date
@@ -69,6 +70,7 @@ __all__ = [
     "SinPagina",
     "RuedaVieja",
     "rueda_desfasada",
+    "licencia_declarada",
     "armar",
     "montar_sitio",
 ]
@@ -439,6 +441,49 @@ class RuedaVieja(Exception):
     """El wheel de `dist/` no es el del código que hay ahora mismo."""
 
 
+# La expresión SPDX tal como está escrita en `pyproject.toml`. Se lee con una
+# expresión regular y no con `tomllib` a propósito: `tomllib` es de 3.11 y aquí
+# se admite 3.10, y para una línea que es literal en el fichero un parser
+# entero no compra nada.
+_LICENCIA_EN_PYPROJECT = re.compile(r'^license\s*=\s*"([^"]+)"', re.MULTILINE)
+
+
+def licencia_declarada(raiz: Path) -> str | None:
+    """Qué licencia dice el proyecto que tiene, o None si no hay `pyproject`.
+
+    None no es un fallo: `rueda_desfasada` se puede llamar desde un paquete
+    instalado, donde el `pyproject.toml` no viaja. Lo que no puede pasar es
+    confundir «no hay con qué comparar» con «coinciden».
+    """
+    pyproject = raiz / "pyproject.toml"
+    if not pyproject.is_file():
+        return None
+    encontrada = _LICENCIA_EN_PYPROJECT.search(
+        pyproject.read_text(encoding="utf-8"))
+    return encontrada.group(1) if encontrada else None
+
+
+def _licencia_de_la_rueda(zip_de_la_rueda) -> tuple[str | None, bool]:
+    """Qué licencia anuncia el wheel, y si lleva el texto dentro.
+
+    Son dos cosas distintas y las dos importan: `License-Expression` es lo que
+    el wheel *dice*, y `dist-info/licenses/` es lo que *entrega*. Anunciar una
+    licencia sin adjuntar sus condiciones es no haberla puesto.
+    """
+    anunciada, texto_dentro = None, False
+    for nombre in zip_de_la_rueda.namelist():
+        if nombre.endswith(".dist-info/METADATA"):
+            cabecera = zip_de_la_rueda.read(nombre).decode("utf-8", "replace")
+            for linea in cabecera.splitlines():
+                if linea.startswith("License-Expression:"):
+                    anunciada = linea.split(":", 1)[1].strip()
+                if not linea.strip():      # el cuerpo del README, ya no hay más
+                    break                  # cabeceras que mirar
+        if ".dist-info/licenses/" in nombre:
+            texto_dentro = True
+    return anunciada, texto_dentro
+
+
 def rueda_desfasada(rueda: Path, fuentes: Path | None = None) -> list[str]:
     """Qué módulos del paquete no son los que lleva ese `.whl`.
 
@@ -473,7 +518,41 @@ def rueda_desfasada(rueda: Path, fuentes: Path | None = None) -> list[str]:
             desfasados.append(f"{ruta.name} (no viaja en el wheel)")
         elif dentro[ruta.name] != ruta.read_bytes():
             desfasados.append(f"{ruta.name} (el del wheel es otro)")
+
+    # La licencia va aquí y no en una prueba suelta porque el daño ocurre aquí:
+    # `--sitio` no construye el wheel, copia el de `dist/`. El día que se pasó
+    # de MIT a AGPL, el `pyproject.toml` cambió y el wheel de `dist/` siguió
+    # siendo el de antes; los módulos eran idénticos byte a byte, así que la
+    # comparación de arriba lo daba por bueno y la página habría repartido a
+    # cada visitante un motor que se anuncia con la licencia anterior. Es el
+    # fallo de siempre de esta casa —algo viejo haciéndose pasar por lo de hoy,
+    # y todo en verde—, y la única diferencia con las cuatro veces anteriores es
+    # que aquí no lo ve nadie: la licencia no se nota al usar la página.
+    declarada = licencia_declarada(fuentes.parent)
+    if declarada is not None:
+        anunciada, texto_dentro = _licencia_de_la_rueda_por_ruta(rueda)
+        if anunciada != declarada:
+            desfasados.append(
+                f"la licencia (el proyecto dice «{declarada}» y el wheel "
+                f"«{anunciada or 'no dice ninguna'}»)")
+        elif not texto_dentro:
+            desfasados.append(
+                f"la licencia (el wheel anuncia «{declarada}» y no lleva el "
+                "texto dentro, así que anuncia condiciones que no entrega)")
     return desfasados
+
+
+def _licencia_de_la_rueda_por_ruta(rueda: Path) -> tuple[str | None, bool]:
+    """`_licencia_de_la_rueda` abriendo el fichero, para no colar la excepción.
+
+    El zip ya se abrió y se cerró arriba; volver a abrirlo cuesta nada y evita
+    tener que sostener el descriptor abierto por media función.
+    """
+    try:
+        with zipfile.ZipFile(rueda) as zip_de_la_rueda:
+            return _licencia_de_la_rueda(zip_de_la_rueda)
+    except (zipfile.BadZipFile, OSError):
+        return None, False
 
 
 @dataclass(frozen=True)

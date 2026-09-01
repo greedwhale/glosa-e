@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,25 @@ version = "0.1.0"
 description = "Validador de facturas electrónicas españolas: EN 16931, RD 238/2026 y esquemas XSD, con los errores explicados en castellano"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+# AGPL-3.0-only desde el 01-09-2026. Antes era MIT, y MIT no encajaba con lo
+# que este proyecto es: el motor entero viaja al navegador de cualquiera que
+# abra la página —los 24 módulos van dentro del `.whl`, en claro—, así que
+# regalarlo con permiso para cerrarlo era regalar el producto. La AGPL no
+# impide llevárselo; impide llevárselo y cerrarlo, incluido el caso que aquí
+# importa: montar un servicio web encima sin devolver la fuente (artículo 13).
+#
+# «only» y no «or-later» a propósito, por la misma razón que aquí las versiones
+# se fijan: lo que se cede tiene que estar escrito y no moverse solo. Y porque
+# la copyleft solo sirve de palanca para vender licencia comercial si los
+# términos que se dispensan son unos concretos y conocidos.
+license = "AGPL-3.0-only"
+
+# Explícito y no por descubrimiento. setuptools encuentra `LICENSE` con su
+# glob por defecto, pero entonces que el texto viaje dentro de la rueda depende
+# de que nadie renombre el fichero: justo el fallo que en este repositorio no
+# se deja al azar. Sin el texto dentro, la rueda anuncia una licencia cuyas
+# condiciones no entrega, que es lo mismo que no anunciarla.
+license-files = ["LICENSE"]
 keywords = ["factura electrónica", "EN 16931", "UBL", "CII", "Facturae", "RD 238/2026"]
 
 # lxml es la única dependencia y no es opcional: el parser endurecido, la

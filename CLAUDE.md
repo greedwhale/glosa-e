@@ -47,11 +47,19 @@ funcionar no se ha visto.
 
 **Negarse vale más que acordarse.** Cuando algo puede romperse en silencio, la
 solución es que **no se pueda montar** sin enterarse: `SinRueda`, `SinPagina`,
-`SinPyodide`, `RuedaVieja` —el `.whl` de `dist/` comparado byte a byte con el
-paquete, porque `--sitio` no lo construye—, y la negativa cuando `glosa.js` y
-`paquete.py` declaran versiones
+`SinPyodide`, `RuedaVieja` —el `.whl` de `dist/` comparado con el paquete
+byte a byte **y también por su licencia**, porque `--sitio` no lo construye—, y
+la negativa cuando `glosa.js` y `paquete.py` declaran versiones
 distintas de Pyodide. Es el patrón de este proyecto; úsalo antes que un
 comentario que pida memoria.
+
+**El código es AGPL-3.0-only.** Desde el 01-09-2026; antes era MIT. El motor
+entero viaja al navegador de quien abre la página, en claro, dentro del `.whl`:
+con MIT eso era regalar el producto con permiso para cerrarlo. La AGPL no
+impide llevárselo, impide cerrarlo —artículo 13, el caso del servicio web—. Va
+en tres sitios que tienen que decir lo mismo, y hay guardián para cada salto:
+`pyproject.toml`, el fichero `LICENSE`, y el `dist-info` de la rueda. El porqué
+entero está en el README.
 
 **Las versiones se fijan y no se siguen a `latest`.** Pyodide 314.0.6, lxml
 6.0.2. Lo que se prueba es una combinación concreta; si se mueve sola, el día
