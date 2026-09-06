@@ -63,13 +63,24 @@ const r=performance.getEntriesByType('resource');
   kb: Math.round(r.reduce((a,x)=>a+(x.transferSize||0),0)/1024),
   desde_cache: r.filter(x=>x.transferSize===0).length,
   peticiones: r.length,
-  ajenos: [...new Set(r.map(x=>new URL(x.name).origin))].filter(o=>o!==location.origin)})
+  // Los `data:` y `blob:` se descuentan a proposito: no son de nadie -no
+  // salen del navegador- y `new URL('data:…').origin` devuelve la cadena
+  // "null", que aqui se leia como un dominio ajeno.
+  ajenos: [...new Set(r.map(x=>new URL(x.name).origin))]
+            .filter(o=>o!==location.origin && o!=='null')})
 ```
 
 **`ajenos` tiene que ser `[]`.** No es cosmética: la política de privacidad
 publica una tabla medida que dice «0 dominios de terceros», y `pyodide.js`
 lleva dentro la dirección del CDN como respaldo. Es exactamente lo que hay que
 mirar y no suponer.
+
+El filtro del `"null"` se añadió el 06-09-2026, y hace falta: en frío salía
+`[]` y en caliente salía `["null"]`, que es un `data:image/svg+xml` en línea
+del CSS —cero bytes, ninguna red—. Una comprobación de privacidad que da la
+alarma cuando no pasa nada se deja de leer, y entonces no avisa el día que
+pase. Si alguna vez sale algo aquí, mira `r.filter(...)` con la URL entera
+antes de dar nada por bueno **o por malo**.
 
 Referencia medida (30 ago 2026): en frío 23 peticiones y ~9.175 KB; en caliente
 1 KB con 21 de 22 de caché y «Listo en 5,31 s».
@@ -122,12 +133,20 @@ va mal.
 
 En `/banco`. **Esa página no tiene `#arranque`** —lleva `#veredicto`, `#fases`,
 `#trae` y `#tabla`—, así que el bucle de espera del punto 3 revienta aquí con
-un `Cannot read properties of null`. Lo que hay que esperar es a que exista la
-función:
+un `Cannot read properties of null`.
+
+Y esperar a que exista `window.Glosa.correrBanco` **tampoco vale**, aunque lo
+parezca: la función está puesta desde el primer momento y el intérprete no,
+así que se llama antes de tiempo y revienta con `Cannot read properties of
+null (reading 'runPythonAsync')`. Es el mismo error con otro disfraz —creer
+que algo está listo porque se le puede nombrar—. Lo que dice de verdad si ya
+se puede es **`#veredicto`, que arranca con la clase `esperando` y la pierde**
+cuando el banco está montado (pasa a `veredicto si`). Medido: 6,3 s.
 
 ```js
+const v = document.getElementById('veredicto');
 const t0=performance.now();
-while(typeof window.Glosa?.correrBanco !== 'function' && performance.now()-t0<180000){
+while(v.classList.contains('esperando') && performance.now()-t0<180000){
   await new Promise(r=>setTimeout(r,300));
 }
 const res = await window.Glosa.correrBanco();
