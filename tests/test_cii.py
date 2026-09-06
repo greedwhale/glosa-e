@@ -546,6 +546,9 @@ class TestElMapaEsSoloUnMapa:
                     # dejaría pasar en silencio la próxima ruta mal escrita,
                     # que es justo lo que esta prueba existe para cazar.
                     "categoria_derivada",
+                    # Igual que el de arriba: dice qué vocabulario usa
+                    # esta sintaxis para BT-3, no dónde está escrito.
+                    "tipo_derivado",
                 ):
                     continue
                 # «self::» es tan relativa como «./», y hace falta en EDIFACT

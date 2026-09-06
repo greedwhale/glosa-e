@@ -85,6 +85,13 @@ class Sintaxis:
     # Sigue siendo un dato y no una regla: aquí se dice cuál se aplica, no qué
     # hace.
     categoria_derivada: str
+    # Lo mismo para BT-3, el codigo de tipo de documento. UBL, CII y EDIFACT
+    # escriben directamente el 380 o el 381 de UNTDID 1001; Facturae escribe
+    # su propio vocabulario y hace falta traducirlo. Los dos campos de abajo
+    # son de donde sale esa traduccion y solo Facturae los usa.
+    tipo_derivado: str
+    tipo_clase: str    # Facturae: original, rectificativa, copia...
+    tipo_emisor: str   # Facturae: quien emite, que es lo que distingue el 389
     linea_categoria: str  # relativa a una línea: BT-151
     linea_tipo: str  # relativa a una línea: BT-152
 
@@ -173,6 +180,9 @@ SINTAXIS_UBL = Sintaxis(
     linea_precio="./cac:Price/cbc:PriceAmount",
     linea_nombre="./cac:Item/cbc:Name",
     categoria_derivada="",
+    tipo_derivado="",
+    tipo_clase=SIN_MAPA,
+    tipo_emisor=SIN_MAPA,
     linea_categoria="./cac:Item/cac:ClassifiedTaxCategory/cbc:ID",
     linea_tipo="./cac:Item/cac:ClassifiedTaxCategory/cbc:Percent",
     desglose="./cac:TaxTotal/cac:TaxSubtotal",
@@ -246,6 +256,9 @@ SINTAXIS_CII = Sintaxis(
     ),
     linea_nombre="./ram:SpecifiedTradeProduct/ram:Name",
     categoria_derivada="",
+    tipo_derivado="",
+    tipo_clase=SIN_MAPA,
+    tipo_emisor=SIN_MAPA,
     linea_categoria=(
         "./ram:SpecifiedLineTradeSettlement/ram:ApplicableTradeTax"
         "/ram:CategoryCode"
@@ -362,6 +375,9 @@ SINTAXIS_EDIFACT = Sintaxis(
     # C273. Comprobado sobre `ejemplos/edi-0001.edi`.
     linea_nombre="./S_IMD/C_C273/D_7008",
     categoria_derivada="",
+    tipo_derivado="",
+    tipo_clase=SIN_MAPA,
+    tipo_emisor=SIN_MAPA,
     # El IVA propio de la línea es el del grupo que cuelga directamente de
     # ella. El de un descuento de línea cuelga del descuento, un piso más
     # abajo, y por eso no entra aquí.
@@ -543,6 +559,11 @@ SINTAXIS_FACTURAE = Sintaxis(
     linea_precio="./UnitPriceWithoutTax",
     linea_nombre="./ItemDescription",
     categoria_derivada="facturae",
+    tipo_derivado="facturae",
+    tipo_clase="./InvoiceHeader/InvoiceClass",
+    # Va en la cabecera del fichero, no en la factura: por eso sube dos
+    # niveles, igual que el vendedor y el comprador.
+    tipo_emisor="../../FileHeader/InvoiceIssuerType",
     # BT-130, y **aquí está la divergencia que hace útil todo este binding**.
     #
     # `UnitOfMeasure` existe en Facturae pero el esquema lo declara opcional

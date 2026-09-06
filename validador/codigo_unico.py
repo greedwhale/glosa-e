@@ -35,6 +35,7 @@ from datetime import date, datetime
 from lxml import etree
 
 from validador import edifact, nif
+from validador import paises
 from validador.formato import CII, FACTURAE, UBL, detectar, parser
 from validador.incidencias import AVISO, ERROR, Incidencia, Informe
 
@@ -680,7 +681,31 @@ def pais_emisor(raiz, deteccion) -> str | None:
     if raiz is None or not deteccion:
         return None
     if deteccion.familia == FACTURAE:
-        return "ES"
+        # Antes aqui ponia `return "ES"` a secas, y el comentario de la tabla
+        # decia que Facturae no hacia falta "porque es el formato nacional
+        # espaniol". Es verdad que lo es, y no es verdad que su emisor sea
+        # siempre espaniol: el esquema oficial admite 235 paises en
+        # `CountryCode`, y un proveedor extranjero que factura a una
+        # administracion espaniola escribe el suyo. A esos se les estaban
+        # aplicando las reglas CU-* del RD 238/2026 sin mirar, que es
+        # exactamente el fallo grande que documenta HALLAZGOS.md: reglas
+        # espaniolas cayendo sobre facturas de fuera.
+        #
+        # Se lee `LegalEntity` y no `Individual` porque los dos cuelgan de
+        # `SellerParty` y solo hay uno de los dos; se prueban los dos sitios
+        # donde el esquema deja poner la direccion.
+        vendedores = raiz.xpath("//*[local-name()='SellerParty']")
+        if not vendedores:
+            return None
+        for envoltorio in ("LegalEntity", "Individual"):
+            for donde in ("AddressInSpain", "OverseasAddress"):
+                escrito = _local(
+                    vendedores[0], envoltorio, donde, "CountryCode")
+                if escrito:
+                    # Se devuelve traducido o None: un `ZAR` que ISO ya
+                    # retiro no se convierte en Congo por nuestra cuenta.
+                    return paises.alpha2(escrito)
+        return None
     camino = _PAIS_DEL_EMISOR.get(deteccion.familia)
     if camino is None:
         return None

@@ -611,6 +611,109 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     return incidencias
 
 
+# --- BT-3: el tipo de documento --------------------------------------------
+
+# Los 62 códigos de UNTDID 1001 que EN 16931 admite en BT-3. No están escritos
+# de memoria: se sacaron el 06-09-2026 de `BR-CL-01` en
+# `cii/schematron/codelist/EN16931-CII-codes.sch`, los artefactos oficiales de
+# la Comisión Europea, que es la misma regla que aplican los validadores de
+# PEPPOL y de XRechnung.
+_UNCL1001 = frozenset(
+    "71 80 81 82 83 84 102 130 202 203 204 211 218 219 261 262 295 296 308 "
+    "325 326 331 380 381 382 383 384 385 386 387 388 389 390 393 394 395 396 "
+    "420 456 457 458 471 472 473 500 501 502 503 527 532 553 575 623 633 751 "
+    "780 817 870 875 876 877 935".split()
+)
+
+# Del vocabulario de Facturae al de EN 16931.
+#
+# `InvoiceClass` dice qué es el documento: OO original, OC original
+# recapitulativa, CO copia de la original, CC copia recapitulativa. Las cuatro
+# son facturas ordinarias, y una copia no deja de serlo: 380.
+#
+# Las rectificativas —OR y CR— no están aquí, y no es un olvido: ver
+# `_bt3_de_facturae`.
+_CLASE_A_UNCL1001 = {"OO": "380", "OC": "380", "CO": "380", "CC": "380"}
+
+
+def _bt3_de_facturae(raiz, sintaxis: Sintaxis) -> tuple[str | None, str | None]:
+    """El tipo de documento de una factura Facturae, en el vocabulario europeo.
+
+    Devuelve `(codigo, por_qué_no_se_sabe)`, y solo uno de los dos tiene valor.
+
+    Hay tres piezas y ninguna es `InvoiceDocumentType`, que es lo que uno
+    esperaría por el nombre. Ese campo distingue factura completa (FC) de
+    simplificada (FA), que es una pregunta española sobre el contenido y no
+    sobre el tipo de documento; su tercer valor, AF de autofactura, **está en
+    desuso** desde el RD 1789/2010 y la propia documentación de Facturae manda
+    usar `InvoiceIssuerType` en su lugar.
+
+    Así que:
+
+    - `InvoiceIssuerType = RE` («Recipient», la emite quien la recibe) es
+      exactamente la definición de 389, «Self-billed invoice: an invoice the
+      invoicee is producing instead of the seller».
+    - `InvoiceClass` original o copia es 380.
+    - Una rectificativa **no se decide aquí**, y esa es la parte importante.
+      384 es «corrected invoice», una factura que reemplaza a otra con datos
+      revisados, y 381 es un abono. Una rectificativa española por sustitución
+      es lo primero y una por diferencias se parece a lo segundo, y cuál de
+      las dos es lo dice `CorrectionMethod`, cuya lista de valores no se ha
+      podido contrastar contra una fuente oficial. Mientras no se contraste,
+      elegir uno sería inventar la respuesta más probable y presentarla como
+      leída.
+    """
+    emisor = texto(raiz, sintaxis.tipo_emisor, sintaxis)
+    if emisor == "RE":
+        return "389", None
+    clase = texto(raiz, sintaxis.tipo_clase, sintaxis)
+    if clase in _CLASE_A_UNCL1001:
+        return _CLASE_A_UNCL1001[clase], None
+    if clase in ("OR", "CR"):
+        return None, (
+            "es una factura rectificativa, y su equivalente europeo es 384 "
+            "(factura corregida) o 381 (abono) según cómo rectifique. Esa "
+            "correspondencia no está contrastada todavía, así que no se "
+            "afirma ninguna de las dos."
+        )
+    return None, None
+
+
+def _regla_tipo_de_documento(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
+    """BR-CL-01: el tipo de documento tiene que estar en la lista UNTDID 1001."""
+    if sintaxis.tipo_derivado == "facturae":
+        codigo, por_que_no = _bt3_de_facturae(raiz, sintaxis)
+        if por_que_no:
+            return [
+                Incidencia(
+                    "FE-TIPO-SIN-EQUIVALENTE",
+                    NOTA,
+                    f"El tipo de documento no se ha traducido a EN 16931: "
+                    f"{por_que_no}",
+                    campo="Tipo de documento",
+                    encontrado=texto(raiz, sintaxis.tipo_clase, sintaxis) or "",
+                )
+            ]
+    else:
+        codigo = texto(raiz, sintaxis.tipo, sintaxis)
+
+    if codigo is None or codigo in _UNCL1001:
+        # De que falte ya se queja BR-04, y con mejor consejo.
+        return []
+    return [
+        Incidencia(
+            "BR-CL-01",
+            ERROR,
+            "El tipo de documento no es ninguno de los que admite EN 16931. "
+            "La norma exige que salga de la lista UNTDID 1001: 380 para una "
+            "factura ordinaria, 381 para un abono, 384 para una corregida.",
+            campo="Tipo de documento",
+            esperado="un código de UNTDID 1001",
+            encontrado=codigo,
+        )
+    ]
+
+
 # --- Entrada pública -------------------------------------------------------
 
 
@@ -657,6 +760,7 @@ def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
         )
 
     incidencias.extend(_reglas_obligatorios(raiz, sintaxis))
+    incidencias.extend(_regla_tipo_de_documento(raiz, sintaxis))
     incidencias.extend(_regla_lineas(raiz, sintaxis))
     incidencias.extend(_reglas_campos_de_linea(raiz, sintaxis))
     incidencias.extend(_reglas_cuadre(raiz, sintaxis))
@@ -722,6 +826,7 @@ def _reglas_facturae(raiz, sintaxis: Sintaxis, espanola: bool) -> list[Incidenci
         de_esta.extend(_regla_lineas(factura, sintaxis))
         de_esta.extend(_reglas_campos_de_linea(factura, sintaxis))
         de_esta.extend(_reglas_cuadre(factura, sintaxis))
+        de_esta.extend(_regla_tipo_de_documento(factura, sintaxis))
         de_esta.extend(iva.reglas(factura, sintaxis, espanola=espanola))
         if donde:
             de_esta = [

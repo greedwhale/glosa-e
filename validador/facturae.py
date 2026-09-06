@@ -59,10 +59,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
+from validador import paises
 from validador.formato import FACTURAE, Deteccion
 from validador.incidencias import AVISO, ERROR, Incidencia
 
 __all__ = ["reglas"]
+
+# Los dos países que el esquema de Facturae enumera y que ISO 3166 ya no
+# tiene. Medido el 06-09-2026: de los 235 valores de `CountryType` del XSD
+# oficial, 233 tienen pareja en la lista ISO que UN/CEFACT publica con los
+# esquemas CII, y estos dos no. El detalle está en `validador/paises.py`.
+_RETIRADOS = {
+    "ANT": "Antillas Neerlandesas, disueltas en 2010",
+    "ZAR": "Zaire, hoy República Democrática del Congo",
+}
 
 
 # --- Cuánto se puede desviar una suma --------------------------------------
@@ -881,6 +891,44 @@ def _reglas_lote(raiz, facturas: list) -> list[Incidencia]:
 # --- Entrada pública -------------------------------------------------------
 
 
+def _reglas_paises(raiz) -> list[Incidencia]:
+    """Los países que Facturae admite y que ISO 3166 ya no tiene.
+
+    Son dos, `ANT` y `ZAR`: las Antillas Neerlandesas, disueltas en 2010, y
+    Zaire, que en 1997 pasó a ser la República Democrática del Congo. El
+    esquema oficial de Facturae los sigue enumerando y la lista ISO vigente
+    los ha retirado, así que **no hay a qué traducirlos** cuando la norma
+    europea pide el país en dos letras.
+
+    Sale aviso y no error: el documento cumple su propio esquema, que es lo
+    que su emisor tenía delante. Lo que no se puede es comparar ese país con
+    nada europeo, y de eso hay que enterarse en vez de que el dato desaparezca
+    por el camino. Tampoco se traduce por nuestra cuenta —`ZAR` a `CD`—
+    porque eso sería decidir qué quiso decir quien lo escribió.
+    """
+    incidencias: list[Incidencia] = []
+    for nodo in raiz.xpath("//*[local-name()='CountryCode']"):
+        escrito = (nodo.text or "").strip().upper()
+        if not escrito or paises.alpha2(escrito) is not None:
+            continue
+        if escrito not in _RETIRADOS:
+            continue  # de un código que no existe ya se queja el XSD
+        incidencias.append(
+            Incidencia(
+                "FE-PAIS-RETIRADO",
+                AVISO,
+                f"El país «{escrito}» ({_RETIRADOS[escrito]}) sigue en el "
+                "esquema de Facturae pero ISO 3166 lo retiró, así que no hay "
+                "código de dos letras al que corresponda y EN 16931 pide el "
+                "país en dos letras. El documento es válido para su esquema; "
+                "lo que no se puede es traducir ese dato.",
+                campo="Código de país",
+                encontrado=escrito,
+            )
+        )
+    return incidencias
+
+
 def reglas(raiz, deteccion: Deteccion) -> list[Incidencia]:
     """Las reglas de Facturae sobre un documento ya parseado.
 
@@ -902,7 +950,8 @@ def reglas(raiz, deteccion: Deteccion) -> list[Incidencia]:
         raiz = internos[0]
 
     facturas = _hijos(raiz, "Invoices", "Invoice")
-    incidencias = _reglas_lote(raiz, facturas)
+    incidencias = _reglas_paises(raiz)
+    incidencias.extend(_reglas_lote(raiz, facturas))
     for factura in facturas:
         incidencias.extend(_reglas_factura(factura, _etiqueta(factura, len(facturas))))
     return incidencias

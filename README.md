@@ -27,7 +27,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1128 tests, todos en verde.
+1134 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1092,6 +1092,50 @@ facturas Facturae de terceros.
 
 Lo que esto abre: las reglas BR-S-*, BR-AF-* y BR-AG-* ya corren de verdad
 sobre facturas españolas, que antes no las miraba nadie.
+
+### BT-3 y el país: traducir el vocabulario, y negarse cuando no se puede
+
+Los dos huecos que quedaban del binding. Los dos son lo mismo: Facturae escribe
+un dato **en su vocabulario** y EN 16931 lo pide en el suyo.
+
+**El país.** Facturae lo escribe en tres letras (`ESP`) y la norma lo pide en
+dos (`ES`). La tabla de `validador/paises.py` se construyó contrastando por los
+dos extremos: los 235 códigos de `CountryType` del XSD oficial de Facturae
+contra los 249 de la lista ISO 3166 que UN/CEFACT publica con los esquemas CII.
+Resultado: **233 parejas y cero discrepancias**.
+
+Los dos que no tienen pareja son `ANT` y `ZAR` —Antillas Neerlandesas y Zaire—,
+que Facturae sigue admitiendo e ISO retiró. No se traducen: convertir `ZAR` en
+`CD` sería decidir qué quiso decir quien escribió esa factura. Sale
+`FE-PAIS-RETIRADO`.
+
+Esto arregló de paso algo peor. `pais_emisor` devolvía `"ES"` para todo
+Facturae **sin leer el país**, con el argumento de que es el formato nacional
+español. Lo es, y su emisor no siempre lo es: a un proveedor extranjero que
+factura a una administración española se le estaban aplicando las reglas CU-*
+del RD 238/2026 sin mirar. Es la misma familia del fallo grande que abre
+`HALLAZGOS.md`.
+
+**El tipo de documento.** Aquí lo que uno esperaría está mal: `InvoiceDocumentType`
+distingue factura completa de simplificada, que es otra pregunta, y su tercer
+valor —AF, autofactura— **está en desuso** desde el RD 1789/2010. Lo que fija
+BT-3 son otros dos campos:
+
+| Lo escrito | BT-3 | Por qué |
+|---|---|---|
+| `InvoiceIssuerType` = RE | **389** | «self-billed invoice: an invoice the invoicee is producing instead of the seller» |
+| `InvoiceClass` OO, OC, CO, CC | **380** | original, recapitulativa o copia siguen siendo factura ordinaria |
+| `InvoiceClass` OR, CR | **no se decide** | ver abajo |
+
+Una rectificativa española es 384 (factura corregida) o 381 (abono) según cómo
+rectifique, y eso lo dice `CorrectionMethod`, cuya lista de valores no se ha
+podido contrastar contra fuente oficial. Mientras no se contraste, sale
+`FE-TIPO-SIN-EQUIVALENTE` y no se afirma ninguno de los dos.
+
+Y con la traducción puesta se pudo encender **BR-CL-01**: que el tipo salga de
+la lista UNTDID 1001. Los 62 códigos admitidos se sacaron del esquematrón
+oficial de la Comisión, no de memoria. Sobre 157 facturas de terceros salta
+**una**, un EDIFACT cuyo BGM declara `220` —que es «pedido», no una factura—.
 
 ## La firma XAdES
 
