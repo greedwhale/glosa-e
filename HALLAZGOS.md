@@ -2158,3 +2158,179 @@ caliente salía `["null"]`, que es un SVG en línea del CSS —cero bytes, ningu
 red—. La afirmación de «0 dominios de terceros» se sostiene, pero **una
 comprobación de privacidad que da la alarma cuando no pasa nada se deja de
 leer, y entonces no avisa el día que pase**.
+
+## Seis superficies vigiladas por nadie, y el gancho que fallaba abriendo
+
+El 6 de septiembre de 2026, con lo del banco recién cerrado, un agente
+independiente recorrió el repositorio buscando lo mismo una vez más: **cosas
+que existen y no están en ninguna cuenta**. No encontró nada roto. Encontró
+seis sitios donde, si algo se rompiera, no se enteraría nadie. Van por orden de
+lo que costaba cada uno.
+
+### 1. El gancho de la puerta de producción fallaba abriendo
+
+No hay CI. Entre un test rojo y la página publicada solo está
+`.claude/hooks/antes-de-empujar.py`, y Claude Code únicamente bloquea una orden
+cuando el gancho **sale con código 2**.
+
+Dentro había un `subprocess.run(..., timeout=600)` sin recoger. Un
+`TimeoutExpired` —o un `OSError` al arrancar el intérprete— subía hasta
+`sys.exit(main())`, imprimía una traza y salía con **1**. Con 1 la orden sigue
+adelante: el push se publicaba *después de que el gancho hubiera fallado*.
+
+Reproducido antes de tocarlo, apuntando `PYTHON` a un fichero que existe y no
+es un ejecutable —un `OSError [WinError 193]` de verdad, no simulado—:
+
+```
+el gancho de HEAD  ->  traza y exit 1   (no bloquea)
+el gancho de ahora ->  «No se ha podido correr la suite: …»  y salida 2
+```
+
+Ahora todo camino de fallo sale con 2, incluida la entrada que no se deja leer:
+si el JSON no parsea se mira el texto crudo, y si se parece a un push se para.
+Sin eso, el día que cambiara la forma de la entrada el gancho devolvería 0 a
+todo y seguiría pareciendo que guarda la puerta. `tests/test_ganchos.py`
+provoca los seis caminos y comprueba que ninguno sale con 1.
+
+### 2. Los mensajes de libxml2, escritos para la versión que no corre en la web
+
+`esquema.py` traduce los mensajes de libxml2 con doce expresiones regulares, y
+de esa traducción salen los códigos que ve quien valida —`XSD-ORDEN`,
+`XSD-TIPO`, `XSD-VALOR`— y la explicación en castellano, que es el producto.
+Cuando ninguna encaja hay una salida de emergencia: `XSD-OTRO`, que copia el
+mensaje inglés tal cual.
+
+Las regex se escribieron leyendo **libxml2 2.11.9**, el de los tests. En el
+navegador hay **2.9.10**. Si esa versión redactara una sola de esas frases de
+otra manera, no fallaría nada: todos los errores de forma saldrían en inglés
+**solo en la página**, que es donde está la gente que no sabe leer un mensaje
+de libxml2. Nadie lo había mirado nunca.
+
+Ahora el banco provoca los trece incumplimientos —falta un hijo, orden
+cambiado, elemento desconocido, valor fuera de lista, fecha, importe con coma,
+longitud, patrón, atributo que falta, atributo que sobra, texto suelto, raíz
+que el esquema no declara— contra un esquema de juguete que viaja en el propio
+fichero, y exige el código exacto. La suite corre esa misma tabla con el otro
+libxml2, y un guardián lee el AST de `traducir()` para que ninguna regex nueva
+se quede sin provocar.
+
+**Medido el 06-09-2026: los 13 salen igual con 2.9.10 que con 2.11.9.** Era la
+respuesta que faltaba, y ahora se vuelve a medir en cada despliegue.
+
+### 3. La huella del paquete se publicaba y no la comprobaba nadie
+
+`web/paquete.zip` y `web/PAQUETE.json` son la excepción decidida a propósito
+del control de versiones, y van juntos «con su SHA-256 publicado al lado». Ese
+*al lado* no lo miraba nadie: `glosa.js` se bajaba el zip, lo descomprimía y
+seguía.
+
+No es una frontera de seguridad —el zip y su ficha vienen del mismo sitio— y no
+se dice que lo sea. Lo que caza es el fallo que este repositorio ya ha tenido
+cuatro veces con distinto disfraz, la caché vieja, y su pariente: **un zip
+truncado se descomprime sin error** y deja al validador con menos anclas de las
+que la página dice traer. Eso son aprobados de más repartidos en silencio.
+
+Ahora se comprueba antes de descomprimir y, si no cuadra, la página no arranca.
+Probado rompiéndolo, cambiando cuatro dígitos de la huella publicada:
+
+```
+No ha arrancado: El paquete de esquemas y anclas no es el que la pagina dice
+traer: PAQUETE.json publica dead71b73376… y lo que ha llegado resume
+364071b73376… . No se descomprime.
+```
+
+También se mira el tamaño, que es lo único que queda cuando no hay
+`crypto.subtle` —sirviendo esto por http en una red local—, y `pytest` compara
+el par versionado antes de publicar, que es más barato.
+
+### 4. «0 dominios de terceros» lo comprobaba una persona acordándose
+
+Es la cifra de cabecera de la privacidad y de ella cuelga que aquí no haya
+tratamiento que declarar. La medía alguien abriendo el panel del navegador
+durante el ritual de despliegue. Un `@import` en el CSS o una tipografía de
+Google la habrían vuelto falsa sin romper nada.
+
+Ahora hay dos guardianes y hacen falta los dos. Uno estático
+(`tests/test_sin_terceros.py`) mira lo que se escribe: ningún `<link>`,
+`<script>`, `url()` ni `@import` apunta fuera —y distingue un enlace, que es
+una dirección que se ofrece, de una petición, que es una que se hace—. El otro
+está en el banco y mide lo que el navegador ha pedido de verdad, que es lo
+único que cazaría un respaldo a la CDN de Pyodide: esa dirección va escrita
+dentro de `pyodide.js` y no en ningún fichero de aquí.
+
+Probado rompiéndolo por los tres sitios —una tipografía en `index.html`, un
+`@import` en `glosa.css` y una dirección de analítica en `glosa.js`—: los tres
+en rojo.
+
+### 5. La página del catálogo se ejecutaba por primera vez en Vercel
+
+`pagina_incidencias.py` genera `incidencias.html`, el catálogo público de los
+códigos. Ninguna prueba lo ejecutaba: la única que lo tocaba comprobaba que la
+plantilla siguiera llevando su marca. El generador entero —**29,8 % de líneas
+ejecutadas**— corría por primera vez durante la construcción del sitio. Un
+`KeyError` ahí no es un test rojo: es un despliegue roto, o peor, una página
+publicada con media tabla.
+
+Ahora se monta de verdad en `pytest`, con la plantilla y los códigos de hoy, y
+se comprueba lo que hace la página útil o inútil: que cada código tenga su
+ancla —sin ella el enlace del informe no lleva a ninguna parte—, que ninguna se
+repita, que la cifra del titular sea la de la tabla de abajo, y que lo que no
+se sabe se diga en vez de rellenarse. Cobertura medida después: **98 %**.
+
+### 6. Diez códigos publicados que nadie había visto salir
+
+El catálogo se titula «los códigos que **puede sacar** este validador», y ese
+*puede* es una afirmación. Al preguntarle al revés —¿qué código del catálogo no
+nombra ninguna prueba ni el banco?— salieron **diez de 159**:
+
+```
+BR-CL-01  EDI-MENSAJE-SIN-CERRAR  EDI-SIN-SEGMENTOS  FE-CARGOS
+FE-LOTE-EJECUTAR  FE-LOTE-PENDIENTE  FE-PAIS-RETIRADO
+FE-TIPO-SIN-EQUIVALENTE  IVA-BASE  SELLO-ALGORITMO-VIEJO
+```
+
+Tres se habían añadido la víspera, con el binding de Facturae: estaban probados
+por el **valor** que salía de la regla, no por la queja, así que un código mal
+escrito habría pasado igual —y el código es justo lo que se publica y lo que se
+busca—. Otros tres son la mitad no probada de una tabla: los descuentos
+generales sí y los cargos no, el total del fichero sí y el pendiente y el
+ejecutable no. Es el sitio exacto donde se cuela una errata, porque la rama
+probada tapa a la que no lo está.
+
+Los diez provocados, y `test_inventario.py` no deja que vuelva a haber uno
+suelto. De paso se cerró `IVA-CATEGORIA-SIN-MAPA`, que desde que la categoría
+de Facturae se deduce **no lo puede sacar ningún fichero real**: no se ha
+borrado —es lo que dirá el validador el día que entre una sintaxis sin sitio
+donde escribir la categoría, y sin él esa sintaxis se saltaría todas esas
+reglas en silencio— sino que se provoca con un mapa al que se le quita la ruta.
+
+## «Validar las siete de `ejemplos/`», con diez ficheros en la carpeta
+
+Aparte de las seis, `web/LEEME.md` —el documento de lo medido— llevaba **cinco
+cifras caducadas a la vez**: siete ejemplos cuando había diez, veintisiete
+comprobaciones críticas cuando eran veintiocho, treinta y siete resultados
+cuando eran treinta y ocho, «las veinte» cuando eran treinta y ocho, y una
+tabla de críticas a la que le faltaban seis filas.
+
+Lo interesante no es que se quedaran atrás: es **por qué esas y no otras**. El
+README lleva guardián desde hace meses —«1.212 tests, todos en verde»— y no se
+queda atrás nunca. La tesis igual. La diferencia es que aquellas están en
+dígitos y hay un `re` que las busca; estas estaban escritas **en letra**, y una
+cifra escrita «treinta y siete» no la encuentra ningún guardián. Sobrevive a
+todo porque es invisible.
+
+Así que el arreglo no es cambiar los números. `tests/test_cifras_publicadas.py`
+hace tres cosas:
+
+1. Declara cada cifra con su patrón y su forma de medirla, y falla si el patrón
+   deja de encontrar nada: una frase reescrita no puede dejar ciego al guardián
+   sin que se note.
+2. Ata la tabla de comprobaciones críticas al banco **en los dos sentidos**:
+   ninguna crítica sin fila, ninguna fila sin crítica.
+3. Y el cepo, que es lo que evita la próxima: cualquier línea del documento que
+   afirme una cantidad sobre algo que este repositorio sabe contar tiene que
+   estar vigilada, o declarada en `SIN_VIGILAR` con el motivo por el que no se
+   puede medir. Una cifra nueva sin guardián deja la suite en rojo.
+
+El cepo cazó dos líneas que acababa de escribir yo mientras arreglaba esto, y
+esa es la prueba de que hacía falta.

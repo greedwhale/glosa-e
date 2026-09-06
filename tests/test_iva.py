@@ -18,7 +18,7 @@ from lxml import etree
 
 from validador import en16931, iva
 from validador.formato import parser
-from validador.incidencias import AVISO, ERROR
+from validador.incidencias import AVISO, ERROR, NOTA
 from validador.sintaxis import SINTAXIS_CII, SINTAXIS_UBL
 
 MONEDA = "EUR"
@@ -995,3 +995,94 @@ class TestIntegracion:
         )
         assert incidencias == []
         assert Decimal("0.10") + Decimal("0.20") == Decimal("0.30")
+
+
+# --- La base de un desglose con una categoría que no es de la lista --------
+
+
+class TestUnaCategoriaFueraDeLaLista:
+    """`IVA-BASE`: la misma regla que las BR-{X}-8, sin una BR a la que colgarse.
+
+    Las nueve categorías de UNCL5305 tienen cada una su regla numerada —BR-S-8,
+    BR-Z-8, BR-E-8…— y la comprobación es siempre la misma: la base declarada
+    en el desglose es la suma de lo que se le imputa. Cuando el documento
+    escribe una categoría que no está en la lista, la cuenta se sigue pudiendo
+    hacer y la BR no existe, así que sale con nombre propio.
+
+    No lo provocaba nadie hasta el 06-09-2026. Es una rama de un `if` de una
+    línea, y de las que se rompen sin ruido: con la categoría mal leída, el
+    código sería `BR-None-8` y nadie lo vería porque nadie lo miraba.
+    """
+
+    def test_la_base_que_no_cuadra_sale_con_nombre_propio(self, revisar):
+        salta = revisar(
+            lineas=[Linea("1", "100.00", categoria="B")],
+            grupos=[Grupo("999.00", "21.00", categoria="B")],
+        )
+        problema = una(salta, "IVA-BASE")
+        assert problema.gravedad == ERROR
+        assert "100.00" in problema.esperado
+
+    def test_con_una_categoria_de_la_lista_sale_su_BR(self, revisar):
+        """El control: si esto también diera `IVA-BASE`, lo de arriba no
+        distinguiría la rama nueva de la de siempre."""
+        salta = revisar(
+            lineas=[Linea("1", "100.00", categoria="S")],
+            grupos=[Grupo("999.00", "21.00", categoria="S")],
+        )
+        assert "BR-S-8" in codigos(salta)
+        assert "IVA-BASE" not in codigos(salta)
+
+    def test_si_cuadra_no_dice_nada(self, revisar):
+        salta = revisar(
+            lineas=[Linea("1", "100.00", categoria="B")],
+            grupos=[Grupo("100.00", "21.00", categoria="B")],
+        )
+        assert "IVA-BASE" not in codigos(salta)
+
+
+class TestUnaSintaxisSinCategoriaDeIVA:
+    """`IVA-CATEGORIA-SIN-MAPA`, el código que hoy no puede sacar ningún fichero.
+
+    Las cuatro sintaxis admitidas tienen su ruta a la categoría —UBL, CII y
+    EDIFACT la escriben, y de Facturae se deduce desde el 06-09-2026—, así que
+    hoy esta rama no la alcanza ninguna factura real. Eso no la hace inútil:
+    es lo que dirá el validador el día que entre una sintaxis que no tenga
+    dónde escribirla, y sin ella esa sintaxis se saltaría en silencio todas
+    las reglas que dependen de la categoría.
+
+    Lo que sí sería mentira es publicarla en el catálogo de «los códigos que
+    puede sacar este validador» sin que nada la haya visto salir nunca. Así
+    que se provoca con un mapa al que se le quita la ruta, que es exactamente
+    la situación que describe.
+    """
+
+    def _sin_mapa(self, xml: str):
+        import dataclasses
+
+        from validador.sintaxis import SIN_MAPA, SINTAXIS_UBL
+
+        mapa = dataclasses.replace(
+            SINTAXIS_UBL, desglose_categoria=SIN_MAPA, linea_categoria=SIN_MAPA)
+        raiz = etree.fromstring(xml.encode("utf-8"), parser=parser())
+        return iva.reglas(raiz, mapa)
+
+    def test_se_dice_una_vez_y_como_nota(self):
+        salta = [i for i in self._sin_mapa(
+            ubl(lineas=[Linea("1", "100.00")], grupos=[Grupo("100.00", "21.00")]))
+            if i.codigo == "IVA-CATEGORIA-SIN-MAPA"]
+        assert len(salta) == 1, "una por documento, no una por entrada"
+        assert salta[0].gravedad == NOTA
+        assert "UNCL5305" in salta[0].mensaje
+
+    def test_con_dos_entradas_del_desglose_sigue_siendo_una(self):
+        """Es una propiedad de la sintaxis, no de la factura."""
+        salta = [i for i in self._sin_mapa(ubl(
+            lineas=[Linea("1", "100.00"), Linea("2", "50.00", tipo="10")],
+            grupos=[Grupo("100.00", "21.00"), Grupo("50.00", "5.00", tipo="10")]))
+            if i.codigo == "IVA-CATEGORIA-SIN-MAPA"]
+        assert len(salta) == 1
+
+    def test_con_el_mapa_de_verdad_no_sale(self, revisar):
+        assert "IVA-CATEGORIA-SIN-MAPA" not in codigos(revisar(
+            lineas=[Linea("1", "100.00")], grupos=[Grupo("100.00", "21.00")]))

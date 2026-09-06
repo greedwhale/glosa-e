@@ -550,3 +550,71 @@ class TestEnElOrquestador:
         informe = factura.validar(fe(total="999.99"), hoy=HOY)
         salta = [i for i in informe.incidencias if i.codigo == "FE-TOTAL"][0]
         assert factura.origen(salta) == "formato Facturae"
+
+
+# --- Las ramas gemelas que nadie provocaba ---------------------------------
+#
+# Las cuatro de aquí salieron el 06-09-2026 del guardián nuevo de
+# `test_inventario.py`, que compara el catálogo de códigos publicado con lo
+# que alguna prueba nombra. Tres son la otra mitad de una tabla que sí estaba
+# probada —los descuentos sí y los cargos no, el total del fichero sí y el
+# pendiente y el ejecutable no—, que es el sitio exacto donde se cuela una
+# errata: la rama probada tapa a la que no lo está.
+
+
+class TestLasRamasQueFaltaban:
+    def test_el_total_general_de_cargos(self):
+        """El gemelo de `FE-DESCUENTOS`, que sí tenía prueba desde el principio."""
+        roto = fe().replace(
+            "<TotalGeneralSurcharges>10.00", "<TotalGeneralSurcharges>99.00")
+        salta = [i for i in quejas(roto) if i.codigo == "FE-CARGOS"]
+        assert salta and salta[0].gravedad == ERROR
+        assert "10.00" in salta[0].esperado
+
+    def test_el_total_a_pagar_del_fichero(self):
+        salta = [i for i in quejas(fe(lote_pagar="1.00"))
+                 if i.codigo == "FE-LOTE-PENDIENTE"]
+        assert salta and salta[0].gravedad == ERROR
+
+    def test_el_total_a_ejecutar_del_fichero(self):
+        salta = [i for i in quejas(fe(lote_ejecutar="1.00"))
+                 if i.codigo == "FE-LOTE-EJECUTAR"]
+        assert salta and salta[0].gravedad == ERROR
+
+
+class TestLosPaisesQueISORetiro:
+    """`ANT` y `ZAR`: Facturae los admite y la lista ISO vigente no los tiene.
+
+    No se traducen a propósito —convertir `ZAR` en `CD` sería decidir qué
+    quiso decir quien lo escribió—, así que el dato no puede viajar a
+    EN 16931 y de eso hay que enterarse en vez de que desaparezca callando.
+    """
+
+    def _con_pais(self, codigo: str) -> str:
+        return fe().replace(
+            "</TaxIdentification></SellerParty>",
+            "</TaxIdentification><LegalEntity><AddressInSpain>"
+            f"<CountryCode>{codigo}</CountryCode></AddressInSpain>"
+            "</LegalEntity></SellerParty>")
+
+    def test_un_pais_retirado_sale_como_aviso(self):
+        salta = [i for i in quejas(self._con_pais("ZAR"))
+                 if i.codigo == "FE-PAIS-RETIRADO"]
+        assert salta and salta[0].gravedad == AVISO
+        assert salta[0].encontrado == "ZAR"
+        assert "Zaire" in salta[0].mensaje
+
+    def test_y_el_otro_tambien(self):
+        salta = [i for i in quejas(self._con_pais("ANT"))
+                 if i.codigo == "FE-PAIS-RETIRADO"]
+        assert salta and "Antillas" in salta[0].mensaje
+
+    def test_un_pais_normal_no_dice_nada(self):
+        assert "FE-PAIS-RETIRADO" not in codigos(quejas(self._con_pais("ESP")))
+        assert "FE-PAIS-RETIRADO" not in codigos(quejas(self._con_pais("FRA")))
+
+    def test_de_un_pais_que_no_existe_se_queja_el_esquema_y_no_esto(self):
+        """Aquí solo caben los dos retirados. `XYZ` no es un país retirado:
+        es un país que no existe, y de eso se queja el XSD con mejor consejo.
+        """
+        assert "FE-PAIS-RETIRADO" not in codigos(quejas(self._con_pais("XYZ")))

@@ -80,9 +80,14 @@ caché —todo verde, y no es lo que crees que has probado—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, treinta y ocho comprobaciones que deben
-salir todas en verde; veintisiete están marcadas como **críticas** y son las
-que, si fallan, tumban la idea entera:
+Arriba, el tiempo de arranque. Abajo, 41 comprobaciones que deben salir todas
+en verde; 31 están marcadas como **críticas** y son las que, si fallan, tumban
+la idea entera. Están todas, en el orden en que corren, y esa lista completa
+no es cosmética: la tabla se quedó corta durante meses, con críticas sin
+fila que nadie echaba de menos, y una comprobación que no aparece en la lista de lo
+que hay que mirar es, para quien lee, una comprobación que no existe. Lo
+guarda `tests/test_cifras_publicadas.py`, que compara esta tabla con el banco
+en los dos sentidos.
 
 | Comprobación | Por qué es crítica |
 |---|---|
@@ -92,30 +97,41 @@ que, si fallan, tumban la idea entera:
 | el parser endurecido no expande entidades | una factura ajena no debe poder leer ficheros |
 | una factura correcta sale conforme | sin falsos positivos |
 | una factura rota se caza | sin falsos negativos |
-| lxml canonicaliza igual que fuera | de ello depende `firma.py` entero |
+| lxml canonicaliza igual que fuera del navegador | de ello depende `firma.py` entero |
 | se verifica una firma RSA de verdad | sin `cryptography`, que aquí no hay |
-| se verifica una firma de curva elíptica | un tercio de las autoridades españolas firma así |
-| las curvas son las de verdad, también aquí | una errata en un parámetro no da error: da «no verifica» |
-| la cadena de confianza se encadena aquí | de ello depende `cadena.py` |
+| la cadena de confianza se encadena aquí también | de ello depende `cadena.py` |
+| el informe declara de dónde salen las anclas | es la condición para traerlas puestas |
 | una lista de revocación se lee y se comprueba aquí | de ello depende `revocacion.py` |
 | una respuesta OCSP del documento se verifica aquí | un XAdES-XL moderno guarda OCSP y a menudo no guarda CRL: sin esto, de esos documentos la revocación no se comprueba nunca. Y es el único sitio donde entra SHA-1 |
-| el informe declara de dónde salen las anclas | es la condición para traerlas puestas |
+| se verifica una firma de curva elíptica | un tercio de las autoridades españolas firma así |
+| las curvas son las de verdad, también aquí | una errata en un parámetro no da error: da «no verifica» |
 | una lista de confianza se comprueba y se monta aquí | de ello depende `tsl.py`, y con él de dónde salen las anclas |
 | una lista de confianza manipulada no monta nada | un almacén mal montado no da un error: da un aprobado |
 | una autoridad retirada solo vale para lo de antes | si la ventana no se aplica, 135 autoridades caducadas pasan a ser de confianza |
 | un sello de tiempo se lee y se comprueba aquí | de la fecha del sello cuelgan la caducidad y la revocación |
 | un sello sin permiso para sellar no vale | su firma es válida: lo único que falla es el permiso, y eso no salta solo |
-| las anclas de sellado van aparte de las de firma | juntas, once autoridades pasarían a avalar firmas de facturas |
+| las anclas de sellado van aparte de las de firma | juntas, 11 autoridades pasarían a avalar firmas de facturas |
 | un EDIFACT plano se lee y se valida aquí | es el cuarto formato de la ley, y el único que no es XML |
 | las rutas de EDIFACT valen con este libxml2 | van con predicados y con el eje `self::`, más XPath del que usan UBL y CII; si fallaran no darían error, darían una factura sin líneas ni desglose —o sea, sin nada que comprobar— y diría que está bien |
+| un UNA de cinco caracteres se lee igual | el hueco reservado del `UNA` cambia los separadores del intercambio entero; leerlo mal deja el fichero sin ningún mensaje, y eso se cuenta como «aquí no hay nada que validar» |
+| un separador sin soltar no tumba el lote | un fichero mal escrito de un remitente no puede llevarse por delante a los demás del lote |
+| la promesa del informe cuadra con lo que hay instalado | el informe dice qué ha comprobado y qué no; si esa frase se desacopla de lo que trae el paquete, la línea de alcance miente en la dirección peligrosa |
+| los esquemas viajan con la página y comprueban la forma | sin ellos la página comprueba el contenido y no la forma, y lo que no se comprueba se da por bueno |
+| el esquema de Facturae compila sin red | los XSD del formato nacional importan la firma XMLDSig **por dirección web**; aquí no hay adónde salir, y sin la copia local no compilan |
+| los mensajes de libxml2 se traducen igual con esta versión | las regex de la traducción se escribieron leyendo el libxml2 de fuera; si este redacta una sola frase distinta, todos los errores de forma salen en inglés y solo en el navegador |
+| las anclas viajan con la página y dicen de cuándo son | sin ellas no se sabe de quién es el certificado, y sin su fecha un conjunto viejo sigue creyendo a autoridades a las que el Estado ya retiró la cualificación |
+| el paquete que ha llegado es el que la ficha dice | un zip truncado se descomprime **sin error** y deja al validador con menos anclas de las que la página dice traer: aprobados de más repartidos en silencio |
+| esta página no le pide nada a nadie | es la cifra de cabecera de la privacidad, y `pyodide.js` lleva dentro la dirección de su CDN como respaldo |
 
-Las dos últimas son de EDIFACT, y la segunda es la que de verdad podía doler
-ahí: el mapa de ese formato no puede nombrar los grupos —su numeración cambia con
-la versión del directorio— y por eso pregunta por lo que hay dentro, con más
-XPath del que necesitan los otros dos. Esta compilación de libxml2 es más vieja
-que la de fuera.
+Las dos de EDIFACT son las que más costaba prever, y la de las rutas es la que
+de verdad podía doler: el mapa de ese formato no puede nombrar los grupos —su
+numeración cambia con la versión del directorio— y por eso pregunta por lo que
+hay dentro, con más XPath del que necesitan los otros dos. Esta compilación de
+libxml2 es más vieja que la de fuera.
 
-De las anteriores, nueve son de la firma, y la de la canonicalización es la que más podía
+Las de la firma —canonicalización, RSA, curvas, cadena, revocación, OCSP,
+lista de confianza y sellos— son el bloque más grande, y la de la
+canonicalización es la que más podía
 doler. `firma.py` calcula el resumen de un documento canonicalizado y lo compara
 con el que guarda la firma. Si lxml en WebAssembly escribiera un solo byte
 distinto —un atributo en otro orden, un namespace colocado de otra manera— el
@@ -138,7 +154,7 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Arranque con la CDN ya cacheada | 11,25 s |
 | Arranque con la caché ya caliente | ~4,8 s |
 | Validar una factura | 5–120 ms |
-| Validar las siete de `ejemplos/` | 241 ms |
+| Validar los 10 de `ejemplos/` | 400 ms |
 | Verificar una firma XAdES | 17 ms |
 | Encadenar hasta un ancla de confianza | 3,2 ms |
 | Leer y verificar una lista de revocación | 4,8 ms |
@@ -154,9 +170,9 @@ Cuidado con los tiempos de arranque, que son tres cosas distintas: la primera
 visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
 11,25 s de montar el intérprete —en la última medición se transfirieron
 0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
-menos de cinco.
+menos de 5 s.
 
-Los treinta y siete resultados coinciden exactamente con los de la misma prueba
+Los 41 resultados coinciden exactamente con los de la misma prueba
 ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
 Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
 en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización
@@ -169,7 +185,7 @@ página sin anclas—. Verificar y montar cuesta 20,8 ms allí.
 
 ## La prueba de soltar una factura firmada
 
-No basta con que las veinte salgan verdes: la zona de arrastre es la
+No basta con que las 41 salgan verdes: la zona de arrastre es la
 interacción del producto, y hay que verla funcionar. Soltando
 `ejemplos/fe-0001.xml`, que es un Facturae 3.2.2 firmado:
 
@@ -211,7 +227,7 @@ WebAssembly, sin que el fichero salga del ordenador.
   que no se veía. Cada fichero se pedía con `?v=` y la hora dentro, para que el
   navegador no sirviera de su caché un wheel de ayer —pasó de verdad, y más de
   una vez—. Cumplía. Y el precio era que la dirección cambiaba en cada visita,
-  así que 1,2 MB (el paquete, el wheel y los diez ejemplos) **no se podían
+  así que 1,2 MB (el paquete, el wheel y los 10 ejemplos) **no se podían
   guardar nunca**: se bajaban enteros la décima vez igual que la primera. A eso
   se sumaba que Vercel servía todo con `max-age=0, must-revalidate`, o sea 23
   peticiones de ida y vuelta antes de empezar.

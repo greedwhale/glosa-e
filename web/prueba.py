@@ -1262,6 +1262,172 @@ def _():
     return "compila y valida sin poder pedirle nada a w3.org"
 
 
+# --- La traduccion de los mensajes de libxml2 ------------------------------
+#
+# Este riesgo no rompe nada: degrada, que es peor.
+#
+# `esquema.py` no se limita a decir «esto no cumple el XSD». Lee el mensaje de
+# libxml2 y lo traduce con doce expresiones regulares, y de ahi salen los
+# codigos que ensena el informe —XSD-ORDEN, XSD-TIPO, XSD-VALOR— y la
+# explicacion en castellano, que es el producto entero. Cuando ninguna encaja
+# hay una salida de emergencia, `XSD-OTRO`, que copia el mensaje ingles tal
+# cual y ya no dice donde ni por que.
+#
+# Esas regex se escribieron leyendo lo que dice **libxml2 2.11.9**, que es el
+# de los tests. Aqui dentro hay **2.9.10**. Si esa version redactara una sola
+# de esas frases de otra manera, no fallaria nada: los errores de forma
+# saldrian todos como `XSD-OTRO`, en ingles, **solo en el navegador** —o sea,
+# solo delante de quien no sabe leer un mensaje de libxml2, que es justamente
+# a quien se le vende esto—.
+#
+# Asi que se provocan a proposito, uno por uno, contra un esquema de juguete
+# que viaja en este fichero, y se comprueba que sale el codigo que tiene que
+# salir. La suite corre esta misma tabla con el libxml2 de fuera
+# (`tests/test_banco.py`): dos versiones distintas diciendo lo mismo es lo
+# unico que se puede afirmar de esto.
+#
+# El esquema es de juguete a proposito. Los oficiales estan aqui dentro y
+# valdrian para validar, pero no para esto: hacen falta incumplimientos
+# concretos y de uno en uno, no una factura rota de verdad con doce quejas
+# encadenadas de las que once son consecuencia de la primera.
+
+_NS_UBL = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+
+_ESQUEMA_DE_JUGUETE = """<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+           elementFormDefault="qualified">
+  <xs:element name="Invoice">
+    <xs:complexType><xs:sequence>
+      <xs:element name="ID">
+        <xs:simpleType><xs:restriction base="xs:string">
+          <xs:maxLength value="20"/>
+        </xs:restriction></xs:simpleType>
+      </xs:element>
+      <xs:element name="IssueDate" type="xs:date"/>
+      <xs:element name="InvoiceTypeCode">
+        <xs:simpleType><xs:restriction base="xs:string">
+          <xs:enumeration value="380"/><xs:enumeration value="381"/>
+        </xs:restriction></xs:simpleType>
+      </xs:element>
+      <xs:element name="CompanyID" minOccurs="0">
+        <xs:simpleType><xs:restriction base="xs:string">
+          <xs:pattern value="[A-Z][0-9]{7}[0-9A-J]"/>
+        </xs:restriction></xs:simpleType>
+      </xs:element>
+      <xs:element name="PayableAmount" minOccurs="0">
+        <xs:complexType><xs:simpleContent><xs:extension base="xs:decimal">
+          <xs:attribute name="currencyID" type="xs:string" use="required"/>
+        </xs:extension></xs:simpleContent></xs:complexType>
+      </xs:element>
+    </xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>"""
+
+# El mismo esquema con la raiz cambiada de nombre. Hace falta uno aparte para
+# el ultimo caso: un documento que empieza por algo que el esquema no declara
+# no se puede provocar con un esquema que si lo declara.
+_ESQUEMA_SIN_INVOICE = _ESQUEMA_DE_JUGUETE.replace(
+    'name="Invoice"', 'name="Otra"')
+
+_CABEZA = '<?xml version="1.0" encoding="UTF-8"?>\n<Invoice xmlns="%s">' % _NS_UBL
+_BIEN = ("<ID>F1</ID><IssueDate>2026-03-02</IssueDate>"
+         "<InvoiceTypeCode>380</InvoiceTypeCode>")
+
+
+def _forma(cuerpo):
+    return _CABEZA + cuerpo + "</Invoice>"
+
+
+# Cada provocacion con los codigos que tienen que salir, exactos. La lista
+# entera y no «que contenga»: si esta version de libxml2 dijera dos cosas
+# donde la otra dice una, eso tambien hay que verlo.
+FORMA_ESPERADA = (
+    ("una correcta no se queja",
+     _forma(_BIEN), (), _ESQUEMA_DE_JUGUETE),
+    ("falta un hijo obligatorio",
+     _forma("<ID>F1</ID>"), ("XSD-FALTA",), _ESQUEMA_DE_JUGUETE),
+    ("elementos cambiados de sitio",
+     _forma("<IssueDate>2026-03-02</IssueDate><ID>F1</ID>"
+            "<InvoiceTypeCode>380</InvoiceTypeCode>"),
+     ("XSD-ORDEN",), _ESQUEMA_DE_JUGUETE),
+    ("un elemento que el esquema no conoce",
+     _forma(_BIEN + "<Chorrada>x</Chorrada>"),
+     ("XSD-ORDEN",), _ESQUEMA_DE_JUGUETE),
+    ("un valor fuera de la lista",
+     _forma("<ID>F1</ID><IssueDate>2026-03-02</IssueDate>"
+            "<InvoiceTypeCode>999</InvoiceTypeCode>"),
+     ("XSD-VALOR",), _ESQUEMA_DE_JUGUETE),
+    ("una fecha con el formato de toda la vida",
+     _forma("<ID>F1</ID><IssueDate>02/03/2026</IssueDate>"
+            "<InvoiceTypeCode>380</InvoiceTypeCode>"),
+     ("XSD-TIPO",), _ESQUEMA_DE_JUGUETE),
+    ("un importe con coma decimal",
+     _forma(_BIEN + '<PayableAmount currencyID="EUR">1.234,56</PayableAmount>'),
+     ("XSD-TIPO",), _ESQUEMA_DE_JUGUETE),
+    ("un texto mas largo de lo que cabe",
+     _forma("<ID>" + "F" * 30 + "</ID><IssueDate>2026-03-02</IssueDate>"
+            "<InvoiceTypeCode>380</InvoiceTypeCode>"),
+     ("XSD-LONGITUD",), _ESQUEMA_DE_JUGUETE),
+    ("un valor que no encaja con el patron",
+     _forma(_BIEN + "<CompanyID>hola</CompanyID>"),
+     ("XSD-PATRON",), _ESQUEMA_DE_JUGUETE),
+    ("falta un atributo obligatorio",
+     _forma(_BIEN + "<PayableAmount>121.00</PayableAmount>"),
+     ("XSD-ATRIBUTO",), _ESQUEMA_DE_JUGUETE),
+    ("un atributo que sobra",
+     _CABEZA.replace("<Invoice ", '<Invoice ola="ke" ') + _BIEN + "</Invoice>",
+     ("XSD-ATRIBUTO",), _ESQUEMA_DE_JUGUETE),
+    ("texto suelto donde solo caben elementos",
+     _CABEZA + "pegado sin querer" + _BIEN + "</Invoice>",
+     ("XSD-TEXTO",), _ESQUEMA_DE_JUGUETE),
+    ("una raiz que el esquema no declara",
+     _forma(_BIEN), ("XSD-RAIZ",), _ESQUEMA_SIN_INVOICE),
+)
+
+
+def _provocar_forma():
+    """Corre la tabla entera y devuelve [(nombre, esperados, obtenidos)].
+
+    Se monta el catalogo en una carpeta temporal porque es lo unico que
+    `Catalogo` sabe hacer: buscar los XSD por nombre de fichero. Aqui dentro
+    esa carpeta esta en la memoria del navegador y no toca el disco de nadie.
+    """
+    import tempfile
+    from pathlib import Path
+    from validador import esquema as mod
+    from validador.esquema import Catalogo
+
+    catalogos = {}
+    for caso in FORMA_ESPERADA:
+        texto = caso[3]
+        if texto in catalogos:
+            continue
+        carpeta = Path(tempfile.mkdtemp())
+        (carpeta / "UBL-Invoice-2.1.xsd").write_text(texto, encoding="utf-8")
+        catalogos[texto] = Catalogo(carpeta)
+
+    salida = []
+    for nombre, documento, esperados, texto in FORMA_ESPERADA:
+        incidencias = mod.validar(documento, catalogo=catalogos[texto]).incidencias
+        salida.append((nombre, esperados, tuple(i.codigo for i in incidencias)))
+    return salida
+
+
+@comprobar("los mensajes de libxml2 se traducen igual con esta version",
+           critica=True)
+def _():
+    fallos = [
+        "%s: se esperaba %s y salio %s" % (
+            nombre, list(esperados) or "nada", list(obtenidos) or "nada")
+        for nombre, esperados, obtenidos in _provocar_forma()
+        if obtenidos != esperados
+    ]
+    assert not fallos, " | ".join(fallos)
+    return "%d incumplimientos provocados, y los %d se leen igual que fuera" % (
+        len(FORMA_ESPERADA), len(FORMA_ESPERADA))
+
+
 @comprobar("las anclas viajan con la pagina y dicen de cuando son",
            critica=True)
 def _():
@@ -1288,6 +1454,85 @@ def _():
         len(almacen.sellos.todas()),
         renovacion.publicada.isoformat() if renovacion.publicada else "?",
     )
+
+
+# --- Lo que solo se puede mirar desde dentro del navegador -----------------
+#
+# Las dos de aqui preguntan por cosas que fuera no existen: lo que este
+# navegador ha pedido de verdad, y lo que `glosa.js` comprobo al arrancar.
+# Corriendo el banco en CPython —`tests/test_banco.py`— no hay `js` ni hay
+# red, asi que dicen que no se ha mirado en vez de salir en verde. Una
+# comprobacion que no puede correr y aprueba igual es lo contrario de una
+# comprobacion.
+
+
+def _desde_el_navegador():
+    """El modulo `js` de Pyodide, o None si esto no corre en un navegador."""
+    try:
+        import js
+    except ImportError:
+        return None
+    return js if getattr(js, "location", None) is not None else None
+
+
+@comprobar("el paquete que ha llegado es el que la ficha dice", critica=True)
+def _():
+    """La huella publicada, comprobada.
+
+    `PAQUETE.json` lleva el SHA-256 del zip escrito al lado desde el
+    principio, y hasta el 06-09-2026 no lo miraba nadie: se publicaba una
+    huella y se descomprimia lo que llegara. No es una frontera de seguridad
+    —el zip y su ficha vienen del mismo sitio— y no se dice que lo sea: lo que
+    caza es la cache vieja y la descarga a medias, que se descomprime **sin
+    error** y deja al validador con menos anclas de las que la pagina dice que
+    trae. Eso son aprobados de mas repartidos en silencio.
+    """
+    js = _desde_el_navegador()
+    if js is None:
+        return "fuera del navegador no se baja ningun paquete"
+    paquete = js.window.Glosa.paquete
+    if paquete is None:
+        return "no hay paquete: no hay huella que comprobar"
+    comprobada = getattr(paquete, "huella_comprobada", None)
+    assert comprobada is not False, (
+        "el zip no resume lo que dice PAQUETE.json y aun asi esta descomprimido"
+    )
+    assert comprobada is not None, (
+        "no se ha podido calcular la huella: `crypto.subtle` no esta, o sea "
+        "que esto no es un contexto seguro. Sin ella no se ha comprobado nada"
+    )
+    return "el zip resume lo que PAQUETE.json publica, y son %d bytes" % (
+        paquete.bytes,)
+
+
+@comprobar("esta pagina no le pide nada a nadie", critica=True)
+def _():
+    """La cifra de cabecera de la tesis, medida donde se puede medir.
+
+    La politica de privacidad publica una tabla que dice «0 dominios de
+    terceros», y hasta ahora eso solo lo comprobaba una persona abriendo el
+    panel del navegador en el ritual de despliegue. Un `@import` en el CSS o
+    una tipografia de fuera la volverian falsa sin romper nada.
+
+    `pyodide.js` ademas lleva dentro la direccion de su CDN como respaldo, asi
+    que la pregunta no es teorica: si algun dia tirara de ella, esto es lo
+    unico que lo diria.
+    """
+    js = _desde_el_navegador()
+    if js is None:
+        return "fuera del navegador no hay peticiones que contar"
+    nombres = [r.name for r in js.performance.getEntriesByType("resource")]
+    # Solo `http(s)` tiene un dominio al que pedirle algo. `data:` y `blob:`
+    # salen del propio documento y no tocan la red; contarlos fue lo que hizo
+    # que el ritual diera una vez `null` por dominio ajeno, que es lo que
+    # devuelve `new URL('data:...').origin`. Una comprobacion de privacidad
+    # que grita sin motivo se deja de mirar, y entonces ya no comprueba nada.
+    ajenos = sorted({
+        n.split("/")[2] for n in nombres
+        if n.startswith("http://") or n.startswith("https://")
+    } - {js.location.host})
+    assert not ajenos, "esta pagina le ha pedido algo a " + ", ".join(ajenos)
+    return "%d peticiones y todas a %s" % (len(nombres), js.location.host)
 
 
 json.dumps(resultados)

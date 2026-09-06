@@ -185,6 +185,19 @@ async function buscarWheel() {
   );
 }
 
+// El SHA-256 de unos bytes, o `null` cuando el navegador no puede calcularlo.
+//
+// `crypto.subtle` solo existe en contexto seguro: en https y en localhost si,
+// y en `http://192.168.x.x` no. Cuando no esta, devuelve `null` y quien
+// pregunta dice que **no se ha comprobado**, que no es lo mismo que decir que
+// esta bien.
+async function huellaDe(bytes) {
+  if (!(self.crypto && self.crypto.subtle)) return null;
+  const resumen = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(resumen))
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 async function traerPaquete() {
   // El JSON primero y aparte: es un pellizco y permite decir de donde salen
   // las anclas aunque el zip falle, que es justo cuando hace falta decirlo.
@@ -195,12 +208,59 @@ async function traerPaquete() {
     PAQUETE = null;
   }
   if (!PAQUETE) return;
+
+  // El zip aparte del resto: lo que llega hay que mirarlo **antes** de
+  // descomprimirlo, y un fallo de descarga no es lo mismo que un fallo de
+  // contenido. Lo primero deja la pagina sin esquemas y lo dice; lo segundo
+  // significa que lo que ha llegado no es lo que la pagina afirma traer, y
+  // eso no se descomprime.
+  let crudo = null;
   try {
     const zip = await fetch(conHuella("./paquete.zip", "paquete.zip"));
     if (!zip.ok) throw new Error("no esta el zip");
+    crudo = await zip.arrayBuffer();
+  } catch (_) {
+    PAQUETE = null;
+    return;
+  }
+
+  // La huella publicada, comprobada de verdad.
+  //
+  // `PAQUETE.json` lleva el SHA-256 del zip escrito al lado desde el
+  // principio, y hasta el 06-09-2026 **no lo miraba nadie**: se publicaba una
+  // huella y se descomprimia lo que llegara.
+  //
+  // Esto no es una frontera de seguridad y no se va a decir que lo sea: el
+  // manifiesto y el zip vienen del mismo sitio, y quien pudiera cambiar uno
+  // cambiaria el otro. Lo que caza es el fallo que este repositorio ya ha
+  // tenido cuatro veces con distinto disfraz —algo servido de una cache
+  // haciendose pasar por lo de hoy— y su pariente, la descarga a medias: un
+  // zip truncado se descomprime **sin error** y deja al validador con menos
+  // anclas de las que la ficha dice que trae, que es un aprobado de mas
+  // repartido en silencio.
+  const medida = await huellaDe(crudo);
+  PAQUETE.huella_comprobada = medida === null ? null : medida === PAQUETE.huella;
+  if (PAQUETE.huella_comprobada === false) {
+    throw new Error(
+      "El paquete de esquemas y anclas no es el que la pagina dice traer: " +
+      "PAQUETE.json publica " + String(PAQUETE.huella).slice(0, 12) +
+      "... y lo que ha llegado resume " + medida.slice(0, 12) + "... . " +
+      "No se descomprime."
+    );
+  }
+  // El tamano no sobra aunque se haya mirado la huella: es lo unico que se
+  // puede comprobar cuando `crypto.subtle` no esta, que es exactamente el
+  // caso de servir esto en una red local por http.
+  if (PAQUETE.bytes && crudo.byteLength !== PAQUETE.bytes) {
+    throw new Error(
+      "El paquete de esquemas y anclas ha llegado con " + crudo.byteLength +
+      " bytes y la ficha dice " + PAQUETE.bytes + ". Es una descarga a medias."
+    );
+  }
+
+  try {
     pyodide.FS.mkdirTree(DENTRO);
-    await pyodide.unpackArchive(await zip.arrayBuffer(), "zip",
-                                { extractDir: DENTRO });
+    await pyodide.unpackArchive(crudo, "zip", { extractDir: DENTRO });
     pyodide.runPython(
       "import os\n" +
       "from pathlib import Path\n" +

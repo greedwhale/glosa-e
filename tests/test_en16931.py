@@ -711,3 +711,55 @@ class TestOtrosFormatos:
         avisos = [i for i in informe.avisos if i.codigo == "BR-01"]
         assert avisos
         assert "urn:otra:cosa" in avisos[0].encontrado
+
+
+# --- BT-3, el tipo de documento --------------------------------------------
+
+
+class TestElTipoDeDocumento:
+    """BR-CL-01 y su hermana de Facturae, provocadas.
+
+    Las dos entraron el 05-09-2026 con el binding de Facturae y ninguna prueba
+    las nombraba por su código: se comprobaba el valor que salía de la
+    traducción, no la queja. Lo delató el guardián del catálogo el día
+    siguiente, y la diferencia importa —un código mal escrito habría pasado
+    igual, y ese código es lo que se publica y lo que se busca—.
+    """
+
+    def test_un_tipo_que_no_esta_en_la_lista_de_la_norma(self):
+        """`220` es «pedido» en UNTDID 1001, y aparece de verdad.
+
+        Sobre 157 facturas ajenas salta una: un EDIFACT cuyo BGM declara 220.
+        No es un capricho de laboratorio.
+        """
+        roto = factura().replace(
+            "<cbc:InvoiceTypeCode>380", "<cbc:InvoiceTypeCode>220")
+        salta = [i for i in en16931.validar(roto).incidencias
+                 if i.codigo == "BR-CL-01"]
+        assert salta and salta[0].gravedad == ERROR
+        assert salta[0].encontrado == "220"
+        assert "UNTDID 1001" in salta[0].mensaje
+
+    def test_una_factura_normal_no_dice_nada(self):
+        assert "BR-CL-01" not in codigos(en16931.validar(factura()))
+
+    def test_una_rectificativa_de_facturae_no_se_inventa_el_tipo(self):
+        """384 o 381 según cómo rectifique, y eso lo dice `CorrectionMethod`.
+
+        Su lista de valores no se ha podido contrastar contra fuente oficial
+        —el PDF del Ministerio no da su texto y UNECE contesta 403—, así que
+        no se elige: se dice que no se ha traducido. Elegir el más probable y
+        presentarlo como leído es exactamente lo que aquí no se hace.
+        """
+        rectificativa = FACTURAE_UNA.replace(
+            "<InvoiceClass>OO</InvoiceClass>", "<InvoiceClass>OR</InvoiceClass>")
+        salta = [i for i in en16931.validar(rectificativa).incidencias
+                 if i.codigo == "FE-TIPO-SIN-EQUIVALENTE"]
+        assert salta and salta[0].gravedad == NOTA
+        assert salta[0].encontrado == "OR"
+
+    def test_y_una_ordinaria_si_se_traduce(self):
+        """El control: `OO` es 380 y no se queja nadie."""
+        codigos_vistos = codigos(en16931.validar(FACTURAE_UNA))
+        assert "FE-TIPO-SIN-EQUIVALENTE" not in codigos_vistos
+        assert "BR-CL-01" not in codigos_vistos

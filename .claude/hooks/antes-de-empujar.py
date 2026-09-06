@@ -102,12 +102,52 @@ def hay_que_mirar(carpeta: Path) -> bool:
     return True
 
 
+# Un `git push` en cualquier punto de la orden. Se usa dos veces: sobre la
+# orden bien leida, y sobre el texto crudo cuando la entrada no se deja leer.
+ES_PUSH = re.compile(r"\bgit\s+(?:-\S+\s+)*push\b")
+
+
 def main() -> int:
+    crudo = ""
     try:
-        entrada = json.load(sys.stdin)
+        crudo = sys.stdin.read()
+        entrada = json.loads(crudo)
     except Exception:
+        # Aqui no se sabe que orden es, y esa es justamente la situacion
+        # peligrosa: devolver 0 a ciegas convierte el gancho en un adorno el
+        # dia que Claude Code cambie la forma de la entrada. Asi que se mira
+        # el texto tal cual llego. Si ni siquiera se parece a un push, se deja
+        # pasar —bloquear cada orden de la sesion por no saber leer un JSON
+        # seria peor—; si se parece, se para y se dice por que.
+        if ES_PUSH.search(crudo or ""):
+            print(
+                "El gancho no ha podido leer su entrada, asi que no puede "
+                "correr los tests, y esta orden parece un `git push` a "
+                "produccion. Se para: un gancho que falla abriendo publica "
+                "igual y ademas tranquiliza.",
+                file=sys.stderr,
+            )
+            return 2
         return 0
 
+    # Y la red de debajo de todo, por lo que no se ha previsto. Solo se
+    # bloquea si la orden es un push: de las demas este gancho no guarda nada
+    # y pararlas seria estorbar por un fallo suyo.
+    try:
+        return _guardar(entrada)
+    except Exception as error:
+        if ES_PUSH.search((entrada.get("tool_input") or {}).get("command", "")):
+            print(
+                f"El gancho se ha roto ({type(error).__name__}: {error}) y no "
+                "ha llegado a comprobar nada. Esta orden publica en "
+                "produccion, asi que no sale.",
+                file=sys.stderr,
+            )
+            return 2
+        return 0
+
+
+def _guardar(entrada: dict) -> int:
     orden = (entrada.get("tool_input") or {}).get("command", "")
     # Un `git push` en cualquier punto de la orden, no solo al principio:
     # aqui llegan cosas como `cd /ruta/al/repo && git push`. El precio de
@@ -117,7 +157,7 @@ def main() -> int:
     # `hay_que_mirar()` —equivocarse hacia parar cuesta esos segundos, y
     # equivocarse hacia dejar pasar publica algo roto sin enterarse—. Lo unico
     # que la `\b` final descarta es lo que solo se le parece: `git pushear`.
-    if not re.search(r"\bgit\s+(?:-\S+\s+)*push\b", orden):
+    if not ES_PUSH.search(orden):
         return 0
     # Un ensayo no publica, asi que no hay puerta que guardar.
     if "--dry-run" in orden:
@@ -134,10 +174,33 @@ def main() -> int:
         )
         return 2
 
-    hecho = subprocess.run(
-        [str(PYTHON), "-m", "pytest", "-q", "--no-header", "-x"],
-        cwd=str(REPO), capture_output=True, text=True, timeout=600,
-    )
+    # Todo lo que puede salir mal aqui sale con codigo 2, no con el 1 que deja
+    # una excepcion sin recoger. **Esa era la puerta de atras**: Claude Code
+    # solo bloquea con 2, asi que un `TimeoutExpired` o un `OSError` —el disco
+    # lleno, el ejecutable que se va a medio arrancar— imprimian una traza,
+    # salian con 1 y el push se publicaba igual. Un gancho que falla abriendo
+    # es peor que no tenerlo, porque ademas tranquiliza.
+    try:
+        hecho = subprocess.run(
+            [str(PYTHON), "-m", "pytest", "-q", "--no-header", "-x"],
+            cwd=str(REPO), capture_output=True, text=True, timeout=600,
+        )
+    except subprocess.TimeoutExpired:
+        print(
+            "La suite no ha terminado en diez minutos y tarda medio. Algo se "
+            "ha quedado colgado, y este push publica en produccion: no se "
+            "sabe si pasa o no pasa, asi que no sale.",
+            file=sys.stderr,
+        )
+        return 2
+    except OSError as error:
+        print(
+            f"No se ha podido correr la suite: {error}. Este push publica en "
+            "produccion y nadie ha comprobado nada.",
+            file=sys.stderr,
+        )
+        return 2
+
     if hecho.returncode == 0:
         return 0
 

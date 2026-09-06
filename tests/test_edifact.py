@@ -911,3 +911,43 @@ class TestUnFicheroDeVerdadConUnaDeCinco:
         assert not codigos(incidencias, ERROR)
         assert "EDI-UNA-DE-CINCO" in codigos(incidencias)
         assert len(raiz.xpath(mapa.lineas)) == 9
+
+
+# --- Dos roturas del sobre que nadie provocaba -----------------------------
+
+
+class TestElSobreQueNoSeSostiene:
+    """Las dos que el guardián del catálogo encontró sin provocar.
+
+    Las dos hablan de un fichero que ni siquiera llega a tener forma de
+    intercambio, y ese es justo el caso en el que un validador puede acabar
+    diciendo «no he visto nada mal» sobre algo que no ha leído.
+    """
+
+    def test_un_fichero_que_no_se_puede_partir_en_segmentos(self):
+        """Se provoca en el lector y no en `factura.validar` a propósito.
+
+        Para llegar aquí desde fuera, `detectar` tendría que reconocer como
+        EDIFACT un fichero sin un solo segmento, y no lo hace ni debe: lo
+        manda a «formato desconocido», que es la respuesta correcta. Este
+        aviso es para quien llama al lector directamente.
+        """
+        _, incidencias = edifact.convertir(b"esto no es EDIFACT, ni lo pretende")
+        salta = [i for i in incidencias if i.codigo == "EDI-SIN-SEGMENTOS"]
+        assert salta and salta[0].gravedad == ERROR
+
+    def test_un_mensaje_que_empieza_y_no_cierra(self):
+        """Un UNH sin su UNT: el mensaje está cortado y no se sabe por dónde."""
+        tira = (
+            "UNB+UNOC:3+EMISOR+RECEPTOR+260819:1200+1'"
+            "UNH+1+INVOIC:D:96A:UN'"
+            "BGM+380+F-2026-1'"
+            "UNZ+1+1'"
+        ).encode("utf-8")
+        salta = [i for i in quejas(tira) if i.codigo == "EDI-MENSAJE-SIN-CERRAR"]
+        assert salta and salta[0].gravedad == ERROR
+
+    def test_un_intercambio_entero_si_cierra(self):
+        """El control: sin esto, lo de arriba no distingue nada."""
+        assert "EDI-MENSAJE-SIN-CERRAR" not in codigos(quejas(sobre(CUERPO)))
+        assert "EDI-SIN-SEGMENTOS" not in codigos(quejas(sobre(CUERPO)))

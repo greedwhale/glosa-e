@@ -46,6 +46,12 @@ MODULOS_SIN_PRUEBA: dict[str, str] = {}
 # nadie valida es peor que no tenerlo.
 EJEMPLOS_SIN_COMPROBAR: dict[str, str] = {}
 
+# Códigos de incidencia que ninguna prueba ni el banco nombran, y por qué.
+# Vacía, y cuesta mantenerla vacía a propósito: el catálogo publicado se
+# titula «los códigos que **puede sacar** este validador», y uno que nadie ha
+# visto salir nunca convierte ese titular en una suposición.
+CODIGOS_SIN_PROVOCAR: dict[str, str] = {}
+
 
 def _todo_lo_que_mira() -> str:
     """El texto de todo lo que comprueba algo: las pruebas y el banco.
@@ -121,4 +127,37 @@ def test_toda_pagina_de_web_la_monta_el_sitio():
         f"estas páginas de web/ no las nombra quien monta el sitio: "
         f"{', '.join(fuera)}. Se escribirían, se versionarían y no llegarían "
         "a la dirección publicada, sin que nada fallara."
+    )
+
+
+def test_todo_codigo_publicado_lo_nombra_alguna_prueba():
+    """Un código en el catálogo que nadie ha visto salir es una promesa.
+
+    `web/incidencias.html` se titula «Los 159 códigos que puede sacar este
+    validador», y ese *puede* es una afirmación: alguien llega ahí con un
+    código entre las manos y espera encontrarlo. Un código que ninguna prueba
+    nombra puede estar mal escrito, colgar de una rama que ya no alcanza nadie
+    o haberse renombrado a medias, y las tres cosas salen en verde.
+
+    El 6 de septiembre de 2026 eran **diez de 159**, y entre ellos había tres
+    que se habían añadido la víspera: se comprobaba el valor que salía de la
+    regla, no la queja, así que un código mal escrito habría pasado igual —y
+    el código es justo lo que se publica y lo que se busca—.
+
+    Es el mismo listón bajo que las otras dos de este fichero: no pide una
+    prueba dedicada ni mide cobertura, solo que alguien lo nombre. Por debajo
+    de eso no hay ninguna duda de que nadie está mirando.
+    """
+    from validador.codigos import codigos_del_paquete
+
+    mira = _todo_lo_que_mira()
+    huerfanos = sorted({
+        c.codigo for c in codigos_del_paquete()
+        if c.codigo not in CODIGOS_SIN_PROVOCAR and c.codigo not in mira
+    })
+    assert not huerfanos, (
+        f"estos {len(huerfanos)} códigos salen en el catálogo publicado y no "
+        f"los nombra ninguna prueba ni el banco:\n  - " + "\n  - ".join(huerfanos)
+        + "\nProvócalos donde vive su regla, o añádelos a "
+          "`CODIGOS_SIN_PROVOCAR` con el motivo escrito."
     )

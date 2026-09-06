@@ -833,3 +833,78 @@ class TestElSitioQueSePublica:
         viejo.write_bytes(b"PK\x03\x04")
         _montar(repositorio)
         assert not viejo.exists()
+
+
+# --- El par versionado, comprobado contra sí mismo -------------------------
+
+
+class TestElParQueSeVersiona:
+    """`web/paquete.zip` y `web/PAQUETE.json`, la excepción decidida a propósito.
+
+    Todo el material de confianza está fuera del control de versiones porque
+    caduca, y repartir una foto vieja es peor que no repartir nada. Estos dos
+    son la excepción: van dentro para que el sitio se pueda construir sin
+    tener las carpetas fuente, **con su SHA-256 publicado al lado**.
+
+    Ese «al lado» no lo comprobaba nadie. La huella se escribía al montar el
+    paquete y a partir de ahí eran dos ficheros sueltos en un commit: bastaba
+    con volver a montar uno y no el otro —o con que un `git add` se dejara uno
+    fuera— para publicar un zip que no es el que su ficha dice, y descomprimir
+    un zip **no falla**. La página se quedaría con menos anclas de las que
+    afirma traer, que son aprobados de más repartidos en silencio.
+
+    Desde el 06-09-2026 lo comprueba también el navegador, antes de
+    descomprimir (`glosa.js`, `huellaDe`). Aquí se comprueba antes de publicar,
+    que es más barato.
+    """
+
+    ZIP = Path(__file__).resolve().parent.parent / "web" / paquete.NOMBRE
+    FICHA = Path(__file__).resolve().parent.parent / "web" / paquete.MANIFIESTO
+
+    def _ficha(self) -> dict:
+        if not self.ZIP.is_file() or not self.FICHA.is_file():
+            pytest.skip("este clon no trae el paquete montado")
+        return json.loads(self.FICHA.read_text(encoding="utf-8"))
+
+    def test_el_zip_resume_lo_que_su_ficha_publica(self):
+        import hashlib
+
+        ficha = self._ficha()
+        medida = hashlib.sha256(self.ZIP.read_bytes()).hexdigest()
+        assert medida == ficha["huella"], (
+            f"`{paquete.NOMBRE}` resume {medida[:12]}… y `{paquete.MANIFIESTO}` "
+            f"publica {str(ficha['huella'])[:12]}…. Son dos ficheros que se "
+            "versionan juntos y uno de los dos se ha quedado atrás: vuelve a "
+            "montar el paquete, o no publiques la ficha de otro."
+        )
+
+    def test_y_tambien_el_tamano(self):
+        """Redundante con la huella, y hace falta igual.
+
+        Es lo único que se puede comprobar cuando no hay `crypto.subtle` —o
+        sea, sirviendo esto por http en una red local—, así que si el tamaño
+        publicado fuera mentira, allí no quedaría ninguna comprobación.
+        """
+        ficha = self._ficha()
+        assert self.ZIP.stat().st_size == ficha["bytes"]
+
+    def test_la_ficha_dice_lo_que_hay_dentro_del_zip(self):
+        """Las tres cifras que la página enseña sin abrir el paquete."""
+        ficha = self._ficha()
+        with zipfile.ZipFile(self.ZIP) as z:
+            nombres = z.namelist()
+        cuenta = {
+            "esquemas": sum(1 for n in nombres if n.startswith("esquemas/")
+                            and n.endswith(".xsd")),
+            "anclas": sum(1 for n in nombres if n.startswith("anclas/")
+                          and n.endswith(".cer")),
+            "anclas_de_sellos": sum(1 for n in nombres
+                                    if n.startswith("anclas-sellos/")
+                                    and n.endswith(".cer")),
+        }
+        malas = {k: (ficha[k], v) for k, v in cuenta.items() if ficha[k] != v}
+        assert not malas, (
+            f"la ficha publica una cosa y el zip trae otra: {malas} "
+            "(publicado, dentro). Esas cifras salen en el informe de cada "
+            "factura, al lado de la frase que dice de dónde vienen las anclas."
+        )

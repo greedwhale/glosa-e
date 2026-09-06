@@ -75,6 +75,13 @@ publica una tabla medida que dice «0 dominios de terceros», y `pyodide.js`
 lleva dentro la dirección del CDN como respaldo. Es exactamente lo que hay que
 mirar y no suponer.
 
+Desde el 06-09-2026 esto **ya no depende de que alguien se acuerde**: el banco
+trae «esta página no le pide nada a nadie», que mide lo mismo desde dentro y
+en cada visita, y la suite trae `tests/test_sin_terceros.py`, que lo mira
+antes de publicar. Lo de aquí sigue valiendo igual, porque es la única medida
+que se hace sobre la página real con un navegador de verdad y con la caché en
+el estado en que esté.
+
 El filtro del `"null"` se añadió el 06-09-2026, y hace falta: en frío salía
 `[]` y en caliente salía `["null"]`, que es un `data:image/svg+xml` en línea
 del CSS —cero bytes, ninguna red—. Una comprobación de privacidad que da la
@@ -156,7 +163,7 @@ const c = res.comprobaciones || res;
   detalle: c.filter(x=>!x.ok).map(x=>x.nombre + ' :: ' + (x.detalle||''))})
 ```
 
-El campo es **`ok`**, no `pasa`. Esperado: 38 comprobaciones, 0 fallan.
+El campo es **`ok`**, no `pasa`. Esperado: 41 comprobaciones, 0 fallan.
 
 Esa cifra sube cada vez que entra una comprobación al banco, así que **la que
 manda es la de `web/prueba.py`**: si no cuadra con la de aquí, mira primero cuál

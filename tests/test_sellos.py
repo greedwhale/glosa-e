@@ -953,3 +953,51 @@ class TestContraUnaAutoridadDeVerdad:
         assert probado is not None
         assert probado[0] == min(fechas)
         assert probado[0] != max(fechas)
+
+
+# --- El aviso de los resúmenes rotos ---------------------------------------
+
+
+class TestUnSelloConUnResumenRoto:
+    """SHA-1 en un sello de tiempo, provocado sobre `_algoritmos`.
+
+    Salió el 06-09-2026 del guardián que compara el catálogo publicado con lo
+    que alguna prueba nombra: era un código que la página anunciaba y que
+    ninguna prueba había visto salir.
+
+    Se provoca sobre la función y no fabricando un token con SHA-1 porque lo
+    que hay que comprobar es la regla, no el lector de DER —de eso se ocupa
+    medio fichero más arriba—. La regla es una comparación contra
+    `RESUMENES_ROTOS`, y lo que puede fallar es que mire un campo y no el
+    otro: el sello lleva **dos** resúmenes, el de lo que se selló y el de la
+    firma de la autoridad, y con uno solo bien mirado el aviso se pierde.
+    """
+
+    def _sello(self, resumen_de="sha256", resumen_firma="sha256"):
+        from datetime import datetime, timezone
+
+        return sellos.Sello(
+            momento=datetime(2026, 3, 2, tzinfo=timezone.utc),
+            politica="1.2.3", serie=7, resumen_de=resumen_de, resumen=b"x" * 20,
+            precision="", nombre="TSU de prueba", resumen_firma=resumen_firma,
+        )
+
+    def test_el_resumen_de_lo_sellado(self):
+        salta = sellos._algoritmos(self._sello(resumen_de="sha1"), "")
+        assert [i.codigo for i in salta] == ["SELLO-ALGORITMO-VIEJO"]
+        assert salta[0].gravedad == AVISO
+        assert salta[0].encontrado == "sha1"
+
+    def test_el_resumen_con_el_que_firmo_la_autoridad(self):
+        """El otro campo. Es el que se olvida, porque no está a la vista."""
+        salta = sellos._algoritmos(self._sello(resumen_firma="sha1"), "")
+        assert [i.codigo for i in salta] == ["SELLO-ALGORITMO-VIEJO"]
+
+    def test_los_dos_rotos_se_dicen_una_vez(self):
+        """Un aviso por sello, no uno por campo: es el mismo defecto."""
+        salta = sellos._algoritmos(
+            self._sello(resumen_de="sha1", resumen_firma="sha1"), "")
+        assert len(salta) == 1
+
+    def test_con_sha256_no_dice_nada(self):
+        assert sellos._algoritmos(self._sello(), "") == []

@@ -90,7 +90,7 @@ Hay dos, los dos `PreToolUse`, los dos bloquean con **código 2**:
 
 | Gancho | Dispara con | Hace |
 |---|---|---|
-| `.claude/hooks/antes-de-empujar.py`, versionado | `Bash`, `PowerShell` | ante un `git push`, corre la suite antes y no deja publicar en rojo (36 s medidos el 2026-08-30; `--dry-run` se aparta, que no publica) |
+| `.claude/hooks/antes-de-empujar.py`, versionado | `Bash`, `PowerShell` | ante un `git push`, corre la suite antes y no deja publicar en rojo (36 s medidos el 2026-08-30; `--dry-run` se aparta, que no publica). **Y no deja publicar tampoco cuando no puede comprobar**: la suite colgada, el intérprete que no arranca o una entrada que no se deja leer salen con 2, no con 1. Hasta el 06-09-2026 salían con 1 y el push pasaba *después* de que el gancho fallara |
 | `.claude/hooks/guardian-de-rutas.py` de la **carpeta de trabajo**, fuera del repositorio | `Write`, `Edit`, `NotebookEdit` | se niega a escribir en lo que no se toca, y solo dentro de `C:\Users\PC\Claude\`, para no estorbar en otros proyectos de la máquina |
 
 **Se declaran en los ajustes de usuario**, `C:\Users\PC\.claude\settings.json`,

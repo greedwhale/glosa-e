@@ -42,11 +42,16 @@ BANCO = RAIZ / "web" / "prueba.py"
 
 
 @pytest.fixture(scope="module")
-def resultados(tmp_path_factory) -> list[dict]:
-    """Corre el banco entero una vez y reparte sus resultados.
+def espacio() -> dict:
+    """Ejecuta el banco entero una vez y deja ver todo lo que definió.
 
-    `scope="module"` porque tarda unos tres segundos y las dos pruebas de aquí
-    miran lo mismo desde dos ángulos: no hay razón para pagarlo dos veces.
+    `scope="module"` porque tarda unos tres segundos y las pruebas de aquí
+    miran lo mismo desde varios ángulos: no hay razón para pagarlo cada vez.
+
+    Se devuelve el espacio de nombres completo y no solo `resultados` porque
+    el banco también define cosas que aquí se vuelven a correr con **el otro
+    libxml2** —la tabla de `FORMA_ESPERADA`—, y eso es la mitad del valor de
+    tener el banco dentro del alcance de pytest.
     """
     import os
 
@@ -58,12 +63,17 @@ def resultados(tmp_path_factory) -> list[dict]:
         espacio: dict = {"__name__": "banco"}
         exec(compile(BANCO.read_text(encoding="utf-8"), str(BANCO), "exec"),
              espacio)
-        return espacio["resultados"]
+        return espacio
     finally:
         if anterior is None:
             os.environ.pop("EJEMPLOS", None)
         else:
             os.environ["EJEMPLOS"] = anterior
+
+
+@pytest.fixture(scope="module")
+def resultados(espacio) -> list[dict]:
+    return espacio["resultados"]
 
 
 def test_el_banco_corre_entero(resultados):
@@ -93,4 +103,79 @@ def test_ninguna_comprobacion_del_banco_falla(resultados):
             + str(r.get("detalle") or "")
             for r in fallan
         )
+    )
+
+
+# --- La misma tabla, con el otro libxml2 -----------------------------------
+#
+# El banco provoca trece incumplimientos de forma y comprueba que `esquema.py`
+# los traduce a su código. Allí eso corre con libxml2 2.9.10; aquí, con
+# 2.11.9. Las regex de la traducción se escribieron mirando lo que dice esta
+# versión, así que **esta prueba es la que no puede fallar**: si falla, el
+# fallo es de la tabla y no del navegador, y allí no habría manera de saberlo.
+
+
+def test_los_incumplimientos_de_forma_se_traducen_igual_aqui(espacio):
+    """Con el libxml2 de fuera, la tabla del banco tiene que dar lo mismo."""
+    fallos = [
+        f"{nombre}: se esperaba {list(esperados) or 'nada'} y salió "
+        f"{list(obtenidos) or 'nada'}"
+        for nombre, esperados, obtenidos in espacio["_provocar_forma"]()
+        if obtenidos != esperados
+    ]
+    assert not fallos, (
+        "la tabla de `FORMA_ESPERADA` del banco no cuadra con este libxml2:\n"
+        + "\n".join(fallos)
+        + "\n\nSi esto falla aquí, la tabla está mal escrita. El caso "
+        "interesante es el contrario: que pase aquí y falle en /banco, que "
+        "significa que las dos compilaciones de libxml2 redactan distinto y "
+        "que en el navegador los errores de forma salen en inglés."
+    )
+
+
+def _codigos_que_traducir_puede_sacar() -> set[str]:
+    """Los códigos que salen de traducir un mensaje de libxml2, leídos del AST.
+
+    Del módulo entero no vale: `XSD-SIN-ESQUEMA`, `XSD-NO-APLICA` y
+    `XSD-ESQUEMA-ROTO` los pone `reglas()` y no dependen de cómo redacte
+    libxml2. Los que dependen son exactamente los que nacen dentro de
+    `traducir()`.
+    """
+    import ast
+
+    arbol = ast.parse((RAIZ / "validador" / "esquema.py").read_text(
+        encoding="utf-8"))
+    funcion = next(n for n in ast.walk(arbol)
+                   if isinstance(n, ast.FunctionDef) and n.name == "traducir")
+    return {
+        n.args[0].value
+        for n in ast.walk(funcion)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name) and n.func.id == "Incidencia"
+        and n.args and isinstance(n.args[0], ast.Constant)
+        and isinstance(n.args[0].value, str)
+    }
+
+
+def test_la_tabla_del_banco_provoca_todos_los_codigos_de_la_traduccion(espacio):
+    """Una regex nueva sin provocación en el banco es un hueco que no se ve.
+
+    Ese es el modo de fallo entero de esto: alguien añade la traducción de un
+    mensaje más, la prueba con el libxml2 de aquí, y en el navegador ese
+    mensaje sale en inglés. No se rompe nada; se degrada, y solo allí.
+    """
+    provocados = {c for caso in espacio["FORMA_ESPERADA"] for c in caso[2]}
+    # `XSD-OTRO` es la salida de emergencia: no se provoca porque es
+    # justamente lo que no tiene que salir. Que aparezca donde iba otra cosa
+    # es la señal de que esto se ha roto.
+    faltan = sorted(_codigos_que_traducir_puede_sacar() - provocados - {"XSD-OTRO"})
+    assert not faltan, (
+        f"`traducir()` puede sacar {', '.join(faltan)} y el banco no lo "
+        "provoca. Sin provocarlo, nadie sabe si el libxml2 del navegador "
+        "redacta ese mensaje igual: saldría como `XSD-OTRO`, en inglés y solo "
+        "en la página. Añade el caso a `FORMA_ESPERADA` en `web/prueba.py`."
+    )
+    assert "XSD-OTRO" not in provocados, (
+        "la tabla del banco espera un `XSD-OTRO`. Ese código es la rendición "
+        "de la traducción: esperarlo convierte el guardián en su contrario."
     )
