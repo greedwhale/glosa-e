@@ -87,34 +87,54 @@ const p = window.Glosa.paquete;
 ```
 
 **Lo esperado:** `conforme: true`, 24 esquemas, 268 anclas de firma, 121 de
-sellado, y estas tres incidencias:
+sellado, y estas seis incidencias:
 
 ```
 FIRMA-DEBIL · aviso
 CADENA-DESCONOCIDA · aviso
+BR-01 · nota
+BR-14 · nota
+IVA-CATEGORIA-SIN-MAPA · nota
 SELLO-FALTA · nota
 ```
 
 El código va al lado de la gravedad **a propósito**. Antes aquí ponía
 `["nota","aviso","aviso"]` a secas y se quedó atrás: las tres incidencias
-siguen siendo exactamente las mismas y lo único que cambió fue el orden, pero
+seguían siendo exactamente las mismas y lo único que cambió fue el orden, pero
 con tres palabras sueltas eso no se distingue de una incidencia que ha
 desaparecido —y quien corre esto se queda sin saber si mirar o seguir—. Con el
-código delante, un cambio se lee de un vistazo. Medido el 31-08-2026 sobre
-`www.glosa-e.com`.
+código delante, un cambio se lee de un vistazo. Y sirvió: el 06-09-2026
+aparecieron tres notas nuevas y se supo en el acto que no había desaparecido
+ninguna.
+
+**Las tres notas nuevas son del binding de Facturae**, que entró ese día. No
+son defectos de la factura: son los tres sitios donde Facturae no tiene dónde
+escribir lo que la norma pide —BT-24, el identificador de especificación; el
+BT-14; y la categoría de IVA en el sentido de la lista UNCL5305, porque
+`TaxTypeCode` dice qué impuesto es y no de qué categoría—. Salen como NOTA
+porque NOTA es la gravedad que existe aquí para decir qué se aceptó y con qué
+base. Medido el 06-09-2026 sobre `www.glosa-e.com`.
 
 Si el número de anclas ha cambiado sin que nadie haya montado el paquete, algo
 va mal.
 
 ## 5. El banco, en producción
 
-En `/banco`, con el arranque terminado:
+En `/banco`. **Esa página no tiene `#arranque`** —lleva `#veredicto`, `#fases`,
+`#trae` y `#tabla`—, así que el bucle de espera del punto 3 revienta aquí con
+un `Cannot read properties of null`. Lo que hay que esperar es a que exista la
+función:
 
 ```js
+const t0=performance.now();
+while(typeof window.Glosa?.correrBanco !== 'function' && performance.now()-t0<180000){
+  await new Promise(r=>setTimeout(r,300));
+}
 const res = await window.Glosa.correrBanco();
 const c = res.comprobaciones || res;
 ({comprobaciones: c.length, fallan: c.filter(x=>!x.ok).length,
-  criticas_que_fallan: c.filter(x=>x.critica && !x.ok).map(x=>x.nombre)})
+  criticas_que_fallan: c.filter(x=>x.critica && !x.ok).map(x=>x.nombre),
+  detalle: c.filter(x=>!x.ok).map(x=>x.nombre + ' :: ' + (x.detalle||''))})
 ```
 
 El campo es **`ok`**, no `pasa`. Esperado: 38 comprobaciones, 0 fallan.
@@ -122,6 +142,20 @@ El campo es **`ok`**, no `pasa`. Esperado: 38 comprobaciones, 0 fallan.
 Esa cifra sube cada vez que entra una comprobación al banco, así que **la que
 manda es la de `web/prueba.py`**: si no cuadra con la de aquí, mira primero cuál
 de las dos se ha quedado atrás antes de dar nada por roto.
+
+`detalle` va en la consulta desde el 06-09-2026 y no es adorno. Ese día
+salieron tres críticas en rojo y sin el detalle no se sabía por qué; con él, la
+primera línea ya decía `[BR-22] Cada línea debe decir cuántas unidades se
+facturan`, que es el diagnóstico entero.
+
+**Desde el 06-09-2026 el banco corre también en la suite**, en
+`tests/test_banco.py`, con CPython y los ejemplos del repositorio. Eso no
+sustituye a esto: allí el lxml es el del sistema y aquí es una compilación de
+libxml2 para WebAssembly, y medio banco existe justo para comprobar que esa
+compilación trae lo que hace falta. Lo que cambia es que **un ejemplo roto ya
+no llega hasta aquí**: se cae en `pytest`, en tres segundos, en vez de en
+producción. Que hiciera falta lo demostró ese mismo día —se desplegó dos veces
+con tres críticas en rojo y la suite en verde—.
 
 ## 6. La ficha dice quién está detrás, y la tienda sigue apagada
 
