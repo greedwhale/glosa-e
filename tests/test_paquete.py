@@ -396,13 +396,14 @@ def _tocar_la_rueda(destino: Path, quitar=(), cambiar=()) -> None:
             nueva.writestr(nombre, crudo)
 
 
-def _montar(repositorio, destino="sitio"):
+def _montar(repositorio, destino="sitio", exigir_paquete=False):
     return paquete.montar_sitio(
         repositorio / destino,
         pagina=repositorio / "web",
         ruedas=repositorio / "dist",
         ejemplos=repositorio / "ejemplos",
         pyodide=repositorio / "vendor" / "pyodide",
+        exigir_paquete=exigir_paquete,
     )
 
 
@@ -908,3 +909,108 @@ class TestElParQueSeVersiona:
             "(publicado, dentro). Esas cifras salen en el informe de cada "
             "factura, al lado de la frase que dice de dónde vienen las anclas."
         )
+
+
+class TestExigirElPaquete:
+    """`--exigir-paquete`: la diferencia entre avisar y no dejar.
+
+    Montar sin el paquete de esquemas y anclas sigue estando permitido y sigue
+    saliendo con 0: hace falta para probar en local sin tener que armar 389
+    anclas, y la página ya cuenta en su recuadro qué deja de comprobar.
+
+    Lo que no funciona es avisar cuando quien monta no es una persona. La
+    construcción de Vercel corre `--sitio` y lo único que mira es el código de
+    salida, así que un aviso perfecto por pantalla y un `return 0` publican
+    igual un sitio que no comprueba ni la forma ni de quién es la firma. El
+    despliegue pasa la bandera, y entonces esto se niega antes de escribir
+    nada.
+    """
+
+    def test_sin_bandera_se_monta_igual_y_se_cuenta(self, repositorio):
+        """El comportamiento de siempre, que no cambia."""
+        sitio = _montar(repositorio)
+        assert sitio.con_paquete is False
+
+    def test_con_bandera_y_sin_paquete_no_se_monta(self, repositorio):
+        with pytest.raises(paquete.SinPaquete) as fallo:
+            _montar(repositorio, exigir_paquete=True)
+        assert "paquete.zip" in str(fallo.value)
+
+    def test_y_no_deja_media_carpeta_escrita(self, repositorio):
+        """Se niega antes de tocar nada.
+
+        Montar medio sitio y fallar después deja una carpeta a medias que el
+        paso siguiente podría publicar igual, y entonces la negativa no sirve
+        de nada.
+        """
+        with pytest.raises(paquete.SinPaquete):
+            _montar(repositorio, exigir_paquete=True)
+        assert not (repositorio / "sitio").exists()
+
+    def test_con_el_paquete_puesto_se_monta(self, repositorio):
+        (repositorio / "web" / paquete.NOMBRE).write_bytes(b"PK\x03\x04")
+        (repositorio / "web" / paquete.MANIFIESTO).write_text(
+            json.dumps({"esquemas": 24, "anclas": 268, "anclas_de_sellos": 121}),
+            encoding="utf-8")
+        sitio = _montar(repositorio, exigir_paquete=True)
+        assert sitio.con_paquete is True
+
+    def test_un_paquete_sin_anclas_tampoco_vale(self, repositorio):
+        """Que el fichero exista no dice nada de lo que trae dentro.
+
+        Un zip armado sin anclas se copia, se sirve y se descomprime sin error,
+        y deja al validador sin comprobar de quién es la firma mientras la
+        ficha de la página anuncia unas cifras que no están.
+        """
+        (repositorio / "web" / paquete.NOMBRE).write_bytes(b"PK\x03\x04")
+        (repositorio / "web" / paquete.MANIFIESTO).write_text(
+            json.dumps({"esquemas": 24, "anclas": 0, "anclas_de_sellos": 0}),
+            encoding="utf-8")
+        with pytest.raises(paquete.SinPaquete) as fallo:
+            _montar(repositorio, exigir_paquete=True)
+        assert "anclas de firma" in str(fallo.value)
+        assert "anclas de sellado" in str(fallo.value)
+
+    def test_una_ficha_ilegible_no_se_da_por_buena(self, repositorio):
+        (repositorio / "web" / paquete.NOMBRE).write_bytes(b"PK\x03\x04")
+        (repositorio / "web" / paquete.MANIFIESTO).write_text(
+            "{esto no es JSON", encoding="utf-8")
+        with pytest.raises(paquete.SinPaquete):
+            _montar(repositorio, exigir_paquete=True)
+
+
+class TestElDespliegueExigeElPaquete:
+    """La bandera existe y el despliegue no la usa: eso ya ha pasado aquí.
+
+    El gancho de `antes-de-empujar.py` estuvo meses escrito y sin declarar en
+    los ajustes, y no fallaba: dejaba pasar. Una bandera que nadie pasa es
+    exactamente lo mismo.
+    """
+
+    VERCEL = Path(__file__).resolve().parent.parent / "vercel.json"
+
+    def test_la_orden_de_construccion_la_pasa(self):
+        orden = json.loads(self.VERCEL.read_text(encoding="utf-8"))["buildCommand"]
+        assert "--sitio" in orden, "la construcción ya no monta el sitio"
+        assert "--exigir-paquete" in orden, (
+            "`vercel.json` monta el sitio sin `--exigir-paquete`. Sin esa "
+            "bandera, un despliegue al que le falte el paquete publica un "
+            "validador que no comprueba ni la forma ni de quién es la firma, "
+            "y sale con 0 igual que si estuviera entero."
+        )
+
+    def test_la_bandera_existe_de_verdad_en_la_orden(self, capsys):
+        """Que no se haya renombrado por un lado y no por el otro.
+
+        Se mira en la ayuda y no llamando a `--sitio`: montar un sitio de
+        verdad desde una prueba escribiría una carpeta dentro del repositorio,
+        y una prueba que deja restos es una prueba que un día tapa algo.
+        """
+        from validador import __main__
+
+        with pytest.raises(SystemExit):
+            __main__.main(["--help"])
+        assert "--exigir-paquete" in capsys.readouterr().out, (
+            "`vercel.json` pasa `--exigir-paquete` y la orden no la reconoce: "
+            "la construcción fallaría entera con «unrecognized arguments»")
+

@@ -69,6 +69,7 @@ __all__ = [
     "SinRueda",
     "SinPagina",
     "RuedaVieja",
+    "SinPaquete",
     "rueda_desfasada",
     "licencia_declarada",
     "armar",
@@ -441,6 +442,17 @@ class RuedaVieja(Exception):
     """El wheel de `dist/` no es el del código que hay ahora mismo."""
 
 
+class SinPaquete(Exception):
+    """Se ha exigido el paquete de esquemas y anclas, y no está o está vacío.
+
+    Solo se levanta con `exigir_paquete=True`. Montar sin paquete sigue siendo
+    válido y se sigue contando por pantalla: hace falta para probar en local
+    sin tener que armar 389 anclas. Lo que no puede pasar es **publicar** así
+    sin enterarse, y un aviso por pantalla no lo impide cuando quien monta es
+    una construcción automática que solo mira el código de salida.
+    """
+
+
 # La expresión SPDX tal como está escrita en `pyproject.toml`. Se lee con una
 # expresión regular y no con `tomllib` a propósito: `tomllib` es de 3.11 y aquí
 # se admite 3.10, y para una línea que es literal en el fichero un parser
@@ -570,12 +582,56 @@ def _pesa(carpeta: Path) -> int:
     return sum(f.stat().st_size for f in carpeta.rglob("*") if f.is_file())
 
 
+def _revisar_el_paquete(pagina: Path) -> None:
+    """Que el paquete esté, y que traiga algo dentro.
+
+    Las dos preguntas, no una. Que el fichero exista no dice nada: un zip
+    armado sin esquemas o sin anclas se copia, se sirve y se descomprime sin
+    error, y deja al validador comprobando solo el contenido —sin la forma y
+    sin de quién es la firma— mientras la ficha de la página anuncia unas
+    cifras que no están. Es el mismo aprobado de más que la huella sin
+    comprobar, un piso más arriba.
+    """
+    zip_ = pagina / NOMBRE
+    ficha = pagina / MANIFIESTO
+    faltan = [str(f) for f in (zip_, ficha) if not f.is_file()]
+    if faltan:
+        raise SinPaquete(
+            f"Se ha exigido el paquete de esquemas y anclas y falta "
+            f"{', '.join(faltan)}. Un sitio sin él arranca y valida el "
+            "contenido, pero no comprueba ni la forma ni de quién es la firma. "
+            "Ármalo con `python -m validador --empaquetar`, o monta sin "
+            "`--exigir-paquete` si es a propósito."
+        )
+
+    try:
+        dice = json.loads(ficha.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise SinPaquete(
+            f"«{ficha}» no se deja leer ({error}), así que no se puede saber "
+            "qué trae el paquete."
+        ) from None
+
+    vacias = [nombre for nombre, clave in (
+        ("esquemas XSD", "esquemas"),
+        ("anclas de firma", "anclas"),
+        ("anclas de sellado", "anclas_de_sellos"),
+    ) if not dice.get(clave)]
+    if vacias:
+        raise SinPaquete(
+            f"El paquete está armado pero no trae {', '.join(vacias)}, y "
+            f"«{ficha.name}» lo dice. Publicarlo así anunciaría en cada "
+            "informe unas comprobaciones que no se hacen."
+        )
+
+
 def montar_sitio(
     destino: str | Path,
     pagina: str | Path = "web",
     ruedas: str | Path = "dist",
     ejemplos: str | Path = "ejemplos",
     pyodide: str | Path = CARPETA_DE_PYODIDE,
+    exigir_paquete: bool = False,
 ) -> Sitio:
     """Deja en `destino` lo que hay que subir, y nada más.
 
@@ -587,7 +643,10 @@ def montar_sitio(
 
     No se niega a montar un sitio **sin** el paquete de esquemas y anclas: la
     página ya sabe decir qué deja de comprobar cuando no está. Lo que sí hace
-    es contarlo, porque publicar eso sin enterarse es otra cosa.
+    es contarlo, porque publicar eso sin enterarse es otra cosa. Quien publica
+    de verdad pasa `exigir_paquete=True` y entonces sí se niega, que es lo
+    único que sirve cuando quien monta es una construcción automática: un aviso
+    por pantalla no lo lee nadie si el código de salida sigue siendo 0.
     """
     import shutil
 
@@ -638,6 +697,15 @@ def montar_sitio(
                 rueda, ", ".join(desfasados[:4])
             )
         )
+
+    if exigir_paquete:
+        # Aquí y no al principio: sigue estando antes de escribir el primer
+        # byte —montar medio sitio para tirarlo después deja una carpeta a
+        # medias que el paso siguiente podría publicar igual—, pero detrás de
+        # `RuedaVieja`, que es el fallo que este repositorio ha tenido cuatro
+        # veces y el que peor se ve solo. Cuando las dos cosas están mal,
+        # conviene leer primero esa.
+        _revisar_el_paquete(pagina)
 
     if destino.exists():
         shutil.rmtree(destino)

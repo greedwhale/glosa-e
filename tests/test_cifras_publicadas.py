@@ -94,6 +94,8 @@ CIFRAS = (
           "los ficheros de `ejemplos/`"),
     Cifra(r"el wheel y los (\d+) ejemplos", _ficheros_de_ejemplos,
           "los ejemplos que se bajan al arrancar"),
+    Cifra(r"La fila de los (\d+) ejemplos se midió", _ficheros_de_ejemplos,
+          "los ejemplos de la fila cronometrada"),
     Cifra(r"Los (\d+) resultados coinciden", _comprobaciones_del_banco,
           "los resultados del banco comparados con Python nativo"),
     Cifra(r"No basta con que las (\d+) salgan verdes",

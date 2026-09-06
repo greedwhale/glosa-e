@@ -200,6 +200,15 @@ def main(argumentos: list[str] | None = None) -> int:
         "lleva facturas de terceros y anclas sueltas.",
     )
     analizador.add_argument(
+        "--exigir-paquete",
+        action="store_true",
+        help="con --sitio, se niega a montar si no esta el paquete de "
+        "esquemas y anclas, o si esta vacio. Sin esta bandera se monta igual y "
+        "se avisa por pantalla, que es lo que hace falta en local; con ella no "
+        "se monta, que es lo que hace falta al publicar, donde el aviso no lo "
+        "lee nadie y lo unico que se mira es el codigo de salida.",
+    )
+    analizador.add_argument(
         "--traer-pyodide",
         metavar="CARPETA",
         nargs="?",
@@ -234,7 +243,7 @@ def main(argumentos: list[str] | None = None) -> int:
     if opciones.traer_pyodide:
         return _traer_pyodide(Path(opciones.traer_pyodide))
     if opciones.sitio:
-        return _montar_sitio(Path(opciones.sitio))
+        return _montar_sitio(Path(opciones.sitio), opciones.exigir_paquete)
     if opciones.empaquetar:
         return _empaquetar(
             Path(opciones.empaquetar),
@@ -387,18 +396,25 @@ def _traer_pyodide(destino: Path) -> int:
     return 0
 
 
-def _montar_sitio(destino: Path) -> int:
+def _montar_sitio(destino: Path, exigir_paquete: bool = False) -> int:
     """Deja listo lo que se sube, y dice si va completo o cojo.
 
     El aviso de que falta el paquete no es decorativo: un sitio sin esquemas ni
     anclas arranca, valida y no comprueba ni la forma ni de quién es la firma.
     La página lo dice en su recuadro, pero quien publica se entera aquí, que es
     cuando todavía puede armarlo.
+
+    Y avisar no basta cuando quien monta no es una persona. La construcción de
+    Vercel corre esto y lo único que mira es el código de salida, así que un
+    aviso perfecto por pantalla y un `return 0` publican el sitio cojo igual.
+    Por eso el despliegue pasa `--exigir-paquete` y entonces esto **se niega**:
+    es la misma diferencia que hay entre un comentario que pide memoria y un
+    guardián que no deja montar.
     """
     try:
-        sitio = paquete.montar_sitio(destino)
+        sitio = paquete.montar_sitio(destino, exigir_paquete=exigir_paquete)
     except (paquete.SinRueda, paquete.SinPagina, paquete.SinPyodide,
-            paquete.RuedaVieja) as motivo:
+            paquete.RuedaVieja, paquete.SinPaquete) as motivo:
         print(f"No se ha montado nada.\n\n  {motivo}", file=sys.stderr)
         return 2
     except OSError as error:

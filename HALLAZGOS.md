@@ -2334,3 +2334,69 @@ hace tres cosas:
 
 El cepo cazó dos líneas que acababa de escribir yo mientras arreglaba esto, y
 esa es la prueba de que hacía falta.
+
+## Un aviso perfecto y un `return 0`
+
+La septima de la ronda, y la que quedaba sin cerrar. `--sitio` monta lo que se
+publica, y cuando no encuentra el paquete de esquemas y anclas **lo dice muy
+bien**:
+
+```
+  esquemas y anclas     NO VAN
+
+  Este sitio arranca y valida el contenido, pero no comprueba ni la
+  forma ni de quien es la firma, y lo dira en cada informe.
+```
+
+Y sale con 0. Eso esta bien mientras quien monta sea una persona, que es para
+lo que se escribio: en local hace falta poder montar sin armar 389 anclas. Pero
+quien monta lo que se publica es la construccion de Vercel, y una construccion
+no lee recuadros: mira el codigo de salida. Un despliegue al que le faltara el
+paquete habria publicado un validador que comprueba una de las tres cosas, con
+la pagina diciendolo en letra pequeña y el despliegue en verde.
+
+Es el mismo par de siempre —un comentario que pide memoria frente a un guardian
+que no deja montar— y hasta ahora este sitio estaba del lado malo.
+
+Ahora `--sitio` admite `--exigir-paquete`, el `vercel.json` la pasa, y sin ella
+no cambia nada. Provocado con un repositorio de mentira al que se le quitan el
+zip y su ficha:
+
+```
+sin bandera  ->  salida 0   sitio montado, con su aviso
+con bandera  ->  salida 2   y ni una carpeta escrita
+```
+
+Dos detalles que costaron una vuelta cada uno. El primero: la negativa mira
+**que el paquete traiga algo**, no solo que el fichero exista; un zip armado
+sin anclas se copia, se sirve y se descomprime sin error mientras la ficha de
+la pagina anuncia 268 anclas que no estan. El segundo: la revision va detras de
+`RuedaVieja` y no delante, aunque las dos ocurran antes de escribir el primer
+byte, porque cuando las dos cosas fallan a la vez conviene leer primero la del
+wheel viejo, que es el fallo que este repositorio ha tenido cuatro veces.
+
+Y una prueba que no comprueba el codigo sino el despliegue: que `vercel.json`
+siga pasando la bandera. Una bandera que existe y que nadie pasa es exactamente
+lo que ya paso con el gancho de `antes-de-empujar.py`, que estuvo meses escrito
+y sin declarar. No fallaba: dejaba pasar.
+
+## Una medida que no era del validador
+
+De paso, y esto merece quedar escrito porque estuve a punto de publicarlo mal.
+
+Al medir en produccion los 10 ejemplos despues del despliegue salieron 1.450 ms,
+contra los 400 que habia medido antes sobre el despliegue anterior. Eso son 3,6
+veces peor, y lo primero que pense fue que el binding de Facturae —las reglas de
+linea, la categoria deducida, el pais, BT-3— habia salido caro.
+
+No lo era. Medido con CPython sobre los mismos diez ficheros, el codigo de antes
+tarda 192,5 ms y el de ahora 179,4. Y medido donde importa —el mismo navegador,
+la misma maquina, cambiando **solo la rueda**— la de antes tarda 1.367 ms y la
+de ahora 829. Va mas rapido, no mas lento.
+
+Lo que pasaba es que estaba midiendo mientras el ordenador compilaba ruedas y
+corria la suite. Con la maquina en reposo, produccion da 798 ms de mediana sobre
+siete pasadas. La leccion no es sobre el validador: **una medida sin decir en
+que condiciones se tomo no es una medida**, y esta habria entrado en `LEEME.md`
+como una cifra del producto. Ahora la fila lleva escrito al lado el metodo y la
+condicion que la mueve.

@@ -154,7 +154,7 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Arranque con la CDN ya cacheada | 11,25 s |
 | Arranque con la caché ya caliente | ~4,8 s |
 | Validar una factura | 5–120 ms |
-| Validar los 10 de `ejemplos/` | 400 ms |
+| Validar los 10 de `ejemplos/` | 798 ms |
 | Verificar una firma XAdES | 17 ms |
 | Encadenar hasta un ancla de confianza | 3,2 ms |
 | Leer y verificar una lista de revocación | 4,8 ms |
@@ -165,6 +165,15 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Rechazar una lista de confianza manipulada | 14,1 ms |
 | Validar un lote de 200 | 2,05 s · 10,3 ms cada una · 23 MB de memoria |
 | Lo que descomprime el navegador | 14,71 MB |
+
+La fila de los 10 ejemplos se midió el 06-09-2026 sobre `www.glosa-e.com`, con
+cuatro pasadas de calentamiento y la mediana de siete, **y con la máquina en
+reposo**. Esa última condición no es adorno: la misma medida tomada mientras el
+ordenador compilaba ruedas daba 1,4 s, y estuve a punto de publicar eso como si
+fuera un dato del validador. Lo que descartó la sospecha de que el código
+hubiera empeorado fue cambiar solo la rueda en el mismo navegador: la de antes
+del binding tarda 1.367 ms y la de ahora 829, así que va más rápido, no más
+lento.
 
 Cuidado con los tiempos de arranque, que son tres cosas distintas: la primera
 visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los

@@ -132,6 +132,12 @@ prueba que están escritos.
   ./.venv/Scripts/python.exe -m validador --traer-pyodide   # una vez
   ./.venv/Scripts/python.exe -m validador --sitio sitio
   ```
+  En local se monta **sin** el paquete de esquemas y anclas si no está: se
+  avisa por pantalla y se sale con 0, que es lo que hace falta para probar sin
+  armar 389 anclas. **El despliegue pasa `--exigir-paquete`** y entonces se
+  niega: Vercel solo mira el código de salida, así que un aviso perfecto y un
+  `return 0` publicaban igual un validador que no comprueba ni la forma ni de
+  quién es la firma.
 - **Un push a `main` despliega a producción** (Vercel lee `vercel.json`).
   La dirección es **`glosa-e.com`**, registrada en Vercel el 31-08-2026. El
   dominio canónico es **`www.glosa-e.com`** y el ápice redirige a él con un
