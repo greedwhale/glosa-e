@@ -1984,3 +1984,86 @@ verdad importa: **las pruebas no lo habrían encontrado nunca**. Estaban
 todas verdes, y todas escritas contra fechas inventadas por la misma mano que
 escribió la regla. Lo encontró abrir seis ficheros que no ha escrito este
 proyecto y leer lo que salía.
+
+## El catálogo publicaba 127 códigos de 153, y prometía que eso no podía pasar
+
+Salió al ir a commitear BR-22, BR-23 y BR-26: los tres códigos nuevos no
+aparecían en la página que los explica. No fallaba nada. La página se montaba,
+los 127 códigos que traía estaban bien, y ninguna prueba se ponía en rojo.
+
+`codigos.py` lee los códigos del propio fuente con `ast`, que es lo correcto
+—una lista escrita a mano se queda atrás—, pero solo miraba el **primer
+argumento** de cada `Incidencia(...)`. Si no era una cadena, seguía adelante:
+
+```python
+    primero = nodo.args[0]
+    if not (isinstance(primero, ast.Constant) and isinstance(primero.value, str)):
+        # Un código calculado no se puede leer de aquí. Hoy no hay ninguno;
+        continue
+```
+
+Ese comentario llevaba tiempo siendo falso. Había **catorce sitios** que no
+escriben el código en la llamada, y no por rareza: media docena de reglas los
+sacan de una tabla y la recorren con un `for`, que es como se evitan catorce
+bloques iguales seguidos.
+
+```python
+    for codigo, atributo, campo, explicacion in _DE_LINEA:
+        ...
+        Incidencia(codigo, ERROR, explicacion, ...)
+```
+
+El código sigue escrito —en la tabla, unas líneas más arriba—, pero el lector
+veía un nombre de variable y se lo saltaba **sin decir nada**.
+
+### Lo que faltaba
+
+| De dónde salía el código | Cuántos | Cuáles |
+|---|---:|---|
+| Una tabla del módulo recorrida con `for` | 17 | BR-02 a BR-15, BR-22, BR-23, BR-26 |
+| Una tabla escrita dentro del propio `for` | 7 | BR-CO-11, BR-CO-12, FE-CARGOS, FE-DESCUENTOS y los tres FE-LOTE-* |
+| Una variable asignada una línea antes | 2 | IVA-BASE, IVA-CATEGORIA-SIN-DESGLOSE |
+
+**127 códigos publicados de 153.** Uno de cada seis no estaba, y entre ellos
+casi toda la familia de campos obligatorios de la norma: quien recibiera un
+`BR-06` en un informe y fuera a buscarlo a la página no encontraba nada.
+
+Lo peor no era el hueco. Era que la página publicaba, encima de la lista, esta
+frase: *«se leen de las propias llamadas a `Incidencia(...)` al montar esta
+página, así que aquí no puede faltar uno que exista»*. Una promesa de
+completitud, escrita al lado de la prueba de que no se cumplía.
+
+### Qué lo cerró
+
+Desatar el bucle. Cuando el argumento es un nombre, se busca de qué `for` sale
+—de dentro hacia fuera, que es como manda Python—, se resuelve la tabla que
+recorre y se leen las filas. Igual con la asignación de una línea antes. Vale
+tanto la tabla con nombre como la escrita dentro del `for`: son la misma
+figura. Si una sola fila de la tabla no es una tupla literal, no se lee
+ninguna, porque media tabla leída publicaría una lista incompleta creyéndola
+entera.
+
+Quedan **seis** que no se pueden leer y no se van a poder: los `BR-{X}-8`,
+`BR-{X}-10` y `BR-{X}-1` de `iva.py`, que llevan dentro la categoría de la
+operación y no existen hasta que hay una factura delante. Eso no tiene arreglo
+mirando el fuente, así que se cuentan: `sin_leer_del_paquete()` los devuelve
+con su fichero, su línea y su patrón —«BR-{}-8»—, la página los publica en la
+ficha de arriba como «Compuestos al validar: 6», y la frase de la promesa se
+ha reescrito para que diga la verdad.
+
+### Y el guardián, que es lo que faltaba de verdad
+
+Un hueco contado se puede cerrar; uno silencioso no se sabe ni que está. Así
+que `tests/test_codigos.py` declara los seis y los compara con lo que hay:
+el día que alguien escriba una llamada que este lector no sepa leer, la prueba
+se pone en rojo **con el fichero y la línea** y dice las dos salidas —escribirlo
+de forma legible, o añadirlo sabiendo que queda fuera—. Si uno se arregla,
+también salta, para que la lista no se quede larga de más.
+
+Siete de las doce pruebas nuevas son provocadas: la tabla con una fila que no es
+tupla, el bucle de dentro tapando al de fuera, la rama legible de un `if` que
+no puede perderse por culpa de la otra, y un `codigo = codigo` que a un
+resolvedor ingenuo lo deja dando vueltas para siempre.
+
+Es el mismo disfraz de siempre, el cuarto o el quinto: todo verde, nada roto, y
+no era lo que creíamos haber comprobado.

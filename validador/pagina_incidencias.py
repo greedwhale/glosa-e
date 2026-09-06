@@ -13,8 +13,14 @@ Por qué se genera y no se escribe
 ---------------------------------
 Porque un catálogo escrito a mano se queda atrás, y entonces manda a buscar a
 un sitio donde no está, que es peor que no tenerlo. Los códigos salen de
-`codigos.py`, que los lee con `ast` de los propios módulos. Se añade uno nuevo
-en `firma.py` y aparece aquí sin que nadie se acuerde de nada.
+`codigos.py`, que los lee con `ast` de los propios módulos y de las tablas de
+reglas que los alimentan. Se añade uno nuevo en `firma.py` y aparece aquí sin
+que nadie se acuerde de nada.
+
+Los que se componen al validar —los `BR-{X}-8` del IVA, que llevan dentro la
+categoría de la operación— no se pueden leer del fuente y **no están en la
+lista**. Salen contados en la ficha de arriba, porque un catálogo al que le
+faltan seis y lo dice sigue sirviendo, y uno al que le faltan y no lo dice no.
 
 Lo que sí está escrito a mano son las explicaciones, en `glosario.py`, porque
 el mensaje del informe se compone en tiempo de ejecución y no hay frase fija
@@ -34,7 +40,12 @@ from __future__ import annotations
 import html
 from pathlib import Path
 
-from validador.codigos import Codigo, codigos_del_paquete
+from validador.codigos import (
+    Codigo,
+    SinLeer,
+    codigos_del_paquete,
+    sin_leer_del_paquete,
+)
 from validador.glosario import explicar
 
 __all__ = ["montar_pagina", "NOMBRE"]
@@ -112,7 +123,7 @@ def _fila(uno: Codigo) -> str:
     )
 
 
-def _cuerpo(codigos: list[Codigo]) -> str:
+def _cuerpo(codigos: list[Codigo], sin_leer: list[SinLeer]) -> str:
     familias: dict[str, list[Codigo]] = {}
     for uno in codigos:
         familias.setdefault(uno.familia, []).append(uno)
@@ -126,12 +137,22 @@ def _cuerpo(codigos: list[Codigo]) -> str:
         .format(len(codigos)),
         '<p class="texto" style="color:var(--tinta-2)">Salen del código fuente, '
         "no de una lista escrita a mano: se leen de las propias llamadas a "
-        "<code>Incidencia(...)</code> al montar esta página, así que aquí no "
-        "puede faltar uno que exista. Lo que sí puede faltar es la "
-        "explicación, y cuando falta se dice.</p>",
+        "<code>Incidencia(...)</code> al montar esta página, y de las tablas de "
+        "reglas que las alimentan. Lo que puede faltar es la explicación, y "
+        "cuando falta se dice."
+        # Antes aquí ponía «así que aquí no puede faltar uno que exista», y era
+        # mentira: el lector solo miraba el primer argumento de la llamada, y
+        # los diecisiete códigos que salen de una tabla recorrida con un `for`
+        # —BR-02 a BR-15, BR-22, BR-23 y BR-26— no aparecían. Ahora las tablas
+        # se leen, y lo que sigue sin poder leerse se cuenta aquí al lado en
+        # vez de prometerse que no existe.
+        + (f" Otros {len(sin_leer)} se componen al validar, con la categoría "
+           "de la operación, y no se pueden leer del fuente: no están en esta "
+           "lista, y por eso se dicen." if sin_leer else "")
+        + "</p>",
         # Las tres cifras y no solo la buena. «Sin explicar: 0» a secas es
-        # verdad y engaña: deja creer que los 126 están explicados uno a uno
-        # cuando la mayoría llevan la de su familia, que dice de dónde viene la
+        # verdad y engaña: deja creer que están explicados uno a uno cuando la
+        # mayoría llevan la de su familia, que dice de dónde viene la
         # exigencia y no qué pasó exactamente. El hueco es ese, y se cuenta.
         '<dl class="ficha">'
         f"<div><dt>Códigos</dt><dd>{len(codigos)}</dd></div>"
@@ -141,6 +162,14 @@ def _cuerpo(codigos: list[Codigo]) -> str:
         f"<dd>{len(codigos) - propias - sin_explicar}</dd></div>"
         + (f"<div><dt>Sin explicar</dt><dd>{sin_explicar}</dd></div>"
            if sin_explicar else "")
+        # A la vista y con las demás, no en una nota al pie: es el único sitio
+        # donde este catálogo admite que no está entero, y esconderlo abajo
+        # sería la versión educada de no decirlo.
+        # Sin coletilla debajo del numero: `.pie` solo esta definida en
+        # `tesis.html` y aqui saldria el texto pegado a la cifra. Lo que
+        # significa ya lo dice el parrafo de arriba.
+        + (f"<div><dt>Compuestos al validar</dt>"
+           f"<dd>{len(sin_leer)}</dd></div>" if sin_leer else "")
         + "</dl></section>",
     ]
 
@@ -169,6 +198,7 @@ def montar_pagina(plantilla: Path, destino: Path,
     estilo con las demás sin copiarlos, que es como acaban derivando.
     """
     codigos = codigos_del_paquete(carpeta)
+    sin_leer = sin_leer_del_paquete(carpeta)
     texto = plantilla.read_text(encoding="utf-8")
     if HUECO not in texto:
         raise ValueError(
@@ -176,5 +206,5 @@ def montar_pagina(plantilla: Path, destino: Path,
             "catálogo. Sin ella se publicaría la página con el hueco vacío y "
             "sin un solo código, que es de las cosas que no dan error."
         )
-    destino.write_text(texto.replace(HUECO, _cuerpo(codigos)), encoding="utf-8")
+    destino.write_text(texto.replace(HUECO, _cuerpo(codigos, sin_leer)), encoding="utf-8")
     return len(codigos)
