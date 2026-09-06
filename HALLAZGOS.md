@@ -2067,3 +2067,94 @@ resolvedor ingenuo lo deja dando vueltas para siempre.
 
 Es el mismo disfraz de siempre, el cuarto o el quinto: todo verde, nada roto, y
 no era lo que creíamos haber comprobado.
+
+## Tres comprobaciones críticas en rojo en producción, con la suite en verde
+
+El 6 de septiembre de 2026, después de fusionar y desplegar dos veces, el banco
+del navegador tenía **tres comprobaciones críticas fallando en la página
+publicada**: `una factura correcta sale conforme`, `un EDIFACT plano se lee y se
+valida aquí` y `un UNA de cinco caracteres se lee igual`. Las 1.106 pruebas
+pasaban. Nada estaba roto en rojo en ninguna parte donde alguien fuera a mirar.
+
+Lo destapó abrir `/banco` durante el ritual de después de desplegar. Era la
+única forma que había de verlo.
+
+### El síntoma
+
+Las tres las rompían BR-22, BR-23 y BR-26, las reglas de línea que habían
+entrado ese mismo día. Las reglas estaban bien. Lo que estaba mal eran los
+ejemplos: **ocho de los diez de `ejemplos/`** no dicen cuántas unidades
+facturan, ni en qué unidad, ni a qué precio.
+
+| Sintaxis | Ficheros | Qué les faltaba |
+|---|---|---|
+| UBL | `f-0001`, `f-0002`, `f-0002-bis`, `f-0006` | `InvoicedQuantity` y `Price` |
+| CII | `cii-A-0001` | `SpecifiedLineTradeAgreement` y `SpecifiedLineTradeDelivery`, enteros |
+| EDIFACT | los tres `.edi` | la unidad del `C186`: `QTY+47:40'` |
+
+En su día se arreglaron `fe-0001.xml` y `r-0001.xml` **porque eran los que
+rompían pruebas**. Los otros ocho no rompían ninguna, así que no se miraron.
+Ahí estaba el aviso, y lo que faltaba era quien lo diera.
+
+Que ninguno cambiara lo que demuestra se comprobó, no se supuso: se validó el
+árbol de `ejemplos/` de `9601360` con el validador de hoy y se comparó queja a
+queja con el de ahora. Descontando las tres nuevas, **cero diferencias en los
+diez**. Los que están rotos a propósito —`cii-A-0001`, `edi-0002-cortado`,
+`f-0006`— siguen rotos por lo mismo.
+
+### El fallo de verdad
+
+No es ninguno de esos ocho ficheros. Es que **el banco no lo corría nadie
+aquí**. `web/prueba.py` está escrito para que lo ejecute Pyodide dentro del
+navegador: `pytest` no lo tocaba, no aparecía en ninguna cuenta, y la única
+señal posible era que a una persona se le ocurriera abrir una página concreta.
+
+Es el disfraz de siempre de este proyecto, con una variante nueva. Las cuatro
+veces anteriores era **algo de una caché haciéndose pasar por lo de hoy**: un
+wheel viejo, un `prueba.py` viejo, un `index.html` viejo. Esta vez no había
+nada viejo. Había un banco entero de 38 comprobaciones que sencillamente no
+estaba en el alcance de nada, y por eso no podía salir en rojo aunque lo
+estuviera.
+
+### Qué lo cerró
+
+`tests/test_banco.py`: se ejecuta `web/prueba.py` con CPython, con `EJEMPLOS`
+apuntando a la carpeta del repositorio, y se exige que las 38 pasen **y que
+hayan corrido las 38** —una comprobación que ni se ejecuta no sale en rojo,
+desaparece—. Tarda 3,2 s.
+
+Probado rompiéndolo: quitarle el `unitCode` a `f-0001.xml` saca
+`--- una factura correcta sale conforme (CRÍTICA)` con el `[BR-23]` entero
+debajo.
+
+**No sustituye a abrir `/banco`, y está dicho en el propio fichero.** Aquí el
+lxml es el del sistema y allí es una compilación de libxml2 para WebAssembly;
+medio banco existe justo para comprobar que esa compilación trae la
+canonicalización y los esquemas XSD. Lo que cambia es que un ejemplo roto ya no
+llega a producción: se cae en `pytest`, en tres segundos.
+
+### Y el propio ritual llevaba tres cosas mal
+
+Salieron al usarlo, no al leerlo, que es la única forma en que salen:
+
+1. El punto 4 esperaba tres incidencias y salen seis. Las tres nuevas son las
+   notas del binding de Facturae diciendo qué no pudo comprobar. Que se supiera
+   en el acto que no había desaparecido ninguna es mérito del propio ritual,
+   que desde el 31-08 escribe el código al lado de la gravedad justo para esto.
+2. El punto 5 mandaba esperar a `#arranque` en `/banco`, y esa página no lo
+   tiene: revienta con un `Cannot read properties of null`.
+3. Y el arreglo del punto 5 —esperar a que exista `window.Glosa.correrBanco`—
+   **también estaba mal, y lo escribí yo media hora antes**. La función está
+   puesta desde el primer momento y el intérprete no, así que se llama antes de
+   tiempo y revienta con `reading 'runPythonAsync'`. Creer que algo está listo
+   porque se le puede nombrar es el mismo error con otro disfraz. Lo que lo
+   dice de verdad es `#veredicto`, que arranca con la clase `esperando` y la
+   pierde cuando el banco está montado.
+
+Y una cuarta, en la comprobación de privacidad, que estaba desde el principio:
+`ajenos` se calculaba como todo origen distinto del propio, y
+`new URL('data:…').origin` devuelve la cadena `"null"`. En frío salía `[]` y en
+caliente salía `["null"]`, que es un SVG en línea del CSS —cero bytes, ninguna
+red—. La afirmación de «0 dominios de terceros» se sostiene, pero **una
+comprobación de privacidad que da la alarma cuando no pasa nada se deja de
+leer, y entonces no avisa el día que pase**.
