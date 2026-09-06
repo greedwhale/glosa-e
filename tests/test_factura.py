@@ -52,10 +52,12 @@ UBL = """<?xml version="1.0" encoding="UTF-8"?>
     <cbc:PayableAmount currencyID="EUR">121.00</cbc:PayableAmount>
   </cac:LegalMonetaryTotal>
   <cac:InvoiceLine><cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="EA">1</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="EUR">{linea}</cbc:LineExtensionAmount>
     <cac:Item><cac:ClassifiedTaxCategory>
       <cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent>
     </cac:ClassifiedTaxCategory></cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="EUR">100.00</cbc:PriceAmount></cac:Price>
   </cac:InvoiceLine>
 </Invoice>"""
 
@@ -164,11 +166,24 @@ class TestValidar:
         assert "CU-00" not in codigos(informe)
         assert "CU-02" not in codigos(informe)
 
-    def test_pero_cu_00_sale_si_la_europea_no_lo_ha_dicho(self):
-        """En Facturae no hay reglas BR, así que CU-00 no lo tapa nadie."""
+    def test_en_facturae_tambien_lo_tapa_la_europea(self):
+        """Antes CU-00 salía solo en Facturae, y ya no.
+
+        Este test decía lo contrario —«en Facturae no hay reglas BR, así que
+        CU-00 no lo tapa nadie»— y era verdad hasta el 06-09-2026, cuando
+        Facturae entró en `SINTAXIS` con su propio mapa de EN 16931. Desde
+        entonces la falta de fecha la denuncia BR-03 como en las otras tres
+        sintaxis, y CU-00 sobra por lo mismo que sobraba allí.
+
+        Que el hueco se cerrara es la mejora: la deduplicación entre el
+        reglamento europeo y el español ya no depende de en qué sintaxis venga
+        la factura, que es lo que hacía falta para que el informe se lea igual
+        vengan como vengan.
+        """
         sin_fecha = facturae().replace("<IssueDate>2026-03-02</IssueDate>", "")
         informe = factura.validar(sin_fecha, hoy=HOY)
-        assert "CU-00" in codigos(informe, ERROR)
+        assert "BR-03" in codigos(informe, ERROR)
+        assert "CU-00" not in codigos(informe)
 
     def test_facturae_se_valida_con_las_reglas_espanolas(self):
         """El código único se le mide a Facturae como a cualquier otro.

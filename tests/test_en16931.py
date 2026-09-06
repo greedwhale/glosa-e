@@ -1,11 +1,13 @@
 """Comprobaciones de las reglas de negocio EN 16931."""
 
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
+from lxml import etree
 
 from validador import en16931
-from validador.en16931 import AVISO, ERROR
+from validador.en16931 import AVISO, ERROR, NOTA
 
 
 def factura(
@@ -40,11 +42,29 @@ def factura(
         </cac:ClassifiedTaxCategory></cac:Item>"""
     )
 
+    # Cantidad, unidad y precio unitario: BT-129, BT-130 y BT-146, que EN 16931
+    # exige en toda línea por BR-22, BR-23 y BR-26. Van con su propio interruptor
+    # en `omitir` para poder quitarlos de uno en uno y ver saltar **esa** regla.
+    def linea_cantidad():
+        if "InvoicedQuantity" in omitir:
+            return ""
+        unidad = "" if "unitCode" in omitir else ' unitCode="EA"'
+        return f"<cbc:InvoicedQuantity{unidad}>1</cbc:InvoicedQuantity>"
+
+    precio = (
+        ""
+        if "Price" in omitir
+        else '<cac:Price><cbc:PriceAmount currencyID="EUR">100.00'
+        "</cbc:PriceAmount></cac:Price>"
+    )
+
     xml_lineas = "".join(
         f"""<cac:InvoiceLine><cbc:ID>{ident}</cbc:ID>
+        {linea_cantidad()}
         {'' if 'LineExtensionAmount' in omitir else
          f'<cbc:LineExtensionAmount currencyID="EUR">{importe}</cbc:LineExtensionAmount>'}
         {iva_de_linea}
+        {precio}
         </cac:InvoiceLine>"""
         for ident, importe in lineas
     )
@@ -140,6 +160,12 @@ def abono(**opciones):
         )
         .replace("<cac:InvoiceLine>", "<cac:CreditNoteLine>")
         .replace("</cac:InvoiceLine>", "</cac:CreditNoteLine>")
+        # La cantidad también cambia de nombre, como las líneas y el tipo. Sin
+        # esto el abono llevaría `InvoicedQuantity`, que no es lo que escribe
+        # un abono de verdad, y la mitad del mapa —la rama `CreditedQuantity`
+        # de BR-22 y BR-23— no la probaría nadie.
+        .replace("<cbc:InvoicedQuantity", "<cbc:CreditedQuantity")
+        .replace("</cbc:InvoicedQuantity>", "</cbc:CreditedQuantity>")
     )
 
 
@@ -189,6 +215,39 @@ class TestSobreFacturaYAbono:
     def test_linea_sin_importe_salta_br_24(self, documento):
         informe = en16931.validar(documento(omitir=("LineExtensionAmount",)))
         assert "BR-24" in codigos(informe, ERROR)
+
+    def test_linea_sin_cantidad_salta_br_22(self, documento):
+        informe = en16931.validar(documento(omitir=("InvoicedQuantity",)))
+        assert "BR-22" in codigos(informe, ERROR)
+
+    def test_linea_sin_unidad_de_medida_salta_br_23(self, documento):
+        """Y sobre el abono también, que es donde el mapa se rompía.
+
+        BT-130 va en un atributo de la cantidad, y en un abono esa cantidad se
+        llama `CreditedQuantity`. Con media unión en el mapa, BR-23 saldría en
+        todos los abonos correctos y en ninguno de los defectuosos.
+        """
+        informe = en16931.validar(documento(omitir=("unitCode",)))
+        assert "BR-23" in codigos(informe, ERROR)
+
+    def test_linea_sin_precio_unitario_salta_br_26(self, documento):
+        informe = en16931.validar(documento(omitir=("Price",)))
+        assert "BR-26" in codigos(informe, ERROR)
+
+    def test_una_queja_por_regla_y_no_una_por_linea(self, documento):
+        """Cinco líneas sin unidad son un problema, no cinco.
+
+        El informe lo lee alguien que tiene que arreglar la factura: lo que le
+        sirve es «falta la unidad en las líneas 1 a 5», no cinco párrafos
+        idénticos. El campo enumera cuáles, que es lo que hace falta.
+        """
+        cinco = tuple((str(n), "20.00") for n in range(1, 6))
+        informe = en16931.validar(
+            documento(lineas=cinco, suma_lineas="100.00", omitir=("unitCode",))
+        )
+        salieron = [i for i in informe.incidencias if i.codigo == "BR-23"]
+        assert len(salieron) == 1
+        assert "1, 2, 3, 4, 5" in salieron[0].campo
 
     def test_las_lineas_no_cuadran_con_el_total(self, documento):
         informe = en16931.validar(
@@ -404,20 +463,213 @@ class TestRedondeo:
         assert Decimal("0.10") + Decimal("0.20") == Decimal("0.30")
 
 
-class TestOtrosFormatos:
-    def test_facturae_se_lo_queda_su_propio_modulo(self):
-        """Este modulo implementa la norma europea sobre UBL y CII y ya esta.
+FACTURAE_UNA = open("ejemplos/fe-0001.xml", encoding="utf-8").read()
 
-        Las reglas de Facturae salen de otro sitio -del propio esquema del
-        formato- y las aplica `facturae.py`. Aqui, callarse es lo correcto: el
-        SIN-SOPORTE que salia antes era un aviso que sobraba y se quedaba corto
-        a la vez.
+FACTURAE_DOS = """<?xml version="1.0" encoding="UTF-8"?>
+<fe:Facturae xmlns:fe="http://www.facturae.es/Facturae/2009/v3.2/Facturae">
+  <FileHeader><SchemaVersion>3.2</SchemaVersion></FileHeader>
+  <Parties>
+    <SellerParty><LegalEntity><CorporateName>Talleres Ejemplo SL</CorporateName>
+      <AddressInSpain><Address>Calle Mayor 1</Address>
+      <CountryCode>ESP</CountryCode></AddressInSpain></LegalEntity></SellerParty>
+    <BuyerParty><LegalEntity><CorporateName>Clientes Ejemplo SL</CorporateName>
+      <AddressInSpain><Address>Gran Via 2</Address>
+      <CountryCode>ESP</CountryCode></AddressInSpain></LegalEntity></BuyerParty>
+  </Parties>
+  <Invoices>
+    <Invoice>
+      <InvoiceHeader><InvoiceSeriesCode>FE</InvoiceSeriesCode>
+        <InvoiceNumber>0001</InvoiceNumber>
+        <InvoiceDocumentType>FC</InvoiceDocumentType></InvoiceHeader>
+      <InvoiceIssueData><IssueDate>2026-03-02</IssueDate>
+        <InvoiceCurrencyCode>EUR</InvoiceCurrencyCode></InvoiceIssueData>
+    </Invoice>
+    <Invoice>
+      <InvoiceHeader><InvoiceSeriesCode>FE</InvoiceSeriesCode>
+        <InvoiceNumber>0002</InvoiceNumber>
+        <InvoiceDocumentType>FC</InvoiceDocumentType></InvoiceHeader>
+      <InvoiceIssueData><IssueDate>2026-03-02</IssueDate>
+        <InvoiceCurrencyCode>EUR</InvoiceCurrencyCode></InvoiceIssueData>
+    </Invoice>
+  </Invoices>
+</fe:Facturae>"""
+
+
+class TestBindingDeFacturae:
+    """El mapa de Facturae, que no lo publica CEN y está escrito aquí.
+
+    Existe desde el 06-09-2026, cuando el artículo 7.1 del RD 238/2026 pasó a
+    exigirle a Facturae el modelo semántico EN 16931 como a las otras tres
+    sintaxis. Lo que se prueba aquí no es que las reglas funcionen —de eso ya
+    se encargan las clases de arriba, y las reglas son las mismas— sino que
+    **los huecos del mapa se comportan como huecos** y no como acusaciones.
+    """
+
+    def test_un_hueco_del_mapa_no_acusa_a_la_factura(self):
+        """BR-01 sobre Facturae es una NOTA, y esto es lo que sostiene todo.
+
+        EN 16931 exige un identificador de especificación (BT-24). Facturae no
+        tiene ese campo: lo más parecido es `SchemaVersion`, que dice qué
+        versión del esquema es y no a qué norma se ajusta. Aplicando la regla
+        en estricto suspenderían **todas** las facturas de España, siempre, y
+        no por estar mal hechas.
+
+        Si esto vuelve a salir como error, el validador está acusando a quien
+        emitió el documento de algo que el formato no le deja hacer.
+        """
+        informe = en16931.validar(FACTURAE_UNA)
+        br01 = [i for i in informe.incidencias if i.codigo == "BR-01"]
+        assert br01, "BR-01 tiene que constar, aunque sea para decir que no aplica"
+        assert br01[0].gravedad == NOTA
+        assert "No es un defecto del documento" in br01[0].mensaje
+        assert not [i for i in informe.incidencias if i.gravedad == ERROR]
+
+    def test_la_categoria_de_iva_se_declara_una_vez_por_documento(self):
+        """Y no una por cada tipo de IVA.
+
+        Facturae no tiene categoría UNCL5305 —su `TaxTypeCode` dice qué
+        impuesto es, no de qué categoría—. Es una propiedad de la sintaxis, no
+        de la factura: repetirla por cada entrada del desglose daría la
+        impresión de que hay varios defectos donde solo hay un hueco.
+        """
+        informe = en16931.validar(FACTURAE_UNA)
+        notas = [i for i in informe.incidencias if i.codigo == "IVA-CATEGORIA-SIN-MAPA"]
+        assert len(notas) == 1
+        assert notas[0].gravedad == NOTA
+        assert not [i for i in informe.incidencias if i.codigo == "BR-47"]
+
+    def test_las_reglas_europeas_muerden_de_verdad(self):
+        """Un mapa que solo sabe decir «conforme» no está probado.
+
+        Cada rotura de aquí es un defecto que la norma tiene que ver. Se
+        comprueba una por una y no todas juntas: si se rompieran a la vez, una
+        regla muda pasaría desapercibida detrás de las que sí hablan.
+        """
+        # Las roturas tienen que dejar el XML **bien formado**, o el validador
+        # se queja de la sintaxis y no llega a las reglas. Por eso las líneas
+        # no se borran a medias: se les cambia el nombre al elemento entero, y
+        # así siguen ahí pero ya no son líneas de factura.
+        roturas = {
+            "BR-03": [("<IssueDate>2026-03-02</IssueDate>", "")],
+            "BR-07": [("<CorporateName>Clientes Ejemplo SL</CorporateName>", "")],
+            "BR-16": [("<InvoiceLine>", "<Otra>"), ("</InvoiceLine>", "</Otra>")],
+            # La suma de líneas sí se lee (BT-106 = `TotalGrossAmount`), así
+            # que la aritmética de línea se comprueba entera. Los totales del
+            # documento no: ver el test de abajo.
+            "BR-CO-10": [("<TotalGrossAmount>100.00</TotalGrossAmount>",
+                          "<TotalGrossAmount>555.00</TotalGrossAmount>")],
+        }
+        for codigo, cambios in roturas.items():
+            roto = FACTURAE_UNA
+            for busca, pon in cambios:
+                roto = roto.replace(busca, pon)
+            assert roto != FACTURAE_UNA, f"la rotura de {codigo} no cambió nada"
+            informe = en16931.validar(roto)
+            salieron = {i.codigo for i in informe.incidencias if i.gravedad == ERROR}
+            assert codigo in salieron, f"{codigo} no saltó; salieron {salieron}"
+
+    def test_los_totales_de_facturae_no_son_los_de_la_norma(self):
+        """BT-110 y BT-112 son huecos, y hay que probar **por qué** lo son.
+
+        Facturae carga impuestos que el modelo básico de EN 16931 no modela:
+        su `InvoiceTotal` resta las retenciones, y su `TotalTaxOutputs` suma el
+        recargo de equivalencia. Los importes se llaman igual y miden cosas
+        distintas.
+
+        Medido sobre las 13 Facturae reales que hay a mano: con el mapa directo
+        salían 6 acusadas de incumplir BR-CO-15 y 4 de incumplir BR-CO-14, y
+        **las diez eran correctas**. Una al céntimo: 1.163,52 + 279,24 =
+        1.442,76, menos 58,18 de retención, da los 1.384,58 que escribe.
+
+        Este test existe para que nadie las vuelva a conectar mirando solo que
+        el nombre encaje. Si alguna vez se conectan bien —traduciendo, no
+        igualando— este test es el que hay que reescribir, y su historia es la
+        razón por la que no es tan fácil como parece.
+        """
+        con_retencion = FACTURAE_UNA.replace(
+            "<TotalTaxesWithheld>0.00</TotalTaxesWithheld>",
+            "<TotalTaxesWithheld>15.00</TotalTaxesWithheld>",
+        )
+        assert con_retencion != FACTURAE_UNA
+        informe = en16931.validar(con_retencion)
+        errores = {i.codigo for i in informe.incidencias if i.gravedad == ERROR}
+        assert "BR-CO-15" not in errores, informe.detalle()
+        assert "BR-CO-14" not in errores, informe.detalle()
+        # Y consta que no se comprobó, que es la otra mitad del trato.
+        notas = {i.codigo for i in informe.incidencias if i.gravedad == NOTA}
+        assert "BR-14" in notas
+
+    def test_la_unidad_de_medida_es_la_divergencia_que_justifica_esto(self):
+        """BR-23 sobre Facturae: opcional en el formato, obligatoria en la norma.
+
+        Es el caso limpio de lo que este binding aporta y el XSD no. `UnitOfMeasure`
+        lleva `minOccurs="0"` en el esquema oficial, así que una factura sin
+        unidad de medida **pasa el XSD, pasa las reglas de `facturae.py`, y no
+        cumple EN 16931**, que es lo que el artículo 7.1 le exige desde el
+        01-10-2026.
+
+        Aquí no hay hueco de sintaxis que declarar: el campo existe y se lee.
+        Que falte es un defecto del documento, así que BR-23 acusa y hace bien.
+        """
+        sin_unidad = FACTURAE_UNA.replace(
+            "<UnitOfMeasure>01</UnitOfMeasure>", ""
+        )
+        assert sin_unidad != FACTURAE_UNA
+        informe = en16931.validar(sin_unidad)
+        assert "BR-23" in {
+            i.codigo for i in informe.incidencias if i.gravedad == ERROR
+        }, informe.detalle()
+
+    def test_un_hueco_de_linea_tampoco_acusa(self):
+        """La misma regla que en cabecera, un piso más abajo.
+
+        Hoy las cuatro sintaxis saben leer las tres, así que esta rama no la
+        ejerce ningún fichero real. Se prueba con un mapa fabricado a mano
+        porque el día que entre una sintaxis con el hueco, lo que no puede
+        pasar es que acuse: sería el mismo fallo de BR-01 con otro número.
+        """
+        mudo = replace(en16931.SINTAXIS_FACTURAE, linea_unidad=en16931.SIN_MAPA)
+        raiz = etree.fromstring(FACTURAE_UNA.encode())
+        factura_uno = raiz.xpath("./Invoices/Invoice")[0]
+        salieron = en16931._reglas_campos_de_linea(factura_uno, mudo)
+        br23 = [i for i in salieron if i.codigo == "BR-23"]
+        assert len(br23) == 1
+        assert br23[0].gravedad == NOTA
+        assert "No es un defecto del documento" in br23[0].mensaje
+
+    def test_con_varias_facturas_el_informe_dice_de_cual(self):
+        """Un fichero Facturae es un lote, y sin decir cuál no se arregla nada.
+
+        Las reglas se evalúan una vez por factura. Sin la etiqueta, un informe
+        de un lote de cinco diría cinco veces «falta la moneda» sin decir a
+        cuál de las cinco le falta.
+        """
+        informe = en16931.validar(FACTURAE_DOS)
+        campos = [i.campo or "" for i in informe.incidencias]
+        assert any("Factura FE0001 ·" in c for c in campos), campos
+        assert any("Factura FE0002 ·" in c for c in campos), campos
+
+    def test_con_una_sola_factura_no_se_repite_su_nombre(self):
+        """Sobra decir «Factura FE0001» en cada queja de un fichero con una."""
+        informe = en16931.validar(FACTURAE_UNA)
+        assert not [i for i in informe.incidencias if "Factura FE" in (i.campo or "")]
+
+    def test_un_lote_sin_facturas_no_dice_nada(self):
+        """Sin `<Invoices>` no hay nada que validar, y callarse es lo correcto.
+
+        Antes este caso probaba otra cosa —que Facturae se lo quedaba entero su
+        propio módulo— y pasaba por el mismo camino. Ahora pasa por otro y hay
+        que dejarlo dicho, porque el resultado es el mismo y eso esconde de
+        cuál de los dos motivos viene.
         """
         xml = """<?xml version="1.0"?>
 <fe:Facturae xmlns:fe="http://www.facturae.es/Facturae/2009/v3.2/Facturae">
   <FileHeader><SchemaVersion>3.2</SchemaVersion></FileHeader>
 </fe:Facturae>"""
         assert en16931.validar(xml).incidencias == []
+
+
+class TestOtrosFormatos:
 
     def test_un_edifact_ilegible_si_lo_dice(self):
         """Lo que de verdad no se puede leer se sigue diciendo.

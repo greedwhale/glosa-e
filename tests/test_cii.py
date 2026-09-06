@@ -12,7 +12,7 @@ from lxml import etree
 
 from validador import en16931, sintaxis
 from validador.en16931 import AVISO, ERROR
-from validador.formato import CII, EDIFACT, UBL
+from validador.formato import CII, EDIFACT, FACTURAE, UBL
 
 # Los ejemplos EDIFACT de la Comisión, si están. No se versionan —son de
 # terceros—, así que las pruebas que los usan se saltan cuando no están.
@@ -100,10 +100,34 @@ def cii(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
         </ram:ApplicableTradeTax>"""
     )
 
+    # BT-146, BT-129 y BT-130: el precio unitario cuelga del acuerdo de línea y
+    # la cantidad de la entrega, que en CII son dos bloques distintos. La
+    # unidad va en un atributo, no en un elemento.
+    precio_xml = (
+        ""
+        if "precio_linea" in omitir
+        else """<ram:SpecifiedLineTradeAgreement>
+        <ram:NetPriceProductTradePrice><ram:ChargeAmount>100.00</ram:ChargeAmount>
+        </ram:NetPriceProductTradePrice>
+      </ram:SpecifiedLineTradeAgreement>"""
+    )
+
+    def entrega_xml():
+        if "cantidad_linea" in omitir:
+            return ""
+        unidad = "" if "unidad_linea" in omitir else ' unitCode="H87"'
+        return (
+            "<ram:SpecifiedLineTradeDelivery>"
+            f"<ram:BilledQuantity{unidad}>1</ram:BilledQuantity>"
+            "</ram:SpecifiedLineTradeDelivery>"
+        )
+
     linea_xml = "".join(
         f"""<ram:IncludedSupplyChainTradeLineItem>
       <ram:AssociatedDocumentLineDocument><ram:LineID>{ident}</ram:LineID>
       </ram:AssociatedDocumentLineDocument>
+      {precio_xml}
+      {entrega_xml()}
       <ram:SpecifiedLineTradeSettlement>
         {iva_de_linea}
         <ram:SpecifiedTradeSettlementLineMonetarySummation>
@@ -191,11 +215,29 @@ def ubl(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
         </cac:ClassifiedTaxCategory></cac:Item>"""
     )
 
+    # Los mismos BT-129, BT-130 y BT-146 que en el constructor de CII, para que
+    # las dos sintaxis se comparen sobre facturas igual de completas. Es el
+    # sentido de esta clase: si una lleva precio unitario y la otra no, lo que
+    # se compara ya no son las reglas sino los ficheros.
+    cantidad_xml = (
+        ""
+        if "cantidad_linea" in omitir
+        else '<cbc:InvoicedQuantity unitCode="EA">1</cbc:InvoicedQuantity>'
+    )
+    precio_xml = (
+        ""
+        if "precio_linea" in omitir
+        else f'<cac:Price><cbc:PriceAmount currencyID="{moneda}">100.00'
+        "</cbc:PriceAmount></cac:Price>"
+    )
+
     linea_xml = "".join(
         f"""<cac:InvoiceLine><cbc:ID>{ident}</cbc:ID>
+        {cantidad_xml}
         {'' if 'importe_linea' in omitir else
          f'<cbc:LineExtensionAmount currencyID="{moneda}">{importe}</cbc:LineExtensionAmount>'}
         {iva_de_linea}
+        {precio_xml}
         </cac:InvoiceLine>"""
         for ident, importe in lineas
     )
@@ -496,7 +538,17 @@ class TestElMapaEsSoloUnMapa:
                     continue
                 # «self::» es tan relativa como «./», y hace falta en EDIFACT
                 # para filtrar por el propio nodo antes de subir a buscar.
-                assert valor.startswith(("./", "self::")), (
+                #
+                # «../» también lo es, y hace falta en Facturae: ahí las rutas
+                # se evalúan sobre cada `<Invoice>` porque un fichero es un
+                # lote, y el vendedor y el comprador están fuera de la factura,
+                # colgando de la raíz y compartidos por todas.
+                #
+                # «name(» no es una ruta sino una función, y es la única forma
+                # de leer un dato que Facturae escribe en el nombre del
+                # elemento y no en su contenido: un ajuste general es un
+                # descuento o un cargo según se llame `Discount` o `Charge`.
+                assert valor.startswith(("./", "../", "self::", "name(")), (
                     f"{mapa.nombre}.{nombre} = {valor}"
                 )
                 # Los ejes de XPath llevan dos puntos dobles («self::») y no
@@ -512,7 +564,11 @@ class TestElMapaEsSoloUnMapa:
                 assert not sobran, f"{mapa.nombre}.{nombre} usa {sobran}"
 
     def test_las_familias_registradas_son_las_que_se_validan(self):
-        assert set(en16931.SINTAXIS) == {UBL, CII, EDIFACT}
+        # Facturae entró el 06-09-2026, cuando el artículo 7.1 del RD 238/2026
+        # pasó a exigirle el modelo semántico EN 16931 como a las otras tres.
+        # Su mapa no lo publica CEN —no hay `CEN/TS 16931-3-x` para Facturae—,
+        # así que está escrito aquí con cada hueco declarado.
+        assert set(en16931.SINTAXIS) == {UBL, CII, EDIFACT, FACTURAE}
 
     def test_lo_que_no_se_sabe_leer_no_lee_nada(self):
         """`SIN_MAPA` tiene que ser de verdad una ruta que no encuentra nada.

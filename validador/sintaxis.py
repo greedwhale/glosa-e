@@ -68,6 +68,13 @@ class Sintaxis:
     lineas: str
     linea_id: str  # relativa a una línea
     linea_importe: str  # relativa a una línea
+    # Sin valor por defecto a propósito: una sintaxis nueva no puede olvidarse
+    # de contestar a estas tres. Si se les pusiera `SIN_MAPA` por defecto, el
+    # olvido saldría como un hueco declarado, que es justo la mentira que el
+    # centinela existe para evitar.
+    linea_cantidad: str  # relativa a una línea: BT-129
+    linea_unidad: str  # relativa a una línea: BT-130
+    linea_precio: str  # relativa a una línea: BT-146
     linea_categoria: str  # relativa a una línea: BT-151
     linea_tipo: str  # relativa a una línea: BT-152
 
@@ -146,6 +153,14 @@ SINTAXIS_UBL = Sintaxis(
     lineas=_LINEAS_UBL,
     linea_id="./cbc:ID",
     linea_importe="./cbc:LineExtensionAmount",
+    # La cantidad se llama distinto en un abono, como las líneas y el tipo de
+    # documento. La unión coge la que haya; con una sola, BR-22 y BR-23
+    # saldrían inventadas en todos los abonos correctos.
+    linea_cantidad="./cbc:InvoicedQuantity|./cbc:CreditedQuantity",
+    # BT-130 va en un **atributo**, no en un elemento. Es el único campo del
+    # mapa que lo hace, y por eso la ruta acaba en `@`.
+    linea_unidad="./cbc:InvoicedQuantity/@unitCode|./cbc:CreditedQuantity/@unitCode",
+    linea_precio="./cac:Price/cbc:PriceAmount",
     linea_categoria="./cac:Item/cac:ClassifiedTaxCategory/cbc:ID",
     linea_tipo="./cac:Item/cac:ClassifiedTaxCategory/cbc:Percent",
     desglose="./cac:TaxTotal/cac:TaxSubtotal",
@@ -208,6 +223,14 @@ SINTAXIS_CII = Sintaxis(
     linea_importe=(
         "./ram:SpecifiedLineTradeSettlement"
         "/ram:SpecifiedTradeSettlementLineMonetarySummation/ram:LineTotalAmount"
+    ),
+    # En CII no hay dos nombres para factura y abono: la cantidad es la misma
+    # `BilledQuantity` en los dos, y lo que cambia es el signo.
+    linea_cantidad="./ram:SpecifiedLineTradeDelivery/ram:BilledQuantity",
+    linea_unidad="./ram:SpecifiedLineTradeDelivery/ram:BilledQuantity/@unitCode",
+    linea_precio=(
+        "./ram:SpecifiedLineTradeAgreement"
+        "/ram:NetPriceProductTradePrice/ram:ChargeAmount"
     ),
     linea_categoria=(
         "./ram:SpecifiedLineTradeSettlement/ram:ApplicableTradeTax"
@@ -311,6 +334,16 @@ SINTAXIS_EDIFACT = Sintaxis(
     lineas=".//*[S_LIN]",
     linea_id="./S_LIN/D_1082",
     linea_importe="./*/S_MOA/C_C516[D_5025='203']/D_5004",
+    # Cualificador 47 = «cantidad facturada». El esquematrón oficial lo pide
+    # así en BR-22 y BR-23, y en EDIFACT los dos datos —la cifra y la unidad—
+    # viajan en el mismo compuesto: D_6060 es cuánto y D_6411 en qué unidad.
+    linea_cantidad="./S_QTY/C_C186[D_6063='47']/D_6060",
+    linea_unidad="./S_QTY/C_C186[D_6063='47']/D_6411",
+    # El binding oficial dice `G_SG30/S_PRI/...`. Aquí se pide como hijo de
+    # cualquier grupo de la línea, igual que se hace con el importe: en las
+    # facturas reales el precio no siempre cuelga del grupo que la norma
+    # nombra, y con la ruta estricta BR-26 saldría en todas.
+    linea_precio="./*/S_PRI/C_C509[D_5125='AAA']/D_5118",
     # El IVA propio de la línea es el del grupo que cuelga directamente de
     # ella. El de un descuento de línea cuelga del descuento, un piso más
     # abajo, y por eso no entra aquí.
@@ -374,11 +407,249 @@ SINTAXIS_EDIFACT = Sintaxis(
 )
 
 
+# --- Facturae ---------------------------------------------------------------
+#
+# Este mapa no existe en ninguna norma. CEN publicó `CEN/TS 16931-3-2` para
+# UBL, `-3-3` para CII y `-3-4` para EDIFACT, y **para Facturae no publicó
+# nada**: no hay parte que diga qué elemento de Facturae es qué término de
+# negocio. Hasta marzo de 2026 eso no importaba, porque Facturae era el formato
+# nacional y EN 16931 no se le exigía. El artículo 7.1 del RD 238/2026 lo
+# cambió: desde el 1 de octubre de 2026 la factura debe ajustarse al modelo
+# semántico EN 16931 **bajo cualquiera de las cuatro sintaxis admitidas**, y
+# Facturae es una de ellas.
+#
+# Así que el mapa hay que escribirlo, y escribirlo es tomar decisiones que
+# nadie ha refrendado. La regla de esta casa es que una decisión tomada por
+# quien lee solo vale si se declara, y por eso cada hueco de aquí abajo lleva
+# escrito **por qué** está vacío. Lo que no se puede leer no se inventa: se
+# marca `SIN_MAPA` y la regla correspondiente calla o avisa, pero no acusa.
+#
+# Un detalle de forma que ahorra mucho: **solo la raíz lleva espacio de
+# nombres**. Medido sobre `ejemplos/fe-0001.xml`, de 116 elementos hay 27 con
+# espacio de nombres —los 27 son la firma XAdES— y 89 sin él. Los esquemas de
+# Facturae dejan los hijos sin cualificar, así que ninguna ruta de este mapa
+# necesita prefijo. Y como la única diferencia entre 3.0, 3.1, 3.2, 3.2.1 y
+# 3.2.2 es la URI de esa raíz, que aquí no se nombra nunca, **el mismo mapa
+# sirve para las cinco versiones**.
+#
+# Las rutas se evalúan sobre un `<Invoice>`, no sobre la raíz: un fichero
+# Facturae es un lote y puede traer varias. Por eso las partes, que están
+# fuera de la factura y son comunes al lote, se piden subiendo dos pisos.
+_VENDEDOR_FE = "../../Parties/SellerParty"
+_COMPRADOR_FE = "../../Parties/BuyerParty"
+
+
+def _nombre_fe(parte: str) -> str:
+    """El nombre de una parte, sea persona jurídica o física.
+
+    Facturae las escribe en dos sitios distintos y excluyentes:
+    `LegalEntity/CorporateName` para una sociedad, `Individual/Name` para una
+    persona. EN 16931 tiene un solo BT-27, así que la unión coge el que haya.
+    Del apellido se prescinde a propósito: BT-27 es un nombre, no un nombre
+    estructurado, y pegar `Name` y `FirstSurname` aquí sería inventar formato.
+    """
+    return f"{parte}/LegalEntity/CorporateName|{parte}/Individual/Name"
+
+
+def _direccion_fe(parte: str) -> str:
+    """La calle de una parte, esté en España o fuera.
+
+    `AddressInSpain` y `OverseasAddress` son dos tipos distintos del esquema y
+    solo puede haber uno. Coinciden en `Address` y en `CountryCode`, que es lo
+    que se lee aquí, y difieren en el resto —la de fuera junta código postal y
+    población en `PostCodeAndTown`—, que no hace falta para BR-08.
+    """
+    return f"{parte}/*/AddressInSpain/Address|{parte}/*/OverseasAddress/Address"
+
+
+def _pais_fe(parte: str) -> str:
+    return (
+        f"{parte}/*/AddressInSpain/CountryCode"
+        f"|{parte}/*/OverseasAddress/CountryCode"
+    )
+
+
+SINTAXIS_FACTURAE = Sintaxis(
+    nombre="Facturae",
+    # Vacío a propósito: los hijos no van cualificados. Ver arriba.
+    espacios={},
+    nombre_perfil="(ninguno)",
+    # BT-24, y es el hueco que define este mapa entero.
+    #
+    # EN 16931 exige que la factura declare a qué especificación se ajusta.
+    # **Facturae no tiene ese campo.** Lo único parecido es `SchemaVersion`,
+    # que dice «3.2.2», y eso no es lo mismo: declara la versión del esquema de
+    # Facturae, no conformidad con una norma europea. Buscado en el esquema
+    # oficial: de «Version», «Specification», «Guideline», «Customization» y
+    # «Profile», lo único que existe es `SchemaVersion`.
+    #
+    # La consecuencia es incómoda y hay que decirla entera: aplicando BR-01 en
+    # estricto, **todas las facturas de España suspenden**, hoy y siempre, y no
+    # por estar mal hechas sino porque el formato no tiene dónde escribirlo.
+    # Un validador que devuelva eso no informa de nada. Por eso aquí BR-01 sale
+    # como NOTA y no como error, y la nota explica que el hueco es del formato.
+    # Esa decisión se toma en `en16931.py` y se declara en el informe.
+    perfil=SIN_MAPA,
+    numero="./InvoiceHeader/InvoiceNumber",
+    fecha="./InvoiceIssueData/IssueDate",
+    # BT-3. Ojo: **no es la misma lista de códigos**. EN 16931 usa UNCL1001
+    # —380 factura, 381 abono—, y Facturae usa `InvoiceDocumentType` con FC
+    # (completa), FA (simplificada) y AF (autofactura), más `InvoiceClass` con
+    # OO, OR, OC, CO, CR y CC para original, rectificativa y copia.
+    #
+    # Se lee el elemento tal cual y **no se traduce aquí**: este fichero es
+    # solo rutas. Que «FC» no sea «380» es cierto y hay que decirlo, pero
+    # decirlo es trabajo de una regla, no de un mapa. Mientras tanto BR-04
+    # comprueba lo que puede comprobar: que el documento diga de qué tipo es.
+    tipo="./InvoiceHeader/InvoiceDocumentType",
+    moneda="./InvoiceIssueData/InvoiceCurrencyCode",
+    vendedor_nombre=_nombre_fe(_VENDEDOR_FE),
+    vendedor_direccion=_direccion_fe(_VENDEDOR_FE),
+    vendedor_pais=_pais_fe(_VENDEDOR_FE),
+    comprador_nombre=_nombre_fe(_COMPRADOR_FE),
+    comprador_direccion=_direccion_fe(_COMPRADOR_FE),
+    comprador_pais=_pais_fe(_COMPRADOR_FE),
+    lineas="./Items/InvoiceLine",
+    # BT-126, el identificador de línea, **no existe en Facturae**. El esquema
+    # da `SequenceNumber`, pero es opcional y significa otra cosa —el orden de
+    # la línea en un pedido—, así que usarlo como identificador sería ponerle
+    # un nombre que nadie le ha dado. Sin mapa: la regla que lo pide se calla.
+    linea_id=SIN_MAPA,
+    # BT-131 es el importe neto de la línea, y en Facturae es `GrossAmount`
+    # pese al nombre: `TotalCost` es cantidad por precio **antes** de los
+    # descuentos de línea, y `GrossAmount` es lo que queda después. El que
+    # cuadra con la suma de líneas es el segundo.
+    linea_importe="./GrossAmount",
+    # BT-129 y BT-146 los tiene Facturae, y obligatorios en su propio esquema.
+    linea_cantidad="./Quantity",
+    linea_precio="./UnitPriceWithoutTax",
+    # BT-130, y **aquí está la divergencia que hace útil todo este binding**.
+    #
+    # `UnitOfMeasure` existe en Facturae pero el esquema lo declara opcional
+    # (`minOccurs="0"`), y EN 16931 lo exige en toda línea por BR-23. O sea:
+    # una factura puede pasar el XSD oficial, pasar las reglas del propio
+    # formato, y aun así no cumplir la norma que el artículo 7.1 le exige
+    # desde el 01-10-2026.
+    #
+    # No lleva `SIN_MAPA` justamente por eso: el campo existe y se puede leer.
+    # Que falte es un defecto del documento y no un hueco de la sintaxis, así
+    # que BR-23 acusa, y acusa con razón.
+    linea_unidad="./UnitOfMeasure",
+    # BT-151, la categoría de IVA de la línea, tampoco existe. Ver la nota de
+    # `desglose_categoria`, que es el mismo hueco un piso más arriba.
+    linea_categoria=SIN_MAPA,
+    linea_tipo="./TaxesOutputs/Tax/TaxRate",
+    desglose="./TaxesOutputs/Tax",
+    desglose_base="./TaxableBase/TotalAmount",
+    desglose_cuota="./TaxAmount/TotalAmount",
+    # BT-118, y es el segundo hueco grande.
+    #
+    # EN 16931 pide una categoría de IVA de la lista UNCL5305: S (tipo
+    # normal), Z (tipo cero), E (exento), AE (inversión del sujeto pasivo), K
+    # (entrega intracomunitaria), G (exportación), O (no sujeto), L y M
+    # (Canarias, Ceuta y Melilla). Facturae **no tiene ese concepto**: su
+    # `TaxTypeCode` dice qué impuesto es —01 IVA, 02 IPSI, 03 IGIC…—, que es
+    # una pregunta distinta.
+    #
+    # La categoría se podría deducir del tipo y de otros campos, y esa
+    # deducción es justo el trabajo que vale dinero, pero deducir no es leer.
+    # Mientras no esté escrita y contrastada, aquí no hay ruta: las reglas de
+    # IVA que dependen de la categoría se callan en vez de inventarla.
+    desglose_categoria=SIN_MAPA,
+    desglose_tipo="./TaxRate",
+    # BT-120 y BT-121, el motivo de la exención y su código. Facturae no los
+    # lleva en el bloque de impuestos. Sin categoría (arriba) tampoco habría a
+    # qué atarlos, así que el hueco es coherente con el anterior.
+    desglose_motivo=SIN_MAPA,
+    desglose_motivo_codigo=SIN_MAPA,
+    # Facturae separa en dos contenedores lo que UBL y CII meten en uno con un
+    # booleano: `GeneralDiscounts/Discount` resta y `GeneralSurcharges/Charge`
+    # suma. La unión coge los dos y `cargo_es_cargo` los distingue por el
+    # nombre del propio elemento, que es lo único que los diferencia.
+    cargos=(
+        "./InvoiceTotals/GeneralDiscounts/Discount"
+        "|./InvoiceTotals/GeneralSurcharges/Charge"
+    ),
+    cargo_es_cargo="name(.)",
+    cargo_importe="./DiscountAmount|./ChargeAmount",
+    # Un descuento o cargo general de Facturae no lleva IVA propio: se aplica
+    # antes del desglose y afecta a la base entera.
+    cargo_categoria=SIN_MAPA,
+    cargo_tipo=SIN_MAPA,
+    suma_lineas="./InvoiceTotals/TotalGrossAmount",
+    base="./InvoiceTotals/TotalGrossAmountBeforeTaxes",
+    # BT-112, y aquí `InvoiceTotal` **no siempre es** BT-112.
+    #
+    # EN 16931 dice que el total con impuestos es la base más el IVA, y ya.
+    # Facturae, además, **resta las retenciones**: su `InvoiceTotal` es
+    # `TotalGrossAmountBeforeTaxes + TotalTaxOutputs - TotalTaxesWithheld`. El
+    # IRPF de una factura profesional no está en el modelo básico de EN 16931,
+    # así que los dos importes se llaman igual y valen cosas distintas.
+    #
+    # Medido sobre las 13 Facturae reales que hay a mano: las 7 sin retención
+    # cuadran, y las 6 con retención no. Una de ellas, al céntimo:
+    # 1.163,52 + 279,24 = 1.442,76, menos 58,18 de retención, da los 1.384,58
+    # que escribe el fichero. **Las seis son correctas** y con el mapa directo
+    # salían las seis acusadas de incumplir BR-CO-15.
+    #
+    # El primer intento fue filtrar la ruta para que solo leyera `InvoiceTotal`
+    # cuando la retención es cero. Quitaba las seis acusaciones de BR-CO-15 y
+    # ponía seis de BR-14 en su sitio: la regla de campo obligatorio veía que
+    # la ruta no encontraba nada y decía que **faltaba** el total. Estaba, y
+    # con el importe correcto; lo que pasa es que no es el importe que la
+    # norma pide.
+    #
+    # Así que el hueco es hueco y se declara como tal: **Facturae no tiene
+    # ningún elemento que sea BT-112**. Tiene uno que coincide con BT-112
+    # cuando no hay retención, que es otra cosa.
+    #
+    # No se pierde cobertura por esto. La cuenta que Facturae sí garantiza
+    # —`InvoiceTotal = base + IVA - retenciones`, que es la fórmula escrita en
+    # las anotaciones de su propio esquema— ya la comprueba `facturae.py` con
+    # el código `FE-TOTAL`. Repetirla aquí en una versión peor no añadiría
+    # nada; decir que no se ha comprobado, sí.
+    con_impuestos=SIN_MAPA,
+    a_pagar="./InvoiceTotals/TotalExecutableAmount",
+    descuentos_total="./InvoiceTotals/TotalGeneralDiscounts",
+    cargos_total="./InvoiceTotals/TotalGeneralSurcharges",
+    anticipos="./InvoiceTotals/TotalPaymentsOnAccount",
+    # BT-114, el redondeo, no tiene equivalente. Igual que en EDIFACT: no
+    # leerlo equivale a que no lo haya, y eso es cierto en Facturae siempre.
+    redondeo=SIN_MAPA,
+    # BT-110, y es el mismo caso que BT-112 una vez más.
+    #
+    # `TotalTaxOutputs` suma **todo lo repercutido**, y en España eso incluye
+    # el recargo de equivalencia, que no es IVA sino un impuesto propio.
+    # BT-110 de EN 16931 es la suma de las cuotas de IVA por categoría (BT-117)
+    # y nada más. Medido: en una de las muestras el total repercutido dice
+    # 279,24 y las cuotas de IVA que se leen suman 244,34; los 34,90 que faltan
+    # son un recargo. La factura es correcta y BR-CO-14 la acusaba.
+    #
+    # Se podría leer el recargo y sumarlo, pero entonces lo que se compara ya
+    # no es BT-117 y la regla diría comprobar una cosa mientras comprueba otra.
+    # Igual que con BT-112: la aritmética que Facturae sí garantiza la
+    # comprueba `facturae.py`, que conoce el recargo y lo trata como lo que es.
+    #
+    # Es el mismo patrón tres veces, y merece decirse entero: **los totales de
+    # Facturae son superconjuntos de los de EN 16931**, porque el formato
+    # nacional carga impuestos que el modelo básico europeo no modela. No es
+    # que Facturae esté mal escrito ni que la norma se quede corta: es que
+    # miden cosas distintas y llamarlas igual sería el error.
+    impuestos=SIN_MAPA,
+    # `cargo_es_cargo` devuelve el nombre del elemento, no un booleano. En
+    # minúscula porque quien compara pasa la marca por `.lower()` antes, igual
+    # que la «c» de EDIFACT: con «Charge» no casaba ninguno y los cargos se
+    # contaban como descuentos.
+    marcas_de_cargo=("charge",),
+)
+
+
 # Nombres de familia sin importar `formato`, que no hace falta aquí.
 SINTAXIS: dict[str, Sintaxis] = {
     "UBL": SINTAXIS_UBL,
     "CII": SINTAXIS_CII,
     "EDIFACT": SINTAXIS_EDIFACT,
+    "Facturae": SINTAXIS_FACTURAE,
 }
 
 
@@ -387,6 +658,18 @@ SINTAXIS: dict[str, Sintaxis] = {
 
 def texto(nodo, ruta: str, sintaxis: Sintaxis) -> str | None:
     encontrados = nodo.xpath(ruta, namespaces=sintaxis.espacios)
+    # Una ruta que llama a una función de XPath devuelve **el valor suelto**,
+    # no una lista de nodos. Hasta Facturae ninguna lo hacía y esta rama no
+    # existía, así que `encontrados[0]` cogía la primera letra de la cadena:
+    # `name(.)` daba «D» en vez de «Discount» y «C» en vez de «Charge», con lo
+    # cual ningún cargo casaba con su marca y todos se restaban como
+    # descuentos. Dos facturas correctas salían incumpliendo BR-CO-11.
+    #
+    # No falla ruidosamente, que es lo peor que tiene: devuelve una letra, que
+    # es un texto perfectamente válido, y el error aparece tres reglas después
+    # convertido en una acusación de aritmética.
+    if isinstance(encontrados, str):
+        return encontrados.strip() or None
     if not encontrados:
         return None
     valor = encontrados[0]

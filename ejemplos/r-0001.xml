@@ -40,6 +40,10 @@
   </cac:LegalMonetaryTotal>
   <cac:CreditNoteLine>
     <cbc:ID>1</cbc:ID>
+    <!-- En un abono la cantidad se llama CreditedQuantity, no InvoicedQuantity:
+         es el mismo BT-129 con otro nombre, como pasa con las lineas y con el
+         codigo de tipo. -->
+    <cbc:CreditedQuantity unitCode="EA">1</cbc:CreditedQuantity>
     <cbc:LineExtensionAmount currencyID="EUR">30.00</cbc:LineExtensionAmount>
     <cac:Item>
       <cbc:Name>Devolucion de pieza defectuosa</cbc:Name>
@@ -48,5 +52,6 @@
         <cbc:Percent>21</cbc:Percent>        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
       </cac:ClassifiedTaxCategory>
     </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="EUR">30.00</cbc:PriceAmount></cac:Price>
   </cac:CreditNoteLine>
 </CreditNote>

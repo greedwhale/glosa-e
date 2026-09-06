@@ -26,8 +26,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from validador.incidencias import AVISO, ERROR, Incidencia
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 from validador.sintaxis import (
+    SIN_MAPA,
     Sintaxis,
     cuadra,
     fmt,
@@ -375,7 +376,7 @@ def _regla_cuota_por_grupo(grupo: Grupo) -> list[Incidencia]:
     ]
 
 
-def _reglas_campos_del_grupo(grupo: Grupo) -> list[Incidencia]:
+def _reglas_campos_del_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]:
     """BR-45 a BR-48: los cuatro datos que toda entrada del desglose debe traer.
 
     Sin esto, una entrada a la que le faltaba la base y la cuota era invisible:
@@ -409,7 +410,14 @@ def _reglas_campos_del_grupo(grupo: Grupo) -> list[Incidencia]:
             )
         )
 
-    if grupo.categoria is None:
+    if grupo.categoria is None and sintaxis.desglose_categoria != SIN_MAPA:
+        # La segunda mitad de la condición separa dos cosas que se parecen y no
+        # son iguales: que la factura no haya escrito la categoría, que es un
+        # defecto suyo, y que la sintaxis no tenga dónde escribirla, que no lo
+        # es. Facturae es el segundo caso —su `TaxTypeCode` dice qué impuesto
+        # es, no de qué categoría UNCL5305— y sin esta comprobación BR-47
+        # salía como error en todas las facturas de España. De ese hueco se
+        # informa una vez, arriba, y como NOTA.
         incidencias.append(
             Incidencia(
                 "BR-47",
@@ -679,8 +687,15 @@ def _regla_tipo_de_los_conceptos(apuntes: list[Apunte]) -> list[Incidencia]:
     return incidencias
 
 
-def _regla_lineas_con_categoria(apuntes: list[Apunte]) -> list[Incidencia]:
+def _regla_lineas_con_categoria(
+    apuntes: list[Apunte], sintaxis: Sintaxis
+) -> list[Incidencia]:
     """De la casa: sin categoría en la línea no hay desglose que comprobar."""
+    if sintaxis.linea_categoria == SIN_MAPA:
+        # Mismo motivo que en BR-47: si la sintaxis no tiene el campo, la
+        # línea no está incompleta. Avisar aquí sería repetir con otro código
+        # lo que la nota del desglose ya dice una sola vez.
+        return []
     huerfanos = [a.descripcion for a in apuntes if not a.categoria]
     if not huerfanos:
         return []
@@ -760,7 +775,7 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
     a_ciegas = a_ciegas or _ajustes_no_cuadran(raiz, sintaxis, apuntes)
 
     for grupo in grupos:
-        incidencias.extend(_reglas_campos_del_grupo(grupo))
+        incidencias.extend(_reglas_campos_del_grupo(grupo, sintaxis))
         incidencias.extend(_regla_forma_del_grupo(grupo))
         if not a_ciegas:
             incidencias.extend(_regla_base_por_grupo(grupo, apuntes))
@@ -775,5 +790,22 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
         # `muestras/` —el 70% de todo lo que decía el programa— y la señal útil
         # quedaba enterrada debajo.
         incidencias.extend(_regla_tipos_espanoles(grupos))
-    incidencias.extend(_regla_lineas_con_categoria(apuntes))
+    if sintaxis.desglose_categoria == SIN_MAPA:
+        # Se declara una vez por documento, no una por entrada del desglose:
+        # es una propiedad de la sintaxis, no de la factura, y repetirla por
+        # cada tipo de IVA daría la impresión de que hay varios defectos.
+        incidencias.append(
+            Incidencia(
+                "IVA-CATEGORIA-SIN-MAPA",
+                NOTA,
+                f"La sintaxis {sintaxis.nombre} no tiene categoría de IVA en "
+                "el sentido de EN 16931 —la lista UNCL5305: general, exento, "
+                "inversión del sujeto pasivo, no sujeto…—, así que las reglas "
+                "que dependen de ella no se han podido comprobar. El resto "
+                "del IVA sí: las bases, las cuotas y que el desglose cuadre.",
+                campo="Categoría de IVA",
+                encontrado="(sin correspondencia en esta sintaxis)",
+            )
+        )
+    incidencias.extend(_regla_lineas_con_categoria(apuntes, sintaxis))
     return incidencias

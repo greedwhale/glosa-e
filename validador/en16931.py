@@ -23,18 +23,21 @@ factura correcta se rechazaría por un céntimo fantasma.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 from lxml import etree
 
 from validador import edifact, iva
 from validador.formato import FACTURAE, detectar, parser
-from validador.incidencias import AVISO, ERROR, Incidencia, Informe
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia, Informe
 from validador.sintaxis import (
     NS_CII,
     NS_UBL,
+    SIN_MAPA,
     SINTAXIS,
     SINTAXIS_CII,
+    SINTAXIS_FACTURAE,
     SINTAXIS_UBL,
     TOLERANCIA,
     Sintaxis,
@@ -50,11 +53,14 @@ __all__ = [
     "ERROR",
     "Incidencia",
     "Informe",
+    "NOTA",
     "NS",
     "NS_CII",
     "NS_UBL",
+    "SIN_MAPA",
     "SINTAXIS",
     "SINTAXIS_CII",
+    "SINTAXIS_FACTURAE",
     "SINTAXIS_UBL",
     "Sintaxis",
     "TOLERANCIA",
@@ -213,6 +219,33 @@ def _reglas_obligatorios(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     incidencias = []
     for codigo, atributo, campo, explicacion, contenedor, cuelga_de in _OBLIGATORIOS:
         ruta = getattr(sintaxis, atributo)
+        if ruta == SIN_MAPA:
+            # Un término sin correspondencia en la sintaxis **no es un campo
+            # que falte en la factura**: es un campo que el formato no tiene
+            # dónde escribir. La diferencia importa, porque un ERROR aquí
+            # acusa a quien emitió el documento de algo que no podía hacer.
+            #
+            # Lo destapó Facturae, que no tiene equivalente de BT-24: con esta
+            # rama sin escribir, BR-01 salía como «(falta)» en todas las
+            # facturas de España, siempre, hicieran lo que hicieran. EDIFACT ya
+            # traía dos huecos —BT-114 y BT-121— pero ninguno cae en esta
+            # tabla, así que nunca llegó a verse.
+            #
+            # Sale NOTA y no AVISO a propósito: NOTA es la gravedad que existe
+            # para decir qué se aceptó y con qué base, y esto es exactamente
+            # eso. No hay nada que arreglar en el documento.
+            incidencias.append(
+                Incidencia(
+                    codigo,
+                    NOTA,
+                    f"{explicacion} La sintaxis {sintaxis.nombre} no tiene "
+                    "ningún elemento con ese significado, así que no se ha "
+                    "podido comprobar. No es un defecto del documento.",
+                    campo=campo,
+                    encontrado="(sin correspondencia en esta sintaxis)",
+                )
+            )
+            continue
         if cuelga_de is not None and not raiz.xpath(
             getattr(sintaxis, cuelga_de), namespaces=sintaxis.espacios
         ):
@@ -234,6 +267,95 @@ def _reglas_obligatorios(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                     f"{explicacion} El elemento existe pero está vacío.",
                     campo=campo,
                     encontrado="(vacío)",
+                )
+            )
+    return incidencias
+
+
+# (código, campo de `Sintaxis`, qué es, por qué hace falta)
+#
+# Las tres reglas de campo obligatorio de línea que faltaban. BR-24 —el importe
+# neto— vive aparte porque además alimenta el cuadre de BR-CO-10; estas tres
+# solo miran que el dato esté.
+_DE_LINEA: tuple[tuple[str, str, str, str], ...] = (
+    (
+        "BR-22",
+        "linea_cantidad",
+        "Cantidad facturada",
+        "Cada línea debe decir cuántas unidades se facturan.",
+    ),
+    (
+        "BR-23",
+        "linea_unidad",
+        "Unidad de medida",
+        "Cada línea debe decir en qué unidad se mide lo que factura: "
+        "unidades, kilos, horas...",
+    ),
+    (
+        "BR-26",
+        "linea_precio",
+        "Precio unitario neto",
+        "Cada línea debe llevar el precio por unidad, sin impuestos.",
+    ),
+)
+
+
+def _reglas_campos_de_linea(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
+    """BR-22, BR-23 y BR-26: lo que toda línea tiene que traer.
+
+    Son las tres que separan «esta factura está bien formada» de «esta factura
+    dice qué se vendió». Sin cantidad, sin unidad y sin precio unitario, una
+    línea es una descripción y un importe: se puede pagar, pero no se puede
+    comprobar, ni casar con un albarán, ni discutir.
+
+    Se agrupan por regla y no por línea: un documento de cien líneas sin unidad
+    de medida tiene **un** problema, no cien. El campo enumera cuáles, que es
+    lo que hace falta para arreglarlo.
+
+    Las líneas se nombran por su identificador (BT-126) cuando la sintaxis lo
+    tiene, y por su posición cuando no —Facturae, por ejemplo, no lo tiene—.
+    Decir «línea 3» siempre es peor que decir «línea A-0003», pero es infinitamente
+    mejor que no decir cuál.
+    """
+    lineas = raiz.xpath(sintaxis.lineas, namespaces=sintaxis.espacios)
+    if not lineas:
+        # De que no haya ninguna ya se queja BR-16, y con mejor consejo.
+        return []
+
+    incidencias: list[Incidencia] = []
+    for codigo, atributo, campo, explicacion in _DE_LINEA:
+        ruta = getattr(sintaxis, atributo)
+        if ruta == SIN_MAPA:
+            # Igual que en los campos de cabecera: si la sintaxis no tiene
+            # dónde escribirlo, la línea no está incompleta. Se dice una vez
+            # por documento y no una por línea, que sería el mismo hueco
+            # repetido tantas veces como conceptos tenga la factura.
+            incidencias.append(
+                Incidencia(
+                    codigo,
+                    NOTA,
+                    f"{explicacion} La sintaxis {sintaxis.nombre} no tiene "
+                    "ningún elemento con ese significado en la línea, así que "
+                    "no se ha podido comprobar. No es un defecto del documento.",
+                    campo=campo,
+                    encontrado="(sin correspondencia en esta sintaxis)",
+                )
+            )
+            continue
+
+        faltan = [
+            texto(linea, sintaxis.linea_id, sintaxis) or str(indice)
+            for indice, linea in enumerate(lineas, start=1)
+            if texto(linea, ruta, sintaxis) is None
+        ]
+        if faltan:
+            incidencias.append(
+                Incidencia(
+                    codigo,
+                    ERROR,
+                    explicacion,
+                    campo=f"{campo} · líneas " + ", ".join(faltan),
+                    encontrado="(falta)",
                 )
             )
     return incidencias
@@ -488,17 +610,6 @@ def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
     """
     sintaxis = SINTAXIS.get(deteccion.familia or "")
     if sintaxis is None or raiz is None:
-        if deteccion.familia == FACTURAE:
-            # Facturae no es un perfil de EN 16931 y no tiene por qué serlo: es
-            # el formato nacional, con su propio esquema y su propia aritmética.
-            # De él se encarga `facturae.py`, que comprueba las fórmulas que el
-            # esquema escribe en sus anotaciones. Aquí no hay nada que decir.
-            #
-            # Antes esta rama soltaba un «solo se ha identificado, no validado»
-            # que a la vez sobraba y se quedaba corto: el informe decía «sin
-            # errores» arriba y «no validado» abajo, y las dos cosas eran
-            # verdad a medias.
-            return []
         return [
             Incidencia(
                 "SIN-SOPORTE",
@@ -510,6 +621,11 @@ def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
                 encontrado=deteccion.familia,
             )
         ]
+
+    if deteccion.familia == FACTURAE:
+        # Facturae va por su camino: es un lote y sus partes están fuera de la
+        # factura. El porqué, entero, en `_reglas_facturae`.
+        return _reglas_facturae(raiz, sintaxis, espanola)
 
     incidencias: list[Incidencia] = []
     if not deteccion.conforme_en16931:
@@ -528,8 +644,77 @@ def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
 
     incidencias.extend(_reglas_obligatorios(raiz, sintaxis))
     incidencias.extend(_regla_lineas(raiz, sintaxis))
+    incidencias.extend(_reglas_campos_de_linea(raiz, sintaxis))
     incidencias.extend(_reglas_cuadre(raiz, sintaxis))
     incidencias.extend(iva.reglas(raiz, sintaxis, espanola=espanola))
+    return incidencias
+
+
+# --- Facturae ---------------------------------------------------------------
+
+
+def _etiqueta_facturae(factura, cuantas: int) -> str:
+    """Cómo nombrar a una factura dentro del lote.
+
+    Mismo criterio que en `facturae.py`, y a propósito: los dos conjuntos de
+    reglas caen en el mismo informe, y que la misma factura se llame de dos
+    maneras distintas según quién se queje sería peor que no nombrarla.
+    """
+    if cuantas <= 1:
+        return ""
+    cabecera = factura.xpath("./InvoiceHeader")
+    if not cabecera:
+        return ""
+    serie = (cabecera[0].findtext("InvoiceSeriesCode") or "").strip()
+    numero = (cabecera[0].findtext("InvoiceNumber") or "").strip() or "(sin número)"
+    return f"Factura {serie}{numero} · "
+
+
+def _reglas_facturae(raiz, sintaxis: Sintaxis, espanola: bool) -> list[Incidencia]:
+    """Las reglas EN 16931 sobre un lote Facturae.
+
+    Facturae no se parece a UBL ni a CII en la forma, y son dos diferencias las
+    que obligan a tener esta función en vez de reutilizar el camino común:
+
+    1. **Un fichero es un lote.** Puede traer varias facturas, y cada una tiene
+       sus líneas, su desglose y sus totales. Las reglas se evalúan una vez por
+       factura, no una vez por fichero, o los totales de la segunda se
+       compararían con las líneas de la primera.
+
+    2. **Las partes están fuera de la factura.** Vendedor y comprador cuelgan
+       de la raíz y son comunes al lote, así que el mapa los pide subiendo dos
+       pisos desde el `<Invoice>`. Es la razón de que las rutas de `Sintaxis`
+       se evalúen sobre la factura y no sobre la raíz.
+    """
+    # El fichero puede llegar envuelto en una firma XAdES, con el Facturae
+    # colgando de dentro. Mismo desenvoltorio que en `facturae.py`: sin él no
+    # se encontraría ni un elemento y el informe saldría vacío y tranquilo,
+    # que es la peor forma de fallar.
+    if raiz.xpath("local-name()") != "Facturae":
+        internos = raiz.xpath("//*[local-name()='Facturae']")
+        if not internos:
+            return []
+        raiz = internos[0]
+
+    facturas = raiz.xpath("./Invoices/Invoice")
+    if not facturas:
+        return []
+
+    incidencias: list[Incidencia] = []
+    for factura in facturas:
+        donde = _etiqueta_facturae(factura, len(facturas))
+        de_esta: list[Incidencia] = []
+        de_esta.extend(_reglas_obligatorios(factura, sintaxis))
+        de_esta.extend(_regla_lineas(factura, sintaxis))
+        de_esta.extend(_reglas_campos_de_linea(factura, sintaxis))
+        de_esta.extend(_reglas_cuadre(factura, sintaxis))
+        de_esta.extend(iva.reglas(factura, sintaxis, espanola=espanola))
+        if donde:
+            de_esta = [
+                replace(i, campo=f"{donde}{i.campo}" if i.campo else donde.rstrip(" ·"))
+                for i in de_esta
+            ]
+        incidencias.extend(de_esta)
     return incidencias
 
 

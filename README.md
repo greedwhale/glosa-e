@@ -27,7 +27,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1078 tests, todos en verde.
+1094 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -867,6 +867,190 @@ Nueve ficheros oficiales que no hemos escrito nosotros, ninguna queja de
 aritmética sobre las que están bien —incluida la más enrevesada, con descuento
 general, descuento y cargo de línea, dos impuestos repercutidos, recargo de
 equivalencia y retención— y las dos defectuosas señaladas con la cifra exacta.
+
+## El binding EN 16931 de Facturae, que no existía
+
+Añadido el **06-09-2026**. Hasta ese día `en16931.py` devolvía lista vacía ante
+un Facturae, con este motivo escrito al lado:
+
+> «Facturae no es un perfil de EN 16931 y no tiene por qué serlo: es el formato
+> nacional, con su propio esquema y su propia aritmética.»
+
+Era cierto, y dejó de serlo. El **artículo 7.1 del RD 238/2026** exige que la
+factura se ajuste al modelo semántico EN 16931 **bajo cualquiera de las cuatro
+sintaxis admitidas**, y Facturae es la cuarta. La obligación empieza el
+01-10-2026.
+
+### No hay mapa oficial, y por eso hay que escribirlo
+
+CEN publicó `CEN/TS 16931-3-2` para UBL, `-3-3` para CII y `-3-4` para EDIFACT.
+**Para Facturae no publicó nada.** No existe ninguna parte de la norma que diga
+qué elemento de Facturae es qué término de negocio, así que el mapa de
+`SINTAXIS_FACTURAE` está escrito aquí y las decisiones son nuestras. Por eso
+cada hueco lleva escrito el porqué, y por eso están aquí también.
+
+Un detalle de forma que sale gratis: **solo la raíz lleva espacio de nombres**.
+Medido sobre `ejemplos/fe-0001.xml` —116 elementos, 27 con espacio de nombres y
+los 27 son la firma XAdES—. Como la única diferencia entre 3.0, 3.1, 3.2, 3.2.1
+y 3.2.2 es la URI de esa raíz, que el mapa no nombra nunca, **el mismo mapa vale
+para las cinco versiones**.
+
+### Los seis huecos, y qué se decidió en cada uno
+
+| Término | Qué pide EN 16931 | Qué tiene Facturae | Decisión |
+|---|---|---|---|
+| **BT-24** | identificador de especificación | nada. Lo más parecido es `SchemaVersion`, que dice «3.2.2» | `SIN_MAPA`; BR-01 sale como **NOTA** |
+| **BT-118** | categoría de IVA de la lista UNCL5305 (S, Z, E, AE, K, G, O, L, M) | `TaxTypeCode`, que dice **qué impuesto** es (01 IVA, 02 IPSI…), no de qué categoría | `SIN_MAPA`; una NOTA por documento |
+| **BT-112** | total con impuestos = base + IVA | `InvoiceTotal`, que además **resta las retenciones** | `SIN_MAPA` |
+| **BT-110** | suma de las cuotas de IVA por categoría | `TotalTaxOutputs`, que además **suma el recargo de equivalencia** | `SIN_MAPA` |
+| **BT-126** | identificador de línea | nada. `SequenceNumber` existe pero significa el orden en un pedido | `SIN_MAPA` |
+| **BT-114** | redondeo | nada | `SIN_MAPA`, igual que en EDIFACT |
+
+La decisión de BT-24 es la que sostiene el resto. Aplicando BR-01 en estricto,
+**todas las facturas de España suspenden**, hoy y siempre, y no por estar mal
+hechas sino porque el formato no tiene dónde escribirlo. Un validador que
+devuelva eso no informa de nada.
+
+Por eso sale NOTA y no error. NOTA es la gravedad que existe para decir *qué se
+aceptó y con qué base*, y esto es exactamente eso: no hay nada que arreglar en
+el documento.
+
+### Los totales de Facturae son superconjuntos de los europeos
+
+BT-112 y BT-110 son el mismo descubrimiento dos veces, y es el más importante
+de todos porque **no se ve leyendo: solo aparece midiendo**.
+
+España carga en la factura impuestos que el modelo básico de EN 16931 no
+modela. El `InvoiceTotal` de Facturae resta las retenciones —el IRPF de una
+factura profesional— y su `TotalTaxOutputs` suma el recargo de equivalencia,
+que no es IVA. Los importes se llaman igual que los europeos y **miden cosas
+distintas**.
+
+Con el mapa directo, sobre las 13 Facturae reales disponibles:
+
+| | Facturas acusadas | Facturas realmente defectuosas |
+|---|---|---|
+| BR-CO-15 (total con IVA) | 6 | 0 |
+| BR-CO-14 (total de IVA) | 4 | 0 |
+
+Diez acusaciones falsas sobre facturas correctas. Una de ellas al céntimo:
+`1.163,52 + 279,24 = 1.442,76`, menos `58,18` de retención, da exactamente los
+`1.384,58` que escribe el fichero.
+
+Se podría leer la retención y el recargo y ajustar la resta, pero entonces lo
+que se compara ya no es BT-112 ni BT-117, y la regla diría comprobar una cosa
+mientras comprueba otra. La aritmética que Facturae **sí** garantiza —la que
+escriben las anotaciones de su propio esquema— ya la comprueba `facturae.py`
+con los códigos `FE-*`, que conocen el recargo y la retención y los tratan como
+lo que son.
+
+No es que Facturae esté mal escrito ni que la norma se quede corta: es que
+miden cosas distintas, y llamarlas igual sería el error.
+
+### Dos fallos que este binding destapó en código que ya estaba
+
+Ninguno de los dos daba error: los dos devolvían una respuesta plausible.
+
+**`texto()` cogía la primera letra.** Una ruta que llama a una función de XPath
+devuelve el valor suelto y no una lista de nodos, así que `encontrados[0]`
+sacaba un carácter: `name(.)` daba «D» en vez de «Discount» y «C» en vez de
+«Charge». Ningún cargo casaba con su marca, todos se restaban como descuentos,
+y dos facturas correctas salían incumpliendo BR-CO-11. Hasta Facturae ninguna
+sintaxis necesitaba una función en una ruta, así que la rama no existía.
+
+**`marcas_de_cargo` se compara en minúscula.** Quien compara pasa la marca por
+`.lower()` antes —por eso EDIFACT lleva `("c",)`—, y el mapa nuevo llevaba
+`("Charge",)`. Mismo síntoma que el anterior y encontrado detrás de él.
+
+### El fallo que destapó
+
+`_reglas_obligatorios` no conocía `SIN_MAPA`. EDIFACT ya traía dos huecos
+—BT-114 y BT-121— pero ninguno cae en la tabla de campos obligatorios, así que
+nunca llegó a verse. Facturae es la primera sintaxis que pone un hueco en un
+campo obligatorio, y sin arreglarlo BR-01 salía como `ERROR · (falta)` en todas
+las facturas del país.
+
+Ahora la regla distingue dos cosas que se parecen y no son iguales: **que la
+factura no haya escrito el campo**, que es un defecto suyo, y **que la sintaxis
+no tenga dónde escribirlo**, que no lo es. Lo mismo se arregló en `iva.py` para
+BR-47 y para `IVA-SIN-CATEGORIA`.
+
+### Otras dos divergencias que no son huecos
+
+No impiden leer el dato, pero significan cosas distintas a los dos lados y
+constan aquí para que nadie las dé por equivalentes:
+
+- **BT-3, el tipo de documento.** EN 16931 usa UNCL1001 —380 factura, 381
+  abono—. Facturae usa `InvoiceDocumentType` con FC, FA y AF, más
+  `InvoiceClass` con OO, OR, OC, CO, CR y CC. Se lee el elemento tal cual y
+  **no se traduce**: BR-04 comprueba lo que puede comprobar, que el documento
+  diga de qué tipo es.
+- **BT-40, el país.** Facturae escribe `ESP`, en ISO 3166-1 alfa-3; EN 16931
+  pide alfa-2, `ES`. BR-09 solo mira que esté, así que hoy no salta.
+
+### Lo que el binding añade de verdad, medido
+
+Comparado con lo que ya había —el XSD oficial más las reglas de `facturae.py`—
+el solape es alto y hay que decirlo: de cinco defectos inyectados, **el XSD ya
+cazaba cuatro** (sin nombre del comprador, sin país del vendedor, sin líneas,
+sin fecha). Las reglas de campo obligatorio de EN 16931 sobre Facturae en gran
+parte repiten lo que el esquema ya obliga, con mejor mensaje y nombrando el BT.
+
+Donde sí añade es donde **el XSD de Facturae es más permisivo que la norma**, y
+eso ya no es teoría: sobre las 13 Facturae reales disponibles, **10 salen sin un
+solo error** y las 3 que quedan fallan `BR-46` por el mismo motivo —una entrada
+del desglose sin `TaxAmount`, que el esquema declara opcional (`TaxAmount?`) y
+EN 16931 exige—. Son ficheros que pasan el XSD oficial y pasan las reglas de
+`facturae.py`.
+
+El otro caso de la misma familia es `UnitOfMeasure`, opcional en Facturae y
+obligatorio en EN 16931 por BR-23.
+
+## BR-22, BR-23 y BR-26: lo que toda línea tiene que traer
+
+Añadidas el **06-09-2026**, y son las tres que separan «esta factura está bien
+formada» de «esta factura dice qué se vendió»:
+
+| Regla | Término | Qué exige |
+|---|---|---|
+| **BR-22** | BT-129 | cada línea dice **cuántas** unidades factura |
+| **BR-23** | BT-130 | y **en qué unidad** se miden |
+| **BR-26** | BT-146 | y a **qué precio** por unidad, sin impuestos |
+
+Sin las tres, una línea es una descripción y un importe: se puede pagar, pero
+no se puede comprobar, ni casar con un albarán, ni discutir.
+
+Los mapas salen del esquematrón oficial de CEN, no de la memoria. Para EDIFACT,
+literal: `BR-22 = S_QTY/C_C186[D_6063='47']/D_6060`, `BR-23` el mismo compuesto
+un dato más allá (`D_6411`), y `BR-26 = S_PRI/C_C509[D_5125='AAA']/D_5118`. En
+UBL la unidad **va en un atributo** (`InvoicedQuantity/@unitCode`), que es el
+único campo de todo el mapa que lo hace, y en un abono la cantidad se llama
+`CreditedQuantity`: la unión coge la que haya, o BR-22 y BR-23 saldrían
+inventadas en todos los abonos correctos.
+
+### El resultado, con su control
+
+Nueve ficheros EDIFACT escritos por la Comisión Europea frente a nueve
+EANCOM reales del gran consumo español:
+
+| | Ficheros | BR-22 | BR-23 | BR-26 |
+|---|---:|---:|---:|---:|
+| Ejemplos oficiales de CEF | 9 | 0 | 0 | 0 |
+| **EANCOM real español** | 9 | 0 | **8** | **7** |
+
+**El control es la primera fila.** Que los ejemplos de quien escribió la norma
+salgan a cero es lo que dice que las reglas están bien puestas; si fallaran
+también ahí, el defecto sería del mapa y no de las facturas. Sobre las 157
+facturas de terceros disponibles en total, CII sale a cero en las tres y UBL
+falla una de 43: no hay ruido.
+
+La segunda fila es el hallazgo. **Ocho de cada nueve facturas EANCOM reales no
+dicen en qué unidad miden lo que facturan**, y siete no traen precio unitario.
+No es un descuido de un emisor: es cómo se factura en el sector.
+
+Y en Facturae, 3 de 13 fallan BR-23 por la misma razón que documenta la sección
+anterior: `UnitOfMeasure` es opcional en el esquema nacional y obligatoria en la
+norma europea. Son ficheros que pasan el XSD oficial.
 
 ## La firma XAdES
 
