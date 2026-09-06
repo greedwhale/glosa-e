@@ -94,6 +94,8 @@ CUERPO = (
     "NAD+BY+++Cliente SA+Gran Via 2+Madrid++28013+ES'"
     "CUX+2:EUR:4'"
     "LIN+1'"
+    # BT-153, que BR-25 exige: el nombre va en el cuarto componente del C273.
+    "IMD+F++:::Concepto'"
     # El compuesto C186 lleva los tres datos juntos: cualificador, cuanto y en
     # que unidad. El «PCE» es BT-130, que EN 16931 exige por BR-23 y que antes
     # faltaba aqui: la factura de prueba decia «10» sin decir 10 de que.

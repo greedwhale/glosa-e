@@ -54,7 +54,7 @@ UBL = """<?xml version="1.0" encoding="UTF-8"?>
   <cac:InvoiceLine><cbc:ID>1</cbc:ID>
     <cbc:InvoicedQuantity unitCode="EA">1</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="EUR">{linea}</cbc:LineExtensionAmount>
-    <cac:Item><cac:ClassifiedTaxCategory>
+    <cac:Item><cbc:Name>Concepto</cbc:Name><cac:ClassifiedTaxCategory>
       <cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent>
     </cac:ClassifiedTaxCategory></cac:Item>
     <cac:Price><cbc:PriceAmount currencyID="EUR">100.00</cbc:PriceAmount></cac:Price>

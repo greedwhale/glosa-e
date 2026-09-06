@@ -176,16 +176,66 @@ class Apunte:
         return _clave(self.categoria, self.tipo)
 
 
+# Lo que Facturae escribe donde EN 16931 espera una categoría, y a qué
+# categoría corresponde cuando corresponde a alguna.
+#
+# `TaxTypeCode` contesta a otra pregunta: **qué impuesto es**, no de qué
+# categoría UNCL5305. Aun así, tres de sus valores fijan la categoría sin
+# ambigüedad, porque la norma tiene una familia de reglas para cada uno:
+# el IGIC canario es AF —$VATIG en el esquematrón— y el IPSI de Ceuta y
+# Melilla es AG. Comprobado ahí, no deducido por analogía: la primera versión
+# de esto se inventó «IG» e «IP» y una factura canaria recibía una regla
+# «BR-IG-5» que no existe en ninguna norma.
+_IMPUESTO_DE_FACTURAE = {
+    "01": "S",   # IVA
+    "03": "L",   # IGIC  -> BR-AF-*
+    "02": "M",   # IPSI  -> BR-AG-*
+}
+
+
+def _derivar_categoria(escrito: str | None, tipo: Decimal | None) -> str | None:
+    """La categoría de IVA de una entrada de Facturae, cuando se puede saber.
+
+    Se puede con IVA a tipo positivo: eso es «operación sujeta y no exenta»,
+    que es la S, y no hay otra lectura. Con IGIC y con IPSI se puede siempre,
+    porque el impuesto ya identifica la familia de reglas.
+
+    **A tipo cero no se puede, y ahí se devuelve None a propósito.** Un cero en
+    Facturae puede ser una exenta del artículo 20, una no sujeta, una
+    intracomunitaria, una exportación o una inversión del sujeto pasivo —Z, E,
+    O, K, G o AE—, y el formato no tiene ningún campo donde se haya escrito
+    cuál. Elegir una sería inventar la respuesta más probable y presentarla
+    como leída, que es exactamente lo que este validador no hace: de eso
+    avisa `IVA-CATEGORIA-A-CERO`, una vez y como nota.
+    """
+    familia = _IMPUESTO_DE_FACTURAE.get((escrito or "").strip())
+    if familia is None:
+        return None      # 04 IRPF, 05 otro… no son IVA ni se les parecen
+    if familia != "S":
+        return familia   # IGIC e IPSI no dependen del tipo
+    return "S" if (tipo is not None and tipo > 0) else None
+
+
+def _categoria(nodo, ruta: str, sintaxis: Sintaxis, tipo: Decimal | None):
+    """Lo que dice la sintaxis, traducido si esta sintaxis necesita traducción."""
+    escrito = texto(nodo, ruta, sintaxis)
+    if sintaxis.categoria_derivada == "facturae":
+        return _derivar_categoria(escrito, tipo)
+    return escrito
+
+
 def _leer_grupos(raiz, sintaxis: Sintaxis) -> list[Grupo]:
     grupos = []
     for nodo in raiz.xpath(sintaxis.desglose, namespaces=sintaxis.espacios):
         motivo = texto(nodo, sintaxis.desglose_motivo, sintaxis) or texto(
             nodo, sintaxis.desglose_motivo_codigo, sintaxis
         )
+        tipo = importe(nodo, sintaxis.desglose_tipo, sintaxis)
         grupos.append(
             Grupo(
-                categoria=texto(nodo, sintaxis.desglose_categoria, sintaxis),
-                tipo=importe(nodo, sintaxis.desglose_tipo, sintaxis),
+                categoria=_categoria(
+                    nodo, sintaxis.desglose_categoria, sintaxis, tipo),
+                tipo=tipo,
                 base=importe(nodo, sintaxis.desglose_base, sintaxis),
                 cuota=importe(nodo, sintaxis.desglose_cuota, sintaxis),
                 motivo=motivo,
@@ -203,12 +253,14 @@ def _leer_apuntes(raiz, sintaxis: Sintaxis) -> list[Apunte]:
         if cantidad is None:
             continue  # de la línea sin importe ya se queja BR-24
         identificador = texto(nodo, sintaxis.linea_id, sintaxis) or str(indice)
+        tipo = importe(nodo, sintaxis.linea_tipo, sintaxis)
         apuntes.append(
             Apunte(
                 descripcion=f"línea {identificador}",
                 importe=cantidad,
-                categoria=texto(nodo, sintaxis.linea_categoria, sintaxis),
-                tipo=importe(nodo, sintaxis.linea_tipo, sintaxis),
+                categoria=_categoria(
+                    nodo, sintaxis.linea_categoria, sintaxis, tipo),
+                tipo=tipo,
             )
         )
 
@@ -790,6 +842,32 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
         # `muestras/` —el 70% de todo lo que decía el programa— y la señal útil
         # quedaba enterrada debajo.
         incidencias.extend(_regla_tipos_espanoles(grupos))
+    if sintaxis.categoria_derivada:
+        # Lo que la deducción no alcanza, dicho una vez y con su porqué. Es la
+        # otra mitad de `_derivar_categoria`: ahí se explica por qué a tipo
+        # cero no hay respuesta, y aquí se dice cuándo ha pasado.
+        a_ciegas_por_cero = [
+            g for g in grupos if g.categoria is None and g.tipo == 0
+        ]
+        if a_ciegas_por_cero:
+            cuantas = len(a_ciegas_por_cero)
+            incidencias.append(
+                Incidencia(
+                    "IVA-CATEGORIA-A-CERO",
+                    NOTA,
+                    f"{'Una entrada' if cuantas == 1 else f'{cuantas} entradas'} "
+                    "del desglose van a tipo cero, y en "
+                    f"{sintaxis.nombre} eso no dice cuál de las categorías de "
+                    "EN 16931 es: exenta, no sujeta, intracomunitaria, "
+                    "exportación o inversión del sujeto pasivo se escriben "
+                    "todas igual. Las reglas que dependen de la categoría no "
+                    "se han comprobado ahí. El resto del IVA sí: las bases, "
+                    "las cuotas y que el desglose cuadre.",
+                    campo="Categoría de IVA",
+                    encontrado="tipo 0 sin categoría que lo distinga",
+                )
+            )
+
     if sintaxis.desglose_categoria == SIN_MAPA:
         # Se declara una vez por documento, no una por entrada del desglose:
         # es una propiedad de la sintaxis, no de la factura, y repetirla por

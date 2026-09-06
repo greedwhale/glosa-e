@@ -75,6 +75,16 @@ class Sintaxis:
     linea_cantidad: str  # relativa a una línea: BT-129
     linea_unidad: str  # relativa a una línea: BT-130
     linea_precio: str  # relativa a una línea: BT-146
+    linea_nombre: str  # relativa a una línea: BT-153
+    # Qué vocabulario usa esta sintaxis para la categoría de IVA (BT-118).
+    # Vacío quiere decir «ya viene en UNCL5305, tal cual»: es el caso de UBL,
+    # CII y EDIFACT, que escriben la S o la E directamente. Facturae escribe
+    # otra cosa —qué impuesto es, no de qué categoría— y hay que deducirla;
+    # cómo, en `iva._derivar_categoria`, que es donde vive lo del IVA.
+    #
+    # Sigue siendo un dato y no una regla: aquí se dice cuál se aplica, no qué
+    # hace.
+    categoria_derivada: str
     linea_categoria: str  # relativa a una línea: BT-151
     linea_tipo: str  # relativa a una línea: BT-152
 
@@ -161,6 +171,8 @@ SINTAXIS_UBL = Sintaxis(
     # mapa que lo hace, y por eso la ruta acaba en `@`.
     linea_unidad="./cbc:InvoicedQuantity/@unitCode|./cbc:CreditedQuantity/@unitCode",
     linea_precio="./cac:Price/cbc:PriceAmount",
+    linea_nombre="./cac:Item/cbc:Name",
+    categoria_derivada="",
     linea_categoria="./cac:Item/cac:ClassifiedTaxCategory/cbc:ID",
     linea_tipo="./cac:Item/cac:ClassifiedTaxCategory/cbc:Percent",
     desglose="./cac:TaxTotal/cac:TaxSubtotal",
@@ -232,6 +244,8 @@ SINTAXIS_CII = Sintaxis(
         "./ram:SpecifiedLineTradeAgreement"
         "/ram:NetPriceProductTradePrice/ram:ChargeAmount"
     ),
+    linea_nombre="./ram:SpecifiedTradeProduct/ram:Name",
+    categoria_derivada="",
     linea_categoria=(
         "./ram:SpecifiedLineTradeSettlement/ram:ApplicableTradeTax"
         "/ram:CategoryCode"
@@ -344,6 +358,10 @@ SINTAXIS_EDIFACT = Sintaxis(
     # facturas reales el precio no siempre cuelga del grupo que la norma
     # nombra, y con la ruta estricta BR-26 saldría en todas.
     linea_precio="./*/S_PRI/C_C509[D_5125='AAA']/D_5118",
+    # El nombre del concepto: IMD+F++:::<texto>, cuarto componente del
+    # C273. Comprobado sobre `ejemplos/edi-0001.edi`.
+    linea_nombre="./S_IMD/C_C273/D_7008",
+    categoria_derivada="",
     # El IVA propio de la línea es el del grupo que cuelga directamente de
     # ella. El de un descuento de línea cuelga del descuento, un piso más
     # abajo, y por eso no entra aquí.
@@ -523,6 +541,8 @@ SINTAXIS_FACTURAE = Sintaxis(
     # BT-129 y BT-146 los tiene Facturae, y obligatorios en su propio esquema.
     linea_cantidad="./Quantity",
     linea_precio="./UnitPriceWithoutTax",
+    linea_nombre="./ItemDescription",
+    categoria_derivada="facturae",
     # BT-130, y **aquí está la divergencia que hace útil todo este binding**.
     #
     # `UnitOfMeasure` existe en Facturae pero el esquema lo declara opcional
@@ -537,7 +557,7 @@ SINTAXIS_FACTURAE = Sintaxis(
     linea_unidad="./UnitOfMeasure",
     # BT-151, la categoría de IVA de la línea, tampoco existe. Ver la nota de
     # `desglose_categoria`, que es el mismo hueco un piso más arriba.
-    linea_categoria=SIN_MAPA,
+    linea_categoria="./TaxesOutputs/Tax/TaxTypeCode",
     linea_tipo="./TaxesOutputs/Tax/TaxRate",
     desglose="./TaxesOutputs/Tax",
     desglose_base="./TaxableBase/TotalAmount",
@@ -551,11 +571,13 @@ SINTAXIS_FACTURAE = Sintaxis(
     # `TaxTypeCode` dice qué impuesto es —01 IVA, 02 IPSI, 03 IGIC…—, que es
     # una pregunta distinta.
     #
-    # La categoría se podría deducir del tipo y de otros campos, y esa
-    # deducción es justo el trabajo que vale dinero, pero deducir no es leer.
-    # Mientras no esté escrita y contrastada, aquí no hay ruta: las reglas de
-    # IVA que dependen de la categoría se callan en vez de inventarla.
-    desglose_categoria=SIN_MAPA,
+    # Esa deducción ya está escrita y contrastada —desde el 06-09-2026, en
+    # `iva._derivar_categoria`—, así que aquí sí hay ruta: se lee el
+    # `TaxTypeCode` y quien deduce es el módulo del IVA, con el tipo delante.
+    # Lo que no se puede deducir se sigue diciendo en vez de inventarse: a
+    # tipo cero, Facturae no distingue exenta de no sujeta ni de inversión
+    # del sujeto pasivo, y no hay campo del que sacarlo.
+    desglose_categoria="./TaxTypeCode",
     desglose_tipo="./TaxRate",
     # BT-120 y BT-121, el motivo de la exención y su código. Facturae no los
     # lleva en el bloque de impuestos. Sin categoría (arriba) tampoco habría a

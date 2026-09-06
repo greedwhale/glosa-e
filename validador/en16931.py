@@ -297,6 +297,20 @@ _DE_LINEA: tuple[tuple[str, str, str, str], ...] = (
         "Precio unitario neto",
         "Cada línea debe llevar el precio por unidad, sin impuestos.",
     ),
+    (
+        "BR-21",
+        "linea_id",
+        "Identificador de línea",
+        "Cada línea debe llevar un identificador que la distinga de las "
+        "demás. Sin él, una queja sobre «la línea 3» no se puede referir a "
+        "nada concreto del documento.",
+    ),
+    (
+        "BR-25",
+        "linea_nombre",
+        "Nombre del concepto",
+        "Cada línea debe decir qué se factura en ella.",
+    ),
 )
 
 

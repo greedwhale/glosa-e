@@ -27,7 +27,7 @@ según el RD 238/2026.
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1108 tests, todos en verde.
+1128 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1051,6 +1051,47 @@ No es un descuido de un emisor: es cómo se factura en el sector.
 Y en Facturae, 3 de 13 fallan BR-23 por la misma razón que documenta la sección
 anterior: `UnitOfMeasure` es opcional en el esquema nacional y obligatoria en la
 norma europea. Son ficheros que pasan el XSD oficial.
+
+### BR-21 y BR-25: quién es cada línea y qué se factura en ella
+
+Las dos que faltaban del mismo grupo. BR-21 pide que cada línea lleve
+identificador (BT-126) y BR-25 que diga qué se factura (BT-153).
+
+| Sintaxis | BT-126 | BT-153 |
+|---|---|---|
+| UBL | `./cbc:ID` | `./cac:Item/cbc:Name` |
+| CII | `./ram:AssociatedDocumentLineDocument/ram:LineID` | `./ram:SpecifiedTradeProduct/ram:Name` |
+| EDIFACT | `./S_LIN/D_1082` | `./S_IMD/C_C273/D_7008` |
+| Facturae | **no existe** | `./ItemDescription` |
+
+Sobre 157 facturas de terceros: BR-21 en 15 y BR-25 en 14. Los 13 BR-21 de
+Facturae **no son un defecto de esas facturas**: el formato no tiene dónde
+escribir un identificador de línea, y por eso salen como nota y no como error.
+
+### BT-118: deducir la categoría de IVA que Facturae no escribe
+
+Facturae no tiene categoría UNCL5305. Su `TaxTypeCode` contesta a otra
+pregunta —qué impuesto es: 01 IVA, 02 IPSI, 03 IGIC— y durante un tiempo eso
+dejó **todas** las reglas de categoría calladas en toda factura española.
+
+Ahora se deduce lo que se puede deducir:
+
+| Lo escrito | Se deduce | Por qué |
+|---|---|---|
+| `01` con tipo > 0 | **S** | IVA a tipo positivo solo puede ser sujeta y no exenta |
+| `03` | **L** (BR-AF-*) | el IGIC identifica su familia de reglas |
+| `02` | **M** (BR-AG-*) | ídem el IPSI |
+| `01` con tipo 0 | **nada** | y se dice |
+
+La última fila es la importante. Un cero en Facturae puede ser exenta, no
+sujeta, intracomunitaria, exportación o inversión del sujeto pasivo —Z, E, O, K,
+G o AE— y **no hay ningún campo donde se haya escrito cuál**. Elegir la más
+probable y presentarla como leída sería inventar; en su lugar sale
+`IVA-CATEGORIA-A-CERO`, una vez por documento y como nota. Pasa en 3 de 13
+facturas Facturae de terceros.
+
+Lo que esto abre: las reglas BR-S-*, BR-AF-* y BR-AG-* ya corren de verdad
+sobre facturas españolas, que antes no las miraba nadie.
 
 ## La firma XAdES
 

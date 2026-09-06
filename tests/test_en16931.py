@@ -37,7 +37,7 @@ def factura(
     iva_de_linea = (
         ""
         if categoria is None
-        else f"""<cac:Item><cac:ClassifiedTaxCategory>
+        else f"""<cac:Item><cbc:Name>Concepto</cbc:Name><cac:ClassifiedTaxCategory>
           <cbc:ID>{categoria}</cbc:ID><cbc:Percent>{tipo_iva}</cbc:Percent>
         </cac:ClassifiedTaxCategory></cac:Item>"""
     )
@@ -524,19 +524,38 @@ class TestBindingDeFacturae:
         assert "No es un defecto del documento" in br01[0].mensaje
         assert not [i for i in informe.incidencias if i.gravedad == ERROR]
 
-    def test_la_categoria_de_iva_se_declara_una_vez_por_documento(self):
-        """Y no una por cada tipo de IVA.
+    def test_la_categoria_de_iva_a_tipo_positivo_se_deduce(self):
+        """Desde el 06-09-2026 ya no se calla: se deduce lo que se puede.
 
-        Facturae no tiene categoría UNCL5305 —su `TaxTypeCode` dice qué
-        impuesto es, no de qué categoría—. Es una propiedad de la sintaxis, no
-        de la factura: repetirla por cada entrada del desglose daría la
-        impresión de que hay varios defectos donde solo hay un hueco.
+        Antes, Facturae no tenía categoría UNCL5305 y todas las reglas que
+        dependen de ella se callaban en toda factura española. `TaxTypeCode`
+        contesta a otra pregunta —qué impuesto es—, pero con IVA a tipo
+        positivo solo hay una lectura posible: operación sujeta y no exenta,
+        que es la S. Así que las BR-S-* corren de verdad.
         """
         informe = en16931.validar(FACTURAE_UNA)
-        notas = [i for i in informe.incidencias if i.codigo == "IVA-CATEGORIA-SIN-MAPA"]
-        assert len(notas) == 1
-        assert notas[0].gravedad == NOTA
+        assert not [i for i in informe.incidencias
+                    if i.codigo == "IVA-CATEGORIA-SIN-MAPA"], (
+            "ya no debe salir: la categoría se deduce")
         assert not [i for i in informe.incidencias if i.codigo == "BR-47"]
+
+    def test_a_tipo_cero_no_se_deduce_y_se_dice(self):
+        """Lo que la deducción no alcanza, dicho una vez y como nota.
+
+        Un cero en Facturae puede ser exenta, no sujeta, intracomunitaria,
+        exportación o inversión del sujeto pasivo, y el formato no tiene
+        ningún campo donde se haya escrito cuál. Inventar la más probable y
+        presentarla como leída es justo lo que aquí no se hace.
+        """
+        a_cero = (FACTURAE_UNA
+                  .replace("<TaxRate>21.00</TaxRate>", "<TaxRate>0.00</TaxRate>")
+                  .replace("<TotalAmount>21.00</TotalAmount>",
+                           "<TotalAmount>0.00</TotalAmount>"))
+        informe = en16931.validar(a_cero)
+        notas = [i for i in informe.incidencias
+                 if i.codigo == "IVA-CATEGORIA-A-CERO"]
+        assert len(notas) == 1, "una vez por documento, no una por entrada"
+        assert notas[0].gravedad == NOTA
 
     def test_las_reglas_europeas_muerden_de_verdad(self):
         """Un mapa que solo sabe decir «conforme» no está probado.

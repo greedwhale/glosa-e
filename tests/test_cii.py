@@ -126,6 +126,9 @@ def cii(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
         f"""<ram:IncludedSupplyChainTradeLineItem>
       <ram:AssociatedDocumentLineDocument><ram:LineID>{ident}</ram:LineID>
       </ram:AssociatedDocumentLineDocument>
+      {'' if 'nombre_linea' in omitir else
+       '<ram:SpecifiedTradeProduct><ram:Name>Concepto</ram:Name>'
+       '</ram:SpecifiedTradeProduct>'}
       {precio_xml}
       {entrega_xml()}
       <ram:SpecifiedLineTradeSettlement>
@@ -209,7 +212,7 @@ def ubl(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
     iva_de_linea = (
         ""
         if categoria is None or "categoria_linea" in omitir
-        else f"""<cac:Item><cac:ClassifiedTaxCategory>
+        else f"""<cac:Item><cbc:Name>Concepto</cbc:Name><cac:ClassifiedTaxCategory>
           <cbc:ID>{categoria}</cbc:ID>
           {'' if tipo_iva is None else f'<cbc:Percent>{tipo_iva}</cbc:Percent>'}
         </cac:ClassifiedTaxCategory></cac:Item>"""
@@ -534,6 +537,15 @@ class TestElMapaEsSoloUnMapa:
                     "espacios",
                     "nombre_perfil",
                     "marcas_de_cargo",
+                    # No es una ruta y no debe parecerlo: dice qué vocabulario
+                    # usa esta sintaxis para la categoría de IVA. Vacío
+                    # significa «ya viene en UNCL5305»; «facturae» significa
+                    # que hay que deducirla, y de eso se encarga `iva.py`.
+                    # Se excluye aquí a mano, y no con una regla del tipo «los
+                    # que no empiecen por ./ se saltan», porque esa regla
+                    # dejaría pasar en silencio la próxima ruta mal escrita,
+                    # que es justo lo que esta prueba existe para cazar.
+                    "categoria_derivada",
                 ):
                     continue
                 # «self::» es tan relativa como «./», y hace falta en EDIFACT
