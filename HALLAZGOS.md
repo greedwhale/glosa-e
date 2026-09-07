@@ -2446,3 +2446,87 @@ haciendo el ordenador en ese momento.
 **Una medida sin las condiciones en las que se tomó no es una medida**, y es
 más peligrosa que no tener ninguna: la que falta se busca, y la que está mal se
 cita.
+
+
+## «Las dos sintaxis sin binding CEN», y una de las dos sí lo tenía
+
+Este no es un fallo del validador ni del repositorio: es una afirmación falsa
+que escribí **en público**, en el hilo
+[ConnectingEurope/eInvoicing-EN16931#518](https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/518),
+el 04-09-2026. Va aquí porque es el mismo defecto de método que la medida mal
+tomada de más arriba, con otro disfraz, y porque una comparación con la que se
+argumenta en público **es una medida**.
+
+### Lo que escribí
+
+> «los dos que el decreto deja sin definir son exactamente los dos sin binding
+> sintáctico CEN: EDIFACT, cuyos artefactos aquí están congelados en v1.0.0
+> (2018), y Facturae, que nunca tuvo una parte `CEN/TS 16931-3-x`».
+
+La mitad de Facturae es cierta. La de EDIFACT es falsa.
+
+### Lo que lo desmontó
+
+Lo corrigió Svante Schubert en el propio hilo el 06-09-2026 —dirigió el
+proyecto de binding CEN de UBL y CII de 2026—. `CEN/TS 16931-3-4` existe,
+se titula «*Syntax binding for UN/EDIFACT INVOIC D16B*», y **tiene tres
+ediciones**:
+
+| Edición | En vigor |
+|---|---|
+| `CEN/TS 16931-3-4:2017` | 30-11-2017 |
+| `CEN/TS 16931-3-4:2020` | 15-05-2020 |
+| **`CEN/TS 16931-3-4:2026`** | **17-08-2026**, sustituye a la de 2020 |
+
+La última entró en vigor **seis semanas antes** de que empiece a contar el
+artículo 7.1 del RD 238/2026. La redactó Jenny Herzfeld, de la VDA alemana,
+generada con GEFEG.FX sobre los modelos UN/CEFACT.
+
+### De dónde salió el error
+
+De deducir la ausencia de la **norma** a partir del abandono de los
+**artefactos**. Lo que yo había mirado era el repositorio de GitHub, donde el
+esquematrón de EDIFACT lleva en v1.0.0 desde el 08-02-2018 mientras UBL y CII
+van por v1.3.16 (10-04-2026). De ahí a «no hay binding» hay un paso, y ese paso
+es exactamente el que no se puede dar: **un artefacto que no se actualiza no
+demuestra que no exista la norma que implementa**. Son dos cosas distintas y se
+publican en sitios distintos —una en GitHub y gratis, la otra en los organismos
+de normalización y de pago—, que es justo lo que hace fácil confundirlas.
+
+Y el repositorio, mientras tanto, lo tenía bien. `README.md` y
+`validador/sintaxis.py` decían desde el principio «`-3-2` para UBL, `-3-3` para
+CII y `-3-4` para EDIFACT, y para Facturae nada». **El código sabía lo que el
+autor había dejado de saber**, que es lo que pasa cuando una nota escrita con
+la fuente delante se cita meses después de memoria.
+
+### Lo que queda en su lugar, medido
+
+El hallazgo bueno no era el que yo creía, y es más concreto. La norma vigente
+liga EN 16931 a **INVOIC D16B**. Contados los directorios que declaran los
+`UNH` de las facturas EDIFACT de terceros que hay aquí —70 mensajes con
+directorio legible—:
+
+| Directorio | Mensajes |
+|---|---:|
+| `D:96A` | 55 |
+| `D:97A` | 3 |
+| `D:93A` | 4 |
+| `D:96B` | 3 |
+| `D:01B`, `D:06A`, `D:07A` | 5 |
+| **`D16B`** | **0** |
+
+Ni uno. El directorio mayoritario es de **1996**, veinte años anterior al que
+la norma vincula, y el esquema que acompaña a los artefactos es de otro
+distinto más —`INVOIC_D14B_ISO20625.xsd`, con su carpeta sin tocar desde
+2017—. Tres versiones de EDIFACT en juego y ninguna coincide con las otras dos.
+
+Esto no se arregla con una corrección: es la pregunta que queda abierta, y es
+mejor pregunta que la que yo llevaba.
+
+### La regla
+
+La de siempre, aplicada a un sitio donde no la había aplicado: **se mide, no se
+supone**, y eso incluye lo que uno afirma discutiendo. La diferencia con un
+error dentro del repositorio es que aquí no hay guardián posible ni `git
+revert`: un comentario está publicado en el momento en que se escribe. Lo único
+que queda es corregirlo en el mismo sitio.
