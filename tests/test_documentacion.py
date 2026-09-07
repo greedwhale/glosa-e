@@ -146,7 +146,7 @@ def test_el_catalogo_no_se_puede_publicar_vacio():
 # pasar un texto cambiado en una sola, que es justo la forma en que esto se
 # rompe de verdad.
 PAGINAS = ("index.html", "banco.html", "legal.html", "incidencias.html",
-           "tesis.html")
+           "tesis.html", "bitacora.html")
 PRINCIPIO, FIN = "<!-- MENU", "<!-- FIN MENU -->"
 
 
@@ -158,7 +158,7 @@ def _menu_de(pagina: Path) -> str:
     return texto[texto.index(PRINCIPIO):texto.index(FIN) + len(FIN)]
 
 
-def test_el_menu_es_el_mismo_en_las_cinco_paginas():
+def test_el_menu_es_el_mismo_en_las_seis_paginas():
     menus = {p: _menu_de(RAIZ / "web" / p) for p in PAGINAS}
     referencia = menus["index.html"]
     distintas = [p for p, m in menus.items() if m != referencia]

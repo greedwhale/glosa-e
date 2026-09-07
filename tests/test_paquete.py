@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from validador import cadena, paquete
+from validador import bitacora, cadena, paquete
 from validador.cadena import Almacen
 from validador.esquema import Catalogo
 
@@ -1014,3 +1014,52 @@ class TestElDespliegueExigeElPaquete:
             "`vercel.json` pasa `--exigir-paquete` y la orden no la reconoce: "
             "la construcción fallaría entera con «unrecognized arguments»")
 
+
+
+class TestLaBitacoraSeComprueba:
+    """Una entrada rota no deja montar, y no deja media carpeta detrás.
+
+    La primera versión generaba la bitácora al final, que es donde tiene
+    sentido escribirla, y **la comprobaba también al final**. La negativa salía
+    perfecta y el sitio quedaba a medio montar: carpeta creada, páginas
+    copiadas, wheel dentro. Una carpeta a medias con salida 2 es peor que un
+    fallo limpio, porque el paso siguiente de una construcción la publica sin
+    enterarse —que es el fallo que este repositorio ya tuvo con `--sitio` y el
+    paquete de anclas—. Ahora las entradas se leen antes de tocar nada.
+    """
+
+    def _con_bitacora(self, repositorio, articulo: str):
+        (repositorio / "web" / bitacora.NOMBRE).write_text(
+            "<html><body>" + bitacora.HUECO + "</body></html>",
+            encoding="utf-8")
+        carpeta = repositorio / "web" / bitacora.CARPETA
+        carpeta.mkdir(exist_ok=True)
+        (carpeta / "una.html").write_text(articulo, encoding="utf-8")
+
+    BUENA = ('<article class="entrada" data-fecha="2026-09-07" '
+             'data-titulo="Un titulo" data-entradilla="Una entradilla.">'
+             '<p>Cuerpo.</p><footer class="fuentes"><ul><li>'
+             '<a href="https://www.boe.es/">BOE</a></li></ul></footer></article>')
+
+    def test_con_una_entrada_completa_se_monta(self, repositorio):
+        self._con_bitacora(repositorio, self.BUENA)
+        _montar(repositorio)
+        assert (repositorio / "sitio" / bitacora.NOMBRE).is_file()
+        assert (repositorio / "sitio" / f"{bitacora.PREFIJO}una.html").is_file()
+
+    def test_sin_fecha_no_se_monta_ni_se_escribe_una_carpeta(self, repositorio):
+        self._con_bitacora(repositorio, self.BUENA.replace(
+            ' data-fecha="2026-09-07"', ""))
+        with pytest.raises(bitacora.SinEntrada, match="de cuándo es"):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists(), (
+            "se ha negado a montar, pero ha dejado la carpeta del sitio "
+            "escrita a medias")
+
+    def test_sin_fuentes_no_se_monta_ni_se_escribe_una_carpeta(self, repositorio):
+        self._con_bitacora(repositorio, self.BUENA.replace(
+            '<footer class="fuentes"><ul><li>'
+            '<a href="https://www.boe.es/">BOE</a></li></ul></footer>', ""))
+        with pytest.raises(bitacora.SinEntrada, match="fuentes"):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()

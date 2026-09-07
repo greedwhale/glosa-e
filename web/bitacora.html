@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bitácora &middot; Glosa-e</title>
+<meta name="description" content="Lo que Glosa-e va midiendo sobre facturas y normas reales, con la fecha en que se midió y la fuente al lado.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23949494'/%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M25 17 H15 V47 H25'/%3E%3Cpath d='M34 24 h16'/%3E%3Cpath d='M34 40 h16'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="./glosa.css">
+<style>
+/* Lo propio de la bitácora. La base sale de glosa.css.
+
+   Esta hoja la comparten el índice y todas las entradas, porque las entradas
+   se montan de esta misma plantilla. Por eso están aquí las dos cosas: la
+   lista de arriba y el artículo de dentro. */
+.portada { padding: 3rem 0 1rem; }
+.portada h1 { font: 400 var(--t5)/1.15 var(--serif); letter-spacing: -.015em; margin-bottom: .8rem; max-width: 26rem; }
+.portada .entrada-lema { font-size: var(--t3); color: var(--tinta-2); max-width: 36rem; }
+
+/* El índice. Cada fila es la fecha, el título y la entradilla, en ese orden:
+   la fecha va primero porque en un sitio que publica medidas es el dato que
+   dice si lo que sigue todavía vale. */
+.entradas { list-style: none; padding: 0; margin: 2.5rem 0 0; max-width: 40rem; }
+.entradas li { border-top: 1px solid var(--borde); }
+.entradas li:last-child { border-bottom: 1px solid var(--borde); }
+.entradas a { display: block; padding: 1.4rem 0; text-decoration: none; color: inherit; }
+.entradas a:hover b, .entradas a:focus-visible b { color: var(--acento); text-decoration: underline; text-underline-offset: .18em; }
+.entradas time {
+  display: block; font-size: var(--t0); text-transform: uppercase;
+  letter-spacing: .1em; color: var(--tenue); font-weight: 600;
+}
+.entradas b { display: block; margin: .35rem 0 .3rem; font: 400 var(--t4)/1.2 var(--serif); letter-spacing: -.012em; color: var(--tinta); }
+.entradas span { display: block; color: var(--tinta-2); font-size: var(--t1); }
+.vacio { margin-top: 2.5rem; color: var(--tenue); }
+
+/* La vuelta al índice, arriba del todo de cada entrada. */
+.volver { padding: 2.5rem 0 0; font-size: var(--t1); }
+.volver a { text-decoration: none; }
+.volver a:hover { text-decoration: underline; }
+
+/* El artículo. Mismo ritmo que la tesis: es un documento largo, así que manda
+   la columna de lectura. */
+article.entrada { max-width: 36rem; padding: 1rem 0 0; }
+article.entrada > time {
+  display: block; font-size: var(--t0); text-transform: uppercase;
+  letter-spacing: .1em; color: var(--tenue); font-weight: 600;
+}
+article.entrada h1 { font: 400 var(--t5)/1.15 var(--serif); letter-spacing: -.015em; margin: .6rem 0 .9rem; }
+article.entrada .lema { font-size: var(--t3); color: var(--tinta-2); margin-bottom: 2.5rem; }
+article.entrada h2 { font: 400 var(--t4)/1.2 var(--serif); letter-spacing: -.012em; margin: 2.8rem 0 .9rem; }
+article.entrada h3 { font: 600 var(--t2)/1.4 var(--sans); margin: 1.8rem 0 .5rem; }
+article.entrada p, article.entrada li { color: var(--tinta-2); }
+article.entrada b { color: var(--tinta); font-weight: 600; }
+article.entrada code { font-family: var(--mono); font-size: var(--t1); }
+article.entrada ul { padding-left: 1.1rem; margin: 0 0 1em; }
+article.entrada li { margin-bottom: .4rem; }
+article.entrada blockquote {
+  font: 400 var(--t3)/1.45 var(--serif); color: var(--tinta);
+  border-left: 3px solid var(--borde-fuerte); padding-left: 1.25rem;
+  margin: 2rem 0; max-width: 32rem;
+}
+article.entrada blockquote p { color: inherit; }
+
+/* Las tablas de cifras. Se miran, no se leen: números a la derecha y con
+   cifras de ancho fijo, que si no una columna de cantidades no se compara. */
+.cuadro { overflow-x: auto; margin: 1.5rem 0 2rem; }
+.cuadro table { border-collapse: collapse; width: 100%; font-size: var(--t1); }
+.cuadro caption { text-align: left; color: var(--tenue); font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em; font-weight: 600; padding-bottom: .6rem; }
+.cuadro th, .cuadro td { text-align: left; padding: .55rem .9rem .55rem 0; border-bottom: 1px solid var(--borde); }
+.cuadro thead th { color: var(--tenue); font-weight: 600; font-size: var(--t0); text-transform: uppercase; letter-spacing: .08em; }
+.cuadro td.n, .cuadro th.n { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+.cuadro tbody td { color: var(--tinta-2); }
+.cuadro tbody td b { color: var(--tinta); }
+
+/* El pie de fuentes: sin él una entrada no se publica, así que se ve. */
+.fuentes {
+  margin: 3rem 0 0; padding: 1.15rem 1.25rem; border: 1px solid var(--borde);
+  border-radius: 10px; background: var(--panel); font-size: var(--t1);
+  color: var(--tinta-2);
+}
+.fuentes h2 { font: 600 var(--t1)/1.4 var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--tenue); margin: 0 0 .6rem; }
+.fuentes ul { list-style: none; padding: 0; margin: 0; }
+.fuentes li { margin-bottom: .45rem; }
+.fuentes li:last-child { margin-bottom: 0; }
+.fuentes .metodo { margin: .9rem 0 0; color: var(--tenue); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="envoltorio barra">
+    <a class="marca" href="./"><span class="nombre">Glosa-e</span></a>
+    <!-- MENU: este bloque es el mismo, letra por letra, en las seis
+         páginas. Que lo siga siendo lo comprueba tests/test_documentacion.py:
+         seis copias de un menú se separan solas, y entonces cada página dice
+         que el sitio tiene una cosa distinta. Las entradas de la bitácora no
+         se cuentan aquí: salen de `bitacora.html`, que es su plantilla, así
+         que llevan este mismo bloque por construcción y no por acordarse. -->
+    <details class="menu">
+      <summary>
+        <span>Menú</span>
+        <svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+        <span class="tapa"></span>
+      </summary>
+      <nav>
+        <a href="./"><b>La herramienta</b><span>Validar una factura y leer el informe.</span></a>
+        <a href="./incidencias.html"><b>Qué significa cada aviso</b><span>Cada código que puede salir, con la norma de la que sale.</span></a>
+        <a href="./tesis.html"><b>Por qué se explica en vez de certificar</b><span>La tesis del proyecto, y el caso que la puso a prueba.</span></a>
+        <a href="./banco.html"><b>Banco de pruebas</b><span>Las comprobaciones, corriéndolas tu navegador delante de ti.</span></a>
+        <a href="./bitacora.html"><b>Bitácora</b><span>Lo que vamos midiendo, con la fecha y la fuente al lado.</span></a>
+        <a href="./legal.html"><b>Aviso legal y privacidad</b><span>Qué se mide, qué no se guarda y qué no acredita esto.</span></a>
+        <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20"><b>Escríbeme</b><span>Dudas, fallos que veas y propuestas. Se abre tu programa de correo.</span></a>
+      </nav>
+    </details>
+    <!-- FIN MENU -->
+  </div>
+</header>
+
+<main>
+  <div class="envoltorio">
+<!-- AQUI VA EL CUERPO -->
+  </div>
+</main>
+
+<footer>
+  <div class="envoltorio">
+    <p class="aviso-legal"><b>Aviso.</b> Glosa-e es una herramienta privada e
+    independiente. No es un servicio oficial de la Agencia Tributaria, de FACe
+    ni de ninguna administración, y su resultado no acredita nada ante ellas.</p>
+    <nav>
+      <a href="./">La herramienta</a>
+      <a href="./bitacora.html">Bitácora</a>
+      <a href="./legal.html">Aviso legal y privacidad</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

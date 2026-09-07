@@ -25,9 +25,10 @@ según el RD 238/2026.
 | `validador/sellos.py` | El sello de tiempo (RFC 3161 dentro de XAdES): quién acredita la fecha de la firma | Terminado |
 | `validador/edifact.py` | El cuarto formato: la tira de ISO 9735, sus grupos y sus cuentas | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
+| `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1221 tests, todos en verde.
+1246 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -725,6 +726,44 @@ de `./`, la consulta arranca de la raíz del documento aunque se lance desde el
 nodo del vendedor: en una factura donde el vendedor solo trae
 `PartyLegalEntity` y el comprador sí trae `PartyTaxScheme`, el código único
 acababa llevando **el NIF del comprador**. Hay un test que lo fija.
+
+## La bitácora, y por qué se genera
+
+`www.glosa-e.com/bitacora.html`. Es donde se publica lo que este proyecto mide
+—hallazgos sobre facturas y normas reales— para quien no va a abrir un
+repositorio de GitHub a leer `HALLAZGOS.md`.
+
+Se escribe **solo el artículo**, en `web/bitacora/<nombre>.html`, y el armazón
+—cabecera, menú, pie, aviso legal— se lo pone `bitacora.html`, que es la
+plantilla. La razón es la de siempre en esta casa: el menú es el mismo letra
+por letra en las seis páginas y hay una prueba que se niega a dejarlo
+diverger. Si cada entrada fuera una página entera, publicar la sexta sería
+copiar el menú por sexta vez y el día que cambie el aviso legal habría que
+acordarse de siete sitios. Aquí no hay nada que recordar: las entradas lo
+llevan por construcción.
+
+Cada artículo se monta al lado de la plantilla, como `bitacora-<nombre>.html`
+y no dentro de una carpeta. Es más feo en la barra de direcciones y es a
+propósito: la cabecera compartida enlaza `./glosa.css` y el sello de la huella
+busca esa línea letra por letra, así que una entrada un nivel más abajo
+obligaría a reescribir rutas a `../`. Esa reescritura **no da error cuando se
+hace mal** —la página sale, y sale sin estilo—, y este repositorio ya ha tenido
+cuatro veces el mismo fallo con otro disfraz.
+
+### El guardián: fecha y fuente
+
+`SinEntrada`, y no se monta el sitio. Una entrada tiene que declarar
+`data-fecha` en forma ISO, `data-titulo`, `data-entradilla` y un
+`<footer class="fuentes">` con al menos un enlace.
+
+Las dos que importan son la primera y la última, y las dos por el mismo
+motivo: **no se notan en la página publicada**. Sale bien, se lee bien, y no
+hay forma de saber de cuándo es la medida ni de dónde salió. Una entrada sin
+fecha no es una medida, es una opinión con tipografía; una sin fuente le pide
+al lector que se fíe, que es justo lo que esta herramienta dice no hacer.
+
+Las siete negativas están provocadas en `tests/test_bitacora.py`, cada una
+rompiendo una entrada por un sitio distinto, y ninguna escribe sobre `web/`.
 
 ## Decisiones de diseño
 

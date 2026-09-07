@@ -16,7 +16,7 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from validador import factura, paquete, tsl
+from validador import bitacora, factura, paquete, tsl
 from validador.cadena import Almacen
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.cadena import SUFIJO_DE_SELLOS
@@ -414,7 +414,8 @@ def _montar_sitio(destino: Path, exigir_paquete: bool = False) -> int:
     try:
         sitio = paquete.montar_sitio(destino, exigir_paquete=exigir_paquete)
     except (paquete.SinRueda, paquete.SinPagina, paquete.SinPyodide,
-            paquete.RuedaVieja, paquete.SinPaquete) as motivo:
+            paquete.RuedaVieja, paquete.SinPaquete,
+            bitacora.SinEntrada) as motivo:
         print(f"No se ha montado nada.\n\n  {motivo}", file=sys.stderr)
         return 2
     except OSError as error:

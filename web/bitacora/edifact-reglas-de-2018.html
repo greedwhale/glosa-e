@@ -1,0 +1,199 @@
+<article class="entrada"
+  data-fecha="2026-09-07"
+  data-titulo="El 1 de octubre España admite facturas EDIFACT. Las reglas para comprobarlas son de 2018"
+  data-entradilla="Las cuatro sintaxis del RD 238/2026 no llegan en las mismas condiciones: dos tienen reglas actualizadas en abril, una las tiene paradas desde hace ocho años y la cuarta no las ha tenido nunca. Lo preguntamos donde se escriben.">
+
+  <time datetime="2026-09-07">7 de septiembre de 2026</time>
+  <h1>El 1 de octubre España admite facturas EDIFACT. Las reglas para
+  comprobarlas son de 2018</h1>
+  <p class="lema">Las cuatro sintaxis que admite el RD 238/2026 no llegan en
+  las mismas condiciones. Dos tienen reglas de comprobación actualizadas en
+  abril; una las tiene paradas desde hace ocho años; la cuarta no las ha tenido
+  nunca. Lo preguntamos donde se escriben, y esto es lo que nos contestaron.</p>
+
+  <p>El artículo 7.1 del <b>Real Decreto 238/2026</b> dice que una factura
+  electrónica tiene que ajustarse al modelo semántico <b>EN 16931</b> bajo una
+  de estas cuatro sintaxis:</p>
+
+  <blockquote><p>a) CII. b) UBL. c) Mensaje EDIFACT de factura.
+  d) Mensaje Facturae.</p></blockquote>
+
+  <p>Las cuatro valen igual ante la ley. La obligación empieza a contar el
+  <b>1 de octubre de 2026</b>.</p>
+
+  <p>Lo que la ley no dice —porque no es su trabajo— es <b>con qué se
+  comprueba</b> que una factura cumple ese modelo semántico. Para eso existen
+  los <i>artefactos de validación</i>: los ficheros que traducen las reglas de
+  la norma a algo que un programa puede ejecutar. Se publican en un repositorio
+  público de la Comisión Europea, y no llegan todos en el mismo estado.</p>
+
+  <h2>Lo que hay para comprobar cada sintaxis</h2>
+
+  <div class="cuadro">
+  <table>
+    <caption>Artefactos EN 16931 publicados, a 7 de septiembre de 2026</caption>
+    <thead><tr><th>Sintaxis</th><th>Reglas EN 16931</th><th>Última actualización</th></tr></thead>
+    <tbody>
+      <tr><td>UBL</td><td><code>v1.3.16</code></td><td>10-04-2026</td></tr>
+      <tr><td>CII</td><td><code>v1.3.16</code></td><td>10-04-2026</td></tr>
+      <tr><td><b>EDIFACT</b></td><td><code>v1.0.0</code></td><td><b>08-02-2018</b></td></tr>
+      <tr><td><b>Facturae</b></td><td>—</td><td><b>nunca ha existido</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Ocho años de diferencia entre la primera fila y la tercera. Y la cuarta
+  —el formato español, el que más va a circular aquí— nunca ha tenido reglas
+  europeas publicadas: CEN escribió la correspondencia para UBL, CII y EDIFACT,
+  y para Facturae no escribió ninguna.</p>
+
+  <p>Conviene decir qué significa y qué no significa esto. <b>No</b> significa
+  que las facturas EDIFACT sean inválidas, ni que no exista la norma. La norma
+  existe: se llama <code>CEN/TS 16931-3-4</code>, tiene tres ediciones —2017,
+  2020 y 2026— y la última se publicó el 17 de agosto de este año. Lo que está
+  parado no es la norma: es <b>la herramienta libre para comprobarla</b>. Son
+  cosas distintas, se publican en sitios distintos —una en GitHub y gratis, la
+  otra a través de los organismos de normalización y de pago— y confundirlas es
+  fácil. Volveremos a esto al final, porque nosotros la confundimos.</p>
+
+  <h2>Qué pasa cuando se comprueban facturas de verdad</h2>
+
+  <p>Un artefacto parado no es un problema abstracto. Aplicamos las reglas de
+  línea de EN 16931 a <b>facturas EANCOM españolas reales del gran consumo</b>,
+  y las comparamos con los nueve ejemplos oficiales EDIFACT que publica la
+  propia Comisión Europea:</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Reglas de línea: ejemplos oficiales frente a facturas reales</caption>
+    <thead><tr><th>Regla</th><th>Qué exige</th><th class="n">Ejemplos oficiales</th><th class="n">Facturas reales</th></tr></thead>
+    <tbody>
+      <tr><td><code>BR-22</code></td><td>que la línea diga <b>cuánto</b></td><td class="n">0 de 9</td><td class="n">0 de 9</td></tr>
+      <tr><td><code>BR-23</code></td><td>que diga <b>de qué</b> (unidad de medida)</td><td class="n">0 de 9</td><td class="n"><b>8 de 9</b></td></tr>
+      <tr><td><code>BR-26</code></td><td>que diga <b>a qué precio</b> por unidad</td><td class="n">0 de 9</td><td class="n"><b>7 de 9</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Y en los totales del documento, <code>BR-13</code> y <code>BR-14</code>
+  saltan en <b>73 de 76</b> ficheros.</p>
+
+  <p>Los ejemplos oficiales están limpios. Los ficheros reales, no. La
+  diferencia no es que las empresas lo hagan mal: es que la guía sectorial
+  EANCOM coloca varios datos en sitios distintos de donde EN 16931 los espera,
+  y que hay información que la norma exige y que en el EDI de siempre
+  sencillamente no viajaba. Nadie la echaba de menos porque nadie la
+  comprobaba.</p>
+
+  <p>Hay un dato más, y es el que mejor resume la situación. La edición de 2026
+  de la norma mapea EN 16931 a la versión <b>D.24A</b> del mensaje EDIFACT. De
+  <b>70 mensajes reales</b> cuyo directorio pudimos leer:</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Directorio declarado en el segmento UNH</caption>
+    <thead><tr><th>Directorio</th><th class="n">Mensajes</th></tr></thead>
+    <tbody>
+      <tr><td><code>D:96A</code></td><td class="n">55</td></tr>
+      <tr><td><code>D:93A</code></td><td class="n">4</td></tr>
+      <tr><td><code>D:97A</code></td><td class="n">3</td></tr>
+      <tr><td><code>D:96B</code></td><td class="n">3</td></tr>
+      <tr><td>otros (<code>D:01B</code>, <code>D:06A</code>, <code>D:07A</code>)</td><td class="n">5</td></tr>
+      <tr><td><b><code>D.24A</code></b></td><td class="n"><b>0</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>El directorio mayoritario es de <b>1996</b>. Ninguna factura usa el que la
+  norma vincula.</p>
+
+  <h2>Lo preguntamos donde se escribe</h2>
+
+  <p>El 4 de septiembre abrimos una consulta pública en el repositorio de
+  artefactos de la Comisión Europea:
+  <a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/518">issue
+  #518</a>. La pregunta era simple: <b>¿está previsto actualizar los artefactos
+  EDIFACT, y si no lo está, puede decirse en el README?</b></p>
+
+  <p>Contestaron. Y la respuesta que importa, del 6 de septiembre, es de Philip
+  Helger, colaborador del proyecto:</p>
+
+  <blockquote><p>«Sí, se creará una versión actualizada de los artefactos de
+  validación EDIFACT para EN 16931:2026.»</p></blockquote>
+
+  <p>Eso no estaba escrito en ninguna parte. Desde fuera, con el esquematrón
+  parado en 2018 y la herramienta de conversión oficial archivada desde 2021,
+  la lectura natural era que la puerta estaba cerrada. No lo está.</p>
+
+  <p>También intervino Svante Schubert, que dirigió el proyecto de
+  correspondencias sintácticas de CEN para UBL y CII de 2026, con dos
+  precisiones que cambian el cuadro: el binding EDIFACT actualizado lo está
+  haciendo <b>Jenny Herzfeld, de la asociación alemana de automoción</b>, y las
+  ediciones de 2017 y de 2026 <b>van a convivir</b> hasta el 31 de marzo de
+  2029. Qué edición hay que aplicar en España, y si valen las dos a la vez, no
+  lo decide CEN: lo decide la legislación. <b>Es una pregunta abierta y aquí no
+  la vamos a contestar hasta poder citar la fuente.</b></p>
+
+  <h2>Nos equivocamos dos veces por el camino, y va escrito</h2>
+
+  <p>Esta es la parte que normalmente no se publica, y por eso la
+  publicamos.</p>
+
+  <p><b>La primera:</b> dijimos en público que EDIFACT y Facturae eran «las dos
+  sintaxis sin correspondencia CEN». De Facturae es cierto. De EDIFACT es falso
+  —existe desde 2017—. Habíamos deducido la ausencia de la <i>norma</i> a
+  partir del abandono del <i>artefacto</i>.</p>
+
+  <p><b>La segunda,</b> dos días después: al corregir lo anterior, escribimos
+  que la norma vincula EN 16931 al directorio <code>D16B</code>. Eso es lo que
+  dice el <b>título de la portada</b>, y la portada no se actualizó. El mapeo
+  real es <code>D.24A S4</code>.</p>
+
+  <p>El mismo error dos veces: <b>leer el envoltorio y afirmar algo sobre el
+  contenido</b>. Y la segunda, cometida dentro del texto donde explicábamos la
+  primera.</p>
+
+  <p>Lo contamos porque es exactamente lo que este validador promete no hacer.
+  Glosa-e no certifica nada —una glosa explica, no da fe—. Cada regla dice de
+  dónde sale, cada hueco dice que es un hueco, y cuando nos equivocamos se
+  corrige en el mismo sitio donde se dijo. Un validador que solo publica sus
+  aciertos no le está dando a nadie forma de comprobarlo.</p>
+
+  <h2>Qué hace Glosa-e con esto, hoy</h2>
+
+  <p>Comprueba las cuatro sintaxis, EDIFACT incluido, con las reglas EN 16931
+  que hay publicadas —y dice en cada informe cuáles son y de cuándo—. Cuando
+  una regla no se puede comprobar sobre una sintaxis, <b>lo dice en vez de
+  callarse</b>: hay una gravedad, <code>NOTA</code>, que existe solo para
+  eso.</p>
+
+  <p>Es gratis, es código abierto (AGPL-3.0) y <b>corre entero en tu
+  navegador</b>: el motor se descarga a tu ordenador y la factura no sale de
+  él. No hay servidor que la reciba, ni copia que quede en ningún sitio.</p>
+
+  <p>Está <b>en desarrollo y en pruebas</b>. Si encuentras algo mal,
+  <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20">escríbenos</a>:
+  es como se han arreglado las dos cosas de arriba.</p>
+
+  <footer class="fuentes">
+    <h2>De dónde sale</h2>
+    <ul>
+      <li><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-7295">Real
+      Decreto 238/2026</a>, artículo 7.1 — BOE-A-2026-7295.</li>
+      <li><a href="https://github.com/ConnectingEurope/eInvoicing-EN16931">Artefactos
+      EN 16931 de la Comisión Europea</a> — versiones y fechas de publicación
+      de los esquematrones.</li>
+      <li><a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/518">Issue
+      #518</a> — la consulta pública entera, con las respuestas citadas.</li>
+      <li><a href="https://www.evs.ee/en/cen-ts-16931-3-4-2026"><code>CEN/TS
+      16931-3-4:2026</code></a> — ficha del catálogo: título, fecha de
+      publicación y edición a la que sustituye.</li>
+    </ul>
+    <p class="metodo"><b>Cómo se midió.</b> Las cifras de facturas reales salen
+    de ficheros EANCOM de terceros validados en local los días 6 y 7 de
+    septiembre de 2026. Los ficheros no salen de la máquina donde se validan y
+    no se publica ningún nombre de empresa, NIF ni GLN: solo recuentos
+    agregados.</p>
+  </footer>
+
+</article>

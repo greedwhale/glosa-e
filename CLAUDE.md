@@ -138,6 +138,12 @@ prueba que están escritos.
   niega: Vercel solo mira el código de salida, así que un aviso perfecto y un
   `return 0` publicaban igual un validador que no comprueba ni la forma ni de
   quién es la firma.
+- **La bitácora se escribe en `web/bitacora/`**, un fichero por artículo y
+  solo el artículo: el armazón se lo pone `bitacora.html` al montar. Sin
+  `data-fecha`, `data-titulo`, `data-entradilla` y un pie de fuentes con un
+  enlace, **el sitio no se monta**. Lo que se publique ahí no lleva datos de
+  terceros ni nada que perjudique el negocio: recuentos agregados, nunca un
+  nombre, un NIF ni un GLN.
 - **Un push a `main` despliega a producción** (Vercel lee `vercel.json`).
   La dirección es **`glosa-e.com`**, registrada en Vercel el 31-08-2026. El
   dominio canónico es **`www.glosa-e.com`** y el ápice redirige a él con un

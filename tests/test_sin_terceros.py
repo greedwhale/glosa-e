@@ -57,7 +57,15 @@ UNA_DIRECCION = re.compile(r"""url\(\s*['"]?([^'")]+)""", re.I)
 
 
 def _paginas() -> list[pathlib.Path]:
-    return sorted(WEB.glob("*.html"))
+    """Las páginas del sitio y los artículos de la bitácora.
+
+    Los segundos son trozos y no páginas enteras —el armazón se lo pone
+    `bitacora.html` al montar—, pero acaban servidos al navegador igual que
+    todo lo demás. Una `<img>` a un dominio ajeno dentro de un artículo
+    rompería la cifra publicada sin que nada fallara, que es exactamente el
+    fallo que esta prueba existe para no tener.
+    """
+    return sorted(WEB.glob("*.html")) + sorted((WEB / "bitacora").glob("*.html"))
 
 
 def _sin_comentarios(texto: str, marcas=("//", "/*", "*")) -> list[str]:

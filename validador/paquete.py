@@ -53,7 +53,7 @@ from validador.cadena import (
     SUFIJO_DE_SELLOS,
     Almacen,
 )
-from validador import pagina_incidencias
+from validador import bitacora, pagina_incidencias
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
 
@@ -424,8 +424,10 @@ _RUTAS_DEL_SITIO = (
 # porque explica qué prueba cada comprobación.
 _DE_LA_PAGINA = (
     "index.html", "banco.html", "legal.html", "prueba.py", "LEEME.md",
-    # Las tres de consulta. `incidencias.html` no va aquí sino por su propio
-    # camino: es la plantilla del catálogo y hay que generarla, no copiarla.
+    # `incidencias.html` y `bitacora.html` no van aquí sino por su propio
+    # camino: son plantillas y hay que generarlas, no copiarlas. La primera
+    # rellena el catálogo de códigos; la segunda pone el armazón a cada
+    # entrada, que es lo que evita que el menú se escriba una vez por artículo.
     "tesis.html",
 )
 
@@ -707,6 +709,15 @@ def montar_sitio(
         # conviene leer primero esa.
         _revisar_el_paquete(pagina)
 
+    # Las entradas de la bitácora se leen **aquí**, aunque no se escriban
+    # hasta el final. Generarlas al final y comprobarlas al final significaba
+    # descubrir una entrada sin fecha con el sitio ya medio montado: la
+    # negativa salía bien, pero dejaba una carpeta a medias, y una carpeta a
+    # medias es justo lo que el paso siguiente publica sin enterarse. Leer no
+    # cuesta nada y se hace dos veces a propósito.
+    if (pagina / bitacora.CARPETA).is_dir():
+        bitacora.leer_entradas(pagina / bitacora.CARPETA)
+
     if destino.exists():
         shutil.rmtree(destino)
     (destino / "dist").mkdir(parents=True)
@@ -828,6 +839,27 @@ def montar_sitio(
         for busca, pon, _ in sellos:
             generada = generada.replace(busca, pon)
         salida.write_text(generada, encoding="utf-8")
+
+    # La bitácora: el índice y una página por entrada, todas del mismo
+    # armazón. Va detrás del catálogo porque comparte su forma —plantilla con
+    # un hueco— y porque su negativa es menos grave: si falta una fecha no se
+    # publica la bitácora, no se cae el validador.
+    plantilla_bitacora = pagina / bitacora.NOMBRE
+    if plantilla_bitacora.is_file():
+        texto_bitacora = plantilla_bitacora.read_text(encoding="utf-8")
+        for busca, pon, constante in sellos:
+            if busca in texto_bitacora:
+                firmadas[constante] += 1
+        publicadas = bitacora.montar_bitacora(
+            plantilla_bitacora, pagina / bitacora.CARPETA, destino
+        )
+        # La huella se pone después de generar, sobre cada fichero ya montado.
+        for nombre in [bitacora.NOMBRE] + [e.nombre for e in publicadas]:
+            salida = destino / nombre
+            generada = salida.read_text(encoding="utf-8")
+            for busca, pon, _ in sellos:
+                generada = generada.replace(busca, pon)
+            salida.write_text(generada, encoding="utf-8")
 
     huerfanos = sorted(c for c, cuantas in firmadas.items() if not cuantas)
     if huerfanos:
