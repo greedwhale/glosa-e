@@ -2337,7 +2337,7 @@ esa es la prueba de que hacía falta.
 
 ## Un aviso perfecto y un `return 0`
 
-La septima de la ronda, y la que quedaba sin cerrar. `--sitio` monta lo que se
+La séptima de la ronda, y la que quedaba sin cerrar. `--sitio` monta lo que se
 publica, y cuando no encuentra el paquete de esquemas y anclas **lo dice muy
 bien**:
 
@@ -2345,22 +2345,22 @@ bien**:
   esquemas y anclas     NO VAN
 
   Este sitio arranca y valida el contenido, pero no comprueba ni la
-  forma ni de quien es la firma, y lo dira en cada informe.
+  forma ni de quién es la firma, y lo dirá en cada informe.
 ```
 
-Y sale con 0. Eso esta bien mientras quien monta sea una persona, que es para
-lo que se escribio: en local hace falta poder montar sin armar 389 anclas. Pero
-quien monta lo que se publica es la construccion de Vercel, y una construccion
-no lee recuadros: mira el codigo de salida. Un despliegue al que le faltara el
-paquete habria publicado un validador que comprueba una de las tres cosas, con
-la pagina diciendolo en letra pequeña y el despliegue en verde.
+Y sale con 0. Eso está bien mientras quien monta sea una persona, que es para
+lo que se escribió: en local hace falta poder montar sin armar 389 anclas. Pero
+quien monta lo que se publica es la construcción de Vercel, y una construcción
+no lee recuadros: mira el código de salida. Un despliegue al que le faltara el
+paquete habría publicado un validador que comprueba **una de las tres cosas**,
+con la página diciéndolo en letra pequeña y el despliegue en verde.
 
-Es el mismo par de siempre —un comentario que pide memoria frente a un guardian
-que no deja montar— y hasta ahora este sitio estaba del lado malo.
+Es el mismo par de siempre —un comentario que pide memoria frente a un guardián
+que no deja montar— y hasta ahora esto estaba del lado malo.
 
-Ahora `--sitio` admite `--exigir-paquete`, el `vercel.json` la pasa, y sin ella
-no cambia nada. Provocado con un repositorio de mentira al que se le quitan el
-zip y su ficha:
+Ahora `--sitio` admite `--exigir-paquete`, `vercel.json` la pasa, y sin ella no
+cambia nada. Provocado con un repositorio de mentira al que se le quitan el zip
+y su ficha:
 
 ```
 sin bandera  ->  salida 0   sitio montado, con su aviso
@@ -2370,33 +2370,79 @@ con bandera  ->  salida 2   y ni una carpeta escrita
 Dos detalles que costaron una vuelta cada uno. El primero: la negativa mira
 **que el paquete traiga algo**, no solo que el fichero exista; un zip armado
 sin anclas se copia, se sirve y se descomprime sin error mientras la ficha de
-la pagina anuncia 268 anclas que no estan. El segundo: la revision va detras de
-`RuedaVieja` y no delante, aunque las dos ocurran antes de escribir el primer
+la página anuncia 268 anclas que no están. El segundo: la revisión va **detrás**
+de `RuedaVieja` y no delante, aunque las dos ocurran antes de escribir el primer
 byte, porque cuando las dos cosas fallan a la vez conviene leer primero la del
 wheel viejo, que es el fallo que este repositorio ha tenido cuatro veces.
 
-Y una prueba que no comprueba el codigo sino el despliegue: que `vercel.json`
+Y una prueba que no comprueba el código sino el despliegue: que `vercel.json`
 siga pasando la bandera. Una bandera que existe y que nadie pasa es exactamente
-lo que ya paso con el gancho de `antes-de-empujar.py`, que estuvo meses escrito
+lo que ya pasó con el gancho de `antes-de-empujar.py`, que estuvo meses escrito
 y sin declarar. No fallaba: dejaba pasar.
 
-## Una medida que no era del validador
+## Una regresión de 3,6x que no existía
 
-De paso, y esto merece quedar escrito porque estuve a punto de publicarlo mal.
+Este no es un fallo del validador. Es un fallo de medición, y va escrito porque
+estuvo a punto de acabar publicado como una cifra del producto —y porque la
+regla de la casa es «se mide, no se supone», que también significa saber cuándo
+lo que se ha hecho **no** es medir.
 
-Al medir en produccion los 10 ejemplos despues del despliegue salieron 1.450 ms,
-contra los 400 que habia medido antes sobre el despliegue anterior. Eso son 3,6
-veces peor, y lo primero que pense fue que el binding de Facturae —las reglas de
-linea, la categoria deducida, el pais, BT-3— habia salido caro.
+### Lo que parecía
 
-No lo era. Medido con CPython sobre los mismos diez ficheros, el codigo de antes
-tarda 192,5 ms y el de ahora 179,4. Y medido donde importa —el mismo navegador,
-la misma maquina, cambiando **solo la rueda**— la de antes tarda 1.367 ms y la
-de ahora 829. Va mas rapido, no mas lento.
+Recién desplegado el binding de Facturae, midiendo en producción los 10
+ejemplos: **1.450 ms**. Sobre el despliegue anterior había medido **400 ms**.
+Tres veces y media peor, y con una explicación a mano y creíble: acababan de
+entrar las reglas de línea, la categoría de IVA deducida, la traducción del
+país y BT-3. Trabajo nuevo en el camino caliente.
 
-Lo que pasaba es que estaba midiendo mientras el ordenador compilaba ruedas y
-corria la suite. Con la maquina en reposo, produccion da 798 ms de mediana sobre
-siete pasadas. La leccion no es sobre el validador: **una medida sin decir en
-que condiciones se tomo no es una medida**, y esta habria entrado en `LEEME.md`
-como una cifra del producto. Ahora la fila lleva escrito al lado el metodo y la
-condicion que la mueve.
+Lo cómodo era darlo por bueno y ponerse a optimizar. Habría sido optimizar algo
+que no estaba mal.
+
+### Lo que lo desmontó
+
+Primero, lo barato: los mismos diez ficheros con CPython, con los esquemas
+puestos, comparando el código de antes y el de ahora en dos árboles distintos.
+
+```
+antes (ea91466)   192,5 ms        ahora   179,4 ms
+```
+
+Más rápido, no más lento. Pero eso solo no bastaba y por eso no se paró ahí:
+aquí corre libxml2 2.11.9 y en la página 2.9.10, así que una lentitud que
+apareciera **solo** en WebAssembly habría dado exactamente este resultado. Ya
+hay medio banco dedicado a que esa diferencia no se dé por supuesta.
+
+Lo que lo cerró fue medir donde pasa: el mismo navegador, la misma máquina, la
+misma página, cambiando **solo la rueda** —dos wheels construidos de los dos
+commits, servidos por turnos desde `dist/`—.
+
+```
+rueda de antes    1.367 ms        rueda de ahora   829 ms
+```
+
+El código nuevo es un 40 % más rápido. No había regresión que arreglar.
+
+### Qué estaba pasando de verdad
+
+Que estaba midiendo con el ordenador compilando ruedas y corriendo la suite en
+otra ventana. Con la máquina en reposo, producción da **798 ms** de mediana
+sobre siete pasadas, que cuadra con los 829 del servidor local. Las lecturas de
+1,4 s eran mías, no del validador.
+
+### Y los 400 ms tampoco valían
+
+Es la parte que más cuesta escribir. La cifra vieja tampoco se pudo reproducir:
+si la rueda de antes tarda 1.367 ms en el mismo navegador, aquel 400 no podía
+ser cierto para aquel código. No es que la nueva medida corrigiera a la vieja
+—es que **ninguna de las dos estaba tomada en condiciones**, y la vieja llevaba
+un rato en `web/LEEME.md`.
+
+Así que no se ha «actualizado» el número: se ha tirado y se ha medido otra vez,
+diciendo cómo. La fila ahora lleva al lado el método —cuatro pasadas de
+calentamiento, mediana de siete, máquina en reposo— y la condición que la
+mueve, porque es la única fila del cuadro cuyo valor depende de lo que esté
+haciendo el ordenador en ese momento.
+
+**Una medida sin las condiciones en las que se tomó no es una medida**, y es
+más peligrosa que no tener ninguna: la que falta se busca, y la que está mal se
+cita.
