@@ -445,7 +445,7 @@ SINTAXIS_EDIFACT = Sintaxis(
 #
 # Este mapa no existe en ninguna norma. CEN publicó `CEN/TS 16931-3-2` para
 # UBL, `-3-3` para CII y `-3-4` para EDIFACT —esta última con tres ediciones,
-# 2017, 2020 y 2026, la vigente desde el 17-08-2026—, y **para Facturae no
+# 2017, 2020 y 2026—, y **para Facturae no
 # publicó nada**: no hay parte que diga qué elemento de Facturae es qué término
 # de negocio. Hasta marzo de 2026 eso no importaba, porque Facturae era el formato
 # nacional y EN 16931 no se le exigía. El artículo 7.1 del RD 238/2026 lo

@@ -884,9 +884,9 @@ sintaxis admitidas**, y Facturae es la cuarta. La obligación empieza el
 ### No hay mapa oficial, y por eso hay que escribirlo
 
 CEN publicó `CEN/TS 16931-3-2` para UBL, `-3-3` para CII y `-3-4` para
-EDIFACT —«*Syntax binding for UN/EDIFACT INVOIC D16B*», con tres ediciones:
-2017, 2020 y **2026, en vigor desde el 17-08-2026**, seis semanas antes de que
-empiece a contar el RD—. **Para Facturae no publicó nada.** No existe ninguna parte de la norma que diga
+EDIFACT —tres ediciones, 2017, 2020 y 2026, y esta última mapea a `UN/CEFACT
+INVOIC D.24A S4` aunque su portada siga diciendo `D16B`, que no se actualizó—.
+**Para Facturae no publicó nada.** No existe ninguna parte de la norma que diga
 qué elemento de Facturae es qué término de negocio, así que el mapa de
 `SINTAXIS_FACTURAE` está escrito aquí y las decisiones son nuestras. Por eso
 cada hueco lleva escrito el porqué, y por eso están aquí también.

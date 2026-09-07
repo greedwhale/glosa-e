@@ -2469,16 +2469,17 @@ La mitad de Facturae es cierta. La de EDIFACT es falsa.
 
 Lo corrigió Svante Schubert en el propio hilo el 06-09-2026 —dirigió el
 proyecto de binding CEN de UBL y CII de 2026—. `CEN/TS 16931-3-4` existe,
-se titula «*Syntax binding for UN/EDIFACT INVOIC D16B*», y **tiene tres
+se titula «*Syntax binding for UN/EDIFACT INVOIC D16B*» —y ese título es
+parte del problema, como se ve al final de esta entrada—, y **tiene tres
 ediciones**:
 
-| Edición | En vigor |
+| Edición | Publicada |
 |---|---|
 | `CEN/TS 16931-3-4:2017` | 30-11-2017 |
 | `CEN/TS 16931-3-4:2020` | 15-05-2020 |
-| **`CEN/TS 16931-3-4:2026`** | **17-08-2026**, sustituye a la de 2020 |
+| **`CEN/TS 16931-3-4:2026`** | **17-08-2026** |
 
-La última entró en vigor **seis semanas antes** de que empiece a contar el
+La última se publicó **seis semanas antes** de que empiece a contar el
 artículo 7.1 del RD 238/2026. La redactó Jenny Herzfeld, de la VDA alemana,
 generada con GEFEG.FX sobre los modelos UN/CEFACT.
 
@@ -2501,10 +2502,9 @@ la fuente delante se cita meses después de memoria.
 
 ### Lo que queda en su lugar, medido
 
-El hallazgo bueno no era el que yo creía, y es más concreto. La norma vigente
-liga EN 16931 a **INVOIC D16B**. Contados los directorios que declaran los
-`UNH` de las facturas EDIFACT de terceros que hay aquí —70 mensajes con
-directorio legible—:
+El hallazgo bueno no era el que yo creía, y es más concreto. Contados los
+directorios que declaran los `UNH` de las facturas EDIFACT de terceros que hay
+aquí —70 mensajes con directorio legible—:
 
 | Directorio | Mensajes |
 |---|---:|
@@ -2513,15 +2513,52 @@ directorio legible—:
 | `D:93A` | 4 |
 | `D:96B` | 3 |
 | `D:01B`, `D:06A`, `D:07A` | 5 |
-| **`D16B`** | **0** |
+| **`D.24A`**, que es el que la norma mapea | **0** |
+| **`D16B`**, que es el que su portada dice | **0** |
 
-Ni uno. El directorio mayoritario es de **1996**, veinte años anterior al que
-la norma vincula, y el esquema que acompaña a los artefactos es de otro
-distinto más —`INVOIC_D14B_ISO20625.xsd`, con su carpeta sin tocar desde
-2017—. Tres versiones de EDIFACT en juego y ninguna coincide con las otras dos.
+Ni uno de ninguno de los dos. El directorio mayoritario es de **1996**, y el esquema que acompaña a
+los artefactos es de otro distinto más —`INVOIC_D14B_ISO20625.xsd`, con su
+carpeta sin tocar desde 2017—. Tres versiones de EDIFACT en juego, y con la que
+la norma pide de verdad son cuatro.
 
 Esto no se arregla con una corrección: es la pregunta que queda abierta, y es
 mejor pregunta que la que yo llevaba.
+
+### Y volvió a pasar dos días después, con el mismo mecanismo
+
+La corrección de arriba se publicó en el hilo el 07-09-2026 a la una de la
+madrugada. A las siete y media, el mismo Svante Schubert contestó corrigiendo
+**la corrección**. Dos cosas:
+
+**Una.** Yo había escrito que `-3-4` «vincula EN 16931 a `INVOIC D16B`». Eso es
+lo que dice el **título de la portada**, y la portada no se actualizó: la
+referencia de versión tenían que haberla cambiado en el CCMC —el centro de
+gestión de CEN-CENELEC— y no se hizo. La revisión de 2026 mapea de verdad a
+**`UN/CEFACT INVOIC D.24A S4`**. Lo mismo pasa con las otras dos, cuyos títulos
+tampoco lo dicen: la de UBL de 2026 pide **UBL 2.5** como mínimo y la de CII,
+**CII D.25A**. Se corregirá en las próximas modificaciones.
+
+**Dos.** «En vigor desde el 17-08-2026» era mío y no lo dice nadie más. Que CEN
+o un organismo nacional publiquen una norma no la hace legalmente aplicable:
+eso lo decide la legislación, con las referencias del Diario Oficial de la UE.
+A nivel CEN **conviven** la revisión de 2017 —con su modificación de 2020— y la
+de 2026; la de 2017 está programada para retirarse el **31-03-2029**. Hay
+periodo transitorio, y qué edición hay que usar, o si valen las dos a la vez,
+lo dice la ley aplicable y no la fecha de publicación.
+
+Lo que hay que ver aquí no son los dos datos, sino que **es el mismo mecanismo
+dos veces seguidas y no lo reconocí la segunda**. Primero deduje la norma por
+el estado del artefacto. Después deduje el mapeo por el título de la portada.
+Las dos veces leí el envoltorio y afirmé algo sobre el contenido; las dos veces
+el envoltorio estaba desatendido, que es la condición normal de los envoltorios.
+Y la segunda la cometí **dentro del texto en el que estaba explicando la
+primera**, que es lo más incómodo de escribir aquí y la razón de que se escriba.
+
+Queda además una pregunta que sí es del producto y que no puedo contestar
+midiendo, porque es de derecho: **a qué edición de EN 16931 apunta el artículo
+7.1 del RD 238/2026**. Si apunta a la de 2026, la semántica que hay que validar
+es la que pide UBL 2.5, CII D.25A y EDIFACT D.24A S4. Si apunta a la de 2017,
+es otra. Hasta saberlo, aquí no se afirma ninguna de las dos.
 
 ### La regla
 
