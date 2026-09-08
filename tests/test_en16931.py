@@ -624,8 +624,7 @@ class TestBindingDeFacturae:
         Es el caso limpio de lo que este binding aporta y el XSD no. `UnitOfMeasure`
         lleva `minOccurs="0"` en el esquema oficial, así que una factura sin
         unidad de medida **pasa el XSD, pasa las reglas de `facturae.py`, y no
-        cumple EN 16931**, que es lo que el artículo 7.1 le exige desde el
-        01-10-2026.
+        cumple EN 16931**, que es lo que le exige el artículo 7.1.
 
         Aquí no hay hueco de sintaxis que declarar: el campo existe y se lee.
         Que falte es un defecto del documento, así que BR-23 acusa y hace bien.

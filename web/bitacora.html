@@ -71,6 +71,18 @@ article.entrada blockquote p { color: inherit; }
 .cuadro td.n, .cuadro th.n { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
 .cuadro tbody td { color: var(--tinta-2); }
 .cuadro tbody td b { color: var(--tinta); }
+/* La aclaracion dentro de una celda: el plazo del que sale la fecha. */
+.cuadro .pie { color: var(--tenue); white-space: nowrap; }
+
+/* El aviso de corrección. Se ve, y no se disimula: una entrada corregida a
+   la que hay que buscarle el cambio es peor que una sin corregir. */
+.correccion {
+  display: block; margin: 0 0 2.5rem; padding: 1.15rem 1.25rem;
+  border: 1px solid var(--borde-fuerte); border-left-width: 3px;
+  border-radius: 10px; background: var(--panel-2);
+  font-size: var(--t1); color: var(--tinta-2);
+}
+.correccion b { color: var(--tinta); }
 
 /* El pie de fuentes: sin él una entrada no se publica, así que se ve. */
 .fuentes {

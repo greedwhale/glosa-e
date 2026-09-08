@@ -917,8 +917,16 @@ un Facturae, con este motivo escrito al lado:
 
 Era cierto, y dejó de serlo. El **artículo 7.1 del RD 238/2026** exige que la
 factura se ajuste al modelo semántico EN 16931 **bajo cualquiera de las cuatro
-sintaxis admitidas**, y Facturae es la cuarta. La obligación empieza el
-01-10-2026.
+sintaxis admitidas**, y Facturae es la cuarta.
+
+**Cuándo obliga, que no es lo que aquí se escribió primero.** El decreto está
+en vigor desde el 20-04-2026, pero su aplicación efectiva queda **diferida** y
+se cuenta desde la entrada en vigor de una orden ministerial que a día de hoy
+sigue siendo un **proyecto** —publicado el 16-04-2026, con entrada en vigor
+prevista el 01-10-2026—. De ahí salen doce meses para quien facture más de
+8 M€ (**01-10-2027**) y veinticuatro para el resto (**01-10-2028**). El
+01-10-2026 no obliga a nadie: es cuando empieza a contar, y solo si esa orden
+se publica como está redactada.
 
 ### No hay mapa oficial, y por eso hay que escribirlo
 

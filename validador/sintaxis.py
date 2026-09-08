@@ -449,9 +449,15 @@ SINTAXIS_EDIFACT = Sintaxis(
 # publicó nada**: no hay parte que diga qué elemento de Facturae es qué término
 # de negocio. Hasta marzo de 2026 eso no importaba, porque Facturae era el formato
 # nacional y EN 16931 no se le exigía. El artículo 7.1 del RD 238/2026 lo
-# cambió: desde el 1 de octubre de 2026 la factura debe ajustarse al modelo
-# semántico EN 16931 **bajo cualquiera de las cuatro sintaxis admitidas**, y
-# Facturae es una de ellas.
+# cambió: la factura debe ajustarse al modelo semántico EN 16931 **bajo
+# cualquiera de las cuatro sintaxis admitidas**, y Facturae es una de ellas.
+#
+# Cuándo obliga es otra cosa y aquí se escribió mal una vez: el decreto está en
+# vigor desde el 20-04-2026, pero su aplicación efectiva se cuenta desde una
+# orden ministerial que todavía es un proyecto, así que la obligación cae en
+# 10-2027 para quien factura más de 8 M€ y en 10-2028 para el resto. Da igual
+# para este mapa —hay que escribirlo de todas formas— y no da igual para lo que
+# se publica: la fecha estuvo unas horas en la página diciendo otra cosa.
 #
 # Así que el mapa hay que escribirlo, y escribirlo es tomar decisiones que
 # nadie ha refrendado. La regla de esta casa es que una decisión tomada por
@@ -570,8 +576,7 @@ SINTAXIS_FACTURAE = Sintaxis(
     # `UnitOfMeasure` existe en Facturae pero el esquema lo declara opcional
     # (`minOccurs="0"`), y EN 16931 lo exige en toda línea por BR-23. O sea:
     # una factura puede pasar el XSD oficial, pasar las reglas del propio
-    # formato, y aun así no cumplir la norma que el artículo 7.1 le exige
-    # desde el 01-10-2026.
+    # formato, y aun así no cumplir la norma que le exige el artículo 7.1.
     #
     # No lleva `SIN_MAPA` justamente por eso: el campo existe y se puede leer.
     # Que falte es un defecto del documento y no un hueco de la sintaxis, así
