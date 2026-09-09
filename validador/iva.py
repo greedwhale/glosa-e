@@ -193,38 +193,91 @@ _IMPUESTO_DE_FACTURAE = {
 }
 
 
-def _derivar_categoria(escrito: str | None, tipo: Decimal | None) -> str | None:
+# Los dos únicos valores de `SpecialTaxableEventCode` en Facturae 3.2.2, y a
+# qué categoría de UNCL5305 corresponde cada uno. No hay más: el esquema los
+# enumera y son estos dos.
+_FISCALIDAD_ESPECIAL = {"01": "E", "02": "O"}
+
+
+def _categoria_de_las_lineas(raiz, sintaxis: Sintaxis) -> str | None:
+    """Lo que las líneas a tipo cero dicen de sí mismas, si lo dicen todas.
+
+    Facturae sí tiene dónde escribir media respuesta a esto, y aquí se afirmó
+    lo contrario durante semanas sin haber ido a mirar el esquema. Cada línea
+    puede llevar `SpecialTaxableEvent/SpecialTaxableEventCode`, con dos
+    valores: `01` operación sujeta y exenta, que es la **E**, y `02` operación
+    no sujeta, que es la **O**.
+
+    **Contesta solo cuando no hay nada que suponer**, y son tres condiciones a
+    la vez: que haya líneas a tipo cero, que **todas** traigan el código, y que
+    todas digan **lo mismo**. Si una sola calla, su cero puede ser una Z, una K
+    o una G, y atribuirle la categoría de sus vecinas sería exactamente el
+    dedazo que este validador no da. Con una sola línea muda se devuelve None y
+    vuelve a salir `IVA-CATEGORIA-A-CERO`.
+    """
+    if sintaxis.linea_fiscalidad_especial == SIN_MAPA:
+        return None
+    codigos = []
+    for linea in raiz.xpath(sintaxis.lineas, namespaces=sintaxis.espacios):
+        tipo = importe(linea, sintaxis.linea_tipo, sintaxis)
+        if tipo is None or tipo != 0:
+            continue
+        codigos.append(
+            texto(linea, sintaxis.linea_fiscalidad_especial, sintaxis))
+    if not codigos or None in codigos or len(set(codigos)) != 1:
+        return None
+    return _FISCALIDAD_ESPECIAL.get(codigos[0])
+
+
+def _derivar_categoria(
+    escrito: str | None,
+    tipo: Decimal | None,
+    de_las_lineas: str | None = None,
+) -> str | None:
     """La categoría de IVA de una entrada de Facturae, cuando se puede saber.
 
     Se puede con IVA a tipo positivo: eso es «operación sujeta y no exenta»,
     que es la S, y no hay otra lectura. Con IGIC y con IPSI se puede siempre,
     porque el impuesto ya identifica la familia de reglas.
 
-    **A tipo cero no se puede, y ahí se devuelve None a propósito.** Un cero en
-    Facturae puede ser una exenta del artículo 20, una no sujeta, una
-    intracomunitaria, una exportación o una inversión del sujeto pasivo —Z, E,
-    O, K, G o AE—, y el formato no tiene ningún campo donde se haya escrito
-    cuál. Elegir una sería inventar la respuesta más probable y presentarla
-    como leída, que es exactamente lo que este validador no hace: de eso
-    avisa `IVA-CATEGORIA-A-CERO`, una vez y como nota.
+    **A tipo cero depende de lo que digan las líneas.** Un cero en Facturae
+    puede ser una exenta del artículo 20, una no sujeta, una intracomunitaria,
+    una exportación o una inversión del sujeto pasivo —Z, E, O, K, G o AE—. El
+    `TaxTypeCode` del desglose no lo distingue, pero la línea puede traer
+    `SpecialTaxableEvent`, y cuando lo traen todas y coinciden, `de_las_lineas`
+    llega con la E o la O leídas del documento. Cuando no, se devuelve None a
+    propósito y de eso avisa `IVA-CATEGORIA-A-CERO`, una vez y como nota:
+    elegir la más probable y presentarla como leída es lo que este validador
+    no hace.
     """
     familia = _IMPUESTO_DE_FACTURAE.get((escrito or "").strip())
     if familia is None:
         return None      # 04 IRPF, 05 otro… no son IVA ni se les parecen
     if familia != "S":
         return familia   # IGIC e IPSI no dependen del tipo
-    return "S" if (tipo is not None and tipo > 0) else None
+    if tipo is not None and tipo > 0:
+        return "S"
+    return de_las_lineas
 
 
-def _categoria(nodo, ruta: str, sintaxis: Sintaxis, tipo: Decimal | None):
+def _categoria(
+    nodo,
+    ruta: str,
+    sintaxis: Sintaxis,
+    tipo: Decimal | None,
+    de_las_lineas: str | None = None,
+):
     """Lo que dice la sintaxis, traducido si esta sintaxis necesita traducción."""
     escrito = texto(nodo, ruta, sintaxis)
     if sintaxis.categoria_derivada == "facturae":
-        return _derivar_categoria(escrito, tipo)
+        return _derivar_categoria(escrito, tipo, de_las_lineas)
     return escrito
 
 
 def _leer_grupos(raiz, sintaxis: Sintaxis) -> list[Grupo]:
+    # Se lee una vez y no una por grupo: la fiscalidad especial es una
+    # propiedad de las líneas del documento, no de cada entrada del desglose.
+    de_las_lineas = _categoria_de_las_lineas(raiz, sintaxis)
     grupos = []
     for nodo in raiz.xpath(sintaxis.desglose, namespaces=sintaxis.espacios):
         motivo = texto(nodo, sintaxis.desglose_motivo, sintaxis) or texto(
@@ -234,7 +287,8 @@ def _leer_grupos(raiz, sintaxis: Sintaxis) -> list[Grupo]:
         grupos.append(
             Grupo(
                 categoria=_categoria(
-                    nodo, sintaxis.desglose_categoria, sintaxis, tipo),
+                    nodo, sintaxis.desglose_categoria, sintaxis, tipo,
+                    de_las_lineas),
                 tipo=tipo,
                 base=importe(nodo, sintaxis.desglose_base, sintaxis),
                 cuota=importe(nodo, sintaxis.desglose_cuota, sintaxis),
@@ -844,8 +898,9 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
         incidencias.extend(_regla_tipos_espanoles(grupos))
     if sintaxis.categoria_derivada:
         # Lo que la deducción no alcanza, dicho una vez y con su porqué. Es la
-        # otra mitad de `_derivar_categoria`: ahí se explica por qué a tipo
-        # cero no hay respuesta, y aquí se dice cuándo ha pasado.
+        # otra mitad de `_derivar_categoria` y de `_categoria_de_las_lineas`:
+        # allí se explica cuándo el documento contesta y cuándo no, y aquí se
+        # dice que esta vez no lo ha hecho.
         a_ciegas_por_cero = [
             g for g in grupos if g.categoria is None and g.tipo == 0
         ]
@@ -860,7 +915,10 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
                     f"{sintaxis.nombre} eso no dice cuál de las categorías de "
                     "EN 16931 es: exenta, no sujeta, intracomunitaria, "
                     "exportación o inversión del sujeto pasivo se escriben "
-                    "todas igual. Las reglas que dependen de la categoría no "
+                    "todas igual. La línea puede aclarar parte con la "
+                    "«fiscalidad especial», que separa la exenta de la no "
+                    "sujeta, pero aquí no la traen todas o no dicen lo mismo. "
+                    "Las reglas que dependen de la categoría no "
                     "se han comprobado ahí. El resto del IVA sí: las bases, "
                     "las cuotas y que el desglose cuadre.",
                     campo="Categoría de IVA",

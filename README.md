@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1252 tests, todos en verde.
+1261 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1168,11 +1168,17 @@ ni AE, que siguen siendo indistinguibles. Pero cuando está, dice algo, y
 nosotros afirmábamos que no existía sin haberlo mirado. Es el fallo de siempre:
 **deducir una ausencia sin ir a ver**.
 
-Lo que queda pendiente y no está hecho: el validador **no lee ese elemento**
-—`grep SpecialTaxableEvent validador/` no devuelve nada—, así que hoy tira una
-información que la factura sí trae. Mientras no se lea, la nota
-`IVA-CATEGORIA-A-CERO` se sigue dando en casos en los que el documento sí
-distingue exenta de no sujeta.
+**Ya se lee.** `linea_fiscalidad_especial` en `sintaxis.py` y
+`_categoria_de_las_lineas` en `iva.py`, con tres condiciones a la vez: que haya
+líneas a tipo cero, que **todas** traigan el código y que **todas digan lo
+mismo**. Si una sola calla, su cero puede ser una Z, una K o una G, y
+atribuirle la categoría de sus vecinas sería el dedazo de siempre: se devuelve
+`None` y vuelve a salir `IVA-CATEGORIA-A-CERO`.
+
+Lo que fija `tests/test_fiscalidad_especial.py` no es el caso bonito sino el
+borde —**basta una línea muda para que no se conteste**—, y se provocó dejando
+la lectura sin efecto: caen las cuatro pruebas del caso que sí contesta y
+ninguna de las otras cinco.
 
 Lo que esto abre: las reglas BR-S-*, BR-AF-* y BR-AG-* ya corren de verdad
 sobre facturas españolas, que antes no las miraba nadie.

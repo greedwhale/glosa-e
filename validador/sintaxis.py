@@ -94,6 +94,19 @@ class Sintaxis:
     tipo_emisor: str   # Facturae: quien emite, que es lo que distingue el 389
     linea_categoria: str  # relativa a una línea: BT-151
     linea_tipo: str  # relativa a una línea: BT-152
+    # La fiscalidad especial de Facturae, que es media respuesta a BT-118.
+    #
+    # Durante un tiempo este repositorio afirmó que Facturae no tiene «ningún
+    # campo donde se haya escrito cuál» es la categoría de un tipo cero. Era
+    # falso, y lo era porque nadie fue a mirar el esquema que nosotros mismos
+    # servimos: `SpecialTaxableEvent/SpecialTaxableEventCode` existe en la
+    # línea, con dos valores —`01` sujeta y exenta, `02` no sujeta—, que son
+    # la E y la O de UNCL5305.
+    #
+    # Media respuesta y no una entera: Z, K, G y AE se siguen escribiendo
+    # igual, y el elemento es opcional. Las otras tres sintaxis escriben la
+    # categoría directamente y no necesitan esto, así que va `SIN_MAPA`.
+    linea_fiscalidad_especial: str
 
     # El desglose por tipo de IVA (BG-23), que es donde se apoya casi toda la
     # comprobación del impuesto.
@@ -186,6 +199,7 @@ SINTAXIS_UBL = Sintaxis(
     linea_categoria="./cac:Item/cac:ClassifiedTaxCategory/cbc:ID",
     linea_tipo="./cac:Item/cac:ClassifiedTaxCategory/cbc:Percent",
     desglose="./cac:TaxTotal/cac:TaxSubtotal",
+    linea_fiscalidad_especial=SIN_MAPA,
     desglose_base="./cbc:TaxableAmount",
     desglose_cuota="./cbc:TaxAmount",
     desglose_categoria="./cac:TaxCategory/cbc:ID",
@@ -268,6 +282,7 @@ SINTAXIS_CII = Sintaxis(
         "/ram:RateApplicablePercent"
     ),
     desglose=f"{_COBRO}/ram:ApplicableTradeTax",
+    linea_fiscalidad_especial=SIN_MAPA,
     desglose_base="./ram:BasisAmount",
     desglose_cuota="./ram:CalculatedAmount",
     desglose_categoria="./ram:CategoryCode",
@@ -386,6 +401,7 @@ SINTAXIS_EDIFACT = Sintaxis(
     # El desglose del documento son los grupos de impuesto que cuelgan de la
     # raíz. Los de línea y los de un descuento cuelgan de otra cosa.
     desglose="./*[S_TAX]",
+    linea_fiscalidad_especial=SIN_MAPA,
     desglose_base="./S_MOA/C_C516[D_5025='125']/D_5004",
     desglose_cuota="./S_MOA/C_C516[D_5025='124']/D_5004",
     desglose_categoria="./S_TAX/D_5305",
@@ -587,6 +603,7 @@ SINTAXIS_FACTURAE = Sintaxis(
     linea_categoria="./TaxesOutputs/Tax/TaxTypeCode",
     linea_tipo="./TaxesOutputs/Tax/TaxRate",
     desglose="./TaxesOutputs/Tax",
+    linea_fiscalidad_especial="./SpecialTaxableEvent/SpecialTaxableEventCode",
     desglose_base="./TaxableBase/TotalAmount",
     desglose_cuota="./TaxAmount/TotalAmount",
     # BT-118, y es el segundo hueco grande.
