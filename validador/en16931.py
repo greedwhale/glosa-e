@@ -635,11 +635,48 @@ _UNCL1001 = frozenset(
 # `_bt3_de_facturae`.
 _CLASE_A_UNCL1001 = {"OO": "380", "OC": "380", "CO": "380", "CC": "380"}
 
+# Cómo rectifica una rectificativa española, y qué se puede decir de cada
+# método en UNTDID 1001. Los cuatro códigos y sus significados salen del
+# esquema oficial —`CorrectionMethodType` en `Facturaev3_2_2.xsd`—, no de una
+# reconstrucción: la fuente estaba dentro de `web/paquete.zip` desde el
+# principio y aquí se afirmó durante meses que no se había podido contrastar.
+#
+# Dos se pueden traducir y dos no, y la diferencia importa:
+#
+# - `01` **rectificación íntegra** rehace la factura entera con los datos
+#   corregidos. La definición de 384 en UNTDID 1001 es «commercial invoice
+#   which includes revised information differing from an earlier submission of
+#   the same invoice». Es lo mismo dicho en dos idiomas.
+# - `03` **descuento por volumen de operaciones durante un periodo** solo puede
+#   restar de lo ya facturado, y eso es un abono: 381.
+# - `02` **por diferencias** factura únicamente la diferencia, y si esa
+#   diferencia sube o baja no lo dice el método: lo dicen los importes. Se
+#   podría mirar el signo, pero entonces el código europeo dependería de una
+#   cuenta y no de lo que el documento declara, que es otra cosa distinta.
+# - `04` **autorizadas por la Agencia Tributaria** no dice cómo se rectifica,
+#   dice quién lo autorizó. No hay nada que traducir.
+#
+# La correspondencia de `01` y `03` es **nuestra lectura de las definiciones**,
+# no un mapa oficial: el anexo I del proyecto de orden no menciona Facturae ni
+# una vez. Por eso, cuando se usa, sale dicho con una NOTA.
+_METODO_A_UNCL1001 = {"01": "384", "03": "381"}
 
-def _bt3_de_facturae(raiz, sintaxis: Sintaxis) -> tuple[str | None, str | None]:
+_METODO_DICHO = {
+    "01": "rectificación íntegra",
+    "02": "rectificación por diferencias",
+    "03": "rectificación por descuento por volumen de operaciones",
+    "04": "rectificación autorizada por la Agencia Tributaria",
+}
+
+
+def _bt3_de_facturae(
+    raiz, sintaxis: Sintaxis
+) -> tuple[str | None, str | None, str | None]:
     """El tipo de documento de una factura Facturae, en el vocabulario europeo.
 
-    Devuelve `(codigo, por_qué_no_se_sabe)`, y solo uno de los dos tiene valor.
+    Devuelve `(codigo, por_qué_no_se_sabe, con_qué_base)`. El tercero solo
+    viene cuando el código se ha deducido del método de rectificación, para
+    que salga dicho de dónde sale.
 
     Hay tres piezas y ninguna es `InvoiceDocumentType`, que es lo que uno
     esperaría por el nombre. Ese campo distingue factura completa (FC) de
@@ -654,35 +691,47 @@ def _bt3_de_facturae(raiz, sintaxis: Sintaxis) -> tuple[str | None, str | None]:
       exactamente la definición de 389, «Self-billed invoice: an invoice the
       invoicee is producing instead of the seller».
     - `InvoiceClass` original o copia es 380.
-    - Una rectificativa **no se decide aquí**, y esa es la parte importante.
-      384 es «corrected invoice», una factura que reemplaza a otra con datos
-      revisados, y 381 es un abono. Una rectificativa española por sustitución
-      es lo primero y una por diferencias se parece a lo segundo, y cuál de
-      las dos es lo dice `CorrectionMethod`, cuya lista de valores no se ha
-      podido contrastar contra una fuente oficial. Mientras no se contraste,
-      elegir uno sería inventar la respuesta más probable y presentarla como
-      leída.
+    - Una rectificativa lo dice `CorrectionMethod`, y de los cuatro métodos
+      del esquema dos se traducen y dos no. El porqué de cada uno está en
+      `_METODO_A_UNCL1001`, arriba.
     """
     emisor = texto(raiz, sintaxis.tipo_emisor, sintaxis)
     if emisor == "RE":
-        return "389", None
+        return "389", None, None
     clase = texto(raiz, sintaxis.tipo_clase, sintaxis)
     if clase in _CLASE_A_UNCL1001:
-        return _CLASE_A_UNCL1001[clase], None
+        return _CLASE_A_UNCL1001[clase], None, None
     if clase in ("OR", "CR"):
+        metodo = texto(raiz, sintaxis.tipo_metodo, sintaxis)
+        if metodo in _METODO_A_UNCL1001:
+            return _METODO_A_UNCL1001[metodo], None, _METODO_DICHO[metodo]
+        if metodo == "02":
+            return None, (
+                "es una rectificativa por diferencias: factura solo la "
+                "diferencia, y si esa diferencia suma o resta no lo dice el "
+                "método sino los importes. Su equivalente europeo es 384 "
+                "(factura corregida) o 381 (abono) según el caso, y deducirlo "
+                "de una cuenta no es lo mismo que leerlo del documento."
+            ), None
+        if metodo == "04":
+            return None, (
+                "es una rectificativa autorizada por la Agencia Tributaria, y "
+                "eso dice quién la autorizó, no cómo rectifica. No hay de "
+                "dónde deducir el tipo europeo."
+            ), None
         return None, (
-            "es una factura rectificativa, y su equivalente europeo es 384 "
-            "(factura corregida) o 381 (abono) según cómo rectifique. Esa "
-            "correspondencia no está contrastada todavía, así que no se "
-            "afirma ninguna de las dos."
-        )
-    return None, None
+            "es una factura rectificativa y no declara con qué método "
+            "rectifica, que es lo que decidiría entre 384 (factura corregida) "
+            "y 381 (abono)."
+        ), None
+    return None, None, None
 
 
 def _regla_tipo_de_documento(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     """BR-CL-01: el tipo de documento tiene que estar en la lista UNTDID 1001."""
+    notas: list[Incidencia] = []
     if sintaxis.tipo_derivado == "facturae":
-        codigo, por_que_no = _bt3_de_facturae(raiz, sintaxis)
+        codigo, por_que_no, con_que_base = _bt3_de_facturae(raiz, sintaxis)
         if por_que_no:
             return [
                 Incidencia(
@@ -694,13 +743,30 @@ def _regla_tipo_de_documento(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                     encontrado=texto(raiz, sintaxis.tipo_clase, sintaxis) or "",
                 )
             ]
+        if con_que_base:
+            # Se acepta y se dice con qué base, que es para lo que existe NOTA.
+            # La correspondencia es nuestra lectura de las definiciones del
+            # esquema, no un mapa publicado por nadie, y eso va dicho.
+            notas.append(
+                Incidencia(
+                    "FE-TIPO-POR-METODO",
+                    NOTA,
+                    f"El tipo europeo {codigo} se ha deducido de que la "
+                    f"factura declara una {con_que_base}. Facturae no escribe "
+                    "el código de UNTDID 1001 en ningún sitio y no hay mapa "
+                    "oficial que lo traduzca: esta correspondencia sale de las "
+                    "definiciones del propio esquema de Facturae.",
+                    campo="Tipo de documento",
+                    encontrado=texto(raiz, sintaxis.tipo_metodo, sintaxis) or "",
+                )
+            )
     else:
         codigo = texto(raiz, sintaxis.tipo, sintaxis)
 
     if codigo is None or codigo in _UNCL1001:
         # De que falte ya se queja BR-04, y con mejor consejo.
-        return []
-    return [
+        return notas
+    return notas + [
         Incidencia(
             "BR-CL-01",
             ERROR,

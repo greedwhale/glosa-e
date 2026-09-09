@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1261 tests, todos en verde.
+1265 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1215,12 +1215,31 @@ BT-3 son otros dos campos:
 |---|---|---|
 | `InvoiceIssuerType` = RE | **389** | «self-billed invoice: an invoice the invoicee is producing instead of the seller» |
 | `InvoiceClass` OO, OC, CO, CC | **380** | original, recapitulativa o copia siguen siendo factura ordinaria |
-| `InvoiceClass` OR, CR | **no se decide** | ver abajo |
+| `InvoiceClass` OR, CR | **según el método** | ver abajo |
 
 Una rectificativa española es 384 (factura corregida) o 381 (abono) según cómo
-rectifique, y eso lo dice `CorrectionMethod`, cuya lista de valores no se ha
-podido contrastar contra fuente oficial. Mientras no se contraste, sale
-`FE-TIPO-SIN-EQUIVALENTE` y no se afirma ninguno de los dos.
+rectifique, y eso lo dice `CorrectionMethod`. Aquí se dijo durante meses que su
+lista de valores «no se ha podido contrastar contra fuente oficial», y era
+falso: está en `CorrectionMethodType` del esquema `Facturaev3_2_2.xsd`, que
+**este repositorio sirve dentro de `web/paquete.zip`**. Se buscó fuera, en un
+PDF del Ministerio y en UNECE, y no se abrió lo que ya estaba dentro. Es el
+mismo fallo que con la fiscalidad especial, dos secciones más arriba, y la
+misma semana.
+
+Con la lista delante, de los cuatro métodos **dos se traducen y dos no**:
+
+| Método | Qué es | BT-3 | Por qué |
+|---|---|---|---|
+| `01` | rectificación íntegra | **384** | rehace la factura entera con los datos corregidos, que es la definición literal de 384: «revised information differing from an earlier submission of the same invoice» |
+| `03` | descuento por volumen en un periodo | **381** | solo puede restar de lo ya facturado, y eso es un abono |
+| `02` | por diferencias | **no se decide** | factura solo la diferencia, y si sube o baja no lo dice el método sino los importes. Sacarlo del signo sería deducir el tipo de una cuenta y no leerlo del documento |
+| `04` | autorizada por la Agencia Tributaria | **no se decide** | dice quién la autorizó, no cómo rectifica |
+
+Cuando se traduce **sale dicho con qué base**, en una `FE-TIPO-POR-METODO`:
+la correspondencia sale de las definiciones del propio esquema de Facturae y
+no de ningún mapa publicado —el anexo I del proyecto de orden no menciona
+Facturae ni una vez—. Cuando no, sigue saliendo `FE-TIPO-SIN-EQUIVALENTE`, y
+ahora dice cuál de las dos razones es.
 
 Y con la traducción puesta se pudo encender **BR-CL-01**: que el tipo salga de
 la lista UNTDID 1001. Los 62 códigos admitidos se sacaron del esquematrón

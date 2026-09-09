@@ -92,6 +92,12 @@ class Sintaxis:
     tipo_derivado: str
     tipo_clase: str    # Facturae: original, rectificativa, copia...
     tipo_emisor: str   # Facturae: quien emite, que es lo que distingue el 389
+    # Cómo rectifica una rectificativa, que es lo que decide su código europeo.
+    # La lista de valores es la del esquema oficial, no una reconstruida: está
+    # en `CorrectionMethodType` de `Facturaev3_2_2.xsd`. Aquí se dijo durante
+    # meses que «no se ha podido contrastar contra una fuente oficial», y la
+    # fuente oficial iba dentro de `web/paquete.zip` todo el tiempo.
+    tipo_metodo: str   # Facturae: 01 integra, 02 diferencias, 03 volumen, 04 AEAT
     linea_categoria: str  # relativa a una línea: BT-151
     linea_tipo: str  # relativa a una línea: BT-152
     # La fiscalidad especial de Facturae, que es media respuesta a BT-118.
@@ -196,6 +202,7 @@ SINTAXIS_UBL = Sintaxis(
     tipo_derivado="",
     tipo_clase=SIN_MAPA,
     tipo_emisor=SIN_MAPA,
+    tipo_metodo=SIN_MAPA,
     linea_categoria="./cac:Item/cac:ClassifiedTaxCategory/cbc:ID",
     linea_tipo="./cac:Item/cac:ClassifiedTaxCategory/cbc:Percent",
     desglose="./cac:TaxTotal/cac:TaxSubtotal",
@@ -281,6 +288,7 @@ SINTAXIS_CII = Sintaxis(
         "./ram:SpecifiedLineTradeSettlement/ram:ApplicableTradeTax"
         "/ram:RateApplicablePercent"
     ),
+    tipo_metodo=SIN_MAPA,
     desglose=f"{_COBRO}/ram:ApplicableTradeTax",
     linea_fiscalidad_especial=SIN_MAPA,
     desglose_base="./ram:BasisAmount",
@@ -396,6 +404,7 @@ SINTAXIS_EDIFACT = Sintaxis(
     # El IVA propio de la línea es el del grupo que cuelga directamente de
     # ella. El de un descuento de línea cuelga del descuento, un piso más
     # abajo, y por eso no entra aquí.
+    tipo_metodo=SIN_MAPA,
     linea_categoria="./*[S_TAX]/S_TAX/D_5305",
     linea_tipo="./*[S_TAX]/S_TAX/C_C243/D_5278",
     # El desglose del documento son los grupos de impuesto que cuelgan de la
@@ -600,6 +609,7 @@ SINTAXIS_FACTURAE = Sintaxis(
     linea_unidad="./UnitOfMeasure",
     # BT-151, la categoría de IVA de la línea, tampoco existe. Ver la nota de
     # `desglose_categoria`, que es el mismo hueco un piso más arriba.
+    tipo_metodo="./InvoiceHeader/Corrective/CorrectionMethod",
     linea_categoria="./TaxesOutputs/Tax/TaxTypeCode",
     linea_tipo="./TaxesOutputs/Tax/TaxRate",
     desglose="./TaxesOutputs/Tax",

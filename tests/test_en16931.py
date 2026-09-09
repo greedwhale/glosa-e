@@ -465,6 +465,30 @@ class TestRedondeo:
 
 FACTURAE_UNA = open("ejemplos/fe-0001.xml", encoding="utf-8").read()
 
+
+def _rectificativa(metodo: str | None = None) -> str:
+    """`fe-0001.xml` convertida en rectificativa, con el método que se pida.
+
+    Sin método se queda como estaba el caso de siempre: una `OR` que no dice
+    cómo rectifica.
+    """
+    corrective = ""
+    if metodo is not None:
+        corrective = (
+            "<Corrective>"
+            "<InvoiceNumber>F-2026-0001</InvoiceNumber>"
+            "<ReasonCode>01</ReasonCode>"
+            "<ReasonDescription>Numero de la factura</ReasonDescription>"
+            "<TaxPeriod><StartDate>2026-01-01</StartDate>"
+            "<EndDate>2026-03-31</EndDate></TaxPeriod>"
+            f"<CorrectionMethod>{metodo}</CorrectionMethod>"
+            "<CorrectionMethodDescription>Da igual</CorrectionMethodDescription>"
+            "</Corrective>"
+        )
+    return FACTURAE_UNA.replace(
+        "<InvoiceClass>OO</InvoiceClass>",
+        "<InvoiceClass>OR</InvoiceClass>" + corrective)
+
 FACTURAE_DOS = """<?xml version="1.0" encoding="UTF-8"?>
 <fe:Facturae xmlns:fe="http://www.facturae.es/Facturae/2009/v3.2/Facturae">
   <FileHeader><SchemaVersion>3.2</SchemaVersion></FileHeader>
@@ -742,20 +766,59 @@ class TestElTipoDeDocumento:
     def test_una_factura_normal_no_dice_nada(self):
         assert "BR-CL-01" not in codigos(en16931.validar(factura()))
 
-    def test_una_rectificativa_de_facturae_no_se_inventa_el_tipo(self):
-        """384 o 381 según cómo rectifique, y eso lo dice `CorrectionMethod`.
+    def test_una_rectificativa_sin_metodo_no_se_inventa_el_tipo(self):
+        """Sin `CorrectionMethod` no hay de dónde deducir 384 o 381.
 
-        Su lista de valores no se ha podido contrastar contra fuente oficial
-        —el PDF del Ministerio no da su texto y UNECE contesta 403—, así que
-        no se elige: se dice que no se ha traducido. Elegir el más probable y
-        presentarlo como leído es exactamente lo que aquí no se hace.
+        Este era el único caso durante meses, y por un motivo equivocado: se
+        decía que la lista de valores del método «no se ha podido contrastar
+        contra una fuente oficial». La fuente oficial es
+        `CorrectionMethodType` del esquema `Facturaev3_2_2.xsd`, que este
+        repositorio **sirve dentro de `web/paquete.zip`**. Nadie lo abrió.
         """
-        rectificativa = FACTURAE_UNA.replace(
-            "<InvoiceClass>OO</InvoiceClass>", "<InvoiceClass>OR</InvoiceClass>")
-        salta = [i for i in en16931.validar(rectificativa).incidencias
+        salta = [i for i in en16931.validar(_rectificativa()).incidencias
                  if i.codigo == "FE-TIPO-SIN-EQUIVALENTE"]
         assert salta and salta[0].gravedad == NOTA
         assert salta[0].encontrado == "OR"
+        assert "no declara con qué método" in salta[0].mensaje
+
+    @pytest.mark.parametrize("metodo, codigo, dice", [
+        ("01", "384", "íntegra"),
+        ("03", "381", "volumen"),
+    ])
+    def test_los_dos_metodos_que_si_se_traducen(self, metodo, codigo, dice):
+        """Se traduce **y se dice con qué base**, que es para lo que existe NOTA.
+
+        `01` rehace la factura entera con los datos corregidos, que es la
+        definición literal del 384 de UNTDID 1001. `03` es un descuento por
+        volumen sobre lo ya facturado, que solo puede restar: 381.
+        """
+        salidas = en16931.validar(_rectificativa(metodo)).incidencias
+        assert "FE-TIPO-SIN-EQUIVALENTE" not in {i.codigo for i in salidas}
+        assert "BR-CL-01" not in {i.codigo for i in salidas}
+        nota = [i for i in salidas if i.codigo == "FE-TIPO-POR-METODO"]
+        assert nota and nota[0].gravedad == NOTA
+        assert codigo in nota[0].mensaje
+        assert dice in nota[0].mensaje
+        assert nota[0].encontrado == metodo
+        assert "no hay mapa oficial" in nota[0].mensaje
+
+    @pytest.mark.parametrize("metodo, porque", [
+        ("02", "los importes"),
+        ("04", "quién la autorizó"),
+    ])
+    def test_los_dos_que_siguen_sin_traducirse_y_por_que(self, metodo, porque):
+        """La mitad que no se resuelve, y la razón concreta de cada una.
+
+        `02` factura solo la diferencia y el método no dice si sube o baja;
+        deducirlo del signo sería sacar el tipo de una cuenta y no de lo que el
+        documento declara. `04` dice quién autorizó, no cómo se rectifica.
+        """
+        salta = [i for i in en16931.validar(_rectificativa(metodo)).incidencias
+                 if i.codigo == "FE-TIPO-SIN-EQUIVALENTE"]
+        assert salta and salta[0].gravedad == NOTA
+        assert porque in salta[0].mensaje
+        assert "FE-TIPO-POR-METODO" not in {
+            i.codigo for i in en16931.validar(_rectificativa(metodo)).incidencias}
 
     def test_y_una_ordinaria_si_se_traduce(self):
         """El control: `OO` es 380 y no se queja nadie."""
