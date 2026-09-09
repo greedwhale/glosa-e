@@ -1155,10 +1155,24 @@ Ahora se deduce lo que se puede deducir:
 
 La última fila es la importante. Un cero en Facturae puede ser exenta, no
 sujeta, intracomunitaria, exportación o inversión del sujeto pasivo —Z, E, O, K,
-G o AE— y **no hay ningún campo donde se haya escrito cuál**. Elegir la más
-probable y presentarla como leída sería inventar; en su lugar sale
-`IVA-CATEGORIA-A-CERO`, una vez por documento y como nota. Pasa en 3 de 13
-facturas Facturae de terceros.
+G o AE—. Elegir la más probable y presentarla como leída sería inventar; en su
+lugar sale `IVA-CATEGORIA-A-CERO`, una vez por documento y como nota. Pasa en
+3 de 13 facturas Facturae de terceros.
+
+**Aquí había una frase falsa, y estuvo publicada.** Decía que «no hay ningún
+campo donde se haya escrito cuál». Lo hay a medias: Facturae 3.2.2 tiene
+`SpecialTaxableEvent/SpecialTaxableEventCode` a nivel de línea, con dos únicos
+valores —`01` operación sujeta y exenta, `02` operación no sujeta—, que separan
+**E** de **O**. Es opcional, así que puede no venir; y no dice nada de Z, K, G
+ni AE, que siguen siendo indistinguibles. Pero cuando está, dice algo, y
+nosotros afirmábamos que no existía sin haberlo mirado. Es el fallo de siempre:
+**deducir una ausencia sin ir a ver**.
+
+Lo que queda pendiente y no está hecho: el validador **no lee ese elemento**
+—`grep SpecialTaxableEvent validador/` no devuelve nada—, así que hoy tira una
+información que la factura sí trae. Mientras no se lea, la nota
+`IVA-CATEGORIA-A-CERO` se sigue dando en casos en los que el documento sí
+distingue exenta de no sujeta.
 
 Lo que esto abre: las reglas BR-S-*, BR-AF-* y BR-AG-* ya corren de verdad
 sobre facturas españolas, que antes no las miraba nadie.
