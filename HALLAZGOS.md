@@ -2567,3 +2567,92 @@ supone**, y eso incluye lo que uno afirma discutiendo. La diferencia con un
 error dentro del repositorio es que aquí no hay guardián posible ni `git
 revert`: un comentario está publicado en el momento en que se escribe. Lo único
 que queda es corregirlo en el mismo sitio.
+
+## La conexión se cortó y la página siguió diciendo «Descargando»
+
+Salió comprobando un despliegue, no buscándolo. El 08-09-2026, cargando
+`www.glosa-e.com` desde la conexión del autor, la página se quedó
+para siempre en «Descargando el validador». No dio error, no reintentó, no dijo
+nada. La zona de soltar ficheros seguía aceptando facturas con el mensaje «se
+validan en cuanto termine», y no iba a terminar.
+
+### Lo que se midió
+
+En el registro de red del navegador, una petición entre nueve:
+
+```
+GET /pyodide/314.0.6/python_stdlib.zip → 200  [FAILED: net::ERR_CONNECTION_RESET]
+```
+
+**El servidor había contestado 200.** Lo que se rompió fue el transporte, a la
+mitad del cuerpo. Y `loadPyodide` ni rechazó ni resolvió: se quedó esperando.
+
+Que era el enlace y no el sitio se comprobó aparte: `HEAD` sobre el `.wasm`
+devolvió `200` con `Content-Length: 9598218`, exactamente los bytes del fichero
+local, y la segunda carga —con la caché ya caliente— completó entera en 78,39 s.
+
+### Por qué es el fallo de siempre
+
+El `catch` de `index.html` estaba escrito, y bien: marca el fallo, apaga la
+zona y se lo cuenta a quien hubiera soltado una factura mientras cargaba. No
+corrió **porque nadie rechazó**. No hubo excepción que capturar.
+
+Es el patrón de esta casa otra vez: no se rompe nada, no sale ningún error, y
+lo que hay en pantalla no es lo que está pasando. Antes fue un wheel viejo
+sirviéndose de una caché; esta vez es una promesa que no vuelve.
+
+### El arreglo que no valía
+
+Un tiempo máximo de arranque. Es lo primero que se piensa y es justo lo que no
+se puede hacer aquí, y la razón está medida:
+
+| Etapa | Desde la conexión del autor |
+|---|---:|
+| Intérprete de Python (WebAssembly) | 40,97 s |
+| lxml + libxml2 | 20,28 s |
+| El validador | 3,13 s |
+| Esquemas y anclas de confianza | 13,60 s |
+| Facturas de ejemplo | 0,41 s |
+| **Listo** | **78,39 s** |
+
+Cualquier límite lo bastante corto para servir de algo habría roto la página
+**justo a quien más le cuesta cargarla**, que es exactamente el usuario para el
+que se estaba arreglando.
+
+### Lo que se hizo
+
+`SinDescarga`, en `web/glosa.js`. No mide cuánto tarda: mide **si llega algo**.
+Con una petición abierta y ni un byte en treinta segundos, la conexión está
+muerta y no lenta, y entonces se rechaza y sale por el `catch` que ya existía.
+
+Las dos mitades de la condición cuentan:
+
+- **`ultimoByte`** se refresca leyendo el cuerpo de cada respuesta. El conteo
+  va sobre `clone()`, no sobre lo que se devuelve: Pyodide recibe la respuesta
+  intacta, con su `url` y su `content-type`. Reconstruirla con un flujo propio
+  gastaba menos memoria y dejaba a `instantiateStreaming` sin el tipo que
+  necesita, que es cambiar un fallo silencioso por otro.
+- **`abiertas > 0`** exige que haya algo descargándose. Sin esa mitad el
+  vigilante saltaría mientras se compila el `.wasm`, que es un rato largo sin
+  red y sin nada roto.
+
+### Probado rompiéndolo
+
+Aquí no hay Node y el JavaScript no corre en la suite, así que se provocó en el
+navegador, sobre el sitio montado en local, el 09-09-2026:
+
+| Caso | Qué hizo |
+|---|---|
+| Carga sana, con el vigilante puesto | «Listo en 7,80 s» |
+| Conexión muerta: petición abierta, cero bytes | `SinDescarga` a los 30 s |
+| Conexión lenta: un trozo cada 9 s, 37 s en total | **arrancó bien** |
+| La página entera, con la conexión muerta | «No ha arrancado», zona apagada |
+
+El tercero es el que importa: 37 segundos son siete más que el límite, y no
+saltó, porque los bytes seguían llegando. Es la diferencia entre un vigilante y
+un cronómetro.
+
+`tests/test_vigilante.py` fija lo que no se puede perder en una limpieza —la
+negativa, la delegación de `arrancar`, el `abiertas > 0`, el `clone()` y la
+devolución del `fetch` bueno— y se provocó quitando la mitad de la condición:
+falla `test_se_cuentan_bytes_y_no_segundos` y solo esa.

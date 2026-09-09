@@ -300,9 +300,117 @@ function cargarElArranque() {
   });
 }
 
+// --- El vigilante de la descarga -------------------------------------------
+//
+// Un `fetch` que se corta a la mitad no siempre falla. Medido en produccion el
+// 08-09-2026: `python_stdlib.zip` se rompio con `net::ERR_CONNECTION_RESET`
+// —el servidor habia contestado 200— y `loadPyodide` ni rechazo ni resolvio.
+// La pagina se quedo diciendo «Descargando el validador» para siempre, con la
+// zona aceptando facturas que ya no se iban a validar nunca.
+//
+// Es el fallo de esta casa con otro disfraz: no se rompe nada, no sale ningun
+// error, y lo que hay en pantalla no es lo que esta pasando.
+//
+// Lo que **no** vale como arreglo es un tiempo maximo de arranque. En la
+// conexion desde la que se escribe esto el arranque bueno tarda 78 s y solo el
+// interprete 41 s; cualquier limite lo bastante corto para servir de algo
+// rompe la pagina justo a quien mas le cuesta cargarla.
+//
+// Asi que no se mide cuanto tarda, se mide **si llega algo**: con una peticion
+// abierta y ni un byte en treinta segundos, la conexion esta muerta y no
+// lenta. Y sin ninguna peticion abierta no se cuenta nada, porque ahi no se
+// descarga sino que se compila, y eso puede tardar lo que quiera.
+class SinDescarga extends Error {
+  constructor(mensaje) {
+    super(mensaje);
+    this.name = "SinDescarga";
+  }
+}
+
+// Treinta segundos **sin un solo byte**, no treinta segundos de descarga.
+const SIN_BYTES = 30000;
+
+// Envuelve `fetch` mientras dura `faena()` para contar lo que entra.
+//
+// El conteo va sobre `clone()` y no sobre la respuesta que se devuelve: la
+// original sale de aqui intacta —con su `url`, su `content-type` y su cuerpo
+// sin tocar— y Pyodide recibe exactamente lo que habria recibido sin
+// vigilante. Reconstruir la respuesta con un `ReadableStream` propio gastaba
+// menos memoria y dejaba a `instantiateStreaming` sin el tipo que necesita,
+// que es cambiar un fallo silencioso por otro.
+async function conVigilante(faena) {
+  const deVerdad = globalThis.fetch;
+  let abiertas = 0;
+  let ultimoByte = Date.now();
+  let reloj = null;
+
+  // Se lee la copia hasta el final solo para saber que sigue llegando. Lo que
+  // trae no se guarda: quien lo usa es Pyodide, en la otra rama del clon.
+  const contar = async (copia) => {
+    try {
+      const lector = copia.body.getReader();
+      for (;;) {
+        const { done } = await lector.read();
+        if (done) break;
+        ultimoByte = Date.now();
+      }
+    } catch (_) {
+      // Que la copia se rompa no es noticia: lo que importa es que dejan de
+      // llegar bytes, y de eso ya se entera el reloj.
+    } finally {
+      abiertas -= 1;
+    }
+  };
+
+  globalThis.fetch = async (...args) => {
+    abiertas += 1;
+    ultimoByte = Date.now();
+    let respuesta;
+    try {
+      respuesta = await deVerdad(...args);
+    } catch (error) {
+      abiertas -= 1;
+      throw error;
+    }
+    ultimoByte = Date.now();
+    if (!respuesta.body) {
+      abiertas -= 1;
+      return respuesta;
+    }
+    contar(respuesta.clone());
+    return respuesta;
+  };
+
+  try {
+    return await Promise.race([
+      faena(),
+      new Promise((_, mal) => {
+        reloj = setInterval(() => {
+          if (abiertas > 0 && Date.now() - ultimoByte > SIN_BYTES) {
+            mal(new SinDescarga(
+              "La descarga se ha cortado. No es que vaya lenta: lleva " +
+              Math.round(SIN_BYTES / 1000) + " segundos sin llegar un solo " +
+              "byte. Recarga la página para volver a intentarlo."));
+          }
+        }, 1000);
+      }),
+    ]);
+  } finally {
+    clearInterval(reloj);
+    globalThis.fetch = deVerdad;
+  }
+}
+
 // Arranca el validador entero. `avisar(etiqueta, segundos)` se llama al
 // terminar cada fase, para que cada pagina lo cuente como quiera.
+//
+// Va envuelto en el vigilante para que una conexion que se muere a la mitad
+// salga por el `catch` de la pagina en vez de quedarse cargando para siempre.
 async function arrancar(avisar) {
+  return conVigilante(() => arrancarDeVerdad(avisar));
+}
+
+async function arrancarDeVerdad(avisar) {
   const decir = avisar || function () {};
   const cero = performance.now();
   let t = cero;
