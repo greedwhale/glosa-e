@@ -3052,9 +3052,13 @@ producto con permiso para cerrarlo.
 
 **La AGPL no impide llevárselo. Impide llevárselo y cerrarlo.** Cualquiera
 puede seguir bajando la rueda, leerla, estudiarla, modificarla y usarla; lo que
-tiene que hacer si la distribuye o monta un servicio encima es entregar su
-fuente bajo la misma licencia. El artículo 13 es el que cierra el caso que aquí
-importaba: **montar un servicio web sobre este motor sin devolver nada**.
+tiene que hacer si la distribuye es entregar su fuente bajo la misma licencia.
+El artículo 13 añade el caso de la red, pero empieza diciendo «if you modify the
+Program»: solo alcanza a las versiones modificadas que se ofrecen por red. Quien
+monte un servicio web con la rueda sin tocarla no debe nada, y el uso interno no
+dispara la licencia en ningún caso. Es menos de lo que suele contarse de la
+AGPL, y se escribe así porque dar por cerrado lo que no lo está es justo el
+fallo que este repositorio persigue.
 
 **`only` y no `or-later`, a propósito.** Es la misma regla que con Pyodide y
 lxml: las versiones se fijan y no se siguen a `latest`. Lo que se cede tiene
@@ -3065,7 +3069,10 @@ concretos y conocidos.
 **Lo que la AGPL no arregla, y conviene no confundir.** No hace privado nada:
 el repositorio puede seguir cerrado, pero quien recibe la rueda recibe con ella
 el derecho a redistribuirla. Tampoco convierte en infracción competir; solo
-obliga a que quien construya encima juegue con las mismas cartas.
+obliga a que quien la distribuya juegue con las mismas cartas.
+
+Glosa y Glosa-e son marcas del titular; la licencia AGPL cubre el código, no el
+nombre.
 
 ## Fuentes
 
