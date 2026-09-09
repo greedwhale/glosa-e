@@ -192,11 +192,32 @@ Del RD 238/2026, de 25 de marzo:
   entiende como aceptación de la factura.
 - **Estados opcionales**: pago parcial, cesión a terceros, aceptación o rechazo
   parcial. No afectan al cómputo del plazo legal de pago.
-- **Prórroga para los pequeños**: autónomos y entidades con ingresos por debajo
-  de 8 millones de euros tienen doce meses adicionales para la obligación de
-  informar estados. Hasta entonces es voluntaria.
-- **Solución pública gratuita**: la AEAT ofrece una plataforma en su sede
-  electrónica para quienes facturan menos de 8 millones.
+- **Prórroga para informar estados** (disposición transitoria tercera): son las
+  **personas físicas y las entidades en régimen de atribución de rentas** en el
+  IRPF cuyo volumen de operaciones no haya excedido de 8 millones las que
+  tienen doce meses adicionales para los artículos 10 y 12. Hasta esa fecha
+  informar estados es voluntario. El umbral de ocho millones **solo** aparece
+  en las disposiciones transitorias segunda y tercera: no gradúa el acceso a la
+  solución pública, que no tiene umbral.
+- **Solución pública gratuita**: la desarrolla y gestiona la AEAT (art. 11.1) y
+  **no está limitada por volumen de facturación**: el artículo 11 no pone
+  ningún umbral. Lo que sí impone es la **sintaxis**: quien la use «deberá
+  emplear la sintaxis UBL» (art. 11.2). Es decir que la vía gratuita **no
+  admite Facturae ni EDIFACT**, y quien emita en esos formatos tiene que
+  transformar antes.
+- **Transformar entre las cuatro sintaxis es obligación legal de las
+  plataformas privadas** (art. 7.2): «deberán tener capacidad de transformar el
+  mensaje de factura entre todos los formatos admitidos garantizando la
+  preservación de la autenticidad de su origen y la integridad de su
+  contenido». Y cuando el emisor y el destinatario usan plataformas distintas,
+  la transformación **recae en la del emisor y ocurre antes de la firma**
+  (art. 7.4).
+- **El PDF de acompañamiento, el primer año** (disposición transitoria
+  segunda): quien supere los 8 millones deberá acompañar cada factura
+  electrónica de un PDF legible durante los doce meses siguientes a que el
+  decreto le sea aplicable, salvo que el destinatario acepte expresamente
+  recibirla en su formato original. Ese PDF **no** se remite a la solución
+  pública.
 
 ## ⚠️ Corrección importante sobre las fechas
 
