@@ -114,24 +114,43 @@ def test_cada_ejemplo_dice_lo_que_tiene_que_decir(nombre):
     )
 
 
-def test_los_dos_f_0002_siguen_siendo_el_mismo_fichero():
-    """Encontrado el 06-09-2026, no elegido: `-bis` es una copia byte a byte.
+def test_el_duplicado_de_f_0002_es_el_que_enciende_cu_10():
+    """`f-0002-bis.xml` es copia byte a byte de `f-0002.xml`, y ese es su oficio.
 
-    Nació en `60f736e` («Orquestador: … y lotes de ficheros»), o sea para
-    probar un lote de dos, y la diferencia que iba a tener se perdió por el
-    camino o nunca se escribió. Nadie se enteró porque ninguno de los dos
-    aparecía en ninguna comprobación.
+    Nació sin querer, en `60f736e` («Orquestador: … y lotes de ficheros»): iba
+    a ser el segundo de un lote de dos y la diferencia que debía tener se
+    perdió por el camino. Durante un tiempo fue solo eso, un duplicado que no
+    demostraba nada, y aquí había una prueba que lo dejaba anotado como
+    **decisión pendiente**: ni borrarlo ni inventarle una diferencia, pero que
+    no se olvidara.
 
-    Se fija tal como está, en vez de borrarlo o inventarle una diferencia,
-    porque cuál de las dos cosas toca es una decisión y no un arreglo. Lo que
-    esta prueba impide es que siga siendo un duplicado **sin que nadie lo
-    sepa**: el día que se decida, esto sale en rojo y recuerda que había una
-    decisión pendiente.
+    La decisión está tomada y es quedárselo, porque mientras tanto se ganó un
+    trabajo: **es lo único de `ejemplos/` que hace saltar una comprobación
+    entre ficheros**. Quien valida la carpeta entera desde la página ve
+    funcionar CU-10 —la misma factura dos veces: mismo emisor, mismo número y
+    misma fecha— y esa es una regla del RD 238/2026 que mirando un fichero
+    solo no hay manera de enseñar.
+
+    Así que esto ya no vigila una duda, vigila un trabajo. Si alguien le
+    cambia un byte a cualquiera de los dos, CU-10 deja de salir en los
+    ejemplos publicados y no se enteraría nadie.
     """
-    uno = (EJEMPLOS / "f-0002.xml").read_bytes()
-    bis = (EJEMPLOS / "f-0002-bis.xml").read_bytes()
-    assert uno == bis, (
-        "`f-0002-bis.xml` ya no es una copia de `f-0002.xml`. Si es a "
-        "propósito, quita esta prueba y escribe en la tabla de arriba qué "
-        "demuestra ahora cada uno."
+    from validador import factura
+
+    uno = EJEMPLOS / "f-0002.xml"
+    bis = EJEMPLOS / "f-0002-bis.xml"
+    assert uno.read_bytes() == bis.read_bytes(), (
+        "`f-0002-bis.xml` ya no es una copia de `f-0002.xml`, así que el par "
+        "ha dejado de encender CU-10 en los ejemplos publicados. Si es a "
+        "propósito, busca otra forma de enseñar la comprobación entre "
+        "ficheros y cambia esta prueba."
     )
+
+    lote = factura.validar_lote([uno, bis], hoy=HOY)
+    assert "CU-10" in {i.codigo for i in lote.cruzadas}, (
+        "el par ya no enciende CU-10, que es la única razón por la que se "
+        "conserva un duplicado en `ejemplos/`"
+    )
+    # Y por separado no dicen nada: eso es lo que hace la demostración útil.
+    for _, informe in lote.informes:
+        assert "CU-10" not in {i.codigo for i in informe.incidencias}
