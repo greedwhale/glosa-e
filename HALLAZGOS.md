@@ -2656,3 +2656,103 @@ un cronómetro.
 negativa, la delegación de `arrancar`, el `abiertas > 0`, el `clone()` y la
 devolución del `fetch` bueno— y se provocó quitando la mitad de la condición:
 falla `test_se_cuentan_bytes_y_no_segundos` y solo esa.
+
+## El BT-3 que razonamos bien y España no admite
+
+Cuatro días después de cerrar la traducción del `CorrectionMethod` de Facturae
+a UNTDID 1001 —01 a 384, 03 a 381, y negarse con 02 y 04— se leyó el anexo I
+del proyecto de orden de la solución pública. Su lista L1, la de tipos de
+factura admitidos, es:
+
+```
+380  Factura (art. 6, 7.2 y 7.3 del RD 1619/2012)
+384  Factura rectificativa
+388  Factura emitida en sustitución de facturas simplificadas
+389  Factura emitida por el destinatario
+471  Factura rectificativa emitida por el destinatario
+```
+
+**No está el 381.** En España una rectificativa es 384, o 471 si la expide el
+destinatario, y da igual cómo rectifique: que sea por diferencias o por
+sustitución no se dice en el BT-3 sino en `BT-ES-3`, con la lista L2.B, que
+solo tiene dos valores, `I` y `S`.
+
+Así que la decisión anterior no estaba mal razonada: estaba razonada sobre la
+norma europea a secas, que es donde 381 es el abono. Dentro del CIUS español no
+cabe. Y el caso que se dejó sin decidir —el `02`, «por diferencias», porque el
+método no dice si suma o resta— resulta que tiene un sitio limpio donde ir; solo
+que no es el BT-3.
+
+Queda anotado y sin arreglar a propósito: el anexo es un borrador, no está en
+el BOE y la propia AEAT ha dicho que lo alineará con UBL 2.5. Cambiar el motor
+para cuadrar con un documento que va a cambiar es correr detrás de un blanco
+móvil. Lo que sí está hecho es que **no se pueda olvidar**: hay una prueba,
+`test_l1_no_admite_el_381`, que dice por qué existe.
+
+## Un PDF leído por columnas da 174 filas plausibles y equivocadas
+
+El CIUS español no se publica como esquema ni como esquematrón. Se publica como
+una tabla dentro de un PDF, así que hay que sacarlo de ahí.
+
+El primer intento usó el modo `layout` de pypdf, que reconstruye las columnas
+con espacios. Salieron 174 filas con buena pinta. No valían:
+
+```
+517 '   BT-        +++         1..1       Suma de las cuotas del           '
+518 '   179                               recargo de equivalencia'
+```
+
+`BT-179` partido en dos renglones. Y peor:
+
+```
+508 ' ES-                                       21 minoración en nombre de '
+```
+
+El `21` de `BT-ES-21` **dentro de la columna del término**. El PDF coloca los
+dígitos donde le cuadra, así que cualquier reparto por posición de carácter
+reparte mal, y lo hace en silencio: la tabla sale llena, con identificadores
+que parecen identificadores, y no son los que el anexo dice.
+
+Es el fallo de siempre de este repositorio con otro disfraz —sale verde y no es
+lo que crees haber comprobado—, y aquí habría sido de los caros: toda la
+migración a EN 16931:2026 se apoya en esa tabla.
+
+### Lo que sí vale
+
+Leer las piezas con su `(x, y)` de verdad y repartir por geometría. Y no
+fiarse tampoco de eso: contrastarlo contra una segunda lectura que no comparta
+una línea de código, que aquí fue una expresión regular sobre el mismo PDF en
+plano. Las dos dan **el mismo conjunto de 155 identificadores**, y las
+diferencias de recuento bruto están explicadas una a una:
+
+| Método | Cuenta | Por qué difiere |
+|---|---|---|
+| Coordenadas | 174 filas | — |
+| Regex en plano | 176 menciones | dos citas a `BT-179` y `BT-114` dentro de la descripción de `BT-115` |
+| Cardinalidades en plano | 178 | las cuatro de la introducción, que explica qué es `1..1` |
+
+### Cuatro trampas que solo enseñó el fichero
+
+- **La cabecera ocupa tres renglones** y el tercero solo lleva las
+  continuaciones «lidad» y «de dato». Sin quitarlas, el tipo semántico de
+  varias filas acababa siendo «Texto de dato».
+- **El sello de audiencia pública comparte renglón con contenido de verdad.**
+  Tirar el renglón entero por llevar el sello perdía el número de `BT-ES-31`.
+  Hay que tirar la pieza, no la línea.
+- **Las páginas de después no son la tabla.** Detrás vienen las listas de
+  códigos, con otras columnas. Sin cortar, la última fila se tragaba entera la
+  lista de claves de régimen: 416 caracteres de nivel y media página de
+  cardinalidad.
+- **La cabecera de las listas de códigos no sirve para repartirlas.** En L5 el
+  rótulo «Descripción» está en la x 333 y las descripciones de sus filas
+  empiezan en la 170. La frontera hay que sacarla de los datos, no del rótulo.
+
+### Y dos cosas que el borrador hace mal
+
+Ninguna es de la extracción; los dos métodos las ven igual.
+
+- `BT-ES-2` está puesto en dos términos que no tienen que ver.
+- `BG-34`, `BT-179` y `BT-180` aparecen cinco veces cada uno. Esto sí es
+  deliberado: el anexo los usa como cajones para cada grupo español, y lo que
+  distingue una fila de otra es su ruta UBL. El identificador no es una clave,
+  y conviene saberlo antes de construir un índice con él.

@@ -66,3 +66,11 @@ sitio/
 # 14 MB de binarios de terceros y no se versionan: se traen con
 # `python -m validador --traer-pyodide`, que deja sus SHA-256 en HUELLAS.txt.
 vendor/
+
+# El anexo I del proyecto de orden, del que sale `validador/cius_es.py`. Es de
+# Hacienda, pesa un mega y es un borrador que va a cambiar. Lo que se versiona
+# es la tabla que sale de el, con la huella SHA-256 del PDF declarada al lado:
+# si aparece otro anexo, la prueba lo dice en vez de callarse.
+#
+#   https://www.hacienda.gob.es/sgt/normativadoctrina/proyectos/16042026-anexo-i-pom-factura-electronica.pdf
+anexos/

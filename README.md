@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1265 tests, todos en verde.
+1280 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3076,6 +3076,78 @@ verdad, en vez de mandar a rebajar un fichero que está perfectamente.
 
 La comprobación que lo prueba solo puede hacerse en el navegador, que es el
 único sitio donde «sin red» no es una opción sino un hecho.
+
+## El CIUS español, que no es UBL a secas
+
+El RD 238/2026 admite cuatro sintaxis. La solución pública de la AEAT admite
+**una**, y ni siquiera es UBL sin más: la respuesta de la Agencia en su
+seminario del 19-05-2026 fue *«La SPFE solo admitirá facturas compatibles con
+UBL 2.5 de acuerdo a la semántica europea EN16931 y ajustadas al contenido
+mínimo del Anexo I»*. Ese anexo define un CIUS español propio,
+`urn:aeat.es:CIUS-ES-SPFE:1.0.0`, sobre la edición de 2026 de la norma.
+
+Lo que trae, contado: **174 filas, 155 identificadores distintos y once listas
+de códigos**, de los cuales **52 son campos que la EN 16931 no tiene** —el
+recargo de equivalencia, las retenciones, los suplidos, las minoraciones, el
+régimen de grupo de entidades a nivel avanzado y el QR fiscal—. Y no se publica
+como esquema ni como esquematrón: se publica como una tabla dentro de un PDF.
+
+Así que se lee el PDF. `herramientas/anexo_i.py` lo saca a
+`validador/cius_es.py`, y no por columnas de texto sino por las coordenadas de
+cada pieza, porque las columnas de texto mienten: `BT-179` sale partido en dos
+renglones y el `21` de `BT-ES-21` aparece dentro de la columna del término. Un
+parser que se fíe de eso da 174 filas plausibles y equivocadas.
+
+### Cómo se sabe que la lectura es buena
+
+Por dos caminos que no comparten una línea de código: las coordenadas, y una
+expresión regular sobre el mismo PDF leído en plano. Los dos dan **el mismo
+conjunto de 155 identificadores**, sin ninguno en uno y no en el otro. Los
+recuentos brutos difieren y las dos diferencias están explicadas: sobran dos
+menciones, que son las citas a `BT-179` y `BT-114` dentro de la descripción de
+`BT-115`; y sobran cuatro cardinalidades, que son las de la introducción cuando
+explica qué quiere decir `1..1`.
+
+### Dos cosas que el borrador hace mal
+
+**El identificador no es una clave.** El anexo reutiliza a propósito unos
+cuantos términos europeos como cajones para sus extensiones: `BG-34`, `BT-179`
+y `BT-180` aparecen cinco veces cada uno, uno por grupo español. Lo que
+distingue una fila de otra es su ruta UBL.
+
+**Y hay un fallo de numeración**: `BT-ES-2` está puesto en dos términos que no
+tienen nada que ver, «Identificador de la extensión para la gestión de facturas
+rectificativas» y «Tipo de factura rectificativa». No es un fallo de
+extracción: los dos métodos de lectura lo ven igual.
+
+### Lo que esto obliga a corregir aquí
+
+La lista L1 —los tipos de factura admitidos— es `380, 384, 388, 389, 471`, y
+**no lleva el 381**. En España una rectificativa es siempre 384, o 471 si la
+expide el destinatario; que rectifique por diferencias o por sustitución no se
+dice en el BT-3 sino en `BT-ES-3`, con la lista L2.B (`I` o `S`).
+
+`en16931.py` traduce hoy el `CorrectionMethod` 03 de Facturae a **381**, que es
+correcto para la EN 16931 a secas y no vale dentro de este CIUS. Es decir: la
+decisión que se documentó [más arriba](#bt-3-y-el-país-traducir-el-vocabulario-y-negarse-cuando-no-se-puede)
+está bien razonada para la norma europea y hay que rehacerla para España. Sale
+de leer el anexo cuatro días después de haberla escrito.
+
+La otra corrección que asoma es la categoría de IVA: la lista L4 añade `L` y
+`M` —IGIC e IPSI— que la UNCL5305 de la norma europea no tiene.
+
+### Que no cambie en silencio
+
+Es un borrador. No está en el BOE, la orden tampoco, y la AEAT ha dicho que el
+anexo *«se alineará plenamente»* con UBL 2.5. Una tabla generada de una fuente
+que se mueve es justo lo que en este repositorio se rompe sin avisar, así que
+hay dos guardianes, los dos provocados: la **huella SHA-256 del PDF** va
+declarada en el módulo generado y una prueba la comprueba, y otra vuelve a
+extraer y exige que salga exactamente lo mismo, por si alguien toca el
+extractor y la tabla se queda vieja.
+
+El PDF no se versiona —es de Hacienda y pesa un mega—; se baja a `anexos/` y
+sin él las dos pruebas se saltan diciendo por qué.
 
 ## La marca
 
