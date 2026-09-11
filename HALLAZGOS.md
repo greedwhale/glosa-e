@@ -2936,3 +2936,55 @@ existe en UBL 2.1. Ahí está, en una línea, por qué la solución pública no 
 admitir la versión que usa todo el mundo: no es una preferencia de la Agencia,
 es que en 2.1 no hay dónde escribir los suplidos, las minoraciones, el recargo
 de equivalencia ni el régimen de grupo de entidades.
+
+## La página existía y para los buscadores no
+
+Buscando `"glosa-e.com"` el 11-09-2026 no salía **ni una vez**. No estaba
+abajo: no estaba. Y no es un fallo que se vea desde dentro, porque la página
+funciona perfectamente para quien ya sabe la dirección.
+
+Faltaba todo lo elemental —`robots.txt`, `sitemap.xml`, canónica, tarjeta
+social— y faltaba lo que de verdad importaba aquí: **el catálogo de 160 códigos
+era una sola página**. Un ancla no es una página. `incidencias.html#BR-CO-10`
+es, para un buscador, la misma dirección que `incidencias.html`, así que ciento
+sesenta puertas contaban como una.
+
+Y son exactamente lo que la gente teclea, porque nadie busca «validador de
+facturas electrónicas»: busca el código que le acaba de escribir su programa.
+
+### Ciento sesenta páginas y veintisiete descripciones
+
+Partirlo en 160 salió a la primera y estaba mal, con el disfraz de siempre: no
+fallaba nada.
+
+De los 160 códigos sólo **15 tienen explicación propia**; los otros 145 llevan
+la de su familia, lo cual está dicho en la página y es correcto. Poniendo esa
+explicación como descripción —que es lo natural— el recuento era este:
+
+```
+descripciones distintas: 27 de 160
+```
+
+Ciento cuarenta y cinco páginas saliendo en el buscador con la misma frase.
+Nada se cae; simplemente quien viera cuatro resultados idénticos no sabría cuál
+abrir. Se arregla empezando la descripción por el código, que es lo único que
+los distingue a todos: 160 de 160, y con la respuesta —qué gravedad y de qué
+norma— en la primera línea.
+
+Hay prueba, porque esto se estropea solo: basta con que alguien «simplifique»
+la descripción para volver a 27.
+
+### Y una comilla que el guardián viejo cazó al vuelo
+
+Al hacer que cada código del catálogo enlazara a su página, el enlace se
+escribió así:
+
+```python
+f'<a class="codigo" href="./{nombre_de(uno.codigo)}">'
+```
+
+Sin escapar. Los códigos salen del fuente, pero el catálogo no los pasa por el
+filtro de nombres de fichero, así que un código con una comilla dentro rompía
+el atributo y metía detrás lo que quisiera. Lo cazó
+`test_lo_que_viene_de_fuera_va_escapado`, que llevaba meses escrito esperando
+exactamente esto.

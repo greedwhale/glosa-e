@@ -53,6 +53,53 @@
 .codigo-ficha .cuerpo { border-left: 2px solid var(--borde); padding-left: 1.25rem; margin-left: -1.35rem; }
 .codigo-ficha .cuerpo p { font-size: var(--t2); color: var(--tinta-2); margin-bottom: .5rem; }
 .codigo-ficha .de-familia, .codigo-ficha .sin-explicar { font-size: var(--t1); color: var(--tenue); }
+/* --- La pagina de un codigo suelto ---------------------------------------
+   Es la misma informacion que la ficha del catalogo, pero aqui el codigo es
+   el asunto de la pagina y no una fila de una lista: quien llega ha buscado
+   ese codigo y nada mas. Por eso sube a titular, en la misma mono con que se
+   lo ha encontrado escrito en el informe que le rechazaron. */
+.ficha-codigo { padding: 2.5rem 0 1rem; }
+.ficha-codigo .migas { font-size: var(--t1); color: var(--tenue); margin-bottom: 1.2rem; }
+.ficha-codigo .migas a { color: var(--tenue); }
+.ficha-codigo .migas a:hover { color: var(--acento); }
+.ficha-codigo h1 {
+  font: 700 var(--t5)/1.1 var(--mono); letter-spacing: -.01em;
+  overflow-wrap: anywhere; margin-bottom: .7rem;
+}
+.ficha-codigo .gravedades { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.4rem; }
+.ficha-codigo .cuenta {
+  font-size: var(--t0); text-transform: uppercase; letter-spacing: .07em;
+  font-weight: 700; padding: .2rem .55rem; border-radius: 999px;
+  border: 1px solid currentColor; color: var(--tenue);
+}
+.ficha-codigo .cuenta.error { color: var(--error); }
+.ficha-codigo .cuenta.aviso { color: var(--aviso); }
+.ficha-codigo .cuenta.nota  { color: var(--nota); }
+.ficha-codigo .dice { font-size: var(--t3); color: var(--tinta); max-width: 40rem; }
+.ficha-codigo .matiz { font-size: var(--t1); color: var(--tenue); max-width: 40rem; margin-top: .6rem; }
+/* La procedencia. Es lo que esta herramienta puede imprimir y ninguna otra:
+   de que norma sale la exigencia y que linea del fuente escribe el aviso. */
+.procedencia { margin: 2rem 0 0; border-top: 1px solid var(--borde); }
+.procedencia div {
+  display: grid; grid-template-columns: 12rem 1fr; gap: .8rem;
+  padding: .85rem 0; border-bottom: 1px solid var(--borde);
+}
+.procedencia dt { font-size: var(--t0); text-transform: uppercase; letter-spacing: .07em; color: var(--tenue); }
+.procedencia dd { font-size: var(--t1); color: var(--tinta-2); }
+.procedencia dd code { font-size: var(--t1); }
+@media (max-width: 33rem) { .procedencia div { grid-template-columns: 1fr; gap: .2rem; } }
+.probar { margin: 2rem 0 0; padding: 1.35rem 1.5rem; background: var(--acento-flojo); border-radius: 10px; }
+.probar b { display: block; font-size: var(--t3); margin-bottom: .3rem; }
+.probar p { font-size: var(--t1); color: var(--tinta-2); }
+.hermanos { margin: 2.5rem 0 1rem; border-top: 1px solid var(--borde); padding-top: 1.5rem; }
+.hermanos h2 { font-size: var(--t2); margin-bottom: .8rem; }
+.hermanos ul { display: flex; flex-wrap: wrap; gap: .4rem; list-style: none; }
+.hermanos a {
+  display: inline-block; font: var(--t1)/1 var(--mono); padding: .35rem .6rem;
+  border: 1px solid var(--borde); border-radius: 6px; color: var(--tinta-2);
+}
+.hermanos a:hover { border-color: var(--acento); color: var(--acento); }
+
 .codigo-ficha dl { display: grid; grid-template-columns: auto 1fr; gap: .15rem .7rem; margin: .5rem 0 0; font-size: var(--t1); }
 .codigo-ficha dt { color: var(--tenue); }
 .codigo-ficha dd { margin: 0; color: var(--tinta-2); }
@@ -99,12 +146,13 @@
 <main>
   <div class="envoltorio">
 
+<!-- SOLO EL CATALOGO -->
     <div class="portada">
       <h1>Qué significa cada aviso</h1>
       <p>Si te ha salido un código en un informe, aquí está lo que quiere
       decir: qué gravedad tiene, a qué norma responde y en qué parte del
-      validador se emite. Cada uno tiene su propia dirección, así que se puede
-      enlazar: <code>#REVOCACION-OCSP-NO-VALE</code>.</p>
+      validador se emite. Cada uno tiene además su propia página, con la norma
+      de la que sale y la línea que lo escribe: pulsa el código.</p>
 
       <p class="buscador">
         <input type="search" id="filtro" placeholder="Filtrar por código o por texto"
@@ -112,6 +160,7 @@
         <span class="cuantos" id="cuantos"></span>
       </p>
     </div>
+<!-- /SOLO EL CATALOGO -->
 
 <!-- AQUI VA EL CATALOGO -->
 
@@ -130,6 +179,7 @@
   </div>
 </footer>
 
+<!-- SOLO EL CATALOGO -->
 <script>
 // El filtro. Sin dependencias y sin red: las fichas ya están en la página.
 const filtro = document.getElementById("filtro");
@@ -160,5 +210,6 @@ function filtrar() {
 filtro.addEventListener("input", filtrar);
 filtrar();
 </script>
+<!-- /SOLO EL CATALOGO -->
 </body>
 </html>

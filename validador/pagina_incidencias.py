@@ -38,6 +38,7 @@ tabla sería cobrar carísimo por nada.
 from __future__ import annotations
 
 import html
+import re
 from pathlib import Path
 
 from validador.codigos import (
@@ -48,12 +49,34 @@ from validador.codigos import (
 )
 from validador.glosario import explicar
 
-__all__ = ["montar_pagina", "NOMBRE"]
+__all__ = ["montar_pagina", "montar_fichas", "nombre_de", "NOMBRE"]
 
 NOMBRE = "incidencias.html"
 # La marca de la plantilla donde se pega el catálogo. Si desaparece, montar
 # la página no falla solo: publica una página sin un solo código.
 HUECO = "<!-- AQUI VA EL CATALOGO -->"
+# Lo que solo tiene sentido en el catálogo —su titular, el buscador y el
+# filtro— y que en la página de un código suelto sobra. Va marcado en la
+# plantilla en vez de duplicar el armazón en un séptimo fichero: cabecera,
+# menú y pie se escriben una vez, como en la bitácora.
+SOLO_CATALOGO = re.compile(
+    r"<!-- SOLO EL CATALOGO -->.*?<!-- /SOLO EL CATALOGO -->", re.S
+)
+
+# El nombre del fichero de cada código. Planos y al lado de los demás, como
+# los de la bitácora: en una subcarpeta habría que reescribir todas las rutas
+# relativas del armazón —`./glosa.css`, `./letra/…`— y eso no se rompe al
+# montar, se rompe en el navegador de quien entra.
+FICHA = "codigo-{}.html"
+# Un código que no se pueda escribir en un nombre de fichero no se publica a
+# medias: se dice. Hoy son 160 y todos encajan, pero el catálogo se lee del
+# fuente y mañana puede salir cualquier cosa de una llamada nueva.
+_SEGURO = re.compile(r"^[A-Z0-9-]{2,60}$")
+
+
+def nombre_de(codigo: str) -> str:
+    """El fichero que le toca a un código. `BR-CO-10` → `codigo-BR-CO-10.html`."""
+    return FICHA.format(codigo)
 
 # El mismo reparto que `factura.origen`, pero por prefijo y no por incidencia:
 # aquí no hay incidencias, hay códigos. Se escribe al lado a propósito en vez
@@ -114,7 +137,7 @@ def _fila(uno: Codigo) -> str:
 
     return (
         f'<article class="codigo-ficha" id="{html.escape(uno.codigo)}">'
-        f'<div class="margen"><a class="codigo" href="#{html.escape(uno.codigo)}">'
+        f'<div class="margen"><a class="codigo" href="./{html.escape(nombre_de(uno.codigo))}">'
         f"{html.escape(uno.codigo)}</a>{gravedades}</div>"
         f'<div class="cuerpo">{cuerpo}{varias}'
         f'<dl><dt>Norma</dt><dd>{html.escape(etiqueta)} — {html.escape(detalle)}</dd>'
@@ -208,3 +231,186 @@ def montar_pagina(plantilla: Path, destino: Path,
         )
     destino.write_text(texto.replace(HUECO, _cuerpo(codigos, sin_leer)), encoding="utf-8")
     return len(codigos)
+
+# --- Una página por código -------------------------------------------------
+#
+# Por qué, si el catálogo ya los trae todos. Porque un ancla no es una página:
+# `incidencias.html#BR-CO-10` es la misma dirección que `incidencias.html` para
+# cualquiera que no sea el navegador de quien ya está dentro. Quien tiene el
+# problema delante no busca «validador de facturas»: busca el código que le
+# acaba de escribir su programa, y hasta hoy no había nada que contestara a esa
+# búsqueda.
+#
+# Se genera del mismo sitio que el catálogo y del mismo armazón, así que no hay
+# una segunda verdad que mantener: si mañana aparece un código nuevo en
+# `firma.py`, aparece su página sin que nadie se acuerde.
+
+
+def _chips(gravedades) -> str:
+    return "".join(
+        f'<span class="cuenta {g}">{g}</span>' for g in gravedades
+    ) or '<span class="cuenta">sin gravedad fija</span>'
+
+
+def _resumen(uno: Codigo) -> str:
+    """La descripción de la página, que es lo que sale en el buscador.
+
+    **Empieza por el código, y no es un capricho.** De los 160, sólo 15 tienen
+    explicación propia: los otros 145 llevan la de su familia. Con la
+    explicación a secas, esas 145 páginas salían en el buscador con la misma
+    frase —medido: 27 descripciones distintas para 160 páginas—, y quien
+    viera cuatro resultados idénticos no sabría cuál abrir. Empezando por el
+    código son 160 distintas, y encima la primera línea contesta ya lo que se
+    ha venido a preguntar: qué gravedad tiene y de qué norma sale.
+
+    Se corta por la última frase entera que quepa y no a media palabra: un
+    resumen cortado por la mitad se lee como un fallo de la página.
+    """
+    texto, _ = explicar(uno.codigo, uno.familia)
+    etiqueta, _detalle = _norma(uno.codigo)
+    # «error o aviso o nota» no lo escribe nadie. Con coma hasta el último.
+    gs = list(uno.gravedades)
+    gravedad = (
+        ", ".join(gs[:-1]) + " o " + gs[-1] if len(gs) > 1 else (gs or ["aviso"])[0]
+    )
+    cabeza = f"{uno.codigo} en una factura electrónica: {gravedad} de {etiqueta}."
+    if not texto:
+        return f"{cabeza} Qué gravedad tiene y de dónde sale la exigencia."
+    sitio = 158 - len(cabeza)
+    if len(texto) <= sitio:
+        return f"{cabeza} {texto}"
+    recorte = texto[:sitio]
+    corte = max(recorte.rfind(". "), recorte.rfind(" "))
+    return f"{cabeza} {recorte[: corte + 1].strip().rstrip(',;:')}…"
+
+
+def _hermanos(uno: Codigo, todos: list[Codigo]) -> str:
+    otros = [c for c in todos if c.familia == uno.familia and c.codigo != uno.codigo]
+    if not otros:
+        return ""
+    enlaces = "".join(
+        f'<li><a href="./{nombre_de(o.codigo)}">{html.escape(o.codigo)}</a></li>'
+        for o in otros
+    )
+    return (
+        f'<section class="hermanos"><h2>Los otros {len(otros)} de '
+        f"{html.escape(uno.familia)}</h2><ul>{enlaces}</ul></section>"
+    )
+
+
+def _ficha(uno: Codigo, todos: list[Codigo]) -> str:
+    texto, propia = explicar(uno.codigo, uno.familia)
+    etiqueta, detalle = _norma(uno.codigo)
+
+    if texto:
+        dice = f'<p class="dice">{html.escape(texto)}</p>'
+    else:
+        dice = (
+            '<p class="dice">Todavía no tiene una explicación escrita. Lo que '
+            "se sabe de él está aquí abajo: con qué gravedad sale, de qué "
+            "norma viene la exigencia y qué parte del validador lo emite.</p>"
+        )
+    matices = []
+    if texto and not propia:
+        matices.append(
+            "Esta es la explicación de la familia "
+            f"<b>{html.escape(uno.familia)}</b>: dice de dónde viene la "
+            "exigencia, no qué ha pasado exactamente en tu factura. Este "
+            "código todavía no tiene una suya."
+        )
+    if len(uno.gravedades) > 1:
+        matices.append(
+            "Sale con más de una gravedad según el caso, y eso no es un "
+            "descuido: el mismo hecho vale distinto según con qué esté "
+            "probado."
+        )
+    matiz = "".join(f'<p class="matiz">{m}</p>' for m in matices)
+
+    return (
+        '<article class="ficha-codigo">'
+        f'<p class="migas"><a href="./{NOMBRE}">Todos los códigos</a> '
+        f"&middot; familia {html.escape(uno.familia)}</p>"
+        f"<h1>{html.escape(uno.codigo)}</h1>"
+        f'<p class="gravedades">{_chips(uno.gravedades)}</p>'
+        f"{dice}{matiz}"
+        '<dl class="procedencia">'
+        f"<div><dt>De dónde viene</dt><dd>{html.escape(etiqueta)} — "
+        f"{html.escape(detalle)}</dd></div>"
+        f"<div><dt>Lo escribe</dt><dd><code>validador/{html.escape(uno.modulo)}"
+        f":{uno.linea}</code></dd></div>"
+        f"<div><dt>Puede salir como</dt><dd>{', '.join(uno.gravedades) or 'según el caso'}"
+        "</dd></div></dl>"
+        '<div class="probar"><b>Míralo en tu propia factura</b>'
+        "<p>Suéltala en la herramienta y te dice si este código sale y por "
+        "qué. Se lee en tu navegador: el fichero no se sube a ningún sitio. "
+        '<a href="./">Ir a la herramienta</a>.</p></div>'
+        f"{_hermanos(uno, todos)}"
+        "</article>"
+    )
+
+
+def _enmarcar(plantilla: str, titulo: str, descripcion: str, cuerpo: str) -> str:
+    """Mete un cuerpo en el armazón y le pone su título y su descripción.
+
+    Hace la misma cirugía que `bitacora._pagina` sobre otra plantilla. No se
+    comparten porque comparten la operación y no la decisión: allí el título
+    es el del artículo y aquí se compone con el código, y una función que
+    sirva para las dos acabaría con un parámetro que diga cuál de las dos es.
+    """
+    salida = SOLO_CATALOGO.sub("", plantilla).replace(HUECO, cuerpo)
+    salida = re.sub(
+        r"<title>.*?</title>",
+        f"<title>{html.escape(titulo)} &middot; Glosa-e</title>",
+        salida, count=1, flags=re.S,
+    )
+    return re.sub(
+        r'<meta name="description" content="[^"]*">',
+        f'<meta name="description" content="{html.escape(descripcion)}">',
+        salida, count=1,
+    )
+
+
+def montar_fichas(plantilla: Path, destino: Path,
+                  carpeta: Path | None = None) -> list[str]:
+    """Escribe una página por código. Devuelve los ficheros escritos.
+
+    `destino` es la carpeta del sitio montado, no un fichero.
+    """
+    texto = plantilla.read_text(encoding="utf-8")
+    if HUECO not in texto:
+        raise ValueError(
+            f"«{plantilla}» ya no lleva la marca {HUECO}, que es donde va cada "
+            "código. Sin ella se publicarían 160 páginas vacías, que es de las "
+            "cosas que no dan error."
+        )
+    if not SOLO_CATALOGO.search(texto):
+        raise ValueError(
+            f"«{plantilla}» ya no marca con `<!-- SOLO EL CATALOGO -->` lo que "
+            "es solo del catálogo. Sin esa marca, cada página de un código "
+            "saldría con el titular «Qué significa cada aviso» y un buscador "
+            "que no filtra nada."
+        )
+
+    codigos = codigos_del_paquete(carpeta)
+    malos = [c.codigo for c in codigos if not _SEGURO.match(c.codigo)]
+    if malos:
+        raise ValueError(
+            "estos códigos no se pueden escribir en un nombre de fichero, así "
+            f"que no tendrían página propia: {', '.join(malos)}. Antes de "
+            "publicarlos hay que decidir cómo se llaman."
+        )
+
+    escritos = []
+    for uno in codigos:
+        nombre = nombre_de(uno.codigo)
+        (destino / nombre).write_text(
+            _enmarcar(
+                texto,
+                f"{uno.codigo} · qué significa y de dónde sale",
+                _resumen(uno),
+                _ficha(uno, codigos),
+            ),
+            encoding="utf-8",
+        )
+        escritos.append(nombre)
+    return escritos

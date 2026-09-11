@@ -423,6 +423,26 @@ _ESTILO = "glosa.css"
 # La carpeta de la letra. `literata.woff2` la genera `web/marca/letra.py`, y
 # `OFL.txt` va al lado porque es la única condición que la licencia pone al
 # redistribuir la fuente: publicarla sin ella sería incumplirla.
+# El dominio con el que se publica. De aquí salen las direcciones absolutas
+# que hay que escribir enteras aunque el sitio se sirva de sí mismo: la
+# canónica de cada página, el sitemap y la tarjeta social. Un enlace relativo
+# no vale en ninguno de los tres.
+#
+# El ápice redirige aquí con un 308, así que **es este y no `glosa-e.com` a
+# secas**: decir la otra en la canónica sería mandar al buscador a una
+# dirección que le va a contestar con una mudanza.
+DOMINIO = "https://www.glosa-e.com"
+
+# La tarjeta que se enseña cuando alguien pega el enlace en un sitio ajeno.
+# La genera `herramientas/tarjeta.py` y va versionada, como la marca: no se
+# arma al montar porque haría falta una biblioteca de imágenes en el
+# despliegue para producir un fichero que cambia una vez cada seis meses.
+_MARCA = "marca"
+_TARJETA = "tarjeta.png"
+# Lo que se copia de `web/marca/`, y nada más: ahí viven también los guiones
+# que generan la marca y la letra, que son herramientas y no se publican.
+_DE_LA_MARCA = (_TARJETA,)
+
 _LETRA = "letra"
 _TIPOGRAFIA = "literata.woff2"
 _LICENCIA_DE_LA_LETRA = "OFL.txt"
@@ -655,6 +675,120 @@ def _revisar_el_paquete(pagina: Path) -> None:
         )
 
 
+# --- Lo que hace falta para que a esto se llegue desde fuera ---------------
+#
+# Hasta aquí el sitio se montaba entero y **no existía para ningún buscador**:
+# sin `robots.txt`, sin `sitemap.xml`, sin canónica y sin tarjeta social. Una
+# herramienta que nadie encuentra no le sirve a nadie, y esto no se nota desde
+# dentro: la página funciona perfectamente para quien ya sabe la dirección.
+#
+# Las tres cosas se escriben al final y de una vez, sobre lo que haya quedado
+# montado, y no página a página. Así no puede pasar lo de siempre —que una
+# página nueva salga sin ellas y nadie se entere—: si está en la carpeta, se
+# le pone.
+
+_FIN_DE_LA_CABECERA = "</head>"
+_RE_TITULO = re.compile(r"<title>(.*?)</title>", re.S)
+_RE_DESCRIPCION = re.compile(r'<meta name="description" content="([^"]*)">')
+
+
+def _direccion(nombre: str) -> str:
+    """La dirección limpia de una página montada.
+
+    `vercel.json` lleva `cleanUrls`, así que lo que se sirve de verdad es
+    `/incidencias` y `/incidencias.html` contesta con un 308. La canónica y el
+    sitemap tienen que decir la de destino, no la que redirige.
+    """
+    if nombre == "index.html":
+        return DOMINIO + "/"
+    return DOMINIO + "/" + nombre.removesuffix(".html")
+
+
+def _con_tarjeta(texto: str, url: str, nombre: str) -> str:
+    """Le pone a una página su canónica y su tarjeta social.
+
+    Se saca de lo que la propia página ya dice —su `<title>` y su
+    `description`—, y no de una tabla escrita aparte: una tabla se queda
+    atrás y entonces la tarjeta anuncia una página que ya no es esa.
+    """
+    if _FIN_DE_LA_CABECERA not in texto:
+        raise SinPagina(
+            f"«{nombre}» no tiene `{_FIN_DE_LA_CABECERA}`, así que no hay "
+            "dónde ponerle la canónica ni la tarjeta. Y este es de los que no "
+            "dan error: `replace` sobre lo que no está no falla, devuelve el "
+            "texto igual, y la página se publica sin nada de esto."
+        )
+    titulo = _RE_TITULO.search(texto)
+    descripcion = _RE_DESCRIPCION.search(texto)
+    if not titulo or not descripcion:
+        falta = "un <title>" if not titulo else "una descripción"
+        raise SinPagina(
+            f"«{nombre}» no tiene {falta}, así que no se le puede poner ni la "
+            "canónica ni la tarjeta. Publicada así, en un buscador saldría sin "
+            "título o sin resumen, que es peor que no salir: se ve, y se ve mal."
+        )
+    limpio = titulo.group(1).replace("&middot;", "·").strip()
+    limpio = " ".join(limpio.split()).replace('"', "&quot;")
+    resumen = descripcion.group(1).replace('"', "&quot;")
+    tarjeta = DOMINIO + "/" + _MARCA + "/" + _TARJETA
+    bloque = (
+        f'<link rel="canonical" href="{url}">\n'
+        f'<meta property="og:type" content="website">\n'
+        f'<meta property="og:site_name" content="Glosa-e">\n'
+        f'<meta property="og:locale" content="es_ES">\n'
+        f'<meta property="og:url" content="{url}">\n'
+        f'<meta property="og:title" content="{limpio}">\n'
+        f'<meta property="og:description" content="{resumen}">\n'
+        f'<meta property="og:image" content="{tarjeta}">\n'
+        f'<meta property="og:image:width" content="1200">\n'
+        f'<meta property="og:image:height" content="630">\n'
+        f'<meta property="og:image:alt" content="Glosa-e, la factura '
+        f'electrónica en castellano">\n'
+        f'<meta name="twitter:card" content="summary_large_image">\n'
+    )
+    return texto.replace(_FIN_DE_LA_CABECERA, bloque + _FIN_DE_LA_CABECERA, 1)
+
+
+def _sitemap(paginas: list[str]) -> str:
+    """El índice de lo publicado, para que un buscador no tenga que adivinar.
+
+    Sin `lastmod` **a propósito**. Google lo usa si se lo puede creer, y aquí
+    lo único que se podría poner es la fecha en que se montó el sitio, que es
+    la misma para las 168 páginas y no dice nada de si el contenido cambió.
+    Una fecha que miente vale menos que ninguna.
+    """
+    urls = "".join(f"  <url><loc>{_direccion(n)}</loc></url>\n" for n in paginas)
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{urls}</urlset>\n"
+    )
+
+
+def _para_buscadores(destino: Path) -> int:
+    """Canónica y tarjeta en cada página, y el par de ficheros de rigor."""
+    paginas = sorted(p.name for p in destino.glob("*.html"))
+    if not paginas:
+        raise SinPagina(
+            "No ha quedado ni una página HTML que indexar, así que algo se ha "
+            "montado mal antes de llegar aquí."
+        )
+    for nombre in paginas:
+        ruta = destino / nombre
+        ruta.write_text(
+            _con_tarjeta(ruta.read_text(encoding="utf-8"), _direccion(nombre), nombre),
+            encoding="utf-8",
+        )
+    (destino / "robots.txt").write_text(
+        "User-agent: *\n"
+        "Allow: /\n"
+        f"Sitemap: {DOMINIO}/sitemap.xml\n",
+        encoding="utf-8",
+    )
+    (destino / "sitemap.xml").write_text(_sitemap(paginas), encoding="utf-8")
+    return len(paginas)
+
+
 def montar_sitio(
     destino: str | Path,
     pagina: str | Path = "web",
@@ -813,6 +947,24 @@ def montar_sitio(
     if letra.is_dir():
         shutil.copytree(letra, destino / _LETRA, dirs_exist_ok=True)
 
+    # La tarjeta social. Con negativa por lo mismo que la letra: un `og:image`
+    # que apunta a lo que no está no rompe nada y no da error. Lo que pasa es
+    # que el día que alguien pegue el enlace en LinkedIn o en un grupo sale un
+    # rectángulo gris, y eso no se ve desde aquí: se ve fuera y ya publicado.
+    marca = pagina / _MARCA
+    faltan_de_la_marca = [n for n in _DE_LA_MARCA if not (marca / n).is_file()]
+    if faltan_de_la_marca:
+        raise SinPagina(
+            "En «{}» falta {}, que es la imagen que se enseña cuando alguien "
+            "pega el enlace fuera. Sin ella el sitio se publica con un "
+            "`og:image` apuntando a una dirección que da 404, y eso no falla "
+            "aquí: falla en la casa de otro. Genérala con `python -m "
+            "herramientas.tarjeta`.".format(marca, ", ".join(faltan_de_la_marca))
+        )
+    (destino / _MARCA).mkdir(parents=True, exist_ok=True)
+    for nombre in _DE_LA_MARCA:
+        shutil.copy2(marca / nombre, destino / _MARCA / nombre)
+
     def _huella(texto: str) -> str:
         return hashlib.sha256(texto.encode("utf-8")).hexdigest()[:8]
 
@@ -889,6 +1041,21 @@ def montar_sitio(
                 generada = generada.replace(busca, pon)
             salida.write_text(generada, encoding="utf-8")
 
+    # Una página por código, del mismo armazón y del mismo catálogo. Va
+    # detrás porque necesita la plantilla ya comprobada: si a `incidencias.html`
+    # le falta el hueco, lo dice el catálogo y no 160 páginas vacías.
+    if plantilla.is_file():
+        try:
+            fichas = pagina_incidencias.montar_fichas(plantilla, destino)
+        except ValueError as error:
+            raise SinPagina(str(error)) from error
+        for nombre in fichas:
+            salida = destino / nombre
+            generada = salida.read_text(encoding="utf-8")
+            for busca, pon, _ in sellos:
+                generada = generada.replace(busca, pon)
+            salida.write_text(generada, encoding="utf-8")
+
     huerfanos = sorted(c for c, cuantas in firmadas.items() if not cuantas)
     if huerfanos:
         raise SinPagina(
@@ -939,6 +1106,11 @@ def montar_sitio(
     #
     # Con la huella del contenido se consiguen las dos cosas: cambia cuando el
     # fichero cambia, y no cambia cuando no. La pagina la lee de aqui.
+    # Lo último que se toca de cada página: la canónica y la tarjeta. Va antes
+    # de las huellas a propósito, porque las huellas tienen que ser las del
+    # fichero que de verdad se publica.
+    _para_buscadores(destino)
+
     huellas = {}
     for camino in sorted(destino.rglob("*")):
         if not camino.is_file():

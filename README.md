@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1322 tests, todos en verde.
+1345 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3284,6 +3284,110 @@ extractor y la tabla se queda vieja.
 
 El PDF no se versiona —es de Hacienda y pesa un mega—; se baja a `anexos/` y
 sin él las dos pruebas se saltan diciendo por qué.
+
+## Que a esto se llegue desde fuera
+
+Una herramienta que nadie encuentra no le sirve a nadie, y esto no se nota
+desde dentro: la página funciona perfectamente para quien ya sabe la dirección.
+Se notó buscando `"glosa-e.com"` en un buscador el 11-09-2026 y comprobando que
+**no salía ni una vez**. No estaba abajo: no estaba.
+
+No había `robots.txt`, ni `sitemap.xml`, ni canónica, ni tarjeta social. Ahora
+las tres cosas se escriben al montar, sobre lo que haya quedado en la carpeta,
+y no página a página: así no puede pasar que una página nueva salga sin ellas y
+no se entere nadie.
+
+### Los 160 códigos, cada uno con su dirección
+
+El catálogo ya traía los 160 con su ancla. **Un ancla no es una página**:
+`incidencias.html#BR-CO-10` es, para un buscador, la misma dirección que
+`incidencias.html`, así que esas 160 puertas contaban como una.
+
+Y son exactamente lo que se teclea. Nadie busca «validador de facturas
+electrónicas»: busca **el código que le acaba de escribir su programa**, con el
+problema delante y ahora mismo. Son 160 búsquedas de poquísimo volumen cada una
+y de intención altísima.
+
+Cada código tiene ahora su página —`/codigo-BR-CO-10`— con lo que el catálogo
+ya sabía y una cosa más, que es la que ningún otro validador puede imprimir:
+
+| | |
+|---|---|
+| De dónde viene | EN 16931 — la norma europea de factura electrónica |
+| Lo escribe | `validador/en16931.py:412` |
+| Puede salir como | error |
+
+La línea del fuente que emite el aviso. Es la tesis del proyecto puesta en una
+fila de una tabla, ciento sesenta veces.
+
+Se generan del mismo catálogo y del mismo armazón que la página de todos, así
+que no hay una segunda verdad que mantener: un código nuevo en `firma.py`
+aparece con su página sin que nadie se acuerde de nada. Lo que es sólo del
+catálogo —su titular y el buscador— va marcado en la plantilla con
+`<!-- SOLO EL CATALOGO -->` y se quita al generar cada ficha; si esa marca
+desaparece, **no se monta**, porque 160 páginas con el titular «Qué significa
+cada aviso» y un buscador que no filtra nada es de las cosas que no dan error.
+
+### El fallo que casi se publica: 160 páginas y 27 descripciones
+
+De los 160 códigos, sólo **15 tienen explicación propia**. Los otros 145 llevan
+la de su familia, y eso está dicho en la página. Poniendo esa explicación como
+descripción de la página —que es lo natural, y lo primero que se escribió— el
+recuento salía así:
+
+```
+descripciones distintas: 27 de 160
+```
+
+Ciento cuarenta y cinco páginas que en un buscador salen con la misma frase. No
+falla nada, no se cae nada: simplemente quien viera cuatro resultados idénticos
+no sabría cuál abrir, y probablemente no abriría ninguno.
+
+La descripción empieza ahora por el código, que es lo único que los distingue a
+todos, y sigue con la explicación:
+
+> `BR-CO-10` en una factura electrónica: error de EN 16931. Reglas de negocio
+> de la norma europea EN 16931. No las pone este validador: las pone la norma…
+
+Son 160 de 160, y encima la primera línea contesta ya lo que se ha venido a
+preguntar. Hay una prueba que lo comprueba, porque esto se estropea solo: basta
+con que alguien «simplifique» la descripción para que vuelvan a ser 27.
+
+### El sitemap, el robots y la canónica
+
+`vercel.json` lleva `cleanUrls`, así que lo que se sirve de verdad es
+`/incidencias` y `/incidencias.html` contesta con un 308. El sitemap y la
+canónica dicen **la de destino**, no la que redirige: mandar a un buscador a
+una mudanza es hacerle perder el viaje.
+
+El sitemap va **sin `lastmod` a propósito**. Lo único que se podría poner es la
+fecha en que se montó el sitio, que es la misma para las 167 páginas y no dice
+nada de si el contenido cambió. Una fecha que miente vale menos que ninguna.
+
+### La tarjeta social
+
+Cuando alguien pega la dirección en LinkedIn, en un grupo de WhatsApp o en un
+correo, lo que sale no es la página: es lo que digan las etiquetas `og:`. Sin
+`og:image` sale un rectángulo gris, y un rectángulo gris al lado de un enlace
+es lo que la gente no pulsa.
+
+Ninguna red social admite SVG ahí —ni X, ni LinkedIn, ni WhatsApp, ni
+Facebook—, así que tiene que ser un PNG de 1200×630. Lo genera
+`herramientas/tarjeta.py` con la misma Literata 400 y los mismos colores de
+`glosa.css`, y va versionado ya hecho: armarlo al montar obligaría a instalar
+Pillow y a bajar un megabyte de tipografía **en cada despliegue**, para
+producir un fichero que cambia una vez cada seis meses. Es lo mismo que ya
+hacía `web/marca/trazar.py` con el logotipo.
+
+Y va con negativa, por lo mismo que la letra: un `og:image` que apunta a una
+dirección que da 404 no rompe nada y no da error **aquí**. Da error en la casa
+de otro, ya publicado.
+
+Abajo, la tarjeta dice tres cosas y en este orden: *forma, contenido y firma* ·
+*Facturae · UBL · CII · EDIFACT* · *gratis, en tu navegador*. Las tres
+comprobaciones van primero porque **la firma es la que no hace ningún otro
+validador gratuito**, y en una tarjeta que se mira dos segundos eso es lo único
+que hay que conseguir que se lea.
 
 ## La marca
 

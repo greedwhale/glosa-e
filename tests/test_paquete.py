@@ -13,6 +13,7 @@ notan poco y se reparten fácil, que es la peor combinación.
 """
 
 import json
+import re
 import zipfile
 from datetime import date
 from pathlib import Path
@@ -305,9 +306,16 @@ CANDADO = {
     }
 }
 
-PAGINA = """<!doctype html><title>glosa</title>
+# La página en pequeño, pero con cabecera de verdad: desde que el montaje le
+# pone a cada una su canónica y su tarjeta social, una sin `<head>`, sin
+# `<title>` o sin descripción **no se publica**, y con razón. Una plantilla de
+# prueba sin nada de eso probaba un montaje que ya no existe.
+PAGINA = """<!doctype html>
+<head><title>glosa</title>
+<meta name="description" content="La de prueba.">
 <link rel="stylesheet" href="./glosa.css">
 <script src="./glosa.js"></script>
+</head><body></body>
 """
 
 ESTILO = ('@font-face { src: url("./letra/literata.woff2?v=abc12345"); }\n'
@@ -325,6 +333,12 @@ def repositorio(tmp_path):
     (tmp_path / "web" / "glosa.css").write_text(ESTILO, encoding="utf-8")
     (tmp_path / "web" / "prueba.py").write_text("# el banco\n", encoding="utf-8")
     (tmp_path / "web" / "LEEME.md").write_text("# la pagina\n", encoding="utf-8")
+    # La tarjeta social. Va con negativa en el montaje, así que sin ella aquí
+    # no se monta nada: es un PNG de mentira, que para esto vale.
+    (tmp_path / "web" / "marca").mkdir()
+    (tmp_path / "web" / "marca" / "tarjeta.png").write_bytes(
+        bytes([137, 80, 78, 71, 13, 10, 26, 10])
+    )
     # La letra y su licencia. Van juntas porque la OFL obliga a que la segunda
     # viaje con la primera, y el montaje lo comprueba.
     (tmp_path / "web" / "letra").mkdir()
@@ -1029,8 +1043,12 @@ class TestLaBitacoraSeComprueba:
     """
 
     def _con_bitacora(self, repositorio, articulo: str):
+        # Con `<head>`, `<title>` y descripción: el montaje le pone a cada
+        # página su canónica y su tarjeta, y se niega con la que no los tenga.
         (repositorio / "web" / bitacora.NOMBRE).write_text(
-            "<html><body>" + bitacora.HUECO + "</body></html>",
+            "<html><head><title>bitacora</title>"
+            '<meta name="description" content="La de prueba.">'
+            "</head><body>" + bitacora.HUECO + "</body></html>",
             encoding="utf-8")
         carpeta = repositorio / "web" / bitacora.CARPETA
         carpeta.mkdir(exist_ok=True)
@@ -1136,3 +1154,94 @@ class TestQueDosVueltasDenElMismoFichero:
             dentro = json.loads(z.read(paquete.MANIFIESTO))
         assert ficha.external_attr >> 16 & 0o400, "sin permiso de lectura"
         assert dentro["armado"] == "2026-09-10"
+
+
+class TestParaQueSeLlegueDesdeFuera:
+    """Canónica, tarjeta social, `robots.txt` y `sitemap.xml`.
+
+    Hasta que esto existió, el sitio se montaba entero y **no existía para
+    ningún buscador**. No es un fallo que se vea desde dentro: la página
+    funciona perfectamente para quien ya sabe la dirección. Se vio buscando
+    «glosa-e.com» y comprobando que no salía ni una vez.
+    """
+
+    def test_hay_robots_y_dice_donde_esta_el_sitemap(self, repositorio):
+        sitio = _montar(repositorio).carpeta
+        robots = (sitio / "robots.txt").read_text(encoding="utf-8")
+        assert "User-agent: *" in robots
+        assert f"Sitemap: {paquete.DOMINIO}/sitemap.xml" in robots
+
+    def test_el_sitemap_lista_todas_las_paginas_y_ninguna_mas(self, repositorio):
+        sitio = _montar(repositorio).carpeta
+        mapa = (sitio / "sitemap.xml").read_text(encoding="utf-8")
+        paginas = sorted(p.name for p in sitio.glob("*.html"))
+        assert mapa.count("<loc>") == len(paginas)
+        # La portada va como la raíz, no como `/index`: con `cleanUrls` es la
+        # dirección que Vercel sirve de verdad.
+        assert f"<loc>{paquete.DOMINIO}/</loc>" in mapa
+        assert "/index<" not in mapa
+
+    def test_ninguna_direccion_del_sitemap_lleva_punto_html(self, repositorio):
+        """`cleanUrls` hace que `/legal.html` conteste con un 308 a `/legal`.
+
+        Mandar al buscador a la que redirige es mandarlo a una mudanza.
+        """
+        sitio = _montar(repositorio).carpeta
+        mapa = (sitio / "sitemap.xml").read_text(encoding="utf-8")
+        assert ".html" not in mapa
+
+    def test_cada_pagina_lleva_su_canonica_y_su_tarjeta(self, repositorio):
+        sitio = _montar(repositorio).carpeta
+        for pagina in sorted(sitio.glob("*.html")):
+            texto = pagina.read_text(encoding="utf-8")
+            assert 'rel="canonical"' in texto, pagina.name
+            assert 'property="og:image"' in texto, pagina.name
+            assert 'name="twitter:card"' in texto, pagina.name
+            assert 'property="og:title"' in texto, pagina.name
+
+    def test_la_canonica_de_cada_una_es_la_suya(self, repositorio):
+        """Una canónica repetida le dice al buscador que dos páginas son una."""
+        sitio = _montar(repositorio).carpeta
+        canonicas = [
+            re.search(r'rel="canonical" href="([^"]*)"', p.read_text("utf-8")).group(1)
+            for p in sorted(sitio.glob("*.html"))
+        ]
+        assert len(set(canonicas)) == len(canonicas)
+
+    def test_la_tarjeta_viaja(self, repositorio):
+        sitio = _montar(repositorio).carpeta
+        assert (sitio / "marca" / "tarjeta.png").is_file()
+
+    def test_los_guiones_de_la_marca_no_se_publican(self, repositorio):
+        """En `web/marca/` viven también los que generan la marca y la letra.
+
+        Son herramientas, no página. Se copia lo que se nombra y nada más.
+        """
+        (repositorio / "web" / "marca" / "trazar.py").write_text(
+            "# la herramienta\n", encoding="utf-8")
+        sitio = _montar(repositorio).carpeta
+        assert not (sitio / "marca" / "trazar.py").exists()
+
+    def test_sin_la_tarjeta_no_se_monta(self, repositorio):
+        """Un `og:image` a una dirección que da 404 no falla aquí: falla fuera."""
+        (repositorio / "web" / "marca" / "tarjeta.png").unlink()
+        with pytest.raises(paquete.SinPagina) as motivo:
+            _montar(repositorio)
+        assert "herramientas.tarjeta" in str(motivo.value)
+
+    def test_una_pagina_sin_cabecera_no_se_monta(self, repositorio):
+        """`replace` sobre lo que no está no falla: devuelve el texto igual."""
+        (repositorio / "web" / "legal.html").write_text(
+            "<!doctype html><title>x</title>", encoding="utf-8")
+        with pytest.raises(paquete.SinPagina) as motivo:
+            _montar(repositorio)
+        assert "</head>" in str(motivo.value)
+
+    def test_una_pagina_sin_descripcion_no_se_monta(self, repositorio):
+        """En un buscador saldría sin resumen, que se ve y se ve mal."""
+        (repositorio / "web" / "legal.html").write_text(
+            "<!doctype html><head><title>x</title></head><body></body>",
+            encoding="utf-8")
+        with pytest.raises(paquete.SinPagina) as motivo:
+            _montar(repositorio)
+        assert "descripción" in str(motivo.value)
