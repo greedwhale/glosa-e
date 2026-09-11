@@ -10,6 +10,8 @@ como los oficiales, porque que las rutas relativas funcionen es justo lo que
 puede fallar al instalarlos de verdad.
 """
 
+from pathlib import Path
+
 import pytest
 
 from validador import esquema, factura
@@ -685,3 +687,155 @@ class TestCompilarNoSaleALaRed:
         resolvedor = esquema._SinRed({})
         assert resolvedor.resolve("comun/UBL-CommonBasicComponents-2.1.xsd", None, None) is None
         assert resolvedor.no_estaban == []
+
+
+# --- La versión de UBL, que decide qué esquema vale ------------------------
+
+
+UBL_2_5 = Path("esquemas/ubl-2.5/maindoc/UBL-Invoice-2.5.xsd")
+UBL_2_1 = Path("esquemas/ubl/maindoc/UBL-Invoice-2.1.xsd")
+con_los_dos = pytest.mark.skipif(
+    not (UBL_2_5.is_file() and UBL_2_1.is_file()),
+    reason="hacen falta los esquemas de UBL 2.1 y 2.5 instalados",
+)
+
+
+class TestQueVersionDeUblSePide:
+    """UBL 2.5 no es un detalle de versión: es lo único que admite la SPFE.
+
+    Y el fallo que se puede colar aquí es de los caros: coger el esquema de al
+    lado y llenar el informe de incumplimientos inventados contra una factura
+    correcta. Por eso la regla es que **se puede subir de versión y nunca
+    bajar**, y por eso está escrita como una propiedad y no como un ejemplo.
+    """
+
+    def _ubl(self, version, tipo="factura"):
+        from validador.formato import UBL as familia_ubl
+        from validador.formato import Deteccion
+
+        return Deteccion(familia=familia_ubl, tipo_documento=tipo, version=version)
+
+    def test_nunca_se_ofrece_un_esquema_anterior_al_declarado(self):
+        conocidas = esquema._VERSIONES_UBL
+        for i, version in enumerate(conocidas):
+            nombres = esquema._nombres_esperados(self._ubl(version))
+            ofrecidas = tuple(
+                n.removeprefix("UBL-Invoice-").removesuffix(".xsd") for n in nombres
+            )
+            assert ofrecidas == conocidas[i:], f"con {version} se ofrece {ofrecidas}"
+
+    def test_el_primero_es_siempre_el_de_la_version_declarada(self):
+        assert esquema._nombres_esperados(self._ubl("2.5"))[0] == "UBL-Invoice-2.5.xsd"
+        assert esquema._nombres_esperados(self._ubl("2.1"))[0] == "UBL-Invoice-2.1.xsd"
+        assert (
+            esquema._nombres_esperados(self._ubl("2.5", "abono"))[0]
+            == "UBL-CreditNote-2.5.xsd"
+        )
+
+    def test_una_version_que_no_conocemos_pide_la_suya_y_nada_mas(self):
+        """UBL 2.6 no existe hoy. El día que exista, esto no se lo inventa.
+
+        Ofrecerle la 2.5 sería exactamente el fallo de arriba con otro
+        disfraz: un esquema anterior al que el documento declara.
+        """
+        assert esquema._nombres_esperados(self._ubl("2.6")) == ("UBL-Invoice-2.6.xsd",)
+
+    def test_una_version_que_no_es_una_version_se_trata_como_si_no_hubiera(self):
+        for basura in ("2", "dos punto uno", ""):
+            nombres = esquema._nombres_esperados(self._ubl(basura))
+            assert nombres[0] == "UBL-Invoice-2.1.xsd"
+
+    def test_un_documento_2_5_no_se_valida_contra_el_esquema_2_1(self, catalogo):
+        """El guardián. Con solo la 2.1 instalada, se dice que falta.
+
+        Lo que no puede pasar es que salga un XSD-ORDEN: eso sería acusar a
+        una factura correcta de tener elementos que se ha inventado, cuando lo
+        que pasa es que el esquema con el que se la mide es viejo.
+        """
+        xml = factura_xml(
+            """  <cbc:UBLVersionID>2.5</cbc:UBLVersionID>
+  <cbc:ID>F-2026-0001</cbc:ID>
+  <cbc:IssueDate>2026-03-02</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>"""
+        )
+        incidencias = revisar(xml, catalogo)
+        assert codigos(incidencias) == {"XSD-SIN-ESQUEMA"}
+        aviso = una(incidencias, "XSD-SIN-ESQUEMA")
+        assert "UBL-Invoice-2.5.xsd" in aviso.mensaje
+
+    def test_el_aviso_nombra_uno_y_no_seis(self):
+        """Seis nombres en una frase no son una instrucción, son un ladrillo."""
+        frase = esquema._como_se_llama(self._ubl("2.0"))
+        assert frase.count("UBL-Invoice") == 2  # el que toca y hasta dónde vale
+        assert "UBL-Invoice-2.0.xsd" in frase
+        assert "UBL-Invoice-2.5.xsd" in frase
+
+    def test_la_copia_local_de_xmldsig_cuenta_con_la_de_2_5(self):
+        """Quien instale solo UBL 2.5 no tiene la copia de 2.1 en el disco.
+
+        Y de esa copia depende que se pueda comprobar la forma de **Facturae**,
+        que importa la firma del W3C por dirección web. Sin nombrarla aquí, un
+        conjunto perfectamente instalado dejaba sin comprobar el formato
+        nacional entero.
+        """
+        copias = esquema._COPIAS_LOCALES["xmldsig-core-schema.xsd"]
+        assert "UBL-xmldsig-core-schema-2.5.xsd" in copias
+        assert "UBL-xmldsig-core-schema-2.1.xsd" in copias
+
+
+@con_los_dos
+class TestConLosEsquemasDeVerdad:
+    """Lo medido sobre los XSD oficiales, no sobre los de doce líneas.
+
+    Es lo que sostiene el comentario de `_VERSIONES_UBL`, y lo que se entera
+    el día que OASIS cambie de criterio y una versión menor deje de ser
+    compatible hacia arriba.
+    """
+
+    def _compilar(self, ruta):
+        from lxml import etree
+
+        return etree.XMLSchema(etree.parse(str(ruta)))
+
+    def test_los_ejemplos_de_2_1_pasan_igual_el_esquema_2_5(self):
+        from lxml import etree
+
+        esq = self._compilar(UBL_2_5)
+        ejemplos = [
+            p
+            for p in sorted(Path("ejemplos").glob("*.xml"))
+            if b"ubl:schema:xsd:Invoice-2" in p.read_bytes()[:600]
+        ]
+        assert ejemplos, "no hay ejemplos UBL con los que medir esto"
+        for p in ejemplos:
+            arbol = etree.fromstring(p.read_bytes()).getroottree()
+            assert esq.validate(arbol), f"{p.name}: {esq.error_log[0].message}"
+
+    def test_y_al_reves_no(self):
+        """Un elemento de 2.5 contra el esquema 2.1: rechazado.
+
+        `DefaultLanguageCode` se añadió en la 2.5 y va detrás de
+        `BuyerReference`. Es la mitad que hace falta medir: sin ella, la regla
+        de «subir sí, bajar no» sería una suposición.
+        """
+        from lxml import etree
+
+        texto = Path("ejemplos/f-0001.xml").read_text(encoding="utf-8")
+        con25 = texto.replace(
+            "<cac:AccountingSupplierParty>",
+            "<cbc:DefaultLanguageCode>es</cbc:DefaultLanguageCode>\n  "
+            "<cac:AccountingSupplierParty>",
+            1,
+        )
+        assert "DefaultLanguageCode" in con25, "el ejemplo ha cambiado de forma"
+        arbol = etree.fromstring(con25.encode("utf-8")).getroottree()
+        assert self._compilar(UBL_2_5).validate(arbol)
+        assert not self._compilar(UBL_2_1).validate(arbol)
+
+    def test_el_namespace_no_cambia_entre_versiones(self):
+        """Si cambiara, «subir de versión» no sería subir: sería otro formato."""
+        from lxml import etree
+
+        for ruta in (UBL_2_1, UBL_2_5):
+            raiz = etree.parse(str(ruta)).getroot()
+            assert raiz.get("targetNamespace") == NS_INVOICE

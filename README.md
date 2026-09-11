@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1280 tests, todos en verde.
+1300 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -424,9 +424,43 @@ en una carpeta:
 
 | Formato | Fichero que se busca | De dónde sale |
 |---|---|---|
+| UBL 2.5 | `UBL-Invoice-2.5.xsd`, `UBL-CreditNote-2.5.xsd` | `docs.oasis-open.org/ubl/os-UBL-2.5/` |
 | UBL 2.1 | `UBL-Invoice-2.1.xsd`, `UBL-CreditNote-2.1.xsd` | paquete UBL 2.1 de OASIS |
 | CII | `CrossIndustryInvoice_100pD16B.xsd` | paquete D16B de UN/CEFACT |
 | Facturae | `Facturaev3_2_2.xsd` y equivalentes | sede de facturae.gob.es |
+
+### Qué versión de UBL se le mide a cada documento
+
+Hacen falta las dos, y por una razón que no es de coleccionista: **la solución
+pública solo admite UBL 2.5** y todo lo que circula hoy —Peppol, FACeB2B, lo
+que sale de cualquier ERP— es UBL 2.1. Van a convivir años.
+
+La regla es que **se puede subir de versión y nunca bajar**. Primero se busca
+el esquema de la versión que el documento declara en su `UBLVersionID`, que es
+contra el que lo escribieron; si no está, valen los posteriores y ninguno
+anterior.
+
+Las dos mitades están medidas, porque de otro modo serían una suposición:
+
+- **Subir vale.** UBL no cambia de namespace entre versiones menores
+  —`...:xsd:Invoice-2` es el mismo en la 2.0 y en la 2.5— y cada versión añade
+  elementos opcionales sin quitar ni mover los de antes: la secuencia de
+  `Invoice` pasa de 53 hijos a 62, no desaparece ninguno y los 53 siguen en el
+  mismo orden. Los cinco ejemplos UBL de `ejemplos/` pasan igual los dos
+  esquemas.
+- **Bajar no.** Una factura 2.5 con un `DefaultLanguageCode` pasa el esquema
+  2.5 y **falla** contra el 2.1. Si el validador se dejara caer a la versión de
+  al lado, el informe se llenaría de `XSD-ORDEN` inventados contra una factura
+  correcta, y quien lo leyera se pondría a arreglar lo que no está roto.
+
+Cuando el esquema que toca no está, se dice cuál falta y no se comprueba la
+forma. Es la diferencia entre no saber y equivocarse en voz alta.
+
+Y hay un caso en que la versión se deduce: un documento **sin** `UBLVersionID`
+que declare el CIUS de la solución pública en su `CustomizationID` solo puede
+ser UBL 2.5, porque media docena de sus campos cuelgan de
+`cac:CollectionInvoiceLine`, que en UBL 2.1 no existe. Suponerle 2.1 no era
+redondear: era mandar a medirla con un esquema que la rechaza entera.
 
 El catálogo **busca por nombre de fichero en toda la carpeta**, no por una ruta
 fija. Cada paquete oficial se descomprime con su propio arbolito y no tiene
@@ -2958,14 +2992,18 @@ las tres y tiene que decirlo.
 Ahora viajan. `python -m validador --empaquetar` arma un ZIP con las tres
 carpetas dentro y un resumen al lado; el navegador lo baja de una vez y lo
 descomprime en su disco virtual, y el validador las encuentra por las mismas
-variables de entorno que usa fuera. Son **0,94 MB** —5,7 MB de ficheros, que
-comprimen bien— y tardan 0,09 s en cargarse, al lado de los 14,7 MB de Pyodide.
+variables de entorno que usa fuera. Son **1,19 MB** —8,26 MB de ficheros, que
+comprimen bien— al lado de los 14,7 MB de Pyodide.
+
+Creció 0,25 MB el 11-09-2026, al entrar los 18 esquemas de UBL 2.5. Es lo que
+cuesta poder comprobar la forma del único formato que la solución pública
+admite, y se paga una vez por visita.
 
 ```
-Escrito web/paquete.zip (0.94 MB)
-  SHA-256  364071b7337680b1e16de0f8e4e5d018e84a75c96f04c6ec7380c3b959626672
+Escrito web/paquete.zip (1.19 MB)
+  SHA-256  91c70984b9645414eb56606e80c07a61cb6fd17d2f82af81db038d424acc9d7d
 
-  esquemas XSD          24
+  esquemas XSD          42
   anclas de firma       268
   anclas de sellado     121
 
@@ -2984,6 +3022,17 @@ cree el validador**— no se va por dejarlo fuera del repositorio: publicar la
 página las reparte igual, a más gente y sin que nadie las mire. Lo que hace
 falta es poder contrastarlas, y para eso está el SHA-256 de arriba, que va en
 `PAQUETE.json` dentro del zip y fuera, y sale en la página.
+
+**Y esa huella tiene que poder rehacerla otro**, o dice bastante menos de lo
+que aquí estaba escrito: sin reproducibilidad solo prueba que la descarga
+llegó entera, no que el paquete sea el de estas carpetas. No la daba. Armar
+dos veces las mismas carpetas producía dos ficheros distintos, y la diferencia
+está medida hasta el fondo: de las 436 entradas del zip, las 436 con el
+contenido idéntico byte a byte y **una sola** con la fecha cambiada, la del
+`PAQUETE.json` de dentro, a la que `writestr` le ponía la hora del reloj. Hoy
+lleva la fecha del día en que se arma —que ya es un dato del propio paquete— y
+dos vueltas dan el mismo fichero. La prueba mueve el reloj una hora entre las
+dos, porque sin moverlo pasaba con el fallo dentro.
 
 Hay que rehacerlo cada vez que se renueve la lista de confianza, unos seis
 meses. Si se olvida, lo dice el propio validador: `ANCLAS-SIN-RENOVAR` sale en

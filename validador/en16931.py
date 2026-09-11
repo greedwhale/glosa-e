@@ -820,7 +820,7 @@ def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
                 f"{sintaxis.nombre_perfil}. Se valida igualmente, pero un "
                 "receptor estricto podría rechazarlo por eso.",
                 campo="Identificador de especificación",
-                esperado="urn:cen.eu:en16931:2017...",
+                esperado="urn:cen.eu:en16931:2017... o :2026...",
                 encontrado=deteccion.perfil or "(falta)",
             )
         )

@@ -2756,3 +2756,108 @@ Ninguna es de la extracción; los dos métodos las ven igual.
   deliberado: el anexo los usa como cajones para cada grupo español, y lo que
   distingue una fila de otra es su ruta UBL. El identificador no es una clave,
   y conviene saberlo antes de construir un índice con él.
+
+## Tres maneras de acusar en falso a una factura correcta de UBL 2.5
+
+La solución pública solo admite UBL 2.5. Antes de escribir nada de eso hicimos
+lo que dice la casa: pasarle al validador de hoy una factura de mañana y mirar
+qué contesta. Contestaba mal de tres maneras distintas, y las tres eran del
+mismo tipo —**no callarse, sino equivocarse en voz alta contra un documento que
+está bien**—, que es peor que no saber.
+
+### 1. El esquema de al lado
+
+`_nombres_esperados` devolvía `("UBL-Invoice-2.1.xsd", "UBL-Invoice-2.0.xsd")`
+para cualquier documento UBL, dijera lo que dijera su `UBLVersionID`. Con solo
+la 2.1 instalada, una factura 2.5 correcta se medía contra el esquema 2.1 y
+salía con un `XSD-ORDEN` por cada elemento nuevo. Reproducido con la suite:
+
+```
+Extra items in the left set:  'XSD-ORDEN'
+Extra items in the right set: 'XSD-SIN-ESQUEMA'
+```
+
+Los elementos «inventados» eran los de verdad. `cac:CollectionInvoiceLine`, del
+que cuelgan **trece** campos del CIUS español —suplidos, minoraciones, recargo
+de equivalencia, régimen de grupo de entidades—, no existe en UBL 2.1: medido
+contra los dos esquemas, sobre los 1.548 elementos globales de la 2.1 y los
+2.129 de la 2.5.
+
+La regla que lo cierra: **se puede subir de versión y nunca bajar.** Las dos
+mitades, medidas y no supuestas:
+
+| | Medido |
+|---|---|
+| Subir vale | los cinco ejemplos UBL de `ejemplos/` pasan igual el esquema 2.1 y el 2.5; la secuencia de `Invoice` pasa de 53 hijos a 62 sin perder ni mover ninguno |
+| Bajar no | una factura con `DefaultLanguageCode` pasa la 2.5 y **falla** la 2.1 |
+
+Y cuando el que toca no está, se dice cuál falta. No se comprueba la forma, y
+se dice que no se ha comprobado.
+
+### 2. «No declara conformidad con EN 16931», por declararla
+
+`MARCADOR_EN16931` era un literal: `urn:cen.eu:en16931:2017`. La EN 16931-1
+tiene **dos ediciones vivas** desde mayo de 2026, y el CIUS español pide la
+otra:
+
+```
+urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0
+```
+
+que no empieza por el literal. Resultado: `conforme_en16931` en falso y BR-01
+avisando de que el documento no dice a qué norma se ajusta, cuando lo decía
+con la edición correcta. En EDIFACT lo mismo, que busca el marcador en los
+bytes del FTX.
+
+### 3. Suponer 2.1 cuando el documento ya había dicho quién es
+
+Un UBL sin `UBLVersionID` se daba por 2.1 «que es lo habitual», y para lo que
+circula hoy lo es. Pero un documento que declara el CIUS de la solución pública
+en su `CustomizationID` **no puede ser 2.1**: la mitad de sus campos usan
+elementos que ahí no existen. Ahora, sin versión y con ese CIUS, se deduce 2.5
+y se dice por qué en el motivo de la detección. Lo que el documento declare
+sigue mandando siempre: se rellena el hueco, no se corrige al que habla.
+
+### De paso, dos cosas que había que ir a mirar
+
+**UBL 2.5 ya no es un borrador.** Es OASIS Standard desde el 12-08-2026; la
+Committee Specification del 15-04-2026 está superada. Los dos juegos de XSD
+declaran exactamente los mismos elementos —923 en `CommonAggregateComponents`,
+1.201 en `CommonBasicComponents`, comprobado— y solo cambian las cabeceras, así
+que lo que se instala es el OS.
+
+**`cac:ThirdPartyInvoicing` no existe en UBL.** Ni en la 2.1 ni en la 2.5: cero
+apariciones en los 18 ficheros del paquete. Es la ruta que el anexo I le da a
+`BT-ES-15`, y es un fallo del borrador con diagnóstico: la descripción del
+propio campo dice que «ThirdPartyInvoicing» es el **valor** que hay que
+escribir en `ServiceTypeCode`, y alguien lo pegó dentro del camino.
+
+## El SHA-256 del paquete no lo podía rehacer nadie
+
+El README ofrece la huella de `web/paquete.zip` para poder contrastar las
+anclas de confianza que se reparten con la página. Para eso hace falta que
+quien arme el paquete de las mismas carpetas obtenga el mismo fichero.
+
+No lo obtenía. Tres vueltas seguidas, tres huellas:
+
+```
+33921e83…   19:38
+092bac89…   19:39
+16b8d8a7…   19:40
+```
+
+La diferencia está medida hasta el fondo: de las **436 entradas** del zip, las
+436 con el contenido idéntico byte a byte y **una sola** con la fecha cambiada,
+la del `PAQUETE.json` de dentro. `zipfile.writestr` con un nombre a secas le
+pone a la entrada la hora del reloj.
+
+Así que la huella probaba que la descarga llegó entera —que también hace
+falta— y no lo otro, que es lo que estaba escrito. Ahora esa entrada lleva la
+fecha del día en que se arma, que ya es un dato del propio paquete, y dos
+vueltas dan el mismo fichero.
+
+**Y la prueba de eso casi nace inservible.** Armar dos veces y comparar bytes
+pasaba **con el fallo dentro**: las dos vueltas caían en el mismo segundo y la
+fecha salía igual. Una prueba de reproducibilidad que no reproducía nada, que
+es el disfraz más fino que se le ha visto aquí al fallo de siempre. Se arregla
+moviendo el reloj una hora entre las dos vueltas, a propósito.

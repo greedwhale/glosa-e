@@ -49,12 +49,64 @@ TOPE_INCIDENCIAS = 20
 # --- Dónde están los esquemas ----------------------------------------------
 
 
+# Las versiones de UBL que este validador sabe nombrar, **de la más vieja a la
+# más nueva**. El orden es la parte importante: de él sale a qué esquema se
+# puede recurrir cuando el que toca no está instalado, y la regla es que se
+# puede subir pero nunca bajar.
+#
+# Por qué se puede subir. UBL no cambia de namespace entre versiones menores
+# —`...:xsd:Invoice-2` es el mismo en la 2.0 y en la 2.5, comprobado— y lo que
+# hace cada versión nueva es añadir elementos opcionales sin quitar ni mover
+# los que ya había: entre la 2.1 y la 2.5 la secuencia de `Invoice` pasa de 53
+# a 62 hijos, no desaparece ninguno y los 53 de antes siguen en el mismo orden.
+# Medido también con documentos enteros: los cinco ejemplos UBL de `ejemplos/`
+# pasan igual el esquema 2.1 y el 2.5.
+#
+# Por qué no se puede bajar, que es lo que esto viene a impedir. Un documento
+# que use algo nuevo —`CollectionInvoiceLine`, sin ir más lejos, que es donde
+# el CIUS español mete suplidos, minoraciones y recargo de equivalencia— es
+# **válido** y el esquema viejo lo rechaza. Medido: una factura 2.5 con un
+# `DefaultLanguageCode` pasa el esquema 2.5 y falla contra el 2.1. Si aquí se
+# dejara caer a la versión de al lado, el informe se llenaría de XSD-ORDEN
+# inventados y quien lo leyera se pondría a arreglar una factura correcta.
+# Vale mil veces más decir que falta el esquema.
+_VERSIONES_UBL = ("2.0", "2.1", "2.2", "2.3", "2.4", "2.5")
+
+# La que se supone cuando no se puede saber. Es la de `formato.py` cuando el
+# documento no trae `UBLVersionID`, y aquí sirve para lo mismo: no dejar sin
+# comprobar un documento que solo tiene la versión mal escrita.
+_UBL_POR_DEFECTO = "2.1"
+
+_RE_VERSION_UBL = re.compile(r"^2\.\d+$")
+
+
+def _versiones_ubl(declarada: str | None) -> tuple[str, ...]:
+    """Qué esquemas de UBL valen para un documento, en orden de preferencia.
+
+    El primero es siempre el de la versión que el documento declara, que es
+    contra el que lo escribieron. Detrás van **solo las posteriores**.
+    """
+    declarada = (declarada or "").strip()
+    if declarada in _VERSIONES_UBL:
+        return _VERSIONES_UBL[_VERSIONES_UBL.index(declarada):]
+    if _RE_VERSION_UBL.match(declarada):
+        # Una versión de UBL que este validador no conoce todavía. No vale
+        # ninguna de las de arriba —todas son anteriores— así que se nombra la
+        # suya y, si no está, se dice cuál hay que instalar.
+        return (declarada,)
+    # Ni una versión ni nada que se le parezca. Se hace lo mismo que con un
+    # documento sin `UBLVersionID`, que es lo que casi siempre es.
+    return _VERSIONES_UBL[_VERSIONES_UBL.index(_UBL_POR_DEFECTO):]
+
+
 def _nombres_esperados(deteccion) -> tuple[str, ...]:
     """Nombres de fichero del esquema que le toca a un documento."""
     if deteccion.familia == UBL:
-        if deteccion.tipo_documento == "abono":
-            return ("UBL-CreditNote-2.1.xsd", "UBL-CreditNote-2.0.xsd")
-        return ("UBL-Invoice-2.1.xsd", "UBL-Invoice-2.0.xsd")
+        clase = "CreditNote" if deteccion.tipo_documento == "abono" else "Invoice"
+        return tuple(
+            f"UBL-{clase}-{version}.xsd"
+            for version in _versiones_ubl(deteccion.version)
+        )
     if deteccion.familia == CII:
         return (
             "CrossIndustryInvoice_100pD16B.xsd",
@@ -90,9 +142,16 @@ def _nombres_esperados(deteccion) -> tuple[str, ...]:
 # UBL trae en su paquete una copia del mismo esquema —mismo `targetNamespace`,
 # mismo `Signature`— y con eso se resuelve, sin bajar nada nuevo. Si alguien
 # deja el fichero del W3C con su nombre, también vale.
+#
+# La copia de UBL 2.5 va delante de la de 2.1 **y no da igual el orden**: quien
+# instale solo UBL 2.5 y Facturae no tiene la de 2.1 en el disco, y sin
+# nombrarla aquí se quedaba sin comprobar la forma de todas las facturas del
+# formato nacional. Las dos declaran el mismo `targetNamespace`
+# —`http://www.w3.org/2000/09/xmldsig#`, comprobado— aunque los bytes difieran.
 _COPIAS_LOCALES = {
     "xmldsig-core-schema.xsd": (
         "xmldsig-core-schema.xsd",
+        "UBL-xmldsig-core-schema-2.5.xsd",
         "UBL-xmldsig-core-schema-2.1.xsd",
     ),
 }
@@ -240,6 +299,25 @@ class Catalogo:
         if ruta is None or ruta not in self._rotos:
             return None
         return (ruta, self._rotos[ruta])
+
+
+def _como_se_llama(deteccion) -> str:
+    """Qué fichero hay que instalar, dicho para que se pueda ir a buscarlo.
+
+    Con UBL la lista de candidatos puede tener seis nombres, y enumerarlos
+    todos convertía el aviso en un ladrillo del que no se saca qué hacer. El
+    que hay que instalar es **el primero** —el de la versión que el documento
+    declara—; los demás son a lo que se puede recurrir, no lo que se pide.
+    """
+    nombres = _nombres_esperados(deteccion)
+    if not nombres:
+        return "No se sabe cómo se llama el que le toca"
+    if len(nombres) == 1:
+        return f"El que le toca se llama {nombres[0]}"
+    return (
+        f"El que le toca se llama {nombres[0]} —o el de cualquier versión "
+        f"posterior, hasta {nombres[-1]}—"
+    )
 
 
 def _por_que(sin_red: _SinRed, error: Exception) -> str:
@@ -693,9 +771,8 @@ def reglas(raiz, deteccion, catalogo: Catalogo | None = None) -> list[Incidencia
                 "XSD-SIN-ESQUEMA",
                 AVISO,
                 "No se ha comprobado la forma: falta el esquema de este "
-                "formato. Los que le tocan se llaman "
-                + " o ".join(_nombres_esperados(deteccion) or ("(ninguno)",))
-                + f", y se buscan dentro de {catalogo.carpeta}.",
+                f"formato. {_como_se_llama(deteccion)}, y se busca dentro de "
+                f"{catalogo.carpeta}.",
                 campo="Esquema",
                 encontrado=f"{deteccion.familia} {deteccion.version or ''}".strip(),
             )

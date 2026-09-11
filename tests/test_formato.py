@@ -257,3 +257,84 @@ class TestSeguridad:
 <lolz>&lol3;</lolz>"""
         d = formato.detectar(bomba)  # no debe colgarse ni agotar memoria
         assert not d
+
+
+# --- La edición de 2026 y el CIUS español ----------------------------------
+
+CIUS_ES = "urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0"
+
+
+def ubl_cius(version=None):
+    linea = f"  <cbc:UBLVersionID>{version}</cbc:UBLVersionID>\n" if version else ""
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+{linea}  <cbc:CustomizationID>{CIUS_ES}</cbc:CustomizationID>
+  <cbc:ID>F-2026-003</cbc:ID>
+</Invoice>"""
+
+
+class TestLaEdicionDe2026:
+    """La EN 16931 tiene dos ediciones vivas, y las dos son conformidad.
+
+    La de 2017 es la que declara todo lo que circula hoy; la de 2026 es la que
+    pide la solución pública española. Con una sola en la lista, una factura
+    del CIUS salía «no declara conformidad con EN 16931» **por declarar la
+    edición correcta**, y BR-01 avisaba de lo que estaba bien.
+    """
+
+    def test_las_dos_ediciones_cuentan_como_conformes(self):
+        assert formato.detectar(UBL_FACTURA).conforme_en16931
+        assert formato.detectar(ubl_cius("2.5")).conforme_en16931
+
+    def test_el_marcador_de_2017_sigue_siendo_el_que_se_enseña(self):
+        """`MARCADOR_EN16931` a secas se usa como ejemplo en los mensajes."""
+        assert formato.MARCADOR_EN16931 == "urn:cen.eu:en16931:2017"
+        assert formato.MARCADOR_EN16931 in formato.MARCADORES_EN16931
+
+    def test_un_edifact_de_2026_tambien_cuenta(self):
+        """En EDIFACT el perfil viaja en un FTX y se busca en los bytes."""
+        crudo = (
+            "UNA:+.? '"
+            "UNH+1+INVOIC:D:96A:UN'"
+            "BGM+380+F-2026-004'"
+            "FTX+DOC+++urn:cen.eu:en16931:2026'"
+        )
+        assert formato.detectar(crudo.encode("latin-1")).conforme_en16931
+
+    def test_el_marcador_del_cius_es_el_que_dice_el_anexo(self):
+        """El guardián entre los dos sitios donde está escrito el mismo URN.
+
+        `formato.py` lleva el trozo que identifica al CIUS y `cius_es.py` el
+        valor entero, que sale del anexo. Si el anexo lo cambia, la tabla se
+        regenera y esto salta; sin la prueba, `formato.py` se quedaría
+        buscando un CIUS que ya no se llama así y no lo reconocería nunca.
+        """
+        from validador import cius_es
+
+        assert formato.MARCADOR_CIUS_ES in cius_es.ESPECIFICACION
+        assert cius_es.ESPECIFICACION.startswith(formato.MARCADORES_EN16931)
+
+
+class TestQueVersionDeUblSeSupone:
+    def test_lo_que_declara_el_documento_manda_siempre(self):
+        assert formato.detectar(ubl_cius("2.5")).version == "2.5"
+        # Aunque no cuadre con el CIUS: lo que dice el documento es un hecho,
+        # y suponer por encima de un dato es inventar.
+        assert formato.detectar(ubl_cius("2.1")).version == "2.1"
+
+    def test_sin_version_pero_con_el_cius_se_supone_2_5(self):
+        """Y no 2.1, que sería mandar a medirla con un esquema que la rechaza.
+
+        Media docena de campos del CIUS cuelgan de `CollectionInvoiceLine`,
+        que en UBL 2.1 no existe: suponer 2.1 no era redondear, era acusar de
+        inventarse elementos a una factura correcta.
+        """
+        d = formato.detectar(ubl_cius())
+        assert d.version == "2.5"
+        assert "CIUS" in d.motivo
+
+    def test_sin_version_y_sin_cius_se_sigue_suponiendo_2_1(self):
+        d = formato.detectar(UBL_SIN_PERFIL)
+        assert d.version == "2.1"
+        assert "se asume UBL 2.1" in d.motivo

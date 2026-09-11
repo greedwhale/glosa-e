@@ -43,8 +43,31 @@ NS_CII_RAM = (
 
 NS_FIRMA = "http://www.w3.org/2000/09/xmldsig#"
 
-# Marcador de conformidad con la norma europea, tanto en UBL como en CII.
-MARCADOR_EN16931 = "urn:cen.eu:en16931:2017"
+# Marcadores de conformidad con la norma europea, tanto en UBL como en CII.
+#
+# **Son dos y no uno desde mayo de 2026**, que es cuando se publicó la EN
+# 16931-1:2026 y se retiró formalmente la de 2017. Las dos ediciones van a
+# convivir años: Peppol y todo lo que hay hoy en circulación declaran la de
+# 2017, y la solución pública española pide la de 2026
+# —`urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0`, que es
+# el valor literal del anexo I y está en `cius_es.ESPECIFICACION`—.
+#
+# Con un solo marcador, una factura del CIUS español salía «no declara
+# conformidad con EN 16931» **por declarar la edición correcta**. No es un
+# detalle: BR-01 avisa de eso, y avisar de lo que está bien es peor que
+# callarse.
+MARCADORES_EN16931 = ("urn:cen.eu:en16931:2017", "urn:cen.eu:en16931:2026")
+
+# El de 2017 a secas, que es el que sigue viéndose en el 99 % de lo que llega
+# y el que se enseña como ejemplo cuando falta.
+MARCADOR_EN16931 = MARCADORES_EN16931[0]
+
+# El CIUS de la solución pública. Se escribe detrás del marcador de 2026, en el
+# mismo `CustomizationID`. El valor entero está en `cius_es.ESPECIFICACION`,
+# que sale del anexo; aquí va solo el trozo que identifica al CIUS, y una
+# prueba comprueba que los dos siguen diciendo lo mismo. Si el anexo cambia el
+# URN, salta ahí y no en producción.
+MARCADOR_CIUS_ES = "urn:aeat.es:CIUS-ES-SPFE"
 
 # Familias
 FACTURAE = "Facturae"
@@ -64,7 +87,12 @@ _RE_EDIFACT_BGM = re.compile(
     rb"(?:^|['\r\n])\s*BGM\+([0-9]{3})", re.IGNORECASE
 )
 _RE_EDIFACT_DIR = re.compile(rb"([0-9]{2}[A-Z])", re.IGNORECASE)
-_MARCADOR_EDIFACT = MARCADOR_EN16931.encode("latin-1")
+# En EDIFACT el perfil no va en un campo suyo: viaja dentro de un FTX de
+# texto libre, asi que se busca en los bytes. Los dos marcadores, por lo
+# mismo que arriba.
+_MARCADORES_EDIFACT = tuple(
+    m.encode("latin-1") for m in MARCADORES_EN16931
+)
 
 # En EDIFACT el tipo va en el mismo código que en CII: 380 factura, 381 abono.
 _TIPOS_EDIFACT = {b"380": "factura", b"381": "abono"}
@@ -210,17 +238,37 @@ def _detectar_ubl(raiz: etree._Element, namespace: str, nombre: str) -> Deteccio
     espacios = {"cbc": NS_UBL_CBC}
     perfil = _texto(raiz, "./cbc:CustomizationID", espacios)
     version = _texto(raiz, "./cbc:UBLVersionID", espacios)
+    # Lo que el documento declara manda siempre. Cuando no declara nada hay
+    # que suponer, y la suposición no es la misma para todos: un documento que
+    # dice ser del CIUS de la solución pública **solo puede ser UBL 2.5**,
+    # porque la SPFE no admite otra cosa y porque media docena de sus campos
+    # —los que cuelgan de `CollectionInvoiceLine`: suplidos, minoraciones,
+    # recargo de equivalencia, régimen de grupo— usan elementos que en UBL 2.1
+    # no existen. Comprobado contra los dos esquemas.
+    #
+    # Suponer 2.1 ahí no era una imprecisión: mandaba a comprobar la factura
+    # contra un esquema que la rechaza entera, y el informe habría acusado de
+    # inventarse elementos a una factura correcta.
+    if version:
+        motivo = "Formato reconocido."
+    elif perfil and MARCADOR_CIUS_ES in perfil:
+        version = "2.5"
+        motivo = (
+            "Sin UBLVersionID, pero declara el CIUS de la solución pública, "
+            "que solo existe sobre UBL 2.5."
+        )
+    else:
+        version = "2.1"
+        motivo = "Sin UBLVersionID; se asume UBL 2.1, que es lo habitual."
     return Deteccion(
         familia=UBL,
-        version=version or "2.1",
+        version=version,
         tipo_documento="abono" if nombre == "CreditNote" else "factura",
         perfil=perfil,
-        conforme_en16931=bool(perfil and perfil.startswith(MARCADOR_EN16931)),
+        conforme_en16931=bool(perfil and perfil.startswith(MARCADORES_EN16931)),
         firmado=_tiene_firma(raiz),
         namespace=namespace,
-        motivo="Formato reconocido."
-        if version
-        else "Sin UBLVersionID; se asume UBL 2.1, que es lo habitual.",
+        motivo=motivo,
     )
 
 
@@ -243,7 +291,7 @@ def _detectar_cii(raiz: etree._Element, namespace: str) -> Deteccion:
         version="D16B",
         tipo_documento=tipo,
         perfil=perfil,
-        conforme_en16931=bool(perfil and perfil.startswith(MARCADOR_EN16931)),
+        conforme_en16931=bool(perfil and perfil.startswith(MARCADORES_EN16931)),
         firmado=_tiene_firma(raiz),
         namespace=namespace,
         motivo="Formato reconocido."
@@ -278,7 +326,7 @@ def _detectar_edifact(datos: bytes) -> Deteccion | None:
         tipo_documento=_TIPOS_EDIFACT.get(
             (_RE_EDIFACT_BGM.search(datos) or _VACIO).group(1) or b"", None
         ),
-        conforme_en16931=_MARCADOR_EDIFACT in datos,
+        conforme_en16931=any(m in datos for m in _MARCADORES_EDIFACT),
         motivo="Formato reconocido.",
     )
 
@@ -309,7 +357,7 @@ def _detectar_edifact_xml(raiz: etree._Element, nombre: str) -> Deteccion:
         version=_version_edifact((directorio or "").encode("latin-1")),
         tipo_documento=_TIPOS_EDIFACT.get((codigo or "").encode("latin-1")),
         perfil=perfil,
-        conforme_en16931=bool(perfil and perfil.startswith(MARCADOR_EN16931)),
+        conforme_en16931=bool(perfil and perfil.startswith(MARCADORES_EN16931)),
         firmado=_tiene_firma(raiz),
         motivo="Formato reconocido."
         if perfil
