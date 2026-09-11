@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1300 tests, todos en verde.
+1321 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3184,6 +3184,93 @@ de leer el anexo cuatro días después de haberla escrito.
 
 La otra corrección que asoma es la categoría de IVA: la lista L4 añade `L` y
 `M` —IGIC e IPSI— que la UNCL5305 de la norma europea no tiene.
+
+### Las rutas UBL, y qué hay que hacerles para poder usarlas
+
+De las 52 filas españolas, **50 traen su ruta UBL** —`BG-ES-4` y `BG-ES-34` se
+quedan sin ella en el borrador— y son lo único que dice dónde se escribe cada
+cosa: para los campos europeos el anexo deja la columna vacía, porque esos ya
+los coloca el binding del CEN.
+
+Están en `sintaxis.RUTAS_CIUS_ES`, y **no copiadas a mano**: se derivan de la
+tabla al importar. Una tabla copiada se queda vieja el día que salga otro anexo
+y no se entera nadie; una derivada cambia sola, y lo que se toca a mano es una
+lista corta de excepciones con el porqué de cada una.
+
+Tal y como vienen no se pueden evaluar. Hay que:
+
+1. **Quitarles la raíz**, que viene absoluta: `/in:Invoice/…`.
+2. **Arreglarles la caja.** Cinco de las cincuenta escriben `/in:invoice/` en
+   minúscula. En XML eso no es estilo: es otro elemento, y no existe ninguno
+   que se llame así.
+3. **Deshacer el prefijo `aeat:`**, que el anexo usa en 26 pasos y **no declara
+   en ninguna parte**. Esos pasos van por nombre local. No es elegante y es
+   honrado: lo que identifica cada extensión no es su namespace sino el valor
+   de su `ext:UBLExtension/cbc:ID`, y ese sí está publicado.
+
+### Diecisiete campos que el anexo no distingue, y sí distingue
+
+Seis rutas las comparten diecisiete campos. Tal y como se publican, preguntar
+por «la oficina destinataria» devuelve el órgano, y preguntar por «la
+identificación de la retención» devuelve el suplido.
+
+Pero el anexo **sí dice cómo se separan**: no en la columna de la ruta, sino en
+la descripción de al lado.
+
+| Rutas repartidas | Lo que las separa, dicho por el anexo |
+|---|---|
+| `BT-ES-9`, `BT-ES-10`, `BT-ES-11` | *«Atributos obligatorios: usar `schemeName="Organo"`»*, y «Unidad» y «Oficina» |
+| `BT-ES-16`/`BT-ES-17` frente a `BT-ES-18`/`BT-ES-19` | *«Valor obligatorio: usar "false"»* en el descuento, *«"true"»* en el cargo |
+| `BT-ES-40` y `BT-ES-41` | lo mismo, dentro de la línea |
+| `BT-ES-20`, `BT-ES-21`, `BT-ES-27`, `BT-ES-31`, `BT-ES-32` | cada uno lleva su URN fijo: `…:SUPL`, `…:MINO`, `…:REEQ`, `…:REGE`, `…:RETE` |
+
+Así que el predicado se le añade a la ruta, y cada uno lleva apuntado **en qué
+campo del anexo está escrito el valor**. Eso es lo que impide que esto se
+convierta en opinión: hay una prueba que va a esa descripción y comprueba que
+el literal sigue ahí. Si el anexo cambia de criterio, salta.
+
+La única que queda repartida después de todo eso son `BT-ES-43` y `BT-ES-44`
+—«situación del inmueble» y «tipo de impuesto nacional»—, las dos en el
+`ValueQualifier` de un `AdditionalItemProperty`. Lo que las separaría es el
+`cbc:Name` de esa propiedad, y el anexo no dice cuál. Va declarado en
+`sintaxis.AMBIGUAS` en vez de resuelto a ojo.
+
+### Dos rutas del anexo que no llevan a ninguna parte
+
+Que una ruta compile como XPath no dice nada: `cac:Loquesea/cbc:Tal` compila
+perfectamente. Lo que hay que comprobar es que **exista donde la ruta dice**,
+paso a paso desde `InvoiceType`, y eso se hace recorriendo el esquema de UBL
+2.5. Con las cincuenta:
+
+- **`cac:ThirdPartyInvoicing` no existe en UBL.** Ni en la 2.1 ni en la 2.5:
+  cero apariciones en los 18 ficheros del paquete. Es la ruta de `BT-ES-15`, y
+  el anexo se delata solo, porque la descripción de ese mismo campo dice que
+  «ThirdPartyInvoicing» es el **valor** que hay que escribir en el código.
+  Alguien lo pegó dentro del camino. Lo correcto es
+  `cac:ServiceProviderParty/cbc:ServiceTypeCode`.
+- **`BG-ES-1` no cuelga de donde dice.** El grupo escribe `aeat:Extension` y
+  sus seis hijos escriben `aeat:InvoiceExtension`. Uno contra seis, y el resto
+  del anexo sigue el mismo patrón —`aeat:CollectionInvoiceLineExtension` en
+  `BT-ES-30`—, así que el raro es el padre.
+
+Arregladas esas dos, **las cincuenta andan enteras**. Y la prueba que lo
+comprueba mide también la de antes del arreglo, para que la corrección esté
+sostenida por una medida y no por lo que parece.
+
+### Por qué la SPFE no puede admitir UBL 2.1
+
+Aquí se ve, y es una sola línea de la tabla: **trece de los campos españoles
+cuelgan de `cac:CollectionInvoiceLine`** —suplidos, minoraciones, recargo de
+equivalencia, régimen de grupo de entidades y la contraprestación de la
+retención—, y ese elemento **no existe en UBL 2.1**. No es una preferencia de
+la Agencia: en 2.1 no hay dónde escribirlos.
+
+### El anexo solo habla de facturas
+
+Las cincuenta rutas arrancan en `/in:Invoice/`, y la lista L1 **no admite el
+381**, que es el código del abono en la EN 16931. En este CIUS una rectificativa
+es un `Invoice` con el código 384. Así que aquí no se inventan rutas de
+`CreditNote`: el día que el anexo las traiga, se derivarán solas.
 
 ### Que no cambie en silencio
 

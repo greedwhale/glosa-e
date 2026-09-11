@@ -2861,3 +2861,78 @@ pasaba **con el fallo dentro**: las dos vueltas caían en el mismo segundo y la
 fecha salía igual. Una prueba de reproducibilidad que no reproducía nada, que
 es el disfraz más fino que se le ha visto aquí al fallo de siempre. Se arregla
 moviendo el reloj una hora entre las dos vueltas, a propósito.
+
+## Las rutas del anexo, andadas una a una por el esquema
+
+Las cincuenta rutas UBL que el anexo I da para los campos españoles compilan
+como XPath. Todas. Eso no dice nada: `cac:Loquesea/cbc:Tal` también compila.
+
+Lo que hay que preguntarles es si el elemento existe **donde la ruta dice**,
+que es otra cosa, y para eso hay que andarlas paso a paso desde `InvoiceType`
+por el esquema de UBL 2.5. Andadas así, **49 llegan y una se rompe**:
+
+```
+BT-ES-15  Tipologia de tercero   «ThirdPartyInvoicing» no es hijo de PartyType
+```
+
+`cac:ThirdPartyInvoicing` no existe en UBL. Ni en la 2.1 ni en la 2.5: cero
+apariciones en los 18 ficheros del paquete. Y el anexo se delata solo, porque
+la descripción de ese mismo campo dice que «ThirdPartyInvoicing» es el **valor**
+que hay que escribir en el código:
+
+> Código que define el tipo de tercero informado. En el caso de un tercero que
+> expide materialmente la factura en lugar del vendedor, se debe usar
+> obligatoriamente el código "ThirdPartyInvoicing".
+
+Alguien pegó el valor dentro del camino. Lo correcto es
+`cac:ServiceProviderParty/cbc:ServiceTypeCode`, porque `ServiceTypeCode` cuelga
+de `ServiceProviderPartyType` —cuyos hijos son `ID`, `ServiceTypeCode`,
+`ServiceType`, `Party` y `SellerContact`— y no del `Party` de dentro.
+
+### Diecisiete campos que preguntados devolvían lo de al lado
+
+Seis rutas se las reparten diecisiete campos. Tal y como el anexo las publica,
+preguntar por la oficina destinataria devuelve el órgano, y preguntar por la
+identificación de la retención devuelve la del suplido. No falla: contesta otra
+cosa, que es peor.
+
+El anexo sí dice cómo se separan —en la descripción, no en la columna de la
+ruta—, así que el predicado se puede escribir sin inventar nada:
+
+| Se reparten | Lo que las separa, dicho por el anexo |
+|---|---|
+| `BT-ES-9/10/11` | `schemeName="Organo"`, `"Unidad"`, `"Oficina"` |
+| `BT-ES-16/17` frente a `BT-ES-18/19` | `ChargeIndicator` «false» en el descuento, «true» en el cargo |
+| `BT-ES-40` y `BT-ES-41` | lo mismo, dentro de la línea |
+| `BT-ES-20/21/27/31/32` | su URN fijo: SUPL, MINO, REEQ, REGE, RETE |
+
+Cada predicado lleva apuntado **en qué campo del anexo está escrito su valor**,
+y una prueba va a esa descripción a comprobar que sigue estando. Sin eso, esto
+dejaría de ser una lectura del anexo y pasaría a ser una opinión sobre él —y
+las opiniones sobre la norma son exactamente lo que este validador no vende—.
+Hizo falta apuntarlo: `BT-ES-17` y `BT-ES-19` no dicen «false» ni «true» en su
+propia descripción, lo dice su hermano el indicador.
+
+La única que queda repartida después de eso son `BT-ES-43` y `BT-ES-44`, las
+dos en el `ValueQualifier` de un `AdditionalItemProperty`. Lo que las separaría
+es el `cbc:Name` de esa propiedad, y el anexo no lo dice. Va declarada en
+`sintaxis.AMBIGUAS` en vez de resuelta a ojo.
+
+### Otras tres del mismo PDF
+
+- **Cinco rutas escriben `/in:invoice/` en minúscula**, de cincuenta. En XML eso
+  no es un descuido de estilo: es otro elemento, y no existe ninguno así.
+- **El prefijo `aeat:` no está declarado en ninguna parte.** Se usa en 26 pasos
+  y el anexo no da su namespace, así que como prefijo XPath no vale. Van por
+  nombre local, que es lo honrado: lo que identifica cada extensión no es su
+  namespace sino el valor de su `ext:UBLExtension/cbc:ID`, y ese sí se publica.
+- **`BG-ES-1` no cuelga de donde dice**: escribe `aeat:Extension` y sus seis
+  hijos escriben `aeat:InvoiceExtension`. Uno contra seis.
+
+### Y una que explica el resto de la migración
+
+**Trece de los campos españoles cuelgan de `cac:CollectionInvoiceLine`**, que no
+existe en UBL 2.1. Ahí está, en una línea, por qué la solución pública no puede
+admitir la versión que usa todo el mundo: no es una preferencia de la Agencia,
+es que en 2.1 no hay dónde escribir los suplidos, las minoraciones, el recargo
+de equivalencia ni el régimen de grupo de entidades.

@@ -12,8 +12,11 @@ ninguna regla.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+
+from validador import cius_es
 
 NS_UBL = {
     "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
@@ -807,3 +810,222 @@ def fmt_tipo(valor: Decimal | None) -> str:
     if normalizado == normalizado.to_integral_value():
         normalizado = normalizado.quantize(Decimal(1))
     return f"{normalizado}%"
+
+
+# --- El CIUS español, que no es UBL a secas ---------------------------------
+
+# La solución pública no admite UBL: admite **su** UBL, con 51 campos que la
+# EN 16931 no tiene —retenciones, suplidos, minoraciones, recargo de
+# equivalencia, régimen de grupo de entidades, QR fiscal—. Y no los publica
+# como esquema ni como esquematrón, sino como una columna de rutas dentro de
+# una tabla en PDF, que es lo que `validador/cius_es.py` trae ya leído.
+#
+# Aquí no se copian esas rutas: se **derivan** de esa tabla al importar. Una
+# tabla copiada a mano se queda vieja el día que salga otro anexo y no se
+# entera nadie; una derivada cambia sola, y lo que se toca a mano es una lista
+# corta de excepciones que dice, una a una, por qué se toca.
+#
+# Lo que hay que hacerles a las rutas del anexo para poder usarlas:
+#
+# 1. **Quitarles la raíz.** Vienen absolutas, `/in:Invoice/…`, y aquí todo es
+#    relativo al documento como en el resto del módulo.
+# 2. **Arreglarles la caja.** Cinco de las cincuenta escriben `/in:invoice/`
+#    en minúscula. En XML eso no es un descuido de estilo: es otro elemento,
+#    y no existe ninguno que se llame así.
+# 3. **Deshacer el prefijo `aeat:`.** El anexo lo usa en 26 pasos y **no
+#    declara en ninguna parte a qué namespace corresponde**, así que como
+#    prefijo XPath no vale para nada. Esos pasos van por nombre local, que
+#    encuentra el elemento esté donde esté. No es elegante y es honrado: lo
+#    que identifica cada extensión no es su namespace sino el valor de su
+#    `ext:UBLExtension/cbc:ID`, y ese sí está publicado.
+
+NS_CIUS_ES = dict(
+    NS_UBL,
+    ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2",
+)
+
+_RAIZ_DEL_ANEXO = re.compile(r"^/in:[Ii]nvoice/")
+_PASO_AEAT = re.compile(r"\baeat:([A-Za-z]+)")
+
+
+# Las rutas que el anexo da mal, con el arreglo y el porqué de cada uno. Dos
+# de cincuenta; lo demás va tal y como viene.
+_ARREGLOS: dict[str, tuple[str, str, str]] = {
+    "BT-ES-15": (
+        "cac:ServiceProviderParty/cac:Party/cac:ThirdPartyInvoicing/cbc:ServiceTypeCode",
+        "cac:ServiceProviderParty/cbc:ServiceTypeCode",
+        "«ThirdPartyInvoicing» no existe en UBL: cero apariciones en los 18 "
+        "ficheros de la 2.5 y otras tantas en la 2.1. Y el anexo se delata "
+        "solo, porque la descripción del propio campo dice que "
+        "«ThirdPartyInvoicing» es el **valor** que hay que escribir en el "
+        "código. Alguien lo pegó dentro del camino. `ServiceTypeCode` cuelga "
+        "directamente de `ServiceProviderParty`, no de su `Party`.",
+    ),
+    "BG-ES-1": (
+        "aeat:Extension/aeat:Correction",
+        "aeat:InvoiceExtension/aeat:Correction",
+        "El grupo dice `aeat:Extension` y sus seis hijos dicen "
+        "`aeat:InvoiceExtension`. Uno contra seis, y el resto del anexo sigue "
+        "el mismo patrón —`aeat:CollectionInvoiceLineExtension` en BT-ES-30—, "
+        "así que el raro es el padre.",
+    ),
+}
+
+
+# Diecisiete campos se reparten seis rutas, y **el anexo dice cómo se
+# distinguen**: no en la columna de la ruta, sino en la descripción. Lo que va
+# aquí sale de ahí, y hay una prueba que comprueba que sigue saliendo de ahí.
+#
+# Sin esto, `POR_ID` devolvería la misma ruta para «identificación del cargo
+# en nombre de un tercero» y para «identificación de retención», que son dos
+# cosas que no se parecen en nada.
+_SUPL = "urn:aeat:names:specification:ubl:schema:SUPL"
+_MINO = "urn:aeat:names:specification:ubl:schema:MINO"
+_REEQ = "urn:aeat:names:specification:ubl:schema:REEQ"
+_REGE = "urn:aeat:names:specification:ubl:schema:REGE"
+_RETE = "urn:aeat:names:specification:ubl:schema:RETE"
+
+
+# Cada entrada lleva tres cosas: qué trozo de la ruta se sustituye, por qué se
+# sustituye, y **en qué campo del anexo está escrito el valor** que se mete en
+# el predicado. Lo tercero es lo que impide que esto se convierta en opinión:
+# hay una prueba que va a esa descripción y comprueba que el literal sigue
+# ahí. Casi siempre es el campo mismo; en dos casos —BT-ES-17 y BT-ES-19, que
+# son el «tipo de impuesto» del descuento y el del cargo— quien lo dice es su
+# hermano, el indicador, y por eso hace falta apuntarlo.
+
+
+def _linea_de(urn: str, dicho_en: str) -> tuple[str, str, str]:
+    """La `CollectionInvoiceLine` que lleva un identificador concreto."""
+    return (
+        "cac:CollectionInvoiceLine",
+        f"cac:CollectionInvoiceLine[cbc:ID='{urn}']",
+        dicho_en,
+    )
+
+
+def _cargo(indicador: str, dicho_en: str, dentro: str = "") -> tuple[str, str, str]:
+    """El `AllowanceCharge` que resta (false) o el que suma (true)."""
+    return (
+        f"{dentro}cac:AllowanceCharge",
+        f"{dentro}cac:AllowanceCharge[cbc:ChargeIndicator='{indicador}']",
+        dicho_en,
+    )
+
+
+def _sede(cual: str, dicho_en: str) -> tuple[str, str, str]:
+    """Órgano, unidad y oficina se distinguen por su `schemeName`."""
+    return ("cbc:ID", f"cbc:ID[@schemeName='{cual}']", dicho_en)
+
+
+_DISTINTIVOS: dict[str, tuple[str, str, str]] = {
+    # «Atributos obligatorios: usar schemeName="Organo"», dice el anexo.
+    "BT-ES-9": _sede("Organo", "BT-ES-9"),
+    "BT-ES-10": _sede("Unidad", "BT-ES-10"),
+    "BT-ES-11": _sede("Oficina", "BT-ES-11"),
+    # «Valor obligatorio: usar "false"» / «"true"».
+    "BT-ES-16": _cargo("false", "BT-ES-16"),
+    "BT-ES-17": _cargo("false", "BT-ES-16"),
+    "BT-ES-18": _cargo("true", "BT-ES-18"),
+    "BT-ES-19": _cargo("true", "BT-ES-18"),
+    "BT-ES-40": _cargo("false", "BT-ES-40", "cac:InvoiceLine/"),
+    "BT-ES-41": _cargo("true", "BT-ES-41", "cac:InvoiceLine/"),
+    # «Código obligatorio, usar "urn:aeat:…:SUPL"», y así los cinco.
+    "BT-ES-20": _linea_de(_SUPL, "BT-ES-20"),
+    "BT-ES-21": _linea_de(_MINO, "BT-ES-21"),
+    "BT-ES-27": _linea_de(_REEQ, "BT-ES-27"),
+    "BT-ES-31": _linea_de(_REGE, "BT-ES-31"),
+    "BT-ES-32": _linea_de(_RETE, "BT-ES-32"),
+}
+
+
+@dataclass(frozen=True)
+class RutaEs:
+    """Dónde vive un campo español, y qué se le ha tocado a la del anexo."""
+
+    id: str
+    termino: str
+    ruta: str  # relativa al documento; `SIN_MAPA` si el anexo no la da
+    anexo: str  # tal y como la escribe el anexo, para poder comparar
+    porque: str = ""  # por qué difiere, si difiere
+
+    @property
+    def tocada(self) -> bool:
+        return bool(self.porque)
+
+
+def _normalizar(ruta: str, identificador: str) -> tuple[str, str]:
+    """La ruta del anexo convertida en una que se pueda evaluar."""
+    if not ruta:
+        return SIN_MAPA, ""
+    porque = ""
+    arreglo = _ARREGLOS.get(identificador)
+    if arreglo and arreglo[0] in ruta:
+        ruta = ruta.replace(arreglo[0], arreglo[1], 1)
+        porque = arreglo[2]
+    limpia = _RAIZ_DEL_ANEXO.sub("", ruta)
+    # Los pasos `aeat:` se deshacen **antes** de meter el distintivo, y no
+    # después. Cinco de los distintivos son URN de la propia Agencia
+    # —`urn:aeat:names:specification:…`— y al revés el `aeat:names` de dentro
+    # del literal también casaba con el patrón: la ruta salía con un
+    # `local-name()` incrustado en mitad del URN y no encontraba nada nunca.
+    limpia = _PASO_AEAT.sub(lambda m: f"*[local-name()='{m.group(1)}']", limpia)
+    distintivo = _DISTINTIVOS.get(identificador)
+    if distintivo and distintivo[0] in limpia:
+        limpia = limpia.replace(distintivo[0], distintivo[1], 1)
+    return "./" + limpia, porque
+
+
+def _tabla_cius() -> tuple[RutaEs, ...]:
+    filas = []
+    for campo in cius_es.CAMPOS:
+        if not campo.espanol:
+            continue
+        ruta, porque = _normalizar(campo.ruta, campo.id)
+        filas.append(
+            RutaEs(campo.id, campo.termino, ruta, campo.ruta, porque)
+        )
+    return tuple(filas)
+
+
+RUTAS_CIUS_ES: tuple[RutaEs, ...] = _tabla_cius()
+
+POR_ID: dict[str, tuple[RutaEs, ...]] = {}
+for _r in RUTAS_CIUS_ES:
+    POR_ID[_r.id] = POR_ID.get(_r.id, ()) + (_r,)
+
+# Lo que sigue sin poder distinguirse después de todo lo de arriba, y por eso
+# va dicho en voz alta en vez de disimulado. Son dos campos que comparten la
+# misma ruta y a los que el anexo **no** da ningún distintivo: «situación del
+# inmueble» y «tipo de impuesto nacional», los dos en el `ValueQualifier` de
+# un `AdditionalItemProperty`. Lo que los separaría es el `cbc:Name` de esa
+# propiedad, y el anexo no dice cuál.
+AMBIGUAS: dict[str, tuple[str, ...]] = {}
+for _r in RUTAS_CIUS_ES:
+    if _r.ruta != SIN_MAPA:
+        AMBIGUAS[_r.ruta] = AMBIGUAS.get(_r.ruta, ()) + (_r.id,)
+AMBIGUAS = {r: ids for r, ids in AMBIGUAS.items() if len(ids) > 1}
+
+
+def campos_es(nodo, identificador: str) -> list:
+    """Los elementos que le tocan a un campo español, si están.
+
+    Devuelve nodos y no texto a propósito: de varios de estos campos lo que
+    hace falta es el atributo, o saber cuántos hay, y no su contenido.
+    """
+    encontrados = []
+    for ruta in POR_ID.get(identificador, ()):
+        if ruta.ruta == SIN_MAPA:
+            continue
+        encontrados.extend(nodo.xpath(ruta.ruta, namespaces=NS_CIUS_ES))
+    return encontrados
+
+
+def texto_es(nodo, identificador: str) -> str | None:
+    """El contenido del primer elemento que le toca a un campo español."""
+    for elemento in campos_es(nodo, identificador):
+        crudo = elemento if isinstance(elemento, str) else (elemento.text or "")
+        crudo = crudo.strip()
+        if crudo:
+            return crudo
+    return None
