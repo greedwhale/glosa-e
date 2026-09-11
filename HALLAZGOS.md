@@ -2988,3 +2988,26 @@ filtro de nombres de fichero, así que un código con una comilla dentro rompía
 el atributo y metía detrás lo que quisiera. Lo cazó
 `test_lo_que_viene_de_fuera_va_escapado`, que llevaba meses escrito esperando
 exactamente esto.
+
+## La frase sobre los demás que casi se publica sin medir
+
+La portada nueva tenía que decir en qué se diferencia esto de los demás, y la
+frase que salió sola fue la que se venía diciendo de memoria: *los validadores
+gratuitos no miran la firma*.
+
+Antes de escribirla se fue a mirar, el 11-09-2026. Y es falsa. El visualizador
+de Facturae de firma-e publica que hace «Validación de Firma (verifica que la
+firma de la factura sea correcta)»: no dice contra qué lista de autoridades, ni
+si comprueba la revocación, pero decir que no la mira habría sido mentira. El
+de aiDoks sí dice de sí mismo que no la verifica criptográficamente y remite a
+AutoFirma o a VALIDe.
+
+Así que la afirmación se estrechó hasta lo que se puede sostener: de los que se
+miraron ese día, ninguno enseña sus comprobaciones corriendo, y de la firma
+dicen poco o no dicen nada. Con fecha, con los dos enlaces a lo que cada uno
+publica de sí mismo y con una dirección para avisar de que algo ha cambiado.
+
+No la habría cazado ninguna prueba: una frase sobre un tercero es la única
+clase de afirmación que este repositorio no puede medir sola. Por eso lo que
+vigila el guardián no es el contenido sino la forma —fecha, enlaces, correo—,
+que es lo único que hace falta para que cualquiera que la lea pueda desmentirla.

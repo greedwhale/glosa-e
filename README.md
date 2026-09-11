@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1345 tests, todos en verde.
+1347 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3388,6 +3388,55 @@ Abajo, la tarjeta dice tres cosas y en este orden: *forma, contenido y firma* ·
 comprobaciones van primero porque **la firma es la que no hace ningún otro
 validador gratuito**, y en una tarjeta que se mira dos segundos eso es lo único
 que hay que conseguir que se lea.
+
+## Por qué este y no otro, contestado sin pedir fe
+
+Las fichas de la portada decían **qué** es esto —dónde corre, contra qué,
+formatos, precio— y ninguna decía por qué este y no el de al lado. Además, la
+del precio no distinguía nada: los validadores gratuitos son gratuitos. En su
+sitio va **la firma** —cadena, revocación y sello—, que es la comprobación que
+ninguno de los que se miraron hace entera, y el precio baja una línea, al lema.
+
+Lo otro es más difícil. Una lista de virtudes la escribe cualquiera y quien lee
+no tiene forma de distinguir al que ha hecho el trabajo del que dice que lo ha
+hecho — es el mismo problema que tiene un informe que pone «FACTURA VÁLIDA» sin
+decir contra qué, que es lo que este proyecto entero se dedica a no hacer. Así
+que la sección nueva de la portada no enumera nada: **corre**. Un botón, y las
+comprobaciones del banco se ejecutan en el navegador de quien mira, contra el
+mismo código que acaba de leer su factura, con su resultado y su tiempo.
+
+Una de ellas es «esta página no le pide nada a nadie». O sea que **la promesa
+de privacidad del aviso legal se comprueba desde la portada, apretando un
+botón**, sin creerse a nadie. Eso es lo que no puede copiar una lista de
+virtudes: no es una afirmación mejor redactada, es una afirmación que se puede
+ejecutar.
+
+Se corren las que hay, todas, y no una selección: una demostración recortada es
+otra forma de pedir fe. Y si falta el paquete de esquemas y anclas, el
+resultado lo dice en la misma frase en que da el recuento — «pasan todas»
+encima de una página que no comprueba ni la forma ni de quién es el certificado
+sería exactamente la falsa tranquilidad que el resto de la página evita.
+
+### Lo que se dice de los demás va con fecha, enlace y un sitio donde quejarse
+
+La sección afirma dos cosas sobre terceros: que ninguno de los validadores
+gratuitos que se miraron enseña sus comprobaciones corriendo, y que de la firma
+dicen poco o no dicen nada. Las dos fueron verdad el **11-09-2026** y pueden
+dejar de serlo mañana sin que aquí se entere nadie, que es lo peor que le puede
+pasar a una afirmación.
+
+Lo único que se le puede exigir a un dato así es que diga de qué día es, dónde
+comprobarlo y por dónde avisar de que ya no vale. Eso es lo que vigila
+`test_lo_que_la_portada_dice_de_otros_lleva_fecha_y_donde_mirarlo`: la nota de
+procedencia tiene que llevar fecha en dígitos, dos enlaces como mínimo a lo que
+cada uno publica de sí mismo, y una dirección de correo.
+
+El segundo guardián es de otra clase. La sección entera dice «compruébalo tú», y
+si el botón deja de funcionar **no da error**: se queda apagado, o se queda
+«Corriendo…» para siempre, y justo la página que invita a comprobar es la que
+ha dejado de poder comprobarse. `test_lo_que_las_paginas_llaman_existe_en_glosa_js`
+compara cada `Glosa.loquesea` que llaman las seis páginas con lo que
+`window.Glosa` entrega de verdad.
 
 ## La marca
 

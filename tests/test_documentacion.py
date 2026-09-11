@@ -351,3 +351,55 @@ def test_el_readme_dice_bajo_que_licencia_se_publica():
     declarada = licencia_declarada(RAIZ)
     assert declarada in README.read_text(encoding="utf-8"), (
         f"el proyecto se publica como «{declarada}» y el README no lo dice")
+
+# --- Lo que la portada promete que se puede correr ---------------------------
+# La seccion «Por qué este» no cuenta las comprobaciones: las corre, delante de
+# quien mira. Eso la hace fuerte y la hace fragil por el mismo motivo — si el
+# boton deja de funcionar, **no da error**: se queda apagado, o se queda
+# «Corriendo…» para siempre, y la pagina que dice «compruébalo tú» es
+# justamente la que ha dejado de poder comprobarse. Nadie lo ve, porque la
+# pagina carga perfecta.
+
+
+def _exportado_por_glosa_js() -> str:
+    js = (RAIZ / "web" / "glosa.js").read_text(encoding="utf-8")
+    marca = "window.Glosa = {"
+    assert marca in js, "glosa.js ya no exporta window.Glosa"
+    return js[js.index(marca):]
+
+
+def test_lo_que_las_paginas_llaman_existe_en_glosa_js():
+    """Cada `Glosa.loquesea` de una pagina, contra lo que glosa.js entrega."""
+    entregado = _exportado_por_glosa_js()
+    for pagina in PAGINAS:
+        texto = (RAIZ / "web" / pagina).read_text(encoding="utf-8")
+        for usada in sorted(set(re.findall(r"Glosa\.(\w+)", texto))):
+            assert usada in entregado, (
+                f"«{pagina}» llama a Glosa.{usada} y glosa.js no lo exporta. "
+                "No falla nada: el boton se queda muerto y la pagina sigue "
+                "diciendo que eso se puede comprobar.")
+
+
+def test_lo_que_la_portada_dice_de_otros_lleva_fecha_y_donde_mirarlo():
+    """Un dato sobre un tercero sin fecha ni enlace se pudre en silencio.
+
+    La portada afirma que los validadores gratuitos que se miraron no enseñan
+    sus comprobaciones y dicen poco de la firma. Eso fue verdad el dia que se
+    miro y puede dejar de serlo mañana sin que aqui se entere nadie. Lo unico
+    que se puede exigir a una afirmacion asi es que diga **de que dia es** y
+    **donde comprobarla** — y que se pueda avisar de que ya no vale.
+    """
+    portada = (RAIZ / "web" / "index.html").read_text(encoding="utf-8")
+    trozo = re.search(r'<p class="procedencia">(.*?)</p>', portada, re.S)
+    assert trozo, (
+        "la portada ha perdido la nota de procedencia de la seccion «Por qué "
+        "este», y con ella lo unico que sostiene lo que alli se dice de otros")
+    nota = trozo.group(1)
+    assert re.search(r"\d{2}-\d{2}-\d{4}", nota), (
+        "la nota de procedencia no dice de que dia es lo que se miro")
+    enlaces = re.findall(r'href="(https?://[^"]+)"', nota)
+    assert len(enlaces) >= 2, (
+        f"la nota de procedencia cita a otros y solo trae {len(enlaces)} "
+        "enlace(s): lo que se dice de un tercero se enlaza a donde lo dice el")
+    assert "mailto:" in nota, (
+        "la nota de procedencia no deja avisar de que algo de esto ya no vale")

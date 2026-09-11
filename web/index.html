@@ -115,6 +115,24 @@
   font-size: var(--t1); color: var(--tinta-2);
 }
 
+/* --- Por que este -------------------------------------------------------- */
+/* El panel del banco no decora la seccion: es la seccion. Lleva el mismo gesto
+   que el informe —caja, rotulo, y el veredicto debajo— para que quien ya ha
+   visto un informe reconozca a la primera que esto es lo mismo aplicado a la
+   herramienta: una comprobacion con su resultado, no una promesa. */
+.comprobar .rotulo { margin-bottom: .45rem; }
+.comprobar .texto { font-size: var(--t1); color: var(--tinta-2); }
+.comprobar .probar { margin-top: 1.15rem; }
+#banco-salida:empty { display: none; }
+#banco-salida { margin-top: 1.25rem; }
+#banco-salida .veredicto { margin-bottom: 0; }
+#banco-salida ul { list-style: none; margin: .85rem 0 0; padding: 0; display: grid; gap: .35rem; }
+#banco-salida li { font-family: var(--mono); font-size: var(--t1); color: var(--error); }
+#banco-salida .pie { margin-top: .85rem; font-size: var(--t1); color: var(--tinta-2); }
+/* De donde sale lo que aqui se dice de los demas. Va en gris y pequeno a
+   proposito: es la nota al pie de una afirmacion, no la afirmacion. */
+.procedencia { margin-top: 1.5rem; font-size: var(--t1); color: var(--tenue); max-width: 42rem; }
+
 /* --- Lo que trae puesto -------------------------------------------------- */
 .trae dl { display: grid; grid-template-columns: 1fr auto; gap: 0; margin: 0; }
 .trae dt, .trae dd { padding: .55rem 0; border-bottom: 1px dashed var(--borde); margin: 0; }
@@ -284,12 +302,12 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       <h1>La factura electrónica,<br>en castellano.</h1>
       <p class="lema"><b>Lo que dice tu factura, y lo que no se ha podido mirar.</b>
       Suelta un fichero y te decimos qué pone, contra qué norma se ha comprobado
-      y qué se ha quedado fuera.</p>
+      y qué se ha quedado fuera. Gratis y sin registro.</p>
       <dl class="ficha">
         <div><dt>Dónde corre</dt><dd>En tu ordenador</dd></div>
+        <div><dt>La firma</dt><dd>Cadena, revocación y sello</dd></div>
         <div><dt>Contra qué</dt><dd>EN 16931 · RD 238/2026</dd></div>
         <div><dt>Formatos</dt><dd>Facturae · UBL · CII · EDIFACT</dd></div>
-        <div><dt>Precio</dt><dd>Gratis, sin registro</dd></div>
       </dl>
     </div>
 
@@ -386,6 +404,50 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
           dominio. <a href="./legal.html#privacidad">Está medido</a>.</span>
         </li>
       </ul>
+    </section>
+
+    <!-- Por que este y no otro, contestado sin pedir fe.
+
+         Las fichas de la portada dicen QUE es esto; ninguna decia por que este
+         y no el de al lado. La respuesta honesta no es una lista de virtudes
+         —cualquiera escribe la suya, y quien lee no puede distinguirlas— sino
+         la unica que se puede comprobar desde aqui mismo: que las
+         comprobaciones corren en el ordenador de quien mira. Asi que esta
+         seccion no las cuenta. Las corre. -->
+    <section id="por-que-este">
+      <p class="rotulo">Por qué este</p>
+      <h2 class="titulo">Lo que promete esta página se comprueba desde esta página.</h2>
+      <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Cualquier
+      validador dice lo que ha mirado, y no hay forma de distinguir al que lo
+      ha hecho del que lo dice. Aquí no hace falta creerlo: las mismas
+      comprobaciones que acaban de leer tu factura las corre tu navegador
+      cuando tú lo digas. Una de ellas es que <b>esta página no le pide nada a
+      nadie</b> — la promesa de privacidad, comprobada por ti y no por
+      nosotros.</p>
+
+      <div class="panel comprobar">
+        <p class="rotulo">El banco de pruebas</p>
+        <p class="texto">Que la forma se mida contra el esquema oficial, que
+        una firma de verdad se verifique, que la cadena llegue hasta la lista
+        de confianza del Estado, que una autoridad retirada no valga para lo
+        que firmó después. Todas contra el mismo código que acaba de leer tu
+        factura, no contra una copia preparada.</p>
+        <p class="probar">
+          <button type="button" id="correr-banco" disabled>Correrlas aquí</button>
+          <span id="banco-nota">Se corren en tu navegador. Lo único que se baja es el fichero de comprobaciones, de este mismo sitio.</span>
+        </p>
+        <div id="banco-salida"></div>
+      </div>
+
+      <p class="procedencia">De dónde sale esto: el <b>11-09-2026</b> miramos
+      los validadores gratuitos de facturas españolas que salen buscando, y
+      ninguno enseña sus comprobaciones corriendo. De la firma dicen poco o no
+      dicen nada — <a href="https://aidoks.eu/en/facturae-validator" rel="nofollow noopener">aiDoks</a>
+      publica que no la verifica criptográficamente y remite a AutoFirma o a
+      VALIDe; el <a href="https://plataforma.firma-e.com/VisualizadorFacturae/" rel="nofollow noopener">visualizador de firma-e</a>
+      dice que valida la firma, sin decir contra qué lista de autoridades ni si
+      mira la revocación. Si algo de esto ha cambiado o está mal,
+      <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20lo%20que%20dice%20la%20portada">dímelo y lo corrijo</a>.</p>
     </section>
 
     <section id="trae">
@@ -790,11 +852,13 @@ function pintarInforme(datos) {
 let listo = false;
 let fallo = false;
 let elArranque = null;
+let elPaquete = null;
 
 async function empezar() {
   try {
     const { total, paquete } = await Glosa.arrancar(marcar);
     listo = true;
+    elPaquete = paquete;
     pintarLoQueTrae(paquete);
     $("zona-titulo").textContent = "Suelta aquí tu factura";
     $("zona-pie").innerHTML =
@@ -802,6 +866,7 @@ async function empezar() {
       "<b>No se sube a ningún sitio.</b>";
     $("arranque").classList.add("listo");
     $("ver-ejemplo").disabled = false;
+    $("correr-banco").disabled = false;
     $("arranque-titulo").textContent = "Listo en " + total + " s";
     $("arranque-nota").textContent = paquete
       ? "Ya no hace falta conexión: el validador, los esquemas y las anclas están en tu navegador."
@@ -815,6 +880,8 @@ async function empezar() {
     $("zona-titulo").textContent = "No ha arrancado";
     $("zona-pie").textContent = String(error);
     $("arranque").hidden = true;
+    $("banco-nota").textContent =
+      "El validador no ha arrancado, así que aquí tampoco hay nada que correr.";
     console.error(error);
   }
 }
@@ -889,6 +956,64 @@ async function soltar(ficheros) {
   }
 }
 
+// --- El banco de pruebas, en la portada ------------------------------------
+//
+// Son las mismas que corre `banco.html`, todas, y no una seleccion: una
+// demostracion recortada es otra forma de pedir fe. El fichero de
+// comprobaciones se baja con su huella, asi que lo que corre es el de hoy y no
+// el que dejo la cache —ese es el fallo que se repite en este proyecto, y aqui
+// saldria todo verde sin haber probado nada.
+async function correrElBanco() {
+  const boton = $("correr-banco");
+  const salida = $("banco-salida");
+  const antes = boton.textContent;
+  boton.disabled = true;
+  boton.textContent = "Corriendo…";
+  salida.innerHTML =
+    "<div class='veredicto'><h3>Corriendo…</h3><p>Se están ejecutando en " +
+    "este navegador. Tarda unos segundos porque corren de verdad: cada una " +
+    "monta lo suyo —un esquema, una firma, una lista de confianza— y lo " +
+    "comprueba.</p></div>";
+  const cero = performance.now();
+  try {
+    const resultados = await Glosa.correrBanco();
+    const tiempo = ((performance.now() - cero) / 1000).toFixed(1).replace(".", ",");
+    const fallan = resultados.filter((r) => !r.ok);
+    const criticas = fallan.filter((r) => r.critica).length;
+    const pie = "<p class='pie'>Una a una, con su tiempo y su detalle, en el " +
+      "<a href='./banco.html'>banco de pruebas</a>.</p>";
+
+    if (!fallan.length) {
+      salida.innerHTML =
+        "<div class='veredicto si'><h3>Las " + resultados.length +
+        " comprobaciones pasan</h3><p>Las ha corrido este navegador en " +
+        tiempo + " s, con el mismo código que valida tu factura. " +
+        (elPaquete
+          ? "Con los esquemas y las anclas puestos: se ha comprobado la forma, el contenido y la firma."
+          : "Pero sin el paquete de esquemas y anclas, así que aquí no se ha comprobado ni la forma ni de quién es el certificado.") +
+        "</p>" + pie + "</div>";
+      return;
+    }
+    salida.innerHTML =
+      "<div class='veredicto no'><h3>Fallan " + fallan.length + " de " +
+      resultados.length + (criticas ? " (" + criticas + " crítica" +
+        (criticas > 1 ? "s" : "") + ")" : "") + "</h3>" +
+      "<p>Entonces la herramienta de arriba no es de fiar, y lo estás viendo " +
+      "tú antes que nosotros — que es exactamente para lo que está esto.</p>" +
+      "<ul>" + fallan.slice(0, 5).map((r) =>
+        "<li>" + escapar(r.nombre) + " — " + escapar(r.detalle) + "</li>").join("") +
+      "</ul>" + pie + "</div>";
+  } catch (error) {
+    salida.innerHTML =
+      "<div class='veredicto no'><h3>No se han podido correr</h3><p>" +
+      escapar(String(error)) + "</p></div>";
+    console.error(error);
+  } finally {
+    boton.textContent = antes;
+    boton.disabled = false;
+  }
+}
+
 const zona = $("zona");
 zona.addEventListener("click", () => { if (!fallo) $("fichero").click(); });
 zona.addEventListener("keydown", (e) => {
@@ -896,6 +1021,7 @@ zona.addEventListener("keydown", (e) => {
 });
 $("fichero").addEventListener("change", (e) => soltar([...e.target.files]));
 $("ver-ejemplo").addEventListener("click", verElEjemplo);
+$("correr-banco").addEventListener("click", correrElBanco);
 ["dragenter", "dragover"].forEach((ev) =>
   zona.addEventListener(ev, (e) => { e.preventDefault(); if (!fallo) zona.classList.add("encima"); }));
 ["dragleave", "drop"].forEach((ev) =>
