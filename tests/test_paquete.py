@@ -1063,3 +1063,76 @@ class TestLaBitacoraSeComprueba:
         with pytest.raises(bitacora.SinEntrada, match="fuentes"):
             _montar(repositorio)
         assert not (repositorio / "sitio").exists()
+
+
+class TestQueDosVueltasDenElMismoFichero:
+    """El SHA-256 publicado tiene que poder comprobarlo alguien de fuera.
+
+    El README ofrece esa huella para contrastar las anclas que se reparten con
+    la página. Eso solo tiene sentido si quien arme el paquete de las mismas
+    carpetas obtiene **el mismo fichero**; si no, la huella dice que la
+    descarga llegó entera y nada más, que es bastante menos de lo que está
+    escrito.
+
+    No lo daba. `writestr` con un nombre a secas le pone a la entrada la hora
+    del reloj, así que dos vueltas separadas por un minuto salían con huellas
+    distintas. Medido: de 436 entradas, las 436 con el contenido idéntico y
+    una sola con la fecha cambiada, la del `PAQUETE.json` de dentro.
+    """
+
+    def test_armar_dos_veces_da_los_mismos_bytes(
+        self, carpetas, tmp_path, monkeypatch
+    ):
+        """Con el reloj movido entre una vuelta y la otra, a propósito.
+
+        Sin mover el reloj esta prueba **pasaba con el fallo dentro**: las dos
+        vueltas caían en el mismo segundo y la fecha de la entrada salía
+        igual. Es el fallo de siempre de esta casa con el disfraz más fino que
+        se le ha visto —una prueba de reproducibilidad que no reproduce nada—,
+        así que el reloj se mueve una hora entre las dos y se acabó la suerte.
+        """
+        import time as reloj
+
+        esquemas, anclas, sellos = carpetas
+        vueltas = iter([1_757_000_000.0, 1_757_003_600.0] * 400)
+        monkeypatch.setattr(reloj, "time", lambda: next(vueltas))
+
+        huellas = []
+        for nombre in ("uno.zip", "dos.zip"):
+            paquete.armar(
+                tmp_path / nombre, esquemas, anclas, sellos, hoy=date(2026, 9, 10)
+            )
+            huellas.append((tmp_path / nombre).read_bytes())
+        assert huellas[0] == huellas[1]
+
+    def test_y_la_fecha_de_esa_entrada_es_la_del_dia_en_que_se_armo(
+        self, carpetas, tmp_path
+    ):
+        """Ni la hora del reloj ni una fecha inventada: la que ya declara.
+
+        `armado` sale en el propio manifiesto, así que la entrada no dice nada
+        que el paquete no dijera ya.
+        """
+        esquemas, anclas, sellos = carpetas
+        paquete.armar(
+            tmp_path / "p.zip", esquemas, anclas, sellos, hoy=date(2026, 9, 10)
+        )
+        with zipfile.ZipFile(tmp_path / "p.zip") as z:
+            ficha = z.getinfo(paquete.MANIFIESTO)
+        assert ficha.date_time == (2026, 9, 10, 0, 0, 0)
+
+    def test_el_manifiesto_de_dentro_sigue_saliendo_legible(self, carpetas, tmp_path):
+        """Poner la ficha a mano es fácil que deje la entrada sin permisos.
+
+        Y eso no se ve en Windows: se ve el día que alguien lo descomprime en
+        un sistema que sí los mira y el fichero no se deja leer.
+        """
+        esquemas, anclas, sellos = carpetas
+        paquete.armar(
+            tmp_path / "p.zip", esquemas, anclas, sellos, hoy=date(2026, 9, 10)
+        )
+        with zipfile.ZipFile(tmp_path / "p.zip") as z:
+            ficha = z.getinfo(paquete.MANIFIESTO)
+            dentro = json.loads(z.read(paquete.MANIFIESTO))
+        assert ficha.external_attr >> 16 & 0o400, "sin permiso de lectura"
+        assert dentro["armado"] == "2026-09-10"

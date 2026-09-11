@@ -136,6 +136,34 @@ def _contar(rutas: list[Path]) -> int:
     return sum(1 for r in rutas if r.name not in _SUELTOS)
 
 
+def _ficha_del_manifiesto(dia: date) -> zipfile.ZipInfo:
+    """La entrada del `PAQUETE.json` de dentro, con fecha fija.
+
+    **Por qué esto no es un detalle.** El SHA-256 del zip va publicado al lado
+    del zip, y el README lo ofrece para poder contrastar las anclas que se
+    reparten. Para eso hace falta que dos personas que armen el paquete de las
+    mismas carpetas obtengan el mismo fichero, y no lo obtenían: `writestr`
+    con un nombre a secas le pone a la entrada **la hora del reloj**, así que
+    dos vueltas separadas por un minuto daban huellas distintas.
+
+    Medido, y medido hasta el final: de las 436 entradas de dos paquetes
+    armados con un minuto de diferencia, las 436 tenían el contenido idéntico
+    byte a byte y **una sola** cambiaba de fecha, esta. Con lo cual la huella
+    servía para saber que la descarga llegó entera y no para lo otro, que es
+    lo que estaba escrito.
+
+    La fecha es la del día en que se arma, que ya es un dato del paquete
+    —sale en `armado`— y no una hora inventada.
+    """
+    ficha = zipfile.ZipInfo(MANIFIESTO, date_time=(dia.year, dia.month, dia.day, 0, 0, 0))
+    ficha.compress_type = zipfile.ZIP_DEFLATED
+    # Lo que `writestr` le pone a una entrada creada desde un nombre. Sin esto
+    # el fichero saldría del zip sin permisos y quien lo descomprima en un
+    # sistema que los mire se queda sin poder leerlo.
+    ficha.external_attr = 0o600 << 16
+    return ficha
+
+
 def armar(
     destino: str | Path,
     esquemas: str | Path = ESQUEMAS_POR_DEFECTO,
@@ -206,7 +234,7 @@ def armar(
         for carpeta, rutas in partes:
             for ruta in rutas:
                 zf.write(ruta, str(Path(carpeta.name) / ruta.relative_to(carpeta)))
-        zf.writestr(MANIFIESTO, contenido.como_json())
+        zf.writestr(_ficha_del_manifiesto(dia), contenido.como_json())
 
     crudo = destino.read_bytes()
     contenido = Contenido(
