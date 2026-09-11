@@ -226,11 +226,15 @@ WebAssembly, sin que el fichero salga del ordenador.
 
 ## Lo que queda por resolver antes de que esto sea un producto
 
-- **Los 9,4 MB del primer arranque.** Eso es lo que viaja por el cable con
+- **Los 9,7 MB del primer arranque.** Eso es lo que viaja por el cable con
   Brotli puesto —el `.wasm` pesa 9,6 MB en disco y 3,6 por el cable—, y no hay
   mucho que rascar sin quitar cosas: 3,6 el intérprete, 2,5 la biblioteca
-  estándar, 1,6 lxml, 1,0 los esquemas y las anclas. La primera visita nunca va
+  estándar, 1,6 lxml, 1,2 los esquemas y las anclas. La primera visita nunca va
   a ser instantánea, y la página lo dice en vez de parecer rota.
+
+  Eran 9,4 hasta el 11-09-2026, cuando entraron los 18 esquemas de UBL 2.5. El
+  zip ya viene comprimido y Brotli no le saca nada, así que lo que crece por el
+  cable es exactamente lo que crece en disco: 0,25 MB.
 
   Lo que sí se arregló es **la segunda visita**, que estaba rota de una forma
   que no se veía. Cada fichero se pedía con `?v=` y la hora dentro, para que el
@@ -253,8 +257,9 @@ WebAssembly, sin que el fichero salga del ordenador.
   avisarles. `--sitio` **se niega a montar** si `glosa.js` y `paquete.py` no
   declaran la misma versión.
 - **Los esquemas XSD oficiales sí están aquí**, y esto decía lo contrario. Van
-  dentro de `paquete.zip`: 24 ficheros —Facturae 3.0, 3.1, 3.2, 3.2.1 y 3.2.2,
-  CII D16B y UBL 2.1—, y la página los enseña contados en «lo que trae». Lo que
+  dentro de `paquete.zip`: 42 ficheros —Facturae 3.0, 3.1, 3.2, 3.2.1 y 3.2.2,
+  CII D16B, UBL 2.1 y **UBL 2.5**, que es el único que la solución pública
+  admite—, y la página los enseña contados en «lo que trae». Lo que
   sigue siendo cierto es lo otro, y son dos cosas distintas que esta lista tenía
   juntas: **no están versionados** —`git ls-files esquemas` no devuelve nada— y
   **la suite corre sin ellos a propósito**, porque un test cuyo resultado
@@ -262,7 +267,7 @@ WebAssembly, sin que el fichero salga del ordenador.
 
   De modo que en el navegador la comprobación de forma **se hace**. Lo que
   falta de verdad aquí no es tenerlos: es que el peso del paquete crece con
-  ellos, y eso ya está contado arriba en los 9,4 MB.
+  ellos, y eso ya está contado arriba en los 9,7 MB.
 - **Las anclas de confianza, en el navegador.** Encadenar funciona aquí —está
   comprobado—, y las anclas hay que meterlas en el disco virtual, igual que las
   facturas de ejemplo: unos cientos de KB que se cachean.

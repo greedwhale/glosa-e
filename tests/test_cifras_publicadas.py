@@ -40,6 +40,7 @@ from __future__ import annotations
 import pathlib
 import re
 import unicodedata
+import zipfile
 from dataclasses import dataclass
 from typing import Callable
 
@@ -78,6 +79,22 @@ def _ficheros_de_ejemplos() -> int:
     return sum(1 for e in (RAIZ / "ejemplos").iterdir() if e.is_file())
 
 
+def _esquemas_de_ubl_25() -> int:
+    """Los XSD de UBL 2.5 que viajan dentro del paquete publicado.
+
+    Se cuentan en `web/paquete.zip`, que **sí** se versiona, y no en
+    `esquemas/`, que no: en una copia limpia esa carpeta no existe y la cifra
+    saldría cero sin que nada estuviera mal. La regla de la casa es que una
+    prueba no puede depender de si quien la ejecuta se ha bajado los XSD.
+    """
+    with zipfile.ZipFile(RAIZ / "web" / "paquete.zip") as zf:
+        return sum(
+            1
+            for nombre in zf.namelist()
+            if "ubl-2.5/" in nombre and nombre.endswith(".xsd")
+        )
+
+
 @dataclass(frozen=True)
 class Cifra:
     patron: str          # tiene que capturar el número en el grupo 1
@@ -100,6 +117,8 @@ CIFRAS = (
           "los resultados del banco comparados con Python nativo"),
     Cifra(r"No basta con que las (\d+) salgan verdes",
           _comprobaciones_del_banco, "las comprobaciones del banco"),
+    Cifra(r"entraron los (\d+) esquemas de UBL 2\.5", _esquemas_de_ubl_25,
+          "los XSD de UBL 2.5 que van dentro del paquete"),
 )
 
 
