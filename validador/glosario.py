@@ -985,6 +985,161 @@ CODIGOS: dict[str, str] = {
         'errores». Ahora el lote sigue, el fichero que se atragantó se cuenta '
         'como no revisado, y se dice de quién es la culpa.'
     ),
+    "CU-00": (
+        'No se ha podido componer el código único porque falta el número de '
+        'la factura, la fecha de expedición, o las dos cosas. El código único '
+        'del RD 238/2026 son tres datos pegados —NIF de quien emite, serie y '
+        'número, fecha— y con dos no se hace uno: sin una de las piezas no '
+        'hay nada que comprobar, ni duplicados, ni numeración reutilizada, ni '
+        'huecos en la serie. Por eso se dice aparte y como error. Las demás '
+        'reglas de esta familia no se callan entonces por estar todo '
+        'conforme, sino porque no tienen sobre qué correr, y un informe que '
+        'no lo dijera dejaría creer justo lo contrario.'
+    ),
+    "CU-02": (
+        'La factura no tiene número, y sin número no hay código único que '
+        'componer. Es la misma falta que señala BR-02, vista desde la otra '
+        'norma, y las dos se dicen a propósito: BR-02 dice que EN 16931 exige '
+        'el número, y ésta dice que sin él la factura no puede identificarse '
+        'de forma inequívoca ante la Administración española. Cuando pasa, '
+        'las comprobaciones de forma del número se apagan —no hay forma que '
+        'mirar—, pero las de la fecha siguen corriendo, porque la fecha sí '
+        'está y sus problemas son suyos.'
+    ),
+    "CU-03": (
+        'El número de factura no cabe. El tope son sesenta caracteres, serie '
+        'incluida, y de dónde sale ese número importa tanto como la '
+        'comprobación: la Orden Ministerial técnica del RD 238/2026 todavía '
+        'no se ha publicado, así que se ha tomado del esquema de Verifactu, '
+        'donde el campo equivalente admite sesenta. Está escrito en una '
+        'constante y en un solo sitio, de modo que el día que la Orden fije '
+        'otro se cambia ahí y ya está. Un límite sin procedencia es un límite '
+        'que nadie puede discutir.'
+    ),
+    "CU-04": (
+        'El número de factura lleva caracteres que no sobreviven a un viaje '
+        'entre sistemas. Son dos casos con dos gravedades distintas. Si hay '
+        'caracteres de control —un salto de línea, un tabulador— es error, y '
+        'casi siempre viene de un copiar y pegar que se trajo el salto. Si '
+        'hay caracteres fuera del ASCII —una eñe, un acento, una comilla '
+        'tipográfica— es aviso: es legal y perfectamente válido, pero al '
+        'pasar por un sistema antiguo puede transformarse, y entonces el '
+        'código único deja de coincidir con el que quedó registrado. El '
+        'informe enseña el número tal cual y lista aparte los caracteres '
+        'raros, porque a simple vista no se ven.'
+    ),
+    "CU-05": (
+        'El número de factura tiene espacios de más: al principio, al final o '
+        'repetidos en medio. Invisibles al ojo y letales al comparar, que es '
+        'todo lo que hace el código único. «F-001» y «F-001 » son la misma '
+        'factura para cualquiera que las lea, y dos facturas distintas para '
+        'dos sistemas que traten los espacios de forma distinta. Va como '
+        'aviso porque no incumple nada escrito, y el informe pone el número '
+        'entre comillas con su forma limpia al lado, que es la única manera '
+        'de enseñar un espacio.'
+    ),
+    "CU-06": (
+        'La fecha de expedición es posterior a hoy. Una factura no puede '
+        'emitirse con fecha futura: la fecha de expedición es cuándo se '
+        'expidió, no cuándo se espera cobrarla ni cuándo empieza el servicio. '
+        'Es la pareja de CU-07, que mira el otro extremo —más de cuatro años '
+        'atrás—, y las dos existen por lo mismo: la fecha forma parte del '
+        'código único, así que un año mal tecleado no es una errata, es otra '
+        'factura. El informe dice con qué día se ha comparado, porque quien '
+        'lea ese informe dentro de un mes tiene derecho a saber contra qué se '
+        'midió.'
+    ),
+    "CU-10": (
+        'La misma factura otra vez: mismo emisor, mismo número y misma fecha. '
+        'Es el duplicado limpio —un reenvío, un fichero procesado dos veces— '
+        'y el más fácil de los tres que se cazan aquí. Cuando las facturas '
+        'vienen de un lote, la queja dice en qué fichero estaba la primera y '
+        'en cuál está ésta, que es lo primero que uno pregunta: para quitar '
+        'un duplicado hay que saber cuál de los dos sobra. Es una '
+        'comprobación que sólo tiene sentido sobre un montón de facturas; un '
+        'fichero suelto no la dispara nunca.'
+    ),
+    "CU-11": (
+        'El mismo número de factura con otra fecha. Dentro de una serie, un '
+        'número no puede usarse dos veces, y esto es justo lo que el código '
+        'único existe para impedir: dos facturas que se llaman igual sin ser '
+        'la misma. El informe dice cuándo se usó el número la primera vez y '
+        'cuándo se ha vuelto a usar, y de qué ficheros salen las dos. Es '
+        'distinto de CU-10, que es la misma factura repetida, y de CU-12, que '
+        'es la misma escrita de dos maneras: aquí hay dos facturas de verdad '
+        'distintas peleándose por un número.'
+    ),
+    "CU-12": (
+        'Dos facturas que sólo se distinguen por mayúsculas o por espacios. '
+        'Es peor que un duplicado y por eso se dice aparte: en un duplicado '
+        'los dos sistemas ven lo mismo dos veces y alguien acaba dándose '
+        'cuenta; aquí cada sistema cree tener una factura diferente, y a cada '
+        'uno le cuadran las cuentas por separado. «f-001» y «F-001 » son la '
+        'misma factura para una persona y dos códigos únicos para una '
+        'máquina. El informe pone las dos formas entre comillas, porque sin '
+        'comillas la diferencia no se ve.'
+    ),
+    "CU-13": (
+        'La serie tiene huecos: entre el primer número y el último faltan '
+        'ordinales. El artículo 6 del Reglamento de Facturación exige '
+        'numeración correlativa dentro de cada serie, pero un hueco no es '
+        'automáticamente una infracción —puede ser una factura anulada—, así '
+        'que va como aviso. El número se parte por donde acaban los dígitos: '
+        '«F-2026-001» es la serie «F-2026-» y el ordinal 1, y eso es lo que '
+        'permite ver los saltos. El informe enumera los tramos que faltan, y '
+        'si son muchos dice los cinco primeros y cuántos quedan, porque una '
+        'lista de doscientos huecos no la lee nadie.'
+    ),
+    "CU-14": (
+        'Dentro de una serie, la fecha retrocede al avanzar el número. Una '
+        'factura posterior no debería llevar fecha anterior, y cuando ocurre '
+        'suele ser una factura metida a posteriori en un hueco. Hay un caso '
+        'que esta regla deja pasar a propósito: cuando dos entradas tienen el '
+        'mismo ordinal, el número no ha avanzado, así que decir que la fecha '
+        'retrocede al avanzar el número sería afirmar algo que no ha pasado '
+        '—la queja salía enseñando F-001 y F-001—. De ése ya se queja CU-11, '
+        'que sí sabe lo que es: un número reutilizado.'
+    ),
+    "CU-15": (
+        'El mismo ordinal escrito con distinto relleno de ceros. «F-001» y '
+        '«F-1» son la misma factura para una persona y dos códigos únicos '
+        'para una máquina, y en una serie donde conviven las dos formas la '
+        'correlatividad deja de poder comprobarse. Se comparan las formas ya '
+        'normalizadas, sin espacios y en mayúsculas, y eso es deliberado: si '
+        'dos números se diferencian además en eso, el problema es otro y ya '
+        'lo canta CU-12. Aquí interesa sólo el relleno.'
+    ),
+    "FIRMA-NO-XADES": (
+        'La firma es XML-DSig a secas, sin las propiedades XAdES. Es una '
+        'firma de verdad —cubre el documento y se puede verificar—, pero le '
+        'falta todo lo que convierte una firma en la firma de una factura: la '
+        'fecha de firma declarada, el certificado que el firmante dice haber '
+        'usado y la política de firma. Sin esas propiedades, media docena de '
+        'comprobaciones de este validador se quedan sin nada que mirar, y la '
+        'vigencia del certificado no se puede situar en el tiempo. Facturae '
+        'pide XAdES, y por eso esto va como aviso y no como una nota.'
+    ),
+    "FIRMA-OTRO-CERTIFICADO": (
+        'El certificado que viene en el documento no es el que la firma dice '
+        'haber usado. XAdES guarda el resumen del certificado firmante dentro '
+        'de las propiedades que la propia firma cubre, así que ese dato no se '
+        'puede cambiar sin romper la firma; el certificado que viaja en el '
+        'bloque de claves, en cambio, sí. Cuando los dos no coinciden, '
+        'alguien ha sustituido el segundo. Es exactamente la maniobra que '
+        'esta comprobación existe para cazar: cambiar el certificado por el '
+        'de alguien con mejor nombre y dejar la firma intacta, contando con '
+        'que el receptor mire el nombre y no el resumen.'
+    ),
+    "FIRMA-SIN-COMPROBAR": (
+        'Hay una parte de la firma que este validador no ha podido comprobar, '
+        'y lo dice en vez de dar por buena la parte que sí ha mirado. Sale '
+        'por tres causas distintas y las tres van con su motivo escrito: una '
+        'canonicalización que no sabemos reproducir, una parte firmada que no '
+        'se ha podido resolver, o un certificado ilegible. Ninguna acusa al '
+        'documento, y todas cambian lo que vale el resto del informe. La '
+        'alternativa sería un informe sin quejas de firma, que es exactamente '
+        'el aspecto que tiene un documento bien firmado.'
+    ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
         "cadena llega igual, pero que una autoridad estuviera cualificada "
