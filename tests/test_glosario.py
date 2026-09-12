@@ -19,8 +19,6 @@ romper es que dejen de encajar.
 """
 from __future__ import annotations
 
-import pytest
-
 from validador.codigos import codigos_del_paquete
 from validador.glosario import CODIGOS, FAMILIAS, explicar
 
@@ -48,25 +46,39 @@ def test_ninguna_explicacion_escrita_sobra():
 
 
 def test_un_codigo_sin_explicacion_propia_hereda_la_de_su_familia():
-    """Se busca uno de los que aún no la tienen en vez de nombrar a ninguno.
+    """El código de la prueba es inventado, y eso es lo que la sostiene.
 
-    Nombraba a BR-22, y el día que a BR-22 se le escribió la suya esta prueba
-    se puso en rojo sin que nada estuviera mal. Un ejemplo escrito a mano
-    envejece igual que una cifra escrita a mano, y aquí van a envejecer todos:
-    las explicaciones se están escribiendo por tandas, así que el ejemplo
-    bueno de hoy es el que deja de serlo mañana.
+    Ha tenido tres formas. Nombraba a BR-22, y el día que a BR-22 se le
+    escribió la suya se puso en rojo sin que nada estuviera mal. Pasó entonces
+    a buscar uno de los que no la tenían, y el día que los ciento sesenta la
+    tuvieron se empezó a saltar sola: verde, y sin comprobar nada.
+
+    El mecanismo sigue haciendo falta, porque una regla nueva nace sin
+    explicación propia y tiene que recibir la de su familia hasta que se le
+    escriba la suya. Lo que no puede es depender de que exista un código así
+    hoy. Con uno inventado se comprueba lo mismo y no se agota nunca.
     """
-    pendientes = [c for c in codigos_del_paquete() if c.codigo not in CODIGOS]
-    if not pendientes:
-        pytest.skip("ya no queda ningún código sin explicación propia")
+    inventado = "BR-NO-EXISTE-99"
+    assert inventado not in CODIGOS, "deja de estar inventado y ya no prueba"
 
-    uno = pendientes[0]
-    texto, propia = explicar(uno.codigo, uno.familia)
-    assert texto, f"{uno.codigo} no recibe ni la explicación de su familia"
-    assert propia is False, (
-        f"{uno.codigo} no está en CODIGOS y `explicar` dice que su explicación "
-        "es propia")
-    assert texto == FAMILIAS[uno.familia]
+    texto, propia = explicar(inventado, "BR")
+    assert texto, "un código sin explicación propia no recibe la de su familia"
+    assert propia is False, "`explicar` dice que es propia y no lo es"
+    assert texto == FAMILIAS["BR"]
+
+
+def test_todos_los_codigos_del_paquete_tienen_la_suya():
+    """Hoy los 160 la tienen, y eso se dice en vez de darse por supuesto.
+
+    No es una regla que haya que cumplir siempre: un código nuevo entra sin
+    explicación y hereda, que para eso está la herencia. Pero la cuenta se
+    publica en la página de incidencias, así que esta prueba es la que obliga
+    a mirarla el día que deje de ser cierta.
+    """
+    heredan = [c.codigo for c in codigos_del_paquete() if c.codigo not in CODIGOS]
+    assert not heredan, (
+        f"{len(heredan)} códigos siguen con la de su familia: "
+        + ", ".join(heredan[:8]))
 
 
 def test_un_codigo_desconocido_no_se_inventa_nada():

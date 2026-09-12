@@ -1488,6 +1488,198 @@ CODIGOS: dict[str, str] = {
         'facturado, y eso es un abono, 381. Se acepta, y se dice con qué '
         'base, que es exactamente para lo que existe la gravedad nota.'
     ),
+    "XSD-ATRIBUTO": (
+        'A un elemento le falta un atributo obligatorio, o lleva uno que el '
+        'esquema no admite. Los dos casos comparten código porque comparten '
+        'arreglo —se mira el atributo y se pone o se quita—, y el informe '
+        'dice cuál de los dos es y cómo se llama. En una factura los '
+        'atributos llevan poca cosa y muy importante: la moneda de un '
+        'importe, el esquema al que pertenece un identificador, el idioma de '
+        'un texto. Un importe sin su moneda es un número sin unidad, y ahí el '
+        'esquema hace de última defensa.'
+    ),
+    "XSD-TEXTO": (
+        'Dentro de un elemento hay texto suelto donde el esquema sólo admite '
+        'otros elementos. Lo que suele haber detrás es un trozo pegado por '
+        'error, una etiqueta de apertura o de cierre que se perdió al editar '
+        'a mano, o un fragmento de plantilla sin sustituir. Es de los fallos '
+        'que delatan un XML escrito concatenando cadenas en vez de con una '
+        'biblioteca: el texto acaba donde no toca, el documento sigue siendo '
+        'XML perfectamente válido, y sólo el esquema lo ve.'
+    ),
+    "XSD-LONGITUD": (
+        'El contenido de un elemento es más largo o más corto de lo que el '
+        'esquema permite. Los dos casos van con el mismo código y con las dos '
+        'cifras delante —cuánto admite y cuánto trae—, porque con eso se '
+        'arregla y sin eso hay que ir a buscar el esquema. El largo suele ser '
+        'una descripción o un identificador que el sistema de origen no '
+        'recorta al exportar; el corto, un campo que se quedó casi vacío, '
+        'porque hay elementos a los que el esquema exige al menos un carácter '
+        'y no valen para rellenar un hueco.'
+    ),
+    "XSD-PATRON": (
+        'El contenido de un elemento no tiene la forma que el esquema exige. '
+        'Un patrón es una expresión regular escrita dentro del propio '
+        'esquema, y es como se fijan las formas que no son una lista cerrada: '
+        'un NIF, un IBAN, un código de cuenta, una fecha con formato propio. '
+        'El informe pone el patrón tal cual —que no es amable de leer, pero '
+        'es exacto— y el valor encontrado al lado. Casi siempre lo que falla '
+        'es un separador: un guion de más, un espacio dentro del IBAN, un '
+        'punto donde iba una barra.'
+    ),
+    "XSD-ESQUEMA-ROTO": (
+        'La forma no se ha comprobado porque el esquema que le toca a este '
+        'documento está instalado y no se puede leer. No es lo mismo que no '
+        'tenerlo —de eso avisa XSD-SIN-ESQUEMA— y el arreglo es otro: aquí el '
+        'fichero está, así que lo que hay que hacer es volver a bajarlo, '
+        'porque lo corriente es una descarga a medias. El informe dice qué '
+        'fichero es y qué dijo exactamente el analizador al intentar '
+        'compilarlo, que es la línea con la que se arregla.'
+    ),
+    "XSD-OTRO": (
+        'El documento no cumple el esquema y este validador no ha sabido '
+        'traducir el motivo a algo mejor. Es el último cajón: cuando ninguno '
+        'de los casos conocidos encaja, se pasa el mensaje original en vez de '
+        'callarlo, aunque venga en inglés. Lo único que se le quita son los '
+        'espacios de nombres completos, que es lo que convierte un aviso en '
+        'un ladrillo ilegible. Que este código salga mucho significa que '
+        'falta un caso por traducir de este lado, no que la factura esté peor '
+        'escrita que otra.'
+    ),
+    "EDI-SIN-SEGMENTOS": (
+        'No se ha podido partir el fichero en segmentos: ni uno. Es el '
+        'escalón anterior a todo lo demás —antes de saber si hay mensaje, '
+        'sobre o factura hay que poder cortar el fichero por donde acaba cada '
+        'segmento— y cuando falla no queda nada que decir, así que el informe '
+        'se para aquí. Lo que suele haber detrás es un fichero que no es '
+        'EDIFACT, uno comprimido o codificado de otra manera, o uno cuyo '
+        'separador de segmentos no aparece ni una vez en todo el texto.'
+    ),
+    "EDI-SIN-MENSAJE": (
+        'El fichero no trae ningún UNH, que es el segmento que abre un '
+        'mensaje. Lo que hay es un sobre vacío: un UNB que abre, un UNZ que '
+        'cierra y nada dentro. Sin mensaje no hay factura que validar y todo '
+        'lo demás se calla, así que este error es la explicación del informe '
+        'más corto posible. Pasa con ficheros cortados al copiarlos y con '
+        'exportaciones que sólo llegaron a escribir la cabecera del '
+        'intercambio.'
+    ),
+    "EDI-MENSAJE-SIN-CERRAR": (
+        'El mensaje empieza con UNH y no termina con UNT. Cada mensaje de un '
+        'intercambio se abre y se cierra, y el cierre es lo que dice dónde '
+        'acaba y cuántos segmentos tenía. Es distinto de '
+        'EDI-SOBRE-SIN-CERRAR, que es lo mismo un nivel más afuera, y la '
+        'diferencia no es académica: el sobre puede estar perfectamente '
+        'cerrado y contener un mensaje que no lo está, y entonces el fichero '
+        'parece completo por fuera y está roto por dentro.'
+    ),
+    "EDI-SOBRE-SIN-CERRAR": (
+        'El intercambio empieza con UNB y no termina con UNZ. El UNZ es la '
+        'única prueba que EDIFACT lleva incorporada de que el fichero ha '
+        'llegado entero: dice cuántos mensajes van dentro y repite la '
+        'referencia con la que se abrió. Sin él no hay forma de saber si '
+        'falta algo, porque un EDIFACT truncado se sigue leyendo '
+        'perfectamente hasta que se cuenta. Es el fallo de una transferencia '
+        'interrumpida, y es más grave de lo que parece: sin cierre, todo lo '
+        'que el informe diga del contenido es sobre un fichero que quizá no '
+        'está completo.'
+    ),
+    "EDI-SEGMENTO-SIN-CERRAR": (
+        'Después del último segmento cerrado queda texto sin terminar. Los '
+        'segmentos se separan con un carácter que el propio fichero declara '
+        'en su cabecera —normalmente el apóstrofo—, así que texto suelto al '
+        'final significa una de dos cosas: el fichero está cortado, o el '
+        'separador no es el que dice ser. Las dos se nombran juntas porque '
+        'desde fuera se ven igual, y las dos dejan ese trozo sin validar, que '
+        'es lo que el informe dice en vez de tragárselo.'
+    ),
+    "IVA-BASE": (
+        'La base declarada para una entrada del desglose no cuadra con los '
+        'conceptos que van a ese tipo, y la categoría no es ninguna de las de '
+        'la norma. Cuando sí lo es, esta misma comprobación sale con el '
+        'nombre europeo que le toca —BR-S-8, BR-E-8, el que sea—, y este '
+        'código es lo que queda cuando no hay regla que citar. Hay dos formas '
+        'de fallar: que la suma no dé, o que no haya ningún concepto detrás '
+        'de esa base. La segunda se dice aparte, porque contestar «debería '
+        'ser 0,00» no ayuda a nadie: lo que pasa es que el desglose cobra '
+        'sobre algo que no está en ninguna parte.'
+    ),
+    "IVA-CATEGORIA-SIN-DESGLOSE": (
+        'Hay conceptos con una categoría que el desglose de IVA no recoge. Es '
+        'lo que hace la familia BR-{X}-1 para las categorías de la norma, '
+        'aplicado a las que no lo son: cuando la categoría es una de las '
+        'nueve, la queja sale con su número europeo, y éste es el nombre para '
+        'cuando no lo hay. Se separa de BR-CO-18 a propósito, porque dicen '
+        'cosas muy distintas: aquél es que no hay desglose ninguno, y éste es '
+        'que hay desglose y le falta una categoría que las líneas sí usan.'
+    ),
+    "IVA-CATEGORIA-A-CERO": (
+        'Hay entradas del desglose a tipo cero y el documento no dice cuál de '
+        'las categorías europeas son. Un cero puede ser una exenta del '
+        'artículo 20, una no sujeta, una intracomunitaria, una exportación o '
+        'una inversión del sujeto pasivo, y el código de impuesto no las '
+        'distingue. La línea sí puede traerlo: Facturae tiene un código de '
+        'fiscalidad especial que separa la sujeta y exenta de la no sujeta, y '
+        'cuando lo traen todas las líneas y todas dicen lo mismo, la '
+        'categoría se lee del documento. Con una sola línea muda se contesta '
+        'que no se sabe, porque elegir la más probable y presentarla como '
+        'leída es justo lo que este validador no hace. El resto del IVA sí se '
+        'comprueba.'
+    ),
+    "IVA-CATEGORIA-SIN-MAPA": (
+        'La sintaxis de este documento no tiene categoría de IVA en el '
+        'sentido de EN 16931, así que las reglas que dependen de ella no se '
+        'han podido comprobar. Se dice una vez por documento y no una por '
+        'entrada del desglose, porque es una propiedad del formato y no un '
+        'defecto de la factura: repetirla por cada tipo daría la impresión de '
+        'que hay varios problemas donde hay un hueco. La nota enumera además '
+        'lo que sí se ha comprobado —las bases, las cuotas y que el desglose '
+        'cuadre—, para que se sepa qué parte del informe falta y qué parte '
+        'no.'
+    ),
+    "BR-O-11": (
+        'La factura mezcla operaciones no sujetas con operaciones sujetas, y '
+        'la norma no lo permite: lo no sujeto va en factura aparte. Es de las '
+        'pocas reglas europeas que no hablan de un campo sino de la '
+        'composición del documento entero, y la razón es contable antes que '
+        'formal: una operación no sujeta no forma parte de la base imponible '
+        'de nada, así que mezclarla con las sujetas obliga a quien recibe a '
+        'separar a mano lo que la factura presenta junto. El informe enumera '
+        'las categorías que conviven.'
+    ),
+    "CADENA-CADUCADA": (
+        'Un certificado de los que están por encima del que firma no estaba '
+        'vigente el día de la firma. Es distinto de FIRMA-CADUCADA, que mira '
+        'el del firmante: aquí el problema está más arriba —en la autoridad '
+        'que lo emitió o en una intermedia— y quien firmó no tiene por qué '
+        'haberse enterado. El peso de la queja cambia según de dónde salga la '
+        'fecha, y el informe lo dice con esas palabras: «el día que la '
+        'factura dice haberse firmado» se responde diciendo que la fecha es '
+        'otra; «el día que acredita el sello de tiempo» no se responde.'
+    ),
+    "CADENA-DEBIL": (
+        'Algún certificado de la cadena está firmado con un algoritmo roto '
+        'para firmar certificados. Con una colisión se fabrica un certificado '
+        'falso que verifica igual que el bueno, y eso es lo que convierte un '
+        'detalle técnico en un problema de confianza. El ancla queda fuera de '
+        'la comprobación a propósito, y no es una concesión: un ancla se cree '
+        'porque está en la lista de confianza del Estado, no porque alguien '
+        'la haya firmado —son autofirmadas—. Sin esa exclusión, la regla '
+        'avisaba de la autoridad de media España por un algoritmo que ahí no '
+        'se usa para nada.'
+    ),
+    "SIN-SOPORTE": (
+        'El documento se ha identificado y no se ha llegado a validar contra '
+        'las reglas EN 16931. Hay dos motivos posibles y el aviso dice cuál: '
+        'que el formato no tenga reglas implementadas, o —el caso que de '
+        'verdad se da hoy— que se haya reconocido el formato y no se haya '
+        'podido leer el fichero entero. La diferencia manda a sitios '
+        'distintos: uno es un límite de esta herramienta y el otro es un '
+        'fichero roto. Durante meses este aviso decía que sólo había reglas '
+        'para UBL y CII, mucho después de que EDIFACT y Facturae tuvieran las '
+        'suyas; ahora la lista sale del mapa de sintaxis y no de una frase '
+        'escrita a mano.'
+    ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
         "cadena llega igual, pero que una autoridad estuviera cualificada "

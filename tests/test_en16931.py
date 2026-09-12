@@ -8,6 +8,7 @@ from lxml import etree
 
 from validador import en16931
 from validador.en16931 import AVISO, ERROR, NOTA
+from validador.formato import Deteccion
 
 
 def factura(
@@ -711,6 +712,15 @@ class TestBindingDeFacturae:
         assert en16931.validar(xml).incidencias == []
 
 
+def solo_sin_soporte(deteccion):
+    """El unico SIN-SOPORTE de un documento que no se ha podido leer."""
+    avisos = [
+        i for i in en16931.reglas(None, deteccion) if i.codigo == "SIN-SOPORTE"
+    ]
+    assert len(avisos) == 1, f"salen {len(avisos)} y tenia que salir uno"
+    return avisos[0]
+
+
 class TestOtrosFormatos:
 
     def test_un_edifact_ilegible_si_lo_dice(self):
@@ -723,6 +733,24 @@ class TestOtrosFormatos:
         datos = b"UNB+UNOC:3+A+B'UNH+1+INVOIC:D:96A:UN"
         aviso = [i for i in en16931.validar(datos).avisos if i.codigo == "SIN-SOPORTE"]
         assert aviso and "solo se ha identificado" in aviso[0].mensaje
+
+    def test_a_un_formato_implementado_no_se_le_dice_que_no_lo_esta(self):
+        """El aviso decia «implementadas para UBL y para CII» sobre un Facturae.
+
+        Dos cosas falsas en la misma frase: Facturae esta implementado desde
+        hace meses, y el motivo de que esta vez no se haya validado no es el
+        formato sino que el fichero no se ha podido leer. Quien leyera eso se
+        pondria a buscar un validador de Facturae teniendo uno delante.
+        """
+        aviso = solo_sin_soporte(Deteccion(familia="Facturae"))
+        assert "no se ha podido leer" in aviso.mensaje
+        assert "UBL" not in aviso.mensaje
+
+    def test_la_lista_de_sintaxis_implementadas_sale_del_mapa(self):
+        """Escrita a mano envejece sola, que es el fallo de siempre aqui."""
+        aviso = solo_sin_soporte(Deteccion(familia="Cualquiera"))
+        for nombre in en16931.SINTAXIS:
+            assert nombre in aviso.mensaje, f"{nombre} esta y no se nombra"
 
     def test_documento_irreconocible(self):
         informe = en16931.validar(b"<pedido/>")

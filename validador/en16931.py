@@ -792,14 +792,36 @@ def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
     entonces ni se mira.
     """
     sintaxis = SINTAXIS.get(deteccion.familia or "")
-    if sintaxis is None or raiz is None:
+    if sintaxis is None:
+        # La lista sale del mapa y no de la memoria. Escrita a mano decía «UBL
+        # y CII» mucho después de que EDIFACT y Facturae tuvieran el suyo: una
+        # cifra publicada que envejece sola, que es el fallo de siempre.
         return [
             Incidencia(
                 "SIN-SOPORTE",
                 AVISO,
-                "Las reglas EN 16931 están implementadas para UBL y para CII. "
-                f"Este documento es {deteccion.familia} y solo se ha "
+                "Las reglas EN 16931 están implementadas para "
+                + ", ".join(sorted(SINTAXIS))
+                + f". Este documento es {deteccion.familia} y solo se ha "
                 "identificado, no validado.",
+                campo="Formato",
+                encontrado=deteccion.familia,
+            )
+        ]
+    if raiz is None:
+        # Y este es el caso que de verdad se da: el formato está
+        # implementado, lo que pasa es que el fichero no da ni para montar un
+        # árbol. Decirle a un Facturae que Facturae no se comprueba es mentir
+        # sobre lo que hace este validador y mandar a buscar el fallo donde no
+        # está.
+        return [
+            Incidencia(
+                "SIN-SOPORTE",
+                AVISO,
+                f"El documento se ha identificado como {deteccion.familia}, "
+                "pero no se ha podido leer entero, así que solo se ha "
+                "identificado, no validado. Las reglas EN 16931 sí están "
+                "implementadas para este formato.",
                 campo="Formato",
                 encontrado=deteccion.familia,
             )
