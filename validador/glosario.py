@@ -1140,6 +1140,125 @@ CODIGOS: dict[str, str] = {
         'alternativa sería un informe sin quejas de firma, que es exactamente '
         'el aspecto que tiene un documento bien firmado.'
     ),
+    "SELLO-SIN-USAR": (
+        'La firma lleva sello de tiempo y ninguno ha servido. Es distinto de '
+        'no llevar ninguno aunque se acabe en la misma fecha, y por eso se '
+        'dice aparte: a un documento sin sello hay que sellarlo, y a éste ya '
+        'lo sellaron —el motivo por el que cada uno de sus sellos no vale '
+        'está más arriba, en su propia queja—. Decirle que no lleva sello '
+        'sería mandarle a hacer dos veces lo que ya hizo, y el fallo salió '
+        'con un fichero real que traía el sello escrito en XML. La nota dice '
+        'qué fecha se ha usado en su lugar y para qué sirve saberlo: fechando '
+        'hacia atrás se esquivan la caducidad y la revocación a la vez.'
+    ),
+    "SELLO-NO-COMPROBADO": (
+        'El sello está, pero es de una clase que este validador todavía no '
+        'comprueba. XAdES define seis: el de la firma, el de la firma con las '
+        'referencias de validación, el de sólo las referencias, el de '
+        'archivo, el de todo lo firmado y el de un objeto concreto. Aquí se '
+        'comprueba el primero contra lo que dice cubrir; de los demás se dice '
+        'que están, de qué clase son y qué fecha declaran, y que no se han '
+        'mirado. Callarlos sería peor que no comprobarlos, porque un informe '
+        'sin mención de sello se lee como un documento que no traía ninguno. '
+        'Lo que ese sello diga no cuenta como fecha acreditada.'
+    ),
+    "SELLO-ROTO": (
+        'El sello de tiempo no se sostiene: se ha mirado por dentro y no '
+        'cuadra consigo mismo o con la firma de su autoridad. Un sello es un '
+        'documento firmado por un tercero que viene a decir «yo vi este '
+        'resumen este día»; si esa firma no verifica o el token está mal '
+        'formado, no acredita nada, y el informe dice por dónde falla. Es '
+        'error y no aviso porque aquí no hay ambigüedad que conceder: no es '
+        'que no se haya podido comprobar, es que se ha comprobado y sale mal.'
+    ),
+    "SELLO-NO-CUBRE": (
+        'El sello está bien hecho y lo firmó de verdad una autoridad, pero no '
+        'es de esta firma. Un sello acredita un resumen concreto: se vuelve a '
+        'calcular el de esta firma, se compara con el que el sello dice haber '
+        'visto, y no coinciden. Lo que suele haber detrás es un sello copiado '
+        'de otro documento y pegado aquí, que es una manera de aparentar '
+        'fecha acreditada sin tenerla. Por eso el informe no se conforma con '
+        'leer la fecha de un sello: comprueba de qué es.'
+    ),
+    "SELLO-SIN-COMPROBAR": (
+        'El sello está bien formado y no se ha podido averiguar a qué se '
+        'refiere, así que su fecha no se ha dado por buena. Para saber si un '
+        'sello es de esta firma hay que reconstruir exactamente los bytes que '
+        'la autoridad vio, y eso pasa por canonicalizar el valor de la firma '
+        'con el método que el propio sello declara; cuando ese paso no se '
+        'puede dar, se dice con su motivo. No acusa al documento: dice que '
+        'esa parte del informe no está, que es lo contrario de darla por '
+        'buena.'
+    ),
+    "SELLO-ILEGIBLE": (
+        'Hay un sello de tiempo que no se ha podido leer, y el informe dice '
+        'por qué. Es el escalón de más abajo de SELLO-ROTO: aquél se abrió y '
+        'no cuadraba, éste ni siquiera se abre. No se ha usado su fecha para '
+        'nada, así que la del documento sigue siendo la que declara quien '
+        'firma, con todo lo que eso vale. Va como aviso porque el sello puede '
+        'estar perfectamente bien y ser este validador el que no llega.'
+    ),
+    "SELLO-OTRO-FORMATO": (
+        'El sello viene escrito de una forma que este validador no sabe leer. '
+        'Lo corriente es que viaje como token de RFC 3161 en base64, un '
+        'bloque binario; algunas herramientas lo escriben desplegado en XML, '
+        'y eso es legítimo. El documento está sellado y su sello puede ser '
+        'perfectamente bueno: lo que no se ha hecho es usarlo, y la '
+        'diferencia entre esas dos cosas es todo lo que este aviso viene a '
+        'decir. Salió con un fichero real, no con un supuesto.'
+    ),
+    "SELLO-ALGORITMO-VIEJO": (
+        'El sello usa un algoritmo de resumen roto. SHA-1 lo está desde hace '
+        'años en el sentido que importa aquí: se saben fabricar dos '
+        'documentos distintos con el mismo resumen. Un sello acredita que la '
+        'autoridad vio ese resumen, no que viera este documento, así que con '
+        'un resumen que se puede duplicar acredita menos de lo que parece. No '
+        'se rechaza —el sello es el que es y su fecha probablemente sea '
+        'cierta—, pero quien lo use para sostener algo tiene que saber sobre '
+        'qué se apoya.'
+    ),
+    "SELLO-ANTES-DEL-CERTIFICADO": (
+        'El sello acredita que la firma ya existía antes de que se emitiera '
+        'el certificado con el que dice estar hecha. Una de las dos cosas es '
+        'falsa, y no hay lectura benévola: un reloj mal puesto explica '
+        'minutos, no una firma anterior a su propia clave. Por eso es error, '
+        'mientras que lo contrario —sellar después de que el certificado '
+        'caduque— se queda en aviso: sellar tarde es legítimo y pasa a '
+        'diario. La asimetría es deliberada y sale de lo que un sello '
+        'demuestra en realidad, que es una cota por arriba y no una fecha '
+        'exacta.'
+    ),
+    "SELLO-CONTRADICE": (
+        'El documento dice haberse firmado después del día en que la '
+        'autoridad de sellado ya había visto esa firma. No se puede firmar '
+        'algo después de que otro lo haya visto, así que la fecha que declara '
+        'el documento no es cierta: se usa la del sello, que es la '
+        'acreditada, y se dice que se ha hecho. Antes de decir nada se '
+        'admiten cinco minutos de diferencia, la misma tolerancia con la que '
+        'este módulo trata todos los relojes, porque entre la máquina que '
+        'firma y la que sella casi nunca hay dos relojes iguales.'
+    ),
+    "SELLO-SIN-CONTRASTAR": (
+        'El sello cuadra y no hay anclas de sellado instaladas con las que '
+        'contrastar quién lo puso. Importa más de lo que suena, porque un '
+        'sello se puede fabricar entero, autoridad incluida, y uno fabricado '
+        'pasaría esta parte igual que uno bueno: lo que distingue a los dos '
+        'no es la aritmética del sello, sino que el certificado de quien '
+        'selló llegue a una autoridad publicada en la lista de confianza del '
+        'Estado. Sin esas anclas, la fecha vale lo que valga una autoridad de '
+        'la que aquí no consta nada, y eso se dice en vez de dejarlo pasar.'
+    ),
+    "SELLO-TSA-DESCONOCIDA": (
+        'El sello cuadra, pero la autoridad que lo puso no llega a ninguna de '
+        'las de sellado instaladas. El sello es coherente consigo mismo; lo '
+        'que no consta es que quien lo firmó sea una autoridad de sellado '
+        'cualificada. El informe dice hasta dónde llega la cadena y en qué '
+        'certificado se queda, que es lo que permite distinguir los dos casos '
+        'de detrás: una autoridad legítima cuyo ancla no está instalada, y '
+        'una que no es autoridad de nada. Cuando lo que pasa es que el ancla '
+        'estaba retirada, se dice con esas palabras y no con la jerga de '
+        'dentro.'
+    ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
         "cadena llega igual, pero que una autoridad estuviera cualificada "
