@@ -826,6 +826,165 @@ CODIGOS: dict[str, str] = {
         'factura UBL: no significa nada en la norma, y basta para que esa '
         'parte del impuesto pase sin que nadie la mire.'
     ),
+    "BR-02": (
+        'La factura no lleva número. Es el dato con el que la va a buscar '
+        'todo el mundo después —el receptor para pagarla, quien la emite para '
+        'cobrarla, la Administración para cruzarla— y aquí sólo se mira que '
+        'esté y que no venga vacío. Que sea único, que la serie no se repita '
+        'y que no haya saltos no lo comprueba ningún validador de un fichero '
+        'suelto, porque para eso hay que ver todas las demás facturas, y eso '
+        'se dice en vez de dejarlo creer. Si una sintaxis no tuviera dónde '
+        'escribir el número, la queja bajaría a nota: el hueco sería del '
+        'formato y no del documento.'
+    ),
+    "BR-11": (
+        'La dirección del comprador no incluye el código de país. Es la '
+        'pareja de BR-09, que pide lo mismo del vendedor, y el par existe '
+        'porque de los dos países depende qué impuesto lleva la operación: '
+        'mismo país, IVA repercutido; países distintos dentro de la Unión, '
+        'inversión del sujeto pasivo o entrega intracomunitaria; fuera, '
+        'exportación. Un código de dos letras decide cuál de las tres. Como '
+        'BR-09, no salta cuando no hay dirección ninguna —de eso se queja '
+        'BR-10, y con mejor consejo—: sólo cuando hay dirección y le falta el '
+        'país.'
+    ),
+    "BR-CO-13": (
+        'La base imponible no es la suma de las líneas menos los descuentos '
+        'de documento más los cargos. Es el eslabón del medio de la cadena '
+        'aritmética: BR-CO-10 cuadra las líneas contra su total, ésta lleva '
+        'ese total hasta la base, BR-CO-15 lleva la base hasta el total con '
+        'impuestos y BR-CO-16 hasta lo que de verdad se paga. Por eso importa '
+        'el orden al leer un informe: cuando saltan varias seguidas casi '
+        'siempre hay un solo error arriba y las demás son su eco. El informe '
+        'escribe la cuenta con los sumandos que haya y no menciona los '
+        'descuentos cuando no hay descuentos, para que la operación se pueda '
+        'seguir con el papel delante.'
+    ),
+    "BR-CO-15": (
+        'El total con impuestos no es la base imponible más el importe de '
+        'impuestos. Es la suma más simple de toda la factura, y por eso el '
+        'fallo casi nunca está aquí: cuando salta, lo normal es que uno de '
+        'los dos sumandos venga ya mal de antes —la base la cuadra BR-CO-13 y '
+        'el importe de impuestos lo cuadra BR-CO-14 contra el desglose—. '
+        'Cuando falta el importe total de impuestos esta regla no puede '
+        'correr, y entonces se dice con el código IVA-SIN-TOTAL en vez de '
+        'callarse: un informe mudo aquí se parece demasiado a uno que ha '
+        'comprobado y le ha salido bien.'
+    ),
+    "XSD-FALTA": (
+        'A un elemento le falta dentro algo que el esquema exige. Es el '
+        'incumplimiento de forma más corriente y el más fácil de arreglar, '
+        'siempre que el informe diga qué falta: el esquema lleva escritos los '
+        'nombres de los hijos que esperaba en ese punto, así que se sacan de '
+        'ahí y se enumeran en vez de decir «falta algo». Va con la línea del '
+        'documento donde está el elemento incompleto, porque en un XML de mil '
+        'líneas «falta el identificador» sin decir dónde sirve casi tan poco '
+        'como no decir nada.'
+    ),
+    "XSD-VALOR": (
+        'El contenido de un elemento no es ninguno de los que el esquema '
+        'admite. Hay sitios donde el formato no acepta texto libre sino una '
+        'lista cerrada —el código de país, el de moneda, el de la unidad de '
+        'medida, el del medio de pago—, y ahí escribir «Euro» donde iba «EUR» '
+        'es un fallo de forma y no de contenido. El informe pone la lista '
+        'entera de valores admitidos, y la saca del propio esquema y no de lo '
+        'que nadie recuerde: es de los pocos errores que se arreglan sin '
+        'saber nada de la norma, sólo mirando la lista.'
+    ),
+    "XSD-TIPO": (
+        'El contenido de un elemento no vale para lo que el esquema espera '
+        'ahí: un texto donde iba un número, un decimal con coma, una fecha '
+        'que no existe. La pista que acompaña al error depende del valor y no '
+        'sólo del tipo, y eso se hizo por un caso concreto: a «2012-02-31» '
+        'contestarle que una fecha se escribe AAAA-MM-DD es no haber mirado '
+        'el valor, porque ya está escrita así; quien lo lea comprobará el '
+        'formato, lo verá bien y no encontrará el fallo. Lo que pasa es que '
+        'febrero de 2012 tiene veintinueve días, y eso es lo que dice el '
+        'informe.'
+    ),
+    "XSD-RAIZ": (
+        'El esquema no reconoce el elemento con el que empieza el documento. '
+        'Sale cuando el fichero no es del formato que aparenta —una '
+        'plantilla, un fragmento, un XML de otra cosa con la extensión '
+        'cambiada— y también cuando le falta la declaración de espacio de '
+        'nombres, que es lo que hace que un Invoice de UBL sea ése y no otro '
+        'cualquiera. Los dos casos se dicen juntos porque desde fuera son '
+        'indistinguibles, y el segundo es más frecuente de lo que parece: el '
+        'documento está bien escrito de arriba abajo y le falta una línea.'
+    ),
+    "XSD-SIN-ESQUEMA": (
+        'La forma no se ha comprobado porque el esquema de ese formato no '
+        'está instalado. Es un aviso sobre este validador y no sobre la '
+        'factura: dice qué formato y qué versión se han reconocido, cómo se '
+        'llamaría el fichero que falta y en qué carpeta se ha buscado, que es '
+        'lo que hace falta para arreglarlo. Existe porque la alternativa era '
+        'peor: sin esquema instalado, el informe salía sin una sola queja de '
+        'forma y quien lo leyera tenía todo el derecho a entender que la '
+        'forma estaba bien.'
+    ),
+    "XSD-DEMASIADOS": (
+        'Hay más incumplimientos del esquema de los que el informe enumera. '
+        'La lista se corta a propósito y el número de los que faltan se dice '
+        'en vez de esconderse: un documento con el espacio de nombres mal '
+        'declarado produce un fallo por cada elemento que tiene, y volcar mil '
+        'quejas iguales no informa, entierra. Las que no se listan casi '
+        'siempre son consecuencia de las primeras, así que el consejo es '
+        'literal: arregla ésas y vuelve a pasarlo. Lo que no se hace es decir '
+        'que hay errores sin decir cuántos se han dejado fuera.'
+    ),
+    "FIRMA-NO-CUADRA": (
+        'La firma no verifica contra el certificado que trae el documento. '
+        'Dicho sin rodeos: o la firma se ha manipulado, o el certificado que '
+        'viene dentro no es el que se usó para firmar. Es distinto de '
+        'FIRMA-ALTERADA, que dice que cambió el documento; esto dice que no '
+        'cuadra la firma misma. Lleva un detalle que se paga caro si se pasa '
+        'por alto: en XML-DSig una firma de curva elíptica son los dos '
+        'números pegados y rellenos con ceros, no el DER que llevan los '
+        'certificados, y comprobarla como si fuera DER da «no verifica» en '
+        'firmas perfectamente buenas.'
+    ),
+    "FIRMA-ALTERADA": (
+        'El documento se ha modificado después de firmarlo. Es la '
+        'comprobación que más vale de todo el módulo de firma y la que menos '
+        'necesita: no hace falta clave ninguna ni autoridad ninguna, es un '
+        'resumen criptográfico contra otro. La firma guarda el resumen de '
+        'cada trozo que cubre; se vuelve a calcular y se comparan, y si no '
+        'coinciden el documento ya no es el que se firmó, sea de quien sea el '
+        'certificado. La causa no siempre es mala fe: una herramienta que '
+        'reabre el XML y lo vuelve a guardar cambiando saltos de línea o el '
+        'orden de dos atributos deja la firma rota igual.'
+    ),
+    "FIRMA-VACIA": (
+        'La firma no cubre nada. El bloque está entero —su valor, su '
+        'algoritmo— y no tiene ni una sola referencia a una parte del '
+        'documento: está puesta y no garantiza ninguna. Es de las cosas que '
+        'sólo se ven mirando dentro, porque por fuera el documento parece '
+        'firmado y cualquier comprobación superficial dirá que lo está. Lo '
+        'que hace una firma es fijar unos trozos concretos de un fichero '
+        'concreto; una sin referencias es un papel en blanco firmado y '
+        'grapado a la factura.'
+    ),
+    "FIRMA-SIN-CERTIFICADO": (
+        'La firma no trae dentro el certificado con el que se hizo, así que '
+        'no hay con qué comprobarla. XML-DSig lo permite, porque da por '
+        'supuesto que quien recibe ya lo tiene o sabe dónde buscarlo, y en '
+        'una factura electrónica eso rara vez es cierto: quien la recibe es '
+        'alguien a quien no conoces. Va como aviso y no como error porque el '
+        'documento no incumple nada; lo que pasa es que todo lo que este '
+        'validador podría decir de esa firma se queda sin decir, y eso vale '
+        'más saberlo que suponerlo.'
+    ),
+    "VALIDADOR-SE-ATRAGANTA": (
+        'Este fichero ha hecho fallar al validador. No es una queja sobre la '
+        'factura: es una queja sobre este programa, y lleva el nombre de la '
+        'excepción para poder arreglarlo aquí. Sale como error del fichero a '
+        'propósito, y el porqué está medido: apuntar a una carpeta de '
+        'quinientas facturas y que la séptima estuviera mal terminaba en una '
+        'traza de Python y ninguna de las otras cuatrocientas noventa y nueve '
+        'revisada, con un código de salida idéntico al de «hay facturas con '
+        'errores». Ahora el lote sigue, el fichero que se atragantó se cuenta '
+        'como no revisado, y se dice de quién es la culpa.'
+    ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
         "cadena llega igual, pero que una autoridad estuviera cualificada "
