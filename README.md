@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1355 tests, todos en verde.
+1357 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1922,6 +1922,45 @@ es que algo está mal.
 Ninguna de las nueve muestras del Gobierno trae sus certificados intermedios:
 solo el de quien firma. Así que para encadenar de verdad hay que instalar la
 raíz **y** los intermedios, no solo la raíz. Es el caso normal, no el raro.
+
+### Quién avisa de que hay que renovarlas
+
+De que las anclas vencen avisaban tres cosas, y ninguna avisaba a quien tiene
+que arreglarlo:
+
+| Quién | Cuándo | A quién |
+|---|---|---|
+| `--montar-anclas` y `--empaquetar` | 90 días antes, por pantalla | a quien los ejecute |
+| `--empaquetar` | el día después: **se niega**, `SinRenovar` | a quien lo ejecute |
+| El informe y la página | el día después, en cada visita | **a quien entra** |
+
+El paquete está montado y versionado, así que no hay ningún motivo para volver
+a ejecutar nada: el día que venzan, **el sitio se lo dice a quien lo visita
+antes que a quien lo mantiene**, y la suite sigue verde, y el gancho de empujar
+deja publicar tan tranquilo. El reparto de papeles al revés.
+
+`tests/test_anclas_al_dia.py` lo pone del derecho. Mira lo único que de verdad
+está publicado —`web/PAQUETE.json`, que se versiona a propósito— y compara su
+`siguiente` con el día de hoy: **en rojo pasada la fecha**, y con aviso de
+pytest desde los 90 días, el mismo margen que usan las dos órdenes. En rojo
+significa que el gancho de `git push` no deja publicar, que es donde hacía
+falta que apareciera.
+
+Y no se pone en rojo antes de tiempo a propósito: una fecha que se acerca es un
+recordatorio, y bloquear los empujes con un mes por delante sólo enseña a
+saltarse el gancho.
+
+Hay una segunda prueba, y es la que sostiene a la primera: si el manifiesto se
+queda sin el campo `siguiente` —porque la lista del Estado deje de decirlo o
+porque alguien lo quite al tocar el formato—, la de arriba se salta sola con un
+`skip` **verde**. Provocado: quitando el campo, la primera dice «skipped» y la
+segunda se pone en rojo.
+
+Lo que esto **no** hace, también a propósito: no rompe el despliegue. Vercel
+monta con `--sitio --exigir-paquete`, y negarse ahí dejaría en pie el despliegue
+anterior —con el mismo paquete vencido— y de paso bloquearía cualquier arreglo
+que no tenga que ver. La página ya dice la verdad sobre sus anclas cuando
+vencen; lo que faltaba era que se enterara su autor.
 
 ## La revocación
 
