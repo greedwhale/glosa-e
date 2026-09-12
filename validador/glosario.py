@@ -122,7 +122,7 @@ CODIGOS: dict[str, str] = {
     ),
     "REVOCACION-COMPROMISO": (
         "Lo anularon porque la clave privada acabó en malas manos. Este motivo "
-        "mira hacia atrás: **todo** lo que esa clave firmó pasa a ser "
+        "mira hacia atrás y no sólo a lo que se firmara después de la denuncia: todo lo que esa clave firmó pasa a ser "
         "sospechoso, también lo anterior a la denuncia, porque quien la robó "
         "pudo firmar con fecha atrasada."
     ),
@@ -132,7 +132,7 @@ CODIGOS: dict[str, str] = {
         "vale, y la prueba no dice desde cuándo dejó de valer."
     ),
     "REVOCACION-POSTERIOR": (
-        "Lo anularon **después** de la fecha de firma. Sale como aviso cuando "
+        "Lo anularon después de la fecha de firma, y ese después lo es todo. Sale como aviso cuando "
         "esa fecha la declara quien firma —que es fiarse de su palabra— y como "
         "nota cuando un sello de tiempo de un tercero acredita que la firma ya "
         "existía. Es el mismo hecho con dos valores distintos de prueba."
@@ -189,6 +189,156 @@ CODIGOS: dict[str, str] = {
         "No hay anclas de confianza instaladas, así que solo se ha comprobado "
         "que la firma cuadra con su certificado. Un certificado que el "
         "remitente se haya inventado pasaría igual."
+    ),
+    "BR-01": (
+        'El campo donde la factura declara a qué especificación se ajusta: '
+        'el CustomizationID en UBL, el '
+        'GuidelineSpecifiedDocumentContextParameter en CII. Sale por dos '
+        'motivos que no se parecen: error cuando no está o está vacío, y '
+        'aviso cuando está pero no nombra a EN 16931 —el caso típico del ERP '
+        'configurado para otro país—. En Facturae sale como nota y no hay '
+        'nada que arreglar: la sintaxis española no tiene ningún elemento '
+        'con ese significado. Es el campo por el que un receptor de Peppol '
+        'rechaza un documento antes de mirar un solo importe.'
+    ),
+    "BR-14": (
+        'El importe total con impuestos incluidos, en la cabecera. Se mira '
+        'que el elemento esté y que no venga vacío, porque para quien lo lee '
+        'un elemento presente y sin contenido vale lo mismo que uno ausente. '
+        'En EDIFACT este total va en un MOA con el cualificador 388, y ahí '
+        'está el motivo más frecuente de que salte teniendo la factura el '
+        'dato delante: el importe está escrito, pero con el cualificador de '
+        'otra guía sectorial, y la regla europea no mira ese sitio. Cuando '
+        'pasa eso, EDI-TOTALES-DE-OTRA-GUIA lo dice al lado.'
+    ),
+    "XSD-NO-APLICA": (
+        'Sólo sale en EDIFACT. La forma del documento no se ha comprobado '
+        'contra ningún esquema XSD porque EDIFACT no es XML y no tiene '
+        'ninguno. No falta un fichero por instalar ni hay nada que arreglar '
+        'en el documento; es una decisión de quien lee —dar por buena la '
+        'forma sin esquema— y por eso se declara en vez de callarla. En su '
+        'lugar se comprueban las cuentas que la propia norma obliga a llevar '
+        'en el sobre: que el UNT repita la referencia de su UNH y cuente '
+        'bien sus segmentos, y que el UNZ cuadre con los mensajes que hay. '
+        'De eso se ocupan los códigos EDI-.'
+    ),
+    "IVA-TIPO": (
+        'No lo exige ninguna norma: compara cada tipo del desglose con los '
+        'que están vigentes en España —21%, 10%, 4% y 0%— y avisa del que no '
+        'sea ninguno. Un 19% o un 7% es perfectamente legal si la operación '
+        'tributa en otro país, y por eso es aviso y no error; lo que caza de '
+        'verdad es el dedazo, el 12% donde iba un 21%. Las categorías L y M '
+        'se saltan a propósito: el IGIC y el IPSI tienen sus propios tipos y '
+        'compararlos con los peninsulares sería acusarlos de existir.'
+    ),
+    "BR-23": (
+        'Cada línea tiene que decir en qué unidad mide lo que factura: '
+        'unidades, kilos, horas. Se dice una vez por documento y no una por '
+        'línea —cien líneas sin unidad son un problema, no cien— y el campo '
+        'enumera cuáles. En EDIFACT la unidad es el tercer componente del '
+        'QTY, y ahí está la causa que se ve en las facturas de verdad: el '
+        'cualificador es el correcto y la cantidad está, pero se escribe '
+        'QTY+47:5 en vez de QTY+47:5:PCE y el hueco de la unidad se queda '
+        'sin rellenar. Si la sintaxis no tiene dónde escribirla, sale como '
+        'nota y no hay nada que corregir.'
+    ),
+    "BR-13": (
+        'El total sin impuestos de la cabecera: lo que suman las líneas '
+        'después de descuentos y cargos y antes del IVA. Es uno de los '
+        'cuatro totales que EN 16931 exige por separado —sin impuestos, con '
+        'impuestos, a pagar y suma de líneas—, y la norma los pide todos '
+        'aunque unos se puedan deducir de otros, precisamente para poder '
+        'contrastarlos. Se mira que esté y que no venga vacío. En EDIFACT le '
+        'toca el MOA con cualificador 389, y es corriente que el importe '
+        'esté escrito con el código de otra guía.'
+    ),
+    "IVA-SIN-CATEGORIA": (
+        'No lo exige ninguna norma: avisa de que hay conceptos de línea sin '
+        'categoría de IVA, y el campo los nombra uno a uno. Importa porque '
+        'sin categoría en la línea no hay forma de contrastar el desglose '
+        'con lo que de verdad se facturó: las reglas de cuadre se quedan '
+        'mirando un desglose que puede estar impecable por dentro y no '
+        'corresponderse con ninguna línea. Cuando es la sintaxis la que no '
+        'tiene ese campo, esto se calla: acusar a una factura de no escribir '
+        'lo que su formato no puede escribir es acusarla de nada.'
+    ),
+    "BR-46": (
+        'Cada entrada del desglose tiene que decir cuánto impuesto sale, no '
+        'sólo sobre cuánto se calcula. Es de las que más importan porque su '
+        'ausencia enmudece a las demás: las reglas de cuadre se saltan lo '
+        'que viene sin valor, así que una entrada sin cuota hacía que el '
+        'desglose más roto posible saliera en el informe más limpio, y de '
+        'paso dejaba a BR-CO-14 sumando cuotas sin encontrar ninguna que '
+        'sumar. Salta una vez por entrada, y el campo dice de cuál: la del '
+        '21%, la exenta, la que sea.'
+    ),
+    "EDI-TOTALES-DE-OTRA-GUIA": (
+        'Existe para que una queja no mande a buscar un dato que la factura ya '
+        'trae. EN 16931 espera los totales en segmentos MOA con '
+        'tres cualificadores concretos —389 sin impuestos, 388 con '
+        'impuestos, 9 a pagar—, pero las facturas EDIFACT llevan décadas '
+        'circulando con las guías de cada sector, que eligieron otros: el '
+        '128, el 129, el 86. Cuando eso pasa, las reglas europeas dan por '
+        'ausente un importe que está escrito, y este aviso enseña con qué '
+        'códigos viene. Para cumplir la norma hay que cambiar el código, no '
+        'añadir el importe.'
+    ),
+    "BR-15": (
+        'Lo que hay que pagar de verdad, que no siempre es el total con '
+        'impuestos: de ahí se descuentan los anticipos ya cobrados y se suma '
+        'lo que se redondee. Por eso la norma lo pide aparte en vez de darlo '
+        'por deducido — es el único de los cuatro totales que puede diferir '
+        'legítimamente de la cuenta hecha con los otros tres, y es el que '
+        'mira quien va a ordenar la transferencia. Se comprueba que esté y '
+        'que no venga vacío.'
+    ),
+    "EDI-UNA-DE-CINCO": (
+        'Nota de EDIFACT sobre el UNA, el segmento que abre el fichero y '
+        'declara qué caracteres hacen de separadores. ISO 9735 manda seis y '
+        'éste trae cinco: falta el hueco reservado, que en la práctica es un '
+        'espacio que alguien no escribió. Se ha leído el quinto carácter '
+        'como terminador de segmento porque es la única lectura posible '
+        '—detrás del UNA sólo puede venir el UNB—, así que el fichero se ha '
+        'partido bien y no se ha perdido nada. Se dice porque es una '
+        'interpretación de quien lee, y las interpretaciones se declaran.'
+    ),
+    "BR-26": (
+        'Cada línea tiene que llevar el precio por unidad, sin impuestos. '
+        'Junto con la cantidad y la unidad es lo que separa una factura que '
+        'se puede comprobar de una que sólo se puede pagar: con el importe a '
+        'secas no hay forma de casar la línea con un albarán ni de discutir '
+        'una tarifa. El precio unitario y el importe de la línea son campos '
+        'distintos: una línea puede traer sus 1.250 € perfectamente y no '
+        'decir en ningún sitio que salen de 25 unidades a 50 €.'
+    ),
+    "BR-45": (
+        'Cada entrada del desglose tiene que declarar sobre cuánto se '
+        'calcula el impuesto. Es la pareja de BR-46 y falla por lo mismo: '
+        'sin base, la regla que comprueba que la cuota es el tipo aplicado a '
+        'la base no tiene contra qué comprobarla, y se salta la entrada en '
+        'silencio. El caso corriente es el documento que trae el total de '
+        'impuestos y no el detalle: la norma pide una entrada por cada tipo, '
+        'y cada una con su base y su cuota.'
+    ),
+    "BR-21": (
+        'Cada línea debe llevar un identificador que la distinga de las '
+        'demás. No es burocracia: sin él, una queja sobre «la línea 3» no se '
+        'refiere a nada que exista dentro del documento, y este validador '
+        'tiene que nombrar las líneas por su posición, que es lo primero que '
+        'se descuadra en cuanto alguien reordena el fichero. En Facturae '
+        'sale como nota en todas las facturas y no hay nada que arreglar: la '
+        'sintaxis española no tiene ese campo y sus líneas se nombran por el '
+        'orden en que vienen.'
+    ),
+    "BR-07": (
+        'El nombre o la razón social de quien recibe la factura, que es cosa '
+        'distinta de su identificador fiscal y de su GLN. Salta cuando el '
+        'elemento no está o está vacío. En las facturas EDIFACT reales el '
+        'motivo es casi siempre el mismo: el NAD del comprador identifica a '
+        'la parte sólo con su código y deja sin escribir el componente del '
+        'nombre, porque entre dos empresas que llevan años intercambiando '
+        'ficheros el código basta para saber quién es. Para EN 16931 no '
+        'basta: el nombre tiene que estar escrito en la factura.'
     ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
