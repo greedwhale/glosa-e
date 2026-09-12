@@ -340,6 +340,161 @@ CODIGOS: dict[str, str] = {
         'ficheros el código basta para saber quién es. Para EN 16931 no '
         'basta: el nombre tiene que estar escrito en la factura.'
     ),
+    "BR-10": (
+        'La dirección postal de quien recibe la factura. En UBL y en CII es '
+        'un elemento que la contiene entera y basta con que exista; en '
+        'EDIFACT no hay tal elemento —la calle, la ciudad, el código postal y '
+        'el país son cuatro posiciones sueltas del NAD—, así que se pregunta '
+        'por las cuatro y con una que esté, la dirección está. La diferencia '
+        'no es teórica: el EDIFACT_EXAMPLE6 de la propia Comisión trae el '
+        'país y no la calle, y con la ruta estricta salía acusado de no '
+        'llevar dirección. Que esté completa es otra cosa, y de la parte que '
+        'la norma sí exige —el país— se ocupa BR-11.'
+    ),
+    "BR-06": (
+        'El nombre o la razón social de quien emite la factura. Tiene una '
+        'trampa en UBL que no se ve leyendo el documento: el campo que la '
+        'norma pide es el nombre registral, '
+        'PartyLegalEntity/RegistrationName, y no el nombre comercial, '
+        'PartyName/Name. Una factura que sólo trae el segundo se lee '
+        'perfectamente, lleva el nombre del vendedor a la vista de '
+        'cualquiera, y salta igual, porque para EN 16931 ese campo está '
+        'vacío. En EDIFACT el nombre va en el NAD del vendedor, y falta '
+        'cuando la parte se identifica sólo con su código.'
+    ),
+    "BR-08": (
+        'La dirección postal de quien emite la factura, y lo que se comprueba '
+        'es que exista, no que esté completa. Suena poco, y es lo que la '
+        'norma pide: de la única parte que EN 16931 considera imprescindible '
+        '—el país— se ocupa BR-09 por separado, precisamente porque una '
+        'dirección sin país no sirve para decidir dónde tributa la operación. '
+        'En EDIFACT se busca en las cuatro posiciones del NAD que pueden '
+        'llevarla, igual que en la del comprador.'
+    ),
+    "EDI-VARIOS-MENSAJES": (
+        'El fichero trae varios mensajes dentro del mismo sobre UNB…UNZ, y '
+        'este validador sólo mira el primero. Es lo corriente en EDIFACT de '
+        'verdad: un sobre con la facturación de un mes entero, decenas de '
+        'INVOIC seguidos, es la forma normal de enviarla, y en el corpus de '
+        'facturas reales pasa en más de un tercio de los ficheros. No es un '
+        'defecto del documento y por eso es aviso: lo que dice es qué parte '
+        'del fichero se ha mirado, para que nadie dé por revisado lo que no '
+        'se ha revisado. Para verlos todos hay que separarlos en ficheros '
+        'aparte.'
+    ),
+    "BR-12": (
+        'La suma de los importes netos de las líneas, declarada en la '
+        'cabecera. Es el único de los cuatro totales que no es un total del '
+        'documento sino un subtotal: va antes de los descuentos y los cargos '
+        'de documento, y existe para que se pueda comprobar la parte de '
+        'arriba de la factura contra la de abajo. Sin él, BR-CO-10 —que '
+        'compara esa cifra con lo que suman las líneas de verdad— se queda '
+        'sin nada que comparar. En EDIFACT le toca el MOA con cualificador '
+        '79, y de las facturas reales del corpus que lo incumplen, 19 de 20 '
+        'no traen ese segmento en absoluto.'
+    ),
+    "BR-CO-18": (
+        'La factura no trae desglose de IVA: ni una sola entrada. La norma '
+        'pide una por cada combinación de categoría y tipo, con su base y su '
+        'cuota, y sin ninguna no hay nada que comprobar del impuesto — el '
+        'receptor la rechaza y con razón. Es error y no aviso desde que se '
+        'vio cómo fallaba antes: era un aviso que sólo saltaba si el IVA '
+        'declarado no era cero, así que una factura sin desglose y sin total '
+        'de impuestos pasaba en silencio, que es el caso peor de los dos. '
+        'Cuando hay un total de impuestos pero no el detalle, el informe lo '
+        'dice con esas palabras: tanto de IVA sin desglosar.'
+    ),
+    "BR-CO-12": (
+        'El total de cargos de documento que declara la factura no es lo que '
+        'suman los cargos que detalla. Es la pareja de BR-CO-11, que hace lo '
+        'mismo con los descuentos, y las dos se saltan enteras si el '
+        'documento no detalla ningún ajuste: de esa factura ya se queja otra '
+        'regla, y ahí el consejo útil es «detállalos» y no «la resta no '
+        'cuadra». Basta con que haya alguno detallado, de cualquiera de los '
+        'dos lados, y esa decisión tiene motivo: una factura que detalla sus '
+        'cargos y además declara un total de descuentos que no detalla deja '
+        'ese total fantasma a la vista de esta regla y de ninguna otra.'
+    ),
+    "BR-47": (
+        'Una entrada del desglose sin categoría de IVA: sin ella no se sabe '
+        'si es tipo general, exenta, no sujeta o inversión del sujeto pasivo, '
+        'y de eso depende todo lo demás que se compruebe sobre esa entrada. '
+        'Lo que hay que saber de este código es cuándo no salta: cuando es la '
+        'sintaxis la que no tiene dónde escribirla. Facturae es ese caso —su '
+        'TaxTypeCode dice qué impuesto es, no de qué categoría UNCL5305— y '
+        'sin esa distinción BR-47 salía como error en todas las facturas de '
+        'España, siempre, hicieran lo que hicieran. De ese hueco se informa '
+        'una vez y como nota.'
+    ),
+    "FIRMA-DEBIL": (
+        'La firma está hecha con SHA-1, retirado para firma electrónica desde '
+        'hace años porque se sabe fabricar dos documentos distintos con el '
+        'mismo resumen. La firma puede ser perfectamente auténtica y la '
+        'aritmética cuadrar: lo que ya no da garantías es el algoritmo, y por '
+        'eso es aviso y no error. No es un caso raro ni antiguo: sale en diez '
+        'de los ficheros firmados que hay aquí para probar, varios de ellos '
+        'de los que la Administración publica como ejemplo.'
+    ),
+    "BR-25": (
+        'Cada línea tiene que decir qué se factura en ella, con palabras. En '
+        'EDIFACT esa descripción va en el IMD en formato libre, y falta a '
+        'menudo por un motivo que tiene su lógica: la línea identifica el '
+        'artículo con su código de catálogo y quien recibe la factura ya sabe '
+        'qué es ese código, así que escribir el nombre parece redundante. '
+        'Para EN 16931 no lo es — una factura tiene que poder leerla alguien '
+        'que no tenga el catálogo delante, empezando por quien la audite.'
+    ),
+    "CU-07": (
+        'La fecha de expedición tiene más de cuatro años, que es el plazo de '
+        'prescripción. Es aviso y no error porque una factura vieja puede ser '
+        'legítima —se está revisando un ejercicio cerrado, se reemite algo—, '
+        'pero la causa habitual es mucho más tonta: el año mal tecleado. '
+        'Aparece en trece de los catorce ficheros Facturae que hay aquí, y no '
+        'porque estén mal: son los ejemplos que publica la Administración, '
+        'fechados entre 2007 y 2013.'
+    ),
+    "EDI-MENSAJE-DESCONTADO": (
+        'El UNT declara un número de segmentos distinto del que tiene el '
+        'mensaje. Esa cuenta incluye al propio UNH y al UNT, y es lo único en '
+        'todo el fichero que delata que falta un trozo: un EDIFACT al que se '
+        'le han perdido veinte segmentos por el camino se sigue leyendo sin '
+        'protestar, con sus líneas y sus totales, sólo que son menos de las '
+        'que salieron. Por eso la norma obliga a llevar la cuenta y por eso '
+        'esto es error: es el mecanismo de integridad del formato, y cuando '
+        'no cuadra, lo que se haya validado del mensaje vale poco.'
+    ),
+    "BR-24": (
+        'Hay líneas sin importe neto, y el campo dice cuáles — por su '
+        'identificador si la sintaxis lo tiene, y por su posición si no. '
+        'Además de ser obligatorio por sí mismo, este dato es el que alimenta '
+        'el cuadre: BR-CO-10 sólo compara la suma declarada con la suma real '
+        'de las líneas cuando todas tienen importe, porque sumar las que haya '
+        'e ignorar las demás daría un descuadre inventado. Así que una línea '
+        'sin importe no es un hueco suelto: deja muda a la comprobación que '
+        'caza los totales retocados a mano.'
+    ),
+    "CU-01": (
+        'El NIF del emisor no pasa su dígito de control, y eso invalida el '
+        'código único entero, porque el NIF forma parte de él: el código '
+        'único del RD 238/2026 se compone con el NIF de quien emite, el '
+        'número de la factura y su fecha. Sólo se comprueba cuando el '
+        'documento está sujeto a la facturación española — medirle el dígito '
+        'de control español a un identificador holandés es inventarse un '
+        'error, y eso es exactamente lo que hacía esta regla en 61 de 62 '
+        'facturas ajenas antes de acotarla. Salta en ocho de los catorce '
+        'ficheros Facturae de ejemplo que hay aquí, los de la propia '
+        'Administración incluidos.'
+    ),
+    "NIF-RECEPTOR": (
+        'El NIF de quien recibe la factura no pasa su dígito de control. No '
+        'lleva prefijo CU- a propósito: el código único del RD 238/2026 sólo '
+        'usa el NIF del emisor, y firmar con una norma una queja que esa '
+        'norma no hace es de las cosas que este validador no hace. Sale como '
+        'aviso de la casa, y sale porque a quien recibe la factura le importa '
+        'mucho: con el NIF mal no puede deducirse el IVA soportado y la '
+        'devuelve. Sólo se mide en documentos sujetos a la facturación '
+        'española, y nunca sobre un identificador que se ve que es de fuera.'
+    ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
         "cadena llega igual, pero que una autoridad estuviera cualificada "

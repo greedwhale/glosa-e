@@ -273,7 +273,15 @@ def _resumen(uno: Codigo) -> str:
     gravedad = (
         ", ".join(gs[:-1]) + " o " + gs[-1] if len(gs) > 1 else (gs or ["aviso"])[0]
     )
-    cabeza = f"{uno.codigo} en una factura electrónica: {gravedad} de {etiqueta}."
+    # «De la casa» es el rótulo de la tabla, donde va solo y en su columna. En
+    # una frase queda «aviso de De la casa», que es de las cosas que hacen
+    # pensar que la página la escribió una máquina — y son las tres únicas que
+    # no responden a ninguna norma, o sea justo las que más falta hace que se
+    # lean bien.
+    de_quien = (
+        "propio de este validador" if etiqueta == "De la casa" else f"de {etiqueta}"
+    )
+    cabeza = f"{uno.codigo} en una factura electrónica: {gravedad} {de_quien}."
     if not texto:
         return f"{cabeza} Qué gravedad tiene y de dónde sale la exigencia."
     sitio = 158 - len(cabeza)
