@@ -19,6 +19,8 @@ romper es que dejen de encajar.
 """
 from __future__ import annotations
 
+import pytest
+
 from validador.codigos import codigos_del_paquete
 from validador.glosario import CODIGOS, FAMILIAS, explicar
 
@@ -46,10 +48,25 @@ def test_ninguna_explicacion_escrita_sobra():
 
 
 def test_un_codigo_sin_explicacion_propia_hereda_la_de_su_familia():
-    texto, propia = explicar("BR-22", "BR")
-    assert texto, "BR-22 no recibe ni la explicación de su familia"
-    assert propia is False, "BR-22 no tiene explicación propia, y se dice así"
-    assert texto == FAMILIAS["BR"]
+    """Se busca uno de los que aún no la tienen en vez de nombrar a ninguno.
+
+    Nombraba a BR-22, y el día que a BR-22 se le escribió la suya esta prueba
+    se puso en rojo sin que nada estuviera mal. Un ejemplo escrito a mano
+    envejece igual que una cifra escrita a mano, y aquí van a envejecer todos:
+    las explicaciones se están escribiendo por tandas, así que el ejemplo
+    bueno de hoy es el que deja de serlo mañana.
+    """
+    pendientes = [c for c in codigos_del_paquete() if c.codigo not in CODIGOS]
+    if not pendientes:
+        pytest.skip("ya no queda ningún código sin explicación propia")
+
+    uno = pendientes[0]
+    texto, propia = explicar(uno.codigo, uno.familia)
+    assert texto, f"{uno.codigo} no recibe ni la explicación de su familia"
+    assert propia is False, (
+        f"{uno.codigo} no está en CODIGOS y `explicar` dice que su explicación "
+        "es propia")
+    assert texto == FAMILIAS[uno.familia]
 
 
 def test_un_codigo_desconocido_no_se_inventa_nada():

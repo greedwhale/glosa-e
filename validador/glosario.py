@@ -495,6 +495,152 @@ CODIGOS: dict[str, str] = {
         'devuelve. Sólo se mide en documentos sujetos a la facturación '
         'española, y nunca sobre un identificador que se ve que es de fuera.'
     ),
+    "BR-CO-10": (
+        'La suma de importes de línea que declara la cabecera no coincide con '
+        'lo que suman las líneas de verdad. Es la comprobación que caza el '
+        'retoque a mano: una línea añadida, borrada o cambiada de importe sin '
+        'volver a calcular el total de arriba. Sólo se hace cuando todas las '
+        'líneas tienen su importe —si falta alguno salta BR-24 y ésta se '
+        'calla, porque sumar las que haya e ignorar las demás daría un '
+        'descuadre inventado—, y el informe enseña las dos cifras y de '
+        'cuántas líneas sale la suma real, que es lo que hace falta para '
+        'encontrar la que baila.'
+    ),
+    "BR-22": (
+        'Cada línea tiene que decir cuántas unidades factura. Es la pareja de '
+        'BR-23, que mira la unidad de medida, y en EDIFACT las dos viajan en '
+        'el mismo sitio: el compuesto del QTY con cualificador 47, donde la '
+        'cifra y la unidad son dos posiciones seguidas. Por eso se suelen ver '
+        'juntas, y por eso conviene mirarlas juntas: si falta la cantidad, es '
+        'que falta el QTY entero o que lleva otro cualificador; si sólo falta '
+        'la unidad, el segmento está y le falta un trozo.'
+    ),
+    "BR-48": (
+        'Una entrada del desglose sin tipo de IVA. La única que puede ir sin '
+        'él es la categoría O, lo no sujeto, porque no hay nada que aplicar; '
+        'en todas las demás el tipo es obligatorio, incluida la exenta —cuyo '
+        'tipo es cero, que no es lo mismo que no tener tipo—. Aquí sólo se '
+        'mira que el tipo esté. Que sea el que le corresponde a su categoría '
+        'lo miran otras reglas, las BR-{X}-5, una por cada categoría.'
+    ),
+    "EDI-SOBRE-DESCUADRADO": (
+        'El UNZ que cierra el intercambio no repite la referencia que puso el '
+        'UNB al abrirlo. Esa referencia es lo que ata el principio con el '
+        'final: si no coinciden, o el fichero junta trozos de dos '
+        'intercambios distintos, o alguien reescribió una de las dos puntas. '
+        'Es uno de los dos controles que EDIFACT lleva incorporados en el '
+        'sobre —el otro es el recuento— y son los únicos que hay, porque un '
+        'EDIFACT no tiene esquema contra el que medirse.'
+    ),
+    "SELLO-FALTA": (
+        'La firma no lleva sello de tiempo de un tercero, y eso no es una '
+        'queja sino un dato. '
+        'Importa porque para saber si un certificado estaba vigente y sin '
+        'anular al firmar hace falta saber cuándo se firmó, y sin sello la '
+        'única fecha disponible es la que declara quien firma — o sea, su '
+        'palabra. La nota dice cuál se ha usado y con qué valor, que es '
+        'exactamente lo que hay que saber para decidir cuánto vale el resto '
+        'del informe. Un sello de una autoridad de sellado convierte esa '
+        'palabra en una prueba.'
+    ),
+    "EDI-SOBRE-DESCONTADO": (
+        'El UNZ dice llevar un número de mensajes distinto del que hay. Es el '
+        'control de integridad del sobre, hermano del UNT de cada mensaje, y '
+        'sirve para lo mismo: delatar un fichero al que le falta un trozo, '
+        'que por dentro se sigue leyendo sin protestar. Tiene una trampa que '
+        'aquí está contemplada: cuando el intercambio lleva grupos '
+        'funcionales, UNG…UNE, el UNZ cuenta grupos y no mensajes, así que '
+        'contar mensajes contra ese número acusaría en falso a un fichero '
+        'perfectamente correcto.'
+    ),
+    "FE-SIN-GRAVAR": (
+        'La factura declara una base antes de impuestos y sólo una parte de '
+        'ella aparece como base de un impuesto: queda dinero facturado sin '
+        'gravar ni justificar, y el informe dice cuánto exactamente. Es aviso '
+        'y no error porque el esquema de Facturae no lo escribe como fórmula '
+        'y hay regímenes donde la base del impuesto no es el importe '
+        'facturado —el especial del grupo de entidades, el de agencias de '
+        'viajes—. Pero es la comprobación que caza el fallo que más dinero '
+        'mueve, y sin ella dos de las nueve facturas oficiales de prueba '
+        'pasan sin que nadie diga que les falta base por gravar.'
+    ),
+    "IVA-TIPO-SIN-DESGLOSE": (
+        'Hay conceptos a un tipo que el desglose no recoge. La norma habla de '
+        'categorías, pero el desglose va por categoría y tipo, y ahí se cuela '
+        'media factura: si hay conceptos al 21% y al 10% y el desglose sólo '
+        'trae el 21%, la categoría está declarada, las reglas europeas quedan '
+        'contentas y falta la mitad del impuesto. Sin esta comprobación sólo '
+        'se veía la otra mitad del error —la base que no cuadra—, que es la '
+        'consecuencia y no la causa. El informe dice cuánto hay a ese tipo y '
+        'en qué conceptos.'
+    ),
+    "BR-03": (
+        'La fecha de expedición de la factura. Se comprueba que esté y que no '
+        'venga vacía; de que sea razonable se ocupan las reglas del código '
+        'único, que miran si es futura o si tiene más años que el plazo de '
+        'prescripción. En EDIFACT hay un sitio donde buscarla y sólo uno: el '
+        'DTM con cualificador 137. Una factura que traiga sus fechas con '
+        'otros cualificadores —la de entrega, la del pedido, la de '
+        'vencimiento— tiene fechas de sobra y ninguna que la norma acepte '
+        'como la de expedición.'
+    ),
+    "BR-CO-17": (
+        'La cuota declarada para una entrada del desglose no sale de aplicar '
+        'su tipo a su base. La cuenta es exactamente ésa —base por tipo entre '
+        'cien, redondeada a dos decimales— y el informe enseña la operación '
+        'hecha, no sólo el resultado, para que se vea dónde está la '
+        'diferencia. El caso corriente no es un error de multiplicación: es '
+        'redondear línea a línea y luego sumar, que da un céntimo de más o de '
+        'menos frente a redondear el total una sola vez. Un céntimo basta '
+        'para que un receptor automático rechace la factura.'
+    ),
+    "EDI-ETIQUETA-IMPOSIBLE": (
+        'Hay texto donde tenía que empezar un segmento. Una etiqueta EDIFACT '
+        'son tres caracteres, así que lo que hay ahí no es una. Lo que suele '
+        'haber detrás es concreto y tiene arreglo: un apóstrofo dentro de un '
+        'dato —un nombre, una dirección— escrito sin el carácter de escape '
+        'delante, y el segmento se partió por ahí como si hubiera terminado. '
+        'El trozo suelto se deja fuera para no arrastrar el fallo al resto '
+        'del fichero, pero el dato que llevara está perdido, y eso hay que '
+        'saberlo.'
+    ),
+    "BR-09": (
+        'La dirección del vendedor no incluye el código de país. Es la única '
+        'parte de una dirección postal que EN 16931 considera imprescindible, '
+        'y no por pulcritud: de dónde está establecido quien emite depende '
+        'dónde tributa la operación, y eso lo decide un código de dos letras. '
+        'Esta regla no salta cuando no hay dirección ninguna —de eso ya se '
+        'queja BR-08, y con mejor consejo—: sólo cuando hay dirección y le '
+        'falta el país, que es un descuido distinto.'
+    ),
+    "BR-CO-11": (
+        'El total de descuentos de documento que declara la factura no es lo '
+        'que suman los descuentos que detalla. Los descuentos de documento '
+        'son los que se aplican a la factura entera y no a una línea —el '
+        'pronto pago, el rappel—, y el error típico es declarar el total y no '
+        'detallarlo, o detallar uno y declarar dos. Es la pareja de BR-CO-12, '
+        'que hace lo mismo con los cargos, y las dos callan si el documento '
+        'no detalla ningún ajuste, porque entonces el consejo útil es otro.'
+    ),
+    "FE-LINEA-SIN-GRAVAR": (
+        'Una línea factura un importe y declara como base de impuesto menos '
+        'de lo que factura: queda una parte sin gravar ni justificar, y el '
+        'aviso dice cuánto y en qué línea. Es la versión por línea de '
+        'FE-SIN-GRAVAR, y la que más sirve de las dos: el descuadre del total '
+        'dice que falta dinero por gravar, y éste dice en qué concepto. Es '
+        'aviso porque el esquema de Facturae no lo escribe como fórmula, y '
+        'aun así es donde se ve antes el fallo más caro que puede tener una '
+        'factura: facturar algo y no declararlo.'
+    ),
+    "BR-05": (
+        'La factura tiene que decir en qué moneda está. Sin eso, todos los '
+        'importes del documento son números sin unidad, y un receptor que '
+        'suponga euros donde había libras se equivoca en un 15% sin que salte '
+        'nada. En EDIFACT la moneda va en el CUX con cualificador 2, y es el '
+        'único sitio donde esta regla mira: una factura que la declare con '
+        'otro cualificador la lleva escrita, se lee perfectamente, y para la '
+        'norma no está.'
+    ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
         "cadena llega igual, pero que una autoridad estuviera cualificada "
