@@ -403,3 +403,31 @@ def test_lo_que_la_portada_dice_de_otros_lleva_fecha_y_donde_mirarlo():
         "enlace(s): lo que se dice de un tercero se enlaza a donde lo dice el")
     assert "mailto:" in nota, (
         "la nota de procedencia no deja avisar de que algo de esto ya no vale")
+
+def test_la_linea_de_autoria_es_la_misma_en_las_seis_paginas():
+    """Copiada en seis sitios, y por lo mismo que el menú: sin plantilla.
+
+    Una línea de autoría que dice una cosa en la portada y otra en el aviso
+    legal es peor que no tenerla — dice que nadie mira. Se compara letra por
+    letra, que es como se rompen estas cosas.
+    """
+    RE_FIRMA = re.compile(r'<p class="firma-pie">(.*?)</p>', re.S)
+    dicen = {}
+    for pagina in PAGINAS:
+        texto = (RAIZ / "web" / pagina).read_text(encoding="utf-8")
+        encaje = RE_FIRMA.search(texto)
+        assert encaje, f"«{pagina}» se ha quedado sin la línea de autoría"
+        dicen[pagina] = encaje.group(1)
+
+    distintas = {p: d for p, d in dicen.items() if d != dicen["index.html"]}
+    assert not distintas, (
+        "la línea de autoría de la portada y la de "
+        + ", ".join(f"«{p}»" for p in distintas)
+        + " ya no dicen lo mismo")
+
+    # «Todos los derechos reservados» sería falso aquí: el validador se publica
+    # bajo AGPL y cualquiera puede usarlo y modificarlo. La línea habla de los
+    # textos, que es lo que sí está reservado.
+    assert "derechos reservados" not in dicen["index.html"].lower(), (
+        "el código es AGPL-3.0-only: decir que todos los derechos están "
+        "reservados contradice la licencia que el propio sitio publica")

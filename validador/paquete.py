@@ -765,8 +765,97 @@ def _sitemap(paginas: list[str]) -> str:
     )
 
 
+# Un enlace a otro sitio se abre en otra pestaña.
+#
+# Se hace aquí y no a mano en cada página por lo de siempre: a mano se escriben
+# los de hoy y se olvidan los de mañana. Hoy son ocho —dos en la portada, uno
+# en el aviso legal, cinco en una entrada de la bitácora— y cada entrada nueva
+# trae los suyos, porque la bitácora **exige** un pie de fuentes con un enlace.
+#
+# `noopener` no es cosmética: sin él la página que se abre recibe un puntero a
+# esta por `window.opener` y puede cambiarla de sitio desde su pestaña. Y
+# `noreferrer` para no ir contando a un tercero desde dónde se llega.
+_RE_ANCLA = re.compile(r"<a\b[^>]*>", re.I)
+_RE_HREF = re.compile(r'href="([^"]*)"', re.I)
+_RE_REL = re.compile(r'rel="([^"]*)"', re.I)
+
+
+def _es_de_fuera(url: str) -> bool:
+    return url.startswith(("http://", "https://")) and not url.startswith(DOMINIO)
+
+
+def _hacia_fuera(texto: str) -> tuple[str, int]:
+    """Le pone `target` y `rel` a los enlaces que se van del sitio."""
+    cuantos = 0
+
+    def _una(encaje: re.Match[str]) -> str:
+        nonlocal cuantos
+        etiqueta = encaje.group(0)
+        href = _RE_HREF.search(etiqueta)
+        if not href or not _es_de_fuera(href.group(1)) or "target=" in etiqueta:
+            return etiqueta
+        cuantos += 1
+        rel = _RE_REL.search(etiqueta)
+        if rel:
+            valores = sorted(set(rel.group(1).split()) | {"noopener", "noreferrer"})
+            etiqueta = (etiqueta[: rel.start()] + 'rel="' + " ".join(valores)
+                        + '"' + etiqueta[rel.end():])
+        else:
+            etiqueta = etiqueta[:-1].rstrip() + ' rel="noopener noreferrer">'
+        return etiqueta[:-1].rstrip() + ' target="_blank">'
+
+    return _RE_ANCLA.sub(_una, texto), cuantos
+
+
+# El buzón al que escribir si alguien encuentra un fallo de seguridad, donde se
+# busca: `.well-known/security.txt`, que es el RFC 9116. Quien investiga mira
+# ahí primero, y si no encuentra a dónde escribir lo normal es que lo publique
+# en vez de contarlo. En una herramienta que verifica firmas eso importa.
+#
+# El `Expires` se calcula al montar y no se escribe a mano **a propósito**: es
+# una fecha obligatoria, y una caducada dice que esto está abandonado. Puesta
+# aquí, cada despliegue la renueva; si el sitio pasa un año sin desplegarse,
+# caduca, que es exactamente lo que hay que decir en ese caso.
+_INVESTIGADORES = ".well-known"
+_SEGURIDAD = "security.txt"
+
+
+def _correo_del_titular(pagina: Path) -> str:
+    codigo = (pagina / _CARGADOR).read_text(encoding="utf-8")
+    dentro = codigo[codigo.index("const TITULAR = {"):]
+    dentro = dentro[: dentro.index("};")]
+    return dict(re.findall(r'(\w+):\s*"([^"]*)"', dentro)).get("correo", "")
+
+
+def _para_investigadores(destino: Path, correo: str, hoy: date) -> Path:
+    if not correo:
+        raise SinPagina(
+            "La ficha de `glosa.js` no tiene correo, así que no hay a dónde "
+            "decirle a nadie que avise de un fallo de seguridad. Un "
+            "`security.txt` sin `Contact` no es válido y es peor que no "
+            "tenerlo: promete un buzón que no existe."
+        )
+    caduca = hoy.replace(year=hoy.year + 1)
+    carpeta = destino / _INVESTIGADORES
+    carpeta.mkdir(parents=True, exist_ok=True)
+    fichero = carpeta / _SEGURIDAD
+    fichero.write_text(
+        "# Glosa-e. Si encuentras un fallo de seguridad, escribe aquí antes\n"
+        "# de publicarlo. Se contesta, y se dice qué se ha hecho con lo que\n"
+        "# cuentes. El código del validador es AGPL-3.0-only y viaja entero\n"
+        "# al navegador: se puede leer sin pedir permiso.\n"
+        f"Contact: mailto:{correo}\n"
+        f"Expires: {caduca.isoformat()}T00:00:00Z\n"
+        "Preferred-Languages: es, en\n"
+        f"Canonical: {DOMINIO}/{_INVESTIGADORES}/{_SEGURIDAD}\n",
+        encoding="utf-8",
+    )
+    return fichero
+
+
 def _para_buscadores(destino: Path) -> int:
-    """Canónica y tarjeta en cada página, y el par de ficheros de rigor."""
+    """Canónica, tarjeta y enlaces de salida en cada página, y los ficheros
+    de rigor."""
     paginas = sorted(p.name for p in destino.glob("*.html"))
     if not paginas:
         raise SinPagina(
@@ -775,10 +864,9 @@ def _para_buscadores(destino: Path) -> int:
         )
     for nombre in paginas:
         ruta = destino / nombre
+        texto, _ = _hacia_fuera(ruta.read_text(encoding="utf-8"))
         ruta.write_text(
-            _con_tarjeta(ruta.read_text(encoding="utf-8"), _direccion(nombre), nombre),
-            encoding="utf-8",
-        )
+            _con_tarjeta(texto, _direccion(nombre), nombre), encoding="utf-8")
     (destino / "robots.txt").write_text(
         "User-agent: *\n"
         "Allow: /\n"
@@ -1110,6 +1198,7 @@ def montar_sitio(
     # de las huellas a propósito, porque las huellas tienen que ser las del
     # fichero que de verdad se publica.
     _para_buscadores(destino)
+    _para_investigadores(destino, _correo_del_titular(pagina), date.today())
 
     huellas = {}
     for camino in sorted(destino.rglob("*")):

@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1347 tests, todos en verde.
+1355 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3388,6 +3388,55 @@ Abajo, la tarjeta dice tres cosas y en este orden: *forma, contenido y firma* ·
 comprobaciones van primero porque **la firma es la que no hace ningún otro
 validador gratuito**, y en una tarjeta que se mira dos segundos eso es lo único
 que hay que conseguir que se lea.
+
+### El buzón para quien encuentre un fallo
+
+`/.well-known/security.txt`, que es el RFC 9116: el fichero donde mira quien
+investiga **antes** de avisar a nadie. Si no encuentra a dónde escribir, lo
+normal es que publique el fallo en vez de contarlo, y en una herramienta que
+verifica firmas eso importa.
+
+La dirección de `Contact` no está escrita ahí: sale del `TITULAR` de
+`glosa.js`, que es donde vive la única copia buena. Si esa ficha se queda sin
+correo —y puede, que es justo lo que mira `hayIdentificacion()`—, **el sitio no
+se monta**: un `security.txt` que promete un buzón que no existe es peor que no
+tenerlo.
+
+El `Expires` es obligatorio y es una fecha, o sea de las que se pudren. Se
+calcula al montar, un año por delante, y por eso no está escrito a mano: cada
+despliegue la renueva, y si el sitio pasa un año sin desplegarse caduca — que
+es exactamente lo que hay que decirle a quien pase por ahí.
+
+### Los enlaces que se van del sitio
+
+`target="_blank"` y `rel="noopener noreferrer"`, puestos al montar y no a mano
+en cada página. A mano se escriben los de hoy y se olvidan los de mañana, y aquí
+eso está garantizado: la bitácora **exige** un pie de fuentes con un enlace, así
+que cada entrada nueva trae los suyos.
+
+`noopener` no es comodidad. Sin él, la página que se abre recibe un puntero a
+esta por `window.opener` y puede cambiarla de sitio desde su propia pestaña; con
+`noreferrer`, además, no se le va contando a un tercero desde dónde se llega.
+Lo que ya traía `rel` no se pierde: el `nofollow` de los dos validadores que se
+citan en la portada está puesto a propósito, que una cosa es citarlos y otra
+regalarles posición.
+
+### La línea de autoría, y lo que no dice
+
+En el pie de las seis páginas: **© 2026 Glosa-e · Los textos, de su autor.**
+
+No dice «todos los derechos reservados», que es lo que se estila, por dos
+razones. La primera es que esa fórmula viene de un tratado americano de 1910 y
+dejó de tener efecto en 2000, cuando el último país que faltaba entró en el
+Convenio de Berna; hoy no reserva nada que no estuviera reservado igual. La
+segunda es que **aquí sería falsa**: el validador se publica bajo AGPL-3.0-only
+y su código entero viaja al navegador de quien abre la página. Decir que todos
+los derechos están reservados contradiría la licencia que el propio sitio
+publica dos líneas más abajo. Hay una prueba que lo comprueba.
+
+Lo que sí está reservado son los textos, que es lo que la línea dice. Y quién es
+dueño de cada cosa —los XSD de la AEAT, de OASIS y de UN/CEFACT; las anclas, del
+Estado— ya lo desglosa el aviso legal, que dice más que un símbolo.
 
 ## Por qué este y no otro, contestado sin pedir fe
 

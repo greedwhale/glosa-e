@@ -290,6 +290,7 @@ class TestElPaqueteDeVerdad:
 # importan aquí. Son las que dicen dónde busca el wheel y los ejemplos, y las
 # comparten las dos páginas.
 CARGADOR = """const VERSION_PYODIDE = "{}";
+const TITULAR = {{ nombre: "Glosa-e", correo: "contacto@glosa-e.com" }};
 const DIST = "../dist/";
 const EJEMPLOS_EN = "../ejemplos/";
 const PYODIDE_EN = "../vendor/pyodide/";
@@ -310,12 +311,19 @@ CANDADO = {
 # pone a cada una su canónica y su tarjeta social, una sin `<head>`, sin
 # `<title>` o sin descripción **no se publica**, y con razón. Una plantilla de
 # prueba sin nada de eso probaba un montaje que ya no existe.
+# Lleva los tres enlaces que hay que distinguir: uno que se va del sitio, uno
+# de casa y uno que ya trae `rel`. Sin ellos, la prueba de que los de fuera se
+# abren aparte no probaría nada.
 PAGINA = """<!doctype html>
 <head><title>glosa</title>
 <meta name="description" content="La de prueba.">
 <link rel="stylesheet" href="./glosa.css">
 <script src="./glosa.js"></script>
-</head><body></body>
+</head><body>
+<a href="https://www.boe.es/uno">el BOE</a>
+<a href="./legal.html">de casa</a>
+<a href="https://aidoks.eu/dos" rel="nofollow">con rel</a>
+</body>
 """
 
 ESTILO = ('@font-face { src: url("./letra/literata.woff2?v=abc12345"); }\n'
@@ -1245,3 +1253,93 @@ class TestParaQueSeLlegueDesdeFuera:
         with pytest.raises(paquete.SinPagina) as motivo:
             _montar(repositorio)
         assert "descripción" in str(motivo.value)
+
+
+class TestLosEnlacesQueSeVanDelSitio:
+    """Un enlace a otro sitio se abre en otra pestaña, y sin dejar el mando.
+
+    Se resuelve al montar y no a mano en cada página por lo de siempre: a mano
+    se escriben los de hoy y se olvidan los de mañana. Y `noopener` no es
+    cosmética —sin él la página que se abre puede cambiar de sitio a esta desde
+    su propia pestaña—, así que esto no es un detalle de comodidad.
+    """
+
+    def _enlaces(self, sitio) -> str:
+        return (sitio / "index.html").read_text(encoding="utf-8")
+
+    def test_el_que_se_va_se_abre_aparte_y_sin_dejar_el_mando(self, repositorio):
+        texto = self._enlaces(_montar(repositorio).carpeta)
+        salida = re.search(r'<a href="https://www\.boe\.es/uno"[^>]*>', texto)
+        assert salida, "el enlace de fuera ha desaparecido de la página"
+        assert 'target="_blank"' in salida.group(0)
+        assert "noopener" in salida.group(0)
+        assert "noreferrer" in salida.group(0)
+
+    def test_el_de_casa_se_queda_en_casa(self, repositorio):
+        texto = self._enlaces(_montar(repositorio).carpeta)
+        casa = re.search(r'<a href="\./legal\.html"[^>]*>', texto)
+        assert casa and "target=" not in casa.group(0), (
+            "un enlace del propio sitio abriendo pestaña nueva es ruido: se "
+            "va llenando el navegador de copias de la misma página")
+
+    def test_el_rel_que_ya_traia_no_se_pierde(self, repositorio):
+        """`nofollow` estaba puesto a propósito: no se le regala posición a un
+        competidor por citarlo. Añadir `noopener` no puede quitarlo."""
+        texto = self._enlaces(_montar(repositorio).carpeta)
+        con_rel = re.search(r'<a href="https://aidoks\.eu/dos"[^>]*>', texto)
+        assert con_rel, "el enlace con rel ha desaparecido"
+        for señal in ("nofollow", "noopener", "noreferrer"):
+            assert señal in con_rel.group(0), señal
+
+    def test_ninguna_pagina_montada_deja_uno_suelto(self, repositorio):
+        """El recuento, que es lo que caza al que se añada mañana."""
+        sitio = _montar(repositorio).carpeta
+        for pagina in sorted(sitio.glob("*.html")):
+            texto = pagina.read_text(encoding="utf-8")
+            for etiqueta in re.findall(r"<a\b[^>]*>", texto):
+                url = re.search(r'href="([^"]*)"', etiqueta)
+                if not url or not paquete._es_de_fuera(url.group(1)):
+                    continue
+                assert 'target="_blank"' in etiqueta, f"{pagina.name}: {etiqueta}"
+
+
+class TestElBuzonDeSeguridad:
+    """`.well-known/security.txt`, que es donde se mira antes de avisar.
+
+    Quien encuentra un fallo mira ahí primero; si no encuentra a dónde
+    escribir, lo normal es que lo publique en vez de contarlo. En algo que
+    verifica firmas, eso importa.
+    """
+
+    def test_esta_donde_se_busca_y_dice_a_quien_escribir(self, repositorio):
+        sitio = _montar(repositorio).carpeta
+        texto = (sitio / ".well-known" / "security.txt").read_text(encoding="utf-8")
+        assert "Contact: mailto:contacto@glosa-e.com" in texto
+        assert f"Canonical: {paquete.DOMINIO}/.well-known/security.txt" in texto
+
+    def test_caduca_dentro_de_un_anio_y_no_ayer(self, repositorio):
+        """Un `security.txt` caducado dice que esto está abandonado.
+
+        Por eso la fecha se calcula al montar y no se escribe a mano: cada
+        despliegue la renueva, y si el sitio pasa un año sin desplegarse
+        caduca, que es justo lo que hay que decir en ese caso.
+        """
+        sitio = _montar(repositorio).carpeta
+        texto = (sitio / ".well-known" / "security.txt").read_text(encoding="utf-8")
+        dicha = re.search(r"Expires: (\d{4}-\d{2}-\d{2})T", texto)
+        assert dicha, "no dice cuándo caduca, y el RFC 9116 lo exige"
+        caduca = date.fromisoformat(dicha.group(1))
+        assert caduca > date.today(), "nace caducado"
+        assert (caduca - date.today()).days <= 366
+
+    def test_sin_correo_en_la_ficha_no_se_promete_un_buzon(self, repositorio):
+        """La ficha se puede vaciar —lo hace `hayIdentificacion()`— y entonces
+        un `security.txt` mandaría a escribir a nadie."""
+        cargador = repositorio / "web" / "glosa.js"
+        cargador.write_text(
+            cargador.read_text(encoding="utf-8").replace(
+                'correo: "contacto@glosa-e.com"', 'correo: ""'),
+            encoding="utf-8")
+        with pytest.raises(paquete.SinPagina) as motivo:
+            _montar(repositorio)
+        assert "security.txt" in str(motivo.value)
