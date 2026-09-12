@@ -1259,6 +1259,235 @@ CODIGOS: dict[str, str] = {
         'estaba retirada, se dice con esas palabras y no con la jerga de '
         'dentro.'
     ),
+    "FE-LINEA-COSTE": (
+        'El coste total de una línea no es la cantidad por el precio '
+        'unitario. Es la multiplicación más simple de la factura y la regla '
+        'no sale de ninguna interpretación: está escrita en el propio esquema '
+        'de Facturae, que define ese campo como el resultado de multiplicar '
+        'esos dos. Por eso es error y no aviso. El informe enseña la '
+        'operación con sus dos factores, porque el fallo típico no es la '
+        'multiplicación sino un precio unitario cambiado a mano sin tocar el '
+        'total, o al revés.'
+    ),
+    "FE-LINEA-BRUTO": (
+        'El importe bruto de una línea no es su coste total menos los '
+        'descuentos más los cargos de esa línea. Es el segundo escalón dentro '
+        'de la línea —el primero lo comprueba FE-LINEA-COSTE— y el esquema lo '
+        'escribe como fórmula, de ahí que sea error. Los descuentos y cargos '
+        'que entran son los de la línea, no los generales de la factura: '
+        'Facturae tiene los dos niveles y mezclarlos es el error de lectura '
+        'más común al integrar el formato. El informe nombra la línea por su '
+        'descripción, no sólo por su número.'
+    ),
+    "FE-AJUSTE": (
+        'El importe de un descuento o de un cargo no sale de aplicar su '
+        'propio porcentaje a lo que debería aplicarse. Facturae deja declarar '
+        'las dos cosas, el porcentaje y el importe, y cuando no cuadran una '
+        'de las dos sobra o está mal; lo corriente es que el porcentaje se '
+        'cambiara y el importe se quedara. La comprobación se hace en los dos '
+        'niveles: sobre el coste de la línea para los ajustes de línea, y '
+        'sobre el importe bruto total para los generales. El informe llama al '
+        'ajuste por su motivo escrito —«pronto pago», «portes»— y no por su '
+        'posición.'
+    ),
+    "FE-CUOTA": (
+        'La cuota de un impuesto no sale de aplicar su tipo a su base. Aquí '
+        'va como aviso, y la diferencia con la regla europea equivalente no '
+        'es un descuido: EN 16931 manda que la cuota salga de esa cuenta y '
+        'este validador lo trata como error cuando aplica; el esquema de '
+        'Facturae dice justo lo contrario sobre su propio campo, que la '
+        'legislación de cada impuesto determina cómo se calcula la cuota. Si '
+        'la fuente se abstiene, aquí no se sentencia: se dice la diferencia, '
+        'se enseña la cuenta, y quien sepa de ese impuesto decide.'
+    ),
+    "FE-RECARGO": (
+        'El recargo de equivalencia no sale de aplicar su porcentaje a la '
+        'misma base que el impuesto. El recargo es un impuesto español que '
+        'casi ningún formato europeo modela: lo paga el minorista al '
+        'proveedor, viaja pegado al IVA de la línea y usa exactamente su '
+        'misma base, que es lo que dice el esquema al definir el campo. Va '
+        'como aviso por la misma razón que FE-CUOTA. Importa porque el '
+        'recargo forma parte del total repercutido, así que un recargo mal '
+        'calculado descuadra después un total que parecía no tener nada que '
+        'ver.'
+    ),
+    "FE-BRUTO": (
+        'El importe bruto total de la factura no es la suma de los importes '
+        'brutos de sus líneas. Es el mismo cuadre que hace BR-CO-10 en el '
+        'mundo europeo, con otro nombre, y suele ser una línea añadida o '
+        'cambiada sin recalcular el total de arriba. Sólo se comprueba cuando '
+        'todas las líneas traen su importe bruto: sumar las que haya e '
+        'ignorar el resto daría un descuadre inventado. El informe dice de '
+        'cuántas líneas sale la suma real, que es lo que hace falta para '
+        'saber si falta una o si hay una de más.'
+    ),
+    "FE-DESCUENTOS": (
+        'El total general de descuentos no es la suma de los descuentos que '
+        'la factura detalla. El esquema lo dice con esas palabras —sumatorio '
+        'de los importes de los campos de descuento general— y por eso es '
+        'error. El caso corriente es declarar un total redondo y detallar '
+        'sólo uno de los conceptos que lo componen, y entonces el descuadre '
+        'se arrastra hacia abajo: la base antes de impuestos sale de restar '
+        'este total, así que un descuento mal sumado mueve el impuesto y el '
+        'total de la factura.'
+    ),
+    "FE-CARGOS": (
+        'El total general de cargos no es la suma de los cargos que la '
+        'factura detalla. Es la pareja de FE-DESCUENTOS y se separa de ella a '
+        'propósito, porque el error se arregla en sitios distintos: los '
+        'cargos generales son portes, gastos financieros, recargos por pedido '
+        'mínimo, y suelen venir de un módulo distinto del que calcula los '
+        'descuentos. Además suma en lugar de restar, así que un cargo '
+        'declarado y no detallado infla la base imponible y con ella el '
+        'impuesto: se factura de más sin que ninguna línea lo diga.'
+    ),
+    "FE-BASE": (
+        'La base antes de impuestos no cuadra con el importe bruto menos los '
+        'descuentos generales más los cargos generales. Es el eslabón que une '
+        'las líneas con los impuestos: por debajo está FE-BRUTO, que cuadra '
+        'las líneas contra el bruto total, y por encima FE-TOTAL, que lleva '
+        'esta base hasta el total de la factura. Cuando saltan las tres '
+        'seguidas, el error está casi siempre en la de más abajo y las otras '
+        'dos son su eco. El esquema escribe esta fórmula literalmente, así '
+        'que no hay margen de interpretación.'
+    ),
+    "FE-REPERCUTIDOS": (
+        'El total de impuestos repercutidos no es la suma de las cuotas del '
+        'desglose. Con un detalle que no está en ningún formato europeo: en '
+        'esa suma entran también los recargos de equivalencia, porque el '
+        'esquema define el campo como el sumatorio de todas las cuotas y '
+        'recargos. Es justo lo que hace que este total de Facturae no sea '
+        'comparable con el BT-110 europeo, que sólo suma cuotas de IVA, y por '
+        'eso la regla europea equivalente no se mide contra este campo. Aquí '
+        'sí, porque aquí la definición es otra y está escrita.'
+    ),
+    "FE-RETENIDOS": (
+        'El total de impuestos retenidos no es la suma de las retenciones que '
+        'la factura detalla. Las retenciones —el IRPF, sobre todo— son un '
+        'bloque de primera clase en Facturae y no existen en el modelo '
+        'europeo: restan del total en vez de sumar, así que una retención mal '
+        'sumada hace que la factura pida más dinero del que le corresponde, o '
+        'menos. El esquema no escribe esta fórmula, pero un total de '
+        'retenciones que no sea la suma de las retenciones detalladas no '
+        'tiene otra lectura posible.'
+    ),
+    "FE-TOTAL": (
+        'El total de la factura no es la base antes de impuestos más los '
+        'impuestos repercutidos menos los retenidos. Es la cifra que se lee '
+        'primero cuando llega una factura y la que se compara con el pedido, '
+        'y el esquema la define con esa fórmula exacta. La resta del final es '
+        'lo que hace distinta a una factura española: en el modelo europeo no '
+        'hay retenciones, así que un total correcto aquí no se parece al que '
+        'calcularía una herramienta que no sepa de IRPF. El informe enseña '
+        'los tres sumandos por separado.'
+    ),
+    "FE-ANTICIPOS": (
+        'El total de anticipos no es la suma de los anticipos que la factura '
+        'detalla. Un anticipo es dinero ya cobrado antes de emitir la '
+        'factura, así que resta de lo que queda por pagar y no del importe '
+        'facturado: no toca la base ni el impuesto, sólo el final de la '
+        'cadena. Por eso un anticipo mal sumado no descuadra ningún total '
+        'intermedio y pasa desapercibido hasta que alguien paga de más o de '
+        'menos, que es exactamente para lo que sirve comprobarlo aquí.'
+    ),
+    "FE-PENDIENTE": (
+        'El total a pagar no cuadra con el total de la factura menos las '
+        'subvenciones y los anticipos. Las subvenciones son la parte que paga '
+        'un tercero —una ayuda pública, normalmente— y los anticipos lo ya '
+        'cobrado; ninguna de las dos cambia lo facturado, las dos cambian lo '
+        'que queda por cobrar. El informe sólo menciona en la cuenta los '
+        'conceptos que de verdad existen en esa factura, para que no haya que '
+        'leer «menos cero de subvenciones» en las nueve facturas de cada diez '
+        'que no llevan ninguna.'
+    ),
+    "FE-EJECUTAR": (
+        'El total a ejecutar no cuadra con el total a pagar una vez aplicadas '
+        'las retenciones de garantía, los pagos en especie, los suplidos y '
+        'los gastos financieros. Es el último escalón de la cadena y el más '
+        'español de todos: en una certificación de obra, la retención de '
+        'garantía se descuenta ahora y se devuelve años después, y el suplido '
+        'es dinero adelantado por cuenta del cliente que se le repercute sin '
+        'impuesto. Es la cifra que acaba en la orden de pago, así que es la '
+        'única de la factura que se transfiere tal cual.'
+    ),
+    "FE-LOTE-CUENTA": (
+        'La cabecera del fichero dice que trae un número de facturas distinto '
+        'del que trae. Esto no tiene equivalente en UBL ni en CII, donde un '
+        'fichero es una factura y no hay nada que resumir; en Facturae la '
+        'cabecera declara cuántas hay y cuánto suman, o sea que puede mentir, '
+        'y quien procese el fichero leyendo sólo la cabecera se quedará con '
+        'menos facturas de las que le han mandado sin que nada falle. Se '
+        'cuentan las que hay de verdad y se comparan.'
+    ),
+    "FE-MODALIDAD": (
+        'El fichero se declara individual y trae más de una factura. Facturae '
+        'distingue dos modalidades, individual y lote, y con varias facturas '
+        'dentro la modalidad es lote: no es una etiqueta decorativa, es lo '
+        'que le dice a quien recibe si tiene que buscar una factura o varias. '
+        'Un fichero mal declarado como individual se procesa muchas veces '
+        'quedándose con la primera, y las demás desaparecen sin error en '
+        'ningún sitio.'
+    ),
+    "FE-LOTE-TOTAL": (
+        'El total de facturas que declara la cabecera no es la suma de los '
+        'totales de las facturas que trae dentro. Es la cifra que alguien lee '
+        'sin abrir el fichero —la que aparece en el acuse, en el registro, en '
+        'el correo de remisión— y por eso es la que más conviene que sea '
+        'cierta: quien la use no va a mirar las facturas una a una. El '
+        'esquema la define como la suma de los totales del fichero, así que '
+        'aquí se suman y se compara.'
+    ),
+    "FE-LOTE-PENDIENTE": (
+        'El total a pagar del fichero no es la suma de los pendientes de sus '
+        'facturas. Es distinto del total de facturas y por eso se comprueba '
+        'aparte: aquél es lo facturado y éste es lo que queda por cobrar una '
+        'vez descontados los anticipos y las subvenciones de cada factura. En '
+        'un lote con anticipos las dos cifras no coinciden, y confundirlas '
+        '—cosa que pasa— produce un fichero donde cada factura está bien y la '
+        'cabecera pide una cantidad que no le corresponde a nadie.'
+    ),
+    "FE-LOTE-EJECUTAR": (
+        'El total a ejecutar del fichero no es la suma de los de sus '
+        'facturas. Es la tercera cifra de la cabecera y la de más abajo en la '
+        'cadena: descontadas ya las retenciones de garantía y los pagos en '
+        'especie de cada factura. En el sector público es la que viaja hacia '
+        'la orden de pago, así que un error aquí no se queda en el papel; se '
+        'paga. Las tres se comprueban por separado porque significan tres '
+        'cosas distintas y se equivocan por motivos distintos.'
+    ),
+    "FE-PAIS-RETIRADO": (
+        'El país que declara la factura sigue en el esquema de Facturae y ya '
+        'no está en ISO 3166. Son dos: ANT, las Antillas Neerlandesas, '
+        'disueltas en 2010, y ZAR, Zaire, que en 1997 pasó a ser la República '
+        'Democrática del Congo. El documento cumple su propio esquema, que es '
+        'lo que su emisor tenía delante, así que va como aviso y no como '
+        'error. Lo que no se puede es traducir ese dato a las dos letras que '
+        'pide la norma europea, y tampoco se traduce por cuenta propia: '
+        'convertir ZAR en CD sería decidir qué quiso decir quien lo escribió.'
+    ),
+    "FE-TIPO-SIN-EQUIVALENTE": (
+        'El tipo de documento de esta factura no se ha traducido al '
+        'vocabulario europeo, y la nota dice por qué. Pasa con dos de los '
+        'cuatro métodos de rectificación que define Facturae. La '
+        'rectificativa por diferencias factura sólo la diferencia, y si esa '
+        'diferencia suma o resta no lo dice el método sino los importes: su '
+        'equivalente sería 384 o 381 según el caso, y deducirlo de una cuenta '
+        'no es lo mismo que leerlo del documento. La autorizada por la '
+        'Agencia Tributaria dice quién la autorizó, no cómo rectifica. En los '
+        'dos casos se dice que no se sabe, que es más honesto que elegir uno.'
+    ),
+    "FE-TIPO-POR-METODO": (
+        'El tipo de documento europeo de esta factura no estaba escrito: se '
+        'ha deducido de cómo rectifica. Facturae no escribe el código de '
+        'UNTDID 1001 en ninguna parte y no hay mapa oficial que lo traduzca '
+        '—el anexo del proyecto de orden no menciona Facturae ni una vez—, '
+        'así que la correspondencia sale de las definiciones del propio '
+        'esquema: la rectificación íntegra rehace la factura entera con los '
+        'datos corregidos, que es palabra por palabra la definición europea '
+        'de 384; el descuento por volumen sólo puede restar de lo ya '
+        'facturado, y eso es un abono, 381. Se acepta, y se dice con qué '
+        'base, que es exactamente para lo que existe la gravedad nota.'
+    ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
         "cadena llega igual, pero que una autoridad estuviera cualificada "
