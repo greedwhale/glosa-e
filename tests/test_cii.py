@@ -403,11 +403,18 @@ class TestLasMismasReglas:
         assert "IVA-SIN-TOTAL" in codigos(informe, AVISO)
         assert "BR-CO-15" not in codigos(informe, ERROR)
 
-    def test_un_centimo_se_tolera(self, montar):
+    def test_un_centimo_ya_es_error(self, montar):
+        """Se llamó «un céntimo se tolera» hasta el 13-09-2026.
+
+        Esta misma factura —tres líneas de 33,33 y una suma declarada de
+        100,00— pasaba limpia. La norma redondea la suma a dos decimales y la
+        compara sin margen: 99,99 no es 100,00. Lo dicen el esquematrón de UBL
+        y el de CII, y lo prueba la prueba oficial de BR-CO-10.
+        """
         informe = en16931.validar(
             montar(lineas=(("1", "33.33"), ("2", "33.33"), ("3", "33.33")))
         )
-        assert "BR-CO-10" not in codigos(informe, ERROR), informe.detalle()
+        assert "BR-CO-10" in codigos(informe, ERROR), informe.detalle()
 
     def test_dos_centimos_ya_es_error(self, montar):
         informe = en16931.validar(
@@ -416,9 +423,11 @@ class TestLasMismasReglas:
         assert "BR-CO-10" in codigos(informe, ERROR)
 
     def test_sin_declarar_en16931_avisa(self, montar):
+        """Con código de la casa: BR-01 solo pide que el campo esté."""
         informe = en16931.validar(montar(perfil="urn:otra:cosa"))
-        aviso = next(i for i in informe.avisos if i.codigo == "BR-01")
+        aviso = next(i for i in informe.avisos if i.codigo == "PERFIL-SIN-EN16931")
         assert "urn:otra:cosa" in aviso.encontrado
+        assert "BR-01" not in codigos(informe)
 
     def test_la_linea_sin_importe_se_nombra_por_su_id(self, montar):
         informe = en16931.validar(montar(omitir=("importe_linea",)))
@@ -438,10 +447,12 @@ class TestPropioDeCII:
     def test_el_aviso_nombra_el_campo_de_cada_sintaxis(self):
         """«CustomizationID» no existe en CII: decirlo confundiría a quien lea."""
         en_cii = next(
-            i for i in en16931.validar(cii(perfil="x")).avisos if i.codigo == "BR-01"
+            i for i in en16931.validar(cii(perfil="x")).avisos
+            if i.codigo == "PERFIL-SIN-EN16931"
         )
         en_ubl = next(
-            i for i in en16931.validar(ubl(perfil="x")).avisos if i.codigo == "BR-01"
+            i for i in en16931.validar(ubl(perfil="x")).avisos
+            if i.codigo == "PERFIL-SIN-EN16931"
         )
         assert "GuidelineSpecifiedDocumentContextParameter" in en_cii.mensaje
         assert "CustomizationID" in en_ubl.mensaje
@@ -549,6 +560,9 @@ class TestElMapaEsSoloUnMapa:
                     # Igual que el de arriba: dice qué vocabulario usa
                     # esta sintaxis para BT-3, no dónde está escrito.
                     "tipo_derivado",
+                    # Un sí o un no: qué esquematrón oficial se sigue en el
+                    # borde de BR-CO-17. Tampoco es una ruta.
+                    "cuota_admite_la_unidad_justa",
                 ):
                     continue
                 # «self::» es tan relativa como «./», y hace falta en EDIFACT

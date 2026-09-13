@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1394 tests, todos en verde.
+1411 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3649,6 +3649,72 @@ aviso.
 —de CII hay dos ficheros— y no tocan EDIFACT ni Facturae, cuyos mapas se
 siguen sosteniendo con sus propias pruebas. Y quedan fuera las 756 reglas de
 sintaxis del esquematrón, que aquí no se han implementado.
+
+### Lo que se arregló, y cómo compara de verdad la norma
+
+Los 107 casos se cerraron en la tanda siguiente, y la lista `DISCREPANCIAS`
+quedó vacía. Lo que hubo que cambiar, por orden de lo que pesa:
+
+**Las cuentas no se comparaban como compara la norma.** Aquí todo usaba un
+céntimo de margen. El esquematrón oficial no lo usa en ninguna regla:
+
+| Reglas | Cómo compara el esquematrón | Qué pasaba aquí |
+|---|---|---|
+| BR-CO-10 a BR-CO-16, las sumas de la cabecera | redondea la suma a dos decimales y compara **sin margen** | un céntimo de diferencia salía limpio |
+| BR-CO-17, la cuota de cada entrada | admite **hasta una unidad** de distancia a base por tipo | se rechazaba a partir de dos céntimos |
+
+Lo segundo era lo peor: rechazar lo que la norma acepta. Una de las facturas de
+ejemplo de la Comisión, en forintos, llevaba desde el principio anotada en
+HALLAZGOS como «por la letra de BR-CO-17 tenemos razón»; la letra decía otra
+cosa. Lo que la norma acepta y no cuadra al céntimo no se calla: sale como
+`IVA-CUOTA-REDONDEO`, una nota con la distancia y la base con la que se dio por
+buena. Y el redondeo es el de XPath —las mitades hacia arriba, sobre el valor
+absoluto—, no el de `Decimal`, porque en el borde de la unidad eso decide.
+
+**Y los dos esquematrones oficiales no dicen lo mismo en el borde.** A
+exactamente una unidad, el de UBL escribe `<` y el de CII `<=`, y las pruebas
+de cada uno prueban ese punto. Aquí se sigue a cada uno en su sintaxis, con un
+campo del mapa que dice cuál: `cuota_admite_la_unidad_justa`.
+
+**Sin desglose, el IVA dejaba de mirar.** Se paraba en BR-CO-18. Ahora sigue
+con el tipo de cada concepto y con la categoría que falta, y los conceptos sin
+importe ya no desaparecen: una línea al tipo general con un 0% y sin importe
+es un BR-S-05 aunque no entre en ninguna suma.
+
+**Una sola entrada donde la norma dice una sola.** Tipo cero, exenta,
+inversión del sujeto pasivo, intracomunitaria, exportación y no sujeta admiten
+exactamente una entrada del desglose; el tipo general, el IGIC y el IPSI, al
+menos una. La tabla del IVA lo lleva ahora como cuarta columna, y la prueba
+que la compara con el texto del esquematrón también.
+
+**BR-01 dejó de opinar.** Pide que el identificador de especificación esté.
+Que no nombre a EN 16931 sigue siendo útil saberlo, y sale como
+`PERFIL-SIN-EN16931`, un aviso de la casa.
+
+**Un total de impuestos por moneda.** BR-CO-15 falla con dos en la moneda de
+la factura. Solo se cuenta donde el importe dice su moneda: en EDIFACT el
+`MOA+176` sale una vez en el resumen y otra por tipo, y contarlos acusaba a
+cuatro facturas reales de algo que no hacen. Eso se vio al pasar el corpus, no
+en ninguna prueba.
+
+**Lo que cambió sobre las 179 facturas del corpus**: de 1241 incidencias a
+1168. Se van 84 `BR-01` de aviso —74 eran EDIFACT sin identificador, que ya
+tenían su `BR-01` de error, y 10 pasan a `PERFIL-SIN-EN16931`—; dos `BR-CO-17`
+pasan a nota, entre ellas la de los forintos; y aparece un `BR-E-01`.
+
+**Ese `BR-E-01` destapa algo que no es de esta tanda.** Es una factura EANCOM
+con el mismo `TAX+7+VAT+++:::0+E` en la cabecera y en el resumen. El mapa de
+EDIFACT lee como entrada del desglose todo grupo de impuesto que cuelga de la
+raíz, y el de la cabecera no lo es: es la información de impuesto del documento
+entero, sin base ni cuota. De ahí salen los `BR-45` y `BR-46` de **37 de las 73
+facturas EDIFACT de terceros del corpus**, que ya estaban antes de hoy. Queda apuntado como lo
+siguiente que arreglar, con el recuento delante.
+
+**Lo que sigue sin comprobar contra la norma**: la base de cada entrada
+(BR-{X}-08). Los dos esquematrones la comparan distinto —el de UBL con una
+unidad de margen en el tipo general y exacta en las demás, el de CII al revés—
+y ninguna prueba oficial prueba el borde. Aquí sigue con el céntimo, y es
+una decisión pendiente, no un acierto.
 
 ## Por qué este y no otro, contestado sin pedir fe
 

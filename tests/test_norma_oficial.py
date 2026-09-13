@@ -115,8 +115,8 @@ PENDIENTES = (
     "BR-CL-23", "BR-CL-24", "BR-CL-25", "BR-CL-26",
 )
 
-# Por qué este validador no dice lo mismo que la prueba oficial. Cada
-# discrepancia apunta a uno de estos.
+# Por qué este validador no dijo lo mismo que la prueba oficial el primer
+# día. Cada discrepancia tiene que apuntar a uno de estos.
 MOTIVOS = {
     "perfil": (
         "BR-01 solo pide que el identificador de especificación esté. Aquí se "
@@ -151,197 +151,12 @@ MOTIVOS = {
     ),
 }
 
-DISCREPANCIAS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "BR-01": ('perfil', (
-        "Invoice-unit-UBL/BR-01.xml#0:success",
-        "CreditNote-unit-UBL/BR-01.xml#0:success",
-    )),
-    "BR-AE-01": ('desglose', (
-        "Invoice-unit-UBL/BR-AE-01.xml#4:error",
-        "Invoice-unit-UBL/BR-AE-01.xml#5:error",
-        "Invoice-unit-UBL/BR-AE-01.xml#6:error",
-        "Invoice-unit-UBL/BR-AE-01.xml#7:error",
-        "Invoice-unit-UBL/BR-AE-01.xml#8:error",
-    )),
-    "BR-AE-05": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-AE-05.xml#1:error",
-        "Invoice-unit-UBL/BR-AE-05.xml#2:error",
-    )),
-    "BR-AE-06": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-AE-06.xml#1:error",
-        "Invoice-unit-UBL/BR-AE-06.xml#2:error",
-    )),
-    "BR-AE-07": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-AE-07.xml#1:error",
-        "Invoice-unit-UBL/BR-AE-07.xml#2:error",
-    )),
-    "BR-AF-01": ('desglose', (
-        "Invoice-unit-UBL/BR-IG-01.xml#4:error",
-        "Invoice-unit-UBL/BR-IG-01.xml#5:error",
-        "Invoice-unit-UBL/BR-IG-01.xml#6:error",
-        "Invoice-unit-UBL/BR-IG-01.xml#7:error",
-    )),
-    "BR-AF-05": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-IG-05.xml#2:error",
-    )),
-    "BR-AF-06": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-IG-06.xml#2:error",
-    )),
-    "BR-AF-07": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-IG-07.xml#2:error",
-    )),
-    "BR-AG-01": ('desglose', (
-        "Invoice-unit-UBL/BR-IP-01.xml#4:error",
-        "Invoice-unit-UBL/BR-IP-01.xml#5:error",
-        "Invoice-unit-UBL/BR-IP-01.xml#6:error",
-        "Invoice-unit-UBL/BR-IP-01.xml#7:error",
-    )),
-    "BR-AG-05": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-IP-05.xml#2:error",
-    )),
-    "BR-AG-06": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-IP-06.xml#2:error",
-    )),
-    "BR-AG-07": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-IP-07.xml#2:error",
-    )),
-    "BR-CO-10": ('centimo', (
-        "Invoice-unit-UBL/BR-CO-10.xml#7:error",
-    )),
-    "BR-CO-13": ('centimo', (
-        "Invoice-unit-UBL/BR-CO-13.xml#10:error",
-        "CreditNote-unit-UBL/BR-CO-13.xml#10:error",
-    )),
-    "BR-CO-15": ('centimo-y-cuenta', (
-        "Invoice-unit-UBL/BR-CO-15.xml#4:error",
-        "Invoice-unit-UBL/BR-CO-15.xml#6:error",
-        "Invoice-unit-UBL/BR-CO-15.xml#7:error",
-        "CreditNote-unit-UBL/BR-CO-15.xml#4:error",
-        "CreditNote-unit-UBL/BR-CO-15.xml#6:error",
-        "CreditNote-unit-UBL/BR-CO-15.xml#7:error",
-        "cii/BR-CO-15-2.xml#2:error",
-        "cii/BR-CO-15-2.xml#3:error",
-    )),
-    "BR-CO-17": ('unidad', (
-        "cii/BR-CO-17.xml#1:success",
-        "cii/BR-CO-17.xml#2:success",
-    )),
-    "BR-E-01": ('desglose', (
-        "Invoice-unit-UBL/BR-E-01.xml#4:error",
-        "Invoice-unit-UBL/BR-E-01.xml#5:error",
-        "Invoice-unit-UBL/BR-E-01.xml#6:error",
-        "Invoice-unit-UBL/BR-E-01.xml#7:error",
-        "Invoice-unit-UBL/BR-E-01.xml#8:error",
-        "CreditNote-unit-UBL/BR-E-01.xml#4:error",
-        "CreditNote-unit-UBL/BR-E-01.xml#5:error",
-        "CreditNote-unit-UBL/BR-E-01.xml#6:error",
-        "CreditNote-unit-UBL/BR-E-01.xml#7:error",
-        "CreditNote-unit-UBL/BR-E-01.xml#8:error",
-    )),
-    "BR-E-05": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-E-05.xml#1:error",
-        "Invoice-unit-UBL/BR-E-05.xml#2:error",
-    )),
-    "BR-E-06": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-E-06.xml#1:error",
-        "Invoice-unit-UBL/BR-E-06.xml#2:error",
-    )),
-    "BR-E-07": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-E-07.xml#1:error",
-        "Invoice-unit-UBL/BR-E-07.xml#2:error",
-    )),
-    "BR-G-01": ('desglose', (
-        "Invoice-unit-UBL/BR-G-01.xml#4:error",
-        "Invoice-unit-UBL/BR-G-01.xml#5:error",
-        "Invoice-unit-UBL/BR-G-01.xml#6:error",
-        "Invoice-unit-UBL/BR-G-01.xml#7:error",
-        "Invoice-unit-UBL/BR-G-01.xml#8:error",
-    )),
-    "BR-G-05": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-G-05.xml#1:error",
-        "Invoice-unit-UBL/BR-G-05.xml#2:error",
-    )),
-    "BR-G-06": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-G-06.xml#1:error",
-        "Invoice-unit-UBL/BR-G-06.xml#2:error",
-    )),
-    "BR-G-07": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-G-07.xml#1:error",
-        "Invoice-unit-UBL/BR-G-07.xml#2:error",
-    )),
-    "BR-IC-01": ('desglose', (
-        "Invoice-unit-UBL/BR-IC-01.xml#4:error",
-        "Invoice-unit-UBL/BR-IC-01.xml#5:error",
-        "Invoice-unit-UBL/BR-IC-01.xml#6:error",
-        "Invoice-unit-UBL/BR-IC-01.xml#7:error",
-        "Invoice-unit-UBL/BR-IC-01.xml#8:error",
-    )),
-    "BR-IC-05": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-IC-05.xml#1:error",
-        "Invoice-unit-UBL/BR-IC-05.xml#2:error",
-    )),
-    "BR-IC-06": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-IC-06.xml#1:error",
-        "Invoice-unit-UBL/BR-IC-06.xml#2:error",
-    )),
-    "BR-IC-07": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-IC-07.xml#1:error",
-        "Invoice-unit-UBL/BR-IC-07.xml#2:error",
-    )),
-    "BR-O-01": ('desglose', (
-        "Invoice-unit-UBL/BR-O-01.xml#4:error",
-        "Invoice-unit-UBL/BR-O-01.xml#5:error",
-        "Invoice-unit-UBL/BR-O-01.xml#6:error",
-        "Invoice-unit-UBL/BR-O-01.xml#7:error",
-        "Invoice-unit-UBL/BR-O-01.xml#8:error",
-    )),
-    "BR-O-05": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-O-05.xml#1:error",
-    )),
-    "BR-O-06": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-O-06.xml#1:error",
-    )),
-    "BR-O-07": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-O-07.xml#1:error",
-    )),
-    "BR-S-01": ('desglose', (
-        "Invoice-unit-UBL/BR-S-01.xml#4:error",
-        "Invoice-unit-UBL/BR-S-01.xml#5:error",
-        "Invoice-unit-UBL/BR-S-01.xml#6:error",
-        "Invoice-unit-UBL/BR-S-01.xml#7:error",
-    )),
-    "BR-S-05": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-S-05.xml#1:error",
-        "Invoice-unit-UBL/BR-S-05.xml#2:error",
-    )),
-    "BR-S-06": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-S-06.xml#1:error",
-        "Invoice-unit-UBL/BR-S-06.xml#2:error",
-    )),
-    "BR-S-07": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-S-07.xml#1:error",
-        "Invoice-unit-UBL/BR-S-07.xml#2:error",
-    )),
-    "BR-Z-01": ('desglose', (
-        "Invoice-unit-UBL/BR-Z-01.xml#4:error",
-        "Invoice-unit-UBL/BR-Z-01.xml#5:error",
-        "Invoice-unit-UBL/BR-Z-01.xml#6:error",
-        "Invoice-unit-UBL/BR-Z-01.xml#7:error",
-        "Invoice-unit-UBL/BR-Z-01.xml#8:error",
-    )),
-    "BR-Z-05": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-Z-05.xml#1:error",
-        "Invoice-unit-UBL/BR-Z-05.xml#2:error",
-    )),
-    "BR-Z-06": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-Z-06.xml#1:error",
-        "Invoice-unit-UBL/BR-Z-06.xml#2:error",
-    )),
-    "BR-Z-07": ('sin-desglose', (
-        "Invoice-unit-UBL/BR-Z-07.xml#1:error",
-        "Invoice-unit-UBL/BR-Z-07.xml#2:error",
-    )),
-}
+# Los casos oficiales en los que este validador no dice lo mismo que la
+# norma. El primer día fueron 107, en 41 reglas y por los seis motivos de
+# arriba; se arreglaron todos en la tanda siguiente y la lista quedó vacía.
+# Vacía no quiere decir inútil: una discrepancia nueva tiene que entrar aquí
+# con su motivo, a la vista, o la suite se pone en rojo.
+DISCREPANCIAS: dict[str, tuple[str, tuple[str, ...]]] = {}
 
 # Implementadas sin ninguna prueba oficial que las provoque. Se dice, porque
 # una regla sin prueba oficial solo tiene las de aquí.

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_FLOOR, Decimal, InvalidOperation
 
 from validador import cius_es
 
@@ -145,6 +145,14 @@ class Sintaxis:
     redondeo: str
     impuestos: str
 
+    # Si en BR-CO-17 una cuota a **exactamente** una unidad de base por tipo
+    # vale o no. Es un borde, y los dos esquematrones oficiales lo resuelven al
+    # revés: el de UBL escribe `<` y el de CII `<=`, y las pruebas unitarias de
+    # cada uno prueban justo ese punto —1000 al 25% con 251 de cuota es error
+    # en UBL; -72,50 al 19% con -12,78 es correcto en CII—. Sin valor por
+    # defecto: una sintaxis nueva tiene que decir cuál sigue.
+    cuota_admite_la_unidad_justa: bool
+
     # Con qué se escribe «esto suma» en `cargo_es_cargo`. UBL y CII usan un
     # booleano, y por eso durante dos sintaxis esto no hizo falta. EDIFACT lo
     # escribe con una letra —C de cargo, A de descuento (*allowance*)—, así
@@ -230,6 +238,7 @@ SINTAXIS_UBL = Sintaxis(
     anticipos=f"{_TOTAL_UBL}/cbc:PrepaidAmount",
     redondeo=f"{_TOTAL_UBL}/cbc:PayableRoundingAmount",
     impuestos="./cac:TaxTotal/cbc:TaxAmount",
+    cuota_admite_la_unidad_justa=False,  # el esquematrón de UBL: desigualdad estricta
 )
 
 # En CII casi todo cuelga de SupplyChainTradeTransaction, repartido en tres
@@ -314,6 +323,7 @@ SINTAXIS_CII = Sintaxis(
     anticipos=f"{_SUMARIO}/ram:TotalPrepaidAmount",
     redondeo=f"{_SUMARIO}/ram:RoundingAmount",
     impuestos=f"{_SUMARIO}/ram:TaxTotalAmount",
+    cuota_admite_la_unidad_justa=True,  # el esquematrón de CII: `<=`
 )
 
 # --- EDIFACT ---------------------------------------------------------------
@@ -465,6 +475,7 @@ SINTAXIS_EDIFACT = Sintaxis(
     # vistas. Consta en el README como lo que falta.
     redondeo=SIN_MAPA,
     impuestos=_total_edi("176"),
+    cuota_admite_la_unidad_justa=False,  # sin prueba oficial que lo decida; se sigue el de UBL
     marcas_de_cargo=("c",),
 )
 
@@ -715,6 +726,7 @@ SINTAXIS_FACTURAE = Sintaxis(
     # que Facturae esté mal escrito ni que la norma se quede corta: es que
     # miden cosas distintas y llamarlas igual sería el error.
     impuestos=SIN_MAPA,
+    cuota_admite_la_unidad_justa=False,  # Facturae no tiene esquematrón europeo; se sigue el de UBL
     # `cargo_es_cargo` devuelve el nombre del elemento, no un booleano. En
     # minúscula porque quien compara pasa la marca por `.lower()` antes, igual
     # que la «c» de EDIFACT: con «Charge» no casaba ninguno y los cargos se
@@ -796,6 +808,53 @@ def importe_en_moneda(
 
 def cuadra(a: Decimal, b: Decimal) -> bool:
     return abs(a - b) <= TOLERANCIA
+
+
+# --- Cómo compara el esquematrón oficial ------------------------------------
+#
+# Durante meses todo lo de arriba se comparó con `cuadra`: un céntimo de
+# margen, para todas las reglas por igual. Se decidió aquí, razonando que la
+# norma redondea a dos decimales. Medido contra el esquematrón oficial y sus
+# pruebas unitarias el 13-09-2026, la norma no hace eso en ninguna regla:
+#
+# - las sumas de la cabecera (BR-CO-10 a BR-CO-16) se redondean a dos
+#   decimales y **tienen que coincidir exactas**: un céntimo de diferencia es
+#   un error, y aquí salía limpio;
+# - la cuota de cada entrada del desglose (BR-CO-17) se admite **hasta una
+#   unidad** por encima o por debajo de base por tipo, porque el redondeo
+#   línea a línea la aparta de ahí legítimamente; aquí se rechazaba a partir
+#   de dos céntimos, que es rechazar lo que la norma acepta.
+#
+# `cuadra` sigue existiendo para lo que no es ninguna de esas reglas.
+
+
+def redondear(valor: Decimal, decimales: int = 2) -> Decimal:
+    """El `round()` de XPath, que es con el que redondea el esquematrón.
+
+    Las mitades van hacia arriba —hacia más infinito—: `round(0.125)` a dos
+    decimales es 0.13 y `round(-2.5)` es -2. No es el redondeo de `Decimal`,
+    que por defecto lleva las mitades al par y deja 0.125 en 0.12: la regla
+    discreparía de la oficial justo en el céntimo que decide.
+    """
+    escala = Decimal(1).scaleb(-decimales)
+    return (valor / escala + Decimal("0.5")).to_integral_value(
+        rounding=ROUND_FLOOR) * escala
+
+
+def cuadra_exacto(calculado: Decimal, declarado: Decimal) -> bool:
+    """BR-CO-10 a BR-CO-16: lo declarado es lo calculado redondeado, sin margen."""
+    return declarado == redondear(calculado)
+
+
+def a_menos_de_una_unidad(calculado: Decimal, declarado: Decimal) -> bool:
+    """BR-CO-17: las dos cifras, en valor absoluto, se separan menos de una unidad.
+
+    Es la forma del esquematrón para UBL, con desigualdad estricta. El de CII
+    escribe `<=`, así que a una distancia de exactamente 1,00 los dos
+    oficiales dicen cosas distintas; aquí se sigue el de UBL, que es de donde
+    salen casi todas las pruebas unitarias.
+    """
+    return abs(redondear(abs(calculado)) - abs(declarado)) < 1
 
 
 def fmt(valor: Decimal | None) -> str:

@@ -23,6 +23,7 @@ haya duda de qué exige la norma y qué opinamos nosotros.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -30,11 +31,14 @@ from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 from validador.sintaxis import (
     SIN_MAPA,
     Sintaxis,
+    a_menos_de_una_unidad,
     cuadra,
+    cuadra_exacto,
     fmt,
     fmt_tipo,
     importe,
     importe_en_moneda,
+    redondear,
     texto,
 )
 
@@ -77,6 +81,14 @@ NO_NEGATIVO = "cero o positivo"  # tiene que haber tipo y no ser negativo
 OBLIGATORIO = "obligatorio"
 PROHIBIDO = "prohibido"
 
+# Y cuántas entradas del desglose admite (BR-{X}-01). El tipo general, el IGIC
+# y el IPSI pueden llevar varias —una por tipo: el 21 y el 10 son dos—; las
+# categorías que van a cero o sin tipo, **una y solo una**. Aquí solo se miraba
+# que estuviera, y dos entradas exentas pasaban: lo cazaron las pruebas
+# oficiales el 13-09-2026, que traen justo ese caso.
+AL_MENOS_UNA = "al menos una"
+UNA_SOLA = "una sola"
+
 
 @dataclass(frozen=True)
 class ReglaCategoria:
@@ -85,16 +97,17 @@ class ReglaCategoria:
     codigo: str  # el sufijo del grupo de reglas: BR-S-*, BR-AE-*...
     tipo: str
     motivo: str
+    desgloses: str
 
 
 REGLAS: dict[str, ReglaCategoria] = {
-    "S": ReglaCategoria("S", POSITIVO, PROHIBIDO),
-    "Z": ReglaCategoria("Z", CERO, PROHIBIDO),
-    "E": ReglaCategoria("E", CERO, OBLIGATORIO),
-    "AE": ReglaCategoria("AE", CERO, OBLIGATORIO),
-    "K": ReglaCategoria("IC", CERO, OBLIGATORIO),
-    "G": ReglaCategoria("G", CERO, OBLIGATORIO),
-    "O": ReglaCategoria("O", SIN_TIPO, OBLIGATORIO),
+    "S": ReglaCategoria("S", POSITIVO, PROHIBIDO, AL_MENOS_UNA),
+    "Z": ReglaCategoria("Z", CERO, PROHIBIDO, UNA_SOLA),
+    "E": ReglaCategoria("E", CERO, OBLIGATORIO, UNA_SOLA),
+    "AE": ReglaCategoria("AE", CERO, OBLIGATORIO, UNA_SOLA),
+    "K": ReglaCategoria("IC", CERO, OBLIGATORIO, UNA_SOLA),
+    "G": ReglaCategoria("G", CERO, OBLIGATORIO, UNA_SOLA),
+    "O": ReglaCategoria("O", SIN_TIPO, OBLIGATORIO, UNA_SOLA),
     # IGIC e IPSI: el tipo puede ser cero o positivo, nunca negativo
     # (BR-AF-05 a 07, «0 (zero) or greater than zero»), y el motivo de
     # exención está prohibido (BR-AF-10, «shall not have»), igual que en el
@@ -114,8 +127,8 @@ REGLAS: dict[str, ReglaCategoria] = {
     # de que IGIC es el impuesto de Canarias: una factura canaria recibía una
     # regla «BR-IG-5» que no existe en ninguna norma. Comprobado en el
     # esquematrón oficial: $VATIG lleva BR-AF-* y $VATIP lleva BR-AG-*.
-    "L": ReglaCategoria("AF", NO_NEGATIVO, PROHIBIDO),
-    "M": ReglaCategoria("AG", NO_NEGATIVO, PROHIBIDO),
+    "L": ReglaCategoria("AF", NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
+    "M": ReglaCategoria("AG", NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
 }
 
 # Que no vuelva a entrar un estado que no se queja de nada. Si una categoría
@@ -126,6 +139,8 @@ for _categoria, _regla in REGLAS.items():
         raise ValueError(f"{_categoria}: tipo sin comprobación, {_regla.tipo!r}")
     if _regla.motivo not in (OBLIGATORIO, PROHIBIDO):
         raise ValueError(f"{_categoria}: motivo sin comprobación, {_regla.motivo!r}")
+    if _regla.desgloses not in (AL_MENOS_UNA, UNA_SOLA):
+        raise ValueError(f"{_categoria}: desgloses sin comprobación, {_regla.desgloses!r}")
 
 
 # Los códigos que este módulo compone en tiempo de ejecución, y que por eso no
@@ -220,6 +235,13 @@ class Apunte:
     Los descuentos entran con importe negativo, que es lo que los hace restar
     sin necesidad de tratarlos aparte.
 
+    El importe puede faltar. Antes, una línea o un cargo sin importe no llegaba
+    aquí —«de eso ya se queja BR-24»—, y con ello desaparecía también su
+    categoría y su tipo: una línea al tipo general con un 0% escrito y sin
+    importe no le daba a BR-S-05 nada que mirar. La norma mira el tipo aunque
+    falte el importe, y las pruebas oficiales lo prueban justo así. Quien suma
+    se salta los que no tienen; quien mira la categoría, no.
+
     `es_ajuste` distingue el cargo o descuento de la línea normal. Es un campo
     y no una lectura de `descripcion` a propósito: la descripción es texto
     para el usuario, y colgar de ella una decisión de negocio significa que el
@@ -227,7 +249,7 @@ class Apunte:
     """
 
     descripcion: str
-    importe: Decimal
+    importe: Decimal | None
     categoria: str | None
     tipo: Decimal | None
     es_ajuste: bool = False
@@ -366,8 +388,6 @@ def _leer_apuntes(raiz, sintaxis: Sintaxis) -> list[Apunte]:
         raiz.xpath(sintaxis.lineas, namespaces=sintaxis.espacios), start=1
     ):
         cantidad = importe(nodo, sintaxis.linea_importe, sintaxis)
-        if cantidad is None:
-            continue  # de la línea sin importe ya se queja BR-24
         identificador = texto(nodo, sintaxis.linea_id, sintaxis) or str(indice)
         tipo = importe(nodo, sintaxis.linea_tipo, sintaxis)
         apuntes.append(
@@ -384,14 +404,14 @@ def _leer_apuntes(raiz, sintaxis: Sintaxis) -> list[Apunte]:
         raiz.xpath(sintaxis.cargos, namespaces=sintaxis.espacios), start=1
     ):
         cantidad = importe(nodo, sintaxis.cargo_importe, sintaxis)
-        if cantidad is None:
-            continue
         marca = (texto(nodo, sintaxis.cargo_es_cargo, sintaxis) or "").lower()
         es_cargo = marca in sintaxis.marcas_de_cargo
+        if cantidad is not None and not es_cargo:
+            cantidad = -cantidad
         apuntes.append(
             Apunte(
                 descripcion=("cargo" if es_cargo else "descuento") + f" {indice}",
-                importe=cantidad if es_cargo else -cantidad,
+                importe=cantidad,
                 categoria=texto(nodo, sintaxis.cargo_categoria, sintaxis),
                 tipo=importe(nodo, sintaxis.cargo_tipo, sintaxis),
                 es_ajuste=True,
@@ -414,7 +434,7 @@ def _regla_total(raiz, sintaxis: Sintaxis, grupos: list[Grupo]) -> list[Incidenc
     if not con_cuota:
         return []
     suma = sum((g.cuota for g in con_cuota), Decimal(0))
-    if cuadra(suma, declarado):
+    if cuadra_exacto(suma, declarado):
         return []
     return [
         Incidencia(
@@ -451,7 +471,10 @@ def _ajustes_sin_detallar(raiz, sintaxis: Sintaxis, apuntes: list[Apunte]) -> bo
     # Por separado y no sumados: sumándolos, un descuento y un cargo del mismo
     # importe se anulan y la factura parecería no declarar ninguno.
     declarados = descuentos != 0 or cargos != 0
-    return declarados and not any(a.es_ajuste for a in apuntes)
+    # Detallado quiere decir con su importe: un bloque de descuento sin importe
+    # no dice cuánto va a cada tipo, que es lo que aquí hace falta saber.
+    return declarados and not any(
+        a.es_ajuste and a.importe is not None for a in apuntes)
 
 
 def _ajustes_no_cuadran(raiz, sintaxis: Sintaxis, apuntes: list[Apunte]) -> bool:
@@ -463,7 +486,7 @@ def _ajustes_no_cuadran(raiz, sintaxis: Sintaxis, apuntes: list[Apunte]) -> bool
     mal. Comprobar además la base por tipo sacaría una segunda queja apuntando
     al desglose, que es donde no está el problema.
     """
-    detallados = [a for a in apuntes if a.es_ajuste]
+    detallados = [a for a in apuntes if a.es_ajuste and a.importe is not None]
     if not detallados:
         return False
     descuentos = sum((-a.importe for a in detallados if a.importe < 0), Decimal(0))
@@ -483,6 +506,12 @@ def _regla_base_por_grupo(grupo: Grupo, apuntes: list[Apunte]) -> list[Incidenci
     regla = REGLAS.get(grupo.categoria)
     codigo = f"BR-{regla.codigo}-08" if regla else "IVA-BASE"
     suyos = [a for a in apuntes if a.clave == grupo.clave]
+    if any(a.importe is None for a in suyos):
+        # Con un concepto sin importe la suma no se puede hacer, y de ese
+        # concepto ya se queja su regla —BR-24 la línea, BR-31 y BR-36 el
+        # descuento y el cargo—. Sumar lo que hay acusaría a la base de un
+        # descuadre que no es suyo.
+        return []
 
     if not suyos:
         # Base fantasma: el desglose cobra sobre algo que no está en ninguna
@@ -523,13 +552,67 @@ def _regla_base_por_grupo(grupo: Grupo, apuntes: list[Apunte]) -> list[Incidenci
     ]
 
 
-def _regla_cuota_por_grupo(grupo: Grupo) -> list[Incidencia]:
-    """BR-CO-17: cuota = base x tipo / 100, redondeada a dos decimales."""
-    if grupo.base is None or grupo.cuota is None or grupo.tipo is None:
+def _regla_cuota_por_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]:
+    """BR-CO-17: cuota = base x tipo / 100, con el margen que da la norma.
+
+    El margen no es un céntimo, que es lo que se aplicó aquí durante meses: es
+    **una unidad**. El redondeo línea a línea aparta legítimamente la cuota de
+    la base por el tipo, y el esquematrón oficial lo admite. Con el céntimo,
+    este validador rechazaba facturas que la norma acepta; lo cazaron las
+    pruebas oficiales de CII el 13-09-2026, que prueban justo el borde.
+
+    Lo que la norma acepta y aquí no cuadra al céntimo no se calla: sale como
+    `IVA-CUOTA-REDONDEO`, una nota que dice cuánto se aparta y con qué base se
+    ha dado por buena.
+
+    A tipo cero —o uno que redondeado a entero da cero— la norma no mira la
+    base: pide que la cuota, redondeada a entero, sea cero.
+    """
+    if grupo.cuota is None:
         return []
-    calculada = (grupo.base * grupo.tipo / Decimal(100)).quantize(Decimal("0.01"))
-    if cuadra(calculada, grupo.cuota):
+    if grupo.tipo is None or redondear(grupo.tipo, 0) == 0:
+        if redondear(grupo.cuota, 0) == 0:
+            return []
+        return [
+            Incidencia(
+                "BR-CO-17",
+                ERROR,
+                f"La entrada {grupo} va a tipo cero y declara cuota. A tipo "
+                "cero la cuota tiene que ser cero.",
+                campo=f"Cuota de {grupo}",
+                esperado="0.00",
+                encontrado=fmt(grupo.cuota),
+            )
+        ]
+    if grupo.base is None:
         return []
+    # Como el esquematrón: se redondea la base **en valor absoluto** por el
+    # tipo, y el signo se pone después. Redondear con el signo lleva las
+    # mitades hacia el otro lado en un abono —-13,775 da -13,77 y no -13,78—,
+    # y en el borde de la unidad eso decide.
+    exacta = abs(grupo.base) * grupo.tipo / Decimal(100)
+    calculada = redondear(exacta) * (-1 if grupo.base < 0 else 1)
+    distancia = abs(redondear(exacta) - abs(grupo.cuota))
+    admitida = a_menos_de_una_unidad(exacta, grupo.cuota) or (
+        sintaxis.cuota_admite_la_unidad_justa and distancia == 1)
+    if admitida:
+        if cuadra(calculada, grupo.cuota):
+            return []
+        return [
+            Incidencia(
+                "IVA-CUOTA-REDONDEO",
+                NOTA,
+                f"La cuota de {grupo} se aparta {distancia:.2f} de aplicar el "
+                "tipo a la base. La norma lo admite —hasta una unidad, por el "
+                "redondeo línea a línea— y se ha dado por buena. Si no hay "
+                "redondeo por líneas que lo explique, conviene revisarla.",
+                campo=f"Cuota de {grupo}",
+                esperado=(
+                    f"{calculada:.2f} ({grupo.base:.2f} x {fmt_tipo(grupo.tipo)})"
+                ),
+                encontrado=fmt(grupo.cuota),
+            )
+        ]
     return [
         Incidencia(
             "BR-CO-17",
@@ -690,9 +773,34 @@ def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
 def _regla_hay_desglose(
     grupos: list[Grupo], apuntes: list[Apunte]
 ) -> list[Incidencia]:
-    """BR-{X}-01: cada categoría usada tiene que aparecer en el desglose."""
+    """BR-{X}-01: cada categoría usada tiene que aparecer en el desglose.
+
+    Y en las categorías que van a cero o sin tipo, **una sola vez**: dos
+    entradas exentas en el desglose incumplen BR-E-01 aunque las líneas estén
+    bien, porque la norma pide exactamente una. Eso se mira con conceptos o
+    sin ellos: los dos esquematrones oficiales cuentan las entradas del
+    desglose por su cuenta.
+    """
     declaradas = {g.categoria for g in grupos if g.categoria}
+    cuantas = Counter(g.categoria for g in grupos if g.categoria)
     incidencias = []
+    for categoria in sorted(cuantas):
+        regla = REGLAS.get(categoria)
+        if regla is None or regla.desgloses != UNA_SOLA or cuantas[categoria] < 2:
+            continue
+        incidencias.append(
+            Incidencia(
+                f"BR-{regla.codigo}-01",
+                ERROR,
+                f"El desglose de IVA trae {cuantas[categoria]} entradas a "
+                f"{nombre_categoria(categoria)}, y la norma pide una sola: "
+                "todo lo que va a esa categoría se declara junto, con una base "
+                "y un motivo.",
+                campo="Desglose de IVA",
+                esperado=f"una sola entrada para {categoria}",
+                encontrado=f"{cuantas[categoria]} entradas",
+            )
+        )
     for categoria in sorted({a.categoria for a in apuntes if a.categoria}):
         if categoria in declaradas:
             continue
@@ -727,7 +835,8 @@ def _regla_hay_desglose(
             continue
         vistas.add(apunte.clave)
         suyos = [a.descripcion for a in apuntes if a.clave == apunte.clave]
-        suma = sum((a.importe for a in apuntes if a.clave == apunte.clave), Decimal(0))
+        suma = sum((a.importe for a in apuntes
+                    if a.clave == apunte.clave and a.importe is not None), Decimal(0))
         incidencias.append(
             Incidencia(
                 "IVA-TIPO-SIN-DESGLOSE",
@@ -895,7 +1004,12 @@ def _regla_lineas_con_categoria(
         # línea no está incompleta. Avisar aquí sería repetir con otro código
         # lo que la nota del desglose ya dice una sola vez.
         return []
-    huerfanos = [a.descripcion for a in apuntes if not a.categoria]
+    # Solo los que tienen importe: el aviso habla de que el desglose no se ha
+    # podido cuadrar con ellos, y uno sin importe no entraba en ninguna cuenta.
+    # Que toda línea lleve categoría, tenga importe o no, es BR-CO-04, que es
+    # de la norma y va por su lado.
+    huerfanos = [a.descripcion for a in apuntes
+                 if not a.categoria and a.importe is not None]
     if not huerfanos:
         return []
     return [
@@ -928,12 +1042,21 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
     if not grupos:
         # BR-CO-18: toda factura tiene que traer al menos un desglose. No es un
         # aviso ni depende de que se declare importe de impuestos: sin desglose
-        # no hay nada que comprobar y el receptor lo rechaza. Antes esto era un
-        # aviso propio y solo saltaba si el IVA declarado no era cero, así que
-        # una factura sin desglose y sin total pasaba en silencio.
+        # el receptor lo rechaza. Antes esto era un aviso propio y solo saltaba
+        # si el IVA declarado no era cero, así que una factura sin desglose y
+        # sin total pasaba en silencio.
+        #
+        # **Y no se para aquí.** Hasta el 13-09-2026 esta rama devolvía
+        # BR-CO-18 y nada más, con la idea de que sin desglose no había nada
+        # que comprobar. Sí lo hay: el tipo de cada línea, descuento y cargo
+        # (BR-{X}-05 a 07) y que su categoría falte en el desglose
+        # (BR-{X}-01) no dependen de que el desglose exista. Una línea al tipo
+        # general con un 0% son dos defectos, y la norma dice los dos; aquí se
+        # decía uno, y el segundo aparecía el día que se arreglaba el primero.
         moneda = texto(raiz, sintaxis.moneda, sintaxis)
         declarado = importe_en_moneda(raiz, sintaxis.impuestos, sintaxis, moneda)
-        return [
+        return _regla_tipo_de_los_conceptos(apuntes) + _regla_hay_desglose(
+            grupos, apuntes) + [
             Incidencia(
                 "BR-CO-18",
                 ERROR,
@@ -978,7 +1101,7 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
         incidencias.extend(_regla_forma_del_grupo(grupo))
         if not a_ciegas:
             incidencias.extend(_regla_base_por_grupo(grupo, apuntes))
-        incidencias.extend(_regla_cuota_por_grupo(grupo))
+        incidencias.extend(_regla_cuota_por_grupo(grupo, sintaxis))
     incidencias.extend(_regla_tipo_de_los_conceptos(apuntes))
     incidencias.extend(_regla_hay_desglose(grupos, apuntes))
     incidencias.extend(_regla_no_sujeta_a_solas(grupos))

@@ -108,6 +108,12 @@ FAMILIAS: dict[str, str] = {
     "VALIDADOR": (
         "Algo que le ha pasado al propio validador, no a la factura."
     ),
+    "PERFIL": (
+        "Lo que la factura dice de sí misma en su identificador de "
+        "especificación: a qué norma o a qué uso dice ajustarse. No lo exige "
+        "ninguna regla con estas palabras; es lo que conviene saber antes de "
+        "mandarla a un receptor que filtra por ese campo."
+    ),
 }
 
 # --- Lo que no se deduce de la familia -------------------------------------
@@ -191,15 +197,26 @@ CODIGOS: dict[str, str] = {
         "remitente se haya inventado pasaría igual."
     ),
     "BR-01": (
-        'El campo donde la factura declara a qué especificación se ajusta: '
-        'el CustomizationID en UBL, el '
-        'GuidelineSpecifiedDocumentContextParameter en CII. Sale por dos '
-        'motivos que no se parecen: error cuando no está o está vacío, y '
-        'aviso cuando está pero no nombra a EN 16931 —el caso típico del ERP '
-        'configurado para otro país—. En Facturae sale como nota y no hay '
-        'nada que arreglar: la sintaxis española no tiene ningún elemento '
-        'con ese significado. Es el campo por el que un receptor de Peppol '
-        'rechaza un documento antes de mirar un solo importe.'
+        'El campo donde la factura declara a qué especificación se ajusta: el '
+        'CustomizationID en UBL, el '
+        'GuidelineSpecifiedDocumentContextParameter en CII. La regla pide que '
+        'esté, y nada más: una prueba oficial de la norma da por bueno un '
+        'identificador que dice «123». Aquí sirvió durante meses también para '
+        'avisar de que el campo no nombra a EN 16931, que es una opinión con '
+        'el código de una regla que no la sostiene; desde el 13 de septiembre '
+        'de 2026 eso sale como PERFIL-SIN-EN16931. En Facturae sale como nota '
+        'y no hay nada que arreglar: la sintaxis española no tiene ningún '
+        'elemento con ese significado.'
+    ),
+    "PERFIL-SIN-EN16931": (
+        'El identificador de especificación está, pero no nombra a EN 16931: '
+        'ni la edición de 2017 ni la de 2026. No lo prohíbe ninguna regla '
+        '—BR-01 solo pide que el campo esté—, y por eso es un aviso con '
+        'código de la casa y no un error de la norma. Conviene saberlo porque '
+        'es el campo por el que un receptor de Peppol o la solución pública '
+        'deciden qué reglas aplicarle, y el caso típico es un ERP configurado '
+        'para otro país o para otro uso. La factura se valida igual contra EN '
+        '16931.'
     ),
     "BR-14": (
         'El importe total con impuestos incluidos, en la cabecera. Se mira '
@@ -499,12 +516,13 @@ CODIGOS: dict[str, str] = {
         'La suma de importes de línea que declara la cabecera no coincide con '
         'lo que suman las líneas de verdad. Es la comprobación que caza el '
         'retoque a mano: una línea añadida, borrada o cambiada de importe sin '
-        'volver a calcular el total de arriba. Sólo se hace cuando todas las '
-        'líneas tienen su importe —si falta alguno salta BR-24 y ésta se '
-        'calla, porque sumar las que haya e ignorar las demás daría un '
-        'descuadre inventado—, y el informe enseña las dos cifras y de '
-        'cuántas líneas sale la suma real, que es lo que hace falta para '
-        'encontrar la que baila.'
+        'volver a calcular el total de arriba. La norma redondea la suma a '
+        'dos decimales y la compara sin margen, así que un céntimo es error; '
+        'aquí se toleró uno hasta que las pruebas oficiales lo desmintieron. '
+        'Sólo se hace cuando todas las líneas tienen su importe —si falta '
+        'alguno salta BR-24 y ésta se calla—, y el informe enseña las dos '
+        'cifras y de cuántas líneas sale la suma real, que es lo que hace '
+        'falta para encontrar la que baila.'
     ),
     "BR-22": (
         'Cada línea tiene que decir cuántas unidades factura. Es la pareja de '
@@ -585,14 +603,26 @@ CODIGOS: dict[str, str] = {
         'como la de expedición.'
     ),
     "BR-CO-17": (
-        'La cuota declarada para una entrada del desglose no sale de aplicar '
-        'su tipo a su base. La cuenta es exactamente ésa —base por tipo entre '
-        'cien, redondeada a dos decimales— y el informe enseña la operación '
-        'hecha, no sólo el resultado, para que se vea dónde está la '
-        'diferencia. El caso corriente no es un error de multiplicación: es '
-        'redondear línea a línea y luego sumar, que da un céntimo de más o de '
-        'menos frente a redondear el total una sola vez. Un céntimo basta '
-        'para que un receptor automático rechace la factura.'
+        'La cuota declarada para una entrada del desglose se aparta más de '
+        'una unidad de aplicar su tipo a su base. Una unidad y no un céntimo: '
+        'la norma sabe que redondear línea a línea y luego sumar aparta la '
+        'cuota de base por tipo, y lo admite. Aquí se exigió el céntimo '
+        'durante meses, que era rechazar facturas que la norma acepta; lo que '
+        'queda dentro de la unidad sale ahora como IVA-CUOTA-REDONDEO, una '
+        'nota. Un detalle del borde: a exactamente una unidad, el esquematrón '
+        'de UBL dice error y el de CII no, y aquí se sigue a cada uno en su '
+        'sintaxis. A tipo cero la base no cuenta: la cuota tiene que ser '
+        'cero.'
+    ),
+    "IVA-CUOTA-REDONDEO": (
+        'La cuota de una entrada del desglose no es base por tipo al céntimo, '
+        'pero se aparta menos de una unidad, y la norma lo admite: redondear '
+        'línea a línea y luego sumar produce justo eso. Es una nota y no un '
+        'aviso porque no hay nada que arreglar si esa es la explicación; está '
+        'para decir qué se ha dado por bueno y con qué base, que es para lo '
+        'que existen las notas aquí. Si la factura no redondea por líneas, la '
+        'diferencia no tiene explicación y conviene mirarla: un 21,50 sobre '
+        '100 al 21% pasa la norma y no sale de ninguna cuenta.'
     ),
     "EDI-ETIQUETA-IMPOSIBLE": (
         'Hay texto donde tenía que empezar un segmento. Una etiqueta EDIFACT '
@@ -862,14 +892,14 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-CO-15": (
         'El total con impuestos no es la base imponible más el importe de '
-        'impuestos. Es la suma más simple de toda la factura, y por eso el '
-        'fallo casi nunca está aquí: cuando salta, lo normal es que uno de '
-        'los dos sumandos venga ya mal de antes —la base la cuadra BR-CO-13 y '
-        'el importe de impuestos lo cuadra BR-CO-14 contra el desglose—. '
-        'Cuando falta el importe total de impuestos esta regla no puede '
-        'correr, y entonces se dice con el código IVA-SIN-TOTAL en vez de '
-        'callarse: un informe mudo aquí se parece demasiado a uno que ha '
-        'comprobado y le ha salido bien.'
+        'impuestos, o el importe de impuestos está declarado más de una vez '
+        'en la moneda de la factura. Lo segundo pasa cuando se repite el '
+        'bloque del total: se puede declarar otra vez en la moneda de '
+        'contabilidad, con su propio código de moneda, pero dos en la misma '
+        'no, porque no se sabe cuál vale. La suma es exacta, redondeada a dos '
+        'decimales. Cuando falta el importe total de impuestos esta regla no '
+        'puede correr, y entonces se dice con el código IVA-SIN-TOTAL en vez '
+        'de callarse.'
     ),
     "XSD-FALTA": (
         'A un elemento le falta dentro algo que el esquema exige. Es el '
@@ -1746,12 +1776,12 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-O-01": (
         'Hay conceptos declarados como no sujetos y el desglose no recoge esa '
-        'categoría. Lo no sujeto tiene que aparecer igual que lo demás aunque '
-        'no pague: el desglose no es una lista de impuestos a cobrar sino la '
-        'explicación de qué se ha hecho con cada euro facturado, y una base '
-        'no sujeta que no está declarada es dinero facturado del que la '
-        'factura no dice nada. El informe nombra los conceptos que llevan esa '
-        'categoría, que es por dónde se empieza a arreglarlo.'
+        'categoría, o la recoge más de una vez. Lo no sujeto tiene que '
+        'aparecer igual que lo demás aunque no pague, y en una sola entrada: '
+        'lo que no está sujeto no tiene tipo con el que partirse. El desglose '
+        'no es una lista de impuestos a cobrar sino la explicación de qué se '
+        'ha hecho con cada euro facturado. El informe nombra los conceptos '
+        'que llevan esa categoría, que es por dónde se empieza a arreglarlo.'
     ),
     "BR-O-05": (
         'Una línea declarada como no sujeta trae tipo de IVA. Si la operación '
@@ -1805,13 +1835,14 @@ CODIGOS: dict[str, str] = {
         'o una frase es todo lo que se pide.'
     ),
     "BR-Z-01": (
-        'Hay conceptos a tipo cero y el desglose no recoge esa categoría. Que '
-        'no haya impuesto que cobrar no significa que no haya nada que '
-        'declarar: la base a tipo cero tiene que aparecer, porque el desglose '
-        'contesta a dónde ha ido cada euro facturado y no a cuánto se cobra. '
-        'Es además la categoría que más se olvida por eso mismo —al no mover '
-        'dinero nadie la echa de menos—, hasta que un receptor automático '
-        'suma las bases declaradas y no le sale la de la factura.'
+        'Hay conceptos a tipo cero y el desglose no recoge esa categoría, o '
+        'la recoge más de una vez. Que no haya impuesto que cobrar no '
+        'significa que no haya nada que declarar: la base a tipo cero tiene '
+        'que aparecer, y en una sola entrada, porque el tipo es siempre el '
+        'mismo y no hay nada que separar. Es además la categoría que más se '
+        'olvida —al no mover dinero nadie la echa de menos—, hasta que un '
+        'receptor automático suma las bases declaradas y no le sale la de la '
+        'factura.'
     ),
     "BR-Z-05": (
         'Una línea dice ser de tipo cero y declara un tipo que no es cero. Es '
@@ -1864,13 +1895,12 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-E-01": (
         'Hay conceptos declarados exentos y el desglose no recoge esa '
-        'categoría. La base exenta se declara igual que la gravada, y aquí '
-        'importa más que en ninguna otra categoría: una exención hay que '
-        'justificarla, y lo que la justifica —el motivo— cuelga de la entrada '
-        'del desglose. Sin entrada no hay dónde escribirlo, así que este '
-        'error arrastra al siguiente: no es sólo que falte una línea en el '
-        'resumen, es que la factura se queda sin poder decir por qué no lleva '
-        'IVA.'
+        'categoría, o la recoge más de una vez. La base exenta se declara '
+        'igual que la gravada y en una sola entrada, y aquí importa más que '
+        'en ninguna otra categoría: una exención hay que justificarla, y lo '
+        'que la justifica —el motivo— cuelga de esa entrada. Dos entradas '
+        'exentas con dos artículos distintos parecen más precisas y la norma '
+        'las rechaza: pide exactamente una.'
     ),
     "BR-E-05": (
         'Una línea se declara exenta y trae un tipo que no es cero. Exenta '
@@ -1922,12 +1952,12 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-AE-01": (
         'Hay conceptos con inversión del sujeto pasivo y el desglose no '
-        'recoge esa categoría. Es de las que peor le sientan a quien recibe: '
-        'en estas operaciones el impuesto lo declara e ingresa el receptor y '
-        'no el emisor, así que la entrada del desglose es lo que le dice '
-        'cuánta base tiene que autorrepercutirse. Sin ella la factura llega '
-        'sin cuota y sin explicación, y lo que parece es que a alguien se le '
-        'olvidó el IVA.'
+        'recoge esa categoría, o la recoge más de una vez. Es de las que peor '
+        'le sientan a quien recibe: en estas operaciones el impuesto lo '
+        'declara e ingresa el receptor y no el emisor, así que la entrada del '
+        'desglose —una sola— es lo que le dice cuánta base tiene que '
+        'autorrepercutirse. Sin ella la factura llega sin cuota y sin '
+        'explicación; con dos, no sabe cuál sumar.'
     ),
     "BR-AE-05": (
         'Una línea declara inversión del sujeto pasivo y trae un tipo que no '
@@ -1975,12 +2005,13 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-IC-01": (
         'Hay conceptos declarados como entrega intracomunitaria y el desglose '
-        'no recoge esa categoría. Primero, un detalle que despista: la letra '
-        'de la categoría es K y el código de sus reglas es IC, así que quien '
-        'busque «BR-K-1» en la norma no encontrará nada. Y lo de fondo: una '
-        'entrega intracomunitaria va sin IVA porque lo declara el comprador '
-        'en su país, y la entrada del desglose es donde eso queda escrito, '
-        'con su base y con su motivo.'
+        'no recoge esa categoría, o la recoge más de una vez. Primero, un '
+        'detalle que despista: la letra de la categoría es K y el código de '
+        'sus reglas es IC, así que quien busque «BR-K-01» en la norma no '
+        'encontrará nada. Y lo de fondo: una entrega intracomunitaria va sin '
+        'IVA porque lo declara el comprador en su país, y la entrada del '
+        'desglose, que tiene que ser una, es donde eso queda escrito con su '
+        'base y con su motivo.'
     ),
     "BR-IC-05": (
         'Una línea declarada como entrega intracomunitaria trae un tipo que '
@@ -2020,11 +2051,11 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-G-01": (
         'Hay conceptos declarados como exportación y el desglose no recoge '
-        'esa categoría. Una exportación fuera de la Unión va sin IVA, y como '
-        'toda exención hay que declararla y justificarla: sin entrada en el '
-        'desglose no hay base exportada ni motivo que la sostenga, y lo que '
-        'queda es una factura sin impuesto y sin razón aparente para no '
-        'llevarlo.'
+        'esa categoría, o la recoge más de una vez. Una exportación fuera de '
+        'la Unión va sin IVA, y como toda exención hay que declararla y '
+        'justificarla en una entrada del desglose, y en una sola: sin ella no '
+        'hay base exportada ni motivo que la sostenga, y lo que queda es una '
+        'factura sin impuesto y sin razón aparente para no llevarlo.'
     ),
     "BR-G-05": (
         'Una línea declarada como exportación trae un tipo que no es cero. '

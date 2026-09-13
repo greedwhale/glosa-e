@@ -430,10 +430,25 @@ class TestCuadreAritmetico:
 
 
 class TestRedondeo:
-    def test_un_centimo_de_diferencia_se_tolera(self):
-        # La norma trabaja con dos decimales: un céntimo es redondeo, no error.
+    def test_un_centimo_de_diferencia_ya_es_error(self):
+        """Aquí ponía «la norma trabaja con dos decimales: un céntimo es redondeo».
+
+        La norma redondea **la suma** a dos decimales y la compara con lo
+        declarado sin margen. 33,33 tres veces son 99,99, y una suma declarada
+        de 100,00 incumple BR-CO-10. Se toleró durante meses; lo cazó la prueba
+        oficial de BR-CO-10, que trae 200,01 contra 110 + 90.
+        """
         informe = en16931.validar(
             factura(lineas=(("1", "33.33"), ("2", "33.33"), ("3", "33.33")),
+                    suma_lineas="100.00", base="100.00",
+                    impuestos="21.00", con_impuestos="121.00", a_pagar="121.00")
+        )
+        assert "BR-CO-10" in codigos(informe, ERROR), informe.detalle()
+
+    def test_la_suma_se_redondea_antes_de_comparar(self):
+        """Lo que sí se admite: tres decimales en las líneas que redondeados cuadran."""
+        informe = en16931.validar(
+            factura(lineas=(("1", "33.335"), ("2", "33.335"), ("3", "33.33")),
                     suma_lineas="100.00", base="100.00",
                     impuestos="21.00", con_impuestos="121.00", a_pagar="121.00")
         )
@@ -759,9 +774,14 @@ class TestOtrosFormatos:
 
     def test_sin_declarar_en16931_avisa(self):
         informe = en16931.validar(factura(perfil="urn:otra:cosa"))
-        avisos = [i for i in informe.avisos if i.codigo == "BR-01"]
+        avisos = [i for i in informe.avisos if i.codigo == "PERFIL-SIN-EN16931"]
         assert avisos
         assert "urn:otra:cosa" in avisos[0].encontrado
+
+    def test_br01_no_opina_de_lo_que_dice_el_campo(self):
+        """BR-01 pide que el identificador esté; la prueba oficial acepta un «123»."""
+        informe = en16931.validar(factura(perfil="123"))
+        assert "BR-01" not in codigos(informe)
 
 
 # --- BT-3, el tipo de documento --------------------------------------------

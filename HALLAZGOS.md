@@ -105,6 +105,14 @@ para enseñar el caso. La tolerancia está pensada para monedas de dos decimales
 comprobar antes qué hace el validador oficial con ese mismo fichero. Es el
 único de los tres que sigue abierto.
 
+**Cerrado el 13-09-2026, y no a nuestro favor.** Lo que hacía el validador
+oficial estaba escrito en su esquematrón desde siempre: BR-CO-17 admite hasta
+**una unidad** de distancia entre la cuota y base por tipo, en cualquier
+moneda. «Por la letra de BR-CO-17 tenemos razón» era falso: la letra que se
+leyó fue la de la descripción, no la de la regla. El fichero sale ahora con
+`IVA-CUOTA-REDONDEO`, una nota. Lo cuenta «107 casos en los que la norma decía
+otra cosa», al final.
+
 ## 4. Lo que el validador acertó
 
 Ocho de las diez facturas con queja europea la merecían, y en varios casos se
@@ -3050,3 +3058,38 @@ haber comprobado.
 
 De paso cayó otra frase con el mismo origen: que la lista L4 del anexo español
 «añade L y M, que la UNCL5305 no tiene». Las tiene. L4 no añade: quita `K` y `B`.
+
+## 107 casos en los que la norma decía otra cosa
+
+El 13-09-2026 se trajeron las pruebas unitarias oficiales de la EN 16931 —las
+que usa el comité para su esquematrón, una por regla— y se pasó este validador
+por ellas. De las 90 reglas implementadas que tienen prueba, **41 discrepaban
+en 107 de 567 casos**.
+
+No eran 107 fallos: eran seis ideas equivocadas, y ninguna la había cazado
+ninguna prueba, porque las pruebas estaban escritas desde las mismas ideas.
+
+1. **Un céntimo de margen en todas las cuentas.** La norma no lo da en
+   ninguna: las sumas de cabecera las exige exactas y la cuota de cada tipo la
+   admite hasta una unidad. Aquí se aceptaba un total descuadrado en un céntimo
+   y se rechazaba una cuota que la norma da por buena.
+2. **Sin desglose, el IVA callaba.** Se paraba en BR-CO-18 y no miraba el tipo
+   de ninguna línea.
+3. **Los conceptos sin importe desaparecían**, y con ellos su categoría.
+4. **Las categorías que admiten un solo desglose admitían varios.**
+5. **Un total de impuestos repetido se leía una vez.**
+6. **BR-01 opinaba** sobre lo que dice el identificador, cuando pide que esté.
+
+**Reproducido** antes de tocar nada, en la propia prueba: la lista de las 107
+se escribió en `tests/test_norma_oficial.py`, comprobada en los dos sentidos,
+y se fue vaciando conforme se arreglaba. Cada arreglo se provocó quitándolo:
+volver a pararse sin desglose, dejar de contar desgloses repetidos, dar a UBL
+el borde de CII, volver al céntimo en BR-CO-10. Cada uno se puso en rojo en
+su prueba y en la oficial.
+
+**Lo que cambió en las 179 facturas del corpus**, medido antes y después: de
+1241 incidencias a 1168, casi todo un aviso de BR-01 duplicado en EDIFACT.
+Una sola queja nueva, y es la pista de lo siguiente: el mapa de EDIFACT lee el
+grupo de impuesto de la cabecera como si fuera una entrada del desglose, y de
+ahí salen `BR-45` y `BR-46` en 37 de las 73 facturas EDIFACT de terceros del
+corpus desde antes de hoy.

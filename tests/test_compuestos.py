@@ -34,6 +34,7 @@ from decimal import Decimal
 from validador import iva
 from validador.codigos import codigos_del_paquete
 from validador.iva import (
+    AL_MENOS_UNA,
     CERO,
     CODIGOS_COMPUESTOS,
     NO_NEGATIVO,
@@ -42,6 +43,7 @@ from validador.iva import (
     PROHIBIDO,
     REGLAS,
     SIN_TIPO,
+    UNA_SOLA,
     Apunte,
     Grupo,
 )
@@ -82,16 +84,22 @@ LOS_OCHO_QUE_SI_EXISTEN = (
 #   O   «shall not contain» tipo                 · «shall have» motivo
 #   L   «shall be 0 (zero) or greater than zero» · «shall not have» motivo
 #   M   «shall be 0 (zero) or greater than zero» · «shall not have» motivo
+#
+# Y cuántas entradas del desglose, de BR-{X}-01:
+#
+#   S, L, M             «at least one VAT category code … equal with»
+#   Z, E, AE, K, G, O   «exactly one VAT category code …» / «exactly one VAT
+#                       breakdown (BG-23) with the VAT category code …»
 LO_QUE_DICE_EL_ESQUEMATRON = {
-    "S": (POSITIVO, PROHIBIDO),
-    "Z": (CERO, PROHIBIDO),
-    "E": (CERO, OBLIGATORIO),
-    "AE": (CERO, OBLIGATORIO),
-    "K": (CERO, OBLIGATORIO),
-    "G": (CERO, OBLIGATORIO),
-    "O": (SIN_TIPO, OBLIGATORIO),
-    "L": (NO_NEGATIVO, PROHIBIDO),
-    "M": (NO_NEGATIVO, PROHIBIDO),
+    "S": (POSITIVO, PROHIBIDO, AL_MENOS_UNA),
+    "Z": (CERO, PROHIBIDO, UNA_SOLA),
+    "E": (CERO, OBLIGATORIO, UNA_SOLA),
+    "AE": (CERO, OBLIGATORIO, UNA_SOLA),
+    "K": (CERO, OBLIGATORIO, UNA_SOLA),
+    "G": (CERO, OBLIGATORIO, UNA_SOLA),
+    "O": (SIN_TIPO, OBLIGATORIO, UNA_SOLA),
+    "L": (NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
+    "M": (NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
 }
 
 CERO_D = Decimal(0)
@@ -155,11 +163,12 @@ def _lo_que_sale_de_verdad() -> set[str]:
 
 def test_la_tabla_dice_lo_que_dice_el_esquematron():
     """La cuarta opinión, la que no sale de este repositorio."""
-    for categoria, (tipo, motivo) in LO_QUE_DICE_EL_ESQUEMATRON.items():
+    for categoria, esperado in LO_QUE_DICE_EL_ESQUEMATRON.items():
         regla = REGLAS[categoria]
-        assert (regla.tipo, regla.motivo) == (tipo, motivo), (
+        tabla = (regla.tipo, regla.motivo, regla.desgloses)
+        assert tabla == esperado, (
             f"{categoria} (BR-{regla.codigo}-*): la tabla dice "
-            f"{regla.tipo}/{regla.motivo} y el esquematrón {tipo}/{motivo}")
+            f"{'/'.join(tabla)} y el esquematrón {'/'.join(esperado)}")
     assert set(REGLAS) == set(LO_QUE_DICE_EL_ESQUEMATRON)
 
 

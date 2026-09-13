@@ -1127,3 +1127,80 @@ class TestUnaSintaxisSinCategoriaDeIVA:
     def test_con_el_mapa_de_verdad_no_sale(self, revisar):
         assert "IVA-CATEGORIA-SIN-MAPA" not in codigos(revisar(
             lineas=[Linea("1", "100.00")], grupos=[Grupo("100.00", "21.00")]))
+
+
+class TestLoQueDicenLasPruebasOficiales:
+    """Lo que las pruebas unitarias oficiales cazaron el 13-09-2026, por UBL y CII.
+
+    Las pruebas oficiales son de UBL. Estas montan lo mismo en las dos
+    sintaxis, para que el arreglo no quede probado solo en una.
+    """
+
+    def test_sin_desglose_se_sigue_mirando_el_tipo_de_las_lineas(self, revisar):
+        """BR-CO-18 y BR-S-05 son dos defectos, y se dicen los dos."""
+        incidencias = revisar(lineas=[Linea("1", "100.00", tipo="0")], grupos=[])
+        assert {"BR-CO-18", "BR-S-05", "BR-S-01"} <= codigos(incidencias, ERROR)
+
+    def test_un_descuento_sin_importe_no_esconde_su_categoria(self, revisar):
+        """El descuento sin importe tiene categoría, y el desglose no la trae."""
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00")],
+            ajustes=[Ajuste("", categoria="E", tipo="0")],
+            grupos=[Grupo("100.00", "21.00")],
+        )
+        assert "BR-E-01" in codigos(incidencias, ERROR)
+
+    def test_dos_entradas_exentas_incumplen_br_e_01(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="E", tipo="0")],
+            grupos=[Grupo("60.00", "0.00", categoria="E", tipo="0", motivo="Art. 20"),
+                    Grupo("40.00", "0.00", categoria="E", tipo="0", motivo="Art. 25")],
+            total_iva="0.00",
+        )
+        problema = una(incidencias, "BR-E-01")
+        assert problema.encontrado == "2 entradas"
+
+    def test_dos_entradas_al_tipo_general_si_valen(self, revisar):
+        """Una por tipo: el 21 y el 10 son dos, y la norma pide al menos una."""
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00"), Linea("2", "50.00", tipo="10")],
+            grupos=[Grupo("100.00", "21.00"), Grupo("50.00", "5.00", tipo="10")],
+            total_iva="26.00",
+        )
+        assert "BR-S-01" not in codigos(incidencias)
+
+    def test_la_cuota_a_menos_de_una_unidad_es_una_nota(self, revisar):
+        """21,50 sobre 100 al 21%: la norma lo admite, y se dice que se admitió."""
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00")],
+            grupos=[Grupo("100.00", "21.50")],
+            total_iva="21.50",
+        )
+        assert "BR-CO-17" not in codigos(incidencias)
+        nota = una(incidencias, "IVA-CUOTA-REDONDEO")
+        assert nota.gravedad == NOTA
+        assert "0.50" in nota.mensaje
+
+    def test_la_cuota_a_mas_de_una_unidad_es_error(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00")],
+            grupos=[Grupo("100.00", "22.01")],
+            total_iva="22.01",
+        )
+        assert "BR-CO-17" in codigos(incidencias, ERROR)
+
+    def test_a_la_unidad_justa_ubl_y_cii_dicen_cosas_distintas(self):
+        """Los dos esquematrones oficiales, al revés en el borde, y los dos se siguen."""
+        grupo = iva.Grupo("S", Decimal(25), Decimal(1000), Decimal(251), None)
+        en_ubl = [i.codigo for i in iva._regla_cuota_por_grupo(grupo, SINTAXIS_UBL)]
+        en_cii = [i.codigo for i in iva._regla_cuota_por_grupo(grupo, SINTAXIS_CII)]
+        assert en_ubl == ["BR-CO-17"]
+        assert en_cii == ["IVA-CUOTA-REDONDEO"]
+
+    def test_a_tipo_cero_la_cuota_tiene_que_ser_cero(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="Z", tipo="0")],
+            grupos=[Grupo("100.00", "3.00", categoria="Z", tipo="0")],
+            total_iva="3.00",
+        )
+        assert "BR-CO-17" in codigos(incidencias, ERROR)

@@ -41,7 +41,9 @@ from validador.sintaxis import (
     SINTAXIS_UBL,
     TOLERANCIA,
     Sintaxis,
+    a_decimal,
     cuadra,
+    cuadra_exacto,
     fmt,
     importe,
     importe_en_moneda,
@@ -431,7 +433,7 @@ def _reglas_ajustes(
         (False, "BR-CO-11", "descuentos", descuentos),
         (True, "BR-CO-12", "cargos", cargos),
     ):
-        if cuadra(detallados[es_cargo], declarado):
+        if cuadra_exacto(detallados[es_cargo], declarado):
             continue
         incidencias.append(
             Incidencia(
@@ -501,8 +503,14 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
 
     # BR-CO-10: la suma declarada debe coincidir con la suma real de las líneas.
     # Solo tiene sentido si todas las líneas tienen importe.
+    #
+    # **Exacta**, redondeando la suma a dos decimales, como todas las sumas de
+    # la cabecera de aquí abajo. Durante meses se toleró un céntimo con el
+    # argumento de que la norma redondea; la norma redondea la suma y luego
+    # compara sin margen, y un total que se aparta un céntimo de sus líneas
+    # salía limpio. Lo cazaron las pruebas oficiales el 13-09-2026.
     if lineas and suma_lineas is not None and not sin_importe:
-        if not cuadra(acumulado, suma_lineas):
+        if not cuadra_exacto(acumulado, suma_lineas):
             incidencias.append(
                 Incidencia(
                     "BR-CO-10",
@@ -533,7 +541,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     # BR-CO-13: base imponible = suma de líneas - descuentos + cargos.
     if suma_lineas is not None and base is not None:
         calculada = suma_lineas - descuentos + cargos
-        if not cuadra(calculada, base):
+        if not cuadra_exacto(calculada, base):
             detalle = f"{suma_lineas:.2f}"
             if descuentos:
                 detalle += f" - {descuentos:.2f} de descuentos"
@@ -551,9 +559,63 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                 )
             )
 
-    # BR-CO-15: total con impuestos = base imponible + impuestos.
-    if base is not None and con_impuestos is not None:
-        if impuestos is None:
+    # BR-CO-15: total con impuestos = base imponible + impuestos, exacta.
+    #
+    # Y con **un solo** total de impuestos en la moneda de la factura. UBL y
+    # CII dejan declararlo otra vez en la moneda de contabilidad (BT-111), con
+    # otro `currencyID`, y eso está bien; dos en la misma moneda no, porque no
+    # se sabe cuál es. Aquí se leía el primero y se seguía: lo cazaron las
+    # pruebas oficiales, que traen justo ese caso.
+    #
+    # Contar solo se puede donde cada total dice su moneda. EDIFACT no la dice
+    # en el importe, y en una factura EANCOM el `MOA+176` sale una vez en el
+    # resumen y otra por cada tipo: contarlos daba dos totales en cuatro
+    # facturas reales que traen uno. Ahí no se cuenta.
+    totales = [
+        nodo for nodo in raiz.xpath(sintaxis.impuestos, namespaces=sintaxis.espacios)
+        if not isinstance(nodo, str)
+    ]
+    se_puede_contar = bool(moneda) and any(
+        nodo.get("currencyID") is not None for nodo in totales)
+    en_su_moneda = (
+        [n for n in totales if n.get("currencyID") == moneda]
+        if se_puede_contar else totales
+    )
+    if se_puede_contar and len(en_su_moneda) > 1:
+        incidencias.append(
+            Incidencia(
+                "BR-CO-15",
+                ERROR,
+                f"La factura declara {len(en_su_moneda)} veces el importe total "
+                "de impuestos en su moneda, y tiene que declararlo una. Si una "
+                "de las dos es la de la moneda de contabilidad, tiene que "
+                "decirlo con su código de moneda.",
+                campo="Importe total de impuestos",
+                esperado=f"uno solo en {moneda or 'la moneda de la factura'}",
+                encontrado=", ".join(
+                    fmt(a_decimal(n.text)) for n in en_su_moneda),
+            )
+        )
+    elif base is not None and con_impuestos is not None:
+        if impuestos is not None and not en_su_moneda:
+            # Hay total de impuestos, pero en otra moneda. Para la norma eso
+            # es no tenerlo en la de la factura, salvo que la factura no
+            # lleve impuesto ninguno: el esquematrón de CII acepta entonces un
+            # total igual a la base.
+            if con_impuestos != base:
+                incidencias.append(
+                    Incidencia(
+                        "BR-CO-15",
+                        ERROR,
+                        "El importe total de impuestos no está en la moneda "
+                        "de la factura, así que el total con impuestos no se "
+                        "puede comprobar contra él.",
+                        campo="Importe total de impuestos",
+                        esperado=f"un total en {moneda}",
+                        encontrado="solo en otra moneda",
+                    )
+                )
+        elif impuestos is None:
             incidencias.append(
                 Incidencia(
                     "IVA-SIN-TOTAL",
@@ -566,7 +628,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
             )
         else:
             calculada = base + impuestos
-            if not cuadra(calculada, con_impuestos):
+            if not cuadra_exacto(calculada, con_impuestos):
                 incidencias.append(
                     Incidencia(
                         "BR-CO-15",
@@ -585,7 +647,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     # BR-CO-16: a pagar = total con impuestos - anticipos + redondeo.
     if con_impuestos is not None and a_pagar is not None:
         calculada = con_impuestos - anticipos + redondeo
-        if not cuadra(calculada, a_pagar):
+        if not cuadra_exacto(calculada, a_pagar):
             desglose = []
             if anticipos:
                 desglose.append(f"- {anticipos:.2f} ya pagados")
@@ -833,10 +895,16 @@ def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
         return _reglas_facturae(raiz, sintaxis, espanola)
 
     incidencias: list[Incidencia] = []
-    if not deteccion.conforme_en16931:
+    if not deteccion.conforme_en16931 and deteccion.perfil:
+        # Esto se llamó BR-01 hasta el 13-09-2026, y BR-01 no dice esto: pide
+        # que el identificador de especificación **esté**, no que nombre a la
+        # EN 16931. Las pruebas oficiales dan por bueno un `123`. Que no la
+        # nombre es algo que conviene saber, y es una opinión de la casa, así
+        # que va con código de la casa. Si falta del todo, eso sí es BR-01, y
+        # lo dice la regla de los campos obligatorios.
         incidencias.append(
             Incidencia(
-                "BR-01",
+                "PERFIL-SIN-EN16931",
                 AVISO,
                 "El documento no declara conformidad con EN 16931 en su "
                 f"{sintaxis.nombre_perfil}. Se valida igualmente, pero un "
