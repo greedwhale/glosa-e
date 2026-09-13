@@ -1680,6 +1680,446 @@ CODIGOS: dict[str, str] = {
         'suyas; ahora la lista sale del mapa de sintaxis y no de una frase '
         'escrita a mano.'
     ),
+    "BR-S-1": (
+        'Hay conceptos a tipo general y el desglose no trae ninguna entrada '
+        'de esa categoría. Pasa precisamente por ser la corriente: alguien '
+        'añade una línea al 21% a una factura que hasta entonces iba entera '
+        'exenta, y el desglose se queda como estaba. El informe enumera los '
+        'conceptos que van a S, que es lo que distingue si falta una entrada '
+        'del desglose o si son esas líneas las que están mal etiquetadas. Sin '
+        'esta regla el impuesto de esas líneas no lo reclama nadie: no hay '
+        'entrada que cuadrar, así que no hay nada que descuadre.'
+    ),
+    "BR-S-5": (
+        'Una línea dice ser de tipo general y su tipo no es mayor que cero. '
+        'Es una contradicción, no un descuadre: la categoría S significa '
+        '«sujeta y no exenta», o sea que lleva impuesto, y un cero dice que '
+        'no lo lleva. Cuando de verdad no lo lleva, la categoría es otra —Z '
+        'si es tipo cero, E si está exenta, O si no está sujeta—, y el '
+        'informe lo dice así porque el arreglo no es tocar el número sino '
+        'elegir bien la letra. La norma parte esta misma comprobación en tres '
+        'según de qué cuelgue el concepto; ésta es la de la línea.'
+    ),
+    "BR-S-6": (
+        'Un descuento de los que se aplican a la factura entera dice ser de '
+        'tipo general y no lleva tipo positivo. Un descuento de documento no '
+        'es neutro para el impuesto: resta de la base de la categoría y el '
+        'tipo que declare, así que decir S y poner un cero manda ese '
+        'descuento a una entrada del desglose que no existe. El caso típico '
+        'es un pronto pago copiado de una factura exenta a otra que no lo '
+        'está. Es la misma comprobación que BR-S-5 con otro número, y el '
+        'informe cita el que toca en vez del primero, porque quien busque la '
+        'regla en el texto de la norma tiene que encontrarla donde está.'
+    ),
+    "BR-S-7": (
+        'Un cargo de los que se aplican a la factura entera dice ser de tipo '
+        'general y no lleva tipo positivo. Los cargos de documento —portes, '
+        'gastos financieros, recargo por pedido mínimo— suman a la base en '
+        'vez de restar, así que el error se paga más caro que en el '
+        'descuento: un cargo declarado a S con tipo cero añade importe a una '
+        'entrada del desglose que no puede recibirlo, y lo que sale es una '
+        'factura que cobra algo sin decir a qué tipo tributa. Es el tercero '
+        'de los tres números con los que la norma parte esta comprobación.'
+    ),
+    "BR-S-8": (
+        'La base declarada para el tipo general no cuadra con la suma de los '
+        'conceptos que van a ese tipo. Es el cuadre que ata el desglose con '
+        'las líneas, y va por categoría y tipo a la vez: material al 21% y '
+        'comida al 10% son dos entradas aunque las dos sean S. Suman las '
+        'líneas y también los descuentos y cargos de documento que declaren '
+        'esa combinación, y el informe nombra los sumandos uno a uno —«la '
+        'línea 1, la línea 2 y el cargo 2»—, que es lo que hace falta para '
+        'ver cuál baila. Hay una segunda forma de fallar: que no haya ningún '
+        'concepto detrás de esa base, y entonces se dice así, porque '
+        'contestar «debería ser 0,00» no ayuda a nadie.'
+    ),
+    "BR-S-10": (
+        'Una entrada a tipo general trae motivo de exención, y la norma no lo '
+        'permite: el motivo es justamente lo que justifica una exención, y el '
+        'tipo general no es ninguna. La norma tiene tres posturas sobre el '
+        'motivo y conviene verlas juntas: lo exige en la exenta, la inversión '
+        'del sujeto pasivo, la intracomunitaria, la exportación y la no '
+        'sujeta; lo prohíbe en el tipo general y en el tipo cero; y no se '
+        'pronuncia en IGIC e IPSI. Que sean tres y no dos es lo que hace que '
+        'esta regla exista: si «no obligatorio» y «prohibido» fueran lo '
+        'mismo, una entrada al 21% con un artículo de exención pegado pasaría '
+        'sin que nadie mirara.'
+    ),
+    "BR-O-1": (
+        'Hay conceptos declarados como no sujetos y el desglose no recoge esa '
+        'categoría. Lo no sujeto tiene que aparecer igual que lo demás aunque '
+        'no pague: el desglose no es una lista de impuestos a cobrar sino la '
+        'explicación de qué se ha hecho con cada euro facturado, y una base '
+        'no sujeta que no está declarada es dinero facturado del que la '
+        'factura no dice nada. El informe nombra los conceptos que llevan esa '
+        'categoría, que es por dónde se empieza a arreglarlo.'
+    ),
+    "BR-O-5": (
+        'Una línea declarada como no sujeta trae tipo de IVA. Si la operación '
+        'no está sujeta no hay tipo que aplicarle, ni siquiera cero: la '
+        'diferencia entre «no sujeta» y «tipo cero» es que en la primera el '
+        'impuesto no entra en juego y en la segunda entra y vale cero. '
+        'Escribir un 0,00 aquí parece inofensivo y no lo es, porque hace que '
+        'la línea y la entrada del desglose caigan en cubos distintos al '
+        'emparejarlas. Tanto, que el emparejado de la categoría O ignora el '
+        'tipo a propósito para que eso no pase.'
+    ),
+    "BR-O-6": (
+        'Un descuento de los que se aplican a la factura entera se declara no '
+        'sujeto y trae tipo. Es el mismo error que en la línea, con la '
+        'diferencia de dónde se corrige: los descuentos de documento se '
+        'escriben en el bloque de totales y no en las líneas, y quien los '
+        'genera suele ser otra parte del programa de facturación. Por eso la '
+        'norma lo cuenta como una regla aparte y el informe cita el número '
+        'que le toca: quien se vaya a buscar BR-O-5 entre las líneas no '
+        'encontrará ahí nada que arreglar.'
+    ),
+    "BR-O-7": (
+        'Un cargo de los que se aplican a la factura entera se declara no '
+        'sujeto y trae tipo. Es el más raro de los tres casos —un cargo no '
+        'sujeto es poco corriente— y por eso merece mirarse dos veces: lo más '
+        'probable no es que sobre el tipo, sino que la categoría esté mal y '
+        'ese cargo sí esté sujeto. El informe deja las dos lecturas a la '
+        'vista diciendo qué concepto es y qué tipo declara, porque cuál de '
+        'las dos es la cierta no lo puede decidir un validador.'
+    ),
+    "BR-O-8": (
+        'La base declarada como no sujeta no cuadra con los conceptos que van '
+        'a esa categoría. Tiene una particularidad que ninguna otra tiene: al '
+        'emparejar el desglose con los conceptos, el tipo no entra en la '
+        'cuenta. En las demás categorías el par es categoría y tipo; aquí la '
+        'norma prohíbe el tipo, así que si las líneas vienen sin él y el '
+        'desglose trae un 0,0000, los dos caen en cubos distintos y se '
+        'fabrica un descuadre que no existe. Está medido: una factura '
+        'correcta salía con tres quejas, y dos se contradecían entre sí —una '
+        'decía que al desglose le faltaban conceptos y la otra que a los '
+        'conceptos les faltaba desglose—.'
+    ),
+    "BR-O-10": (
+        'Una entrada no sujeta sin explicar por qué no lleva IVA. Es la '
+        'exigencia que la norma pone a las cinco categorías que no pagan, y '
+        'en ésta es donde más falta hace: exenta, intracomunitaria o '
+        'exportación dicen bastante de sí mismas, mientras que «no sujeta» '
+        'sólo dice que la operación queda fuera del impuesto, sin decir por '
+        'qué queda fuera. Quien recibe necesita ese motivo para justificar '
+        'ante su Administración que ahí no hay IVA que deducir, y un artículo '
+        'o una frase es todo lo que se pide.'
+    ),
+    "BR-Z-1": (
+        'Hay conceptos a tipo cero y el desglose no recoge esa categoría. Que '
+        'no haya impuesto que cobrar no significa que no haya nada que '
+        'declarar: la base a tipo cero tiene que aparecer, porque el desglose '
+        'contesta a dónde ha ido cada euro facturado y no a cuánto se cobra. '
+        'Es además la categoría que más se olvida por eso mismo —al no mover '
+        'dinero nadie la echa de menos—, hasta que un receptor automático '
+        'suma las bases declaradas y no le sale la de la factura.'
+    ),
+    "BR-Z-5": (
+        'Una línea dice ser de tipo cero y declara un tipo que no es cero. Es '
+        'la contradicción del tipo general leída al revés: allí se declara '
+        'impuesto y no se pone, aquí se declara que no lo hay y se pone. Lo '
+        'corriente es que la categoría se quedara de una plantilla y el tipo '
+        'se cambiara, o al revés. Conviene no confundir esta categoría con la '
+        'exenta: las dos escriben un cero y no son lo mismo, y de esa '
+        'diferencia viven BR-Z-10 y BR-E-10, que a la exenta le exigen motivo '
+        'y al tipo cero se lo prohíben.'
+    ),
+    "BR-Z-6": (
+        'Un descuento de los que se aplican a la factura entera se declara a '
+        'tipo cero y trae un tipo que no lo es. El efecto es que el descuento '
+        'se resta del cubo equivocado: en vez de reducir la base que no paga '
+        'impuesto, reduce una que sí paga, y la factura acaba repercutiendo '
+        'menos de lo que le toca. Es de los errores que el cuadre de totales '
+        'no ve, porque la suma general sigue saliendo; lo único que ha '
+        'cambiado es de qué base sale el descuento.'
+    ),
+    "BR-Z-7": (
+        'Un cargo de los que se aplican a la factura entera se declara a tipo '
+        'cero y trae un tipo que no lo es. Es el mismo desvío que en el '
+        'descuento con el signo contrario: el importe se suma a una base que '
+        'no le corresponde. Aquí conviene recordar que un cargo hereda el '
+        'tratamiento de aquello a lo que acompaña —unos portes de una entrega '
+        'a tipo cero van a tipo cero—, así que cuando el tipo del cargo no '
+        'coincide con su categoría, lo que suele estar mal es la categoría y '
+        'no el porte.'
+    ),
+    "BR-Z-8": (
+        'La base declarada a tipo cero no es la suma de los conceptos que van '
+        'a tipo cero. Es la misma cuenta que BR-S-8 con otra categoría, y es '
+        'la que más fácil se cuela precisamente porque no hay impuesto en '
+        'juego: la cuota vale cero salga lo que salga la base, así que un '
+        'error aquí no descuadra el total de la factura y ninguna de las '
+        'reglas aritméticas de arriba lo ve —las de los totales miran la base '
+        'del documento, no la de cada categoría—. Ésta es la única que lo '
+        'dice.'
+    ),
+    "BR-Z-10": (
+        'Una entrada a tipo cero trae motivo de exención, y la norma se lo '
+        'prohíbe. No es una formalidad: el tipo cero no es una exención. Una '
+        'operación a tipo cero está gravada, y lo está a un tipo que resulta '
+        'ser cero; una exenta no se grava. Poner un artículo de exención en '
+        'una entrada a tipo cero es decir las dos cosas a la vez, y quien lo '
+        'lea no sabrá cuál de ellas vale. Si de verdad hay exención, la '
+        'categoría es E, y entonces el motivo pasa de prohibido a '
+        'obligatorio.'
+    ),
+    "BR-E-1": (
+        'Hay conceptos declarados exentos y el desglose no recoge esa '
+        'categoría. La base exenta se declara igual que la gravada, y aquí '
+        'importa más que en ninguna otra categoría: una exención hay que '
+        'justificarla, y lo que la justifica —el motivo— cuelga de la entrada '
+        'del desglose. Sin entrada no hay dónde escribirlo, así que este '
+        'error arrastra al siguiente: no es sólo que falte una línea en el '
+        'resumen, es que la factura se queda sin poder decir por qué no lleva '
+        'IVA.'
+    ),
+    "BR-E-5": (
+        'Una línea se declara exenta y trae un tipo que no es cero. Exenta '
+        'significa que la operación no se grava, así que no hay tipo que '
+        'aplicar y el único valor admitido es cero. El caso corriente es una '
+        'factura de un servicio del artículo 20 —médico, docente, financiero, '
+        'un alquiler de vivienda— donde alguien dejó el 21% que venía en la '
+        'plantilla. Y hay algo que conviene tener claro al arreglarlo: exenta '
+        'no es lo mismo que tipo cero aunque las dos escriban un cero, porque '
+        'no dan el mismo derecho a deducir el impuesto soportado.'
+    ),
+    "BR-E-6": (
+        'Un descuento de los que se aplican a la factura entera se declara '
+        'exento y trae un tipo que no es cero. En una factura mixta —parte '
+        'exenta y parte gravada— es un error fácil y caro: el descuento se '
+        'resta de la base equivocada y cambia cuánto IVA repercute la factura '
+        'sin que ninguna línea haya cambiado. El informe nombra el descuento '
+        'por su motivo escrito, que es lo que permite encontrarlo en el '
+        'bloque de totales, donde no hay números de línea a los que '
+        'agarrarse.'
+    ),
+    "BR-E-7": (
+        'Un cargo de los que se aplican a la factura entera se declara exento '
+        'y trae un tipo que no es cero. Un cargo exento no es raro —los '
+        'gastos que acompañan a una operación exenta suelen serlo también—, '
+        'así que aquí lo probable es que sobre el tipo y la categoría esté '
+        'bien, al revés de lo que pasa en la no sujeta. Sea cual sea, la '
+        'norma no deja que convivan: si la categoría dice exenta, el tipo es '
+        'cero; y si el tipo no es cero, la categoría es otra.'
+    ),
+    "BR-E-8": (
+        'La base declarada como exenta no es la suma de los conceptos '
+        'exentos. Es el cuadre de siempre aplicado a la categoría donde más '
+        'se nota, porque la base exenta es exactamente lo que la factura '
+        'declara no estar gravando: si sobra, la factura da por exento algo '
+        'que no lo es; si falta, hay importe exento que no aparece en ninguna '
+        'parte. Ninguna de las dos cosas mueve un céntimo de impuesto, y las '
+        'dos cambian lo que la factura afirma sobre sí misma.'
+    ),
+    "BR-E-10": (
+        'Una entrada exenta sin decir por qué lo está. La norma no se '
+        'conforma con la etiqueta: exige el artículo o la razón, y no por '
+        'burocracia —quien recibe la factura tiene que poder justificar ante '
+        'su Administración por qué ahí no hay IVA que deducir, y «exenta» a '
+        'secas no justifica nada—. Es con diferencia la más incumplida de las '
+        'reglas por categoría: sale en once de las 179 facturas medidas aquí, '
+        'repartidas entre cuatro de los cinco montones, y son facturas que '
+        'por lo demás están bien escritas.'
+    ),
+    "BR-AE-1": (
+        'Hay conceptos con inversión del sujeto pasivo y el desglose no '
+        'recoge esa categoría. Es de las que peor le sientan a quien recibe: '
+        'en estas operaciones el impuesto lo declara e ingresa el receptor y '
+        'no el emisor, así que la entrada del desglose es lo que le dice '
+        'cuánta base tiene que autorrepercutirse. Sin ella la factura llega '
+        'sin cuota y sin explicación, y lo que parece es que a alguien se le '
+        'olvidó el IVA.'
+    ),
+    "BR-AE-5": (
+        'Una línea declara inversión del sujeto pasivo y trae un tipo que no '
+        'es cero. Quien emite no repercute nada —lo declara quien recibe—, '
+        'así que esa línea va a cero y punto. Un tipo distinto de cero es una '
+        'factura que dice dos cosas incompatibles: que el impuesto lo ingresa '
+        'el receptor y que lo está cobrando el emisor. Cualquiera de las dos '
+        'puede ser la buena, y por eso el informe no elige: dice qué línea es '
+        'y qué tipo declara.'
+    ),
+    "BR-AE-6": (
+        'Un descuento de los que se aplican a la factura entera declara '
+        'inversión del sujeto pasivo y trae un tipo que no es cero. En las '
+        'facturas con inversión el bloque de totales es donde más se cuela, '
+        'porque suele rellenarlo la parte del programa que no sabe nada del '
+        'régimen fiscal de las líneas: pone el tipo general por defecto y la '
+        'categoría viene de otro sitio. Lo que sale es un descuento que dice '
+        'ser de un régimen sin cuota y llevar cuota a la vez.'
+    ),
+    "BR-AE-7": (
+        'Un cargo de los que se aplican a la factura entera declara inversión '
+        'del sujeto pasivo y trae un tipo que no es cero. Es el mismo choque '
+        'que en el descuento, y en el cargo pesa más porque suma: la base '
+        'sobre la que el receptor tendrá que autorrepercutirse crece con ese '
+        'cargo, así que lo que se declare mal aquí le cambia a él la cuenta '
+        'que tiene que hacer en su propia declaración.'
+    ),
+    "BR-AE-8": (
+        'La base declarada con inversión del sujeto pasivo no es la suma de '
+        'los conceptos que van a ese régimen. Es el cuadre de siempre, y en '
+        'esta categoría no es una formalidad contable: esa base es '
+        'exactamente la cifra sobre la que quien recibe tiene que calcular e '
+        'ingresar el impuesto. Una base mal sumada aquí no deja mal una '
+        'factura, deja mal una declaración ajena.'
+    ),
+    "BR-AE-10": (
+        'Una entrada con inversión del sujeto pasivo sin decir por qué no '
+        'lleva IVA. El motivo es lo único que distingue una factura con '
+        'inversión de una a la que se le olvidó el impuesto: las dos llegan '
+        'sin cuota. Quien recibe necesita saber que le toca autorrepercutirse '
+        'y necesita poder justificarlo. Sale en tres de los EDIFACT reales '
+        'medidos aquí, y es el caso donde más cuesta ponerlo: EDIFACT no '
+        'tiene un hueco natural para el motivo, y quien traduce desde un '
+        'programa de gestión suele dejarlo fuera.'
+    ),
+    "BR-IC-1": (
+        'Hay conceptos declarados como entrega intracomunitaria y el desglose '
+        'no recoge esa categoría. Primero, un detalle que despista: la letra '
+        'de la categoría es K y el código de sus reglas es IC, así que quien '
+        'busque «BR-K-1» en la norma no encontrará nada. Y lo de fondo: una '
+        'entrega intracomunitaria va sin IVA porque lo declara el comprador '
+        'en su país, y la entrada del desglose es donde eso queda escrito, '
+        'con su base y con su motivo.'
+    ),
+    "BR-IC-5": (
+        'Una línea declarada como entrega intracomunitaria trae un tipo que '
+        'no es cero. El impuesto se devenga en el país del comprador y quien '
+        'emite no repercute nada, así que el único tipo posible es cero. Un '
+        'tipo positivo suele ser una factura española copiada para un cliente '
+        'de otro país de la Unión sin tocar los tipos, y el efecto es doble: '
+        'se cobra un IVA que no corresponde y se declara una operación que no '
+        'es la que se está facturando.'
+    ),
+    "BR-IC-6": (
+        'Un descuento de los que se aplican a la factura entera se declara '
+        'intracomunitario y trae un tipo que no es cero. En estas facturas '
+        'todo el documento suele ir a cero, así que un descuento con tipo '
+        'positivo canta: casi siempre es un valor por defecto del programa '
+        'que nadie ha tocado, porque no cambia ningún total —el descuento se '
+        'resta igual—. Lo que cambia es de qué base se resta, y eso el cuadre '
+        'general no lo ve.'
+    ),
+    "BR-IC-7": (
+        'Un cargo de los que se aplican a la factura entera se declara '
+        'intracomunitario y trae un tipo que no es cero. En una entrega '
+        'intracomunitaria los gastos que acompañan a la entrega —el '
+        'transporte, sobre todo— siguen su misma suerte y van también sin '
+        'repercusión. Un cargo de transporte al 21% en una factura '
+        'intracomunitaria es la señal de que ese cargo se calculó con las '
+        'reglas del mercado nacional.'
+    ),
+    "BR-IC-8": (
+        'La base declarada como entrega intracomunitaria no es la suma de los '
+        'conceptos que van a ese régimen. Esta cifra viaja más lejos que las '
+        'demás: es la que acaba en la declaración recapitulativa de '
+        'operaciones intracomunitarias, que se cruza con lo que declare el '
+        'comprador en su país. Cuando las dos no coinciden, quien tiene que '
+        'explicarlo es quien emitió la factura, y lo que hay que explicar '
+        'sale de aquí.'
+    ),
+    "BR-G-1": (
+        'Hay conceptos declarados como exportación y el desglose no recoge '
+        'esa categoría. Una exportación fuera de la Unión va sin IVA, y como '
+        'toda exención hay que declararla y justificarla: sin entrada en el '
+        'desglose no hay base exportada ni motivo que la sostenga, y lo que '
+        'queda es una factura sin impuesto y sin razón aparente para no '
+        'llevarlo.'
+    ),
+    "BR-G-5": (
+        'Una línea declarada como exportación trae un tipo que no es cero. '
+        'Una venta a un país de fuera de la Unión no lleva IVA español, así '
+        'que el tipo es cero. Un tipo positivo aquí es casi siempre el mismo '
+        'caso que en la intracomunitaria —la factura nacional reutilizada— '
+        'con una diferencia práctica: en la exportación quien recibe pagará '
+        'los impuestos de su país al entrar la mercancía, así que un IVA '
+        'español cobrado de más acaba siendo un impuesto pagado dos veces.'
+    ),
+    "BR-G-6": (
+        'Un descuento de los que se aplican a la factura entera se declara '
+        'como exportación y trae un tipo que no es cero. Vale lo mismo que en '
+        'la línea, con el añadido de dónde se corrige: el bloque de totales '
+        'lo suele rellenar un módulo distinto del que factura, y ahí es donde '
+        'se quedan los valores por defecto. El informe nombra el descuento '
+        'por su motivo escrito para que se pueda encontrar, porque en los '
+        'totales no hay números de línea.'
+    ),
+    "BR-G-7": (
+        'Un cargo de los que se aplican a la factura entera se declara como '
+        'exportación y trae un tipo que no es cero. El caso corriente es el '
+        'transporte internacional, que acompaña a la mercancía exportada y '
+        'sigue su tratamiento. Cuando ese cargo aparece con tipo, lo que '
+        'suele haber detrás es un porte calculado con la tarifa nacional y '
+        'pegado a una factura de exportación sin revisarlo.'
+    ),
+    "BR-G-8": (
+        'La base declarada como exportación no es la suma de los conceptos '
+        'exportados. Es la cifra que acaba comparándose con el documento '
+        'aduanero, así que aquí el cuadre no se queda en la factura: una base '
+        'exportada que no coincide con lo que salió por la aduana es '
+        'exactamente lo que pone en duda una exención. El informe enumera los '
+        'conceptos que van a esa categoría, que es lo que permite compararlos '
+        'con el envío.'
+    ),
+    "BR-AF-1": (
+        'Hay conceptos con IGIC y el desglose no recoge esa categoría. El '
+        'IGIC es el impuesto canario, que ocupa el lugar del IVA en las '
+        'islas, y la norma europea lo trata como una categoría más con su '
+        'propia familia de reglas. De esa familia aquí sólo pueden salir dos, '
+        'ésta y la del cuadre de la base: la norma no ata el tipo del IGIC ni '
+        'se pronuncia sobre su motivo, así que las reglas del tipo y del '
+        'motivo no tienen nada que exigirle. Anunciar que existen sería '
+        'inventarlas.'
+    ),
+    "BR-AF-8": (
+        'La base declarada con IGIC no es la suma de los conceptos que van a '
+        'ese impuesto y tipo. Es el mismo cuadre que en las demás categorías, '
+        'con una diferencia que conviene saber: el IGIC tiene tipos propios, '
+        'que no son los del IVA peninsular, y este validador no opina sobre '
+        'cuáles —la regla que avisa de un tipo que no existe en España se '
+        'aparta a propósito en Canarias y en Ceuta y Melilla—. Lo que sí se '
+        'comprueba es que la base declarada sea la de los conceptos que van '
+        'ahí.'
+    ),
+    "BR-AG-1": (
+        'Hay conceptos con IPSI y el desglose no recoge esa categoría. El '
+        'IPSI es el impuesto de Ceuta y Melilla, y el código de sus reglas '
+        'merece una nota: no es BR-IP-* como parecería, sino BR-AG-*. Aquí se '
+        'llegó a escribir BR-IP-* por analogía con el intracomunitario —o '
+        'sea, inventado— hasta que se comprobó contra el esquematrón oficial '
+        'de la Comisión y se corrigió. Una factura de Ceuta recibía el nombre '
+        'de una regla que no existe en ninguna norma.'
+    ),
+    "BR-AG-8": (
+        'La base declarada con IPSI no es la suma de los conceptos que van a '
+        'ese impuesto y tipo. El caso medido está entre las facturas de '
+        'ejemplo que publica la Administración: 1.163,52 de base al 3% y '
+        'ninguna línea a ese tipo detrás. Eso es una de dos cosas, y se '
+        'arreglan en sitios distintos: o sobra esa entrada del desglose, o '
+        'hay una línea con la categoría o el tipo cambiados. El informe lo '
+        'dice con esas palabras en vez de pedir una suma que daría cero.'
+    ),
+    "BR-IC-10": (
+        'Una entrega intracomunitaria sin decir por qué no lleva IVA. La '
+        'factura tiene que declarar la razón de la exención, y aquí el motivo '
+        'no es un trámite: una entrega intracomunitaria se sostiene sobre '
+        'tres cosas —que el comprador tenga número de operador '
+        'intracomunitario, que la mercancía salga de verdad hacia otro Estado '
+        'y que la factura lo diga—, y ésta es la única de las tres que se '
+        'puede comprobar leyendo el documento. Sin ella, lo que hay es una '
+        'factura sin IVA y sin explicación, que es lo que se mira primero '
+        'cuando se revisa una exención.'
+    ),
+    "BR-G-10": (
+        'Una exportación sin decir por qué no lleva IVA. Lo que de verdad '
+        'sostiene la exención es el documento aduanero, no la factura, pero '
+        'la factura tiene que declarar la razón igual: es lo que ata el papel '
+        'de la venta con el de la salida de la mercancía. Sin motivo, una '
+        'exportación y un error de tipo se leen igual desde fuera —las dos '
+        'son una factura a cero—, y distinguirlas es justo lo que esta regla '
+        'pide que no haya que adivinar.'
+    ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
         "cadena llega igual, pero que una autoridad estuviera cualificada "

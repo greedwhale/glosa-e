@@ -102,6 +102,46 @@ REGLAS: dict[str, ReglaCategoria] = {
 }
 
 
+# Los códigos que este módulo compone en tiempo de ejecución, y que por eso no
+# se pueden leer del fuente: `f"BR-{regla.codigo}-8"` no dice cuál es hasta que
+# hay una factura delante. Se declaran aquí, pegados a la tabla de la que
+# salen, y `codigos.py` los recoge para que tengan su ficha como los demás.
+#
+# **No es el producto de nueve categorías por seis sufijos.** Serían 54 y son
+# 46: hay ramas que con ciertas categorías no pueden dispararse nunca, y
+# anunciar esos ocho códigos sería inventarlos —que es exactamente lo que ya
+# pasó una vez aquí con unos `BR-IG-*` que no existen en ninguna norma—.
+#
+# Las condiciones son las mismas que aplican las reglas, y eso es una
+# duplicación a la vista: la sostiene una prueba que provoca las cuatro reglas
+# con cada categoría y compara lo que sale de verdad con lo que aquí se
+# declara. Declarado contra medido, que es como se hace todo en este
+# repositorio.
+def _codigos_compuestos() -> dict[str, tuple[str, ...]]:
+    por_patron: dict[str, list[str]] = {}
+    for regla in REGLAS.values():
+        # La categoría usada que el desglose no recoge, y la base de la
+        # entrada contra lo suyo: las dos valen para cualquier categoría.
+        por_patron.setdefault("BR-{}-1", []).append(f"BR-{regla.codigo}-1")
+        por_patron.setdefault("BR-{}-8", []).append(f"BR-{regla.codigo}-8")
+        # El tipo del concepto, partido en tres según de qué cuelgue. Con
+        # CUALQUIERA la comprobación no marca nada como malo, así que no hay
+        # queja posible: IGIC e IPSI llevan tipos propios y la norma no los ata.
+        if regla.tipo != CUALQUIERA:
+            for sufijo in (5, 6, 7):
+                por_patron.setdefault("BR-{}-{}", []).append(
+                    f"BR-{regla.codigo}-{sufijo}"
+                )
+        # El motivo de exención. Con LIBRE la norma no se pronuncia —ni lo
+        # exige ni lo prohíbe— y aquí tampoco, así que nunca se queja.
+        if regla.motivo != LIBRE:
+            por_patron.setdefault("BR-{}-10", []).append(f"BR-{regla.codigo}-10")
+    return {patron: tuple(sorted(set(suyos))) for patron, suyos in por_patron.items()}
+
+
+CODIGOS_COMPUESTOS: dict[str, tuple[str, ...]] = _codigos_compuestos()
+
+
 def _clave(
     categoria: str | None, tipo: Decimal | None
 ) -> tuple[str | None, Decimal | None]:

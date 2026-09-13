@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1360 tests, todos en verde.
+1368 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3369,8 +3369,9 @@ cada aviso» y un buscador que no filtra nada es de las cosas que no dan error.
 
 ### El fallo que casi se publica: 160 páginas y 27 descripciones
 
-De los 160 códigos, sólo **15 tienen explicación propia**. Los otros 145 llevan
-la de su familia, y eso está dicho en la página. Poniendo esa explicación como
+De los 160 códigos, aquel día sólo **15 tenían explicación propia**. Los otros
+145 llevaban la de su familia, y eso estaba dicho en la página. Hoy la llevan
+los 206, uno a uno; lo de abajo cuenta cómo se cerró. Poniendo esa explicación como
 descripción de la página —que es lo natural, y lo primero que se escribió— el
 recuento salía así:
 
@@ -3391,6 +3392,51 @@ todos, y sigue con la explicación:
 Son 160 de 160, y encima la primera línea contesta ya lo que se ha venido a
 preguntar. Hay una prueba que lo comprueba, porque esto se estropea solo: basta
 con que alguien «simplifique» la descripción para que vuelvan a ser 27.
+
+### Los que no estaban escritos: de 160 a 206
+
+El catálogo se lee del fuente, y eso deja fuera a los que no están escritos.
+`iva.py` compone seis de sus códigos al validar, pegándole la categoría de la
+operación a un patrón:
+
+```python
+Incidencia(f"BR-{regla.codigo}-8", ERROR, …)
+```
+
+Ahí no hay una cadena que leer: cuál es no se sabe hasta que hay una factura
+delante. Se contaban a la vista como huecos —la página decía «otros 6 se
+componen al validar»—, que era honrado y dejaba a **46 códigos reales sin
+página**. Le salen a alguien en su informe y no tiene dónde mirar. `BR-E-10`
+sale en once de las 179 facturas medidas aquí, que lo pondría entre los veinte
+más frecuentes de todo el catálogo.
+
+Ahora el módulo que los compone **declara lo que compone**, en un
+`CODIGOS_COMPUESTOS` pegado a la tabla de la que salen, y `codigos.py` lo
+recoge. Sigue sin adivinarse nada: lo que no esté declarado sigue contándose
+como hueco, y `HUECOS_CONOCIDOS` —hoy vacía— sigue poniéndose en rojo el día
+que aparezca una forma nueva de emitir un código.
+
+**Son 46 y no 54, y la diferencia es el asunto entero.** Nueve categorías por
+seis sufijos darían 54. Pero IGIC e IPSI llevan `tipo = cualquiera` y
+`motivo = libre`: la comprobación del tipo no marca nada como malo y la del
+motivo ni lo exige ni lo prohíbe, así que ocho de esos códigos no se disparan
+nunca. Publicarlos sería inventarlos —que es exactamente lo que ya pasó aquí
+una vez con unos `BR-IG-*` que no existen en ninguna norma—.
+
+Por eso la declaración no se cree sola. `tests/test_compuestos.py` la sostiene
+con tres opiniones que tienen que coincidir, y una cuarta al revés:
+
+| Quién lo dice | Qué aporta |
+|---|---|
+| La lista escrita a mano en la prueba | envejece, y por eso está: se pone en rojo si la derivación cambia sin que nadie lo diga |
+| Lo que `iva.py` declara | sale de la tabla de reglas, no de la memoria |
+| Lo que sale al provocar las cuatro reglas con cada categoría | la medida, contra las dos lecturas |
+| Los ocho que no existen | comprobado que **no** salen, uno a uno y por su nombre |
+
+Las 46 explicaciones se escribieron antes de enchufar nada, y el catálogo pasó
+de 160 a 206 en un solo movimiento. Es deliberado: hacerlo al revés habría
+publicado «46 códigos con la explicación de su familia» el día siguiente de
+haber publicado que no quedaba ninguno.
 
 ### El sitemap, el robots y la canónica
 

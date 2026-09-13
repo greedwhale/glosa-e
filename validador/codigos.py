@@ -66,6 +66,7 @@ tercero. El catálogo tiene que poder decirlo, así que aquí se guardan las dos
 from __future__ import annotations
 
 import ast
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -285,6 +286,38 @@ def _resolver(
     return (), (_patron(nodo),)
 
 
+def _declarados_por(ruta: Path) -> dict[str, tuple[str, ...]]:
+    """Lo que un módulo dice que compone, cuando lo dice.
+
+    Hay códigos que no se pueden leer del fuente porque no están escritos:
+    `f"BR-{regla.codigo}-8"` no dice cuál es hasta que hay una factura
+    delante. Contarlos como huecos era honrado y dejaba a cuarenta y seis
+    códigos reales sin ficha, que es un agujero distinto: le sale a alguien en
+    su informe y no tiene dónde mirar.
+
+    Así que el módulo que los compone puede declararlos en un
+    `CODIGOS_COMPUESTOS`, pegado a la tabla de la que salen, y aquí se
+    recogen. Sigue sin adivinarse nada: lo que no esté declarado sigue
+    contándose como hueco.
+
+    Se importa por el nombre del paquete y solo cuando la carpeta es la suya.
+    Cargar un fichero suelto por su ruta volvería a ejecutar el módulo con
+    otra identidad, y entonces habría dos `validador.iva` distintos en
+    memoria; es el precio de leer una constante en vez de un literal, y se
+    paga no haciéndolo cuando no toca.
+    """
+    if ruta.parent != Path(__file__).parent:
+        return {}
+    try:
+        modulo = importlib.import_module(f"{__package__}.{ruta.stem}")
+    except Exception:
+        # Un módulo que no importa no invalida el catálogo entero: sus códigos
+        # literales ya se han leído del fuente, que no necesita ejecutarlo.
+        return {}
+    declarados = getattr(modulo, "CODIGOS_COMPUESTOS", None)
+    return dict(declarados) if isinstance(declarados, dict) else {}
+
+
 def _de_un_fichero(
     ruta: Path,
 ) -> tuple[list[tuple[str, str, int]], list[tuple[int, str]]]:
@@ -292,6 +325,7 @@ def _de_un_fichero(
     arbol = ast.parse(ruta.read_text(encoding="utf-8"), filename=str(ruta))
     tablas = _tablas_del_modulo(arbol)
     padres = _padres(arbol)
+    compuestos = _declarados_por(ruta)
 
     encontrados: list[tuple[str, str, int]] = []
     sin_leer: list[tuple[int, str]] = []
@@ -309,7 +343,12 @@ def _de_un_fichero(
             _asignados(nodo, padres),
         )
         encontrados.extend((codigo, gravedad, nodo.lineno) for codigo in codigos)
-        sin_leer.extend((nodo.lineno, patron) for patron in patrones)
+        for patron in patrones:
+            suyos = compuestos.get(patron)
+            if suyos:
+                encontrados.extend((codigo, gravedad, nodo.lineno) for codigo in suyos)
+            else:
+                sin_leer.append((nodo.lineno, patron))
 
     # Por línea y no en el orden en que `ast.walk` los encuentre: «se emite en
     # en16931.py:238» tiene que salir igual en dos montajes seguidos, o la

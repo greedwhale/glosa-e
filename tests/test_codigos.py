@@ -34,21 +34,17 @@ LOS_QUE_FALTABAN = (
     "BR-22", "BR-23", "BR-26",
 )
 
-# Los que se componen al validar y por eso no se pueden leer del fuente. Es la
-# lista de lo que este catálogo **no** tiene, y está aquí para que crezca
-# solo cuando alguien decida que crezca.
+# Lo que el lector no sabe leer del fuente. **Hoy está vacía**, y llegar a eso
+# costó: los seis patrones que había aquí —los `BR-{}-8` del IVA y sus
+# hermanos— se componen al validar con la categoría de la operación, así que
+# no hay una cadena que leer. Ahora `iva.py` declara qué códigos puede
+# componer, pegado a la tabla de la que salen, y el catálogo los recoge.
 #
-# `BR-{}-8` sale dos veces porque la misma regla se queja en dos sitios —la
-# base fantasma y la base que no cuadra—, y las dos líneas cuentan: si una
-# desapareciera, esta prueba tiene que enterarse.
-HUECOS_CONOCIDOS = (
-    ("iva.py", "BR-{}-8"),
-    ("iva.py", "BR-{}-8"),
-    ("iva.py", "BR-{}-10"),
-    ("iva.py", "BR-{}-10"),
-    ("iva.py", "BR-{}-1"),
-    ("iva.py", "BR-{}-{}"),
-)
+# Vacía no quiere decir inútil: esta tupla es la declaración de que no hay
+# ninguno, y la prueba se pone en rojo el día que aparezca una forma nueva de
+# emitir un código que nadie sepa leer. Un hueco declarado se puede cerrar;
+# uno silencioso no se sabe ni que está.
+HUECOS_CONOCIDOS: tuple[tuple[str, str], ...] = ()
 
 
 def test_los_codigos_de_las_tablas_estan_en_el_catalogo():

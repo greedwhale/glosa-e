@@ -70,19 +70,42 @@ class TestLaPaginaQueSePublica:
         hay = len(re.findall(r'<article class="codigo-ficha" id=', pagina))
         assert dice == hay == len(codigos_del_paquete())
 
-    def test_dice_cuantos_no_ha_podido_leer(self, pagina):
-        """Los `BR-{X}-8` del IVA no se leen del fuente, y eso se publica.
+    def test_no_anuncia_huecos_que_ya_no_tiene(self, pagina):
+        """La página contaba los que no sabía leer, y ya no queda ninguno.
 
-        Es la corrección de la promesa que estuvo mal mucho tiempo: la página
-        afirmaba que no podía faltar ninguno mientras le faltaban veintiséis.
+        Estuvo bien mientras fue verdad: seis patrones del IVA se componían al
+        validar y la página los contaba a la vista en vez de fingir que el
+        catálogo estaba entero. Hoy `iva.py` declara los cuarenta y seis
+        códigos que compone y el catálogo los trae, así que esa frase se ha
+        ido con ellos.
+
+        Esta prueba guarda las dos mitades: que no se anuncien huecos
+        inexistentes, y que el día que vuelva a haberlos la página lo diga.
         """
         sin_leer = sin_leer_del_paquete()
-        assert sin_leer, (
-            "hoy no hay ningún código sin leer, así que esta prueba ya no "
-            "comprueba nada. Si eso es de verdad, quítala; si es que el "
-            "lector ha dejado de contarlos, es un fallo.")
-        assert f"<dd>{len(sin_leer)}</dd>" in pagina
-        assert "se componen al validar" in pagina
+        if sin_leer:
+            assert f"<dd>{len(sin_leer)}</dd>" in pagina
+            assert "se componen al validar" in pagina
+        else:
+            assert "se componen al validar" not in pagina, (
+                "la página dice que hay códigos que se componen al validar y "
+                "el lector no encuentra ninguno sin leer")
+
+    def test_los_compuestos_tienen_su_ficha(self, pagina):
+        """Los que se componen al validar salen como los demás, con su página.
+
+        Es lo que faltaba: cuarenta y seis códigos que podían salirle a
+        alguien en su informe y no tenían dónde mirar. Se comprueban contra lo
+        que `iva.py` declara, no contra una lista escrita aquí, que envejece.
+        """
+        from validador.iva import CODIGOS_COMPUESTOS
+
+        esperados = sorted({c for v in CODIGOS_COMPUESTOS.values() for c in v})
+        assert esperados, "iva.py ya no declara ninguno y antes eran 46"
+        faltan = [c for c in esperados if f'id="{c}"' not in pagina]
+        assert not faltan, (
+            f"{len(faltan)} códigos compuestos sin ficha en la página: "
+            + ", ".join(faltan[:8]))
 
     def test_no_queda_ningun_hueco_de_plantilla(self, pagina):
         assert pagina_incidencias.HUECO not in pagina
