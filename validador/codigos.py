@@ -34,7 +34,7 @@ nombre y se leen las filas.
 
 Lo que queda sin leer se cuenta, no se calla
 --------------------------------------------
-Quedan códigos que ni así se pueden leer: los `BR-{X}-8` de `iva.py`, que se
+Quedan códigos que ni así se pueden leer: los `BR-{X}-08` de `iva.py`, que se
 componen en tiempo de ejecución con la categoría de la operación —f-strings
 cuyo hueco solo se conoce al mirar la factura—. Esos no se pueden resolver
 mirando el fuente, y fingir que sí es exactamente el fallo que se acaba de
@@ -213,7 +213,7 @@ def _asignados(nodo: ast.AST, padres) -> dict[str, list[ast.expr]]:
     Es la misma figura que la tabla, un piso más abajo: el código está escrito
     en el fuente, solo que en la línea de antes en vez de en el argumento.
 
-        codigo = f"BR-{regla.codigo}-8" if regla else "IVA-BASE"
+        codigo = f"BR-{regla.codigo}-08" if regla else "IVA-BASE"
         ...
         Incidencia(codigo, ERROR, …)
 
@@ -277,7 +277,7 @@ def _resolver(
                 patrones += suyos
             return codigos, patrones
     if isinstance(nodo, ast.IfExp):
-        # `f"BR-{regla.codigo}-1" if regla else "IVA-CATEGORIA-SIN-DESGLOSE"`:
+        # `f"BR-{regla.codigo}-01" if regla else "IVA-CATEGORIA-SIN-DESGLOSE"`:
         # una rama se lee y la otra no, y las dos cuentan. Quedarse con la
         # llamada entera como ilegible perdería el código que sí está escrito.
         codigos_si, sin_leer_si = _resolver(nodo.body, atados, asignados, vistos)
@@ -290,8 +290,8 @@ def _declarados_por(ruta: Path) -> dict[str, tuple[str, ...]]:
     """Lo que un módulo dice que compone, cuando lo dice.
 
     Hay códigos que no se pueden leer del fuente porque no están escritos:
-    `f"BR-{regla.codigo}-8"` no dice cuál es hasta que hay una factura
-    delante. Contarlos como huecos era honrado y dejaba a cuarenta y seis
+    `f"BR-{regla.codigo}-08"` no dice cuál es hasta que hay una factura
+    delante. Contarlos como huecos era honrado y dejaba a decenas de
     códigos reales sin ficha, que es un agujero distinto: le sale a alguien en
     su informe y no tiene dónde mirar.
 

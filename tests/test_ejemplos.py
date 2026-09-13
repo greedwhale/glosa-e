@@ -57,7 +57,7 @@ HOY = datetime.date(2026, 9, 20)
 # tiene dónde escribir- y dos son AVISO de una firma de juguete. Ninguna es
 # ERROR, y `conforme` mira los errores.
 ESPERADO: dict[str, tuple[bool, tuple[str, ...]]] = {
-    "cii-A-0001.xml": (False, ("BR-S-8", "IVA-TIPO-SIN-DESGLOSE")),
+    "cii-A-0001.xml": (False, ("BR-S-08", "IVA-TIPO-SIN-DESGLOSE")),
     "edi-0001.edi": (True, ()),
     "edi-0002-cortado.edi": (False, ("EDI-MENSAJE-DESCONTADO",
                                      "IVA-AJUSTES-SIN-DETALLAR")),
@@ -65,7 +65,7 @@ ESPERADO: dict[str, tuple[bool, tuple[str, ...]]] = {
     "f-0001.xml": (True, ()),
     "f-0002.xml": (True, ()),
     "f-0002-bis.xml": (True, ()),
-    "f-0006.xml": (False, ("BR-CO-10", "BR-S-8")),
+    "f-0006.xml": (False, ("BR-CO-10", "BR-S-08")),
     # BR-21 es la cuarta nota del binding: Facturae no tiene identificador de
     # linea (BT-126), asi que la regla no se puede comprobar y se dice.
     # `IVA-CATEGORIA-SIN-MAPA` ya no sale: desde que la categoria se deduce

@@ -154,11 +154,16 @@ class TestLasListasDeCodigos:
             "S": "Rectificativa por sustitución",
         }
 
-    def test_l4_anade_dos_categorias_que_la_norma_europea_no_tiene(self):
-        """`L` y `M` no están en la UNCL5305 de la EN 16931.
+    def test_l4_quita_dos_categorias_de_la_norma_europea(self):
+        """L4 no añade nada a la UNCL5305 de la EN 16931: le quita `K` y `B`.
 
-        Son el IGIC y el IPSI, que solo existen aquí. Cualquier traducción de
-        la categoría de IVA hacia este CIUS tiene que contar con ellas.
+        Esta prueba se llamó «L4 añade dos categorías que la norma europea no
+        tiene», y afirmaba que `L` y `M` no estaban en la UNCL5305. Están: el
+        esquematrón las admite en BR-CL-18 (`AE L M E S Z G O K B`) y tiene
+        reglas propias para las dos. Se corrigió el 13-09-2026.
+
+        Lo que sí importa para traducir hacia este CIUS es lo que falta: una
+        entrega intracomunitaria (`K`) no tiene código en L4.
         """
         assert set(cius_es.LISTAS["L4"].valores) == {
             "S", "Z", "E", "AE", "O", "G", "L", "M"}

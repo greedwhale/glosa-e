@@ -75,7 +75,7 @@ class TestLaPaginaQueSePublica:
 
         Estuvo bien mientras fue verdad: seis patrones del IVA se componían al
         validar y la página los contaba a la vista en vez de fingir que el
-        catálogo estaba entero. Hoy `iva.py` declara los cuarenta y seis
+        catálogo estaba entero. Hoy `iva.py` declara los cincuenta y cuatro
         códigos que compone y el catálogo los trae, así que esa frase se ha
         ido con ellos.
 
@@ -94,14 +94,14 @@ class TestLaPaginaQueSePublica:
     def test_los_compuestos_tienen_su_ficha(self, pagina):
         """Los que se componen al validar salen como los demás, con su página.
 
-        Es lo que faltaba: cuarenta y seis códigos que podían salirle a
+        Es lo que faltaba: decenas de códigos que podían salirle a
         alguien en su informe y no tenían dónde mirar. Se comprueban contra lo
         que `iva.py` declara, no contra una lista escrita aquí, que envejece.
         """
         from validador.iva import CODIGOS_COMPUESTOS
 
         esperados = sorted({c for v in CODIGOS_COMPUESTOS.values() for c in v})
-        assert esperados, "iva.py ya no declara ninguno y antes eran 46"
+        assert esperados, "iva.py ya no declara ninguno y antes eran 54"
         faltan = [c for c in esperados if f'id="{c}"' not in pagina]
         assert not faltan, (
             f"{len(faltan)} códigos compuestos sin ficha en la página: "
@@ -191,3 +191,53 @@ class TestLoQueTieneQueFallar:
             [Codigo('X"><script>', ("error",), "inventado.py", 1)], [])
         assert "<script>" not in salida
         assert "&lt;script&gt;" in salida
+
+
+class TestLasDireccionesViejas:
+    """Lo que se publicó con un nombre sigue llevando a su ficha.
+
+    Del 11 al 13 de septiembre de 2026 las fichas del IVA salieron como
+    `codigo-BR-S-8`, y la norma las llama `BR-S-08`. Se corrigió el nombre, y
+    eso deja las direcciones viejas —ya en el sitemap que leyeron Google y
+    Bing— apuntando a nada. Una redirección permanente las lleva a la buena.
+
+    Se comprueba contra el catálogo y no contra una lista: cualquier código
+    que la norma escriba con un cero delante tiene que tener su alias sin él,
+    se haya publicado así o no —`BR-CL-01` nunca salió como `BR-CL-1`—,
+    porque sin el cero es como lo teclea de memoria quien lo busca.
+    """
+
+    VERCEL = RAIZ / "vercel.json"
+
+    def _redirecciones(self) -> dict[str, dict]:
+        import json
+
+        datos = json.loads(self.VERCEL.read_text(encoding="utf-8"))
+        return {r["source"]: r for r in datos.get("redirects", [])}
+
+    def test_cada_nombre_sin_el_cero_lleva_a_su_ficha(self):
+        redirecciones = self._redirecciones()
+        faltan = []
+        for codigo in sorted(c.codigo for c in codigos_del_paquete()):
+            corto = re.sub(r"^(BR-[A-Z]+-)0(\d)$", r"\1\2", codigo)
+            if corto == codigo:
+                continue
+            viejo = "/" + pagina_incidencias.FICHA.format(corto).removesuffix(".html")
+            nuevo = "/" + pagina_incidencias.FICHA.format(codigo).removesuffix(".html")
+            r = redirecciones.get(viejo)
+            if not r or r.get("destination") != nuevo or r.get("permanent") is not True:
+                faltan.append(viejo)
+        assert not faltan, (
+            f"{len(faltan)} direcciones viejas sin redirección permanente: "
+            + ", ".join(faltan[:6]))
+
+    def test_ninguna_redireccion_tapa_una_ficha_ni_lleva_a_ninguna_parte(self):
+        """Una redirección mal puesta es peor que un 404: se lleva la buena."""
+        hay = {"/" + pagina_incidencias.FICHA.format(c.codigo).removesuffix(".html")
+               for c in codigos_del_paquete()}
+        for origen, r in self._redirecciones().items():
+            if not origen.startswith("/codigo-"):
+                continue
+            assert origen not in hay, f"{origen} es una ficha y se redirige"
+            assert r["destination"] in hay, (
+                f"{origen} lleva a {r['destination']}, que no existe")

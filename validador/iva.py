@@ -39,7 +39,10 @@ from validador.sintaxis import (
 )
 
 # Categorías de IVA de la norma (lista UNCL 5305), en castellano. Las dos
-# últimas son españolas y casi ninguna herramienta europea las nombra.
+# últimas son impuestos españoles, y **están en la lista de la norma europea**
+# con reglas propias, igual que las demás: BR-CL-18 las admite y el esquematrón
+# tiene una familia BR-AF-* para el IGIC y otra BR-AG-* para el IPSI. Aquí se
+# llegó a escribir lo contrario, y de ahí salió el fallo que cuenta `REGLAS`.
 CATEGORIAS: dict[str, str] = {
     "S": "tipo general",
     "Z": "tipo cero",
@@ -61,15 +64,18 @@ TIPOS_ESPANOLES = (Decimal(21), Decimal(10), Decimal(4), Decimal(0))
 POSITIVO = "positivo"  # tiene que haber tipo y ser mayor que cero
 CERO = "cero"  # tiene que haber tipo y ser cero
 SIN_TIPO = "sin tipo"  # no debe declararse tipo
-CUALQUIERA = "cualquiera"  # tiene que haber tipo, del valor que sea
+NO_NEGATIVO = "cero o positivo"  # tiene que haber tipo y no ser negativo
 
-# Y cómo debe ser el motivo de exención. Son tres estados y no dos: la norma
-# no solo exige el motivo donde hace falta, también lo **prohíbe** donde no
-# (BR-S-10 y BR-Z-10). Con un booleano, «no obligatorio» y «prohibido» eran lo
+# Y cómo debe ser el motivo de exención. La norma no solo lo exige donde hace
+# falta: también lo **prohíbe** donde no (BR-S-10, BR-Z-10, BR-AF-10,
+# BR-AG-10). Con un solo «¿lo exige?», «no obligatorio» y «prohibido» eran lo
 # mismo, y una entrada a tipo cero con motivo de exención pasaba sin más.
+#
+# Hubo un tercer estado, `LIBRE` —«la norma no se pronuncia»—, y con él un
+# `CUALQUIERA` para el tipo. Los dos existían solo para IGIC e IPSI, y los dos
+# estaban mal: se quitaron el 13-09-2026. Lo cuenta `REGLAS`.
 OBLIGATORIO = "obligatorio"
 PROHIBIDO = "prohibido"
-LIBRE = "libre"  # la norma no se pronuncia, y nosotros tampoco
 
 
 @dataclass(frozen=True)
@@ -89,53 +95,69 @@ REGLAS: dict[str, ReglaCategoria] = {
     "K": ReglaCategoria("IC", CERO, OBLIGATORIO),
     "G": ReglaCategoria("G", CERO, OBLIGATORIO),
     "O": ReglaCategoria("O", SIN_TIPO, OBLIGATORIO),
-    # IGIC e IPSI llevan tipos propios y la norma no los ata como a las demás.
-    # Se exige que declaren tipo y no se opina sobre el motivo.
+    # IGIC e IPSI: el tipo puede ser cero o positivo, nunca negativo
+    # (BR-AF-05 a 07, «0 (zero) or greater than zero»), y el motivo de
+    # exención está prohibido (BR-AF-10, «shall not have»), igual que en el
+    # tipo general. Lo mismo con BR-AG-* para el IPSI.
+    #
+    # **Hasta el 13-09-2026 aquí ponía lo contrario**: que la norma no ataba a
+    # estas dos categorías, con `CUALQUIERA` para el tipo y `LIBRE` para el
+    # motivo. Nadie lo había leído en el esquematrón; se supuso por ser
+    # impuestos propios. Con eso un IGIC con tipo negativo o con un artículo de
+    # exención pegado pasaba limpio, y ocho reglas que la norma sí tiene se
+    # publicaron como inexistentes. Salió al medir la cobertura contra el
+    # esquematrón oficial (v1.3.16), no de ninguna prueba: las pruebas estaban
+    # escritas desde la misma suposición que el código.
     #
     # Los códigos son AF y AG, no IG e IP. Lo de antes se lo inventó quien
     # escribió esto —o sea, nosotros— por analogía con IC, y da la casualidad
     # de que IGIC es el impuesto de Canarias: una factura canaria recibía una
     # regla «BR-IG-5» que no existe en ninguna norma. Comprobado en el
     # esquematrón oficial: $VATIG lleva BR-AF-* y $VATIP lleva BR-AG-*.
-    "L": ReglaCategoria("AF", CUALQUIERA, LIBRE),
-    "M": ReglaCategoria("AG", CUALQUIERA, LIBRE),
+    "L": ReglaCategoria("AF", NO_NEGATIVO, PROHIBIDO),
+    "M": ReglaCategoria("AG", NO_NEGATIVO, PROHIBIDO),
 }
+
+# Que no vuelva a entrar un estado que no se queja de nada. Si una categoría
+# lleva un tipo o un motivo que las reglas no saben comprobar, el módulo no se
+# carga: preferible a un validador que pasa en limpio lo que no mira.
+for _categoria, _regla in REGLAS.items():
+    if _regla.tipo not in (POSITIVO, CERO, SIN_TIPO, NO_NEGATIVO):
+        raise ValueError(f"{_categoria}: tipo sin comprobación, {_regla.tipo!r}")
+    if _regla.motivo not in (OBLIGATORIO, PROHIBIDO):
+        raise ValueError(f"{_categoria}: motivo sin comprobación, {_regla.motivo!r}")
 
 
 # Los códigos que este módulo compone en tiempo de ejecución, y que por eso no
-# se pueden leer del fuente: `f"BR-{regla.codigo}-8"` no dice cuál es hasta que
+# se pueden leer del fuente: `f"BR-{regla.codigo}-08"` no dice cuál es hasta que
 # hay una factura delante. Se declaran aquí, pegados a la tabla de la que
 # salen, y `codigos.py` los recoge para que tengan su ficha como los demás.
 #
-# **No es el producto de nueve categorías por seis sufijos.** Serían 54 y son
-# 46: hay ramas que con ciertas categorías no pueden dispararse nunca, y
-# anunciar esos ocho códigos sería inventarlos —que es exactamente lo que ya
-# pasó una vez aquí con unos `BR-IG-*` que no existen en ninguna norma—.
+# Son nueve categorías por seis reglas, 54, y ninguna rama se queda muda: cada
+# estado del tipo rechaza algún valor y cada estado del motivo se queja por
+# algún lado. Durante un día se declararon 46, con ocho de IGIC e IPSI dados
+# por inexistentes porque la tabla de arriba decía que la norma no ataba a esas
+# categorías; la norma sí las ata.
 #
 # Las condiciones son las mismas que aplican las reglas, y eso es una
 # duplicación a la vista: la sostiene una prueba que provoca las cuatro reglas
 # con cada categoría y compara lo que sale de verdad con lo que aquí se
-# declara. Declarado contra medido, que es como se hace todo en este
-# repositorio.
+# declara, y otra que compara la tabla con el texto del esquematrón, porque las
+# dos primeras pueden coincidir y estar mal a la vez. Pasó.
 def _codigos_compuestos() -> dict[str, tuple[str, ...]]:
     por_patron: dict[str, list[str]] = {}
     for regla in REGLAS.values():
         # La categoría usada que el desglose no recoge, y la base de la
-        # entrada contra lo suyo: las dos valen para cualquier categoría.
-        por_patron.setdefault("BR-{}-1", []).append(f"BR-{regla.codigo}-1")
-        por_patron.setdefault("BR-{}-8", []).append(f"BR-{regla.codigo}-8")
-        # El tipo del concepto, partido en tres según de qué cuelgue. Con
-        # CUALQUIERA la comprobación no marca nada como malo, así que no hay
-        # queja posible: IGIC e IPSI llevan tipos propios y la norma no los ata.
-        if regla.tipo != CUALQUIERA:
-            for sufijo in (5, 6, 7):
-                por_patron.setdefault("BR-{}-{}", []).append(
-                    f"BR-{regla.codigo}-{sufijo}"
-                )
-        # El motivo de exención. Con LIBRE la norma no se pronuncia —ni lo
-        # exige ni lo prohíbe— y aquí tampoco, así que nunca se queja.
-        if regla.motivo != LIBRE:
-            por_patron.setdefault("BR-{}-10", []).append(f"BR-{regla.codigo}-10")
+        # entrada contra lo suyo.
+        por_patron.setdefault("BR-{}-01", []).append(f"BR-{regla.codigo}-01")
+        por_patron.setdefault("BR-{}-08", []).append(f"BR-{regla.codigo}-08")
+        # El tipo del concepto, partido en tres según de qué cuelgue.
+        for sufijo in ("05", "06", "07"):
+            por_patron.setdefault("BR-{}-{}", []).append(
+                f"BR-{regla.codigo}-{sufijo}"
+            )
+        # El motivo de exención, que falte o que sobre.
+        por_patron.setdefault("BR-{}-10", []).append(f"BR-{regla.codigo}-10")
     return {patron: tuple(sorted(set(suyos))) for patron, suyos in por_patron.items()}
 
 
@@ -455,11 +477,11 @@ def _ajustes_no_cuadran(raiz, sintaxis: Sintaxis, apuntes: list[Apunte]) -> bool
 
 
 def _regla_base_por_grupo(grupo: Grupo, apuntes: list[Apunte]) -> list[Incidencia]:
-    """BR-{X}-8: la base de cada entrada del desglose es la suma de lo suyo."""
+    """BR-{X}-08: la base de cada entrada del desglose es la suma de lo suyo."""
     if grupo.base is None or grupo.categoria is None:
         return []
     regla = REGLAS.get(grupo.categoria)
-    codigo = f"BR-{regla.codigo}-8" if regla else "IVA-BASE"
+    codigo = f"BR-{regla.codigo}-08" if regla else "IVA-BASE"
     suyos = [a for a in apuntes if a.clave == grupo.clave]
 
     if not suyos:
@@ -577,7 +599,7 @@ def _reglas_campos_del_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidenci
 
     # BR-48: el tipo es obligatorio salvo en lo no sujeto, que no tiene tipo
     # que aplicar. Aquí se mira solo si **falta**; que el valor sea el que le
-    # toca a la categoría lo miran las BR-{X}-5.
+    # toca a la categoría lo miran las BR-{X}-05.
     if grupo.tipo is None and grupo.categoria != "O":
         incidencias.append(
             Incidencia(
@@ -594,7 +616,7 @@ def _reglas_campos_del_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidenci
 
 
 def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
-    """BR-{X}-5 y BR-{X}-10: el tipo y el motivo que pide cada categoría."""
+    """BR-{X}-05 y BR-{X}-10: el tipo y el motivo que pide cada categoría."""
     if grupo.categoria is None:
         return []  # de eso ya se queja BR-47
 
@@ -614,7 +636,7 @@ def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
     incidencias: list[Incidencia] = []
     nombre = nombre_categoria(grupo.categoria)
 
-    # El tipo del desglose no se mira aquí. La familia BR-{X}-5 es de la
+    # El tipo del desglose no se mira aquí. La familia BR-{X}-05 es de la
     # **línea**, no de la entrada del desglose: en el esquematrón oficial
     # BR-O-05 cuelga de `$VATO_Line` y BR-S-05 de `$VATS_Line`. Está en
     # `_regla_tipo_de_los_conceptos`. Que el tipo del desglose no cuadre con
@@ -635,14 +657,27 @@ def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
             )
         )
     elif regla.motivo == PROHIBIDO and grupo.motivo:
+        if regla.tipo == NO_NEGATIVO:
+            # IGIC e IPSI: no se les sugiere otra categoría. Qué categoría
+            # europea le toca a una operación exenta de IGIC no lo dice el
+            # esquematrón, y aquí no se va a inventar.
+            mensaje = (
+                f"Una operación a {nombre} no debe llevar motivo de exención: "
+                "la norma europea no lo admite en esta categoría. Admite el "
+                "tipo cero, que se declara como cero y sin motivo."
+            )
+        else:
+            mensaje = (
+                f"Una operación a {nombre} no debe llevar motivo de exención: "
+                "esa categoría no es una exención, y el motivo es justamente "
+                "lo que justifica una. Si la operación de verdad está exenta, "
+                "la categoría es otra: E, AE, K o G según el caso."
+            )
         incidencias.append(
             Incidencia(
                 f"BR-{regla.codigo}-10",
                 ERROR,
-                f"Una operación a {nombre} no debe llevar motivo de exención: "
-                "esa categoría no es una exención, y el motivo es justamente "
-                "lo que justifica una. Si la operación de verdad está exenta, "
-                "la categoría es otra: E, AE, K o G según el caso.",
+                mensaje,
                 campo=f"Motivo de {nombre}",
                 esperado="(sin motivo)",
                 encontrado=grupo.motivo,
@@ -655,7 +690,7 @@ def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
 def _regla_hay_desglose(
     grupos: list[Grupo], apuntes: list[Apunte]
 ) -> list[Incidencia]:
-    """BR-{X}-1: cada categoría usada tiene que aparecer en el desglose."""
+    """BR-{X}-01: cada categoría usada tiene que aparecer en el desglose."""
     declaradas = {g.categoria for g in grupos if g.categoria}
     incidencias = []
     for categoria in sorted({a.categoria for a in apuntes if a.categoria}):
@@ -666,10 +701,10 @@ def _regla_hay_desglose(
         incidencias.append(
             Incidencia(
                 # Sin `regla` la categoría no es ninguna de la norma, así que
-                # no hay BR-{X}-1 que citar. `IVA-SIN-DESGLOSE` era un nombre
+                # no hay BR-{X}-01 que citar. `IVA-SIN-DESGLOSE` era un nombre
                 # prestado y ahora confundiría con BR-CO-18, que es el que dice
                 # que no hay desglose ninguno.
-                f"BR-{regla.codigo}-1" if regla else "IVA-CATEGORIA-SIN-DESGLOSE",
+                f"BR-{regla.codigo}-01" if regla else "IVA-CATEGORIA-SIN-DESGLOSE",
                 ERROR,
                 f"Hay operaciones a {nombre_categoria(categoria)} pero el "
                 "desglose de IVA no recoge esa categoría.",
@@ -753,17 +788,22 @@ def _regla_tipos_espanoles(grupos: list[Grupo]) -> list[Incidencia]:
 def _sufijo_del_concepto(apunte: Apunte) -> str:
     """Qué número de regla le toca a cada clase de concepto.
 
-    La norma parte la misma comprobación en tres según de qué cuelgue: BR-{X}-5
-    para la línea, BR-{X}-6 para el descuento de documento y BR-{X}-7 para el
+    La norma parte la misma comprobación en tres según de qué cuelgue: BR-{X}-05
+    para la línea, BR-{X}-06 para el descuento de documento y BR-{X}-07 para el
     cargo de documento.
+
+    Con dos cifras, que es como los escribe la norma y como sale en el
+    rechazo de cualquier otro validador. Aquí se escribieron durante un
+    tiempo con una —`BR-S-5`, `BR-O-8`—, y quien copiaba el código de ese
+    rechazo para buscarlo en la página de incidencias no encontraba nada.
     """
     if not apunte.es_ajuste:
-        return "5"
-    return "7" if apunte.es_cargo else "6"
+        return "05"
+    return "07" if apunte.es_cargo else "06"
 
 
 def _regla_tipo_de_los_conceptos(apuntes: list[Apunte]) -> list[Incidencia]:
-    """BR-{X}-5, BR-{X}-6 y BR-{X}-7: el tipo que le toca a cada concepto.
+    """BR-{X}-05, BR-{X}-06 y BR-{X}-07: el tipo que le toca a cada concepto.
 
     Estas reglas son de la línea, del descuento o del cargo; no del desglose.
     Se comprobaban sobre la entrada del desglose, que casi siempre lleva el
@@ -789,8 +829,13 @@ def _regla_tipo_de_los_conceptos(apuntes: list[Apunte]) -> list[Incidencia]:
             mal = apunte.tipo <= 0
         elif regla.tipo == CERO:
             mal = apunte.tipo != 0
+        elif regla.tipo == NO_NEGATIVO:
+            mal = apunte.tipo < 0
         else:
-            mal = False
+            # Antes aquí ponía `mal = False`, y por esa puerta pasó el
+            # `CUALQUIERA` del IGIC: un estado que no se queja de nada no
+            # rompe nada y no se nota nunca. Un estado sin rama no se calla.
+            raise ValueError(f"estado de tipo sin comprobación: {regla.tipo!r}")
         if mal:
             clave = (
                 regla.codigo,
@@ -817,6 +862,14 @@ def _regla_tipo_de_los_conceptos(apuntes: list[Apunte]) -> list[Incidencia]:
                 "Z para tipo cero, E para exenta, O para no sujeta."
             )
             esperado = "mayor que 0"
+        elif regla.tipo == NO_NEGATIVO:
+            mensaje = (
+                f"Hay conceptos a {nombre} con un tipo negativo. La norma "
+                "admite el cero o un tipo positivo, nunca uno negativo: lo "
+                "que se devuelve o se descuenta va con importe negativo, no "
+                "con tipo negativo."
+            )
+            esperado = "0 o mayor que 0"
         else:
             mensaje = f"Hay conceptos a {nombre} cuyo tipo no está a cero."
             esperado = "0"
@@ -917,7 +970,7 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
 
     # Con los ajustes sin detallar no se puede repartir la base; con los
     # ajustes detallados pero descuadrados, tampoco, y encima ya hay quien lo
-    # dice mejor (BR-CO-11 y BR-CO-12). En los dos casos se calla BR-{X}-8.
+    # dice mejor (BR-CO-11 y BR-CO-12). En los dos casos se calla BR-{X}-08.
     a_ciegas = a_ciegas or _ajustes_no_cuadran(raiz, sintaxis, apuntes)
 
     for grupo in grupos:

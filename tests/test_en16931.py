@@ -260,7 +260,7 @@ class TestSobreFacturaYAbono:
         # La base del desglose dice 150.00 y la línea son 100.00. Si no se
         # leen las líneas, esta regla calla y el error más caro pasa.
         informe = en16931.validar(documento(base_iva="150.00"))
-        assert "BR-S-8" in codigos(informe, ERROR), informe.detalle()
+        assert "BR-S-08" in codigos(informe, ERROR), informe.detalle()
 
     def test_sin_codigo_de_tipo_salta_br_04(self, documento):
         informe = en16931.validar(documento(omitir=("InvoiceTypeCode",)))

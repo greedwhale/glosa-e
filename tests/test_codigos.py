@@ -187,3 +187,34 @@ def test_un_nombre_que_se_resuelve_a_si_mismo_no_cuelga(tmp_path: Path):
 def test_las_reglas_de_linea_salen_en_el_catalogo(codigo):
     """Las tres últimas en entrar, que son las que destaparon el agujero."""
     assert codigo in {c.codigo for c in codigos_del_paquete()}
+
+# Cómo escribe la norma sus códigos, sacado del esquematrón oficial
+# (`eInvoicing-EN16931`, v1.3.16): el número va **siempre con dos cifras**
+# —BR-01, BR-CO-10, BR-S-08, BR-CL-01—, y el prefijo de grupo es de letras.
+_COMO_LOS_ESCRIBE_LA_NORMA = r"^BR-(?:[A-Z]+-)?\d{2}$"
+
+
+def test_los_codigos_de_la_norma_se_escriben_como_la_norma():
+    """Un código con otro nombre es un código que nadie encuentra.
+
+    Durante un tiempo el IVA publicó `BR-S-8`, `BR-O-5` y otros treinta y
+    siete así, sin el cero. La norma los llama `BR-S-08` y `BR-O-05`, y así
+    los escribe cualquier otro validador en su rechazo: quien copiara el código
+    de ese rechazo para buscarlo aquí no encontraba la ficha. No lo vio ninguna
+    prueba porque todas se escribieron con el mismo nombre equivocado que el
+    código; se vio al medir la cobertura contra el esquematrón y encontrar la
+    mitad de las coincidencias solo después de quitar los ceros.
+
+    Se comprueba la forma y no una lista, a propósito: la lista la puede
+    escribir mal la misma mano que escribe mal el código.
+    """
+    import re
+
+    mal = sorted(
+        c.codigo for c in codigos_del_paquete()
+        if c.codigo.startswith("BR-")
+        and not re.match(_COMO_LOS_ESCRIBE_LA_NORMA, c.codigo)
+    )
+    assert not mal, (
+        f"{len(mal)} códigos de la norma no se escriben como en la norma: "
+        + ", ".join(mal))

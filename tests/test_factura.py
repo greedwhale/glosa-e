@@ -327,7 +327,7 @@ class TestOrigen:
         [
             ("BR-02", factura.EUROPEA),
             ("BR-CO-10", factura.EUROPEA),
-            ("BR-S-8", factura.EUROPEA),
+            ("BR-S-08", factura.EUROPEA),
             ("CU-01", factura.ESPANOLA),
             ("XSD-ORDEN", factura.FORMA),
             # Las de IVA que no son de la norma caían en OTRA, que se lee

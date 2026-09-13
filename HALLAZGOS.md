@@ -3011,3 +3011,42 @@ No la habría cazado ninguna prueba: una frase sobre un tercero es la única
 clase de afirmación que este repositorio no puede medir sola. Por eso lo que
 vigila el guardián no es el contenido sino la forma —fecha, enlaces, correo—,
 que es lo único que hace falta para que cualquiera que la lea pueda desmentirla.
+
+## Ocho reglas que la norma tiene y aquí se publicaron como inexistentes
+
+El 12-09-2026 se publicó, en el README y en el mensaje del commit, que los
+códigos compuestos del IVA eran 46 y no 54: que BR-AF-05, 06, 07 y 10 y sus
+cuatro hermanos de BR-AG «no existen», y que anunciarlos sería inventarlos. Una
+prueba lo sostenía provocando las reglas y viendo que no salían.
+
+No salían porque la tabla de `iva.py` decía, sin haberlo leído en ninguna
+parte, que la norma no ata el tipo ni el motivo del IGIC y el IPSI. El
+esquematrón oficial los ata: tipo cero o positivo, y motivo de exención
+prohibido, igual que en el tipo general.
+
+**Reproducido** el 13-09-2026, antes de tocar el motor:
+
+```
+IGIC al 7 %, motivo «Régimen especial de Canarias»   →  sin incidencias
+IGIC con tipo −7 % en la línea                       →  sin incidencias
+```
+
+La norma rechaza las dos. Y el mismo día, al medir contra el esquematrón,
+apareció lo otro: treinta y nueve códigos del IVA publicados sin su cero
+—`BR-S-8` donde la norma dice `BR-S-08`—, que es por lo que la primera cuenta
+de coincidencias salió en 43 de 201 y, quitando ceros, en 82.
+
+**Lo que lo cerró**: el estado `NO_NEGATIVO` y el motivo `PROHIBIDO` para las dos
+categorías; una prueba con el texto de cada regla del esquematrón copiado; una
+tabla que se niega a cargar con un estado que las reglas no saben comprobar; y
+los códigos con dos cifras, con redirección permanente desde cada nombre viejo.
+Las 179 facturas del corpus dan las mismas 1241 incidencias antes y después.
+
+**Por qué pasó.** Tres comprobaciones que tenían que coincidir —la lista a mano,
+la derivación y lo que sale al provocar— coincidían, y las tres salían de la
+misma tabla. Coincidir entre sí no dice nada de si coinciden con la norma. Fue
+el fallo de siempre con otro disfraz: todo en verde, y no era lo que se creía
+haber comprobado.
+
+De paso cayó otra frase con el mismo origen: que la lista L4 del anexo español
+«añade L y M, que la UNCL5305 no tiene». Las tiene. L4 no añade: quita `K` y `B`.

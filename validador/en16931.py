@@ -526,7 +526,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
 
     # BR-CO-11 y BR-CO-12: el total de descuentos y el de cargos que declara la
     # factura tienen que ser la suma de los que detalla. Sin esto, el error
-    # salía igualmente pero por el sitio equivocado: como BR-{X}-8, señalando
+    # salía igualmente pero por el sitio equivocado: como BR-{X}-08, señalando
     # el desglose de IVA, cuando lo que estaba mal era el total del ajuste.
     incidencias.extend(_reglas_ajustes(raiz, sintaxis, descuentos, cargos))
 

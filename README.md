@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1368 tests, todos en verde.
+1385 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -106,7 +106,7 @@ que firmamos nosotros es una opinión que puedes discutir. Sale esto:
 ejemplos\cii-A-0001.xml
   CII vD16B (factura) · conforme EN 16931 — 2 error(es).
 
-  [BR-S-8 · EN 16931] La base declarada para S (tipo general) al 21% no
+  [BR-S-08 · EN 16931] La base declarada para S (tipo general) al 21% no
   coincide con la suma de lo que va a ese tipo.
     Campo: Base imponible de S (tipo general) al 21%
     Debería ser: 100.00 (línea 1)
@@ -129,7 +129,7 @@ ejemplos\f-0006.xml
     Debería ser: 90.00 (suma de la única línea)
     Tiene: 100.00
 
-  [BR-S-8 · EN 16931] La base declarada para S (tipo general) al 21% no
+  [BR-S-08 · EN 16931] La base declarada para S (tipo general) al 21% no
   coincide con la suma de lo que va a ese tipo.
     Debería ser: 90.00 (línea 1)
     Tiene: 100.00
@@ -257,7 +257,7 @@ una línea y no rehace el desglose: **las cuentas generales siguen cuadrando**
 que es justo lo que mira Hacienda. Ninguna de las reglas BR-CO-* se entera.
 
 ```
-[BR-S-8] La base declarada para S (tipo general) al 21% no coincide con la
+[BR-S-08] La base declarada para S (tipo general) al 21% no coincide con la
 suma de lo que va a ese tipo.
   Debería ser: 100.00 (línea 1)
   Tiene: 150.00
@@ -640,7 +640,7 @@ abono correcto salía con dos errores inventados**:
 ```
 
 Y lo grave no eran los falsos positivos. Al no encontrársele las líneas,
-enmudecían de golpe BR-24, BR-CO-10, BR-S-8 y todo el IVA: **acusado en falso
+enmudecían de golpe BR-24, BR-CO-10, BR-S-08 y todo el IVA: **acusado en falso
 y sin comprobar a la vez.** El mapa ahora usa una unión XPath (`a|b`) y coge el
 nombre que haya, que es más seguro que mantener dos mapas y elegir uno.
 
@@ -685,7 +685,7 @@ sale cada queja.
 **Y decir de dónde sale cada queja.** Junto al código va la norma que la firma:
 
 ```
-[BR-S-8 · EN 16931]              te lo rechaza el receptor
+[BR-S-08 · EN 16931]              te lo rechaza el receptor
 [CU-10 · RD 238/2026]            te lo rechaza Hacienda
 [XSD-ORDEN · Esquema XSD]        no pasa ni de la puerta
 [IVA-TIPO-SIN-DESGLOSE · de la casa]   opinamos nosotros
@@ -3221,8 +3221,13 @@ decisión que se documentó [más arriba](#bt-3-y-el-país-traducir-el-vocabular
 está bien razonada para la norma europea y hay que rehacerla para España. Sale
 de leer el anexo cuatro días después de haberla escrito.
 
-La otra corrección que asoma es la categoría de IVA: la lista L4 añade `L` y
-`M` —IGIC e IPSI— que la UNCL5305 de la norma europea no tiene.
+La otra diferencia está en la categoría de IVA, y aquí se contó al revés. Se
+escribió que la lista L4 añade `L` y `M` —IGIC e IPSI— «que la UNCL5305 de la
+norma europea no tiene». Sí las tiene: la lista que admite el esquematrón en
+BR-CL-18 es `AE L M E S Z G O K B`, con reglas propias para las dos. Lo que
+hace L4 es lo contrario, **quitar**: `S Z E AE O G L M`, sin `K` —la entrega
+intracomunitaria— ni `B`. Corregido el 13-09-2026, el mismo día que la tabla del
+IVA; las dos equivocaciones salían de la misma suposición.
 
 ### Las rutas UBL, y qué hay que hacerles para poder usarlas
 
@@ -3371,7 +3376,7 @@ cada aviso» y un buscador que no filtra nada es de las cosas que no dan error.
 
 De los 160 códigos, aquel día sólo **15 tenían explicación propia**. Los otros
 145 llevaban la de su familia, y eso estaba dicho en la página. Hoy la llevan
-los 206, uno a uno; lo de abajo cuenta cómo se cerró. Poniendo esa explicación como
+los 214, uno a uno; lo de abajo cuenta cómo se cerró. Poniendo esa explicación como
 descripción de la página —que es lo natural, y lo primero que se escribió— el
 recuento salía así:
 
@@ -3400,7 +3405,7 @@ El catálogo se lee del fuente, y eso deja fuera a los que no están escritos.
 operación a un patrón:
 
 ```python
-Incidencia(f"BR-{regla.codigo}-8", ERROR, …)
+Incidencia(f"BR-{regla.codigo}-08", ERROR, …)
 ```
 
 Ahí no hay una cadena que leer: cuál es no se sabe hasta que hay una factura
@@ -3416,12 +3421,12 @@ recoge. Sigue sin adivinarse nada: lo que no esté declarado sigue contándose
 como hueco, y `HUECOS_CONOCIDOS` —hoy vacía— sigue poniéndose en rojo el día
 que aparezca una forma nueva de emitir un código.
 
-**Son 46 y no 54, y la diferencia es el asunto entero.** Nueve categorías por
-seis sufijos darían 54. Pero IGIC e IPSI llevan `tipo = cualquiera` y
-`motivo = libre`: la comprobación del tipo no marca nada como malo y la del
-motivo ni lo exige ni lo prohíbe, así que ocho de esos códigos no se disparan
-nunca. Publicarlos sería inventarlos —que es exactamente lo que ya pasó aquí
-una vez con unos `BR-IG-*` que no existen en ninguna norma—.
+**Aquí ponía «son 46 y no 54», y era falso.** Se decía que IGIC e IPSI
+llevan `tipo = cualquiera` y `motivo = libre`, que por eso ocho de esos
+códigos no se disparan nunca y que publicarlos sería inventarlos. Lo primero
+era verdad del código y lo segundo no era verdad de la norma: el esquematrón
+tiene esas ocho reglas. Son 54. La corrección está en la sección siguiente, y
+esto se deja escrito en vez de borrado.
 
 Por eso la declaración no se cree sola. `tests/test_compuestos.py` la sostiene
 con tres opiniones que tienen que coincidir, y una cuarta al revés:
@@ -3431,12 +3436,76 @@ con tres opiniones que tienen que coincidir, y una cuarta al revés:
 | La lista escrita a mano en la prueba | envejece, y por eso está: se pone en rojo si la derivación cambia sin que nadie lo diga |
 | Lo que `iva.py` declara | sale de la tabla de reglas, no de la memoria |
 | Lo que sale al provocar las cuatro reglas con cada categoría | la medida, contra las dos lecturas |
-| Los ocho que no existen | comprobado que **no** salen, uno a uno y por su nombre |
+| ~~Los ocho que no existen~~ | comprobaba que **no** salían, y era la equivocación: se sustituyó por el texto del esquematrón, ver abajo |
 
 Las 46 explicaciones se escribieron antes de enchufar nada, y el catálogo pasó
 de 160 a 206 en un solo movimiento. Es deliberado: hacerlo al revés habría
 publicado «46 códigos con la explicación de su familia» el día siguiente de
 haber publicado que no quedaba ninguno.
+
+### Los ocho que se dieron por inexistentes, y treinta y nueve códigos sin su cero
+
+La sección de arriba publicó que eran 46 y no 54, y era falso. Se vio al día
+siguiente, el 13-09-2026, al hacer lo que no se había hecho: medir la
+cobertura contra el esquematrón oficial (`eInvoicing-EN16931`, v1.3.16,
+`EN16931-model.sch`, 201 reglas) regla por regla y no contra la tabla propia.
+Salieron dos cosas.
+
+**La primera, los nombres.** Buscando los códigos de aquí en el esquematrón
+coincidían 43. Quitando los ceros, 82. La norma escribe `BR-S-08` y `BR-O-05`,
+y el IVA de aquí publicaba `BR-S-8` y `BR-O-5`: treinta y nueve códigos con
+otro nombre. Quien copiara el código de un rechazo de otro validador para
+buscarlo en la página de incidencias no encontraba la ficha. Ninguna prueba lo
+vio porque todas estaban escritas con el mismo nombre que el código.
+
+Ahora `iva.py` compone con dos cifras; un guardián en `tests/test_codigos.py`
+exige esa forma a todo código `BR-` del catálogo —la forma y no una lista, que
+la escribiría mal la misma mano—, y `vercel.json` lleva una redirección
+permanente de cada nombre sin cero a su ficha. Son 46: las 39 direcciones que
+llegaron a publicarse, más `BR-CL-1` y las seis de abajo, porque sin el cero
+es como lo teclea de memoria quien lo busca. Otras dos pruebas comprueban que
+no falte ninguna y que ninguna tape una ficha o lleve a una que no existe; las
+dos se provocaron rompiendo `vercel.json`.
+
+**La segunda, IGIC e IPSI.** La tabla de `iva.py` les ponía `tipo = cualquiera`
+y `motivo = libre`, con un comentario que decía que la norma no ataba a esas
+dos categorías. Nadie lo había leído en el esquematrón. Dice esto:
+
+| Regla | Texto |
+|---|---|
+| BR-AF-05, 06, 07 | el tipo del IGIC *«shall be 0 (zero) or greater than zero»* |
+| BR-AF-10 | la entrada de IGIC *«shall not have a VAT exemption reason»* |
+| BR-AG-05 a 10 | lo mismo para el IPSI |
+
+Reproducido antes de tocar nada: una entrada «IGIC al 7%, Régimen especial de
+Canarias» salía **limpia**, y una línea de IGIC al −7% también. La norma rechaza
+las dos. Y la prueba que lo sostenía se llamaba *«del IGIC y el IPSI no se
+opina»*: exigía que esa factura pasara.
+
+El arreglo es un estado nuevo, `NO_NEGATIVO`, y el motivo `PROHIBIDO`, y se
+quitaron `CUALQUIERA` y `LIBRE`, que solo existían para esto. Lo que hace que
+no vuelva a pasar son tres cosas, y las tres se provocaron:
+
+| Guardián | Rompiéndolo |
+|---|---|
+| `test_la_tabla_dice_lo_que_dice_el_esquematron`, con el texto de cada regla copiado en la prueba | devolver el motivo a obligatorio en el IGIC: nueve pruebas en rojo |
+| las pruebas de IGIC e IPSI de `test_iva.py`, por UBL y por CII | dejar de cazar el negativo: seis en rojo |
+| la tabla se niega a cargar con un estado que las reglas no saben comprobar | poner `"cualquiera"` al IPSI: `ValueError` al importar |
+
+La tercera es la importante. El estado mudo entró por un `else: mal = False`:
+un estado que no se queja de nada no rompe nada y no se nota nunca. Ahora esa
+rama no existe.
+
+**Lo que no cambió, medido.** Las 179 facturas del corpus dan las mismas 1241
+incidencias antes y después: nueve salen con el nombre nuevo y no hay ninguna
+queja nueva, porque ninguna lleva IGIC o IPSI con motivo ni con tipo negativo.
+El catálogo pasa de 206 a 214 códigos.
+
+**Por qué no lo cazó la comprobación de cuatro opiniones.** Porque tres
+opiniones que salen de la misma tabla coinciden también cuando la tabla está
+mal. La cuarta, «los ocho que no existen no salen», comprobaba justo la
+equivocación. Lo que faltaba era una opinión de fuera del repositorio, y ahora
+está: el texto del esquematrón, escrito en la prueba.
 
 ### El sitemap, el robots y la canónica
 

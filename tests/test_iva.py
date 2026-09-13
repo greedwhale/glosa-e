@@ -262,8 +262,8 @@ class TestCuadre:
             grupos=[Grupo("150.00", "31.50", tipo="21")],
             total_iva="31.50",
         )
-        assert "BR-S-8" in codigos(incidencias, ERROR)
-        problema = una(incidencias, "BR-S-8")
+        assert "BR-S-08" in codigos(incidencias, ERROR)
+        problema = una(incidencias, "BR-S-08")
         assert "100.00" in problema.esperado
         assert "línea 1" in problema.esperado
         assert problema.encontrado == "150.00"
@@ -310,7 +310,7 @@ class TestCuadre:
             lineas=[Linea("1", "100.00"), Linea("2", "50.00", categoria="E", tipo="0")],
             grupos=[Grupo("100.00", "21.00")],
         )
-        problema = una(incidencias, "BR-E-1")
+        problema = una(incidencias, "BR-E-01")
         assert problema.gravedad == ERROR
         assert "línea 2" in problema.encontrado
 
@@ -376,7 +376,7 @@ class TestCuadre:
             total_iva="22.90",
             descuentos_total="10.00",
         )
-        problema = una(incidencias, "BR-S-8")
+        problema = una(incidencias, "BR-S-08")
         assert "100.00" in problema.esperado
 
 
@@ -395,7 +395,7 @@ class TestBaseFantasma:
             grupos=[Grupo("150.00", "31.50", tipo="21")],
             total_iva="31.50",
         )
-        problema = una(incidencias, "BR-S-8")
+        problema = una(incidencias, "BR-S-08")
         assert problema.gravedad == ERROR
         assert "sin nada detrás" in problema.encontrado
 
@@ -415,7 +415,7 @@ class TestBaseFantasma:
             grupos=[Grupo("150.00", "31.50")],
             total_iva="31.50",
         )
-        assert "BR-S-8" not in codigos(incidencias)
+        assert "BR-S-08" not in codigos(incidencias)
         assert "IVA-SIN-CATEGORIA" in codigos(incidencias, AVISO)
 
     def test_una_entrada_a_cero_sin_nada_detras_no_molesta(self, revisar):
@@ -425,7 +425,7 @@ class TestBaseFantasma:
             grupos=[Grupo("100.00", "21.00"),
                     Grupo("0.00", "0.00", categoria="Z", tipo="0")],
         )
-        assert "BR-Z-8" not in codigos(incidencias)
+        assert "BR-Z-08" not in codigos(incidencias)
 
 
 class TestAjustesSinDetallar:
@@ -442,7 +442,7 @@ class TestAjustesSinDetallar:
             descuentos_total="10.00",  # declarado, pero sin detallar
         )
         assert "IVA-AJUSTES-SIN-DETALLAR" in codigos(incidencias, AVISO)
-        assert "BR-S-8" not in codigos(incidencias)
+        assert "BR-S-08" not in codigos(incidencias)
 
     def test_detallados_si_se_comprueban(self, revisar):
         incidencias = revisar(
@@ -537,7 +537,7 @@ class TestTotalesDeAjustes:
         )
         codigos_vistos = codigos(en16931.validar(xml).incidencias, ERROR)
         assert "BR-CO-11" in codigos_vistos
-        assert "BR-S-8" not in codigos_vistos
+        assert "BR-S-08" not in codigos_vistos
 
     def test_si_cuadran_no_se_dice_nada(self):
         xml = ubl(
@@ -549,7 +549,7 @@ class TestTotalesDeAjustes:
         )
         vistos = codigos(en16931.validar(xml).incidencias)
         assert "BR-CO-11" not in vistos
-        assert "BR-S-8" not in vistos
+        assert "BR-S-08" not in vistos
 
     def test_descuentos_y_cargos_no_se_confunden(self):
         """Un cargo de 10 no justifica un total de descuentos de 10."""
@@ -621,7 +621,7 @@ class TestCamposDelDesglose:
             lineas=[Linea("1", "100.00")],
             grupos=[Grupo("100.00", "21.00", tipo=None)],
         )
-        assert "BR-S-5" not in codigos(incidencias)
+        assert "BR-S-05" not in codigos(incidencias)
 
     def test_el_desglose_vacio_no_enmudece_br_co_14(self, revisar):
         """Una entrada sin cuota dejaba muda también la suma de cuotas.
@@ -648,7 +648,7 @@ class TestCategorias:
             grupos=[Grupo("100.00", "0.00", tipo="0")],
             total_iva="0.00",
         )
-        problema = una(incidencias, "BR-S-5")
+        problema = una(incidencias, "BR-S-05")
         assert problema.gravedad == ERROR
         assert "Z para tipo cero" in problema.mensaje
 
@@ -682,16 +682,57 @@ class TestCategorias:
         assert problema.gravedad == ERROR
         assert "no es una exención" in problema.mensaje
 
-    @pytest.mark.parametrize("categoria", ["L", "M"])
-    def test_del_igic_y_el_ipsi_no_se_opina(self, revisar, categoria):
-        """La norma no ata a estas dos, asi que nosotros tampoco."""
+    @pytest.mark.parametrize("categoria,codigo", [("L", "BR-AF-10"),
+                                                  ("M", "BR-AG-10")])
+    def test_el_igic_y_el_ipsi_no_llevan_motivo(self, revisar, categoria, codigo):
+        """BR-AF-10 y BR-AG-10: «shall not have a VAT exemption reason».
+
+        Hasta el 13-09-2026 esta prueba se llamaba «del IGIC y el IPSI no se
+        opina» y exigía que esta misma factura pasara limpia: se creía que la
+        norma no ataba a estas dos categorías. El esquematrón oficial las ata
+        igual que al tipo general, y la factura de aquí abajo es un error.
+        """
         incidencias = revisar(
             lineas=[Linea("1", "100.00", categoria=categoria, tipo="7")],
             grupos=[Grupo("100.00", "7.00", categoria=categoria, tipo="7",
                           motivo="Regimen especial de Canarias")],
             total_iva="7.00",
         )
+        problema = una(incidencias, codigo)
+        assert problema.gravedad == ERROR
+        assert problema.encontrado == "Regimen especial de Canarias"
+
+    @pytest.mark.parametrize("categoria", ["L", "M"])
+    def test_el_igic_y_el_ipsi_sin_motivo_pasan(self, revisar, categoria):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria=categoria, tipo="7")],
+            grupos=[Grupo("100.00", "7.00", categoria=categoria, tipo="7")],
+            total_iva="7.00",
+        )
         assert incidencias == []
+
+    @pytest.mark.parametrize("categoria", ["L", "M"])
+    def test_el_igic_y_el_ipsi_admiten_el_cero(self, revisar, categoria):
+        """«0 (zero) or greater than zero»: el cero no es un error."""
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria=categoria, tipo="0")],
+            grupos=[Grupo("100.00", "0.00", categoria=categoria, tipo="0")],
+            total_iva="0.00",
+        )
+        assert incidencias == []
+
+    @pytest.mark.parametrize("categoria,codigo", [("L", "BR-AF-05"),
+                                                  ("M", "BR-AG-05")])
+    def test_el_igic_y_el_ipsi_no_admiten_tipo_negativo(
+            self, revisar, categoria, codigo):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria=categoria, tipo="-7")],
+            grupos=[Grupo("100.00", "-7.00", categoria=categoria, tipo="-7")],
+            total_iva="-7.00",
+        )
+        problema = una(incidencias, codigo)
+        assert problema.gravedad == ERROR
+        assert "línea 1" in problema.campo
 
     def test_exenta_sin_motivo(self, revisar):
         incidencias = revisar(
@@ -719,7 +760,7 @@ class TestCategorias:
             grupos=[Grupo("100.00", "21.00", categoria="E", tipo="21",
                           motivo="Articulo 20")],
         )
-        assert "BR-E-5" in codigos(incidencias, ERROR)
+        assert "BR-E-05" in codigos(incidencias, ERROR)
 
     def test_inversion_del_sujeto_pasivo(self, revisar):
         assert revisar(
@@ -762,7 +803,7 @@ class TestCategorias:
                           motivo="No sujeta, articulo 7")],
             total_iva="0.00",
         )
-        problema = una(incidencias, "BR-O-5")
+        problema = una(incidencias, "BR-O-05")
         assert "no hay tipo que aplicar" in problema.mensaje
 
     def test_no_sujeta_bien_puesta(self, revisar):
@@ -827,7 +868,7 @@ class TestNoSujeta:
 
         La clave de agrupacion era (categoria, tipo), asi que ("O", None) y
         ("O", 0) caian en cubos distintos y se inventaban un desajuste. Salia
-        BR-O-8 diciendo que al desglose le sobraban 100 sin conceptos detras, y
+        BR-O-08 diciendo que al desglose le sobraban 100 sin conceptos detras, y
         a la vez IVA-TIPO-SIN-DESGLOSE diciendo que a los conceptos les faltaba
         desglose. Las dos sobre lo mismo, contandolo desde los dos lados.
         """
@@ -837,13 +878,13 @@ class TestNoSujeta:
                           motivo="No sujeta")],
             total_iva="0.00",
         )
-        assert "BR-O-8" not in codigos(incidencias)
+        assert "BR-O-08" not in codigos(incidencias)
         assert "IVA-TIPO-SIN-DESGLOSE" not in codigos(incidencias)
-        assert "BR-O-5" not in codigos(incidencias), (
-            "el tipo del desglose no es asunto de BR-O-5, que es de la linea")
+        assert "BR-O-05" not in codigos(incidencias), (
+            "el tipo del desglose no es asunto de BR-O-05, que es de la linea")
 
     def test_la_linea_con_tipo_si_se_caza(self, revisar):
-        """Lo que BR-O-5 si prohibe: que la **linea** declare tipo."""
+        """Lo que BR-O-05 si prohibe: que la **linea** declare tipo."""
         problema = una(
             revisar(
                 lineas=[Linea("1", "100.00", categoria="O", tipo="21")],
@@ -851,7 +892,7 @@ class TestNoSujeta:
                               motivo="No sujeta")],
                 total_iva="0.00",
             ),
-            "BR-O-5",
+            "BR-O-05",
         )
         assert problema.gravedad == ERROR
         assert "línea 1" in problema.campo
@@ -872,7 +913,7 @@ class TestDondeViveCadaRegla:
                 grupos=[Grupo("100.00", "0.00", tipo="0")],
                 total_iva="0.00",
             ),
-            "BR-S-5",
+            "BR-S-05",
         )
         assert "línea 1" in problema.campo, (
             "tiene que sennalar la linea, que es de donde sale la regla")
@@ -1003,8 +1044,8 @@ class TestIntegracion:
 class TestUnaCategoriaFueraDeLaLista:
     """`IVA-BASE`: la misma regla que las BR-{X}-8, sin una BR a la que colgarse.
 
-    Las nueve categorías de UNCL5305 tienen cada una su regla numerada —BR-S-8,
-    BR-Z-8, BR-E-8…— y la comprobación es siempre la misma: la base declarada
+    Las nueve categorías de UNCL5305 tienen cada una su regla numerada —BR-S-08,
+    BR-Z-08, BR-E-08…— y la comprobación es siempre la misma: la base declarada
     en el desglose es la suma de lo que se le imputa. Cuando el documento
     escribe una categoría que no está en la lista, la cuenta se sigue pudiendo
     hacer y la BR no existe, así que sale con nombre propio.
@@ -1030,7 +1071,7 @@ class TestUnaCategoriaFueraDeLaLista:
             lineas=[Linea("1", "100.00", categoria="S")],
             grupos=[Grupo("999.00", "21.00", categoria="S")],
         )
-        assert "BR-S-8" in codigos(salta)
+        assert "BR-S-08" in codigos(salta)
         assert "IVA-BASE" not in codigos(salta)
 
     def test_si_cuadra_no_dice_nada(self, revisar):
