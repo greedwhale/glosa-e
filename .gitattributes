@@ -23,3 +23,9 @@
 *.cer   binary
 *.crt   binary
 *.der   binary
+
+# La copia de las pruebas oficiales de la norma. No la ha escrito este
+# proyecto y su huella se comprueba: que git le cambie los finales de linea al
+# sacarla no romperia la huella —se calcula normalizada—, pero la copia dejaria
+# de ser byte a byte la que publica la Comision, que es lo que dice ser.
+tests/en16931-oficial/** -text

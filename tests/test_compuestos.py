@@ -213,9 +213,11 @@ def test_los_cincuenta_y_cuatro_estan_en_el_catalogo():
 
 def test_todos_salen_como_error():
     """Ninguna de estas cuatro reglas avisa: las cuatro son error."""
-    for codigo in sorted({c.codigo for c in codigos_del_paquete()}
-                         & set(LOS_CINCUENTA_Y_CUATRO)):
-        suyo = next(c for c in codigos_del_paquete() if c.codigo == codigo)
+    # El catálogo se lee una vez: leerlo dentro del bucle eran cincuenta y
+    # cuatro pasadas por el fuente entero, cuarenta segundos de la suite.
+    catalogo = {c.codigo: c for c in codigos_del_paquete()}
+    for codigo in LOS_CINCUENTA_Y_CUATRO:
+        suyo = catalogo[codigo]
         assert suyo.gravedades == ("error",), f"{codigo}: {suyo.gravedades}"
 
 

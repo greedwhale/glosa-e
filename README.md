@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1385 tests, todos en verde.
+1394 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3591,6 +3591,64 @@ publica dos líneas más abajo. Hay una prueba que lo comprueba.
 Lo que sí está reservado son los textos, que es lo que la línea dice. Y quién es
 dueño de cada cosa —los XSD de la AEAT, de OASIS y de UN/CEFACT; las anclas, del
 Estado— ya lo desglosa el aviso legal, que dice más que un símbolo.
+
+## Contra las pruebas oficiales de la norma
+
+Lo de IGIC e IPSI dejó una lección que no cabe en una regla: **las
+comprobaciones que salen de la misma tabla coinciden también cuando la tabla
+está mal.** Hacía falta una opinión que no saliera de este repositorio, y
+existe. `ConnectingEurope/eInvoicing-EN16931`, donde la Comisión mantiene el
+esquematrón oficial para el comité CEN/TC 434, publica al lado **una prueba
+unitaria por regla**: un fragmento de factura y la regla que tiene que saltar
+o no saltar. Son las pruebas con las que el comité comprueba su esquematrón.
+
+Aquí se usan al revés, para comprobar el validador. `herramientas/norma_oficial.py`
+trae una copia fijada a un commit —el de la v1.3.16— a `tests/en16931-oficial/`:
+279 ficheros de pruebas, el esquematrón del modelo, el de listas de códigos y
+la EUPL 1.2, que es su licencia. `tests/test_norma_oficial.py` hace cuatro
+cosas:
+
+| Qué comprueba | Contra qué |
+|---|---|
+| que la copia es la fijada | su huella SHA-256, escrita en la prueba |
+| que cada una de las **223 reglas** está hecha o pendiente, y ningún `BR-` del catálogo es inventado | las reglas leídas del esquematrón, no de una lista |
+| que la gravedad es la de la norma | el `flag` de cada regla |
+| que en cada caso oficial de cada regla hecha se dice lo mismo que la prueba | los 567 casos, uno a uno |
+
+**Se versiona, a diferencia del anexo de la AEAT**, y a propósito. Las pruebas
+del anexo se saltan si falta el PDF; aquí eso sería un verde que no ha
+comprobado nada en la máquina donde falta la copia, y lo que se comprueba es
+si el motor dice lo mismo que la norma. No son facturas de nadie: son
+fragmentos sintéticos del comité, bajo EUPL, 1,2 MB.
+
+### Lo que salió el primer día
+
+De las 223 reglas, **91 implementadas y 132 pendientes**, las 132 escritas en
+la prueba por grupos. Y de las 90 implementadas que tienen prueba oficial
+—`BR-IC-10` no tiene ninguna—, **coincidían en todos los casos 49**. Las otras
+41 discrepaban en 107 casos, y no son 107 fallos sueltos: son seis motivos.
+
+| Motivo | Reglas | Qué pasaba |
+|---|---|---|
+| sin desglose | 27 | sin desglose de IVA el módulo se paraba en BR-CO-18 y no miraba el tipo de ninguna línea, descuento o cargo |
+| el desglose | 9 | lo mismo para la categoría que falta en el desglose, y además: los conceptos sin importe se descartaban, y en las categorías que exigen un desglose **y solo uno** no se contaban los repetidos |
+| el céntimo | 2 | la norma exige que las sumas cuadren exactas; aquí se toleraba un céntimo |
+| el céntimo y la cuenta | 1 | lo del céntimo, y BR-CO-15 exige además un único total de impuestos en la moneda del documento |
+| la unidad | 1 | al revés: BR-CO-17 admite que la cuota se aparte hasta **una unidad** de base por tipo, y aquí se exigía el céntimo. Rechazaba lo que la norma acepta |
+| el perfil | 1 | BR-01 solo pide que el identificador esté; aquí se usaba para opinar sobre lo que dice |
+
+Los 107 casos están declarados en `DISCREPANCIAS`, cada uno con su motivo, y
+la lista se comprueba en los dos sentidos: una discrepancia nueva es rojo, y
+una declarada que ya no discrepa también. Así no puede quedarse vieja diciendo
+que falla lo que ya funciona, que es como envejecen todas las listas de
+excepciones. Los cinco guardianes se provocaron: tocar un byte de la copia,
+borrar una pendiente, quitar y añadir una discrepancia, y bajar `BR-CL-01` a
+aviso.
+
+**Lo que no cubre**, dicho igual de alto: las pruebas oficiales son de UBL
+—de CII hay dos ficheros— y no tocan EDIFACT ni Facturae, cuyos mapas se
+siguen sosteniendo con sus propias pruebas. Y quedan fuera las 756 reglas de
+sintaxis del esquematrón, que aquí no se han implementado.
 
 ## Por qué este y no otro, contestado sin pedir fe
 
