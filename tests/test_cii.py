@@ -587,6 +587,12 @@ class TestElMapaEsSoloUnMapa:
                     # Qué reglas de decimales miran el valor y no lo escrito.
                     # Tampoco es una ruta.
                     "decimales_por_valor",
+                    # Si el asunto de la nota va dentro del texto; qué códigos
+                    # de devengo admite la sintaxis, y qué listas de códigos
+                    # escribe con las suyas. Tampoco son rutas.
+                    "asunto_entre_almohadillas",
+                    "codigos_de_devengo",
+                    "codigos_con_otra_lista",
                 ):
                     continue
                 # «self::» es tan relativa como «./», y hace falta en EDIFACT

@@ -3183,3 +3183,26 @@ cuenta.
 
 **Provocado**: sin la cuenta vuelve BR-61, y con la cuenta y la firma vieja
 sale `FIRMA-ALTERADA`, que es la firma haciendo su trabajo.
+
+## Los ejemplos EDIFACT medían en una unidad que no es de la norma
+
+**Qué pasaba.** `ejemplos/edi-0001.edi`, `edi-0002-cortado.edi` y
+`edi-0003-una-de-cinco.edi` escribían la cantidad de cada línea como
+`QTY+47:40:PCE`. `PCE` es la pieza en EANCOM, y EN 16931 pide la unidad de las
+recomendaciones 20 y 21 de UN/ECE, donde la pieza es `H87`. `PCE` no está en la
+lista de hoy ni en la del esquematrón de EDIFACT de 2017.
+
+**Por qué no se vio.** Porque ninguna regla miraba la lista. BR-23 comprueba que
+la unidad esté, y estaba; BR-CL-23, la de la lista, estaba pendiente. El
+comentario de `tests/test_edifact.py` contaba incluso cómo se había añadido el
+`PCE` para cumplir BR-23.
+
+**Cómo se reprodujo.** Al implementar las listas de códigos, la suite dio trece
+rojos. Siete eran esto: los tres ejemplos, el banco de la página —que valida
+`edi-0001.edi`— y tres pruebas de EDIFACT montadas con la misma línea.
+
+**Arreglado** cambiando `PCE` por `H87` en los tres ejemplos y en las pruebas.
+Los EDIFACT no llevan firma, así que no hubo que rehacer nada más.
+
+**Provocado**: con `PCE` vuelve BR-CL-23 en los tres. Y en el corpus es lo más
+repetido entre las facturas EDIFACT: 32 de las 53 que cambian.

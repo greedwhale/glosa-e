@@ -100,9 +100,11 @@ CUERPO = (
     # BT-153, que BR-25 exige: el nombre va en el cuarto componente del C273.
     "IMD+F++:::Concepto'"
     # El compuesto C186 lleva los tres datos juntos: cualificador, cuanto y en
-    # que unidad. El «PCE» es BT-130, que EN 16931 exige por BR-23 y que antes
-    # faltaba aqui: la factura de prueba decia «10» sin decir 10 de que.
-    "QTY+47:10:PCE'"
+    # que unidad. El «H87» es BT-130, que EN 16931 exige por BR-23 y que antes
+    # faltaba aqui: la factura de prueba decia «10» sin decir 10 de que. Hasta
+    # el 14-09-2026 decia «PCE», que es de EANCOM y no de la lista de la norma:
+    # lo vio BR-CL-23 el dia que se hizo.
+    "QTY+47:10:H87'"
     "PRI+AAA:100'"
     "MOA+203:1000'"
     "TAX+7+VAT+++:::21+S'"
@@ -418,7 +420,7 @@ class TestLosGrupos:
         los importes de sus lineas contados como totales.
         """
         cuerpo = CUERPO.replace(
-            "QTY+47:10:PCE'", "QTY+47:10:PCE'PAC+2++CT'MEA+PD+AAB+KGM:12'"
+            "QTY+47:10:H87'", "QTY+47:10:H87'PAC+2++CT'MEA+PD+AAB+KGM:12'"
         )
         raiz, _ = edifact.convertir(sobre(cuerpo))
         linea = raiz.xpath(".//*[S_LIN]")[0]
@@ -432,7 +434,7 @@ class TestLosGrupos:
             sueltos=marco.sueltos, dentro=marco.dentro - {"PAC"}
         )
         cuerpo = CUERPO.replace(
-            "QTY+47:10:PCE'", "QTY+47:10:PCE'PAC+2++CT'MEA+PD+AAB+KGM:12'"
+            "QTY+47:10:H87'", "QTY+47:10:H87'PAC+2++CT'MEA+PD+AAB+KGM:12'"
         )
         original = edifact.GRUPOS["LIN"]
         edifact.GRUPOS["LIN"] = recortado

@@ -53,7 +53,7 @@ import pytest
 from lxml import etree
 
 from herramientas.norma_oficial import huella
-from validador import en16931, iva, modelo
+from validador import en16931, iva, listas_de_codigos, modelo
 from validador.codigos import codigos_del_paquete
 from validador.sintaxis import (
     SINTAXIS_CII,
@@ -66,7 +66,7 @@ OFICIAL = pathlib.Path(__file__).resolve().parent / "en16931-oficial"
 
 # La huella de la copia. Si alguien la rehace con otro commit, esto se pone en
 # rojo y hay que cambiarla a sabiendas, junto con `PROCEDENCIA.md`.
-HUELLA = "47a0d349e358d6a48c8fffaf64f1126be4fdce69561296051bb24533aa828b98"
+HUELLA = "9359948d767adf8cc86c21243e2d7f87159b9c3e408f09b1dcfde0a044b6187d"
 
 ISO = "{http://purl.oclc.org/dsdl/schematron}"
 VEFA = "{http://difi.no/xsd/vefa/validator/1.0}"
@@ -81,11 +81,6 @@ PENDIENTES = (
     "BR-CO-05", "BR-CO-06", "BR-CO-07", "BR-CO-08",
     # El pago fraccionado italiano (split payment).
     "BR-B-01", "BR-B-02",
-    # Listas de códigos.
-    "BR-CL-03", "BR-CL-04", "BR-CL-05", "BR-CL-06", "BR-CL-07", "BR-CL-08",
-    "BR-CL-10", "BR-CL-11", "BR-CL-13", "BR-CL-14", "BR-CL-15", "BR-CL-16",
-    "BR-CL-17", "BR-CL-18", "BR-CL-19", "BR-CL-20", "BR-CL-21", "BR-CL-22",
-    "BR-CL-23", "BR-CL-24", "BR-CL-25", "BR-CL-26",
 )
 
 # Por qué este validador no dijo lo mismo que la prueba oficial el primer
@@ -142,6 +137,10 @@ SIN_PRUEBA_OFICIAL = (
     "BR-DEC-15", "BR-DEC-16", "BR-DEC-17", "BR-DEC-18", "BR-DEC-19",
     "BR-DEC-20", "BR-DEC-23", "BR-DEC-24", "BR-DEC-25", "BR-DEC-27",
     "BR-DEC-28",
+    # Cuatro de las listas de códigos: el asunto de la nota, el motivo de la
+    # exención, el esquema de la dirección electrónica y el del lugar de
+    # entrega. Sus pruebas, en `test_listas_de_codigos.py`.
+    "BR-CL-08", "BR-CL-22", "BR-CL-25", "BR-CL-26",
 )
 
 
@@ -519,3 +518,67 @@ def test_los_decimales_se_cuentan_como_en_cada_vinculacion(nombre, sintaxis):
 def test_facturae_mira_el_valor_en_todas_las_de_decimales():
     assert set(SINTAXIS_FACTURAE.decimales_por_valor) == {
         r for r in inventario() if r.startswith("BR-DEC-")}
+
+
+# --- Las listas de códigos -------------------------------------------------------
+#
+# Las listas de `validador/listas_de_codigos.py` están copiadas enteras, porque
+# la copia oficial no viaja con el validador. Aquí se comparan con los
+# esquematrones de códigos de UBL, CII y EDIFACT, y se dice por qué se usa una
+# por regla aunque no digan todos lo mismo.
+
+LISTA_ENTRE_ESPACIOS = re.compile(r"'( [^']+ )'")
+TIPO_MIME = re.compile(r"@mimeCode\s*=\s*'([^']+)'")
+
+
+def listas_oficiales(sintaxis: str) -> dict[str, frozenset[str]]:
+    """La primera lista de cada regla del esquematrón de códigos de una sintaxis."""
+    raiz = etree.parse(str(OFICIAL / f"EN16931-{sintaxis}-codes.sch")).getroot()
+    salida = {}
+    for a in raiz.iter(ISO + "assert"):
+        prueba = a.get("test")
+        tipos = TIPO_MIME.findall(prueba)
+        entre = LISTA_ENTRE_ESPACIOS.findall(prueba)
+        salida[a.get("id")] = frozenset(tipos) if tipos else frozenset(entre[0].split())
+    return salida
+
+
+def test_cada_lista_es_la_del_esquematron_oficial():
+    ubl, cii = listas_oficiales("UBL"), listas_oficiales("CII")
+    for codigo, _, cual, _, _, _ in listas_de_codigos._REGLAS:
+        if cual == "devengo":
+            continue
+        aqui = listas_de_codigos.lista(cual, SINTAXIS_UBL)
+        oficial = cii[codigo] if codigo == "BR-CL-08" else ubl[codigo]
+        assert aqui == oficial, (
+            f"{codigo}: sobran {sorted(aqui - oficial)[:10]}, faltan {sorted(oficial - aqui)[:10]}")
+
+
+def test_donde_cii_dice_otra_lista_es_por_lo_que_se_dice():
+    """Una lista por regla, la más al día. Si el comité iguala las dos o cambia
+    otra, esto se pone en rojo y hay que volver a decidir."""
+    ubl, cii = listas_oficiales("UBL"), listas_oficiales("CII")
+    distintas = {r for r in ubl.keys() & cii.keys() if ubl[r] != cii[r]}
+    assert distintas == {"BR-CL-01", "BR-CL-06", "BR-CL-14", "BR-CL-15"}, distintas
+    for regla in ("BR-CL-14", "BR-CL-15"):
+        assert cii[regla] - ubl[regla] == {"AN"} and ubl[regla] - cii[regla] == {"SS"}
+    # El asunto de la nota no está en el esquematrón de códigos de UBL: está en
+    # su vinculación, con la lista de antes, y la de CII la contiene.
+    lista_ubl = frozenset(LISTA_ENTRE_ESPACIOS.findall(vinculacion("UBL")["BR-CL-08"])[0].split())
+    assert lista_ubl < cii["BR-CL-08"] and len(cii["BR-CL-08"] - lista_ubl) == 18
+
+
+def test_los_codigos_de_devengo_son_los_de_cada_esquematron():
+    assert listas_oficiales("UBL")["BR-CL-06"] == SINTAXIS_UBL.codigos_de_devengo
+    assert listas_oficiales("CII")["BR-CL-06"] == SINTAXIS_CII.codigos_de_devengo
+
+
+def test_el_esquematron_de_codigos_de_edifact_es_de_otra_epoca():
+    """Sin nombre de regla en ninguna comprobación y con las listas de 2017: no
+    se puede seguir regla a regla, y se usan las de hoy."""
+    raiz = etree.parse(str(OFICIAL / "EN16931-EDIFACT-codes.sch")).getroot()
+    comprobaciones = list(raiz.iter(ISO + "assert"))
+    assert comprobaciones and not any(a.get("id") for a in comprobaciones)
+    unidades = next(a for a in comprobaciones if a.getparent().get("context") == "//D_6411")
+    vieja = frozenset(LISTA_ENTRE_ESPACIOS.findall(unidades.get("test"))[0].split())
+    assert vieja != listas_de_codigos.UNECE_REC_20

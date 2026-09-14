@@ -255,7 +255,7 @@ CODIGOS: dict[str, str] = {
         'enumera cuáles. En EDIFACT la unidad es el tercer componente del '
         'QTY, y ahí está la causa que se ve en las facturas de verdad: el '
         'cualificador es el correcto y la cantidad está, pero se escribe '
-        'QTY+47:5 en vez de QTY+47:5:PCE y el hueco de la unidad se queda '
+        'QTY+47:5 en vez de QTY+47:5:H87 y el hueco de la unidad se queda '
         'sin rellenar. Si la sintaxis no tiene dónde escribirla, sale como '
         'nota y no hay nada que corregir.'
     ),
@@ -2944,6 +2944,140 @@ CODIGOS: dict[str, str] = {
         'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
         '10.50, y basta con no escribir el cero. Facturae no escribe la base de '
         'un descuento o de un cargo, y ahí no se mira.'
+    ),
+    "BR-CL-03": (
+        'La moneda de un importe —el atributo currencyID que lo acompaña— no es '
+        'un código de ISO 4217. Son tres letras en mayúscula: EUR, USD, GBP. En '
+        'UBL la lleva cada importe; en CII, solo el total del impuesto. En '
+        'EDIFACT no se lee la de cada importe, y los de Facturae no la llevan.'
+    ),
+    "BR-CL-04": (
+        'La moneda de la factura (BT-5) no es un código de ISO 4217. Son tres '
+        'letras en mayúscula: EUR, y no € ni EU. Se mira en las cuatro sintaxis, '
+        'porque Facturae usa la misma lista.'
+    ),
+    "BR-CL-05": (
+        'La moneda de contabilidad del IVA (BT-6) no es un código de ISO 4217. '
+        'Son tres letras en mayúscula: EUR, USD, GBP. Solo se mira en UBL y en '
+        'CII: EDIFACT y Facturae no lo escriben.'
+    ),
+    "BR-CL-06": (
+        'El código que dice qué fecha es la del devengo del IVA (BT-8) no es de '
+        'la lista. Es la única lista que cambia de sintaxis: en UBL son el 3, el '
+        '35 y el 432, y en CII el 5, el 29 y el 72, que son las mismas tres '
+        'fechas en otra lista. En EDIFACT la fecha se dice con el cualificador '
+        'del DTM y no hay código que pueda estar mal; Facturae no lo escribe.'
+    ),
+    "BR-CL-07": (
+        'El esquema del identificador de objeto (BT-18), el que dice de qué '
+        'clase es la referencia de un documento de tipo 130, no es un código de '
+        'UNTDID 1153. Solo se mira en UBL y en CII: EDIFACT y Facturae no lo '
+        'escriben.'
+    ),
+    "BR-CL-08": (
+        'El asunto de una nota (BT-21) no es un código de UNCL 4451. En UBL va '
+        'dentro del texto de la nota, entre almohadillas —#AAI#Texto de la '
+        'nota—, y solo se mira si lo de dentro son tres caracteres; en CII es un '
+        'elemento propio. La lista es la del esquematrón de CII, que tiene todos '
+        'los códigos de la de UBL y dieciocho más. Solo se mira en UBL y en CII: '
+        'EDIFACT y Facturae no lo escriben.'
+    ),
+    "BR-CL-10": (
+        'El esquema de un identificador de parte (BT-29, BT-46, BT-60) no es de '
+        'ISO 6523, la lista de esquemas de identificación: 0088 es el GLN, por '
+        'ejemplo. SEPA también vale para el vendedor y el beneficiario, porque '
+        'ahí es el identificador de acreedor de un adeudo SEPA. Solo se mira en '
+        'UBL y en CII: EDIFACT y Facturae no lo escriben.'
+    ),
+    "BR-CL-11": (
+        'El esquema del registro legal de una parte (BT-30, BT-47, BT-61) no es '
+        'de ISO 6523, la lista de esquemas de identificación. Solo se mira en '
+        'UBL y en CII: EDIFACT y Facturae no lo escriben.'
+    ),
+    "BR-CL-13": (
+        'La lista de la clasificación de un artículo (BT-158), la que dice de '
+        'qué clasificación es el código, no es de UNTDID 7143. Solo se mira en '
+        'UBL y en CII: EDIFACT y Facturae no lo escriben.'
+    ),
+    "BR-CL-14": (
+        'El país de una dirección no es un código de ISO 3166-1 de dos letras: '
+        'ES, y no ESP ni SP; GB, y no UK. Se miran todas las direcciones de la '
+        'factura. La lista es la del esquematrón de UBL: la de CII todavía tiene '
+        'AN, las Antillas Neerlandesas, y le falta SS, Sudán del Sur. En '
+        'Facturae el país va en tres letras y es de la lista de su esquema, y '
+        'aquí no se mira.'
+    ),
+    "BR-CL-15": (
+        'El país de origen de un artículo (BT-159) no es un código de ISO 3166-1 '
+        'de dos letras: ES, y no ESP; GB, y no UK. Solo se mira en UBL y en CII: '
+        'EDIFACT y Facturae no lo escriben.'
+    ),
+    "BR-CL-16": (
+        'El medio de pago (BT-81) no es un código de UNCL 4461: 30 es una '
+        'transferencia, 58 una transferencia SEPA y 59 un adeudo SEPA. En '
+        'Facturae el medio de pago es de su propia lista —el 04 es la '
+        'transferencia— y no se mira. EDIFACT no tiene instrucción de pago que '
+        'mirar.'
+    ),
+    "BR-CL-17": (
+        'La categoría de IVA de un descuento, de un cargo o de una entrada del '
+        'desglose (BT-95, BT-102, BT-118) no es de UNCL 5305. Son diez: S, Z, E, '
+        'AE, K, G, O, L, M y B. El esquematrón de CII mira la del desglose con '
+        'BR-CL-18, porque el elemento se llama igual que el de la línea; aquí '
+        'sale con esta, como en la norma. En Facturae el impuesto va con su '
+        'propia lista —el 01 es el IVA— y no se mira.'
+    ),
+    "BR-CL-18": (
+        'La categoría de IVA de una línea (BT-151) no es de UNCL 5305. Son diez: '
+        'S, Z, E, AE, K, G, O, L, M y B. En Facturae el impuesto va con su '
+        'propia lista —el 01 es el IVA— y no se mira.'
+    ),
+    "BR-CL-19": (
+        'El código del motivo de un descuento (BT-98, BT-140) no es de los que '
+        'admite la norma, que son diecinueve de UNCL 5189: el 95 es un '
+        'descuento, por ejemplo. Los códigos de descuento de EANCOM, como TD o '
+        'DI, no están en la lista. Si no hay código que valga, basta con el '
+        'motivo escrito.'
+    ),
+    "BR-CL-20": (
+        'El código del motivo de un cargo (BT-105, BT-145) no es de UNCL 7161: '
+        'FC es el porte, por ejemplo. Si no hay código que valga, basta con el '
+        'motivo escrito.'
+    ),
+    "BR-CL-21": (
+        'El esquema del identificador normalizado de un artículo (BT-157) no es '
+        'de ISO 6523: 0160 es el GTIN. En EDIFACT el esquema se escribe con otra '
+        'lista, UNTDID 7143, y ahí no se mira.'
+    ),
+    "BR-CL-22": (
+        'El código del motivo de una exención (BT-121) no es de la lista VATEX: '
+        'VATEX-EU-IC es una entrega intracomunitaria, por ejemplo. Se compara en '
+        'mayúsculas, como en las dos vinculaciones oficiales. Solo se mira en '
+        'UBL y en CII: EDIFACT y Facturae no lo escriben.'
+    ),
+    "BR-CL-23": (
+        'La unidad de medida (BT-130, BT-150) no es de las recomendaciones 20 y '
+        '21 de UN/ECE: H87 es la pieza, KGM el kilo y HUR la hora. PCE, la pieza '
+        'de EANCOM, no está en la lista. En Facturae la unidad es de su propia '
+        'lista —el 01 son unidades— y no se mira.'
+    ),
+    "BR-CL-24": (
+        'El tipo de un documento adjunto (el atributo mimeCode) no es uno de los '
+        'seis que admite la norma: PDF, PNG, JPEG, CSV y las hojas de cálculo de '
+        'Excel y de OpenDocument. Se compara tal cual, sin quitar espacios. '
+        'application/xml no está. Solo se mira en UBL y en CII: EDIFACT y '
+        'Facturae no lo escriben.'
+    ),
+    "BR-CL-25": (
+        'El esquema de una dirección electrónica (BT-34, BT-49) no es de la '
+        'lista EAS: EM es el correo electrónico, por ejemplo. Solo se mira en '
+        'UBL y en CII: EDIFACT y Facturae no lo escriben.'
+    ),
+    "BR-CL-26": (
+        'El esquema del identificador del lugar de entrega (BT-71) no es de ISO '
+        '6523, la lista de esquemas de identificación: 0088 es el GLN, por '
+        'ejemplo. Solo se mira en UBL y en CII: EDIFACT y Facturae no lo '
+        'escriben.'
     ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "

@@ -141,6 +141,19 @@ class Sintaxis:
     linea_id_estandar_esquema: str  # relativa al identificador
     linea_clasificacion: str  # BT-158, relativa a una línea
     linea_clasificacion_esquema: str  # relativa a la clasificación
+    # Lo que solo miran las listas de códigos (BR-CL). Casi todo se lee en
+    # cualquier sitio del documento, como en el esquematrón: un país es un país
+    # esté en la dirección del vendedor o en la de entrega.
+    monedas_de_importes: str  # el atributo de moneda de cada importe
+    objeto_esquema: str  # BT-18, el esquema del identificador de objeto
+    nota_asunto: str  # BT-21
+    id_de_parte_esquema: str  # BT-29, BT-46 y BT-60
+    registro_esquema: str  # BT-30, BT-47 y BT-61
+    paises: str  # el país de cualquier dirección
+    paises_de_origen: str  # BT-159
+    linea_precio_unidad: str  # BT-150, relativa a una línea
+    adjunto_mime: str  # relativa a un adjunto
+    entrega_lugar_esquema: str  # BT-71
 
     lineas: str
     linea_id: str  # relativa a una línea
@@ -267,6 +280,26 @@ class Sintaxis:
     # en las veintiuna: un `1500.00000000` es un importe de dos decimales bien
     # escrito en Facturae.
     decimales_por_valor: frozenset[str]
+
+    # El asunto de una nota (BT-21) no tiene elemento propio en UBL: se escribe
+    # dentro del texto, entre almohadillas —`#AAI#Texto de la nota`—, y la
+    # vinculación oficial lo saca de ahí. En CII es un elemento. Tampoco es una
+    # ruta.
+    asunto_entre_almohadillas: bool
+
+    # Los códigos de la fecha de devengo (BT-8). Es la única lista de códigos
+    # que cambia de sintaxis a sintaxis: UBL la escribe con UNTDID 2005 —3, 35
+    # y 432— y CII con UNTDID 2475 —5, 29 y 72—, que son las mismas tres fechas
+    # con otro número. Lo lee de los esquematrones oficiales `test_norma_oficial`.
+    codigos_de_devengo: frozenset[str]
+
+    # Qué BR-CL no se miran porque la sintaxis escribe ese dato con **otra
+    # lista**, que su propio esquema ya obliga. No es que no se sepa dónde está
+    # —el campo tiene su ruta, y otras reglas la usan—: es que el código no es
+    # de la lista de la norma, y medirlo contra ella sería acusar a todas las
+    # facturas de esa sintaxis. Lo que no tiene ruta calla por `SIN_MAPA`, y
+    # no hace falta escribirlo aquí.
+    codigos_con_otra_lista: frozenset[str]
 
     # Con qué se escribe «esto suma» en `cargo_es_cargo`. UBL y CII usan un
     # booleano, y por eso durante dos sintaxis esto no hizo falta. EDIFACT lo
@@ -427,6 +460,38 @@ SINTAXIS_UBL = Sintaxis(
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset(),
+    monedas_de_importes=(
+        ".//cbc:Amount/@currencyID|.//cbc:BaseAmount/@currencyID"
+        "|.//cbc:PriceAmount/@currencyID|.//cbc:TaxAmount/@currencyID"
+        "|.//cbc:TaxableAmount/@currencyID|.//cbc:LineExtensionAmount/@currencyID"
+        "|.//cbc:TaxExclusiveAmount/@currencyID|.//cbc:TaxInclusiveAmount/@currencyID"
+        "|.//cbc:AllowanceTotalAmount/@currencyID|.//cbc:ChargeTotalAmount/@currencyID"
+        "|.//cbc:PrepaidAmount/@currencyID|.//cbc:PayableRoundingAmount/@currencyID"
+        "|.//cbc:PayableAmount/@currencyID"
+    ),
+    # El de la factura y el de cada línea, que la vinculación mira igual.
+    objeto_esquema=(
+        "./cac:AdditionalDocumentReference[cbc:DocumentTypeCode='130']/cbc:ID/@schemeID"
+        "|./cac:InvoiceLine/cac:DocumentReference[cbc:DocumentTypeCode='130']/cbc:ID/@schemeID"
+        "|./cac:CreditNoteLine/cac:DocumentReference[cbc:DocumentTypeCode='130']/cbc:ID/@schemeID"
+    ),
+    nota_asunto="./cbc:Note",
+    # SEPA no es de la lista ISO 6523, y la vinculación lo admite como esquema
+    # del identificador del vendedor y del beneficiario: es el identificador
+    # de acreedor de un adeudo SEPA (BT-90), que UBL escribe ahí.
+    id_de_parte_esquema=(
+        ".//cac:PartyIdentification/cbc:ID[not(normalize-space(@schemeID)='SEPA' and "
+        "(ancestor::cac:AccountingSupplierParty or ancestor::cac:PayeeParty))]/@schemeID"
+    ),
+    registro_esquema=".//cac:PartyLegalEntity/cbc:CompanyID/@schemeID",
+    paises=".//cac:Country/cbc:IdentificationCode",
+    paises_de_origen=".//cac:OriginCountry/cbc:IdentificationCode",
+    linea_precio_unidad="./cac:Price/cbc:BaseQuantity/@unitCode",
+    adjunto_mime="./cac:Attachment/cbc:EmbeddedDocumentBinaryObject/@mimeCode",
+    entrega_lugar_esquema="./cac:Delivery/cac:DeliveryLocation/cbc:ID/@schemeID",
+    asunto_entre_almohadillas=True,
+    codigos_de_devengo=frozenset({"3", "35", "432"}),
+    codigos_con_otra_lista=frozenset(),
 )
 
 # En CII casi todo cuelga de SupplyChainTradeTransaction, repartido en tres
@@ -625,6 +690,29 @@ SINTAXIS_CII = Sintaxis(
     comprueba_la_cuota_por_tipo=frozenset({"S"}),
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset({"BR-DEC-13", "BR-DEC-15"}),
+    # En CII solo el total del impuesto lleva moneda: los demás importes van
+    # sin ella, y lo prohíben las reglas de sintaxis de CII.
+    monedas_de_importes=f"{_SUMARIO}/ram:TaxTotalAmount/@currencyID",
+    objeto_esquema=".//ram:ReferenceTypeCode",
+    nota_asunto="./rsm:ExchangedDocument/ram:IncludedNote/ram:SubjectCode",
+    # Los del artículo y el del lugar de entrega tienen su regla, BR-CL-21 y
+    # BR-CL-26, y la vinculación los aparta de esta.
+    id_de_parte_esquema=(
+        ".//ram:GlobalID[not(ancestor::ram:SpecifiedTradeProduct) and "
+        "not(ancestor::ram:ShipToTradeParty)]/@schemeID"
+    ),
+    registro_esquema=".//ram:SpecifiedLegalOrganization/ram:ID/@schemeID",
+    paises=".//ram:CountryID",
+    paises_de_origen=".//ram:OriginTradeCountry/ram:ID",
+    linea_precio_unidad="./ram:SpecifiedLineTradeAgreement/*/ram:BasisQuantity/@unitCode",
+    adjunto_mime="./ram:AttachmentBinaryObject/@mimeCode",
+    entrega_lugar_esquema=(
+        f"{_TRANSACCION}/ram:ApplicableHeaderTradeDelivery/ram:ShipToTradeParty"
+        "/ram:GlobalID/@schemeID"
+    ),
+    asunto_entre_almohadillas=False,
+    codigos_de_devengo=frozenset({"5", "29", "72"}),
+    codigos_con_otra_lista=frozenset(),
 )
 
 # --- EDIFACT ---------------------------------------------------------------
@@ -892,6 +980,30 @@ SINTAXIS_EDIFACT = Sintaxis(
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset(),
+    # Las listas de códigos. El esquematrón de códigos de EDIFACT es de 2017 y
+    # mira cada elemento de datos en cualquier sitio —todos los D_3207, todos
+    # los D_6345— con las listas de entonces; aquí se miran los campos de la
+    # norma con las listas de hoy, como en UBL y CII. Lo que no se ha visto en
+    # ninguna muestra se queda sin leer: las monedas de cada importe, el
+    # esquema de los identificadores, el asunto de las notas —el FTX sirve
+    # también para el perfil y los atributos, con cualificadores que no son
+    # asuntos—, el país de origen, la unidad del precio, los adjuntos.
+    monedas_de_importes=SIN_MAPA,
+    objeto_esquema=SIN_MAPA,
+    nota_asunto=SIN_MAPA,
+    id_de_parte_esquema=SIN_MAPA,
+    registro_esquema=SIN_MAPA,
+    paises="./*/S_NAD/D_3207",
+    paises_de_origen=SIN_MAPA,
+    linea_precio_unidad=SIN_MAPA,
+    adjunto_mime=SIN_MAPA,
+    entrega_lugar_esquema=SIN_MAPA,
+    asunto_entre_almohadillas=False,
+    codigos_de_devengo=frozenset(),
+    # La fecha de devengo se dice con el cualificador del DTM, y la ruta ya
+    # solo coge el suyo: no hay código que pueda estar mal. Y el esquema del
+    # identificador del artículo es de UNTDID 7143 —EN, SRV—, no de ISO 6523.
+    codigos_con_otra_lista=frozenset({"BR-CL-06", "BR-CL-21"}),
     marcas_de_cargo=("c",),
 )
 
@@ -1233,6 +1345,25 @@ SINTAXIS_FACTURAE = Sintaxis(
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),  # y aquí
     # «04 Transferencia», en `PaymentMeansType` del esquema oficial.
     medios_de_transferencia=frozenset({"04"}),
+    # Los importes de Facturae no llevan moneda: la de la factura va una vez.
+    monedas_de_importes=SIN_MAPA,
+    objeto_esquema=SIN_MAPA,
+    nota_asunto=SIN_MAPA,
+    id_de_parte_esquema=SIN_MAPA,
+    registro_esquema=SIN_MAPA,
+    # El país va en tres letras y es de la lista del esquema de Facturae. Su
+    # traducción, y lo que no se puede traducir, es cosa de `paises.py`.
+    paises=SIN_MAPA,
+    paises_de_origen=SIN_MAPA,
+    linea_precio_unidad=SIN_MAPA,
+    adjunto_mime=SIN_MAPA,
+    entrega_lugar_esquema=SIN_MAPA,
+    asunto_entre_almohadillas=False,
+    codigos_de_devengo=frozenset(),
+    # Facturae escribe con listas suyas el medio de pago —04 es transferencia—,
+    # el impuesto —01 es IVA— y la unidad de medida —01 son unidades—, y su
+    # esquema las obliga. La moneda sí es de ISO 4217, y esa se mira.
+    codigos_con_otra_lista=frozenset({"BR-CL-16", "BR-CL-17", "BR-CL-18", "BR-CL-23"}),
     decimales_por_valor=frozenset({
         "BR-DEC-01", "BR-DEC-02", "BR-DEC-05", "BR-DEC-06", "BR-DEC-09",
         "BR-DEC-10", "BR-DEC-11", "BR-DEC-12", "BR-DEC-13", "BR-DEC-14",

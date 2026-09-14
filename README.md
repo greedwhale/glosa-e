@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1749 tests, todos en verde.
+1796 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3973,6 +3973,54 @@ sale ninguna. Provocado diecisiete veces, las diecisiete en rojo. Las dos que
 quitaban la llamada desde el validador salieron en verde a la primera, porque
 las pruebas llamaban al módulo directamente; ahora hay una que pasa por la
 entrada. Quedan 28 pendientes.
+
+### Los códigos que tienen que salir de una lista: 22 reglas
+
+**La moneda es de ISO 4217, el país de ISO 3166, la unidad de la recomendación
+20 de UN/ECE**, y así hasta veintidós (BR-CL-03 a BR-CL-26). Viven en
+`validador/listas_de_codigos.py`, con las listas escritas enteras: la copia
+oficial vive en `tests/` y no viaja en la rueda. Las escribe
+`python -m herramientas.listas_de_codigos` desde esa copia, y
+`test_norma_oficial` las compara una a una con ella.
+
+**Hicieron falta dos esquematrones más.** La copia oficial tenía el de códigos
+de UBL y no los de CII y EDIFACT, y sin ellos no se podía saber si decían lo
+mismo. Se trajeron del mismo commit con `herramientas/norma_oficial.py`; los
+otros 285 ficheros salieron idénticos y la huella cambió por los dos nuevos.
+
+**Una lista por regla, la más al día.** Los esquematrones de UBL y CII dicen la
+misma lista en todas las reglas menos en cuatro, y una prueba lo comprueba:
+
+| Qué | Decisión |
+|---|---|
+| Países (BR-CL-14 y 15) | La de UBL. La de CII todavía tiene AN, las Antillas Neerlandesas, disueltas en 2010, y le falta SS, Sudán del Sur. Es la diferencia de los prefijos de BR-CO-09 |
+| Asunto de la nota (BR-CL-08) | La de CII, que tiene los 383 códigos de la de UBL y 18 más. En UBL el asunto va dentro del texto, `#AAI#Texto`, y se lee como en su vinculación |
+| Fecha de devengo (BR-CL-06) | Otra lista en cada sintaxis: 3, 35 y 432 en UBL (UNTDID 2005); 5, 29 y 72 en CII (UNTDID 2475). Va en el mapa, `codigos_de_devengo` |
+| Categoría del desglose | BR-CL-17, como en la norma y en UBL. El esquematrón de CII la mira con BR-CL-18 porque el elemento se llama igual que el de la línea |
+| EDIFACT | Su esquematrón de códigos es de 2017, mira cada elemento de datos en cualquier sitio y ninguna comprobación tiene nombre de regla. Se miran los campos de la norma con las listas de hoy: moneda, países, categorías, motivos y unidades |
+| Otra lista | Lo que la sintaxis escribe con una lista suya no se mide contra la europea: en Facturae el medio de pago, el impuesto y la unidad; en EDIFACT el esquema del identificador del artículo (UNTDID 7143) y el devengo, que es el cualificador del DTM. Lo dice `codigos_con_otra_lista` |
+
+**Y salió uno en casa, otra vez.** Los tres ejemplos EDIFACT decían `PCE` como
+unidad, que es la pieza de EANCOM y no está en la lista de la norma, ni en la
+de hoy ni en la de EDIFACT de 2017. Está en HALLAZGOS.
+
+**Medido.** Los 46 casos oficiales de las 18 reglas que los tienen pasan a la
+primera. De las otras cuatro no hay ninguno. Las 43 pruebas de
+`tests/test_listas_de_codigos.py` montan cada regla en CII y las que caben en
+EDIFACT y Facturae, y exigen que salte esa y ninguna otra. El corpus pasa de
+1291 a 1376 incidencias en 58 facturas:
+
+- **53 son EDIFACT.** BR-CL-23 sale en 32, y siempre por `PCE`. BR-CL-19 y
+  BR-CL-20 salen por códigos de motivo como `TD`, `DI`, `SF` o `G74`, que no
+  están en ninguna de las listas. Solo `ADR`, `ADO` y `ZZZ` son de UNCL 7161
+  escritos en un descuento, donde la norma pide UNCL 5189.
+- **Las otras cinco son muestras de la extensión de XRechnung**, que usan a
+  propósito códigos que la extensión admite y la norma no: `application/xml`,
+  `XR01`, `CVD`. Son las únicas que cambian de veredicto.
+
+Provocado dieciocho veces, las dieciocho en rojo. Con eso se vio que comprobar
+si un código lleva un espacio dentro era código muerto, porque ninguna lista
+tiene uno así, y se quitó. Quedan 6 pendientes.
 
 ## Por qué este y no otro, contestado sin pedir fe
 

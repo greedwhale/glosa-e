@@ -20,6 +20,11 @@ Se trae, de un commit fijo:
 - `test/Invoice-unit-UBL`, `test/CreditNote-unit-UBL` y `test/cii`: las pruebas.
 - `ubl/schematron/abstract/EN16931-model.sch`: las 201 reglas del modelo.
 - `ubl/schematron/codelist/EN16931-UBL-codes.sch`: las 22 de listas de códigos.
+- `EN16931-CII-codes.sch` y `EN16931-EDIFACT-codes.sch`, de `cii/` y
+  `edifact/`: las mismas listas sobre los elementos de cada sintaxis. No dicen
+  siempre la misma —el código de la fecha de devengo es de UNTDID 2005 en UBL
+  y de UNTDID 2475 en CII—, y por eso se traen las tres. Se trajeron el
+  14-09-2026, para las listas de códigos.
 - `EN16931-UBL-model.sch`, `EN16931-CII-model.sch` y `EN16931-EDIFACT-model.sch`,
   de `ubl/`, `cii/` y `edifact/`: la **vinculación** de cada sintaxis, donde está
   la expresión que se evalúa de verdad. El modelo abstracto de arriba solo dice
@@ -63,6 +68,8 @@ CARPETAS = ("test/Invoice-unit-UBL", "test/CreditNote-unit-UBL", "test/cii")
 SUELTOS = {
     "ubl/schematron/abstract/EN16931-model.sch": "EN16931-model.sch",
     "ubl/schematron/codelist/EN16931-UBL-codes.sch": "EN16931-UBL-codes.sch",
+    "cii/schematron/codelist/EN16931-CII-codes.sch": "EN16931-CII-codes.sch",
+    "edifact/schematron/codelist/EN16931-EDIFACT-codes.sch": "EN16931-EDIFACT-codes.sch",
     "ubl/schematron/UBL/EN16931-UBL-model.sch": "EN16931-UBL-model.sch",
     "cii/schematron/CII/EN16931-CII-model.sch": "EN16931-CII-model.sch",
     "edifact/schematron/EDIFACT/EN16931-EDIFACT-model.sch": "EN16931-EDIFACT-model.sch",
@@ -131,6 +138,8 @@ def main(commit: str) -> None:
         f"- {pruebas} ficheros de pruebas unitarias: "
         + ", ".join(f"`{c}`" for c in CARPETAS) + ".\n"
         "- `EN16931-model.sch` y `EN16931-UBL-codes.sch`, de `ubl/schematron/`.\n"
+        "- `EN16931-CII-codes.sch` y `EN16931-EDIFACT-codes.sch`: las listas de\n"
+        "  códigos sobre los elementos de CII y de EDIFACT.\n"
         "- `EN16931-UBL-model.sch`, `EN16931-CII-model.sch` y\n"
         "  `EN16931-EDIFACT-model.sch`: la vinculación de cada sintaxis, con las\n"
         "  expresiones que se evalúan.\n"
