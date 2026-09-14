@@ -566,6 +566,9 @@ class TestElMapaEsSoloUnMapa:
                     # Un conjunto de categorías: en cuáles BR-{X}-08 admite
                     # menos de una unidad. Tampoco es una ruta.
                     "base_admite_una_unidad",
+                    # Otro conjunto de categorías: en cuáles corre BR-{X}-09
+                    # de base por tipo. Tampoco es una ruta.
+                    "comprueba_la_cuota_por_tipo",
                 ):
                     continue
                 # «self::» es tan relativa como «./», y hace falta en EDIFACT

@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1431 tests, todos en verde.
+1441 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3615,7 +3615,7 @@ expresión que se evalúa— y la EUPL 1.2, que es su licencia.
 | que cada una de las **223 reglas** está hecha o pendiente, y ningún `BR-` del catálogo es inventado | las reglas leídas del esquematrón, no de una lista |
 | que la gravedad es la de la norma | el `flag` de cada regla |
 | que en cada caso oficial de cada regla hecha se dice lo mismo que la prueba | los 567 casos, uno a uno |
-| que el margen de BR-CO-17 y de cada BR-{X}-08 es el de cada sintaxis | la expresión de la regla en la vinculación de UBL, CII y EDIFACT |
+| que el margen de BR-CO-17, de cada BR-{X}-08 y de cada BR-{X}-09 es el de cada sintaxis | la expresión de la regla en la vinculación de UBL, CII y EDIFACT |
 | que el desglose de EDIFACT se lee donde lo lee la norma | el grupo `VAT_breakdown` de la vinculación de EDIFACT, letra a letra |
 
 **Se versiona, a diferencia del anexo de la AEAT**, y a propósito. Las pruebas
@@ -3783,6 +3783,43 @@ tiene.
 Cada pieza se provocó rompiéndola —quitar el UNS, quitar el filtro de IVA, dar
 a UBL el margen de CII, poner a EDIFACT el de 2017, volver al céntimo, volver
 a la clave con tipo— y cada una se puso en rojo en su prueba.
+
+### Las reglas pendientes, por grupos: la cuota de cada categoría
+
+De las 132 reglas pendientes, las que se hacen primero son las que tienen
+prueba oficial: 101 la tienen y 31 no —las 21 de decimales, entre ellas—, y
+una regla sin prueba oficial solo tiene la opinión de aquí. Cada una sale de
+`PENDIENTES` al hacerse, y en ese momento sus casos oficiales pasan a
+comprobarse uno a uno.
+
+**La primera tanda es BR-{X}-09, la cuota de cada categoría: nueve reglas.**
+Son dos reglas con el mismo número:
+
+| Categorías | Qué pide | En qué se diferencia de BR-CO-17 |
+|---|---|---|
+| Z, E, AE, K, G, O | cuota **cero exacto** | BR-CO-17 redondea a entero a tipo cero y deja pasar 0,40 |
+| S, L, M | base por tipo, a menos de una unidad | la misma cuenta; en CII, BR-CO-17 admite la unidad justa y BR-S-09 no |
+
+Y otra vez las dos sintaxis no dicen lo mismo: el esquematrón de CII da
+BR-AF-09 y BR-AG-09 por duplicadas de BR-CO-17 y las deja en `true()`. Aquí se
+sigue a cada uno —EDIFACT y Facturae con UBL—, y qué categorías mira cada
+sintaxis lo lee de la vinculación la misma prueba que lee los márgenes.
+
+**Dos reglas de la norma son dos incidencias.** Donde BR-S-09 falla falla
+también BR-CO-17, casi siempre, y salen las dos, que es lo que hace el
+validador oficial. El caso en que no coinciden es el borde de CII —una cuota a
+exactamente una unidad—, y ahí la nota `IVA-CUOTA-REDONDEO` se retira: no se
+puede decir a la vez que la norma lo admite y que no.
+
+**En el corpus**, tres facturas: dos EDIFACT con la cuota del tipo general
+descuadrada, que ya tenían BR-CO-17 y ahora llevan también BR-S-09, y una con
+inversión del sujeto pasivo que cobra 19,13 de cuota y hasta hoy salía sin
+ninguna queja sobre la cuota. De 1134 incidencias a 1138.
+
+Provocado cinco veces: el tipo cero con redondeo a entero, CII mirando el IGIC,
+la unidad justa que pasa, la nota que no se retira y la regla de tipo cero
+quitada; esta última se pone en rojo también en los casos oficiales. Quedan
+123 pendientes.
 
 ## Por qué este y no otro, contestado sin pedir fe
 

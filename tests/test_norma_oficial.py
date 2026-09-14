@@ -91,27 +91,21 @@ PENDIENTES = (
     "BR-DEC-15", "BR-DEC-16", "BR-DEC-17", "BR-DEC-18", "BR-DEC-19",
     "BR-DEC-20", "BR-DEC-23", "BR-DEC-24", "BR-DEC-25", "BR-DEC-27",
     "BR-DEC-28",
-    # Tipo general: el NIF del vendedor (02-04) y la cuota (09).
-    "BR-S-02", "BR-S-03", "BR-S-04", "BR-S-09",
-    # Tipo cero: el NIF del vendedor (02-04) y la cuota a cero (09).
-    "BR-Z-02", "BR-Z-03", "BR-Z-04", "BR-Z-09",
-    # Exenta: el NIF del vendedor (02-04) y la cuota a cero (09).
-    "BR-E-02", "BR-E-03", "BR-E-04", "BR-E-09",
-    # Inversión del sujeto pasivo: los NIF (02-04) y la cuota a cero (09).
-    "BR-AE-02", "BR-AE-03", "BR-AE-04", "BR-AE-09",
-    # Intracomunitaria: los NIF (02-04), la cuota (09), la fecha de entrega (11)
-    # y el país de destino (12).
-    "BR-IC-02", "BR-IC-03", "BR-IC-04", "BR-IC-09", "BR-IC-11", "BR-IC-12",
-    # Exportación: el NIF del vendedor (02-04) y la cuota a cero (09).
-    "BR-G-02", "BR-G-03", "BR-G-04", "BR-G-09",
-    # No sujeta: que no haya NIF (02-04), cuota a cero (09) y que no se mezcle
-    # con otras categorías (12-14).
-    "BR-O-02", "BR-O-03", "BR-O-04", "BR-O-09", "BR-O-12", "BR-O-13",
-    "BR-O-14",
-    # IGIC: el NIF del vendedor (02-04) y la cuota (09).
-    "BR-AF-02", "BR-AF-03", "BR-AF-04", "BR-AF-09",
-    # IPSI: el NIF del vendedor (02-04) y la cuota (09).
-    "BR-AG-02", "BR-AG-03", "BR-AG-04", "BR-AG-09",
+    # Los identificadores fiscales que exige cada categoría (02-04): el del
+    # vendedor, el de su representante y, en algunas, el del comprador.
+    "BR-S-02", "BR-S-03", "BR-S-04",
+    "BR-Z-02", "BR-Z-03", "BR-Z-04",
+    "BR-E-02", "BR-E-03", "BR-E-04",
+    "BR-AE-02", "BR-AE-03", "BR-AE-04",
+    "BR-IC-02", "BR-IC-03", "BR-IC-04",
+    "BR-G-02", "BR-G-03", "BR-G-04",
+    "BR-O-02", "BR-O-03", "BR-O-04",
+    "BR-AF-02", "BR-AF-03", "BR-AF-04",
+    "BR-AG-02", "BR-AG-03", "BR-AG-04",
+    # Intracomunitaria: la fecha de entrega (11) y el país de destino (12).
+    "BR-IC-11", "BR-IC-12",
+    # No sujeta: que no se mezcle con otras categorías (12-14).
+    "BR-O-12", "BR-O-13", "BR-O-14",
     # El pago fraccionado italiano (split payment).
     "BR-B-01", "BR-B-02",
     # Listas de códigos.
@@ -398,3 +392,29 @@ def test_el_desglose_de_edifact_es_el_grupo_del_esquematron_oficial():
     assert oficial.startswith(grupo + "[")
     filtro = oficial[len(grupo):]
     assert SINTAXIS_EDIFACT.desglose == "./*[S_TAX][preceding-sibling::S_UNS]" + filtro
+
+
+def test_la_cuota_de_cada_categoria_es_la_de_su_esquematron():
+    """BR-{X}-09: cero exacto en seis categorías, y base por tipo en tres.
+
+    Las seis de tipo cero comparan con `= 0`, sin margen, en UBL y en CII. Las
+    tres de tipo positivo repiten la cuenta de BR-CO-17 con menos de una unidad
+    de margen, pero no en todas partes: el esquematrón de CII da BR-AF-09 y
+    BR-AG-09 por duplicadas de BR-CO-17 y las deja en `true()`. Lo que
+    `sintaxis.py` dice de eso se lee de aquí.
+    """
+    for sintaxis, mapa in (("UBL", SINTAXIS_UBL), ("CII", SINTAXIS_CII)):
+        for familia in ("Z", "E", "AE", "IC", "G", "O"):
+            regla = f"BR-{familia}-09"
+            assert margen(sintaxis, regla) == "exacta", (sintaxis, regla)
+            assert re.search(r"=\s*0\s*$", vinculacion(sintaxis)[regla]), (sintaxis, regla)
+        activas = set()
+        for familia in ("S", "AF", "AG"):
+            expresion = vinculacion(sintaxis)[f"BR-{familia}-09"].strip()
+            if expresion == "true()":
+                continue
+            assert margen(sintaxis, f"BR-{familia}-09") == "<", (sintaxis, familia)
+            activas.add(FAMILIAS[familia])
+        assert activas == set(mapa.comprueba_la_cuota_por_tipo), sintaxis
+    for mapa in (SINTAXIS_EDIFACT, SINTAXIS_FACTURAE):
+        assert mapa.comprueba_la_cuota_por_tipo == SINTAXIS_UBL.comprueba_la_cuota_por_tipo

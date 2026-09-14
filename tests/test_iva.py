@@ -1275,3 +1275,61 @@ class TestLaBaseComoCadaEsquematron:
         assert "BR-E-05" in salen
         assert "BR-E-08" not in salen
         assert "IVA-TIPO-SIN-DESGLOSE" not in salen
+
+
+class TestLaCuotaDeCadaCategoria:
+    """BR-{X}-09. Cero exacto donde no hay impuesto, y base por tipo donde lo hay.
+
+    Donde no hay impuesto, BR-CO-17 redondea a entero y deja pasar 0,40; esta
+    no deja pasar un céntimo. Donde lo hay, repite la cuenta de BR-CO-17, y
+    en CII no del todo: en el borde de la unidad escribe «menos de» y no
+    «hasta», y el IGIC y el IPSI no los mira.
+    """
+
+    @staticmethod
+    def cuota(categoria, tipo, base, cuota, sintaxis):
+        grupo = iva.Grupo(categoria, None if tipo is None else Decimal(tipo),
+                          Decimal(base), Decimal(cuota), None)
+        salen = iva._reglas_cuota(grupo, sintaxis)
+        return sorted((i.codigo, i.gravedad) for i in salen)
+
+    def test_a_tipo_cero_ni_un_centimo(self):
+        assert self.cuota("Z", "0", "100.00", "0.40", SINTAXIS_UBL) == [("BR-Z-09", ERROR)]
+
+    def test_y_las_cinco_de_tipo_cero_igual(self):
+        for categoria, familia in (("E", "E"), ("AE", "AE"), ("K", "IC"), ("G", "G")):
+            assert self.cuota(categoria, "0", "100.00", "0.01", SINTAXIS_CII) == [
+                (f"BR-{familia}-09", ERROR)]
+
+    def test_la_no_sujeta_tambien_sin_tipo(self):
+        assert self.cuota("O", None, "100.00", "0.01", SINTAXIS_UBL) == [("BR-O-09", ERROR)]
+
+    def test_cuota_cero_no_dice_nada(self):
+        for sintaxis in (SINTAXIS_UBL, SINTAXIS_CII):
+            assert self.cuota("E", "0", "100.00", "0.00", sintaxis) == []
+
+    def test_con_mucha_cuota_salen_las_dos(self):
+        """BR-CO-17 y BR-Z-09 son dos reglas de la norma, y el oficial dice las dos."""
+        assert self.cuota("Z", "0", "100.00", "21.00", SINTAXIS_UBL) == [
+            ("BR-CO-17", ERROR), ("BR-Z-09", ERROR)]
+
+    def test_tipo_general_a_menos_de_una_unidad_no_es_error(self):
+        assert self.cuota("S", "21", "100.00", "21.99", SINTAXIS_UBL) == [
+            ("IVA-CUOTA-REDONDEO", NOTA)]
+
+    def test_tipo_general_a_una_unidad_en_ubl(self):
+        assert self.cuota("S", "21", "100.00", "22.00", SINTAXIS_UBL) == [
+            ("BR-CO-17", ERROR), ("BR-S-09", ERROR)]
+
+    def test_en_cii_la_unidad_justa_pasa_una_y_no_la_otra(self):
+        """BR-CO-17 escribe `<=` y BR-S-09 `<`: 22,00 sobre 100 al 21%.
+
+        Y la nota de redondeo no sale: no se puede decir a la vez que la norma
+        lo admite y que no.
+        """
+        assert self.cuota("S", "21", "100.00", "22.00", SINTAXIS_CII) == [("BR-S-09", ERROR)]
+
+    def test_el_igic_se_mira_en_ubl_y_no_en_cii(self):
+        assert self.cuota("L", "7", "100.00", "12.00", SINTAXIS_UBL) == [
+            ("BR-AF-09", ERROR), ("BR-CO-17", ERROR)]
+        assert self.cuota("L", "7", "100.00", "12.00", SINTAXIS_CII) == [("BR-CO-17", ERROR)]

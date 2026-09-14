@@ -163,6 +163,15 @@ class Sintaxis:
     # para todo, que se equivocaba en las dos direcciones en las dos sintaxis.
     base_admite_una_unidad: frozenset[str]
 
+    # En qué categorías de tipo positivo corre BR-{X}-09, la cuota como base
+    # por tipo con menos de una unidad de margen. Es la cuenta de BR-CO-17
+    # repetida por categoría, y el esquematrón de CII da la del IGIC y la del
+    # IPSI por duplicadas y las deja en `true()`; el de UBL las evalúa. Las
+    # seis de tipo cero corren siempre, porque ahí la regla es otra —cuota
+    # cero exacta— y las dos sintaxis la escriben igual. Lo lee de la
+    # vinculación oficial `test_norma_oficial`.
+    comprueba_la_cuota_por_tipo: frozenset[str]
+
     # Con qué se escribe «esto suma» en `cargo_es_cargo`. UBL y CII usan un
     # booleano, y por eso durante dos sintaxis esto no hizo falta. EDIFACT lo
     # escribe con una letra —C de cargo, A de descuento (*allowance*)—, así
@@ -250,6 +259,7 @@ SINTAXIS_UBL = Sintaxis(
     impuestos="./cac:TaxTotal/cbc:TaxAmount",
     cuota_admite_la_unidad_justa=False,  # el esquematrón de UBL: desigualdad estricta
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
+    comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
 )
 
 # En CII casi todo cuelga de SupplyChainTradeTransaction, repartido en tres
@@ -336,6 +346,7 @@ SINTAXIS_CII = Sintaxis(
     impuestos=f"{_SUMARIO}/ram:TaxTotalAmount",
     cuota_admite_la_unidad_justa=True,  # el esquematrón de CII: `<=`
     base_admite_una_unidad=frozenset({"Z", "E", "AE", "K", "G"}),
+    comprueba_la_cuota_por_tipo=frozenset({"S"}),
 )
 
 # --- EDIFACT ---------------------------------------------------------------
@@ -504,6 +515,7 @@ SINTAXIS_EDIFACT = Sintaxis(
     # volver a rechazar lo que la norma ya acepta.
     cuota_admite_la_unidad_justa=False,
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
+    comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
     marcas_de_cargo=("c",),
 )
 
@@ -756,6 +768,7 @@ SINTAXIS_FACTURAE = Sintaxis(
     impuestos=SIN_MAPA,
     cuota_admite_la_unidad_justa=False,  # Facturae no tiene esquematrón europeo; se sigue el de UBL
     base_admite_una_unidad=frozenset({"S", "L", "M"}),  # también el de UBL
+    comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),  # y aquí
     # `cargo_es_cargo` devuelve el nombre del elemento, no un booleano. En
     # minúscula porque quien compara pasa la marca por `.lower()` antes, igual
     # que la «c» de EDIFACT: con «Charge» no casaba ninguno y los cargos se

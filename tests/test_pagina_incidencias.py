@@ -75,7 +75,7 @@ class TestLaPaginaQueSePublica:
 
         Estuvo bien mientras fue verdad: seis patrones del IVA se componían al
         validar y la página los contaba a la vista en vez de fingir que el
-        catálogo estaba entero. Hoy `iva.py` declara los cincuenta y cuatro
+        catálogo estaba entero. Hoy `iva.py` declara los sesenta y tres
         códigos que compone y el catálogo los trae, así que esa frase se ha
         ido con ellos.
 

@@ -49,20 +49,21 @@ from validador.iva import (
 )
 from validador.sintaxis import SINTAXIS_UBL
 
-# Los cincuenta y cuatro, escritos. Seis por cada una de las nueve categorías:
-# la que no aparece en el desglose (01), el tipo del concepto según cuelgue de
-# la línea, de un descuento o de un cargo (05, 06, 07), la base (08) y el
-# motivo de exención (10). Con dos cifras, como los escribe la norma.
-LOS_CINCUENTA_Y_CUATRO = (
-    "BR-S-01", "BR-S-05", "BR-S-06", "BR-S-07", "BR-S-08", "BR-S-10",
-    "BR-Z-01", "BR-Z-05", "BR-Z-06", "BR-Z-07", "BR-Z-08", "BR-Z-10",
-    "BR-E-01", "BR-E-05", "BR-E-06", "BR-E-07", "BR-E-08", "BR-E-10",
-    "BR-AE-01", "BR-AE-05", "BR-AE-06", "BR-AE-07", "BR-AE-08", "BR-AE-10",
-    "BR-IC-01", "BR-IC-05", "BR-IC-06", "BR-IC-07", "BR-IC-08", "BR-IC-10",
-    "BR-G-01", "BR-G-05", "BR-G-06", "BR-G-07", "BR-G-08", "BR-G-10",
-    "BR-O-01", "BR-O-05", "BR-O-06", "BR-O-07", "BR-O-08", "BR-O-10",
-    "BR-AF-01", "BR-AF-05", "BR-AF-06", "BR-AF-07", "BR-AF-08", "BR-AF-10",
-    "BR-AG-01", "BR-AG-05", "BR-AG-06", "BR-AG-07", "BR-AG-08", "BR-AG-10",
+# Los compuestos, escritos. Siete por cada una de las nueve categorías, 63: la
+# que no aparece en el desglose (01), el tipo del concepto según cuelgue de la
+# línea, de un descuento o de un cargo (05, 06, 07), la base (08), la cuota
+# (09, desde el 14-09-2026) y el motivo de exención (10). Con dos cifras, como
+# los escribe la norma. Fueron cincuenta y cuatro hasta que llegó la cuota.
+LOS_COMPUESTOS = (
+    "BR-S-01", "BR-S-05", "BR-S-06", "BR-S-07", "BR-S-08", "BR-S-09", "BR-S-10",
+    "BR-Z-01", "BR-Z-05", "BR-Z-06", "BR-Z-07", "BR-Z-08", "BR-Z-09", "BR-Z-10",
+    "BR-E-01", "BR-E-05", "BR-E-06", "BR-E-07", "BR-E-08", "BR-E-09", "BR-E-10",
+    "BR-AE-01", "BR-AE-05", "BR-AE-06", "BR-AE-07", "BR-AE-08", "BR-AE-09", "BR-AE-10",
+    "BR-IC-01", "BR-IC-05", "BR-IC-06", "BR-IC-07", "BR-IC-08", "BR-IC-09", "BR-IC-10",
+    "BR-G-01", "BR-G-05", "BR-G-06", "BR-G-07", "BR-G-08", "BR-G-09", "BR-G-10",
+    "BR-O-01", "BR-O-05", "BR-O-06", "BR-O-07", "BR-O-08", "BR-O-09", "BR-O-10",
+    "BR-AF-01", "BR-AF-05", "BR-AF-06", "BR-AF-07", "BR-AF-08", "BR-AF-09", "BR-AF-10",
+    "BR-AG-01", "BR-AG-05", "BR-AG-06", "BR-AG-07", "BR-AG-08", "BR-AG-09", "BR-AG-10",
 )
 
 # Los ocho que este fichero dio por inexistentes, nombrados uno a uno para que
@@ -156,6 +157,12 @@ def _lo_que_sale_de_verdad() -> set[str]:
         ):
             salen.add(i.codigo)
 
+        # BR-{X}-09: una cuota que no es la de su categoría —ni cero, ni base
+        # por tipo—. En UBL, que es donde se miran las tres de tipo positivo.
+        grupo = Grupo(categoria, VEINTIUNO, Decimal(100), Decimal(999), None)
+        for i in iva._reglas_cuota(grupo, SINTAXIS_UBL):
+            salen.add(i.codigo)
+
         # BR-{X}-01: hay conceptos de esa categoría y el desglose no la recoge.
         for i in iva._regla_hay_desglose([], [_apunte(categoria, VEINTIUNO)]):
             salen.add(i.codigo)
@@ -176,16 +183,17 @@ def test_la_tabla_dice_lo_que_dice_el_esquematron():
 def test_lo_que_iva_declara_es_lo_que_esta_escrito_aqui():
     """La derivación contra la lista de arriba."""
     declarados = sorted({c for v in CODIGOS_COMPUESTOS.values() for c in v})
-    assert declarados == sorted(LOS_CINCUENTA_Y_CUATRO)
+    assert declarados == sorted(LOS_COMPUESTOS)
 
 
 def test_lo_que_sale_de_verdad_es_lo_que_esta_escrito_aqui():
     """Y la lista de arriba contra lo que las reglas emiten cuando se provocan."""
     salen = _lo_que_sale_de_verdad()
     compuestos = {c for c in salen if c not in {"IVA-BASE",
-                                                "IVA-CATEGORIA-SIN-DESGLOSE"}}
-    faltan = sorted(c for c in LOS_CINCUENTA_Y_CUATRO if c not in compuestos)
-    sobran = sorted(c for c in compuestos if c not in LOS_CINCUENTA_Y_CUATRO)
+                                                "IVA-CATEGORIA-SIN-DESGLOSE",
+                                                "BR-CO-17"}}
+    faltan = sorted(c for c in LOS_COMPUESTOS if c not in compuestos)
+    sobran = sorted(c for c in compuestos if c not in LOS_COMPUESTOS)
     assert not faltan, f"declarados y no salen: {', '.join(faltan)}"
     assert not sobran, f"salen y no están declarados: {', '.join(sobran)}"
 
@@ -202,19 +210,19 @@ def test_los_ocho_que_se_dieron_por_inexistentes_salen():
     salen = _lo_que_sale_de_verdad()
     for codigo in LOS_OCHO_QUE_SI_EXISTEN:
         assert codigo in salen, f"{codigo} no sale, y la norma lo tiene"
-        assert codigo in LOS_CINCUENTA_Y_CUATRO
+        assert codigo in LOS_COMPUESTOS
 
 
 def test_los_nombres_llevan_dos_cifras():
     """Como en la norma: BR-S-08, no BR-S-8."""
-    for codigo in LOS_CINCUENTA_Y_CUATRO:
+    for codigo in LOS_COMPUESTOS:
         assert re.match(r"^BR-[A-Z]+-\d{2}$", codigo), codigo
 
 
-def test_los_cincuenta_y_cuatro_estan_en_el_catalogo():
+def test_los_compuestos_estan_en_el_catalogo():
     """Y de ahí salen sus fichas, que era el agujero que esto viene a cerrar."""
     hay = {c.codigo for c in codigos_del_paquete()}
-    faltan = sorted(c for c in LOS_CINCUENTA_Y_CUATRO if c not in hay)
+    faltan = sorted(c for c in LOS_COMPUESTOS if c not in hay)
     assert not faltan, (
         f"{len(faltan)} códigos compuestos no llegan al catálogo: "
         + ", ".join(faltan)
@@ -223,10 +231,10 @@ def test_los_cincuenta_y_cuatro_estan_en_el_catalogo():
 
 def test_todos_salen_como_error():
     """Ninguna de estas cuatro reglas avisa: las cuatro son error."""
-    # El catálogo se lee una vez: leerlo dentro del bucle eran cincuenta y
-    # cuatro pasadas por el fuente entero, cuarenta segundos de la suite.
+    # El catálogo se lee una vez: leerlo dentro del bucle era una pasada por
+    # el fuente entero por código, cuarenta segundos de la suite.
     catalogo = {c.codigo: c for c in codigos_del_paquete()}
-    for codigo in LOS_CINCUENTA_Y_CUATRO:
+    for codigo in LOS_COMPUESTOS:
         suyo = catalogo[codigo]
         assert suyo.gravedades == ("error",), f"{codigo}: {suyo.gravedades}"
 

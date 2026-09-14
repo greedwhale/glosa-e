@@ -148,11 +148,12 @@ for _categoria, _regla in REGLAS.items():
 # hay una factura delante. Se declaran aquí, pegados a la tabla de la que
 # salen, y `codigos.py` los recoge para que tengan su ficha como los demás.
 #
-# Son nueve categorías por seis reglas, 54, y ninguna rama se queda muda: cada
+# Son nueve categorías por siete reglas, 63, y ninguna rama se queda muda: cada
 # estado del tipo rechaza algún valor y cada estado del motivo se queja por
 # algún lado. Durante un día se declararon 46, con ocho de IGIC e IPSI dados
 # por inexistentes porque la tabla de arriba decía que la norma no ataba a esas
-# categorías; la norma sí las ata.
+# categorías; la norma sí las ata. Fueron 54 hasta el 14-09-2026, cuando llegó
+# la cuota de cada categoría, BR-{X}-09.
 #
 # Las condiciones son las mismas que aplican las reglas, y eso es una
 # duplicación a la vista: la sostiene una prueba que provoca las cuatro reglas
@@ -166,6 +167,9 @@ def _codigos_compuestos() -> dict[str, tuple[str, ...]]:
         # entrada contra lo suyo.
         por_patron.setdefault("BR-{}-01", []).append(f"BR-{regla.codigo}-01")
         por_patron.setdefault("BR-{}-08", []).append(f"BR-{regla.codigo}-08")
+        # La cuota de la entrada: cero donde no hay impuesto, base por tipo
+        # donde lo hay.
+        por_patron.setdefault("BR-{}-09", []).append(f"BR-{regla.codigo}-09")
         # El tipo del concepto, partido en tres según de qué cuelgue.
         for sufijo in ("05", "06", "07"):
             por_patron.setdefault("BR-{}-{}", []).append(
@@ -658,6 +662,82 @@ def _regla_cuota_por_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]
     ]
 
 
+def _regla_cuota_de_la_categoria(
+    grupo: Grupo, sintaxis: Sintaxis
+) -> list[Incidencia]:
+    """BR-{X}-09: la cuota que corresponde a cada categoría.
+
+    Son dos reglas con el mismo número. En las seis categorías sin impuesto
+    —Z, E, AE, K, G y O— la cuota es **cero exacto**, y eso no lo dice
+    BR-CO-17: a tipo cero aquella redondea a entero y deja pasar 0,40. En las
+    tres con impuesto —S, L y M— es la cuenta de BR-CO-17 otra vez, con menos
+    de una unidad de margen, y no en todas las sintaxis: el esquematrón de CII
+    la da por duplicada en el IGIC y el IPSI y no la evalúa
+    (`Sintaxis.comprueba_la_cuota_por_tipo`).
+
+    Sin cuota, sin base o sin tipo no se calcula nada: de que falten ya se
+    quejan BR-45, BR-46 y BR-48.
+    """
+    regla = REGLAS.get(grupo.categoria)
+    if regla is None or grupo.cuota is None:
+        return []
+    codigo = f"BR-{regla.codigo}-09"
+    if regla.tipo in (CERO, SIN_TIPO):
+        if grupo.cuota == 0:
+            return []
+        return [
+            Incidencia(
+                codigo,
+                ERROR,
+                f"La entrada {grupo} declara cuota, y en "
+                f"{nombre_categoria(grupo.categoria)} no hay impuesto que "
+                "repercutir: la cuota tiene que ser cero, sin redondeo.",
+                campo=f"Cuota de {grupo}",
+                esperado="0.00",
+                encontrado=fmt(grupo.cuota),
+            )
+        ]
+    if grupo.categoria not in sintaxis.comprueba_la_cuota_por_tipo:
+        return []
+    if grupo.base is None or grupo.tipo is None:
+        return []
+    # La misma cuenta que BR-CO-17 y el mismo redondeo, sobre el valor
+    # absoluto. Lo único distinto es el borde: aquí `<` en las dos sintaxis.
+    exacta = abs(grupo.base) * grupo.tipo / Decimal(100)
+    if abs(redondear(exacta) - abs(grupo.cuota)) < 1:
+        return []
+    calculada = redondear(exacta) * (-1 if grupo.base < 0 else 1)
+    return [
+        Incidencia(
+            codigo,
+            ERROR,
+            f"La cuota de {grupo} se aparta una unidad o más de aplicar el "
+            "tipo a la base.",
+            campo=f"Cuota de {grupo}",
+            esperado=(
+                f"{calculada:.2f} ({grupo.base:.2f} x {fmt_tipo(grupo.tipo)})"
+            ),
+            encontrado=fmt(grupo.cuota),
+        )
+    ]
+
+
+def _reglas_cuota(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]:
+    """BR-CO-17 y BR-{X}-09 sobre una entrada, dichas juntas.
+
+    Juntas por un borde. En CII, una cuota a exactamente una unidad pasa
+    BR-CO-17, que escribe `<=`, y no pasa BR-S-09, que escribe `<`. Por
+    separado saldrían la nota «la norma lo admite» y el error «la norma no lo
+    admite» sobre la misma cifra. Cuando BR-{X}-09 falla, la nota se retira:
+    el error ya lo dice, y lo dice bien.
+    """
+    de_la_categoria = _regla_cuota_de_la_categoria(grupo, sintaxis)
+    de_la_cuota = _regla_cuota_por_grupo(grupo, sintaxis)
+    if de_la_categoria:
+        de_la_cuota = [i for i in de_la_cuota if i.codigo != "IVA-CUOTA-REDONDEO"]
+    return de_la_cuota + de_la_categoria
+
+
 def _reglas_campos_del_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]:
     """BR-45 a BR-48: los cuatro datos que toda entrada del desglose debe traer.
 
@@ -1132,7 +1212,7 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
         incidencias.extend(_regla_forma_del_grupo(grupo))
         if not a_ciegas:
             incidencias.extend(_regla_base_por_grupo(grupo, apuntes, sintaxis))
-        incidencias.extend(_regla_cuota_por_grupo(grupo, sintaxis))
+        incidencias.extend(_reglas_cuota(grupo, sintaxis))
     incidencias.extend(_regla_tipo_de_los_conceptos(apuntes))
     incidencias.extend(_regla_hay_desglose(grupos, apuntes))
     incidencias.extend(_regla_no_sujeta_a_solas(grupos))

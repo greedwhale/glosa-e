@@ -1789,6 +1789,17 @@ CODIGOS: dict[str, str] = {
         'exige exacta. Aquí se sigue a cada uno, y EDIFACT y Facturae van con '
         'el de UBL. Lo que pasa por el margen sale como IVA-BASE-TOLERADA.'
     ),
+    "BR-S-09": (
+        'La cuota de una entrada a tipo general se aparta una unidad o más de '
+        'aplicar el tipo a la base. Es la cuenta de BR-CO-17, que el '
+        'esquematrón oficial repite para el tipo general, y casi siempre '
+        'salen las dos juntas: son dos reglas de la norma y el validador '
+        'oficial dice las dos. Hay un caso en que no coinciden, en CII: una '
+        'cuota a exactamente una unidad pasa BR-CO-17, que admite «hasta» una '
+        'unidad, y no pasa ésta, que admite «menos de». Ahí no sale la nota '
+        'de redondeo, porque no se puede decir a la vez que la norma lo '
+        'admite y que no.'
+    ),
     "BR-S-10": (
         'Una entrada a tipo general trae motivo de exención, y la norma no lo '
         'permite: el motivo es justamente lo que justifica una exención, y el '
@@ -1850,6 +1861,12 @@ CODIGOS: dict[str, str] = {
         'esquematrones oficiales. Y es la única base exacta en las dos '
         'sintaxis: ni UBL ni CII le dan margen.'
     ),
+    "BR-O-09": (
+        'Una entrada no sujeta declara cuota. Lo que no está sujeto no tiene '
+        'impuesto, ni tipo con el que calcularlo, y la cuota es cero exacto. '
+        'Es de las que delatan una categoría mal elegida: una operación no '
+        'sujeta con cuota no es una operación no sujeta.'
+    ),
     "BR-O-10": (
         'Una entrada no sujeta sin explicar por qué no lleva IVA. Es la '
         'exigencia que la norma pone a las cinco categorías que no pagan, y '
@@ -1910,6 +1927,13 @@ CODIGOS: dict[str, str] = {
         'dice. El margen va al revés que en el tipo general: exacta en UBL, y '
         'en CII menos de una unidad, que sale como IVA-BASE-TOLERADA.'
     ),
+    "BR-Z-09": (
+        'Una entrada a tipo cero declara cuota. A tipo cero no hay impuesto '
+        'que repercutir, y la cuota es cero exacto. Es más estricta que '
+        'BR-CO-17: aquélla redondea a entero cuando el tipo es cero y deja '
+        'pasar 0,40; ésta no deja pasar un céntimo. Suele ser una cuota de '
+        'otra entrada del desglose, o una Z escrita donde iba una S.'
+    ),
     "BR-Z-10": (
         'Una entrada a tipo cero trae motivo de exención, y la norma se lo '
         'prohíbe. No es una formalidad: el tipo cero no es una exención. Una '
@@ -1969,6 +1993,14 @@ CODIGOS: dict[str, str] = {
         'en CII se admite menos de una unidad, y lo que pasa por ese margen '
         'sale como IVA-BASE-TOLERADA.'
     ),
+    "BR-E-09": (
+        'Una entrada exenta declara cuota. Lo exento no paga impuesto, y la '
+        'cuota de su entrada es cero exacto, sin el redondeo a entero que '
+        'BR-CO-17 permite a tipo cero. Si hay cuota, o la operación no es '
+        'exenta, o el importe es de otra entrada: lo primero cambia lo que la '
+        'factura dice de la operación, y lo segundo descuadra el total de '
+        'impuestos.'
+    ),
     "BR-E-10": (
         'Una entrada exenta sin decir por qué lo está. La norma no se '
         'conforma con la etiqueta: exige el artículo o la razón, y no por '
@@ -2023,6 +2055,13 @@ CODIGOS: dict[str, str] = {
         'factura, deja mal una declaración ajena. Exacta en UBL; en CII se '
         'admite menos de una unidad, y lo que pasa por ese margen sale como '
         'IVA-BASE-TOLERADA.'
+    ),
+    "BR-AE-09": (
+        'Una entrada con inversión del sujeto pasivo declara cuota. En estas '
+        'operaciones el impuesto lo declara e ingresa quien recibe la '
+        'factura, no quien la emite, así que la factura no lo repercute y la '
+        'cuota de su entrada es cero exacto. Una cuota aquí es un impuesto '
+        'cobrado al cliente que el régimen dice que no se cobra.'
     ),
     "BR-AE-10": (
         'Una entrada con inversión del sujeto pasivo sin decir por qué no '
@@ -2081,6 +2120,12 @@ CODIGOS: dict[str, str] = {
         'sale de aquí. Exacta en UBL; en CII se admite menos de una unidad, y '
         'lo que pasa por ese margen sale como IVA-BASE-TOLERADA.'
     ),
+    "BR-IC-09": (
+        'Una entrega intracomunitaria declara cuota. La entrega va sin IVA en '
+        'origen porque el impuesto lo declara el comprador en su país, y la '
+        'cuota de su entrada es cero exacto. Con cuota, la factura cobra un '
+        'IVA que la operación no lleva, o la entrada no es intracomunitaria.'
+    ),
     "BR-G-01": (
         'Hay conceptos declarados como exportación y el desglose no recoge '
         'esa categoría, o la recoge más de una vez. Una exportación fuera de '
@@ -2125,6 +2170,12 @@ CODIGOS: dict[str, str] = {
         'con el envío. Exacta en UBL; en CII se admite menos de una unidad, y '
         'lo que pasa por ese margen sale como IVA-BASE-TOLERADA.'
     ),
+    "BR-G-09": (
+        'Una exportación declara cuota. Lo que sale de la Unión va sin IVA, y '
+        'la cuota de su entrada es cero exacto. Con cuota, o no es una '
+        'exportación o el importe es de otra entrada del desglose; en los dos '
+        'casos la exención que la factura invoca no cuadra con lo que cobra.'
+    ),
     "BR-AF-01": (
         'Hay conceptos con IGIC y el desglose no recoge esa categoría. El '
         'IGIC es el impuesto canario, que ocupa el lugar del IVA en las '
@@ -2145,6 +2196,14 @@ CODIGOS: dict[str, str] = {
         'comprueba es que la base declarada sea la de los conceptos que van '
         'ahí. Con menos de una unidad de margen en UBL y exacta en CII; lo '
         'que pasa por el margen sale como IVA-BASE-TOLERADA.'
+    ),
+    "BR-AF-09": (
+        'La cuota de una entrada con IGIC se aparta una unidad o más de '
+        'aplicar el tipo a la base. Es la cuenta de BR-CO-17 repetida para el '
+        'IGIC, y no la evalúan todos: el esquematrón de UBL sí, con menos de '
+        'una unidad de margen, y el de CII la da por duplicada y la deja sin '
+        'comprobar. Aquí se sigue a cada uno, así que en una factura CII sólo '
+        'sale BR-CO-17. EDIFACT y Facturae van con UBL.'
     ),
     "BR-AF-05": (
         'Una línea con IGIC declara un tipo negativo. La norma no le fija al '
@@ -2203,6 +2262,13 @@ CODIGOS: dict[str, str] = {
         'dice con esas palabras en vez de pedir una suma que daría cero. Con '
         'menos de una unidad de margen en UBL y exacta en CII; lo que pasa '
         'por el margen sale como IVA-BASE-TOLERADA.'
+    ),
+    "BR-AG-09": (
+        'La cuota de una entrada con IPSI se aparta una unidad o más de '
+        'aplicar el tipo a la base. Igual que con el IGIC: el esquematrón de '
+        'UBL la evalúa con menos de una unidad de margen y el de CII la da '
+        'por duplicada de BR-CO-17 y no la mira, y aquí se sigue a cada uno. '
+        'EDIFACT y Facturae van con UBL.'
     ),
     "BR-AG-05": (
         'Una línea con IPSI declara un tipo negativo. El IPSI, el impuesto de '
