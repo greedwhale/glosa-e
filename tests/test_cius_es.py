@@ -170,6 +170,36 @@ class TestLasListasDeCodigos:
         assert cius_es.LISTAS["L4"].valores["L"] == "Operación sujeta al IGIC"
         assert cius_es.LISTAS["L4"].valores["M"] == "Operación sujeta al IPSI"
 
+    def test_las_descripciones_de_varios_renglones_van_con_su_codigo(self):
+        """Cuando una descripción ocupa dos renglones, el código va centrado
+        entre los dos, y al repartir por altura el primer renglón caía en el
+        código de arriba. Hasta el 14-09-2026 L3A, L3B, L3C, L5 y L6 salían
+        con las descripciones corridas una fila: el 01 de L6 decía «País Vasco
+        y Navarra», que es justo lo que excluye. Los códigos estaban bien.
+        """
+        l6 = cius_es.LISTAS["L6"].valores
+        assert l6["01"] == (
+            "Inmueble con referencia catastral situado en cualquier punto del "
+            "territorio español, excepto País Vasco y Navarra")
+        assert l6["02"] == (
+            "Inmueble situado en la Comunidad Autónoma del País Vasco o en la "
+            "Comunidad Foral de Navarra")
+        assert cius_es.LISTAS["L3A"].valores["08"].startswith("Operaciones sujetas al IPSI / IGIC")
+        assert cius_es.LISTAS["L3A"].valores["09"].endswith("– Régimen General")
+        assert cius_es.LISTAS["L3B"].valores["14"].endswith("Administración Pública")
+        assert cius_es.LISTAS["L3C"].valores["01"] == (
+            "Operación de régimen general no incluidas en otras claves")
+        assert cius_es.LISTAS["L5"].valores["07"].startswith("Artículo 75.2.b) RIRPF")
+        assert cius_es.LISTAS["L5"].valores["11"] == "Otros"
+
+    def test_las_claves_de_regimen_dicen_de_que_impuesto_son(self):
+        """Cada lista L3 lleva debajo del título un «CALIFICADOR IVA», «IGIC»
+        o «IPSI». Es el valor de BT-ES-44, y lo que dice en qué lista hay que
+        buscar la clave de régimen: el 17 es una clave del IGIC y no del IVA."""
+        assert {k: cius_es.LISTAS[k].calificador for k in ("L3A", "L3B", "L3C")} == {
+            "L3A": "IVA", "L3B": "IGIC", "L3C": "IPSI"}
+        assert cius_es.LISTAS["L1"].calificador == ""
+
     def test_ninguna_lista_se_quedo_vacia(self):
         vacias = [k for k, v in cius_es.LISTAS.items() if not v.valores]
         assert vacias == []
@@ -214,3 +244,4 @@ class TestQueSigaSiendoEsteAnexo:
         for clave, lista in listas.items():
             esperado = {v["valor"]: v["descripcion"] for v in lista["valores"]}
             assert esperado == cius_es.LISTAS[clave].valores
+            assert lista["calificador"] == cius_es.LISTAS[clave].calificador

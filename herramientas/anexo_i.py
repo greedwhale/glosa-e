@@ -78,6 +78,8 @@ CORTE = "II. CLAVES Y VALORES"
 TITULO_LISTA = re.compile(r"^(L\d(?:\.[A-Z])?[A-Z]?)\s*[–-]\s*(.+)$")
 ROTULO = re.compile(r"^(valores|descripci[oó]n)\b", re.I)
 CODIGO = re.compile(r"^[A-Z0-9]{1,4}$")
+CALIFICADOR = re.compile(r"^CALIFICADOR\s+([A-Z]+)$")
+CABECERA_DE_PAGINA = re.compile(r"^\s*Agencia Tributaria\s*\n(?:\s*\n)*\s*\d+\s*\n")
 
 
 def _columna(x):
@@ -202,60 +204,72 @@ def campos(camino):
     } for f in filas]
 
 
-def _frontera(lineas_bloque):
-    """El corte entre la columna del valor y la de la descripción.
+def _texto_de_listas(camino):
+    """El texto de las listas en el orden en que el PDF lo escribe.
 
-    Se busca dónde está el salto más grande entre x consecutivas dentro del
-    tercio izquierdo: a la izquierda del salto van los códigos y a la derecha
-    el texto. Solo hasta la x 260, porque más allá ya es descripción y sus
-    saltos internos —sangrados, guiones— serían más anchos.
+    Cada página empieza con «Agencia Tributaria» y su número, y acaba con el
+    sello de audiencia pública. Se quitan página a página y no al final: el
+    número de página es un renglón de dos cifras suelto, y en las listas de
+    claves eso es exactamente lo que parece un código.
     """
-    xs = sorted({round(x) for trozos in lineas_bloque for x, _ in trozos if x < 260})
-    if len(xs) < 2:
-        return None
-    saltos = [(xs[i + 1] - xs[i], (xs[i] + xs[i + 1]) / 2) for i in range(len(xs) - 1)]
-    return max(saltos)[1]
+    lector = pypdf.PdfReader(camino)
+    trozos = []
+    for pagina in lector.pages:
+        texto = CABECERA_DE_PAGINA.sub("", pagina.extract_text() or "", count=1)
+        trozos.append(texto.split(RUIDO[0])[0])
+    entero = "\n".join(trozos)
+    return entero[entero.index(CORTE):]
 
 
 def listas(camino):
     """Las listas de códigos L1..L8 que van detrás de la tabla.
 
-    La cabecera de cada lista **no sirve** para repartir columnas, y se
-    comprobó: en L5 el rótulo «Descripción» está en la x 333 mientras que las
-    descripciones de sus filas empiezan en la 170, así que tomar la frontera de
-    la cabecera metía media descripción dentro del valor. Y las cabeceras ni
-    siquiera son iguales entre listas: unas en mayúsculas, otras no, unas en un
-    renglón y otras repartidas en cuatro.
+    **Se leen en el orden del PDF y no por coordenadas**, al revés que la
+    tabla, y es a propósito. Se leyeron por coordenadas hasta el 14-09-2026 y
+    las descripciones salían corridas una fila en cinco de las once listas: en
+    una celda de dos renglones el código va centrado **entre** los dos, así que
+    al repartir por altura el primer renglón caía en el código de arriba. El
+    01 de L6 decía «País Vasco y Navarra», que es justo lo que excluye. Los
+    códigos salían bien, y por eso no se vio.
 
-    Así que la frontera sale de los datos.
+    El orden del PDF sí va por celdas, porque así lo escribe quien lo generó:
+    código, descripción, continuación. Lo que hay que separar es el ruido.
+
+    - Un renglón es de código si empieza por algo con forma de código y el
+      resto lleva minúsculas, o si el código va solo: en L5 el 07 y el 09
+      ocupan su propio renglón encima de la descripción. Sin lo de las
+      minúsculas, el «DE APLICACIÓN ES EL IGIC» con que sigue la cabecera de
+      L3B se tomaba por el código «DE».
+    - Debajo del título de las tres listas de claves de régimen va un
+      «CALIFICADOR IVA», «IGIC» o «IPSI». Es el valor de BT-ES-44, lo que dice
+      en qué lista se busca la clave, y se guarda.
     """
-    bloques, actual = {}, None
-    for n, y, trozos in renglones(camino):
-        trozos = _limpia(trozos)
-        if not trozos:
+    salida, actual, abierto = {}, None, None
+    for renglon in _texto_de_listas(camino).splitlines():
+        entera = renglon.strip()
+        if not entera or entera.startswith(CORTE):
             continue
-        entera = " ".join(s for _, s in trozos).strip()
         t = TITULO_LISTA.match(entera)
         if t:
-            actual = t.group(1)
-            bloques[actual] = {"titulo": t.group(2).strip(), "lineas": []}
+            actual, abierto = t.group(1), None
+            salida[actual] = {"titulo": t.group(2).strip(), "calificador": "",
+                              "valores": []}
             continue
-        if actual and not ROTULO.match(entera) and not entera.startswith(CORTE):
-            bloques[actual]["lineas"].append(trozos)
-
-    salida = {}
-    for clave, bloque in bloques.items():
-        corte = _frontera(bloque["lineas"])
-        valores, abierto = [], None
-        for trozos in bloque["lineas"]:
-            izda = " ".join(s.strip() for x, s in trozos if x < corte).strip()
-            dcha = " ".join(s.strip() for x, s in trozos if x >= corte).strip()
-            if izda and CODIGO.match(izda.split()[0]):
-                abierto = {"valor": izda.split()[0], "descripcion": dcha}
-                valores.append(abierto)
-            elif dcha and abierto:
-                abierto["descripcion"] = (abierto["descripcion"] + " " + dcha).strip()
-        salida[clave] = {"titulo": bloque["titulo"], "valores": valores}
+        if actual is None:
+            continue
+        c = CALIFICADOR.match(entera)
+        if c:
+            salida[actual]["calificador"] = c.group(1)
+            continue
+        if ROTULO.match(entera):
+            abierto = None
+            continue
+        primero, _, resto = entera.partition(" ")
+        if CODIGO.match(primero) and (not resto.strip() or re.search(r"[a-zá-ú]", resto)):
+            abierto = {"valor": primero, "descripcion": " ".join(resto.split())}
+            salida[actual]["valores"].append(abierto)
+        elif abierto:
+            abierto["descripcion"] = " ".join((abierto["descripcion"] + " " + entera).split())
     return salida
 
 
@@ -303,7 +317,8 @@ def escribe_modulo(camino_pdf, destino, fecha, url):
         trozos.append(f'    {_cita(clave)}: Lista({_cita(lista["titulo"])}, {{\n')
         for v in lista["valores"]:
             trozos.append(f'        {_cita(v["valor"])}: {_cita(v["descripcion"])},\n')
-        trozos.append("    }),\n")
+        cierre = f', calificador={_cita(lista["calificador"])}' if lista["calificador"] else ""
+        trozos.append(f"    }}{cierre}),\n")
     trozos.append("}\n")
 
     pathlib.Path(destino).write_text("".join(trozos), encoding="utf-8")
@@ -398,6 +413,9 @@ class Campo:
 class Lista:
     titulo: str
     valores: dict
+    # El impuesto al que pertenece la lista, cuando lo dice. Solo las tres de
+    # claves de régimen: es el valor que va en BT-ES-44.
+    calificador: str = ""
 
 
 # El valor constante que el anexo obliga a poner en BT-24 y BT-23.

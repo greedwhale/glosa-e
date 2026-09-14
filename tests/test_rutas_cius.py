@@ -230,13 +230,25 @@ class TestLoQueSeLeHaTocadoAlAnexo:
                 "salía."
             )
 
-    def test_despues_de_los_distintivos_solo_queda_una_ruta_repartida(self):
-        """Y va dicha en voz alta, que es lo que se puede hacer con ella.
+    def test_el_anexo_reparte_seis_rutas_entre_dieciseis_campos(self):
+        """La cifra que publican el README y `sintaxis.py`. Se escribió
+        «diecisiete» y eran dieciséis."""
+        por_ruta: dict[str, list[str]] = {}
+        for r in sintaxis.RUTAS_CIUS_ES:
+            if r.anexo:
+                clave = r.anexo.replace("/in:invoice/", "/in:Invoice/")
+                por_ruta.setdefault(clave, []).append(r.id)
+        repartidas = [ids for ids in por_ruta.values() if len(ids) > 1]
+        assert len(repartidas) == 6
+        assert sum(len(ids) for ids in repartidas) == 16
 
-        `BT-ES-43` y `BT-ES-44` comparten el `ValueQualifier` de un
-        `AdditionalItemProperty` y el anexo no da nada con que separarlos.
+    def test_despues_de_los_distintivos_no_queda_ninguna_ruta_repartida(self):
+        """Hasta el 14-09-2026 quedaba una, y la prueba se llamaba «solo queda
+        una ruta repartida»: `BT-ES-43` y `BT-ES-44`, con la frase «el anexo
+        no da nada con que separarlos». Lo da, en BT-160: el nombre de la
+        propiedad es «RCAT» en un grupo y «REGI» en el otro.
         """
-        assert list(sintaxis.AMBIGUAS.values()) == [("BT-ES-43", "BT-ES-44")]
+        assert sintaxis.AMBIGUAS == {}
 
     def test_los_cinco_urn_de_extension_son_cinco_distintos(self):
         """Son las cinco cajas del anexo, y confundirlas las mezcla todas."""
@@ -272,6 +284,14 @@ class TestQueSeLeanDeVerdad:
   <cac:CollectionInvoiceLine>
     <cbc:ID>urn:aeat:names:specification:ubl:schema:SUPL</cbc:ID>
   </cac:CollectionInvoiceLine>
+  <cac:InvoiceLine><cac:Item>
+    <cac:AdditionalItemProperty>
+      <cbc:Name>REGI</cbc:Name><cbc:Value>01</cbc:Value><cbc:ValueQualifier>IVA</cbc:ValueQualifier>
+    </cac:AdditionalItemProperty>
+    <cac:AdditionalItemProperty>
+      <cbc:Name>RCAT</cbc:Name><cbc:Value>9872023VH5797S0001WX</cbc:Value><cbc:ValueQualifier>01</cbc:ValueQualifier>
+    </cac:AdditionalItemProperty>
+  </cac:Item></cac:InvoiceLine>
 </Invoice>"""
 
     def raiz(self):
@@ -299,6 +319,15 @@ class TestQueSeLeanDeVerdad:
         raiz = self.raiz()
         assert sintaxis.texto_es(raiz, "BT-ES-17") == "VAT"
         assert sintaxis.texto_es(raiz, "BT-ES-19") is None
+
+    def test_la_situacion_del_inmueble_y_el_impuesto_de_la_clave_no_se_confunden(self):
+        """Los dos van en el `ValueQualifier` de un `AdditionalItemProperty`.
+        Lo que los separa es el nombre de la propiedad, que el anexo fija en
+        BT-160: «RCAT» para la referencia catastral y «REGI» para la clave de
+        régimen. Sin eso, la situación del inmueble devolvía «IVA»."""
+        raiz = self.raiz()
+        assert sintaxis.texto_es(raiz, "BT-ES-43") == "01"
+        assert sintaxis.texto_es(raiz, "BT-ES-44") == "IVA"
 
     def test_un_campo_sin_ruta_no_devuelve_nada_y_no_revienta(self):
         assert sintaxis.texto_es(self.raiz(), "BG-ES-4") is None

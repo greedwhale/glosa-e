@@ -37,6 +37,7 @@ from validador import (
     facturae,
     firma,
     sellos,
+    solucion_publica,
 )
 from validador.formato import (
     CII,
@@ -60,11 +61,18 @@ _FAMILIAS_XML = (UBL, FACTURAE, CII)
 # los demás, y si viene en tira se convierte antes. A partir de ahí las
 # reglas no notan la diferencia, que es justamente la idea.
 
-# Cuando la queja de la izquierda ya ha saltado, la de la derecha sobra: dicen
-# lo mismo con las palabras de dos reglamentos distintos.
+# La queja de la izquierda sobra cuando ya ha saltado alguna de la derecha:
+# dicen lo mismo con las palabras de dos reglamentos distintos. Hasta el
+# 14-09-2026 este comentario lo decía al revés —«la de la derecha sobra»— y
+# la primera entrada que se escribió fiándose de él salió al revés también.
 _SOBRA_SI: dict[str, tuple[str, ...]] = {
     "CU-00": ("BR-02", "BR-03"),
     "CU-02": ("BR-02",),
+    # Esta no dice lo mismo que su nota: la nota dice que el cuadre no se puede
+    # hacer. Con líneas de cobro, el anexo suma al total a pagar unos importes
+    # que la edición de 2017 no conoce, y BR-CO-16 daba por mal una factura
+    # hecha como manda el anexo. Medido el 14-09-2026 con un suplido.
+    "BR-CO-16": ("SPFE-TOTAL-A-PAGAR",),
 }
 
 # De qué reglamento sale cada queja, por el prefijo de su código. Va en el
@@ -73,6 +81,9 @@ _SOBRA_SI: dict[str, tuple[str, ...]] = {
 # es una opinión que puedes discutir.
 EUROPEA = "EN 16931"
 ESPANOLA = "RD 238/2026"
+# El contenido mínimo de la solución pública. No es el real decreto: es el
+# anexo de una orden que todavía es un proyecto, y la etiqueta lo dice.
+SOLUCION_PUBLICA = "anexo I (borrador)"
 FORMA = "Esquema XSD"
 NACIONAL = "formato Facturae"
 SELLO = "firma electrónica"
@@ -89,6 +100,8 @@ def origen(incidencia: Incidencia) -> str:
         return EUROPEA
     if incidencia.codigo.startswith("CU-"):
         return ESPANOLA
+    if incidencia.codigo.startswith("SPFE-"):
+        return SOLUCION_PUBLICA
     if incidencia.codigo.startswith("XSD-"):
         return FORMA
     if incidencia.codigo.startswith("FE-"):
@@ -185,6 +198,7 @@ def _reglas(
     incidencias = list(sintacticas or [])
     incidencias.extend(esquema.reglas(raiz, deteccion, catalogo))
     incidencias.extend(en16931.reglas(raiz, deteccion, espanola=espanola))
+    incidencias.extend(solucion_publica.reglas(raiz, deteccion))
     incidencias.extend(edifact.totales_de_otra_guia(raiz, deteccion))
     incidencias.extend(edifact.iva_fuera_del_desglose(raiz, deteccion))
     incidencias.extend(facturae.reglas(raiz, deteccion))
@@ -432,6 +446,22 @@ class InformeLote:
                 "y cabecera de lote)"
             )
         mirado.append("el código único del RD 238/2026")
+        if any(
+            informe.deteccion is not None
+            and informe.deteccion.familia == UBL
+            and solucion_publica.declara_el_cius(informe.deteccion)
+            for _, informe in self.informes
+        ):
+            # Solo si alguna factura lo declara: a las demás no se les mide, y
+            # decirlo en un lote sin ninguna sería apuntarse lo que no se ha
+            # hecho. Y «lo que se puede comprobar», porque hay campos del
+            # anexo sin ruta que no se miran (`NO_SE_COMPRUEBA`). Sin comas
+            # dentro: la frase entera se une con comas, y «…del RD 238/2026, en
+            # las facturas que…, lo que…» se leía como dos cosas distintas.
+            mirado.append(
+                "lo que el borrador del anexo I pide a las facturas que declaran "
+                "el CIUS de la solución pública y se puede comprobar en UBL"
+            )
         sin_mirar = []
         if self.firmados:
             mirado.append(

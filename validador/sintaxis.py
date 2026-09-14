@@ -1585,8 +1585,10 @@ _ARREGLOS: dict[str, tuple[str, str, str]] = {
 }
 
 
-# Diecisiete campos se reparten seis rutas, y **el anexo dice cómo se
-# distinguen**: no en la columna de la ruta, sino en la descripción. Lo que va
+# Dieciséis campos se reparten seis rutas, y **el anexo dice cómo se
+# distinguen**: no en la columna de la ruta, sino en la descripción. Se
+# escribió «diecisiete» hasta el 14-09-2026; contados son dieciséis, y ahora
+# los cuenta una prueba. Lo que va
 # aquí sale de ahí, y hay una prueba que comprueba que sigue saliendo de ahí.
 #
 # Sin esto, `POR_ID` devolvería la misma ruta para «identificación del cargo
@@ -1631,6 +1633,15 @@ def _sede(cual: str, dicho_en: str) -> tuple[str, str, str]:
     return ("cbc:ID", f"cbc:ID[@schemeName='{cual}']", dicho_en)
 
 
+def _propiedad(nombre: str) -> tuple[str, str, str]:
+    """La propiedad del artículo que se llama como fija BT-160."""
+    return (
+        "cac:AdditionalItemProperty",
+        f"cac:AdditionalItemProperty[cbc:Name='{nombre}']",
+        "BT-160",
+    )
+
+
 _DISTINTIVOS: dict[str, tuple[str, str, str]] = {
     # «Atributos obligatorios: usar schemeName="Organo"», dice el anexo.
     "BT-ES-9": _sede("Organo", "BT-ES-9"),
@@ -1649,6 +1660,11 @@ _DISTINTIVOS: dict[str, tuple[str, str, str]] = {
     "BT-ES-27": _linea_de(_REEQ, "BT-ES-27"),
     "BT-ES-31": _linea_de(_REGE, "BT-ES-31"),
     "BT-ES-32": _linea_de(_RETE, "BT-ES-32"),
+    # «Adoptará el valor fijo "RCAT"» / «"REGI"», en el nombre de la propiedad
+    # de cada grupo. Hasta el 14-09-2026 estos dos iban en `AMBIGUAS` con la
+    # frase «el anexo no dice cuál»: lo dice, en la fila de al lado.
+    "BT-ES-43": _propiedad("RCAT"),
+    "BT-ES-44": _propiedad("REGI"),
 }
 
 
@@ -1708,11 +1724,12 @@ for _r in RUTAS_CIUS_ES:
     POR_ID[_r.id] = POR_ID.get(_r.id, ()) + (_r,)
 
 # Lo que sigue sin poder distinguirse después de todo lo de arriba, y por eso
-# va dicho en voz alta en vez de disimulado. Son dos campos que comparten la
-# misma ruta y a los que el anexo **no** da ningún distintivo: «situación del
-# inmueble» y «tipo de impuesto nacional», los dos en el `ValueQualifier` de
-# un `AdditionalItemProperty`. Lo que los separaría es el `cbc:Name` de esa
-# propiedad, y el anexo no dice cuál.
+# se dice en voz alta en vez de disimularlo. Hoy no queda nada. Hasta el
+# 14-09-2026 quedaban «situación del inmueble» y «tipo de impuesto nacional»,
+# los dos en el `ValueQualifier` de un `AdditionalItemProperty`, con la frase
+# «el anexo no dice cuál» es el nombre de la propiedad. Lo dice: BT-160 fija
+# «RCAT» en un grupo y «REGI» en el otro. Se leyó la ruta y no la fila de al
+# lado.
 AMBIGUAS: dict[str, tuple[str, ...]] = {}
 for _r in RUTAS_CIUS_ES:
     if _r.ruta != SIN_MAPA:

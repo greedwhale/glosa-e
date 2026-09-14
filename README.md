@@ -14,6 +14,7 @@ según el RD 238/2026.
 | `validador/en16931.py` | Campos obligatorios y cuadre aritmético, sobre UBL, CII y EDIFACT | Terminado |
 | `validador/iva.py` | El desglose de IVA: bases, cuotas, categorías y exenciones | Terminado |
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
+| `validador/solucion_publica.py` | El anexo I: lo que la solución pública pide a una factura UBL que declara su CIUS | Terminado sobre el borrador |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
 | `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
 | `validador/facturae.py` | La aritmética del formato nacional: totales, líneas, impuestos y lote | Terminado |
@@ -28,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1810 tests, todos en verde.
+1876 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3196,6 +3197,18 @@ menciones, que son las citas a `BT-179` y `BT-114` dentro de la descripción de
 `BT-115`; y sobran cuatro cardinalidades, que son las de la introducción cuando
 explica qué quiere decir `1..1`.
 
+**Eso valía para la tabla, no para las listas**, y no se miró. Las listas de
+códigos se leían también por coordenadas, y en cinco de las once —L3A, L3B,
+L3C, L5 y L6— las descripciones salían corridas una fila: en una celda de dos
+renglones el código va centrado entre los dos, y al repartir por altura el
+primer renglón caía en el código de arriba. El 01 de L6 decía «País Vasco y
+Navarra», que es justo lo que excluye. Los códigos estaban bien, y por eso no
+saltó nada. Desde el 14-09-2026 las listas se leen en el orden en que el PDF
+escribe el texto, que va por celdas, y una prueba compara descripciones
+concretas contra el PDF. De paso salió lo que el extractor tiraba: debajo del
+título de cada lista de claves de régimen va un «CALIFICADOR IVA», «IGIC» o
+«IPSI», que es el valor de `BT-ES-44`.
+
 ### Dos cosas que el borrador hace mal
 
 **El identificador no es una clave.** El anexo reutiliza a propósito unos
@@ -3252,9 +3265,10 @@ Tal y como vienen no se pueden evaluar. Hay que:
    honrado: lo que identifica cada extensión no es su namespace sino el valor
    de su `ext:UBLExtension/cbc:ID`, y ese sí está publicado.
 
-### Diecisiete campos que el anexo no distingue, y sí distingue
+### Dieciséis campos que el anexo no distingue, y sí distingue
 
-Seis rutas las comparten diecisiete campos. Tal y como se publican, preguntar
+Seis rutas las comparten dieciséis campos —se escribió «diecisiete» hasta el
+14-09-2026; ahora los cuenta una prueba—. Tal y como se publican, preguntar
 por «la oficina destinataria» devuelve el órgano, y preguntar por «la
 identificación de la retención» devuelve el suplido.
 
@@ -3267,17 +3281,19 @@ la descripción de al lado.
 | `BT-ES-16`/`BT-ES-17` frente a `BT-ES-18`/`BT-ES-19` | *«Valor obligatorio: usar "false"»* en el descuento, *«"true"»* en el cargo |
 | `BT-ES-40` y `BT-ES-41` | lo mismo, dentro de la línea |
 | `BT-ES-20`, `BT-ES-21`, `BT-ES-27`, `BT-ES-31`, `BT-ES-32` | cada uno lleva su URN fijo: `…:SUPL`, `…:MINO`, `…:REEQ`, `…:REGE`, `…:RETE` |
+| `BT-ES-43` y `BT-ES-44` | el nombre de la propiedad, que fija `BT-160`: *«Adoptará el valor fijo "RCAT"»* en la referencia catastral, *«"REGI"»* en la clave de régimen |
 
 Así que el predicado se le añade a la ruta, y cada uno lleva apuntado **en qué
 campo del anexo está escrito el valor**. Eso es lo que impide que esto se
 convierta en opinión: hay una prueba que va a esa descripción y comprueba que
 el literal sigue ahí. Si el anexo cambia de criterio, salta.
 
-La única que queda repartida después de todo eso son `BT-ES-43` y `BT-ES-44`
-—«situación del inmueble» y «tipo de impuesto nacional»—, las dos en el
-`ValueQualifier` de un `AdditionalItemProperty`. Lo que las separaría es el
-`cbc:Name` de esa propiedad, y el anexo no dice cuál. Va declarado en
-`sintaxis.AMBIGUAS` en vez de resuelto a ojo.
+Después de eso no queda ninguna repartida, y `sintaxis.AMBIGUAS` está vacío.
+Hasta el 14-09-2026 quedaban `BT-ES-43` y `BT-ES-44` —«situación del inmueble»
+y «tipo de impuesto nacional», las dos en el `ValueQualifier` de un
+`AdditionalItemProperty`—, declaradas con la frase «lo que las separaría es el
+`cbc:Name` de esa propiedad, y el anexo no dice cuál». Lo dice, en la fila de
+al lado: `BT-160`. Se leyó la ruta y no la fila.
 
 ### Dos rutas del anexo que no llevan a ninguna parte
 
@@ -3328,6 +3344,82 @@ extractor y la tabla se queda vieja.
 
 El PDF no se versiona —es de Hacienda y pesa un mega—; se baja a `anexos/` y
 sin él las dos pruebas se saltan diciendo por qué.
+
+### Las reglas del anexo, y a quién se le aplican
+
+Leído el anexo, `validador/solucion_publica.py` le pide a la factura lo que el
+anexo pide. **24 códigos, todos con el prefijo `SPFE-`** y la etiqueta «anexo I
+(borrador)» en el informe, que no es la del real decreto: es el anexo de una
+orden que todavía es un proyecto.
+
+**Solo a las facturas UBL que declaran el CIUS** en su `CustomizationID`. El
+anexo describe los campos en UBL y en nada más, y nadie ha publicado a qué
+corresponden en Facturae, CII o EDIFACT: aplicarlo a otra sintaxis sería
+inventarse esa correspondencia. Un documento de otra sintaxis que declare el
+CIUS recibe `SPFE-SINTAXIS`, un aviso de que no se ha comprobado, que es
+distinto de callar. Y una factura UBL que no lo declara no se mide con el
+anexo: quien emite para Peppol o para una plataforma privada no se ha
+comprometido con este CIUS. Quien lo declara sí acepta sus listas, y con ellas
+se le mide.
+
+Lo que se comprueba:
+
+| Qué | Códigos |
+|---|---|
+| La cabecera: el valor entero de `BT-24`, el proceso `B2B`, original o copia, el tipo de factura de L1, el euro como moneda del IVA y el importe pagado a cero | `SPFE-ESPECIFICACION`, `-PROCESO`, `-COPIA`, `-TIPO-DE-FACTURA`, `-MONEDA-DEL-IVA`, `-IMPORTE-PAGADO` |
+| La extensión de rectificativas en toda 384 y 471, con su tipo (L2.A), su modalidad (L2.B) y su identificador | `SPFE-RECTIFICATIVA` |
+| Las partes: el NIF de las dos en un esquema «VAT», la dirección entera cuando está en España, y el tercero que expide la factura | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
+| Lo que la norma deja opcional y el anexo no: la fecha de la factura referenciada y el motivo en texto de descuentos y cargos | `SPFE-FACTURA-REFERENCIADA`, `-MOTIVO` |
+| El IVA: «VAT» en todos los esquemas y la categoría de L4, sin `K` ni `B` | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA` |
+| Cada línea: una o dos claves de régimen en la lista de su impuesto, y como mucho una referencia catastral con su situación de L6 | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL` |
+| Las líneas de cobro: la lista L7, el recargo de equivalencia, las retenciones con su concepto de L5, el grupo de entidades y el QR fiscal | `SPFE-LINEA-DE-COBRO`, `-RECARGO-DE-EQUIVALENCIA`, `-RETENCION`, `-GRUPO-DE-ENTIDADES`, `-QR` |
+
+Y dos notas: `SPFE-BORRADOR` en cada factura que se mide con el anexo, porque
+que no salga ninguna queja quiere decir que cumple el borrador y no la orden; y
+`SPFE-TOTAL-A-PAGAR`, que es lo que sigue.
+
+**Una regla europea que daba por mala una factura bien hecha.** El anexo dice
+que el total a pagar suma los importes de terceros —los suplidos, las
+minoraciones, el recargo, las retenciones— «junto con» el total con IVA.
+BR-CO-16, que es de la edición de 2017, no los conoce: medido el 14-09-2026, una
+factura del CIUS con un suplido de 50 euros sumado como manda el anexo salía
+con BR-CO-16 en error. Y esos importes no se pueden sumar aquí, porque el anexo
+no dice dónde se escriben: son `BT-179`, un término de la edición de 2026 sin
+ruta. Así que con líneas de cobro la nota dice que el cuadre no se ha
+comprobado, y BR-CO-16 no sale. Sin líneas de cobro se comprueba como siempre.
+
+**Qué sale del anexo y qué no.** Las rutas de los campos españoles vienen de
+`RUTAS_CIUS_ES`, y las de dentro de un grupo se piden relativas a él. Los
+valores fijos —los URN, «VAT», «S», «WTH», «EUR»— se leen de la descripción de
+su fila. Y cada campo que se exige tiene que ser obligatorio en la tabla. Todo
+eso se comprueba **al importar**: si un anexo nuevo relaja un campo, cambia un
+valor o mueve una ruta, el módulo lanza `AnexoCambiado` y no se monta. Las tres
+formas están provocadas en las pruebas.
+
+Los campos que la norma ya tiene no traen ruta en el anexo —remite a la
+vinculación de 2026, sin publicar— y van por la de 2017. Que esos elementos
+existen en UBL 2.5 donde se buscan está comprobado contra el esquema; que la
+vinculación de 2026 los use para lo mismo no se sabrá hasta que salga.
+
+**Lo que no se comprueba** está en `NO_SE_COMPRUEBA`, con el porqué: el importe
+y la descripción de los cobros (`BT-179`, `BT-180`) y todo lo que depende de
+ellos, la restricción de `BT-195` a VATEX-EU y VATEX-ES, el código
+«ThirdPartyInvoicing», que solo es obligatorio en un caso que no se ve en el
+documento, y la autorización de facturación, que no trae con qué distinguirla.
+
+**No hay facturas de verdad con las que medir.** La solución pública no está en
+marcha y en el corpus hay cero documentos que declaren el CIUS. Las pruebas
+van sobre dos facturas escritas a mano —una ordinaria con todos los grupos
+españoles y una rectificativa—, que pasan **el validador entero** sin un error:
+forma contra UBL 2.5, norma europea, código único y anexo. De ahí se rompe cada
+regla. Y provocado: 37 roturas del módulo, de su cableado y de la frase de
+alcance, las 37 en rojo.
+
+**La frase de alcance lo dice, y solo cuando toca.** «Sin errores» en una
+factura del CIUS quiere decir también que cumple el borrador del anexo, así que
+la línea del informe que dice qué se ha mirado lo añade cuando en el lote hay
+una factura que lo declara, y dice «lo que se puede comprobar en UBL», no el
+anexo entero. En un lote sin ninguna no lo dice.
 
 ## Que a esto se llegue desde fuera
 

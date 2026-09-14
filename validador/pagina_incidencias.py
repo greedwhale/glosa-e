@@ -85,6 +85,8 @@ def nombre_de(codigo: str) -> str:
 _NORMAS = (
     ("BR-", "EN 16931", "la norma europea de factura electrónica"),
     ("CU-", "RD 238/2026", "el real decreto español del código único"),
+    ("SPFE-", "Anexo I (borrador)",
+     "el contenido mínimo de las facturas de la solución pública, en proyecto de orden"),
     ("XSD-", "Esquema XSD", "el esquema oficial del formato"),
     ("FE-", "Formato Facturae", "la especificación española de Facturae"),
     ("EDI-", "ISO 9735", "la sintaxis de EDIFACT"),

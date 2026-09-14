@@ -39,6 +39,13 @@ FAMILIAS: dict[str, str] = {
         "sustituir por otra sin que se note, y tiene reglas propias de "
         "formato, de contenido y de fecha."
     ),
+    "SPFE": (
+        "El contenido mínimo que el anexo I del proyecto de orden pide a las "
+        "facturas de la solución pública de la AEAT. Solo se comprueba en las "
+        "facturas UBL que declaran su CIUS, `urn:aeat.es:CIUS-ES-SPFE`. Es un "
+        "borrador sometido a audiencia pública el 17-04-2026 y sin publicar en "
+        "el BOE, así que lo que dice puede cambiar con la orden."
+    ),
     "XSD": (
         "La forma del fichero, comprobada contra el esquema oficial de su "
         "formato. Es lo primero que se mira: si el documento no cuadra con su "
@@ -3092,6 +3099,151 @@ CODIGOS: dict[str, str] = {
         'italiano, con la S, el tipo general, en sus líneas, descuentos, '
         'cargos o desglose. La norma no deja llevar las dos: en una factura '
         'con pago fraccionado, la B ocupa el sitio de la S.'
+    ),
+    "SPFE-BORRADOR": (
+        "La factura declara el CIUS de la solución pública y se ha medido con "
+        "el anexo I, que es un borrador. Es una nota y no un fallo: dice con "
+        "qué se ha comprobado. Que no salga ninguna queja SPFE- quiere decir "
+        "que la factura cumple el borrador del 17-04-2026, no la orden que se "
+        "publique."
+    ),
+    "SPFE-SINTAXIS": (
+        "El documento declara el CIUS de la solución pública y no es UBL. El "
+        "anexo I solo describe los campos en UBL, y nadie ha publicado a qué "
+        "corresponden en Facturae, CII o EDIFACT, así que las reglas del anexo "
+        "no se han comprobado. Para la solución pública, la AEAT ha dicho que "
+        "solo admitirá UBL 2.5."
+    ),
+    "SPFE-ESPECIFICACION": (
+        "El identificador de especificación (cbc:CustomizationID) nombra el "
+        "CIUS de la solución pública, pero no con el valor exacto del anexo: "
+        "urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0. "
+        "Sale, por ejemplo, si se declara la edición de 2017 de la norma o "
+        "otra versión del CIUS."
+    ),
+    "SPFE-PROCESO": (
+        "Falta el tipo de proceso de negocio (cbc:ProfileID) o no es el del "
+        "anexo, que admite uno solo: "
+        "urn:aeat:names:specification:ubl:schema:B2B. En la norma europea este "
+        "campo es opcional."
+    ),
+    "SPFE-COPIA": (
+        "Falta decir si la factura es el original o una copia. En UBL es el "
+        "campo cbc:CopyIndicator, que la norma europea no usa y el anexo hace "
+        "obligatorio: false para el original, true para una copia."
+    ),
+    "SPFE-TIPO-DE-FACTURA": (
+        "El tipo de factura no está en la lista L1 del anexo: 380, 384, 388, "
+        "389 o 471. El caso típico es el 381, el abono de la norma europea, "
+        "que en la solución pública no existe: una rectificativa es un Invoice "
+        "de tipo 384, o 471 si la expide el destinatario. También sale si el "
+        "documento es un CreditNote."
+    ),
+    "SPFE-RECTIFICATIVA": (
+        "Una factura rectificativa (384 o 471) no lleva la extensión de "
+        "rectificativas, o le falta algo dentro: el tipo de rectificativa, de "
+        "R1 a R4; la modalidad, I por diferencias o S por sustitución; o el "
+        "identificador de la extensión, "
+        "urn:aeat:names:specification:ubl:schema:ext:id:RECT."
+    ),
+    "SPFE-MONEDA-DEL-IVA": (
+        "La moneda de contabilización del IVA (cbc:TaxCurrencyCode) no es el "
+        "euro, o falta en una factura que no va en euros. El anexo solo admite "
+        "el euro y lo hace obligatorio cuando la factura está en otra moneda."
+    ),
+    "SPFE-IMPORTE-PAGADO": (
+        "El importe pagado por adelantado (cbc:PrepaidAmount) no es cero. El "
+        "anexo solo admite este importe si vale cero."
+    ),
+    "SPFE-NIF": (
+        "Falta el NIF del vendedor o del comprador donde lo pide el anexo: en "
+        "un cac:PartyTaxScheme con cac:TaxScheme/cbc:ID «VAT». La norma europea "
+        "deja opcional el identificador fiscal; el anexo lo hace obligatorio "
+        "para las dos partes. Si el NIF está con otro impuesto, el informe "
+        "dice cuál."
+    ),
+    "SPFE-DIRECCION": (
+        "A la dirección del vendedor o del comprador le falta algo que el "
+        "anexo pide: la calle siempre, y la ciudad, el código postal y la "
+        "provincia cuando la dirección está en España. En la norma europea "
+        "solo el país es obligatorio."
+    ),
+    "SPFE-TIPO-DE-IMPUESTO": (
+        "El tipo de impuesto (cac:TaxScheme/cbc:ID) de un descuento, un cargo, "
+        "una línea o el desglose no es «VAT». El anexo lo fija en «VAT» en "
+        "todas partes; el IGIC y el IPSI se distinguen por la categoría, L o "
+        "M, no por este campo."
+    ),
+    "SPFE-TERCERO": (
+        "La factura lleva los datos de un tercero —el que la expide en lugar "
+        "del vendedor— y le falta algo que el anexo pide dentro: su NIF con el "
+        "impuesto «VAT», su nombre o la tipología del tercero."
+    ),
+    "SPFE-FACTURA-REFERENCIADA": (
+        "Una factura referenciada no lleva su fecha de expedición. La norma "
+        "europea la deja opcional; el anexo la hace obligatoria junto con el "
+        "número."
+    ),
+    "SPFE-MOTIVO": (
+        "Un descuento o un cargo, del documento o de una línea, no lleva el "
+        "motivo escrito en cbc:AllowanceChargeReason. La norma europea se "
+        "conforma con el motivo o con su código; el anexo pide el texto "
+        "siempre."
+    ),
+    "SPFE-CATEGORIA": (
+        "La categoría de IVA es de la norma europea, pero no de la lista L4 "
+        "del anexo: S, Z, E, AE, O, G, L o M. Las que quedan fuera son la K, "
+        "la entrega intracomunitaria, y la B, el pago fraccionado italiano."
+    ),
+    "SPFE-CLAVE-DE-REGIMEN": (
+        "A una línea le falta la clave de régimen, lleva más de dos, o la que "
+        "lleva no es válida. El anexo la pide en cada línea como una propiedad "
+        "del artículo llamada «REGI»: la clave en cbc:Value y el impuesto —IVA, "
+        "IGIC o IPSI— en cbc:ValueQualifier. Cada impuesto tiene su lista, L3A, "
+        "L3B o L3C, y no son iguales."
+    ),
+    "SPFE-REFERENCIA-CATASTRAL": (
+        "La referencia catastral de una línea está mal: hay más de una, falta "
+        "la referencia, o la situación del inmueble no es de la lista L6, del "
+        "01 al 04. Va como una propiedad del artículo llamada «RCAT»."
+    ),
+    "SPFE-LINEA-DE-COBRO": (
+        "Una línea de cobro (cac:CollectionInvoiceLine) no se identifica con "
+        "ninguno de los cinco valores del anexo —suplido, minoración, recargo "
+        "de equivalencia, grupo de entidades o retención—, o hay más de un "
+        "grupo de recargo, de retenciones o de grupo de entidades, que solo "
+        "admiten uno por factura."
+    ),
+    "SPFE-RECARGO-DE-EQUIVALENCIA": (
+        "Al recargo de equivalencia le falta algo que el anexo pide: la suma "
+        "de los recargos y, en cada subtotal, el impuesto «VAT», la categoría "
+        "«S», la base, el tipo y la cuota."
+    ),
+    "SPFE-RETENCION": (
+        "A las retenciones les falta algo que el anexo pide: la línea de cobro "
+        "que las identifica, la suma de retenciones, y en cada una la base, el "
+        "importe, la categoría «S», el porcentaje, el esquema «WTH» y el "
+        "concepto de la lista L5."
+    ),
+    "SPFE-GRUPO-DE-ENTIDADES": (
+        "A la operación del régimen especial del grupo de entidades le falta "
+        "su extensión, identificada con "
+        "urn:aeat:names:specification:ubl:schema:ext:id:REGE, o la base "
+        "imponible calculada según los artículos 78 y 79 de la Ley del IVA."
+    ),
+    "SPFE-QR": (
+        "El documento del QR fiscal está repetido o incompleto. El anexo admite "
+        "uno, identificado con urn:aeat:names:specification:ubl:schema:QR, y "
+        "pide dentro la descripción —VERIFACTU o la que corresponda— y la "
+        "dirección del QR en cbc:UUID."
+    ),
+    "SPFE-TOTAL-A-PAGAR": (
+        "La factura lleva líneas de cobro, y el anexo suma sus importes al "
+        "total a pagar. La edición de 2017 de la norma no los conoce y el "
+        "anexo no dice dónde se escriben, así que el cuadre del total a pagar "
+        "(BR-CO-16) no se ha comprobado. Es una nota: dice lo que no se ha "
+        "podido mirar, en vez de dar por mal un total que el anexo da por "
+        "bueno."
     ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "

@@ -3242,3 +3242,58 @@ iguales: el de las listas no quita espacios, porque el tipo de un adjunto se
 compara tal cual. Y `listas_de_codigos.lista()` busca cada lista por su nombre;
 una errata saldría al validar y no al importar, pero la prueba que recorre
 todas las filas la caza igual.
+
+## Cinco cosas mal dichas o mal hechas, vistas al escribir las reglas del anexo I
+
+Las reglas del anexo se escribieron leyendo otra vez el PDF entero, y no la
+tabla que ya se tenía de él. Salieron cinco cosas, y ninguna rompía una prueba.
+
+**1. Las descripciones de cinco listas estaban corridas una fila.** L3A, L3B,
+L3C, L5 y L6 se leían por coordenadas, y en una celda de dos renglones el
+código va centrado entre los dos: al repartir por altura, el primer renglón
+caía en el código de arriba. El 01 de L6 decía «País Vasco y Navarra», que es
+justo lo que excluye, y el 02 decía «Navarra». Los códigos estaban bien, que es
+lo único que se comprobaba. *Reproducido* con una prueba que compara
+descripciones concretas con el PDF, en rojo. *Arreglado* leyendo las listas en
+el orden en que el PDF escribe el texto, que va por celdas. Provocado dos
+veces: sin filtrar las minúsculas, el «DE» de una cabecera sale como código; sin
+quitar la cabecera de cada página, su número también. Las dos en rojo.
+
+**2. «El anexo no dice cuál» era falso.** `BT-ES-43` y `BT-ES-44` —situación del
+inmueble y tipo de impuesto nacional— van en el mismo `ValueQualifier` y
+estaban declaradas en `sintaxis.AMBIGUAS` como imposibles de separar. El anexo
+lo dice en la fila de al lado: `BT-160` fija el nombre de la propiedad en
+«RCAT» y en «REGI». *Reproducido* con una línea que lleva las dos propiedades:
+la situación del inmueble devolvía «IVA». *Arreglado* con dos distintivos más,
+y `AMBIGUAS` queda vacío. En la misma lectura salió que debajo del título de
+cada lista de claves de régimen hay un «CALIFICADOR IVA», «IGIC» o «IPSI», que
+el extractor tiraba y es el valor de `BT-ES-44`.
+
+**3. Eran dieciséis campos, no diecisiete.** El README, este fichero y
+`sintaxis.py` decían que el anexo reparte seis rutas entre diecisiete campos.
+Contados son dieciséis. Ahora los cuenta una prueba.
+
+**4. El comentario de `factura._SOBRA_SI` decía lo contrario que el código.**
+«Cuando la queja de la izquierda ya ha saltado, la de la derecha sobra», y el
+código quita la de la izquierda cuando está la de la derecha. Se vio porque la
+primera entrada nueva se escribió fiándose del comentario, y la prueba de
+reproducción siguió enseñando la queja que tenía que desaparecer.
+
+**5. BR-CO-16 daba por mala una factura del CIUS hecha como manda el anexo.**
+El anexo suma al total a pagar los importes de terceros —suplidos,
+minoraciones, recargo, retenciones— y la edición de 2017 de la norma no los
+conoce. *Reproducido* con una factura del CIUS con un suplido de 50 euros:
+`BR-CO-16` en error, esperando 121,00 donde había 171,00. Esos importes no se
+pueden sumar aquí porque el anexo no dice dónde se escriben (`BT-179` no tiene
+ruta), así que no se arregla la cuenta: se dice. Con líneas de cobro sale la
+nota `SPFE-TOTAL-A-PAGAR` y BR-CO-16 no sale; sin ellas, se comprueba como
+siempre. Las dos cosas tienen prueba, y quitar la poda las pone en rojo.
+
+**Por qué no se vio antes.** Las cuatro primeras son lecturas que se dieron por
+buenas porque salían con buena pinta: una tabla de códigos correctos, una
+frase razonable sobre lo que el anexo no dice, una cifra, un comentario. La
+quinta no podía verse: hasta hoy ninguna regla miraba una factura del CIUS.
+
+**Las reglas en sí**, 24 códigos `SPFE-`, están en el README. Se provocaron 37
+roturas del módulo, de su cableado y de la frase de alcance, y las 37 salieron
+en rojo.
