@@ -117,7 +117,8 @@ def _partes_cii(partes):
 
 
 def ubl(lineas=(), grupos=(), ajustes=(), total_iva="21.00",
-        descuentos_total=None, cargos_total=None, partes=PARTES):
+        descuentos_total=None, cargos_total=None, partes=PARTES,
+        fecha_entrega=None, periodo=None, pais_entrega=None):
     xml_lineas = "".join(
         f"""<cac:InvoiceLine>
     <cbc:ID>{l.ident}</cbc:ID>
@@ -170,6 +171,17 @@ def ubl(lineas=(), grupos=(), ajustes=(), total_iva="21.00",
   <cbc:ID>F-2026-0001</cbc:ID>
   <cbc:DocumentCurrencyCode>{MONEDA}</cbc:DocumentCurrencyCode>
   {_partes_ubl(partes)}
+  {'' if periodo is None else
+   f'<cac:InvoicePeriod><cbc:StartDate>{periodo}</cbc:StartDate></cac:InvoicePeriod>'}
+  {'' if fecha_entrega is None and pais_entrega is None else
+   '<cac:Delivery>'
+   + ('' if fecha_entrega is None else
+      f'<cbc:ActualDeliveryDate>{fecha_entrega}</cbc:ActualDeliveryDate>')
+   + ('' if pais_entrega is None else
+      '<cac:DeliveryLocation><cac:Address><cac:Country>'
+      f'<cbc:IdentificationCode>{pais_entrega}</cbc:IdentificationCode>'
+      '</cac:Country></cac:Address></cac:DeliveryLocation>')
+   + '</cac:Delivery>'}
   {xml_ajustes}
   <cac:TaxTotal>
     {'' if total_iva is None else
@@ -182,7 +194,8 @@ def ubl(lineas=(), grupos=(), ajustes=(), total_iva="21.00",
 
 
 def cii(lineas=(), grupos=(), ajustes=(), total_iva="21.00",
-        descuentos_total=None, cargos_total=None, partes=PARTES):
+        descuentos_total=None, cargos_total=None, partes=PARTES,
+        fecha_entrega=None, periodo=None, pais_entrega=None):
     xml_lineas = "".join(
         f"""<ram:IncludedSupplyChainTradeLineItem>
     <ram:AssociatedDocumentLineDocument><ram:LineID>{l.ident}</ram:LineID>
@@ -244,10 +257,22 @@ def cii(lineas=(), grupos=(), ajustes=(), total_iva="21.00",
   <rsm:SupplyChainTradeTransaction>
     {xml_lineas}
     <ram:ApplicableHeaderTradeAgreement>{_partes_cii(partes)}</ram:ApplicableHeaderTradeAgreement>
-    <ram:ApplicableHeaderTradeDelivery/>
+    <ram:ApplicableHeaderTradeDelivery>
+      {'' if pais_entrega is None else
+       f'<ram:ShipToTradeParty><ram:PostalTradeAddress><ram:CountryID>{pais_entrega}'
+       '</ram:CountryID></ram:PostalTradeAddress></ram:ShipToTradeParty>'}
+      {'' if fecha_entrega is None else
+       '<ram:ActualDeliverySupplyChainEvent><ram:OccurrenceDateTime>'
+       f'<udt:DateTimeString format="102">{fecha_entrega}</udt:DateTimeString>'
+       '</ram:OccurrenceDateTime></ram:ActualDeliverySupplyChainEvent>'}
+    </ram:ApplicableHeaderTradeDelivery>
     <ram:ApplicableHeaderTradeSettlement>
       <ram:InvoiceCurrencyCode>{MONEDA}</ram:InvoiceCurrencyCode>
       {xml_grupos}
+      {'' if periodo is None else
+       '<ram:BillingSpecifiedPeriod><ram:StartDateTime>'
+       f'<udt:DateTimeString format="102">{periodo}</udt:DateTimeString>'
+       '</ram:StartDateTime></ram:BillingSpecifiedPeriod>'}
       {xml_ajustes}
       <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
         {totales}
@@ -1506,3 +1531,85 @@ class TestLosIdentificadoresDeCadaCategoria:
             apunte = iva.Apunte("línea 1", Decimal(100), categoria, Decimal(0))
             assert iva._regla_identificadores(
                 etree.Element("Invoice"), SINTAXIS_FACTURAE, [apunte]) == []
+
+
+class TestLaNoSujetaSinNadaMas:
+    """BR-O-12, 13 y 14: con una entrada no sujeta, nada de otra categoría.
+
+    BR-O-11 lo mira en el desglose; estas tres en lo que lo alimenta: las
+    líneas, los descuentos de documento y los cargos. Un concepto sin
+    categoría no cuenta, como en el esquematrón: no es «de otra categoría», es
+    de ninguna, y de eso ya se queja otra regla.
+    """
+
+    GRUPO_O = Grupo("100.00", "0.00", categoria="O", tipo=None, motivo="Art. 7")
+
+    def test_una_linea_de_otra_categoria(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="O", tipo=None), Linea("2", "0.00")],
+            grupos=[self.GRUPO_O], total_iva="0.00", partes={},
+        )
+        problema = una(incidencias, "BR-O-12")
+        assert "línea 2" in problema.encontrado
+
+    def test_un_descuento_y_un_cargo_de_otra_categoria(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="O", tipo=None)],
+            ajustes=[Ajuste("0.00"), Ajuste("0.00", es_cargo=True)],
+            grupos=[self.GRUPO_O], total_iva="0.00", partes={},
+            descuentos_total="0.00", cargos_total="0.00",
+        )
+        assert {"BR-O-13", "BR-O-14"} <= codigos(incidencias, ERROR)
+
+    def test_sin_entrada_no_sujeta_no_se_mira(self, revisar):
+        incidencias = revisar(lineas=[Linea("1", "100.00")], grupos=[Grupo("100.00", "21.00")])
+        assert not {"BR-O-12", "BR-O-13", "BR-O-14"} & codigos(incidencias)
+
+    def test_un_concepto_sin_categoria_no_es_de_otra(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="O", tipo=None),
+                    Linea("2", "0.00", categoria=None)],
+            grupos=[self.GRUPO_O], total_iva="0.00", partes={},
+        )
+        assert "BR-O-12" not in codigos(incidencias)
+
+
+class TestLaEntregaIntracomunitaria:
+    """BR-IC-11 y 12: cuándo y adónde, que es lo que sostiene la exención."""
+
+    LINEA_K = Linea("1", "100.00", categoria="K", tipo="0")
+    GRUPO_K = Grupo("100.00", "0.00", categoria="K", tipo="0", motivo="Art. 25")
+
+    def entrega(self, revisar, **extra):
+        return revisar(lineas=[self.LINEA_K], grupos=[self.GRUPO_K], total_iva="0.00",
+                       **extra)
+
+    def test_sin_fecha_ni_periodo_ni_pais(self, revisar):
+        salen = codigos(self.entrega(revisar), ERROR)
+        assert {"BR-IC-11", "BR-IC-12"} <= salen
+
+    def test_con_la_fecha_de_entrega(self, revisar):
+        salen = codigos(self.entrega(revisar, fecha_entrega="20260901", pais_entrega="FR"))
+        assert not {"BR-IC-11", "BR-IC-12"} & salen
+
+    def test_o_con_el_periodo(self, revisar):
+        salen = codigos(self.entrega(revisar, periodo="20260901", pais_entrega="FR"))
+        assert "BR-IC-11" not in salen
+
+    def test_sin_entrada_intracomunitaria_no_se_mira(self, revisar):
+        salen = codigos(revisar(lineas=[Linea("1", "100.00")], grupos=[Grupo("100.00", "21.00")]))
+        assert not {"BR-IC-11", "BR-IC-12"} & salen
+
+    def test_lo_que_facturae_no_puede_escribir_no_se_reclama(self):
+        """Ni el país de entrega ni la fecha de entrega tienen sitio en Facturae.
+
+        La fecha podría venir por el periodo, que sí lo tiene; como falta la
+        otra mitad, no se sabe, y no se reclama nada.
+        """
+        from validador.sintaxis import SIN_MAPA, SINTAXIS_FACTURAE
+
+        assert SINTAXIS_FACTURAE.pais_entrega == SIN_MAPA
+        assert SINTAXIS_FACTURAE.fecha_entrega == SIN_MAPA
+        grupo = iva.Grupo("K", Decimal(0), Decimal(100), Decimal(0), "Art. 25")
+        assert iva._regla_intracomunitaria(
+            etree.Element("Invoice"), SINTAXIS_FACTURAE, [grupo]) == []

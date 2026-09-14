@@ -91,10 +91,6 @@ PENDIENTES = (
     "BR-DEC-15", "BR-DEC-16", "BR-DEC-17", "BR-DEC-18", "BR-DEC-19",
     "BR-DEC-20", "BR-DEC-23", "BR-DEC-24", "BR-DEC-25", "BR-DEC-27",
     "BR-DEC-28",
-    # Intracomunitaria: la fecha de entrega (11) y el país de destino (12).
-    "BR-IC-11", "BR-IC-12",
-    # No sujeta: que no se mezcle con otras categorías (12-14).
-    "BR-O-12", "BR-O-13", "BR-O-14",
     # El pago fraccionado italiano (split payment).
     "BR-B-01", "BR-B-02",
     # Listas de códigos.

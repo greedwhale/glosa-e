@@ -1140,6 +1140,112 @@ def _regla_no_sujeta_a_solas(grupos: list[Grupo]) -> list[Incidencia]:
     ]
 
 
+# Qué código sale según de qué cuelgue lo que no es no sujeto. Tabla de filas y
+# no diccionario: `codigos.py` lee los códigos de las filas de una tabla que
+# recorre un `for`, y no de una búsqueda por clave.
+_NO_SUJETA_CON_OTRAS = (
+    ("2", "BR-O-12"),
+    ("3", "BR-O-13"),
+    ("4", "BR-O-14"),
+)
+
+
+def _regla_no_sujeta_sin_otras(
+    grupos: list[Grupo], apuntes: list[Apunte]
+) -> list[Incidencia]:
+    """BR-O-12, 13 y 14: con desglose no sujeto, ningún concepto de otra categoría.
+
+    BR-O-11 lo mira en el desglose; estas tres en lo que lo alimenta. Un
+    concepto sin categoría no cuenta, como en el esquematrón, que pregunta por
+    los que dicen una distinta de O: sin categoría no dice ninguna, y de eso
+    se quejan BR-CO-04 y las de su familia.
+    """
+    if not any(g.categoria == "O" for g in grupos):
+        return []
+    otros: dict[str, list[str]] = {}
+    for apunte in apuntes:
+        if apunte.categoria and apunte.categoria != "O":
+            cifra = _cifra_de_identificadores(apunte)
+            otros.setdefault(cifra, []).append(
+                f"{apunte.descripcion} ({apunte.categoria})")
+    incidencias = []
+    for cifra, codigo in _NO_SUJETA_CON_OTRAS:
+        suyos = otros.get(cifra)
+        if not suyos:
+            continue
+        incidencias.append(
+            Incidencia(
+                codigo,
+                ERROR,
+                "El desglose declara operaciones no sujetas y la factura trae "
+                f"{_DE_QUE_CUELGA[cifra][1]} de otra categoría. Con lo no sujeto "
+                "no puede ir nada más: va en factura aparte.",
+                campo="Categoría de IVA",
+                esperado="O en todo",
+                encontrado=", ".join(suyos),
+            )
+        )
+    return incidencias
+
+
+def _regla_intracomunitaria(raiz, sintaxis: Sintaxis, grupos: list[Grupo]) -> list[Incidencia]:
+    """BR-IC-11 y 12: una entrega intracomunitaria dice cuándo y adónde.
+
+    La exención de estas entregas se sostiene en que la mercancía sale hacia
+    otro Estado miembro; la factura tiene que decir en qué fecha —la de
+    entrega o el periodo facturado— y a qué país. El esquematrón de UBL pide
+    más de un carácter en la fecha y en el país; aquí se pide lo mismo.
+
+    Con tres valores, como los identificadores: lo que la sintaxis no tiene
+    dónde escribir no se reclama.
+    """
+    if not any(g.categoria == "K" for g in grupos):
+        return []
+
+    def escrito(ruta: str) -> bool | None:
+        # Como el esquematrón: `string-length(...) > 1`, sobre el texto del
+        # elemento. Un elemento que solo lleva un comentario está vacío; las
+        # pruebas oficiales traen justo ese caso, y contando hijos de lxml
+        # —que cuenta el comentario como hijo— salía escrito.
+        if ruta == SIN_MAPA:
+            return None
+        return any(len(n.xpath("string()") if not isinstance(n, str) else n) > 1
+                   for n in raiz.xpath(ruta, namespaces=sintaxis.espacios))
+
+    def hay(ruta: str) -> bool | None:
+        # El periodo no se mide: basta con que tenga alguna fecha dentro.
+        if ruta == SIN_MAPA:
+            return None
+        return bool(raiz.xpath(ruta, namespaces=sintaxis.espacios))
+
+    incidencias = []
+    if _alguno([escrito(sintaxis.fecha_entrega), hay(sintaxis.periodo)]) is False:
+        incidencias.append(
+            Incidencia(
+                "BR-IC-11",
+                ERROR,
+                "La factura declara una entrega intracomunitaria y no dice "
+                "cuándo: ni la fecha de entrega ni el periodo facturado.",
+                campo="Fecha de entrega o periodo de facturación",
+                esperado="la fecha de entrega (BT-72) o el periodo (BG-14)",
+                encontrado="(ninguno)",
+            )
+        )
+    if escrito(sintaxis.pais_entrega) is False:
+        incidencias.append(
+            Incidencia(
+                "BR-IC-12",
+                ERROR,
+                "La factura declara una entrega intracomunitaria y no dice a "
+                "qué país se entrega.",
+                campo="País de entrega",
+                esperado="el código de país de la dirección de entrega (BT-80)",
+                encontrado="(falta)",
+            )
+        )
+    return incidencias
+
+
 def _regla_tipos_espanoles(grupos: list[Grupo]) -> list[Incidencia]:
     """De la casa: un tipo que no existe en España casi siempre es un dedazo."""
     incidencias = []
@@ -1375,6 +1481,8 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
     incidencias.extend(_regla_identificadores(raiz, sintaxis, apuntes))
     incidencias.extend(_regla_hay_desglose(grupos, apuntes))
     incidencias.extend(_regla_no_sujeta_a_solas(grupos))
+    incidencias.extend(_regla_no_sujeta_sin_otras(grupos, apuntes))
+    incidencias.extend(_regla_intracomunitaria(raiz, sintaxis, grupos))
     if espanola:
         # Sobre una factura extranjera este aviso no dice nada: el 25% danés y
         # el 19% alemán son sus tipos generales, no un dedazo. Sin esta

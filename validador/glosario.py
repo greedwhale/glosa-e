@@ -1699,6 +1699,27 @@ CODIGOS: dict[str, str] = {
         'separar a mano lo que la factura presenta junto. El informe enumera '
         'las categorías que conviven.'
     ),
+    "BR-O-12": (
+        'El desglose declara operaciones no sujetas y hay líneas de otra '
+        'categoría. Es BR-O-11 mirada desde abajo: aquélla comprueba que el '
+        'desglose no mezcle categorías, y ésta que no las mezclen las líneas '
+        'que lo alimentan, que es donde suele estar el error —una línea que '
+        'se quedó con la S de la plantilla—. Una línea sin categoría no '
+        'cuenta: no es de otra, es de ninguna, y de eso se quejan otras '
+        'reglas.'
+    ),
+    "BR-O-13": (
+        'El desglose declara operaciones no sujetas y hay un descuento de '
+        'documento de otra categoría. Lo mismo que BR-O-12 para los '
+        'descuentos: un descuento a tipo general en una factura no sujeta '
+        'rebaja una base gravada que la factura dice no tener.'
+    ),
+    "BR-O-14": (
+        'El desglose declara operaciones no sujetas y hay un cargo de '
+        'documento de otra categoría. Lo mismo que BR-O-12 para los cargos: '
+        'un porte o un embalaje con IVA en una factura no sujeta es una '
+        'operación sujeta, y va en otra factura.'
+    ),
     "CADENA-CADUCADA": (
         'Un certificado de los que están por encima del que firma no estaba '
         'vigente el día de la firma. Es distinto de FIRMA-CADUCADA, que mira '
@@ -2497,6 +2518,24 @@ CODIGOS: dict[str, str] = {
         'puede comprobar leyendo el documento. Sin ella, lo que hay es una '
         'factura sin IVA y sin explicación, que es lo que se mira primero '
         'cuando se revisa una exención.'
+    ),
+    "BR-IC-11": (
+        'Una entrega intracomunitaria sin fecha: ni la de entrega ni el '
+        'periodo facturado. La exención de estas entregas depende de que la '
+        'mercancía salga hacia otro Estado miembro, y la fecha es lo que ata '
+        'la factura a ese transporte y al periodo en que se declara. Vale '
+        'cualquiera de las dos. Un elemento vacío, o con solo un comentario '
+        'dentro, no cuenta como escrito: las pruebas oficiales traen justo '
+        'ese caso. En Facturae no se reclama, porque la fecha de entrega no '
+        'tiene sitio propio.'
+    ),
+    "BR-IC-12": (
+        'Una entrega intracomunitaria sin país de entrega. Es la otra mitad '
+        'de lo que sostiene la exención: la mercancía va a otro Estado '
+        'miembro, y la factura tiene que decir a cuál, con el código de país '
+        'de la dirección de entrega. No sirve el país del comprador, que '
+        'puede ser otro. Facturae no tiene dirección de entrega en la '
+        'cabecera, y ahí no se reclama.'
     ),
     "BR-G-10": (
         'Una exportación sin decir por qué no lleva IVA. Lo que de verdad '

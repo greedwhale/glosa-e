@@ -79,6 +79,13 @@ class Sintaxis:
     comprador_nif: str  # BT-48, identificador de IVA del comprador
     comprador_registro: str  # BT-47, su registro legal
 
+    # La entrega: cuándo (BT-72), en qué periodo se factura (BG-14, cualquiera
+    # de sus fechas) y a qué país (BT-80). Las piden BR-IC-11 y 12, porque son
+    # lo que sostiene una entrega intracomunitaria.
+    fecha_entrega: str
+    periodo: str
+    pais_entrega: str
+
     lineas: str
     linea_id: str  # relativa a una línea
     linea_importe: str  # relativa a una línea
@@ -241,6 +248,12 @@ SINTAXIS_UBL = Sintaxis(
     ),
     comprador_nif=f"{_COMPRADOR_UBL}/cac:PartyTaxScheme[{_IVA_UBL}]/cbc:CompanyID",
     comprador_registro=f"{_COMPRADOR_UBL}/cac:PartyLegalEntity/cbc:CompanyID",
+    fecha_entrega="./cac:Delivery/cbc:ActualDeliveryDate",
+    periodo="./cac:InvoicePeriod/*",
+    pais_entrega=(
+        "./cac:Delivery/cac:DeliveryLocation/cac:Address/cac:Country"
+        "/cbc:IdentificationCode"
+    ),
     lineas=_LINEAS_UBL,
     linea_id="./cbc:ID",
     linea_importe="./cbc:LineExtensionAmount",
@@ -339,6 +352,22 @@ SINTAXIS_CII = Sintaxis(
     ),
     comprador_registro=(
         f"{_ACUERDO}/ram:BuyerTradeParty/ram:SpecifiedLegalOrganization/ram:ID"
+    ),
+    fecha_entrega=(
+        f"{_TRANSACCION}/ram:ApplicableHeaderTradeDelivery"
+        "/ram:ActualDeliverySupplyChainEvent/ram:OccurrenceDateTime"
+        "/udt:DateTimeString"
+    ),
+    # El esquematrón de CII busca el periodo con `../../` desde la raíz, que
+    # no lleva a ninguna parte: en CII solo le vale la fecha de entrega. La
+    # norma dice «la fecha de entrega o el periodo», y aquí se sigue a la norma.
+    periodo=(
+        f"{_COBRO}/ram:BillingSpecifiedPeriod/ram:StartDateTime"
+        f"|{_COBRO}/ram:BillingSpecifiedPeriod/ram:EndDateTime"
+    ),
+    pais_entrega=(
+        f"{_TRANSACCION}/ram:ApplicableHeaderTradeDelivery/ram:ShipToTradeParty"
+        "/ram:PostalTradeAddress/ram:CountryID"
     ),
     lineas=f"{_TRANSACCION}/ram:IncludedSupplyChainTradeLineItem",
     linea_id="./ram:AssociatedDocumentLineDocument/ram:LineID",
@@ -473,6 +502,11 @@ SINTAXIS_EDIFACT = Sintaxis(
     representante_nif="./*[S_NAD/D_3035='LC']/*/S_RFF/C_C506[D_1153='VA']/D_1154",
     comprador_nif=f"{_COMPRADOR_EDI}/*/S_RFF/C_C506[D_1153='VA']/D_1154",
     comprador_registro=f"{_COMPRADOR_EDI}/*/S_RFF/C_C506[D_1153='GN']/D_1154",
+    # Los calificadores de fecha del esquematrón oficial: 35 la entrega, 167 y
+    # 168 el principio y el final del periodo. El país es el del NAD+DP.
+    fecha_entrega="./S_DTM/C_C507[D_2005='35']/D_2380",
+    periodo="./S_DTM/C_C507[D_2005='167' or D_2005='168']/D_2380",
+    pais_entrega="./*[S_NAD/D_3035='DP']/S_NAD/D_3207",
     # Cualquier grupo que contenga una línea, se llame como se llame.
     lineas=".//*[S_LIN]",
     linea_id="./S_LIN/D_1082",
@@ -701,6 +735,13 @@ SINTAXIS_FACTURAE = Sintaxis(
     representante_nif=SIN_MAPA,
     comprador_nif=SIN_MAPA,
     comprador_registro=SIN_MAPA,
+    # El periodo de facturación sí tiene sitio y es el mismo concepto. La fecha
+    # de entrega no: `OperationDate` es la fecha de la operación, que puede ser
+    # la de entrega o no serlo, y sin vinculación no se elige. Y Facturae no
+    # tiene dirección de entrega en la cabecera.
+    fecha_entrega=SIN_MAPA,
+    periodo="./InvoiceIssueData/InvoicingPeriod/*",
+    pais_entrega=SIN_MAPA,
     lineas="./Items/InvoiceLine",
     # BT-126, el identificador de línea, **no existe en Facturae**. El esquema
     # da `SequenceNumber`, pero es opcional y significa otra cosa —el orden de

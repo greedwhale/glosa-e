@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1464 tests, todos en verde.
+1481 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3868,6 +3868,29 @@ comprador, la no sujeta sin prohibir, «no se sabe» leído como «no está», l
 descuentos y cargos contados como líneas, el de IVA de UBL sin filtrar por
 esquema y el NIF de EDIFACT buscado en el comprador—, y las siete en rojo.
 Quedan 96 pendientes.
+
+### La no sujeta sin nada más, y la entrega intracomunitaria
+
+**Cinco reglas que cierran el IVA por categorías.** BR-O-12, 13 y 14: con una
+entrada no sujeta en el desglose, ninguna línea, descuento o cargo de otra
+categoría —BR-O-11 ya lo miraba en el desglose; estas lo miran en lo que lo
+alimenta—. BR-IC-11 y 12: una entrega intracomunitaria dice cuándo, con la
+fecha de entrega o el periodo, y adónde, con el país de entrega.
+
+**Un elemento con solo un comentario dentro está vacío.** Es lo que salió al
+pasar los casos oficiales: dos traen `<cbc:ActualDeliveryDate><!--comment
+only--></cbc:ActualDeliveryDate>`, y lxml cuenta el comentario como hijo. El
+esquematrón mide el texto, `string-length(...) > 1`, y aquí se mide igual.
+
+**Y el esquematrón de CII no encuentra el periodo.** Lo busca con `../../`
+desde la raíz del documento, que no lleva a ninguna parte, así que en CII solo
+le vale la fecha de entrega. La norma dice «la fecha de entrega o el periodo»,
+y aquí se sigue a la norma. En Facturae el periodo tiene sitio y se lee; la
+fecha de entrega y el país no, y no se reclaman.
+
+**En el corpus no cambia nada**: ninguna factura mezcla lo no sujeto ni trae
+una entrega intracomunitaria incompleta. Provocado cinco veces, las cinco en
+rojo; la del comentario, en los casos oficiales. Quedan 91 pendientes.
 
 ## Por qué este y no otro, contestado sin pedir fe
 
