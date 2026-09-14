@@ -153,6 +153,16 @@ class Sintaxis:
     # defecto: una sintaxis nueva tiene que decir cuál sigue.
     cuota_admite_la_unidad_justa: bool
 
+    # En qué categorías BR-{X}-08 admite que la base declarada se aparte
+    # **menos de una unidad** de la suma de sus conceptos; en las demás tiene
+    # que ser exacta. Tampoco aquí dicen lo mismo los dos esquematrones: el de
+    # UBL da el margen al tipo general, al IGIC y al IPSI, y el de CII a las
+    # cinco de tipo cero —Z, E, AE, K y G—; la no sujeta es exacta en los dos.
+    # No se escribe a mano: `test_norma_oficial` lo lee de la expresión de cada
+    # regla en la vinculación oficial. Hasta el 14-09-2026 aquí había un céntimo
+    # para todo, que se equivocaba en las dos direcciones en las dos sintaxis.
+    base_admite_una_unidad: frozenset[str]
+
     # Con qué se escribe «esto suma» en `cargo_es_cargo`. UBL y CII usan un
     # booleano, y por eso durante dos sintaxis esto no hizo falta. EDIFACT lo
     # escribe con una letra —C de cargo, A de descuento (*allowance*)—, así
@@ -239,6 +249,7 @@ SINTAXIS_UBL = Sintaxis(
     redondeo=f"{_TOTAL_UBL}/cbc:PayableRoundingAmount",
     impuestos="./cac:TaxTotal/cbc:TaxAmount",
     cuota_admite_la_unidad_justa=False,  # el esquematrón de UBL: desigualdad estricta
+    base_admite_una_unidad=frozenset({"S", "L", "M"}),
 )
 
 # En CII casi todo cuelga de SupplyChainTradeTransaction, repartido en tres
@@ -324,6 +335,7 @@ SINTAXIS_CII = Sintaxis(
     redondeo=f"{_SUMARIO}/ram:RoundingAmount",
     impuestos=f"{_SUMARIO}/ram:TaxTotalAmount",
     cuota_admite_la_unidad_justa=True,  # el esquematrón de CII: `<=`
+    base_admite_una_unidad=frozenset({"Z", "E", "AE", "K", "G"}),
 )
 
 # --- EDIFACT ---------------------------------------------------------------
@@ -420,9 +432,20 @@ SINTAXIS_EDIFACT = Sintaxis(
     tipo_metodo=SIN_MAPA,
     linea_categoria="./*[S_TAX]/S_TAX/D_5305",
     linea_tipo="./*[S_TAX]/S_TAX/C_C243/D_5278",
-    # El desglose del documento son los grupos de impuesto que cuelgan de la
-    # raíz. Los de línea y los de un descuento cuelgan de otra cosa.
-    desglose="./*[S_TAX]",
+    # El desglose del documento es el grupo 54 del esquematrón oficial: el de
+    # impuesto que cuelga de la raíz **después del UNS**, y solo si es de IVA
+    # —función 7 y tipo VAT, las dos cosas que filtra el oficial—. Los de
+    # línea y los de un descuento cuelgan de otra cosa y no hace falta
+    # apartarlos. El de la cabecera sí: es el grupo 6, cuelga de la raíz igual
+    # que el 54, y lo único que los separa es de qué lado del UNS está.
+    #
+    # Hasta el 14-09-2026 esto era `./*[S_TAX]` y el de la cabecera entraba.
+    # Medido sobre el corpus: 13 de las 85 facturas EDIFACT lo traen, y en
+    # las 13 salían BR-45 y BR-46 por una entrada que no lo es.
+    desglose=(
+        "./*[S_TAX][preceding-sibling::S_UNS]"
+        "[S_TAX/D_5283='7' and S_TAX/C_C241/D_5153='VAT']"
+    ),
     linea_fiscalidad_especial=SIN_MAPA,
     desglose_base="./S_MOA/C_C516[D_5025='125']/D_5004",
     desglose_cuota="./S_MOA/C_C516[D_5025='124']/D_5004",
@@ -475,7 +498,12 @@ SINTAXIS_EDIFACT = Sintaxis(
     # vistas. Consta en el README como lo que falta.
     redondeo=SIN_MAPA,
     impuestos=_total_edi("176"),
-    cuota_admite_la_unidad_justa=False,  # sin prueba oficial que lo decida; se sigue el de UBL
+    # Los dos márgenes, los de UBL. El esquematrón oficial de EDIFACT existe y
+    # compara todo exacto, pero su último cambio de contenido es de 2017: los
+    # márgenes de UBL y CII llegaron después y ese no se tocó. Seguirlo sería
+    # volver a rechazar lo que la norma ya acepta.
+    cuota_admite_la_unidad_justa=False,
+    base_admite_una_unidad=frozenset({"S", "L", "M"}),
     marcas_de_cargo=("c",),
 )
 
@@ -727,6 +755,7 @@ SINTAXIS_FACTURAE = Sintaxis(
     # miden cosas distintas y llamarlas igual sería el error.
     impuestos=SIN_MAPA,
     cuota_admite_la_unidad_justa=False,  # Facturae no tiene esquematrón europeo; se sigue el de UBL
+    base_admite_una_unidad=frozenset({"S", "L", "M"}),  # también el de UBL
     # `cargo_es_cargo` devuelve el nombre del elemento, no un booleano. En
     # minúscula porque quien compara pasa la marca por `.lower()` antes, igual
     # que la «c» de EDIFACT: con «Charge» no casaba ninguno y los cargos se

@@ -186,6 +186,7 @@ def _reglas(
     incidencias.extend(esquema.reglas(raiz, deteccion, catalogo))
     incidencias.extend(en16931.reglas(raiz, deteccion, espanola=espanola))
     incidencias.extend(edifact.totales_de_otra_guia(raiz, deteccion))
+    incidencias.extend(edifact.iva_fuera_del_desglose(raiz, deteccion))
     incidencias.extend(facturae.reglas(raiz, deteccion))
     incidencias.extend(firma.reglas(raiz, deteccion))
     incidencias.extend(sellos.reglas_de_documento(raiz, deteccion))

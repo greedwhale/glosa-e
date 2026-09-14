@@ -54,12 +54,18 @@ from lxml import etree
 from herramientas.norma_oficial import huella
 from validador import en16931
 from validador.codigos import codigos_del_paquete
+from validador.sintaxis import (
+    SINTAXIS_CII,
+    SINTAXIS_EDIFACT,
+    SINTAXIS_FACTURAE,
+    SINTAXIS_UBL,
+)
 
 OFICIAL = pathlib.Path(__file__).resolve().parent / "en16931-oficial"
 
 # La huella de la copia. Si alguien la rehace con otro commit, esto se pone en
 # rojo y hay que cambiarla a sabiendas, junto con `PROCEDENCIA.md`.
-HUELLA = "676a5829ff48871a401f0757402d687be0c47f15d3f71cf5e526168cb52bc8a3"
+HUELLA = "47a0d349e358d6a48c8fffaf64f1126be4fdce69561296051bb24533aa828b98"
 
 ISO = "{http://purl.oclc.org/dsdl/schematron}"
 VEFA = "{http://difi.no/xsd/vefa/validator/1.0}"
@@ -300,3 +306,95 @@ def test_toda_regla_implementada_tiene_prueba_oficial_o_se_dice():
     sin = sorted(set(implementadas()) - con_prueba)
     assert sin == sorted(SIN_PRUEBA_OFICIAL), (
         f"sin prueba oficial: {sin}; declaradas: {sorted(SIN_PRUEBA_OFICIAL)}")
+
+
+# --- Lo que no está en las pruebas: el margen de cada sintaxis ----------------
+#
+# Las pruebas unitarias oficiales no prueban el borde de BR-{X}-08, y el de
+# BR-CO-17 solo en un punto. El margen está escrito en otro sitio: en la
+# expresión de cada regla dentro de la vinculación de cada sintaxis, que no
+# dice lo mismo en UBL que en CII. Hasta el 14-09-2026 eso se leía a mano y se
+# copiaba a `sintaxis.py`; ahora se lee de la copia oficial, y si el comité lo
+# cambia en otro commit esto se pone en rojo.
+
+# «- 1 <» o «- 1 <=»: la cifra declarada, menos una unidad, contra la
+# calculada. Sin esa forma la comparación es exacta. El paréntesis opcional es
+# el de UBL, que escribe `xs:decimal(cbc:TaxableAmount - 1) < (…)`.
+MARGEN = re.compile(r"-\s*1\s*\)?\s*(<=|<)")
+
+# El código de cada familia de reglas y la categoría UNCL5305 que comprueba.
+# Coinciden salvo tres: IC es K, AF es L y AG es M.
+FAMILIAS = {"S": "S", "Z": "Z", "E": "E", "AE": "AE", "IC": "K", "G": "G",
+            "O": "O", "AF": "L", "AG": "M"}
+
+
+@functools.cache
+def vinculacion(sintaxis: str) -> dict[str, str]:
+    """Las expresiones de la vinculación oficial de una sintaxis, por nombre."""
+    raiz = etree.parse(str(OFICIAL / f"EN16931-{sintaxis}-model.sch")).getroot()
+    # Los nombres llevan a veces un espacio detrás («VAT_breakdown »).
+    return {p.get("name").strip(): p.get("value") for p in raiz.iter(ISO + "param")}
+
+
+def margen(sintaxis: str, regla: str) -> str:
+    """«exacta», «<» (menos de una unidad) o «<=» (hasta una unidad)."""
+    encontrados = set(MARGEN.findall(vinculacion(sintaxis)[regla]))
+    assert len(encontrados) <= 1, f"{sintaxis} {regla}: márgenes mezclados {encontrados}"
+    return encontrados.pop() if encontrados else "exacta"
+
+
+def _con_margen(sintaxis: str) -> set[str]:
+    salen = {familia: margen(sintaxis, f"BR-{familia}-08") for familia in FAMILIAS}
+    assert set(salen.values()) <= {"exacta", "<"}, (
+        f"{sintaxis}: un BR-{{X}}-08 con «<=», que aquí no está previsto: {salen}")
+    return {FAMILIAS[f] for f, m in salen.items() if m == "<"}
+
+
+def test_la_base_lleva_el_margen_del_esquematron_de_ubl():
+    """S, L y M con menos de una unidad; las otras seis, exactas."""
+    assert _con_margen("UBL") == set(SINTAXIS_UBL.base_admite_una_unidad)
+
+
+def test_la_base_lleva_el_margen_del_esquematron_de_cii():
+    """Al revés que UBL: Z, E, AE, K y G con margen; S, L, M y O, exactas."""
+    assert _con_margen("CII") == set(SINTAXIS_CII.base_admite_una_unidad)
+
+
+def test_la_cuota_lleva_el_borde_del_esquematron_de_cada_sintaxis():
+    assert margen("UBL", "BR-CO-17") == "<"
+    assert margen("CII", "BR-CO-17") == "<="
+    assert SINTAXIS_UBL.cuota_admite_la_unidad_justa is False
+    assert SINTAXIS_CII.cuota_admite_la_unidad_justa is True
+
+
+def test_edifact_y_facturae_siguen_a_ubl_y_no_al_esquematron_de_edifact():
+    """Una decisión, y se prueba que sigue teniendo el motivo que la sostiene.
+
+    El esquematrón oficial de EDIFACT compara **todo exacto**, BR-CO-17
+    incluida, y su último cambio de contenido es de febrero de 2017: lo que
+    vino después fueron cabeceras de licencia. Los márgenes de UBL y CII son
+    de después, y son los que se mantienen. Seguir al de EDIFACT sería volver a
+    rechazar lo que la norma ya acepta, que es lo que se arregló el 13-09-2026.
+    Facturae no tiene esquematrón europeo. Si un commit nuevo pone márgenes en
+    el de EDIFACT, esto se pone en rojo y hay que volver a decidir.
+    """
+    assert _con_margen("EDIFACT") == set()
+    assert margen("EDIFACT", "BR-CO-17") == "exacta"
+    for mapa in (SINTAXIS_EDIFACT, SINTAXIS_FACTURAE):
+        assert mapa.base_admite_una_unidad == SINTAXIS_UBL.base_admite_una_unidad
+        assert mapa.cuota_admite_la_unidad_justa == SINTAXIS_UBL.cuota_admite_la_unidad_justa
+
+
+def test_el_desglose_de_edifact_es_el_grupo_del_esquematron_oficial():
+    """El grupo 54, filtrado por función 7 y tipo VAT, con las mismas palabras.
+
+    En el árbol de aquí los grupos no llevan número —se llaman por el segmento
+    que los abre—, así que el «54» se escribe como lo que es: el grupo de
+    impuesto que cuelga de la raíz después del UNS. El filtro sí se copia tal
+    cual, y se compara letra a letra.
+    """
+    oficial = vinculacion("EDIFACT")["VAT_breakdown"]
+    grupo = "/M_INVOIC/G_SG54"
+    assert oficial.startswith(grupo + "[")
+    filtro = oficial[len(grupo):]
+    assert SINTAXIS_EDIFACT.desglose == "./*[S_TAX][preceding-sibling::S_UNS]" + filtro

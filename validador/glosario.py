@@ -300,6 +300,17 @@ CODIGOS: dict[str, str] = {
         'códigos viene. Para cumplir la norma hay que cambiar el código, no '
         'añadir el importe.'
     ),
+    "EDI-IVA-FUERA-DEL-DESGLOSE": (
+        'Lo mismo que EDI-TOTALES-DE-OTRA-GUIA, con el impuesto. EN 16931 lee '
+        'el desglose de IVA en un sitio concreto de EDIFACT: el grupo de '
+        'impuesto que va después del UNS, marcado como TAX+7+VAT. Hay '
+        'facturas que lo escriben en la cabecera, que es el impuesto del '
+        'documento entero, y otras que lo escriben al final sin el tipo VAT, '
+        'así que no dicen de qué impuesto es. En los dos casos BR-CO-18 dice '
+        'que no hay desglose, y este aviso enseña el TAX que sí hay y por qué '
+        'no cuenta. Solo sale cuando no hay ninguna entrada del desglose: un '
+        'TAX en la cabecera junto a un desglose bien puesto no estorba a nada.'
+    ),
     "BR-15": (
         'Lo que hay que pagar de verdad, que no siempre es el total con '
         'impuestos: de ahí se descuentan los anticipos ya cobrados y se suma '
@@ -623,6 +634,17 @@ CODIGOS: dict[str, str] = {
         'que existen las notas aquí. Si la factura no redondea por líneas, la '
         'diferencia no tiene explicación y conviene mirarla: un 21,50 sobre '
         '100 al 21% pasa la norma y no sale de ninguna cuenta.'
+    ),
+    "IVA-BASE-TOLERADA": (
+        'La base de una entrada del desglose no es la suma de sus conceptos, '
+        'pero se aparta menos de una unidad y el esquematrón oficial de esa '
+        'sintaxis lo deja pasar: el de UBL en el tipo general, el IGIC y el '
+        'IPSI, y el de CII en las cinco categorías de tipo cero. Por eso no '
+        'sale como error. Sale como aviso, y no como nota como la cuota, '
+        'porque aquí no hay redondeo que lo explique: una base es una suma de '
+        'importes de dos decimales, y si no cuadra al céntimo algún concepto '
+        'no está donde dice. Un receptor que sume las líneas no llegará a la '
+        'cifra declarada.'
     ),
     "EDI-ETIQUETA-IMPOSIBLE": (
         'Hay texto donde tenía que empezar un segmento. Una etiqueta EDIFACT '
@@ -1761,7 +1783,11 @@ CODIGOS: dict[str, str] = {
         'línea 1, la línea 2 y el cargo 2»—, que es lo que hace falta para '
         'ver cuál baila. Hay una segunda forma de fallar: que no haya ningún '
         'concepto detrás de esa base, y entonces se dice así, porque '
-        'contestar «debería ser 0,00» no ayuda a nadie.'
+        'contestar «debería ser 0,00» no ayuda a nadie. Cuánto margen hay '
+        'depende de la sintaxis, porque los dos esquematrones oficiales no '
+        'coinciden: el de UBL deja pasar menos de una unidad y el de CII la '
+        'exige exacta. Aquí se sigue a cada uno, y EDIFACT y Facturae van con '
+        'el de UBL. Lo que pasa por el margen sale como IVA-BASE-TOLERADA.'
     ),
     "BR-S-10": (
         'Una entrada a tipo general trae motivo de exención, y la norma no lo '
@@ -1814,15 +1840,15 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-O-08": (
         'La base declarada como no sujeta no cuadra con los conceptos que van '
-        'a esa categoría. Tiene una particularidad que ninguna otra tiene: al '
-        'emparejar el desglose con los conceptos, el tipo no entra en la '
-        'cuenta. En las demás categorías el par es categoría y tipo; aquí la '
-        'norma prohíbe el tipo, así que si las líneas vienen sin él y el '
-        'desglose trae un 0,0000, los dos caen en cubos distintos y se '
-        'fabrica un descuadre que no existe. Está medido: una factura '
-        'correcta salía con tres quejas, y dos se contradecían entre sí —una '
-        'decía que al desglose le faltaban conceptos y la otra que a los '
-        'conceptos les faltaba desglose—.'
+        'a esa categoría. Al emparejar el desglose con los conceptos el tipo '
+        'no entra en la cuenta: la norma prohíbe declararlo, y si las líneas '
+        'vienen sin él y el desglose trae un 0,0000, caían en cubos distintos '
+        'y se fabricaba un descuadre que no existe. Está medido: una factura '
+        'correcta salía con tres quejas, y dos se contradecían entre sí. '
+        'Empezó aquí y desde el 14 de septiembre de 2026 vale para las seis '
+        'categorías de una sola entrada, que es como las suman los '
+        'esquematrones oficiales. Y es la única base exacta en las dos '
+        'sintaxis: ni UBL ni CII le dan margen.'
     ),
     "BR-O-10": (
         'Una entrada no sujeta sin explicar por qué no lleva IVA. Es la '
@@ -1881,7 +1907,8 @@ CODIGOS: dict[str, str] = {
         'error aquí no descuadra el total de la factura y ninguna de las '
         'reglas aritméticas de arriba lo ve —las de los totales miran la base '
         'del documento, no la de cada categoría—. Ésta es la única que lo '
-        'dice.'
+        'dice. El margen va al revés que en el tipo general: exacta en UBL, y '
+        'en CII menos de una unidad, que sale como IVA-BASE-TOLERADA.'
     ),
     "BR-Z-10": (
         'Una entrada a tipo cero trae motivo de exención, y la norma se lo '
@@ -1938,7 +1965,9 @@ CODIGOS: dict[str, str] = {
         'declara no estar gravando: si sobra, la factura da por exento algo '
         'que no lo es; si falta, hay importe exento que no aparece en ninguna '
         'parte. Ninguna de las dos cosas mueve un céntimo de impuesto, y las '
-        'dos cambian lo que la factura afirma sobre sí misma.'
+        'dos cambian lo que la factura afirma sobre sí misma. Exacta en UBL; '
+        'en CII se admite menos de una unidad, y lo que pasa por ese margen '
+        'sale como IVA-BASE-TOLERADA.'
     ),
     "BR-E-10": (
         'Una entrada exenta sin decir por qué lo está. La norma no se '
@@ -1991,7 +2020,9 @@ CODIGOS: dict[str, str] = {
         'esta categoría no es una formalidad contable: esa base es '
         'exactamente la cifra sobre la que quien recibe tiene que calcular e '
         'ingresar el impuesto. Una base mal sumada aquí no deja mal una '
-        'factura, deja mal una declaración ajena.'
+        'factura, deja mal una declaración ajena. Exacta en UBL; en CII se '
+        'admite menos de una unidad, y lo que pasa por ese margen sale como '
+        'IVA-BASE-TOLERADA.'
     ),
     "BR-AE-10": (
         'Una entrada con inversión del sujeto pasivo sin decir por qué no '
@@ -2047,7 +2078,8 @@ CODIGOS: dict[str, str] = {
         'operaciones intracomunitarias, que se cruza con lo que declare el '
         'comprador en su país. Cuando las dos no coinciden, quien tiene que '
         'explicarlo es quien emitió la factura, y lo que hay que explicar '
-        'sale de aquí.'
+        'sale de aquí. Exacta en UBL; en CII se admite menos de una unidad, y '
+        'lo que pasa por ese margen sale como IVA-BASE-TOLERADA.'
     ),
     "BR-G-01": (
         'Hay conceptos declarados como exportación y el desglose no recoge '
@@ -2090,7 +2122,8 @@ CODIGOS: dict[str, str] = {
         'exportada que no coincide con lo que salió por la aduana es '
         'exactamente lo que pone en duda una exención. El informe enumera los '
         'conceptos que van a esa categoría, que es lo que permite compararlos '
-        'con el envío.'
+        'con el envío. Exacta en UBL; en CII se admite menos de una unidad, y '
+        'lo que pasa por ese margen sale como IVA-BASE-TOLERADA.'
     ),
     "BR-AF-01": (
         'Hay conceptos con IGIC y el desglose no recoge esa categoría. El '
@@ -2110,7 +2143,8 @@ CODIGOS: dict[str, str] = {
         'cuáles —la regla que avisa de un tipo que no existe en España se '
         'aparta a propósito en Canarias y en Ceuta y Melilla—. Lo que sí se '
         'comprueba es que la base declarada sea la de los conceptos que van '
-        'ahí.'
+        'ahí. Con menos de una unidad de margen en UBL y exacta en CII; lo '
+        'que pasa por el margen sale como IVA-BASE-TOLERADA.'
     ),
     "BR-AF-05": (
         'Una línea con IGIC declara un tipo negativo. La norma no le fija al '
@@ -2166,7 +2200,9 @@ CODIGOS: dict[str, str] = {
         'ninguna línea a ese tipo detrás. Eso es una de dos cosas, y se '
         'arreglan en sitios distintos: o sobra esa entrada del desglose, o '
         'hay una línea con la categoría o el tipo cambiados. El informe lo '
-        'dice con esas palabras en vez de pedir una suma que daría cero.'
+        'dice con esas palabras en vez de pedir una suma que daría cero. Con '
+        'menos de una unidad de margen en UBL y exacta en CII; lo que pasa '
+        'por el margen sale como IVA-BASE-TOLERADA.'
     ),
     "BR-AG-05": (
         'Una línea con IPSI declara un tipo negativo. El IPSI, el impuesto de '

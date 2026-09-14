@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1411 tests, todos en verde.
+1431 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3604,9 +3604,10 @@ o no saltar. Son las pruebas con las que el comité comprueba su esquematrón.
 
 Aquí se usan al revés, para comprobar el validador. `herramientas/norma_oficial.py`
 trae una copia fijada a un commit —el de la v1.3.16— a `tests/en16931-oficial/`:
-279 ficheros de pruebas, el esquematrón del modelo, el de listas de códigos y
-la EUPL 1.2, que es su licencia. `tests/test_norma_oficial.py` hace cuatro
-cosas:
+279 ficheros de pruebas, el esquematrón del modelo, el de listas de códigos, la
+vinculación de cada sintaxis —UBL, CII y EDIFACT, que es donde está la
+expresión que se evalúa— y la EUPL 1.2, que es su licencia.
+`tests/test_norma_oficial.py` hace seis cosas:
 
 | Qué comprueba | Contra qué |
 |---|---|
@@ -3614,12 +3615,14 @@ cosas:
 | que cada una de las **223 reglas** está hecha o pendiente, y ningún `BR-` del catálogo es inventado | las reglas leídas del esquematrón, no de una lista |
 | que la gravedad es la de la norma | el `flag` de cada regla |
 | que en cada caso oficial de cada regla hecha se dice lo mismo que la prueba | los 567 casos, uno a uno |
+| que el margen de BR-CO-17 y de cada BR-{X}-08 es el de cada sintaxis | la expresión de la regla en la vinculación de UBL, CII y EDIFACT |
+| que el desglose de EDIFACT se lee donde lo lee la norma | el grupo `VAT_breakdown` de la vinculación de EDIFACT, letra a letra |
 
 **Se versiona, a diferencia del anexo de la AEAT**, y a propósito. Las pruebas
 del anexo se saltan si falta el PDF; aquí eso sería un verde que no ha
 comprobado nada en la máquina donde falta la copia, y lo que se comprueba es
 si el motor dice lo mismo que la norma. No son facturas de nadie: son
-fragmentos sintéticos del comité, bajo EUPL, 1,2 MB.
+fragmentos sintéticos del comité, bajo EUPL, 1,4 MB.
 
 ### Lo que salió el primer día
 
@@ -3703,18 +3706,83 @@ tenían su `BR-01` de error, y 10 pasan a `PERFIL-SIN-EN16931`—; dos `BR-CO-17
 pasan a nota, entre ellas la de los forintos; y aparece un `BR-E-01`.
 
 **Ese `BR-E-01` destapa algo que no es de esta tanda.** Es una factura EANCOM
-con el mismo `TAX+7+VAT+++:::0+E` en la cabecera y en el resumen. El mapa de
-EDIFACT lee como entrada del desglose todo grupo de impuesto que cuelga de la
-raíz, y el de la cabecera no lo es: es la información de impuesto del documento
-entero, sin base ni cuota. De ahí salen los `BR-45` y `BR-46` de **37 de las 73
-facturas EDIFACT de terceros del corpus**, que ya estaban antes de hoy. Queda apuntado como lo
-siguiente que arreglar, con el recuento delante.
+con el mismo `TAX+7+VAT+++:::0+E` en la cabecera y en el resumen, y el mapa de
+EDIFACT leía los dos como entradas del desglose. Aquí se escribió ese día que de
+eso salían los `BR-45` y `BR-46` de 37 de las 73 facturas EDIFACT del corpus.
+**Era falso**: 37 son las facturas que tenían la queja, no las que la tenían
+por eso. Lo medido está en la sección siguiente.
 
-**Lo que sigue sin comprobar contra la norma**: la base de cada entrada
-(BR-{X}-08). Los dos esquematrones la comparan distinto —el de UBL con una
-unidad de margen en el tipo general y exacta en las demás, el de CII al revés—
-y ninguna prueba oficial prueba el borde. Aquí sigue con el céntimo, y es
-una decisión pendiente, no un acierto.
+### El desglose de EDIFACT, y el margen de la base
+
+Las dos cosas que la tanda anterior dejó apuntadas se cerraron el 14-09-2026, y
+las dos con el texto oficial delante en vez de con una lectura.
+
+**El desglose de EDIFACT es el grupo 54.** El esquematrón oficial de EDIFACT
+—que existe, y no se había mirado— lo nombra así:
+`/M_INVOIC/G_SG54[S_TAX/D_5283='7' and S_TAX/C_C241/D_5153='VAT']`, el grupo
+de impuesto que va después del `UNS`, y solo si es de IVA. El mapa de aquí
+pedía `./*[S_TAX]`, cualquier grupo de impuesto colgado de la raíz, y entraban
+dos que no lo son: el de la cabecera, que es el impuesto del documento entero,
+y uno del resumen que no dice de qué impuesto es. Ahora pide lo mismo que el
+oficial, y una prueba compara el filtro letra a letra con la copia fijada.
+
+**Y lo que se había escrito del corpus, medido antes de arreglarlo.** De las 85
+facturas EDIFACT, **13** traen un TAX en la cabecera y **2** uno al final sin el
+tipo VAT; esas 15 son las que cambian. En las demás la queja es buena: en 21
+facturas la base, el `MOA+125`, va escrita fuera del grupo de impuesto, y no
+dentro, que es donde la norma la lee; en otras la cuota viene con el
+cualificador 150, 161 o 176 en vez del 124.
+
+| Facturas EDIFACT, de 85 | antes | después |
+|---|---|---|
+| con `BR-45` | 37 | 25 |
+| con `BR-46` | 26 | 14 |
+| con `BR-CO-18` | 20 | 30 |
+
+**Diez facturas pasan a «no trae desglose», y no se quedan ahí.** Donde el
+único TAX estaba en la cabecera, o al final sin el tipo VAT, sale ahora
+`BR-CO-18`. Es verdad donde la norma lo lee, pero quien lo lee va a buscar un
+TAX que tiene delante; por eso sale al lado `EDI-IVA-FUERA-DEL-DESGLOSE`, un
+aviso que dice cuál hay y por qué no cuenta. Es la idea de
+`EDI-TOTALES-DE-OTRA-GUIA`, con el impuesto.
+
+**El margen de la base, BR-{X}-08, sale ahora del esquematrón.** El modelo
+abstracto solo dice `$BR-S-08`; la comparación de verdad está en la vinculación
+de cada sintaxis, que desde hoy viaja en la copia oficial. Leída de ahí:
+
+| Categoría | UBL | CII | EDIFACT, de 2017 |
+|---|---|---|---|
+| S, L, M | menos de una unidad | exacta | exacta |
+| Z, E, AE, K, G | exacta | menos de una unidad | exacta |
+| O | exacta | exacta | exacta |
+
+Aquí había un céntimo para todas, y se equivocaba en las dos direcciones y en
+las dos sintaxis: un céntimo de diferencia en la base del tipo general salía
+limpio y el esquematrón de CII lo rechaza, y en UBL pasaba lo mismo con la
+exenta. Ahora se sigue a cada esquematrón, y lo que dice `sintaxis.py` lo
+comprueba una prueba que lee la expresión de cada regla: si el comité la cambia,
+se pone en rojo. Lo que pasa por el margen no se calla: sale como
+`IVA-BASE-TOLERADA`, un aviso y no una nota, porque una base es una suma y no
+tiene redondeo que la explique.
+
+**EDIFACT y Facturae siguen a UBL, y es una decisión.** El esquematrón de
+EDIFACT compara todo exacto, BR-CO-17 incluida, pero su último cambio de
+contenido es de febrero de 2017; los márgenes de UBL y CII llegaron después y
+ese no se tocó. Seguirlo sería volver a rechazar lo que la norma ya acepta.
+Facturae no tiene esquematrón europeo. Una prueba comprueba que el de EDIFACT
+sigue sin márgenes: el día que un commit nuevo se los ponga, hay que volver a
+decidir.
+
+**Y las categorías de una sola entrada se suman sin mirar el tipo**, que es
+como lo hacen los dos esquematrones. En el corpus lo cambia una factura: una
+línea a tipo cero con un 20% escrito salía con tres errores —el tipo, la base
+y la línea sin desglose— y sale con uno, `BR-Z-05`, que es el defecto que
+tiene.
+
+**Lo que cambió en las 179 facturas del corpus**: de 1168 incidencias a 1134.
+Cada pieza se provocó rompiéndola —quitar el UNS, quitar el filtro de IVA, dar
+a UBL el margen de CII, poner a EDIFACT el de 2017, volver al céntimo, volver
+a la clave con tipo— y cada una se puso en rojo en su prueba.
 
 ## Por qué este y no otro, contestado sin pedir fe
 

@@ -187,16 +187,19 @@ def _clave(
     Por categoría **y tipo**, porque así va el desglose: material al 21% y
     comida al 10% son dos entradas aunque las dos sean categoría S.
 
-    La excepción son las categorías donde la norma *prohíbe* declarar tipo —O,
-    operación no sujeta, porque lo que no está sujeto no tiene tipo que
-    aplicar—. Ahí el tipo no puede entrar en la clave: si las líneas vienen
-    sin él y el desglose trae un `0.0000`, caen en cubos distintos y se
-    fabrica un descuadre que no existe. Una factura correcta salía con tres
-    quejas que además se contradecían entre sí: una decía que al desglose le
-    faltaban conceptos y otra que a los conceptos les faltaba desglose.
+    La excepción son las categorías de **una sola entrada** —Z, E, AE, K, G y
+    O—: todo lo que va a ellas se declara junto, y así lo suman los dos
+    esquematrones oficiales en BR-{X}-08, por categoría y sin mirar el tipo.
+    Empezó por O, donde la norma prohíbe declarar tipo: si las líneas venían
+    sin él y el desglose traía un `0.0000`, caían en cubos distintos y una
+    factura correcta salía con tres quejas que se contradecían entre sí. Pasaba
+    lo mismo, en pequeño, con una línea exenta que trae un 5% escrito: quedaba
+    fuera de su entrada y salían la base descuadrada y la línea sin desglose,
+    cuando el defecto es uno y ya lo dice BR-E-05. Desde el 14-09-2026 la
+    excepción es la de la norma, las seis.
     """
     regla = REGLAS.get(categoria)
-    if regla is not None and regla.tipo == SIN_TIPO:
+    if regla is not None and regla.desgloses == UNA_SOLA:
         return (categoria, None)
     return (categoria, tipo)
 
@@ -499,8 +502,19 @@ def _ajustes_no_cuadran(raiz, sintaxis: Sintaxis, apuntes: list[Apunte]) -> bool
     ) or (declarado_cargos is not None and not cuadra(cargos, declarado_cargos))
 
 
-def _regla_base_por_grupo(grupo: Grupo, apuntes: list[Apunte]) -> list[Incidencia]:
-    """BR-{X}-08: la base de cada entrada del desglose es la suma de lo suyo."""
+def _regla_base_por_grupo(
+    grupo: Grupo, apuntes: list[Apunte], sintaxis: Sintaxis
+) -> list[Incidencia]:
+    """BR-{X}-08: la base de cada entrada del desglose es la suma de lo suyo.
+
+    Exacta, redondeada a dos decimales, o a menos de una unidad: depende de la
+    categoría y de la sintaxis, porque así lo escribe el esquematrón oficial de
+    cada una (`Sintaxis.base_admite_una_unidad`). Lo que se admite por el
+    margen no se calla: sale como IVA-BASE-TOLERADA, un aviso, porque a
+    diferencia de la cuota aquí no hay redondeo que lo explique. Una base es
+    una suma de importes de dos decimales, y si no cuadra al céntimo es que
+    algo no está donde dice.
+    """
     if grupo.base is None or grupo.categoria is None:
         return []
     regla = REGLAS.get(grupo.categoria)
@@ -537,8 +551,25 @@ def _regla_base_por_grupo(grupo: Grupo, apuntes: list[Apunte]) -> list[Incidenci
         ]
 
     suma = sum((a.importe for a in suyos), Decimal(0))
-    if cuadra(suma, grupo.base):
+    if cuadra_exacto(suma, grupo.base):
         return []
+    if (grupo.categoria in sintaxis.base_admite_una_unidad
+            and abs(grupo.base - suma) < 1):
+        return [
+            Incidencia(
+                "IVA-BASE-TOLERADA",
+                AVISO,
+                f"La base declarada para {grupo} se aparta "
+                f"{abs(grupo.base - suma):.2f} de la suma de lo que va a ese "
+                f"tipo. El esquematrón oficial de {sintaxis.nombre} lo deja "
+                "pasar porque es menos de una unidad, y por eso no es un "
+                f"error de {codigo}; pero una base es una suma y no tiene "
+                "redondeo que la explique, así que algo no está donde dice.",
+                campo=f"Base imponible de {grupo}",
+                esperado=f"{suma:.2f} ({', '.join(a.descripcion for a in suyos)})",
+                encontrado=fmt(grupo.base),
+            )
+        ]
     return [
         Incidencia(
             codigo,
@@ -1100,7 +1131,7 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
         incidencias.extend(_reglas_campos_del_grupo(grupo, sintaxis))
         incidencias.extend(_regla_forma_del_grupo(grupo))
         if not a_ciegas:
-            incidencias.extend(_regla_base_por_grupo(grupo, apuntes))
+            incidencias.extend(_regla_base_por_grupo(grupo, apuntes, sintaxis))
         incidencias.extend(_regla_cuota_por_grupo(grupo, sintaxis))
     incidencias.extend(_regla_tipo_de_los_conceptos(apuntes))
     incidencias.extend(_regla_hay_desglose(grupos, apuntes))

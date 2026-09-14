@@ -20,6 +20,12 @@ Se trae, de un commit fijo:
 - `test/Invoice-unit-UBL`, `test/CreditNote-unit-UBL` y `test/cii`: las pruebas.
 - `ubl/schematron/abstract/EN16931-model.sch`: las 201 reglas del modelo.
 - `ubl/schematron/codelist/EN16931-UBL-codes.sch`: las 22 de listas de códigos.
+- `EN16931-UBL-model.sch`, `EN16931-CII-model.sch` y `EN16931-EDIFACT-model.sch`,
+  de `ubl/`, `cii/` y `edifact/`: la **vinculación** de cada sintaxis, donde está
+  la expresión que se evalúa de verdad. El modelo abstracto de arriba solo dice
+  `$BR-S-08`; lo que compara, y con cuánto margen, está aquí, y no dice lo
+  mismo en cada sintaxis. Se trajo el 14-09-2026 para que el margen de cada
+  regla aritmética saliera de este texto y no de una lectura hecha a mano.
 - `LICENSE.txt`: la EUPL 1.2, que acompaña a la copia porque la licencia lo pide.
 
 Por qué se versiona, a diferencia del anexo de la AEAT
@@ -57,6 +63,9 @@ CARPETAS = ("test/Invoice-unit-UBL", "test/CreditNote-unit-UBL", "test/cii")
 SUELTOS = {
     "ubl/schematron/abstract/EN16931-model.sch": "EN16931-model.sch",
     "ubl/schematron/codelist/EN16931-UBL-codes.sch": "EN16931-UBL-codes.sch",
+    "ubl/schematron/UBL/EN16931-UBL-model.sch": "EN16931-UBL-model.sch",
+    "cii/schematron/CII/EN16931-CII-model.sch": "EN16931-CII-model.sch",
+    "edifact/schematron/EDIFACT/EN16931-EDIFACT-model.sch": "EN16931-EDIFACT-model.sch",
     "LICENSE.txt": "LICENSE.txt",
 }
 
@@ -122,6 +131,9 @@ def main(commit: str) -> None:
         f"- {pruebas} ficheros de pruebas unitarias: "
         + ", ".join(f"`{c}`" for c in CARPETAS) + ".\n"
         "- `EN16931-model.sch` y `EN16931-UBL-codes.sch`, de `ubl/schematron/`.\n"
+        "- `EN16931-UBL-model.sch`, `EN16931-CII-model.sch` y\n"
+        "  `EN16931-EDIFACT-model.sch`: la vinculación de cada sintaxis, con las\n"
+        "  expresiones que se evalúan.\n"
         "- `LICENSE.txt`: European Union Public Licence 1.2, la licencia de\n"
         "  todo lo anterior.\n\n"
         f"Huella del contenido (SHA-256, finales de línea normalizados):\n`{huella(temporal)}`\n",

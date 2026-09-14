@@ -878,6 +878,59 @@ def totales_de_otra_guia(raiz, deteccion) -> list[Incidencia]:
         )
     ]
 
+
+def iva_fuera_del_desglose(raiz, deteccion) -> list[Incidencia]:
+    """Avisa cuando no hay desglose, pero sí un TAX donde la norma no lo busca.
+
+    Es el mismo problema que el de los totales, con el impuesto. EN 16931 lee
+    el desglose en el grupo 54: después del UNS y marcado como IVA. Hay
+    facturas que lo escriben en la cabecera, en el grupo 6, que es el impuesto
+    del documento entero; y hay facturas que lo escriben al final pero sin el
+    tipo VAT, así que no dicen de qué impuesto es. En los dos casos BR-CO-18
+    dice que no hay desglose, y quien lo lee busca un TAX que tiene delante.
+
+    Solo se avisa cuando no hay ninguna entrada del desglose: con desglose, un
+    TAX en la cabecera es EDIFACT legítimo y no estorba a nada.
+    """
+    if raiz is None or not deteccion or deteccion.familia != FAMILIA:
+        return []
+    from validador.sintaxis import SINTAXIS_EDIFACT
+
+    if raiz.xpath(SINTAXIS_EDIFACT.desglose):
+        return []
+    cabecera = raiz.xpath("./*[S_TAX][not(preceding-sibling::S_UNS)]")
+    resumen = raiz.xpath("./*[S_TAX][preceding-sibling::S_UNS]")
+    if not cabecera and not resumen:
+        return []
+    donde = []
+    if cabecera:
+        donde.append(
+            f"{len(cabecera)} en la cabecera, antes del UNS"
+            if len(cabecera) > 1
+            else "uno en la cabecera, antes del UNS"
+        )
+    if resumen:
+        donde.append(
+            f"{len(resumen)} en el resumen sin decir que son IVA"
+            if len(resumen) > 1
+            else "uno en el resumen sin decir que es IVA"
+        )
+    return [
+        Incidencia(
+            "EDI-IVA-FUERA-DEL-DESGLOSE",
+            AVISO,
+            f"La factura trae grupos de impuesto —{_y(donde)}—, pero ninguno "
+            "donde EN 16931 lee el desglose: después del UNS y marcado como "
+            "IVA, TAX+7+VAT. Por eso BR-CO-18 dice que no hay desglose: el "
+            "impuesto está escrito, pero donde la norma no lo mira. El de la "
+            "cabecera es el impuesto del documento entero y no sustituye al "
+            "desglose; el del resumen necesita el tipo VAT para ser del IVA.",
+            campo="TAX, grupo de impuesto",
+            esperado="TAX+7+VAT después del UNS, con su MOA+125 y su MOA+124",
+            encontrado=_y(donde),
+        )
+    ]
+
 # --- Entrada pública -------------------------------------------------------
 
 

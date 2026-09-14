@@ -563,6 +563,9 @@ class TestElMapaEsSoloUnMapa:
                     # Un sí o un no: qué esquematrón oficial se sigue en el
                     # borde de BR-CO-17. Tampoco es una ruta.
                     "cuota_admite_la_unidad_justa",
+                    # Un conjunto de categorías: en cuáles BR-{X}-08 admite
+                    # menos de una unidad. Tampoco es una ruta.
+                    "base_admite_una_unidad",
                 ):
                     continue
                 # «self::» es tan relativa como «./», y hace falta en EDIFACT

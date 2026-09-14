@@ -335,6 +335,33 @@ class TestLosGrupos:
         raiz, _ = edifact.convertir(sobre(CUERPO))
         assert len(raiz.xpath(sintaxis.SINTAXIS_EDIFACT.desglose)) == 1
 
+    def test_el_iva_de_la_cabecera_tampoco(self):
+        """El TAX de la cabecera no es una entrada del desglose.
+
+        Cuelga de la raíz igual que el del resumen, así que por el sitio no se
+        distinguen: se distinguen por el UNS. El de la cabecera es el grupo 6,
+        el impuesto del documento entero, sin base ni cuota; el desglose es el
+        grupo 54, y el esquematrón oficial de EDIFACT lo pide con ese nombre.
+        Leído como desglose salían dos entradas donde hay una, las dos a
+        medias, y con ellas BR-45 y BR-46 sobre una factura correcta.
+        """
+        cuerpo = CUERPO.replace("CUX+2:EUR:4'", "CUX+2:EUR:4'TAX+7+VAT+++:::21+S'")
+        raiz, _ = edifact.convertir(sobre(cuerpo))
+        assert len(raiz.xpath(sintaxis.SINTAXIS_EDIFACT.desglose)) == 1
+        assert not codigos(quejas(sobre(cuerpo)), ERROR)
+
+    def test_ni_un_impuesto_que_no_es_el_iva(self):
+        """Un TAX del resumen que no es de IVA no entra en el desglose del IVA.
+
+        El esquematrón oficial lo filtra por las dos cosas: función 7, impuesto,
+        y tipo VAT. Sin el filtro, un impuesto especial declarado al final se
+        leía como una entrada del desglose sin categoría ni base.
+        """
+        cuerpo = CUERPO + "TAX+7+EXC'MOA+124:0'"
+        raiz, _ = edifact.convertir(sobre(cuerpo))
+        assert len(raiz.xpath(sintaxis.SINTAXIS_EDIFACT.desglose)) == 1
+        assert not codigos(quejas(sobre(cuerpo)), ERROR)
+
     def test_una_referencia_detras_de_una_parte_es_de_esa_parte(self):
         """El NIF del vendedor va en un RFF detrás de su NAD."""
         cuerpo = CUERPO.replace(
@@ -518,6 +545,45 @@ class TestLasReglasCorren:
     def test_el_codigo_unico_no_se_reprocha(self):
         """No es que falte: es que EDIFACT no tiene dónde escribirlo."""
         assert "CU-00" not in codigos(quejas(sobre(CUERPO)))
+
+
+class TestElIvaFueraDelDesglose:
+    """Un impuesto escrito, pero donde la norma no busca el desglose.
+
+    Desde que el desglose es solo el grupo 54, una factura que declara su IVA
+    en la cabecera, o al final pero sin decir que es IVA, recibe un BR-CO-18:
+    «no trae el desglose». Es verdad donde la norma lo lee, y quien lo lee va
+    a buscar un TAX que tiene delante. El aviso dice cuál tiene y por qué no
+    cuenta.
+    """
+
+    SIN_RESUMEN = CUERPO.replace("TAX+7+VAT+++:::21+S'MOA+125:1000'MOA+124:210'", "")
+
+    def test_el_de_la_cabecera(self):
+        cuerpo = self.SIN_RESUMEN.replace("CUX+2:EUR:4'", "CUX+2:EUR:4'TAX+7+VAT+++:::21+S'")
+        incidencias = quejas(sobre(cuerpo))
+        assert "BR-CO-18" in codigos(incidencias, ERROR)
+        assert "EDI-IVA-FUERA-DEL-DESGLOSE" in codigos(incidencias, AVISO)
+        assert "cabecera" in texto_de(incidencias, "EDI-IVA-FUERA-DEL-DESGLOSE")
+
+    def test_el_del_resumen_sin_decir_que_es_iva(self):
+        """El caso de dos facturas reales del corpus: `TAX+7++++…+E`, sin VAT."""
+        cuerpo = self.SIN_RESUMEN + "TAX+7++++:::21+S'MOA+125:1000'MOA+124:210'"
+        incidencias = quejas(sobre(cuerpo))
+        assert "BR-CO-18" in codigos(incidencias, ERROR)
+        assert "EDI-IVA-FUERA-DEL-DESGLOSE" in codigos(incidencias, AVISO)
+        assert "VAT" in texto_de(incidencias, "EDI-IVA-FUERA-DEL-DESGLOSE")
+
+    def test_con_desglose_no_se_avisa_aunque_haya_otro_en_la_cabecera(self):
+        """El TAX de la cabecera es EDIFACT legítimo: solo estorba si es el único."""
+        cuerpo = CUERPO.replace("CUX+2:EUR:4'", "CUX+2:EUR:4'TAX+7+VAT+++:::21+S'")
+        assert "EDI-IVA-FUERA-DEL-DESGLOSE" not in codigos(quejas(sobre(cuerpo)))
+
+    def test_sin_ningun_tax_tampoco(self):
+        """Si no hay nada escrito, BR-CO-18 ya lo dice todo."""
+        incidencias = quejas(sobre(self.SIN_RESUMEN))
+        assert "BR-CO-18" in codigos(incidencias, ERROR)
+        assert "EDI-IVA-FUERA-DEL-DESGLOSE" not in codigos(incidencias)
 
 
 class TestLosTotalesDeOtraGuia:

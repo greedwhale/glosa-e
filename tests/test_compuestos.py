@@ -47,6 +47,7 @@ from validador.iva import (
     Apunte,
     Grupo,
 )
+from validador.sintaxis import SINTAXIS_UBL
 
 # Los cincuenta y cuatro, escritos. Seis por cada una de las nueve categorías:
 # la que no aparece en el desglose (01), el tipo del concepto según cuelgue de
@@ -151,7 +152,7 @@ def _lo_que_sale_de_verdad() -> set[str]:
         # BR-{X}-08: base declarada que no cuadra con lo que va a ese tipo.
         grupo = Grupo(categoria, VEINTIUNO, Decimal(999), CERO_D, None)
         for i in iva._regla_base_por_grupo(
-            grupo, [_apunte(categoria, VEINTIUNO)]
+            grupo, [_apunte(categoria, VEINTIUNO)], SINTAXIS_UBL
         ):
             salen.add(i.codigo)
 

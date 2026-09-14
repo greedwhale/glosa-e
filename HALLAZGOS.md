@@ -3090,6 +3090,69 @@ su prueba y en la oficial.
 **Lo que cambió en las 179 facturas del corpus**, medido antes y después: de
 1241 incidencias a 1168, casi todo un aviso de BR-01 duplicado en EDIFACT.
 Una sola queja nueva, y es la pista de lo siguiente: el mapa de EDIFACT lee el
-grupo de impuesto de la cabecera como si fuera una entrada del desglose, y de
-ahí salen `BR-45` y `BR-46` en 37 de las 73 facturas EDIFACT de terceros del
-corpus desde antes de hoy.
+grupo de impuesto de la cabecera como si fuera una entrada del desglose. Aquí se
+escribió que de eso salían `BR-45` y `BR-46` en 37 de las 73 facturas EDIFACT de
+terceros del corpus. No era así, y lo cuenta la sección siguiente.
+
+## El TAX de la cabecera, leído como desglose, y un recuento que no se midió
+
+**Qué pasaba.** El mapa de EDIFACT leía como entrada del desglose de IVA
+cualquier grupo de impuesto colgado de la raíz. En EDIFACT cuelgan de la raíz
+dos que no lo son: el de la cabecera —el grupo 6, el impuesto del documento
+entero, sin base ni cuota— y los del resumen que no llevan el tipo VAT. El
+esquematrón oficial de EDIFACT pide el grupo 54: después del `UNS`, función 7 y
+tipo VAT. Con el de la cabecera dentro salían dos entradas donde había una, las
+dos a medias, y con ellas `BR-45` y `BR-46` sobre facturas que traían su base y
+su cuota.
+
+**Lo que se había escrito, y no se había medido.** El 13-09-2026 se anotó que
+de ahí salían los `BR-45` y `BR-46` de 37 de las 73 facturas EDIFACT de
+terceros. 37 eran las facturas con la queja, y se les atribuyó una causa sin
+mirarla. Medido el 14-09-2026, antes de tocar nada: 13 de las 85 facturas
+EDIFACT del corpus traen un TAX en la cabecera, y las 13 tenían los dos errores;
+otras 2 traen el del resumen sin el tipo VAT. En las demás la queja es buena: en
+21 la base va escrita fuera del grupo de impuesto; en otras la cuota lleva el
+cualificador 150, 161 o 176 en vez del 124. Las facturas con `BR-45` pasan de
+37 a 25, y las que tienen `BR-46`, de 26 a 14.
+
+**Reproducido** con la factura mínima de las pruebas y un
+`TAX+7+VAT+++:::21+S` en la cabecera: dos entradas del desglose y dos errores.
+Y con un `TAX+7+EXC` al final: dos entradas, una de un impuesto que no es el
+IVA.
+
+**Arreglado** con la ruta del oficial, y una prueba que compara el filtro con
+la copia fijada. **Provocado**: sin la condición del `UNS` vuelve la entrada de
+la cabecera, sin el filtro vuelve la del impuesto especial, y cada prueba se
+pone en rojo.
+
+**Lo que trajo detrás.** Diez facturas pasan de «a esta entrada le falta la
+base» a «no hay desglose», que es lo que dice la norma de ellas. Para que eso
+no mande a buscar un TAX que está a la vista, sale al lado
+`EDI-IVA-FUERA-DEL-DESGLOSE`.
+
+## Un céntimo para la base de cada entrada, que no era el de ninguna sintaxis
+
+**Qué pasaba.** BR-{X}-08 —la base de cada entrada del desglose es la suma de
+sus conceptos— se comprobaba con un céntimo de margen en todas las categorías.
+Los dos esquematrones mantenidos no lo hacen así, y no coinciden entre sí: el de
+UBL admite menos de una unidad en S, L y M y exige exactas las demás; el de CII,
+al revés, salvo O, exacta en los dos. El céntimo fallaba en las dos direcciones:
+dejaba pasar un céntimo que CII rechaza en el tipo general y UBL en la exenta.
+
+**Por qué no se vio.** La tanda anterior lo dejó escrito como pendiente, y
+leído a mano. Las pruebas oficiales no prueban ese borde, y el margen está en la
+expresión de la vinculación de cada sintaxis, que no estaba en la copia.
+
+**Arreglado** trayendo las tres vinculaciones a la copia oficial y leyendo el
+margen de ahí: `test_norma_oficial` saca de la expresión de cada regla si
+compara exacto, con `<` o con `<=`, y lo compara con `sintaxis.py`. Lo que pasa
+por el margen sale como `IVA-BASE-TOLERADA`, aviso. EDIFACT y Facturae siguen a
+UBL: el esquematrón de EDIFACT compara todo exacto, pero no ha cambiado de
+contenido desde 2017, y hay una prueba que se pone en rojo si un día cambia.
+
+**Provocado** seis veces: UBL con el margen de CII, EDIFACT con el de 2017, sin
+margen, con la unidad justa, vuelta al céntimo y la clave con tipo en las
+categorías de una sola entrada. Las seis, en rojo.
+
+**En el corpus** cambia una factura, y para bien: una línea a tipo cero con un
+20% escrito salía con tres errores y sale con el que tiene, `BR-Z-05`.

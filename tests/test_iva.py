@@ -1204,3 +1204,74 @@ class TestLoQueDicenLasPruebasOficiales:
             total_iva="3.00",
         )
         assert "BR-CO-17" in codigos(incidencias, ERROR)
+
+
+class TestLaBaseComoCadaEsquematron:
+    """BR-{X}-08 con el margen del esquematrón de cada sintaxis.
+
+    Los dos oficiales no dicen lo mismo. El de UBL admite menos de una unidad
+    en el tipo general, el IGIC y el IPSI, y exige exacto lo demás; el de CII,
+    al revés, salvo la no sujeta, que exige exacta en los dos. Hasta el
+    14-09-2026 aquí se daba un céntimo a todo, que era equivocarse en las dos
+    direcciones y en las dos sintaxis. Qué margen lleva cada una lo sostiene
+    `test_norma_oficial` leyendo el esquematrón; aquí se prueba que se aplica.
+    """
+
+    S = ("S", Decimal(21))
+    E = ("E", Decimal(0))
+    O = ("O", None)
+
+    @staticmethod
+    def base(categoria, tipo, declarada, suma, sintaxis):
+        grupo = iva.Grupo(categoria, tipo, Decimal(declarada), Decimal(0), None)
+        apuntes = [iva.Apunte("línea 1", Decimal(suma), categoria, tipo)]
+        return [(i.codigo, i.gravedad)
+                for i in iva._regla_base_por_grupo(grupo, apuntes, sintaxis)]
+
+    def test_ubl_admite_menos_de_una_unidad_en_el_tipo_general(self):
+        assert self.base(*self.S, "100.99", "100.00", SINTAXIS_UBL) == [
+            ("IVA-BASE-TOLERADA", AVISO)]
+
+    def test_pero_no_la_unidad_entera(self):
+        assert self.base(*self.S, "101.00", "100.00", SINTAXIS_UBL) == [("BR-S-08", ERROR)]
+        assert self.base(*self.S, "99.00", "100.00", SINTAXIS_UBL) == [("BR-S-08", ERROR)]
+
+    def test_ubl_exige_exacta_la_exenta(self):
+        assert self.base(*self.E, "100.01", "100.00", SINTAXIS_UBL) == [("BR-E-08", ERROR)]
+
+    def test_cii_exige_exacto_el_tipo_general(self):
+        """Un céntimo, que aquí se dejó pasar durante meses, es error en CII."""
+        assert self.base(*self.S, "100.01", "100.00", SINTAXIS_CII) == [("BR-S-08", ERROR)]
+
+    def test_cii_admite_menos_de_una_unidad_en_la_exenta(self):
+        assert self.base(*self.E, "100.99", "100.00", SINTAXIS_CII) == [
+            ("IVA-BASE-TOLERADA", AVISO)]
+        assert self.base(*self.E, "101.00", "100.00", SINTAXIS_CII) == [("BR-E-08", ERROR)]
+
+    def test_la_no_sujeta_es_exacta_en_las_dos(self):
+        for sintaxis in (SINTAXIS_UBL, SINTAXIS_CII):
+            assert self.base(*self.O, "100.01", "100.00", sintaxis) == [("BR-O-08", ERROR)]
+
+    def test_la_base_exacta_no_dice_nada(self):
+        for sintaxis in (SINTAXIS_UBL, SINTAXIS_CII):
+            for categoria in (self.S, self.E, self.O):
+                assert self.base(*categoria, "100.00", "100.00", sintaxis) == []
+
+    def test_la_exenta_se_suma_entera_aunque_una_linea_traiga_otro_tipo(self, revisar):
+        """Z, E, AE, K, G y O se suman por categoría, sin mirar el tipo.
+
+        Así las suman los dos esquematrones: son las categorías de una sola
+        entrada. Con el tipo en la clave, una línea exenta con un 5% escrito
+        caía fuera de su entrada, y salían la base descuadrada y la línea sin
+        desglose: dos quejas de un defecto que es BR-E-05 y nada más.
+        """
+        incidencias = revisar(
+            lineas=[Linea("1", "60.00", categoria="E", tipo="0"),
+                    Linea("2", "40.00", categoria="E", tipo="5")],
+            grupos=[Grupo("100.00", "0.00", categoria="E", tipo="0", motivo="Art. 20")],
+            total_iva="0.00",
+        )
+        salen = codigos(incidencias)
+        assert "BR-E-05" in salen
+        assert "BR-E-08" not in salen
+        assert "IVA-TIPO-SIN-DESGLOSE" not in salen
