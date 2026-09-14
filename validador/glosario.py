@@ -2546,6 +2546,236 @@ CODIGOS: dict[str, str] = {
         'son una factura a cero—, y distinguirlas es justo lo que esta regla '
         'pide que no haya que adivinar.'
     ),
+    "BR-17": (
+        'La factura declara un beneficiario del pago y no dice cómo se llama, '
+        'o el beneficiario es el propio vendedor. El beneficiario solo se '
+        'declara cuando cobra otro —una empresa de factoring, la matriz del '
+        'grupo—, y entonces hay que nombrarlo: es a quien se paga. Si se '
+        'llama igual que el vendedor o lleva su mismo identificador, las dos '
+        'vinculaciones oficiales lo dan por error, porque es el vendedor y '
+        'sobra. Facturae no tiene beneficiario, y ahí no se mira.'
+    ),
+    "BR-18": (
+        'La factura declara un representante fiscal del vendedor y no dice '
+        'cómo se llama. Un nombre en blanco no cuenta: la regla pide texto. '
+        'Facturae no tiene representante fiscal, y ahí no se mira.'
+    ),
+    "BR-19": (
+        'La factura declara un representante fiscal del vendedor y no da su '
+        'dirección postal. Basta con que la dirección esté; qué lleve dentro '
+        'lo mira BR-20.'
+    ),
+    "BR-20": (
+        'La dirección del representante fiscal no dice de qué país es. Solo '
+        'corre cuando la dirección está: si falta entera, lo que salta es '
+        'BR-19.'
+    ),
+    "BR-27": (
+        'Una línea con el precio neto en negativo. Un precio no puede serlo: '
+        'lo que resta se escribe como descuento, y lo que se devuelve, con la '
+        'cantidad en negativo y el precio en positivo.'
+    ),
+    "BR-28": (
+        'Una línea con el precio bruto —el de antes del descuento sobre el '
+        'precio— en negativo. Mismo motivo que BR-27. Facturae no distingue '
+        'precio bruto, y ahí no se mira.'
+    ),
+    "BR-29": (
+        'El periodo de facturación acaba antes de empezar: la fecha de fin es '
+        'anterior a la de inicio. Solo se compara cuando están las dos y se '
+        'leen como fecha.'
+    ),
+    "BR-30": (
+        'El periodo de una línea acaba antes de empezar. Lo mismo que BR-29, '
+        'línea a línea.'
+    ),
+    "BR-31": (
+        'Un descuento de documento sin importe. Un descuento que no dice '
+        'cuánto resta no se puede aplicar ni comprobar contra el total de '
+        'descuentos.'
+    ),
+    "BR-32": (
+        'Un descuento de documento sin categoría de IVA. El descuento resta '
+        'de la base de una categoría concreta, y sin decir cuál no se sabe de '
+        'qué entrada del desglose sale. Facturae no da categoría a sus '
+        'descuentos generales, y ahí no se mira.'
+    ),
+    "BR-33": (
+        'Un descuento de documento que no dice por qué se hace, ni con texto '
+        'ni con código. Basta con uno de los dos, y basta con que el elemento '
+        'esté. Es la misma exigencia que BR-CO-21.'
+    ),
+    "BR-36": (
+        'Un cargo de documento sin importe. Un porte o un embalaje que no '
+        'dice cuánto suma no se puede comprobar contra el total de cargos.'
+    ),
+    "BR-37": (
+        'Un cargo de documento sin categoría de IVA. El cargo suma a la base '
+        'de una categoría, y sin decir cuál no se sabe a qué entrada del '
+        'desglose va.'
+    ),
+    "BR-38": (
+        'Un cargo de documento que no dice por qué se cobra, ni con texto ni '
+        'con código. Es la misma exigencia que BR-CO-22.'
+    ),
+    "BR-41": (
+        'Un descuento de línea sin importe. EDIFACT deja escribir el '
+        'descuento solo como porcentaje, y la norma pide además el importe. '
+        'En EDIFACT, un descuento de línea con el importe 509 no cuenta aquí, '
+        'porque es el descuento sobre el precio y no el de la línea.'
+    ),
+    "BR-42": (
+        'Un descuento de línea que no dice por qué se hace, ni con texto ni '
+        'con código. Es la misma exigencia que BR-CO-23.'
+    ),
+    "BR-43": (
+        'Un cargo de línea sin importe.'
+    ),
+    "BR-44": (
+        'Un cargo de línea que no dice por qué se cobra, ni con texto ni con '
+        'código. Es la misma exigencia que BR-CO-24.'
+    ),
+    "BR-49": (
+        'Una instrucción de pago que no dice cómo se paga: transferencia, '
+        'adeudo, tarjeta… Sin el código del medio, el resto de la instrucción '
+        'no se puede interpretar. EDIFACT no tiene un grupo que sea la '
+        'instrucción de pago, y ahí no se mira.'
+    ),
+    "BR-50": (
+        'Un pago por transferencia con la cuenta de abono vacía: el elemento '
+        'está y no dice cuál es. Si falta la cuenta entera, lo que salta es '
+        'BR-61.'
+    ),
+    "BR-51": (
+        'La factura trae el número de una tarjeta de pago entero, o casi. Las '
+        'normas de seguridad de las tarjetas permiten enseñar como mucho las '
+        'seis primeras cifras y las cuatro últimas. Es un aviso y no un '
+        'error, como en la norma, y el informe no repite el número: dice '
+        'cuántos caracteres tiene, que es lo que hace falta para verlo.'
+    ),
+    "BR-52": (
+        'Un documento adjunto o referenciado sin referencia que lo '
+        'identifique. Un albarán o un pedido del que no se da el número no se '
+        'puede casar con nada. Un adjunto de Facturae lleva el fichero y no '
+        'una referencia, y ahí no se mira.'
+    ),
+    "BR-53": (
+        'La factura dice en qué moneda se contabiliza el IVA y no da el total '
+        'del IVA en esa moneda. Si la moneda de contabilidad es la misma que '
+        'la de la factura, el total de siempre ya vale. La vinculación de CII '
+        'exige además que las dos sean distintas; aquí se sigue la de UBL, '
+        'que no lo exige, porque la regla tampoco lo dice.'
+    ),
+    "BR-54": (
+        'Un atributo de artículo al que le falta el nombre o el valor: '
+        '«color» sin decir cuál, o «negro» sin decir de qué. Los dos van '
+        'juntos o no dicen nada.'
+    ),
+    "BR-55": (
+        'La factura se refiere a una anterior y no dice a cuál. La referencia '
+        'es lo que ata una rectificativa o un abono a lo que corrige. En '
+        'Facturae no se mira: su bloque de rectificación puede rectificar un '
+        'periodo entero sin nombrar una factura, y por eso el número es '
+        'opcional en su esquema.'
+    ),
+    "BR-56": (
+        'La factura declara un representante fiscal del vendedor y no da su '
+        'identificador de IVA. Es lo que lo hace representante a efectos del '
+        'impuesto: sin él, es un nombre más en la factura.'
+    ),
+    "BR-57": (
+        'La dirección de entrega no dice de qué país es. Importa para el IVA: '
+        'el país de entrega decide si una venta es interior o '
+        'intracomunitaria. Solo corre cuando hay dirección de entrega.'
+    ),
+    "BR-61": (
+        'El pago es por transferencia y la factura no dice a qué cuenta hay '
+        'que hacerla. En UBL, CII y EDIFACT la transferencia son los códigos '
+        '30 y 58; en Facturae, el 04, y su propio esquema también hace '
+        'obligatoria la cuenta en ese caso. La factura de ejemplo de esta '
+        'página no la llevaba hasta el 14-09-2026, y ninguna prueba lo había '
+        'visto.'
+    ),
+    "BR-62": (
+        'La dirección electrónica del vendedor no dice de qué esquema es. Un '
+        'número suelto no sirve para enviar nada: hace falta saber si es un '
+        'NIF, un GLN o un correo, y eso lo dice el esquema. EDIFACT y '
+        'Facturae no tienen dirección electrónica en el sentido de la norma, '
+        'y ahí no se mira.'
+    ),
+    "BR-63": (
+        'La dirección electrónica del comprador no dice de qué esquema es. '
+        'Mismo motivo que BR-62.'
+    ),
+    "BR-64": (
+        'Un artículo con un identificador normalizado que no dice de qué '
+        'esquema es. 8412345000019 es un GTIN si se dice que es un GTIN; sin '
+        'eso es un número. En EDIFACT el esquema es el tipo que acompaña al '
+        'código del artículo en el LIN.'
+    ),
+    "BR-65": (
+        'Un artículo clasificado con un código que no dice de qué lista es: '
+        'CPV, la nomenclatura aduanera, la de un sector… Sin la lista, el '
+        'código no clasifica nada.'
+    ),
+    "BR-CO-03": (
+        'La factura da a la vez la fecha de devengo del IVA y el código que '
+        'dice cuándo se devenga. Son dos formas de decir lo mismo y la norma '
+        'pide una: si dijeran cosas distintas, no se sabría cuál vale.'
+    ),
+    "BR-CO-04": (
+        'Una línea sin categoría de IVA. Sin ella no se sabe en qué entrada '
+        'del desglose entra la línea, ni qué reglas del impuesto se le '
+        'aplican, y por eso la norma la pide en todas, tengan importe o no. '
+        'Una factura EDIFACT que declara el impuesto una sola vez para toda '
+        'la factura no la trae en la línea, y la norma la pide ahí. En '
+        'Facturae se mira que la línea traiga su impuesto.'
+    ),
+    "BR-CO-09": (
+        'Un identificador de IVA que no empieza por el código de su país: '
+        'B12345678 en vez de ESB12345678. La norma lo exige para que el '
+        'número se entienda desde cualquier país sin adivinar de cuál es. '
+        'Grecia usa EL, no GR. El esquematrón oficial de EDIFACT no evalúa '
+        'esta regla y dos de sus ejemplos no la cumplen; aquí se evalúa igual '
+        'en las cuatro sintaxis, porque es de la norma y no de la sintaxis. '
+        'En Facturae no se mira: su número fiscal no dice si es el de IVA.'
+    ),
+    "BR-CO-19": (
+        'La factura declara un periodo de facturación y no le pone ninguna de '
+        'sus dos fechas. Vale con una de las dos. En UBL también vale el '
+        'periodo que solo trae el código de devengo, porque ahí es donde UBL '
+        'lo guarda.'
+    ),
+    "BR-CO-20": (
+        'Una línea declara un periodo y no le pone ninguna de sus dos fechas. '
+        'Vale con una.'
+    ),
+    "BR-CO-21": (
+        'Un descuento de documento sin motivo ni código de motivo. Es '
+        'exactamente lo que pide BR-33: la norma lo escribió dos veces y el '
+        'esquematrón oficial las evalúa por separado, así que cualquier '
+        'validador oficial dará las dos, y aquí salen las dos.'
+    ),
+    "BR-CO-22": (
+        'Un cargo de documento sin motivo ni código de motivo. Es exactamente '
+        'lo que pide BR-38, escrito dos veces en la norma; salen las dos.'
+    ),
+    "BR-CO-23": (
+        'Un descuento de línea sin motivo ni código de motivo. Es exactamente '
+        'lo que pide BR-42, escrito dos veces en la norma; salen las dos.'
+    ),
+    "BR-CO-24": (
+        'Un cargo de línea sin motivo ni código de motivo. Es exactamente lo '
+        'que pide BR-44, escrito dos veces en la norma; salen las dos.'
+    ),
+    "BR-CO-26": (
+        'La factura no identifica al vendedor de ninguna de las tres formas '
+        'que admite la norma: un identificador suyo, su registro legal o su '
+        'identificador de IVA. Con cualquiera basta. Sin ninguna, el '
+        'comprador no puede saber de forma automática quién le factura. En '
+        'Facturae no se mira, porque su número fiscal no dice de cuál de las '
+        'tres clases es, y ahí no se sabe si lo trae.'
+    ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
         "cadena llega igual, pero que una autoridad estuviera cualificada "

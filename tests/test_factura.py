@@ -25,7 +25,10 @@ UBL = """<?xml version="1.0" encoding="UTF-8"?>
   <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
   <cac:AccountingSupplierParty><cac:Party>
     <cac:PostalAddress>{direccion_vendedor}</cac:PostalAddress>
-    <cac:PartyTaxScheme><cbc:CompanyID>{nif}</cbc:CompanyID></cac:PartyTaxScheme>
+    <!-- Con su esquema: sin él, el número no es el identificador de IVA
+         (BT-31) y el vendedor queda sin identificar para BR-CO-26. -->
+    <cac:PartyTaxScheme><cbc:CompanyID>{nif}</cbc:CompanyID>
+      <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
     <cac:PartyLegalEntity><cbc:RegistrationName>Vendedor SL</cbc:RegistrationName>
     </cac:PartyLegalEntity>
   </cac:Party></cac:AccountingSupplierParty>

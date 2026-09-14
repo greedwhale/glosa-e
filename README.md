@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1481 tests, todos en verde.
+1579 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3891,6 +3891,51 @@ fecha de entrega y el país no, y no se reclaman.
 **En el corpus no cambia nada**: ninguna factura mezcla lo no sujeto ni trae
 una entrega intracomunitaria incompleta. Provocado cinco veces, las cinco en
 rojo; la del comentario, en los casos oficiales. Quedan 91 pendientes.
+
+### Los grupos y lo que tienen que llevar dentro: 42 reglas
+
+**Casi la mitad de lo que quedaba dice lo mismo**: si hay un X, tiene que traer
+un Y. Si hay representante fiscal, su nombre, su dirección y su NIF (BR-18 a
+BR-20 y BR-56); si hay un descuento o un cargo, su importe, su categoría y su
+motivo (BR-31 a BR-33, BR-36 a BR-38, BR-41 a BR-44); si hay una instrucción de
+pago, el medio, y si es transferencia, la cuenta (BR-49, BR-50, BR-61). Y las
+de su familia: el beneficiario (BR-17), los precios no negativos (BR-27 y 28),
+los periodos (BR-29, BR-30, BR-CO-19 y 20), la tarjeta (BR-51), la moneda de
+contabilidad (BR-53), los atributos (BR-54), la factura anterior (BR-55), la
+dirección de entrega (BR-57), los esquemas de los identificadores (BR-62 a
+BR-65), la fecha de devengo (BR-CO-03), la categoría de cada línea (BR-CO-04),
+el prefijo del NIF (BR-CO-09), el vendedor identificado (BR-CO-26) y cuatro
+repetidas (BR-CO-21 a 24). Viven en `validador/modelo.py`, con 45 campos
+nuevos en los cuatro mapas.
+
+**Una tabla de grupos y no de campos.** El esquematrón evalúa cada una sobre un
+contexto: sin representante fiscal, BR-18 no corre. Cada fila dice qué grupo,
+qué pide y si pide que el elemento esté o que diga algo —texto solo donde las
+dos vinculaciones lo piden, que son cuatro—.
+
+**Lo que se decidió, uno a uno:**
+
+| Qué | Decisión |
+|---|---|
+| Tres valores | Lo que la sintaxis no tiene dónde escribir no se reclama. Con una excepción marcada: la alternativa que una sintaxis no tiene —el código de un motivo en Facturae— no es «no se sabe», es «no está» |
+| Las repetidas | BR-CO-21 a 24 piden lo mismo que BR-33, 38, 42 y 44. El oficial las da las dos y aquí salen las dos; una prueba comprueba que la expresión es la misma en UBL y en CII y la fila la misma aquí |
+| BR-17 | Las dos vinculaciones dan por error un beneficiario que es el propio vendedor. La de UBL lo compara con el nombre comercial y la de CII con el legal; aquí con los dos |
+| BR-53 | Con la moneda de contabilidad igual a la de la factura vale el total de siempre, como en UBL. La de CII exige que sean distintas, y la regla no lo dice |
+| BR-CO-09 | La lista de prefijos es la de UBL, comparada con la oficial: la de CII trae AN, que ya no existe, y le falta SS |
+| BR-51 | Aviso, como en la norma, y el informe no repite el número de la tarjeta |
+| EDIFACT | Representante fiscal el NAD+LC (27 reglas del oficial) y no el AE (una). Sin instrucción de pago: no hay grupo que lo sea. El ALC de línea con importe 509 es el descuento sobre el precio y no uno de línea: 1.498 de bruto menos 225 son los 1.273 de neto del ejemplo 2 de la Comisión, igual que en su gemelo UBL |
+| EDIFACT, BR-CO-09 | Se evalúa, aunque el esquematrón de EDIFACT la deje en `true()`: es de la norma, y el esquematrón no se ha tocado desde 2017. Los ejemplos 2 y 6 de la Comisión no la cumplen —`123456789MVA` sin el NO—, y sus gemelos UBL sí |
+| Facturae | La transferencia es el 04 de su propia lista, y su esquema también exige la cuenta. Sin representante, beneficiario, direcciones electrónicas ni adjuntos con referencia: no se mira. `Corrective` no es BG-3, porque puede rectificar un periodo sin nombrar factura |
+
+**Y salió uno en casa.** La factura de ejemplo, `ejemplos/fe-0001.xml`, pagaba
+por transferencia sin cuenta de abono. Está en HALLAZGOS.
+
+**Medido.** Los 218 casos oficiales de estas reglas pasan a la primera, y las
+de CII, EDIFACT y Facturae se montan en `tests/test_modelo.py`. El corpus pasa
+de 1142 a 1276 incidencias: 133 de las nuevas caen en 57 facturas EDIFACT y una
+en una UBL de prueba sin nada en la línea. De esas 58, 56 ya tenían algún
+error; las dos que cambian de veredicto son los ejemplos de la Comisión, por el
+prefijo. Provocado quince veces, las quince en rojo. Quedan 49 pendientes.
 
 ## Por qué este y no otro, contestado sin pedir fe
 

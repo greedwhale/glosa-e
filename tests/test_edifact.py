@@ -675,11 +675,20 @@ class TestContraLosEjemplosDeLaComision:
             assert deteccion.familia == EDIFACT, ruta.name
             assert deteccion.conforme_en16931, ruta.name
 
+    # Lo único que no pasan, y es de la norma de después. Sus identificadores
+    # de IVA noruegos van sin el NO delante —`123456789MVA`—, y BR-CO-09 pide
+    # el código del país. El esquematrón oficial de EDIFACT deja esa regla en
+    # `true()`: no se ha tocado desde 2017, y los ejemplos son de entonces. Los
+    # gemelos UBL de los mismos ejemplos ya llevan el prefijo. Aquí EDIFACT
+    # sigue a la norma, como en los márgenes.
+    SIN_PREFIJO = {"cef_EDIFACT_EXAMPLE2.xml", "cef_EDIFACT_EXAMPLE6.xml"}
+
     def test_ninguno_da_un_error(self):
         for ruta in EJEMPLOS_CEF:
             informe = factura.validar(ruta.read_bytes())
             errores = [i.codigo for i in informe.incidencias if i.gravedad == ERROR]
-            assert not errores, f"{ruta.name}: {errores}"
+            esperados = ["BR-CO-09"] if ruta.name in self.SIN_PREFIJO else []
+            assert errores == esperados, f"{ruta.name}: {errores}"
 
     def test_y_se_les_leen_los_numeros(self):
         """Que no haya errores no basta: podría ser que no se lea nada.

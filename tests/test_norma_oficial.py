@@ -52,7 +52,7 @@ import re
 from lxml import etree
 
 from herramientas.norma_oficial import huella
-from validador import en16931, iva
+from validador import en16931, iva, modelo
 from validador.codigos import codigos_del_paquete
 from validador.sintaxis import (
     SINTAXIS_CII,
@@ -76,15 +76,8 @@ CARPETAS = ("Invoice-unit-UBL", "CreditNote-unit-UBL", "cii")
 # no dependa de nadie: una regla nueva en el catálogo tiene que salir de esta
 # lista a mano, y eso obliga a mirar sus pruebas oficiales.
 PENDIENTES = (
-    # Campos y coherencia del modelo que todavía no se miran.
-    "BR-17", "BR-18", "BR-19", "BR-20", "BR-27", "BR-28", "BR-29", "BR-30",
-    "BR-31", "BR-32", "BR-33", "BR-36", "BR-37", "BR-38", "BR-41", "BR-42",
-    "BR-43", "BR-44", "BR-49", "BR-50", "BR-51", "BR-52", "BR-53", "BR-54",
-    "BR-55", "BR-56", "BR-57", "BR-61", "BR-62", "BR-63", "BR-64", "BR-65",
     # Condiciones que cruzan dos campos.
-    "BR-CO-03", "BR-CO-04", "BR-CO-05", "BR-CO-06", "BR-CO-07", "BR-CO-08",
-    "BR-CO-09", "BR-CO-19", "BR-CO-20", "BR-CO-21", "BR-CO-22", "BR-CO-23",
-    "BR-CO-24", "BR-CO-26",
+    "BR-CO-05", "BR-CO-06", "BR-CO-07", "BR-CO-08",
     # Cuántos decimales admite cada importe: dos.
     "BR-DEC-01", "BR-DEC-02", "BR-DEC-05", "BR-DEC-06", "BR-DEC-09",
     "BR-DEC-10", "BR-DEC-11", "BR-DEC-12", "BR-DEC-13", "BR-DEC-14",
@@ -442,3 +435,53 @@ def test_los_identificadores_de_cada_categoria_son_los_de_la_vinculacion():
             negados = {k for k, v in _IDENTIFICADORES_UBL.items() if "not(//" + v in texto}
             assert nombrados == exigidos | prohibidos, (regla, nombrados)
             assert negados == prohibidos, (regla, negados)
+
+
+
+# --- Las reglas de grupo: lo que no se ve en los casos ------------------------
+
+
+def test_los_prefijos_del_iva_son_los_de_la_vinculacion_de_ubl():
+    """BR-CO-09: la lista de `modelo.py`, código a código, contra la oficial.
+
+    La de CII no es la misma —trae AN y le falta SS— y por eso se dice cuál se
+    sigue. Si el comité cambia la de UBL, esto se pone en rojo.
+    """
+    listas = re.findall(r"'( [^']+ )'", vinculacion("UBL")["BR-CO-09"])
+    assert len(listas) == 1
+    assert modelo.PREFIJOS_IVA == frozenset(listas[0].split())
+    cii = frozenset(re.findall(r"'( [^']+ )'", vinculacion("CII")["BR-CO-09"])[0].split())
+    assert modelo.PREFIJOS_IVA ^ cii == {"AN", "SS"}
+
+
+def test_la_transferencia_es_la_que_nombra_cada_vinculacion():
+    """BR-50 y BR-61 piden la cuenta con los medios 30 y 58, en UBL y en CII.
+
+    El esquematrón de EDIFACT escribe 30 y 57 sobre un elemento que no existe
+    —`D_D4461`, con la D repetida—, así que no filtra nada y no se sigue:
+    EDIFACT va con UBL, como en los márgenes.
+    """
+    ubl = set(re.findall(r"PaymentMeansCode\)\s*=\s*'(\d+)'", vinculacion("UBL")["BR-61"]))
+    cii = set(re.findall(r"TypeCode='(\d+)'", vinculacion("CII")["CreditTransfer_information"]))
+    assert ubl == set(SINTAXIS_UBL.medios_de_transferencia) == {"30", "58"}
+    assert cii == set(SINTAXIS_CII.medios_de_transferencia)
+    assert "D_D4461" in vinculacion("EDIFACT")["CreditTransfer_information"]
+    assert SINTAXIS_EDIFACT.medios_de_transferencia == SINTAXIS_UBL.medios_de_transferencia
+
+
+# Las que la norma escribió dos veces: (la de BR-CO, la otra).
+REPETIDAS = (("BR-CO-21", "BR-33"), ("BR-CO-22", "BR-38"), ("BR-CO-23", "BR-42"),
+             ("BR-CO-24", "BR-44"))
+
+
+def test_las_repetidas_son_la_misma_regla_en_la_vinculacion_y_aqui():
+    """Salen las dos porque el oficial las da las dos, y eso solo se sostiene
+    si de verdad dicen lo mismo: misma expresión en UBL y en CII, y misma fila
+    en `modelo.py` salvo el código y la frase que lo cuenta."""
+    filas = {fila[0]: fila for fila in modelo._GRUPOS}
+    for co, otra in REPETIDAS:
+        for sintaxis in ("UBL", "CII"):
+            assert vinculacion(sintaxis)[co].split() == vinculacion(sintaxis)[otra].split(), (
+                sintaxis, co)
+        assert filas[co][1:6] == filas[otra][1:6], co
+        assert otra in filas[co][6], f"la explicación de {co} no dice que es {otra}"

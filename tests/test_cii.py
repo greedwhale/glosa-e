@@ -581,6 +581,9 @@ class TestElMapaEsSoloUnMapa:
                     # Otro conjunto de categorías: en cuáles corre BR-{X}-09
                     # de base por tipo. Tampoco es una ruta.
                     "comprueba_la_cuota_por_tipo",
+                    # Qué códigos de medio de pago son una transferencia.
+                    # Tampoco es una ruta.
+                    "medios_de_transferencia",
                 ):
                     continue
                 # «self::» es tan relativa como «./», y hace falta en EDIFACT

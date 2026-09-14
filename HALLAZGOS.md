@@ -3156,3 +3156,30 @@ categorías de una sola entrada. Las seis, en rojo.
 
 **En el corpus** cambia una factura, y para bien: una línea a tipo cero con un
 20% escrito salía con tres errores y sale con el que tiene, `BR-Z-05`.
+
+## La factura de ejemplo pagaba por transferencia sin decir a qué cuenta
+
+**Qué pasaba.** `ejemplos/fe-0001.xml`, la factura Facturae que se enseña en la
+portada y que usan cinco ficheros de pruebas y el banco, declaraba un plazo de
+pago por transferencia —`PaymentMeans` 04— sin `AccountToBeCredited`. Una
+transferencia sin cuenta no se puede hacer.
+
+**Por qué no se vio.** Porque ninguna regla lo miraba. EN 16931 lo pide en
+BR-61, que estaba pendiente, y el propio esquema de Facturae lo dice en la
+documentación del elemento —«cuando la forma de pago sea transferencia este
+dato será obligatorio»—, pero lo dice en una anotación y no en la estructura: el
+XSD lo declara opcional y la validación de forma lo deja pasar. Las pruebas
+comprobaban que el ejemplo sale conforme, y salía.
+
+**Cómo se reprodujo.** Al implementar BR-61, la primera pasada de la suite dio
+22 rojos; cinco eran este ejemplo, visto desde la cadena, la firma, el binding
+de Facturae y la lista de ejemplos.
+
+**Arreglado** poniéndole la cuenta —el IBAN de ejemplo de la documentación
+bancaria— y volviendo a firmar con la clave de juguete de `tests/test_firma.py`.
+Solo cambia el resumen del documento: el de las propiedades firmadas es el
+mismo, y el script lo comprueba antes de firmar. El comentario de cabecera lo
+cuenta.
+
+**Provocado**: sin la cuenta vuelve BR-61, y con la cuenta y la firma vieja
+sale `FIRMA-ALTERADA`, que es la firma haciendo su trabajo.

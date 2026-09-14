@@ -10,7 +10,9 @@ no le dice nada a quien tiene que arreglar la factura.
 
 Las reglas de IVA, que son una familia entera y siguen su propio patrón, viven
 en `iva.py` y se llaman desde aquí: para quien usa el validador son las mismas
-reglas de la misma norma.
+reglas de la misma norma. Lo mismo las que miran un grupo y lo que tiene que
+llevar dentro —el representante fiscal, los descuentos, los pagos—, que viven
+en `modelo.py`.
 
 **Nada de esto depende de la sintaxis.** EN 16931 define un modelo semántico
 —BT-1, BT-109, BT-112…— y luego UBL y CII lo escriben de dos maneras. Que la
@@ -28,7 +30,7 @@ from decimal import Decimal
 
 from lxml import etree
 
-from validador import edifact, iva
+from validador import edifact, iva, modelo
 from validador.formato import FACTURAE, detectar, parser
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia, Informe
 from validador.sintaxis import (
@@ -920,6 +922,7 @@ def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
     incidencias.extend(_regla_lineas(raiz, sintaxis))
     incidencias.extend(_reglas_campos_de_linea(raiz, sintaxis))
     incidencias.extend(_reglas_cuadre(raiz, sintaxis))
+    incidencias.extend(modelo.reglas(raiz, sintaxis))
     incidencias.extend(iva.reglas(raiz, sintaxis, espanola=espanola))
     return incidencias
 
@@ -983,6 +986,7 @@ def _reglas_facturae(raiz, sintaxis: Sintaxis, espanola: bool) -> list[Incidenci
         de_esta.extend(_reglas_campos_de_linea(factura, sintaxis))
         de_esta.extend(_reglas_cuadre(factura, sintaxis))
         de_esta.extend(_regla_tipo_de_documento(factura, sintaxis))
+        de_esta.extend(modelo.reglas(factura, sintaxis))
         de_esta.extend(iva.reglas(factura, sintaxis, espanola=espanola))
         if donde:
             de_esta = [

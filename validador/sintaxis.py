@@ -86,6 +86,62 @@ class Sintaxis:
     periodo: str
     pais_entrega: str
 
+    # Los grupos que la norma pide completos cuando están, y lo que tiene que
+    # llevar cada uno (BR-17 a BR-20, BR-27 a BR-33, BR-36 a BR-38, BR-41 a
+    # BR-44, BR-49 a BR-57, BR-61 a BR-65 y diez BR-CO). Cada regla del
+    # esquematrón se evalúa **sobre un contexto**: si el grupo no está, la regla
+    # no corre; si está, tiene que traer lo suyo. Por eso aquí van por pares, el
+    # grupo desde el documento y lo de dentro desde el grupo.
+    #
+    # Las rutas salen de la vinculación oficial de cada sintaxis —la de UBL, la
+    # de CII y la de EDIFACT están en `tests/en16931-oficial/`—, y donde el
+    # campo no tiene sitio seguro va `SIN_MAPA` con su porqué. Lo que no se sabe
+    # no se reclama: la regla calla.
+    vendedor: str  # BG-4, la parte entera
+    vendedor_nombre_comercial: str  # BT-28
+    vendedor_id: str  # BT-29
+    vendedor_registro: str  # BT-30, el registro legal
+    vendedor_direccion_electronica: str  # BT-34
+    comprador_direccion_electronica: str  # BT-49
+    direccion_electronica_esquema: str  # relativa a una de las dos
+    beneficiario: str  # BG-10
+    beneficiario_nombre: str  # BT-59, relativa al beneficiario
+    beneficiario_id: str  # BT-60, relativa
+    beneficiario_registro: str  # BT-61, relativa
+    representante: str  # BG-11, el representante fiscal del vendedor
+    representante_nombre: str  # BT-62, relativa
+    representante_direccion: str  # BG-12, relativa
+    representante_pais: str  # BT-69, relativa a la dirección
+    direccion_entrega: str  # BG-15
+    pagos: str  # BG-16, cada instrucción de pago
+    pago_medio: str  # BT-81, relativa
+    pago_cuenta: str  # BG-17, la transferencia, relativa
+    cuenta_id: str  # BT-84, relativa a la cuenta
+    tarjeta_numero: str  # BT-87
+    adjuntos: str  # BG-24
+    adjunto_id: str  # BT-122, relativa
+    facturas_previas: str  # BG-3
+    previa_id: str  # BT-25, relativa
+    moneda_impuestos: str  # BT-6, la moneda de contabilidad del IVA
+    fecha_devengo: str  # BT-7
+    fecha_devengo_codigo: str  # BT-8
+    periodo_grupo: str  # BG-14, el grupo y no sus hijos
+    periodo_inicio: str  # BT-73 y BT-134, relativa a un periodo
+    periodo_fin: str  # BT-74 y BT-135, relativa
+    periodo_codigo: str  # BT-8 cuando la sintaxis lo guarda dentro del periodo
+    linea_periodo: str  # BG-26, relativa a una línea
+    linea_precio_bruto: str  # BT-148, relativa a una línea
+    linea_cargos: str  # BG-27 y BG-28, relativa a una línea
+    cargo_motivo: str  # BT-97, 104, 139 y 144, relativa a un descuento o cargo
+    cargo_motivo_codigo: str  # BT-98, 105, 140 y 145
+    linea_atributos: str  # BG-32, relativa a una línea
+    atributo_nombre: str  # BT-160, relativa a un atributo
+    atributo_valor: str  # BT-161
+    linea_id_estandar: str  # BT-157, relativa a una línea
+    linea_id_estandar_esquema: str  # relativa al identificador
+    linea_clasificacion: str  # BT-158, relativa a una línea
+    linea_clasificacion_esquema: str  # relativa a la clasificación
+
     lineas: str
     linea_id: str  # relativa a una línea
     linea_importe: str  # relativa a una línea
@@ -190,6 +246,12 @@ class Sintaxis:
     # vinculación oficial `test_norma_oficial`.
     comprueba_la_cuota_por_tipo: frozenset[str]
 
+    # Qué medios de pago son una transferencia, que es cuando BR-50 y BR-61
+    # piden la cuenta. En UBL, CII y EDIFACT son los códigos UNCL4461 que nombra
+    # la vinculación oficial —30 y 58—; Facturae tiene su propia lista, y en
+    # ella la transferencia es el 04. Tampoco es una ruta.
+    medios_de_transferencia: frozenset[str]
+
     # Con qué se escribe «esto suma» en `cargo_es_cargo`. UBL y CII usan un
     # booleano, y por eso durante dos sintaxis esto no hizo falta. EDIFACT lo
     # escribe con una letra —C de cargo, A de descuento (*allowance*)—, así
@@ -254,6 +316,54 @@ SINTAXIS_UBL = Sintaxis(
         "./cac:Delivery/cac:DeliveryLocation/cac:Address/cac:Country"
         "/cbc:IdentificationCode"
     ),
+    vendedor="./cac:AccountingSupplierParty",
+    vendedor_nombre_comercial=f"{_VENDEDOR_UBL}/cac:PartyName/cbc:Name",
+    # Un identificador con esquema SEPA es el del acreedor de un adeudo (BT-90),
+    # no el del vendedor: la vinculación lo aparta en BR-CO-26, y aquí igual.
+    vendedor_id=f"{_VENDEDOR_UBL}/cac:PartyIdentification/cbc:ID[not(@schemeID='SEPA')]",
+    vendedor_registro=f"{_VENDEDOR_UBL}/cac:PartyLegalEntity/cbc:CompanyID",
+    vendedor_direccion_electronica=f"{_VENDEDOR_UBL}/cbc:EndpointID",
+    comprador_direccion_electronica=f"{_COMPRADOR_UBL}/cbc:EndpointID",
+    direccion_electronica_esquema="./@schemeID",
+    beneficiario="./cac:PayeeParty",
+    beneficiario_nombre="./cac:PartyName/cbc:Name",
+    beneficiario_id="./cac:PartyIdentification/cbc:ID",
+    beneficiario_registro="./cac:PartyLegalEntity/cbc:CompanyID",
+    representante="./cac:TaxRepresentativeParty",
+    representante_nombre="./cac:PartyName/cbc:Name",
+    representante_direccion="./cac:PostalAddress",
+    representante_pais="./cac:Country/cbc:IdentificationCode",
+    direccion_entrega="./cac:Delivery/cac:DeliveryLocation/cac:Address",
+    pagos="./cac:PaymentMeans",
+    pago_medio="./cbc:PaymentMeansCode",
+    pago_cuenta="./cac:PayeeFinancialAccount",
+    cuenta_id="./cbc:ID",
+    tarjeta_numero="./cac:PaymentMeans/cac:CardAccount/cbc:PrimaryAccountNumberID",
+    adjuntos="./cac:AdditionalDocumentReference",
+    adjunto_id="./cbc:ID",
+    facturas_previas="./cac:BillingReference",
+    previa_id="./cac:InvoiceDocumentReference/cbc:ID",
+    moneda_impuestos="./cbc:TaxCurrencyCode",
+    fecha_devengo="./cbc:TaxPointDate",
+    # En UBL el código de devengo vive dentro del periodo, y por eso un periodo
+    # que solo trae el código no está vacío: BR-CO-19 lo da por bueno.
+    fecha_devengo_codigo="./cac:InvoicePeriod/cbc:DescriptionCode",
+    periodo_grupo="./cac:InvoicePeriod",
+    periodo_inicio="./cbc:StartDate",
+    periodo_fin="./cbc:EndDate",
+    periodo_codigo="./cbc:DescriptionCode",
+    linea_periodo="./cac:InvoicePeriod",
+    linea_precio_bruto="./cac:Price/cac:AllowanceCharge/cbc:BaseAmount",
+    linea_cargos="./cac:AllowanceCharge",
+    cargo_motivo="./cbc:AllowanceChargeReason",
+    cargo_motivo_codigo="./cbc:AllowanceChargeReasonCode",
+    linea_atributos="./cac:Item/cac:AdditionalItemProperty",
+    atributo_nombre="./cbc:Name",
+    atributo_valor="./cbc:Value",
+    linea_id_estandar="./cac:Item/cac:StandardItemIdentification/cbc:ID",
+    linea_id_estandar_esquema="./@schemeID",
+    linea_clasificacion="./cac:Item/cac:CommodityClassification/cbc:ItemClassificationCode",
+    linea_clasificacion_esquema="./@listID",
     lineas=_LINEAS_UBL,
     linea_id="./cbc:ID",
     linea_importe="./cbc:LineExtensionAmount",
@@ -298,6 +408,7 @@ SINTAXIS_UBL = Sintaxis(
     cuota_admite_la_unidad_justa=False,  # el esquematrón de UBL: desigualdad estricta
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
+    medios_de_transferencia=frozenset({"30", "58"}),
 )
 
 # En CII casi todo cuelga de SupplyChainTradeTransaction, repartido en tres
@@ -369,6 +480,77 @@ SINTAXIS_CII = Sintaxis(
         f"{_TRANSACCION}/ram:ApplicableHeaderTradeDelivery/ram:ShipToTradeParty"
         "/ram:PostalTradeAddress/ram:CountryID"
     ),
+    vendedor=f"{_ACUERDO}/ram:SellerTradeParty",
+    vendedor_nombre_comercial=(
+        f"{_ACUERDO}/ram:SellerTradeParty/ram:SpecifiedLegalOrganization"
+        "/ram:TradingBusinessName"
+    ),
+    # CII tiene dos elementos para BT-29: `ID` para uno propio y `GlobalID`
+    # para uno con esquema. La vinculación acepta cualquiera de los dos.
+    vendedor_id=(
+        f"{_ACUERDO}/ram:SellerTradeParty/ram:ID"
+        f"|{_ACUERDO}/ram:SellerTradeParty/ram:GlobalID"
+    ),
+    vendedor_registro=(
+        f"{_ACUERDO}/ram:SellerTradeParty/ram:SpecifiedLegalOrganization/ram:ID"
+    ),
+    vendedor_direccion_electronica=(
+        f"{_ACUERDO}/ram:SellerTradeParty/ram:URIUniversalCommunication"
+    ),
+    comprador_direccion_electronica=(
+        f"{_ACUERDO}/ram:BuyerTradeParty/ram:URIUniversalCommunication"
+    ),
+    direccion_electronica_esquema="./ram:URIID/@schemeID",
+    beneficiario=f"{_COBRO}/ram:PayeeTradeParty",
+    beneficiario_nombre="./ram:Name",
+    beneficiario_id="./ram:ID|./ram:GlobalID",
+    beneficiario_registro="./ram:SpecifiedLegalOrganization/ram:ID",
+    representante=f"{_ACUERDO}/ram:SellerTaxRepresentativeTradeParty",
+    representante_nombre="./ram:Name",
+    representante_direccion="./ram:PostalTradeAddress",
+    representante_pais="./ram:CountryID",
+    direccion_entrega=(
+        f"{_TRANSACCION}/ram:ApplicableHeaderTradeDelivery/ram:ShipToTradeParty"
+        "/ram:PostalTradeAddress"
+    ),
+    pagos=f"{_COBRO}/ram:SpecifiedTradeSettlementPaymentMeans",
+    pago_medio="./ram:TypeCode",
+    pago_cuenta="./ram:PayeePartyCreditorFinancialAccount",
+    cuenta_id="./ram:IBANID|./ram:ProprietaryID",
+    tarjeta_numero=(
+        f"{_COBRO}/ram:SpecifiedTradeSettlementPaymentMeans"
+        "/ram:ApplicableTradeSettlementFinancialCard/ram:ID"
+    ),
+    adjuntos=f"{_ACUERDO}/ram:AdditionalReferencedDocument",
+    adjunto_id="./ram:IssuerAssignedID",
+    facturas_previas=f"{_COBRO}/ram:InvoiceReferencedDocument",
+    previa_id="./ram:IssuerAssignedID",
+    moneda_impuestos=f"{_COBRO}/ram:TaxCurrencyCode",
+    fecha_devengo=f"{_COBRO}/ram:ApplicableTradeTax/ram:TaxPointDate",
+    fecha_devengo_codigo=f"{_COBRO}/ram:ApplicableTradeTax/ram:DueDateTypeCode",
+    periodo_grupo=f"{_COBRO}/ram:BillingSpecifiedPeriod",
+    periodo_inicio="./ram:StartDateTime/udt:DateTimeString",
+    periodo_fin="./ram:EndDateTime/udt:DateTimeString",
+    # En CII el código de devengo va en el desglose, no en el periodo.
+    periodo_codigo=SIN_MAPA,
+    linea_periodo="./ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod",
+    linea_precio_bruto=(
+        "./ram:SpecifiedLineTradeAgreement/ram:GrossPriceProductTradePrice"
+        "/ram:ChargeAmount"
+    ),
+    linea_cargos="./ram:SpecifiedLineTradeSettlement/ram:SpecifiedTradeAllowanceCharge",
+    cargo_motivo="./ram:Reason",
+    cargo_motivo_codigo="./ram:ReasonCode",
+    linea_atributos="./ram:SpecifiedTradeProduct/ram:ApplicableProductCharacteristic",
+    atributo_nombre="./ram:Description",
+    atributo_valor="./ram:Value",
+    linea_id_estandar="./ram:SpecifiedTradeProduct/ram:GlobalID",
+    linea_id_estandar_esquema="./@schemeID",
+    linea_clasificacion=(
+        "./ram:SpecifiedTradeProduct/ram:DesignatedProductClassification"
+        "/ram:ClassCode"
+    ),
+    linea_clasificacion_esquema="./@listID",
     lineas=f"{_TRANSACCION}/ram:IncludedSupplyChainTradeLineItem",
     linea_id="./ram:AssociatedDocumentLineDocument/ram:LineID",
     linea_importe=(
@@ -422,6 +604,7 @@ SINTAXIS_CII = Sintaxis(
     cuota_admite_la_unidad_justa=True,  # el esquematrón de CII: `<=`
     base_admite_una_unidad=frozenset({"Z", "E", "AE", "K", "G"}),
     comprueba_la_cuota_por_tipo=frozenset({"S"}),
+    medios_de_transferencia=frozenset({"30", "58"}),
 )
 
 # --- EDIFACT ---------------------------------------------------------------
@@ -508,6 +691,85 @@ SINTAXIS_EDIFACT = Sintaxis(
     periodo="./S_DTM/C_C507[D_2005='167' or D_2005='168']/D_2380",
     pais_entrega="./*[S_NAD/D_3035='DP']/S_NAD/D_3207",
     # Cualquier grupo que contenga una línea, se llame como se llame.
+    vendedor=_VENDEDOR_EDI,
+    # EDIFACT no separa el nombre comercial del legal: el NAD trae uno.
+    vendedor_nombre_comercial=SIN_MAPA,
+    vendedor_id=f"{_VENDEDOR_EDI}/S_NAD/C_C082/D_3039",
+    vendedor_registro=f"{_VENDEDOR_EDI}/*/S_RFF/C_C506[D_1153='GN']/D_1154",
+    # La vinculación oficial de EDIFACT no nombra la dirección electrónica en
+    # ninguna regla, y el GLN del NAD es el identificador de la parte (BT-29),
+    # no una dirección. Sin sitio no se reclama su esquema.
+    vendedor_direccion_electronica=SIN_MAPA,
+    comprador_direccion_electronica=SIN_MAPA,
+    direccion_electronica_esquema=SIN_MAPA,
+    beneficiario="./*[S_NAD/D_3035='PE']",
+    beneficiario_nombre="./S_NAD/C_C080/D_3036",
+    beneficiario_id="./S_NAD/C_C082/D_3039",
+    beneficiario_registro="./*/S_RFF/C_C506[D_1153='GN']/D_1154",
+    # El NAD+LC, como en `representante_nif`. El esquematrón oficial usa LC en
+    # 27 reglas y AE en una sola, la del contexto de BR-18; se sigue a las 27.
+    representante="./*[S_NAD/D_3035='LC']",
+    representante_nombre="./S_NAD/C_C080/D_3036",
+    representante_direccion=_direccion_edi("."),
+    # La dirección de EDIFACT son posiciones sueltas del NAD, así que el país
+    # se busca al lado de cualquiera de ellas: un piso arriba, en el NAD.
+    representante_pais="../D_3207",
+    direccion_entrega=_direccion_edi("./*[S_NAD/D_3035='DP']"),
+    # EDIFACT no tiene un grupo que sea la instrucción de pago: el medio va en
+    # un PAI dentro de las condiciones de pago y la cuenta en un FII de la
+    # parte, en otro grupo. El esquematrón oficial cuelga BR-49 de la factura
+    # entera, que es exigir un medio de pago a toda factura, y eso la norma no
+    # lo dice. Sin contexto del que colgarlas, estas reglas no se evalúan.
+    pagos=SIN_MAPA,
+    pago_medio=SIN_MAPA,
+    pago_cuenta=SIN_MAPA,
+    cuenta_id=SIN_MAPA,
+    # Y la BR-51 del esquematrón de EDIFACT es otra regla con el mismo nombre:
+    # pide una referencia de la tarjeta, no mira cuántas cifras lleva.
+    tarjeta_numero=SIN_MAPA,
+    # El grupo 26 de la D.14B, que no existe con ese sentido en la D.96A que
+    # traen las facturas reales.
+    adjuntos=SIN_MAPA,
+    adjunto_id=SIN_MAPA,
+    facturas_previas="./*/S_RFF/C_C506[D_1153='OI']",
+    previa_id="./D_1154",
+    # La moneda de contabilidad va en un CUX con otro cualificador, y dónde
+    # queda el total en esa moneda no se ha visto en ninguna muestra.
+    moneda_impuestos=SIN_MAPA,
+    # Los cualificadores de fecha del esquematrón oficial: 131 la fecha de
+    # devengo y 3 el código.
+    fecha_devengo="./S_DTM/C_C507[D_2005='131']/D_2380",
+    fecha_devengo_codigo="./S_DTM/C_C507[D_2005='3']/D_2380",
+    # No hay grupo de periodo: son dos DTM, 167 y 168. El «grupo» es el mensaje
+    # —o la línea— cuando trae alguno de los dos, y de ahí se leen.
+    periodo_grupo="./S_DTM[C_C507/D_2005='167' or C_C507/D_2005='168']/..",
+    periodo_inicio="./S_DTM/C_C507[D_2005='167']/D_2380",
+    periodo_fin="./S_DTM/C_C507[D_2005='168']/D_2380",
+    periodo_codigo=SIN_MAPA,
+    linea_periodo="./S_DTM[C_C507/D_2005='167' or C_C507/D_2005='168']/..",
+    linea_precio_bruto="./*/S_PRI/C_C509[D_5125='AAB']/D_5118",
+    # Un ALC de línea con el importe 509 no es un descuento de la línea: es el
+    # descuento sobre el precio (BT-147), lo que va del bruto al neto. Se
+    # comprobó en los ejemplos de la Comisión haciendo la cuenta —1.498 de
+    # bruto menos 225 son los 1.273 de neto en `EDIFACT_EXAMPLE2`, igual que en
+    # su gemelo UBL, donde va en `Price/AllowanceCharge`—, y sin apartarlo
+    # salían sin importe ni motivo dos facturas de quien escribió la norma.
+    linea_cargos="./*[S_ALC][not(*/S_MOA/C_C516[D_5025='509'])]",
+    # El esquematrón oficial lee el motivo en el C552 (1230 y 5189) y el código
+    # del cargo en el C214 (7161); las facturas reales EANCOM escriben el código
+    # en el 7161 también para los descuentos, y el texto en el 7160. Se aceptan
+    # los dos sitios.
+    cargo_motivo="./S_ALC/C_C552/D_1230|./S_ALC/C_C214/D_7160",
+    cargo_motivo_codigo="./S_ALC/C_C552/D_5189|./S_ALC/C_C214/D_7161",
+    linea_atributos="./S_FTX[D_4451='ACF']/C_C108",
+    atributo_nombre="./D_4440[1]",
+    # Los ejemplos de la Comisión llaman `D_4440_2` a la segunda repetición;
+    # el árbol de aquí las deja con el mismo nombre. Se leen las dos formas.
+    atributo_valor="./D_4440[2]|./D_4440_2",
+    linea_id_estandar="./S_LIN/C_C212/D_7140",
+    linea_id_estandar_esquema="../D_7143",
+    linea_clasificacion=SIN_MAPA,
+    linea_clasificacion_esquema=SIN_MAPA,
     lineas=".//*[S_LIN]",
     linea_id="./S_LIN/D_1082",
     linea_importe="./*/S_MOA/C_C516[D_5025='203']/D_5004",
@@ -607,6 +869,7 @@ SINTAXIS_EDIFACT = Sintaxis(
     cuota_admite_la_unidad_justa=False,
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
+    medios_de_transferencia=frozenset({"30", "58"}),
     marcas_de_cargo=("c",),
 )
 
@@ -742,6 +1005,67 @@ SINTAXIS_FACTURAE = Sintaxis(
     fecha_entrega=SIN_MAPA,
     periodo="./InvoiceIssueData/InvoicingPeriod/*",
     pais_entrega=SIN_MAPA,
+    vendedor=_VENDEDOR_FE,
+    vendedor_nombre_comercial=f"{_VENDEDOR_FE}/LegalEntity/TradeName",
+    # `PartyIdentification` es un código libre de la parte, sin esquema, y
+    # nada dice que sea BT-29 y no el que le da el comprador. El registro
+    # mercantil (`RegistrationData`) son tomo, folio y hoja, no un identificador.
+    vendedor_id=SIN_MAPA,
+    vendedor_registro=SIN_MAPA,
+    vendedor_direccion_electronica=SIN_MAPA,
+    comprador_direccion_electronica=SIN_MAPA,
+    direccion_electronica_esquema=SIN_MAPA,
+    # Facturae no tiene beneficiario. El cesionario de una cesión de crédito
+    # cobra, pero es un caso concreto de beneficiario y sin vinculación no se
+    # elige. Tampoco tiene representante fiscal: el `ThirdParty` de la cabecera
+    # es quien emite por cuenta del vendedor, que es otra figura.
+    beneficiario=SIN_MAPA,
+    beneficiario_nombre=SIN_MAPA,
+    beneficiario_id=SIN_MAPA,
+    beneficiario_registro=SIN_MAPA,
+    representante=SIN_MAPA,
+    representante_nombre=SIN_MAPA,
+    representante_direccion=SIN_MAPA,
+    representante_pais=SIN_MAPA,
+    direccion_entrega=SIN_MAPA,
+    # Los plazos de pago son las instrucciones: cada `Installment` lleva su
+    # medio, obligatorio en el esquema, y la cuenta de abono cuando la hay.
+    pagos="./PaymentDetails/Installment",
+    pago_medio="./PaymentMeans",
+    pago_cuenta="./AccountToBeCredited",
+    cuenta_id="./IBAN|./AccountNumber",
+    tarjeta_numero=SIN_MAPA,
+    # Un adjunto de Facturae no lleva referencia: lleva el fichero.
+    adjuntos=SIN_MAPA,
+    adjunto_id=SIN_MAPA,
+    # `Corrective` describe lo rectificado, pero no siempre una factura: con el
+    # método 03 rectifica un periodo entero, y por eso su número es opcional.
+    # Tomarlo por BG-3 acusaría a esas de no llevar referencia.
+    facturas_previas=SIN_MAPA,
+    previa_id=SIN_MAPA,
+    # `TaxCurrencyCode` es obligatorio y casi siempre repite la moneda de la
+    # factura; el total en esa moneda no existe como tal, y BT-110 ya está sin
+    # mapa (ver `impuestos`).
+    moneda_impuestos=SIN_MAPA,
+    fecha_devengo=SIN_MAPA,
+    fecha_devengo_codigo=SIN_MAPA,
+    periodo_grupo="./InvoiceIssueData/InvoicingPeriod",
+    periodo_inicio="./StartDate",
+    periodo_fin="./EndDate",
+    periodo_codigo=SIN_MAPA,
+    linea_periodo="./LineItemPeriod",
+    linea_precio_bruto=SIN_MAPA,
+    linea_cargos="./DiscountsAndRebates/Discount|./Charges/Charge",
+    cargo_motivo="./DiscountReason|./ChargeReason",
+    cargo_motivo_codigo=SIN_MAPA,
+    linea_atributos=SIN_MAPA,
+    atributo_nombre=SIN_MAPA,
+    atributo_valor=SIN_MAPA,
+    # `ArticleCode` es el código del vendedor (BT-155), no uno normalizado.
+    linea_id_estandar=SIN_MAPA,
+    linea_id_estandar_esquema=SIN_MAPA,
+    linea_clasificacion=SIN_MAPA,
+    linea_clasificacion_esquema=SIN_MAPA,
     lineas="./Items/InvoiceLine",
     # BT-126, el identificador de línea, **no existe en Facturae**. El esquema
     # da `SequenceNumber`, pero es opcional y significa otra cosa —el orden de
@@ -882,6 +1206,8 @@ SINTAXIS_FACTURAE = Sintaxis(
     cuota_admite_la_unidad_justa=False,  # Facturae no tiene esquematrón europeo; se sigue el de UBL
     base_admite_una_unidad=frozenset({"S", "L", "M"}),  # también el de UBL
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),  # y aquí
+    # «04 Transferencia», en `PaymentMeansType` del esquema oficial.
+    medios_de_transferencia=frozenset({"04"}),
     # `cargo_es_cargo` devuelve el nombre del elemento, no un booleano. En
     # minúscula porque quien compara pasa la marca por `.lower()` antes, igual
     # que la «c» de EDIFACT: con «Charge» no casaba ninguno y los cargos se
