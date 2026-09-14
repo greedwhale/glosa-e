@@ -110,6 +110,12 @@ def _fecha(etiqueta: str, dia: str) -> str:
             f"</udt:DateTimeString></ram:{etiqueta}>")
 
 
+_PAIS_CII = (
+    "<ram:SellerTradeParty><ram:PostalTradeAddress><ram:CountryID>{}</ram:CountryID>"
+    "</ram:PostalTradeAddress></ram:SellerTradeParty>"
+)
+_DESGLOSE_CII = "<ram:ApplicableTradeTax><ram:CategoryCode>{}</ram:CategoryCode></ram:ApplicableTradeTax>"
+
 # (código, la factura mala, la buena). La buena es la mala con lo que falta.
 CASOS_CII = [
     ("BR-17",
@@ -274,6 +280,13 @@ CASOS_CII = [
      cii(acuerdo="<ram:SellerTradeParty><ram:Name>Vendedor SL</ram:Name>"
                  "<ram:SpecifiedLegalOrganization><ram:ID>B12345678</ram:ID>"
                  "</ram:SpecifiedLegalOrganization></ram:SellerTradeParty>")),
+    # La B es el pago fraccionado italiano: solo entre partes en Italia, y sin S.
+    ("BR-B-01",
+     cii(acuerdo=_PAIS_CII.format("ES"), cobro=_DESGLOSE_CII.format("B")),
+     cii(acuerdo=_PAIS_CII.format("IT"), cobro=_DESGLOSE_CII.format("B"))),
+    ("BR-B-02",
+     cii(cobro=_DESGLOSE_CII.format("B") + _DESGLOSE_CII.format("S")),
+     cii(cobro=_DESGLOSE_CII.format("B") + _DESGLOSE_CII.format("B"))),
 ]
 
 
@@ -331,6 +344,10 @@ CASOS_EDIFACT = [
     ("BR-CO-24", "LIN+1'ALC+C'MOA+23:1'", "LIN+1'ALC+C++++FC'MOA+23:1'"),
     ("BR-64", "LIN+1++8412345000019'", "LIN+1++8412345000019:EN'"),
     ("BR-54", "LIN+1'FTX+ACF+++Color'", "LIN+1'FTX+ACF+++Color:Negro'"),
+    ("BR-B-01", "NAD+SE+++Vendedor+Via Roma 1+Milano++20121+FR'LIN+1'TAX+7+VAT+++:::22+B'",
+     "NAD+SE+++Vendedor+Via Roma 1+Milano++20121+IT'LIN+1'TAX+7+VAT+++:::22+B'"),
+    ("BR-B-02", "LIN+1'TAX+7+VAT+++:::22+B'LIN+2'TAX+7+VAT+++:::22+S'",
+     "LIN+1'TAX+7+VAT+++:::22+B'LIN+2'TAX+7+VAT+++:::22+B'"),
 ]
 
 
@@ -458,6 +475,40 @@ def test_el_prefijo_de_grecia_es_el_y_no_gr():
                 "</cac:TaxScheme></cac:PartyTaxScheme></cac:Party></cac:AccountingSupplierParty>")
     assert "BR-CO-09" not in salen(ubl(vendedor.format("EL094259216")), SINTAXIS_UBL)
     assert "BR-CO-09" in salen(ubl(vendedor.format("XX094259216")), SINTAXIS_UBL)
+
+
+def test_el_pago_fraccionado_mira_las_direcciones_y_no_el_origen_de_los_articulos():
+    """Como la vinculación de CII. La de UBL mira todos los `IdentificationCode`
+    y con eso cuenta el país de origen de un artículo, que no dice dónde está
+    nadie."""
+    raiz = ubl(
+        "<cac:AccountingSupplierParty><cac:Party><cac:PostalAddress><cac:Country>"
+        "<cbc:IdentificationCode>IT</cbc:IdentificationCode></cac:Country></cac:PostalAddress>"
+        "</cac:Party></cac:AccountingSupplierParty>"
+        "<cac:InvoiceLine><cbc:ID>1</cbc:ID><cac:Item><cac:OriginCountry>"
+        "<cbc:IdentificationCode>CN</cbc:IdentificationCode></cac:OriginCountry>"
+        "<cac:ClassifiedTaxCategory><cbc:ID>B</cbc:ID></cac:ClassifiedTaxCategory></cac:Item>"
+        "</cac:InvoiceLine>")
+    assert not {"BR-B-01", "BR-B-02"} & salen(raiz, SINTAXIS_UBL)
+
+
+def test_sin_la_b_no_corre_ninguna_de_las_dos():
+    raiz = ubl(
+        "<cac:AccountingSupplierParty><cac:Party><cac:PostalAddress><cac:Country>"
+        "<cbc:IdentificationCode>ES</cbc:IdentificationCode></cac:Country></cac:PostalAddress>"
+        "</cac:Party></cac:AccountingSupplierParty>"
+        "<cac:TaxTotal><cac:TaxSubtotal><cac:TaxCategory><cbc:ID>S</cbc:ID></cac:TaxCategory>"
+        "</cac:TaxSubtotal></cac:TaxTotal>")
+    assert not {"BR-B-01", "BR-B-02"} & salen(raiz, SINTAXIS_UBL)
+
+
+def test_la_b_de_un_descuento_tambien_cuenta():
+    raiz = ubl(
+        "<cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator>"
+        "<cac:TaxCategory><cbc:ID>B</cbc:ID></cac:TaxCategory></cac:AllowanceCharge>"
+        "<cac:InvoiceLine><cbc:ID>1</cbc:ID><cac:Item><cac:ClassifiedTaxCategory>"
+        "<cbc:ID>S</cbc:ID></cac:ClassifiedTaxCategory></cac:Item></cac:InvoiceLine>")
+    assert "BR-B-02" in salen(raiz, SINTAXIS_UBL)
 
 
 def test_la_moneda_de_contabilidad_igual_a_la_de_la_factura_no_pide_otro_total():

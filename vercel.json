@@ -33,6 +33,8 @@
     { "source": "/codigo-BR-AG-7", "destination": "/codigo-BR-AG-07", "permanent": true },
     { "source": "/codigo-BR-AG-8", "destination": "/codigo-BR-AG-08", "permanent": true },
     { "source": "/codigo-BR-AG-9", "destination": "/codigo-BR-AG-09", "permanent": true },
+    { "source": "/codigo-BR-B-1", "destination": "/codigo-BR-B-01", "permanent": true },
+    { "source": "/codigo-BR-B-2", "destination": "/codigo-BR-B-02", "permanent": true },
     { "source": "/codigo-BR-CL-1", "destination": "/codigo-BR-CL-01", "permanent": true },
     { "source": "/codigo-BR-CL-3", "destination": "/codigo-BR-CL-03", "permanent": true },
     { "source": "/codigo-BR-CL-4", "destination": "/codigo-BR-CL-04", "permanent": true },

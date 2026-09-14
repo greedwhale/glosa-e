@@ -19,8 +19,9 @@ Qué se comprueba
 1. Que la copia es la que se fijó, byte a byte.
 2. Que **cada una de las 223 reglas** —201 del modelo y 22 de listas de
    códigos, leídas del esquematrón y no de una lista escrita aquí— o está
-   implementada o está en `PENDIENTES`. No hay tercera posibilidad, y ningún
-   código `BR-` del catálogo puede no estar en la norma.
+   implementada, o está en `PENDIENTES`, o está en `NO_EVALUABLES` porque las
+   tres vinculaciones oficiales la dejan en `true()`. No hay cuarta
+   posibilidad, y ningún código `BR-` del catálogo puede no estar en la norma.
 3. Que la gravedad es la de la norma: `fatal` sale como error.
 4. Que en **cada caso oficial de cada regla implementada**, este validador dice
    lo mismo que la prueba. Lo que no, está en `DISCREPANCIAS`, con su motivo,
@@ -76,12 +77,16 @@ CARPETAS = ("Invoice-unit-UBL", "CreditNote-unit-UBL", "cii")
 # salen de restar el catálogo al esquematrón, escritas aquí para que la cuenta
 # no dependa de nadie: una regla nueva en el catálogo tiene que salir de esta
 # lista a mano, y eso obliga a mirar sus pruebas oficiales.
-PENDIENTES = (
-    # Condiciones que cruzan dos campos.
-    "BR-CO-05", "BR-CO-06", "BR-CO-07", "BR-CO-08",
-    # El pago fraccionado italiano (split payment).
-    "BR-B-01", "BR-B-02",
-)
+PENDIENTES: tuple[str, ...] = ()
+
+# Las reglas que ningún validador puede comprobar, y que por eso no se hacen.
+# Piden que el código del motivo de un descuento o de un cargo y el motivo
+# escrito «indiquen lo mismo»: que el 95 vaya con «descuento» y no con
+# «transporte». Eso es leer y entender una frase en cualquier idioma, y las tres
+# vinculaciones oficiales las escriben como `true()`, que se cumple siempre. Una
+# prueba lo comprueba abajo: si el comité les pone una expresión, se pone en
+# rojo y hay que hacerlas.
+NO_EVALUABLES = ("BR-CO-05", "BR-CO-06", "BR-CO-07", "BR-CO-08")
 
 # Por qué este validador no dijo lo mismo que la prueba oficial el primer
 # día. Cada discrepancia tiene que apuntar a uno de estos.
@@ -141,6 +146,8 @@ SIN_PRUEBA_OFICIAL = (
     # exención, el esquema de la dirección electrónica y el del lugar de
     # entrega. Sus pruebas, en `test_listas_de_codigos.py`.
     "BR-CL-08", "BR-CL-22", "BR-CL-25", "BR-CL-26",
+    # El pago fraccionado italiano. Sus pruebas, en `test_modelo.py`.
+    "BR-B-01", "BR-B-02",
 )
 
 
@@ -210,18 +217,34 @@ def test_la_norma_tiene_las_reglas_que_se_contaron():
 
 def test_cada_regla_de_la_norma_esta_hecha_o_pendiente():
     reglas = set(inventario())
-    pendientes = set(PENDIENTES)
+    pendientes = set(PENDIENTES) | set(NO_EVALUABLES)
     hechas = set(implementadas())
-    assert len(PENDIENTES) == len(pendientes), "hay pendientes repetidas"
+    assert len(PENDIENTES) == len(set(PENDIENTES)), "hay pendientes repetidas"
+    assert not set(PENDIENTES) & set(NO_EVALUABLES)
     ambas = sorted(hechas & pendientes)
     assert not ambas, (
-        f"implementadas y todavía en PENDIENTES: {', '.join(ambas)}. "
+        f"implementadas y todavía en PENDIENTES o NO_EVALUABLES: {', '.join(ambas)}. "
         "Quítalas de la lista: sus casos oficiales pasan a comprobarse.")
     ninguna = sorted(reglas - hechas - pendientes)
     assert not ninguna, (
         f"reglas de la norma que ni están hechas ni pendientes: {', '.join(ninguna)}")
     sobran = sorted(pendientes - reglas)
     assert not sobran, f"pendientes que no son de la norma: {', '.join(sobran)}"
+
+
+def test_las_no_evaluables_son_true_en_las_tres_vinculaciones():
+    for sintaxis in ("UBL", "CII", "EDIFACT"):
+        for regla in NO_EVALUABLES:
+            assert vinculacion(sintaxis)[regla].strip() == "true()", (sintaxis, regla)
+
+
+def test_de_las_no_evaluables_no_hay_prueba_oficial_que_contradiga():
+    """Si el comité añade una prueba que las haga saltar, no se pueden seguir
+    dando por imposibles."""
+    for carpeta in CARPETAS:
+        for f in (OFICIAL / carpeta).glob("*.xml"):
+            texto = f.read_text(encoding="utf-8")
+            assert not any(f">{r}<" in texto for r in NO_EVALUABLES), f.name
 
 
 def test_ningun_codigo_br_es_inventado():

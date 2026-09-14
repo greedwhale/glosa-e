@@ -3079,6 +3079,20 @@ CODIGOS: dict[str, str] = {
         'ejemplo. Solo se mira en UBL y en CII: EDIFACT y Facturae no lo '
         'escriben.'
     ),
+    "BR-B-01": (
+        'La factura usa la categoría de IVA B, el pago fraccionado italiano '
+        '(split payment), y alguna de sus direcciones está fuera de Italia. Es '
+        'un régimen del IVA de Italia en el que el comprador ingresa el '
+        'impuesto, y la norma solo lo admite en facturas entre partes en '
+        'Italia. Se miran los países de las direcciones, como en la '
+        'vinculación de CII; el país de origen de un artículo no cuenta.'
+    ),
+    "BR-B-02": (
+        'La factura mezcla la categoría de IVA B, el pago fraccionado '
+        'italiano, con la S, el tipo general, en sus líneas, descuentos, '
+        'cargos o desglose. La norma no deja llevar las dos: en una factura '
+        'con pago fraccionado, la B ocupa el sitio de la S.'
+    ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
         "cadena llega igual, pero que una autoridad estuviera cualificada "

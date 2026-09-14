@@ -733,6 +733,75 @@ def _regla_prefijo_del_nif(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     ]
 
 
+def _categorias(raiz, sintaxis: Sintaxis) -> set[str]:
+    """Las categorías de IVA de la factura: desglose, descuentos, cargos y líneas.
+
+    Tal y como se escriben. En Facturae son de su propia lista —01 es el IVA—
+    y ninguna es la B, así que las dos reglas de abajo no llegan a correr: no
+    hace falta apartarlas.
+    """
+    return {
+        _escrito(codigo)
+        for grupo, campo in (("desglose", "desglose_categoria"),
+                             ("descuentos_documento", "cargo_categoria"),
+                             ("cargos_documento", "cargo_categoria"),
+                             ("lineas", "linea_categoria"))
+        for _, nodo in grupos(raiz, sintaxis, grupo)
+        for codigo in _nodos(nodo, getattr(sintaxis, campo), sintaxis)
+    }
+
+
+def _regla_pago_fraccionado(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
+    """BR-B-01 y BR-B-02: la categoría B, el pago fraccionado italiano.
+
+    Es un régimen del IVA de Italia —*split payment*— en el que el comprador
+    ingresa el impuesto en vez de pagárselo al vendedor, y la norma le da una
+    categoría propia con dos condiciones: que la factura sea nacional italiana
+    y que no mezcle la B con la S, a la que sustituye.
+
+    Qué es «nacional italiana» se lee como la vinculación de CII: todos los
+    países de las direcciones son IT. La de UBL mira además el país de origen de
+    los artículos, que no dice nada de dónde está nadie; un tornillo fabricado
+    en China no hace extranjera una factura entre dos empresas de Milán.
+    """
+    categorias = _categorias(raiz, sintaxis)
+    if "B" not in categorias:
+        return []
+    incidencias = []
+    # Sin direcciones que leer no hay ninguna fuera de Italia, igual que en la
+    # vinculación: `not(//ram:CountryID != 'IT')` se cumple sin ningún país.
+    fuera = sorted({_escrito(n) for n in _nodos(raiz, sintaxis.paises, sintaxis)} - {"IT"})
+    if fuera:
+        incidencias.append(
+            Incidencia(
+                "BR-B-01",
+                ERROR,
+                "La factura usa la categoría B, el pago fraccionado del IVA "
+                "italiano, y no es una factura nacional italiana: hay "
+                "direcciones fuera de Italia. Ese régimen solo existe entre "
+                "partes en Italia.",
+                campo="País de las direcciones",
+                esperado="IT en todas",
+                encontrado=", ".join(p or "(vacío)" for p in fuera),
+            )
+        )
+    if "S" in categorias:
+        incidencias.append(
+            Incidencia(
+                "BR-B-02",
+                ERROR,
+                "La factura mezcla la categoría B, el pago fraccionado del IVA "
+                "italiano, con la S, el tipo general. La norma no deja llevar "
+                "las dos: en una factura con pago fraccionado, la B ocupa el "
+                "sitio de la S.",
+                campo="Categoría de IVA",
+                esperado="B o S, pero no las dos",
+                encontrado="B y S",
+            )
+        )
+    return incidencias
+
+
 # --- Entrada pública -----------------------------------------------------------
 
 
@@ -747,4 +816,5 @@ def reglas(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     incidencias.extend(_regla_transferencia_sin_cuenta(raiz, sintaxis))
     incidencias.extend(_regla_devengo(raiz, sintaxis))
     incidencias.extend(_regla_prefijo_del_nif(raiz, sintaxis))
+    incidencias.extend(_regla_pago_fraccionado(raiz, sintaxis))
     return incidencias

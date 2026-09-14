@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1796 tests, todos en verde.
+1805 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -4021,6 +4021,32 @@ EDIFACT y Facturae, y exigen que salte esa y ninguna otra. El corpus pasa de
 Provocado dieciocho veces, las dieciocho en rojo. Con eso se vio que comprobar
 si un código lleva un espacio dentro era código muerto, porque ninguna lista
 tiene uno así, y se quitó. Quedan 6 pendientes.
+
+### Las seis últimas: dos que se hacen y cuatro que no se pueden hacer
+
+**El pago fraccionado italiano, BR-B-01 y BR-B-02.** La categoría B es un
+régimen del IVA de Italia —*split payment*—, y la norma le pone dos
+condiciones: que la factura sea nacional italiana y que no mezcle la B con la
+S. Viven en `modelo.py`. «Nacional» se lee como en la vinculación de CII, con
+los países de las direcciones. La de UBL mira todos los `IdentificationCode` y
+cuenta así el país de origen de los artículos, que no dice dónde está nadie.
+
+**BR-CO-05 a BR-CO-08 no se pueden comprobar, y no se hacen.** Piden que el
+código del motivo de un descuento o de un cargo y el motivo escrito «indiquen
+lo mismo»: que el 95 vaya con «descuento» y no con «transporte». Eso es
+entender una frase, en cualquier idioma, y las tres vinculaciones oficiales las
+escriben como `true()`. Están en `NO_EVALUABLES`, una tercera lista junto a
+las hechas y las pendientes, y dos pruebas vigilan la decisión: que siguen
+siendo `true()` en UBL, CII y EDIFACT, y que ninguna prueba oficial las hace
+saltar. Si el comité les pone una expresión, se ponen en rojo.
+
+**Con esto no queda ninguna pendiente.** Las 223 reglas de la norma están
+hechas, 219, o declaradas imposibles con la prueba que lo sostiene, 4. De las
+seis de esta tanda no hay ni un caso oficial, y sus pruebas están en
+`tests/test_modelo.py`. En el corpus no sale ninguna B, y no cambia nada.
+Provocado nueve veces. La primera pasada dejó una en verde: una guarda para
+cuando no se sabe el país no hacía nada que no hiciera ya la ruta vacía, y se
+quitó.
 
 ## Por qué este y no otro, contestado sin pedir fe
 
