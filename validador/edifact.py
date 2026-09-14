@@ -890,7 +890,10 @@ def iva_fuera_del_desglose(raiz, deteccion) -> list[Incidencia]:
     dice que no hay desglose, y quien lo lee busca un TAX que tiene delante.
 
     Solo se avisa cuando no hay ninguna entrada del desglose: con desglose, un
-    TAX en la cabecera es EDIFACT legítimo y no estorba a nada.
+    TAX en la cabecera es EDIFACT legítimo y no estorba a nada. Y solo de los
+    TAX que pueden ser el IVA: uno que dice que es otro impuesto —TAX+7+EXC,
+    un impuesto especial— no es IVA mal escrito, y decir que le falta el VAT
+    sería mandar a cambiarle el impuesto.
     """
     if raiz is None or not deteccion or deteccion.familia != FAMILIA:
         return []
@@ -898,8 +901,9 @@ def iva_fuera_del_desglose(raiz, deteccion) -> list[Incidencia]:
 
     if raiz.xpath(SINTAXIS_EDIFACT.desglose):
         return []
-    cabecera = raiz.xpath("./*[S_TAX][not(preceding-sibling::S_UNS)]")
-    resumen = raiz.xpath("./*[S_TAX][preceding-sibling::S_UNS]")
+    puede_ser_iva = "[not(S_TAX/C_C241/D_5153) or S_TAX/C_C241/D_5153='VAT']"
+    cabecera = raiz.xpath(f"./*[S_TAX]{puede_ser_iva}[not(preceding-sibling::S_UNS)]")
+    resumen = raiz.xpath(f"./*[S_TAX]{puede_ser_iva}[preceding-sibling::S_UNS]")
     if not cabecera and not resumen:
         return []
     donde = []

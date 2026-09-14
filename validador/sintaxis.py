@@ -763,8 +763,14 @@ def _total_edi(cualificador: str) -> str:
     Se pide como hijo de un grupo que cuelga de la raíz —`./*/S_MOA`— y no en
     cualquier sitio: los importes de línea viven más hondo y con `.//` se
     colarían en los totales.
+
+    Y de un grupo que no sea de impuesto. El TAX también cuelga de la raíz y
+    lleva sus MOA como hijos, y EANCOM repite ahí el `MOA+176` con el impuesto
+    de ese tipo: se leía como el total de la factura. Lo vio la revisión del
+    14-09-2026, cuando BR-DEC-13 informó del importe de un tipo como si fuera
+    el total.
     """
-    return f"./*/S_MOA/C_C516[D_5025='{cualificador}']/D_5004"
+    return f"./*[not(S_TAX)]/S_MOA/C_C516[D_5025='{cualificador}']/D_5004"
 
 
 SINTAXIS_EDIFACT = Sintaxis(
@@ -847,7 +853,11 @@ SINTAXIS_EDIFACT = Sintaxis(
     # Los cualificadores de fecha del esquematrón oficial: 131 la fecha de
     # devengo y 3 el código.
     fecha_devengo="./S_DTM/C_C507[D_2005='131']/D_2380",
-    fecha_devengo_codigo="./S_DTM/C_C507[D_2005='3']/D_2380",
+    # El código de devengo (BT-8) es el propio cualificador del DTM, y va sin
+    # fecha: la vinculación mira que el DTM+3 esté, y el esquematrón de códigos
+    # busca justo los DTM sin fecha. Hasta el 14-09-2026 se pedía la fecha, y
+    # un DTM+3 escrito como la norma no contaba para BR-CO-03.
+    fecha_devengo_codigo="./S_DTM/C_C507[D_2005='3']/D_2005",
     # No hay grupo de periodo: son dos DTM, 167 y 168. El «grupo» es el mensaje
     # —o la línea— cuando trae alguno de los dos, y de ahí se leen.
     periodo_grupo="./S_DTM[C_C507/D_2005='167' or C_C507/D_2005='168']/..",

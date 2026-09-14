@@ -3206,3 +3206,39 @@ Los EDIFACT no llevan firma, así que no hubo que rehacer nada más.
 
 **Provocado**: con `PCE` vuelve BR-CL-23 en los tres. Y en el corpus es lo más
 repetido entre las facturas EDIFACT: 32 de las 53 que cambian.
+
+## Cuatro fallos que las pruebas no veían, vistos al revisar antes de publicar
+
+**Qué pasaba.** Con las 223 reglas hechas o descartadas y la suite en verde, se
+revisó línea a línea todo lo que no estaba publicado —diez commits— antes de
+subirlo. Salieron cuatro fallos de verdad, y los cuatro pasaban las pruebas:
+
+| Dónde | Qué hacía mal |
+|---|---|
+| BR-CO-03 en EDIFACT | El código de devengo se buscaba con fecha, y en EDIFACT es el cualificador del DTM y va sin ella. Un `DTM+131` con fecha y un `DTM+3` sin fecha no daban el error, y la vinculación oficial sí lo da |
+| Los totales de EDIFACT | Se leían en cualquier grupo colgado de la raíz, también en los de impuesto. EANCOM repite ahí el `MOA+176` con el impuesto de cada tipo, y BR-DEC-13 informaba del importe de un tipo como si fuera el total de la factura |
+| BR-51 | Se quitaban todos los espacios del número de la tarjeta antes de contar. La vinculación los junta, no los quita: `123456 7890` son once caracteres y salía sin aviso |
+| El aviso del IVA fuera del desglose | Contaba un `TAX+7+EXC` como IVA al que le falta decir que lo es. Un grupo que dice qué impuesto es y no es el IVA no está mal escrito |
+
+Y una afirmación de más: el comentario de BR-17 decía que las dos
+vinculaciones solo difieren en el nombre con el que comparan. La de CII
+compara también el registro legal, y aquí se hace como en CII. Ahora lo dice,
+y hay una prueba.
+
+**Por qué no se vio.** Las pruebas estaban escritas desde el mapa: montaban el
+DTM+3 con fecha porque la ruta pedía fecha, y los totales sin grupo de impuesto
+detrás. Probaban lo que el código hacía, no lo que dice la vinculación.
+
+**Cómo se reprodujo.** Una prueba por fallo, escrita antes del arreglo; las
+cuatro en rojo. La de BR-17 ya pasaba, porque ahí lo que fallaba era el
+comentario.
+
+**Arreglado** en el mapa de EDIFACT, en `modelo.py` y en `edifact.py`. El corpus
+no cambia: 1376 incidencias antes y después, en los mismos ficheros.
+
+**Quedan dos limpiezas sin hacer, a propósito.** `decimales.py` y
+`listas_de_codigos.py` repiten dos lectores pequeños de `modelo.py`, y no son
+iguales: el de las listas no quita espacios, porque el tipo de un adjunto se
+compara tal cual. Y `listas_de_codigos.lista()` busca cada lista por su nombre;
+una errata saldría al validar y no al importar, pero la prueba que recorre
+todas las filas la caza igual.

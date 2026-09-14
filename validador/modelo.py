@@ -487,8 +487,11 @@ def _regla_beneficiario_que_es_el_vendedor(raiz, sintaxis: Sintaxis) -> list[Inc
     La regla dice «si el beneficiario es distinto del vendedor», y las dos
     vinculaciones lo leen igual: un beneficiario que se llama como el vendedor
     o lleva su mismo identificador es el vendedor, y no tenía que estar. No
-    comparan con el mismo nombre —la de UBL con el comercial, la de CII con el
-    legal—, así que aquí se compara con los dos.
+    comparan lo mismo: la de UBL mira el nombre comercial y el identificador;
+    la de CII, el nombre legal, el identificador y el registro legal. Aquí se
+    mira todo lo que mira alguna de las dos, porque un beneficiario con el
+    registro legal del vendedor es la misma empresa aunque se llame de otra
+    forma; y en eso este validador dice más que el esquematrón de UBL.
     """
     def valores(nodo, *rutas: str) -> set[str]:
         return {_escrito(n) for ruta in rutas for n in _nodos(nodo, ruta, sintaxis)} - {""}
@@ -598,9 +601,13 @@ def _regla_tarjeta(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     Es `warning` en la norma y sale como aviso. Y el informe no repite el
     número: sería copiar otra vez, en otro sitio, justo lo que la regla pide
     que no se escriba.
+
+    Se cuenta como la vinculación, con `normalize-space`: los espacios de los
+    lados no cuentan y los de dentro se juntan en uno, pero no desaparecen.
+    Hasta el 14-09-2026 se quitaban todos, y `123456 7890` salía sin aviso.
     """
     largos = [
-        len(re.sub(r"\s+", "", _escrito(n)))
+        len(" ".join(_escrito(n).split()))
         for n in _nodos(raiz, sintaxis.tarjeta_numero, sintaxis)
     ]
     largos = [n for n in largos if n > 10]

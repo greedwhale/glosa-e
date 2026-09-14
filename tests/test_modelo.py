@@ -530,6 +530,36 @@ def test_la_tarjeta_es_un_aviso_y_no_repite_el_numero():
         str(x) for x in (incidencia.mensaje, incidencia.campo, incidencia.esperado, incidencia.encontrado))
 
 
+def test_la_tarjeta_se_cuenta_como_la_vinculacion_con_los_espacios_dentro():
+    """`normalize-space` junta los espacios, no los quita: once caracteres con
+    uno en medio son once."""
+    def tarjeta(numero):
+        return ubl("<cac:PaymentMeans><cbc:PaymentMeansCode>48</cbc:PaymentMeansCode>"
+                   f"<cac:CardAccount><cbc:PrimaryAccountNumberID>{numero}"
+                   "</cbc:PrimaryAccountNumberID></cac:CardAccount></cac:PaymentMeans>")
+    assert "BR-51" in salen(tarjeta("123456 7890"), SINTAXIS_UBL)
+    assert "BR-51" in salen(tarjeta("1234  5678  90"), SINTAXIS_UBL)
+    assert "BR-51" not in salen(tarjeta(" 1234567890 "), SINTAXIS_UBL)
+
+
+def test_el_beneficiario_con_el_registro_legal_del_vendedor_es_el_vendedor():
+    """Como en la vinculación de CII; la de UBL no compara el registro."""
+    raiz = cii(acuerdo="<ram:SellerTradeParty><ram:Name>Vendedor SL</ram:Name>"
+                       "<ram:SpecifiedLegalOrganization><ram:ID>B12345678</ram:ID>"
+                       "</ram:SpecifiedLegalOrganization></ram:SellerTradeParty>",
+               cobro="<ram:PayeeTradeParty><ram:Name>Cobros SL</ram:Name>"
+                     "<ram:SpecifiedLegalOrganization><ram:ID>B12345678</ram:ID>"
+                     "</ram:SpecifiedLegalOrganization></ram:PayeeTradeParty>")
+    assert "registro" in la(raiz, SINTAXIS_CII, "BR-17").mensaje
+
+
+def test_edifact_el_codigo_de_devengo_va_sin_fecha():
+    """BT-8 en EDIFACT es el cualificador del DTM, y va sin fecha: la
+    vinculación mira que el DTM+3 esté, lleve fecha o no."""
+    assert "BR-CO-03" in salen(edi("DTM+131:20260601:102'DTM+3'"), SINTAXIS_EDIFACT)
+    assert "BR-CO-03" not in salen(edi("DTM+3'"), SINTAXIS_EDIFACT)
+
+
 def test_en_un_abono_las_lineas_se_llaman_de_otra_forma():
     raiz = ubl("<cac:CreditNoteLine><cbc:ID>7</cbc:ID><cac:Item/></cac:CreditNoteLine>", "CreditNote")
     incidencia = la(raiz, SINTAXIS_UBL, "BR-CO-04")

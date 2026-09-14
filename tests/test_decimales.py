@@ -352,6 +352,16 @@ def test_el_total_en_la_moneda_de_contabilidad_no_es_el_de_la_factura():
     assert salen(documento("21.001", "23.12"), SINTAXIS_UBL) == {"BR-DEC-13"}
 
 
+def test_en_edifact_el_impuesto_de_un_tipo_no_es_el_total():
+    """EANCOM repite el MOA+176 dentro de cada grupo de impuesto, con el de ese
+    tipo. El total de la factura es el del resumen, y es el único que mira
+    BR-DEC-13."""
+    raiz = edi("UNS+S'MOA+176:21.00'TAX+7+VAT+++:::21+S'MOA+125:100.00'MOA+176:21.000'")
+    assert salen(raiz, SINTAXIS_EDIFACT) == set()
+    raiz = edi("UNS+S'MOA+176:21.001'TAX+7+VAT+++:::21+S'MOA+125:100.00'MOA+176:21.00'")
+    assert la(raiz, SINTAXIS_EDIFACT, "BR-DEC-13").encontrado == "21.001"
+
+
 def test_sin_moneda_de_contabilidad_un_total_en_otra_moneda_no_es_ninguno_de_los_dos():
     raiz = ubl(
         "<cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>"

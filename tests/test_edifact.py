@@ -594,6 +594,15 @@ class TestElIvaFueraDelDesglose:
         cuerpo = CUERPO.replace("CUX+2:EUR:4'", "CUX+2:EUR:4'TAX+7+VAT+++:::21+S'")
         assert "EDI-IVA-FUERA-DEL-DESGLOSE" not in codigos(quejas(sobre(cuerpo)))
 
+    def test_un_impuesto_que_dice_que_no_es_iva_no_es_iva_sin_marcar(self):
+        """Un TAX+7+EXC dice qué impuesto es, y no es el IVA: no se avisa de
+        que le falte decirlo. BR-CO-18 ya dice que no hay desglose."""
+        for cuerpo in (self.SIN_RESUMEN + "TAX+7+EXC'MOA+124:0'",
+                       self.SIN_RESUMEN.replace("CUX+2:EUR:4'", "CUX+2:EUR:4'TAX+7+EXC'")):
+            incidencias = quejas(sobre(cuerpo))
+            assert "BR-CO-18" in codigos(incidencias, ERROR)
+            assert "EDI-IVA-FUERA-DEL-DESGLOSE" not in codigos(incidencias)
+
     def test_sin_ningun_tax_tampoco(self):
         """Si no hay nada escrito, BR-CO-18 ya lo dice todo."""
         incidencias = quejas(sobre(self.SIN_RESUMEN))
