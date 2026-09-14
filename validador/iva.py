@@ -148,12 +148,12 @@ for _categoria, _regla in REGLAS.items():
 # hay una factura delante. Se declaran aquí, pegados a la tabla de la que
 # salen, y `codigos.py` los recoge para que tengan su ficha como los demás.
 #
-# Son nueve categorías por siete reglas, 63, y ninguna rama se queda muda: cada
+# Son nueve categorías por diez reglas, 90, y ninguna rama se queda muda: cada
 # estado del tipo rechaza algún valor y cada estado del motivo se queja por
 # algún lado. Durante un día se declararon 46, con ocho de IGIC e IPSI dados
 # por inexistentes porque la tabla de arriba decía que la norma no ataba a esas
-# categorías; la norma sí las ata. Fueron 54 hasta el 14-09-2026, cuando llegó
-# la cuota de cada categoría, BR-{X}-09.
+# categorías; la norma sí las ata. Fueron 54 hasta el 14-09-2026, cuando llegaron
+# la cuota de cada categoría, BR-{X}-09, y los identificadores, 02 a 04.
 #
 # Las condiciones son las mismas que aplican las reglas, y eso es una
 # duplicación a la vista: la sostiene una prueba que provoca las cuatro reglas
@@ -177,6 +177,12 @@ def _codigos_compuestos() -> dict[str, tuple[str, ...]]:
             )
         # El motivo de exención, que falte o que sobre.
         por_patron.setdefault("BR-{}-10", []).append(f"BR-{regla.codigo}-10")
+        # Los identificadores fiscales que la categoría exige o prohíbe, según
+        # la use una línea, un descuento o un cargo.
+        for cifra in ("2", "3", "4"):
+            por_patron.setdefault("BR-{}-0{}", []).append(
+                f"BR-{regla.codigo}-0{cifra}"
+            )
     return {patron: tuple(sorted(set(suyos))) for patron, suyos in por_patron.items()}
 
 
@@ -738,6 +744,158 @@ def _reglas_cuota(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]:
     return de_la_cuota + de_la_categoria
 
 
+# --- Los identificadores fiscales de cada categoría (BR-{X}-02 a 04) ----------
+
+# Qué identificadores sirven, por quién. Cada categoría exige una lista de
+# requisitos y cada requisito se cumple con cualquiera de sus campos. Sale del
+# texto de cada regla en la vinculación oficial de UBL, y `test_norma_oficial`
+# lo compara con ese texto.
+_VENDEDOR_CUALQUIERA = (
+    "vendedor",
+    ("vendedor_nif", "vendedor_registro_fiscal", "representante_nif"),
+    "su identificador de IVA (BT-31), otro identificador fiscal suyo (BT-32) "
+    "o el de IVA de su representante fiscal (BT-63)",
+)
+_VENDEDOR_IVA = (
+    "vendedor",
+    ("vendedor_nif", "representante_nif"),
+    "su identificador de IVA (BT-31) o el de su representante fiscal (BT-63)",
+)
+_COMPRADOR_CUALQUIERA = (
+    "comprador",
+    ("comprador_nif", "comprador_registro"),
+    "su identificador de IVA (BT-48) o su registro legal (BT-47)",
+)
+_COMPRADOR_IVA = (
+    "comprador",
+    ("comprador_nif",),
+    "su identificador de IVA (BT-48)",
+)
+IDENTIFICADORES_EXIGIDOS: dict[str, tuple[tuple[str, tuple[str, ...], str], ...]] = {
+    "S": (_VENDEDOR_CUALQUIERA,),
+    "Z": (_VENDEDOR_CUALQUIERA,),
+    "E": (_VENDEDOR_CUALQUIERA,),
+    "L": (_VENDEDOR_CUALQUIERA,),
+    "M": (_VENDEDOR_CUALQUIERA,),
+    "AE": (_VENDEDOR_CUALQUIERA, _COMPRADOR_CUALQUIERA),
+    "K": (_VENDEDOR_IVA, _COMPRADOR_IVA),
+    "G": (_VENDEDOR_IVA,),
+}
+# La no sujeta es la única que prohíbe: ni el de IVA del vendedor, ni el de su
+# representante, ni el del comprador. Lo que no está sujeto no tiene a quién
+# identificar ante el IVA.
+IDENTIFICADORES_PROHIBIDOS: dict[str, tuple[str, ...]] = {
+    "O": ("vendedor_nif", "representante_nif", "comprador_nif"),
+}
+_NOMBRE_DEL_IDENTIFICADOR = {
+    "vendedor_nif": "el de IVA del vendedor (BT-31)",
+    "representante_nif": "el de IVA de su representante fiscal (BT-63)",
+    "comprador_nif": "el de IVA del comprador (BT-48)",
+}
+
+
+def _esta(raiz, ruta: str, sintaxis: Sintaxis) -> bool | None:
+    """Si el documento trae el elemento; None si la sintaxis no tiene dónde.
+
+    Tres valores y no dos, a propósito. Un identificador que la sintaxis no
+    distingue no está ausente: no se sabe. Con dos valores, «no se sabe» se
+    convertía en «no está», y la regla acusaba a Facturae de algo que no puede
+    escribir; o en «está», y la no sujeta la acusaba de lo contrario.
+    """
+    if ruta == SIN_MAPA:
+        return None
+    return bool(raiz.xpath(ruta, namespaces=sintaxis.espacios))
+
+
+def _alguno(valores: list[bool | None]) -> bool | None:
+    if True in valores:
+        return True
+    return None if None in valores else False
+
+
+# La segunda cifra del código según de qué cuelgue la categoría. Se escribe
+# como una cifra y no como «02» para que el código salga de `f"BR-…-0{cifra}"`,
+# un patrón que `codigos.py` reconoce como suyo y no confunde con el de 05 a 07.
+_DE_QUE_CUELGA = {
+    "2": ("una línea", "líneas"),
+    "3": ("un descuento de documento", "descuentos de documento"),
+    "4": ("un cargo de documento", "cargos de documento"),
+}
+
+
+def _cifra_de_identificadores(apunte: Apunte) -> str:
+    if not apunte.es_ajuste:
+        return "2"
+    return "4" if apunte.es_cargo else "3"
+
+
+def _regla_identificadores(
+    raiz, sintaxis: Sintaxis, apuntes: list[Apunte]
+) -> list[Incidencia]:
+    """BR-{X}-02, 03 y 04: los identificadores que exige cada categoría.
+
+    Si una línea (02), un descuento (03) o un cargo (04) usa una categoría, la
+    factura tiene que identificar a quien la norma pide para ella. Una
+    incidencia por categoría y por clase de concepto, que nombra los conceptos:
+    cien líneas al tipo general sin NIF del vendedor son un defecto, no cien.
+
+    Cuando lo que pide la regla depende de un campo que la sintaxis no
+    distingue, la regla se calla: no se sabe si se cumple, y no se afirma
+    ninguna de las dos cosas.
+    """
+    usos: dict[tuple[str, str], list[str]] = {}
+    for apunte in apuntes:
+        if apunte.categoria in REGLAS:
+            clave = (apunte.categoria, _cifra_de_identificadores(apunte))
+            usos.setdefault(clave, []).append(apunte.descripcion)
+    if not usos:
+        return []
+    hay = {
+        campo: _esta(raiz, getattr(sintaxis, campo), sintaxis)
+        for campo in (
+            "vendedor_nif", "vendedor_registro_fiscal", "representante_nif",
+            "comprador_nif", "comprador_registro",
+        )
+    }
+    incidencias = []
+    for (categoria, cifra), suyos in sorted(usos.items()):
+        regla = REGLAS[categoria]
+        uno, varios = _DE_QUE_CUELGA[cifra]
+        conceptos = f"{uno if len(suyos) == 1 else varios} a {nombre_categoria(categoria)}"
+        for quien, campos, cuales in IDENTIFICADORES_EXIGIDOS.get(categoria, ()):
+            if _alguno([hay[c] for c in campos]) is not False:
+                continue
+            incidencias.append(
+                Incidencia(
+                    f"BR-{regla.codigo}-0{cifra}",
+                    ERROR,
+                    f"La factura tiene {conceptos} y no identifica fiscalmente "
+                    f"al {quien}. La norma pide para esa categoría {cuales}.",
+                    campo=f"Identificador fiscal del {quien}",
+                    esperado=cuales,
+                    encontrado="ninguno · " + ", ".join(suyos),
+                )
+            )
+        prohibidos = IDENTIFICADORES_PROHIBIDOS.get(categoria, ())
+        if prohibidos and None not in [hay[c] for c in prohibidos]:
+            sobran = [_NOMBRE_DEL_IDENTIFICADOR[c] for c in prohibidos if hay[c]]
+            if sobran:
+                incidencias.append(
+                    Incidencia(
+                        f"BR-{regla.codigo}-0{cifra}",
+                        ERROR,
+                        f"La factura tiene {conceptos} y trae identificadores "
+                        "de IVA que en esa categoría no pueden estar: "
+                        f"{', '.join(sobran)}. Lo que no está sujeto no se "
+                        "identifica ante el IVA.",
+                        campo="Identificadores de IVA",
+                        esperado="ninguno de IVA",
+                        encontrado=", ".join(sobran),
+                    )
+                )
+    return incidencias
+
+
 def _reglas_campos_del_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]:
     """BR-45 a BR-48: los cuatro datos que toda entrada del desglose debe traer.
 
@@ -1166,8 +1324,8 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
         # decía uno, y el segundo aparecía el día que se arreglaba el primero.
         moneda = texto(raiz, sintaxis.moneda, sintaxis)
         declarado = importe_en_moneda(raiz, sintaxis.impuestos, sintaxis, moneda)
-        return _regla_tipo_de_los_conceptos(apuntes) + _regla_hay_desglose(
-            grupos, apuntes) + [
+        return _regla_tipo_de_los_conceptos(apuntes) + _regla_identificadores(
+            raiz, sintaxis, apuntes) + _regla_hay_desglose(grupos, apuntes) + [
             Incidencia(
                 "BR-CO-18",
                 ERROR,
@@ -1214,6 +1372,7 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
             incidencias.extend(_regla_base_por_grupo(grupo, apuntes, sintaxis))
         incidencias.extend(_reglas_cuota(grupo, sintaxis))
     incidencias.extend(_regla_tipo_de_los_conceptos(apuntes))
+    incidencias.extend(_regla_identificadores(raiz, sintaxis, apuntes))
     incidencias.extend(_regla_hay_desglose(grupos, apuntes))
     incidencias.extend(_regla_no_sujeta_a_solas(grupos))
     if espanola:

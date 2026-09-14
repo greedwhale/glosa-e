@@ -68,6 +68,17 @@ class Sintaxis:
     comprador_direccion: str
     comprador_pais: str
 
+    # Los identificadores fiscales, uno por término de negocio, porque las
+    # reglas BR-{X}-02 a 04 no los tratan igual: unas categorías se conforman
+    # con cualquiera del vendedor y otras piden el de IVA y no otro, y la no
+    # sujeta los prohíbe. Se lee que **esté** el elemento, como el esquematrón
+    # oficial, que pregunta con `exists()`.
+    vendedor_nif: str  # BT-31, identificador de IVA del vendedor
+    vendedor_registro_fiscal: str  # BT-32, otro identificador fiscal suyo
+    representante_nif: str  # BT-63, el de IVA de su representante fiscal
+    comprador_nif: str  # BT-48, identificador de IVA del comprador
+    comprador_registro: str  # BT-47, su registro legal
+
     lineas: str
     linea_id: str  # relativa a una línea
     linea_importe: str  # relativa a una línea
@@ -195,6 +206,7 @@ _COMPRADOR_UBL = "./cac:AccountingCustomerParty/cac:Party"
 # BR-04 y BR-16 inventados y, al no encontrársele las líneas, enmudecían de
 # golpe BR-24, BR-CO-10 y todo el IVA. Acusado en falso y sin comprobar.
 _TIPO_UBL = "./cbc:InvoiceTypeCode|./cbc:CreditNoteTypeCode"
+_IVA_UBL = "translate(normalize-space(cac:TaxScheme/cbc:ID), 'vat', 'VAT') = 'VAT'"
 _LINEAS_UBL = "./cac:InvoiceLine|./cac:CreditNoteLine"
 
 SINTAXIS_UBL = Sintaxis(
@@ -216,6 +228,19 @@ SINTAXIS_UBL = Sintaxis(
     comprador_pais=(
         f"{_COMPRADOR_UBL}/cac:PostalAddress/cac:Country/cbc:IdentificationCode"
     ),
+    # El de IVA y el otro se distinguen por el esquema del `PartyTaxScheme`:
+    # «VAT» es BT-31, cualquier otro es BT-32. El oficial compara en
+    # mayúsculas y sin espacios; XPath 1.0 no tiene `upper-case`, y `translate`
+    # hace lo mismo con las tres letras que importan.
+    vendedor_nif=f"{_VENDEDOR_UBL}/cac:PartyTaxScheme[{_IVA_UBL}]/cbc:CompanyID",
+    vendedor_registro_fiscal=(
+        f"{_VENDEDOR_UBL}/cac:PartyTaxScheme[not({_IVA_UBL})]/cbc:CompanyID"
+    ),
+    representante_nif=(
+        f"./cac:TaxRepresentativeParty/cac:PartyTaxScheme[{_IVA_UBL}]/cbc:CompanyID"
+    ),
+    comprador_nif=f"{_COMPRADOR_UBL}/cac:PartyTaxScheme[{_IVA_UBL}]/cbc:CompanyID",
+    comprador_registro=f"{_COMPRADOR_UBL}/cac:PartyLegalEntity/cbc:CompanyID",
     lineas=_LINEAS_UBL,
     linea_id="./cbc:ID",
     linea_importe="./cbc:LineExtensionAmount",
@@ -293,6 +318,27 @@ SINTAXIS_CII = Sintaxis(
     comprador_direccion=f"{_ACUERDO}/ram:BuyerTradeParty/ram:PostalTradeAddress",
     comprador_pais=(
         f"{_ACUERDO}/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CountryID"
+    ),
+    # En CII los dos del vendedor van en el mismo elemento y los separa el
+    # `schemeID`: VA es el de IVA, FC el fiscal.
+    vendedor_nif=(
+        f"{_ACUERDO}/ram:SellerTradeParty/ram:SpecifiedTaxRegistration"
+        "/ram:ID[@schemeID='VA']"
+    ),
+    vendedor_registro_fiscal=(
+        f"{_ACUERDO}/ram:SellerTradeParty/ram:SpecifiedTaxRegistration"
+        "/ram:ID[@schemeID='FC']"
+    ),
+    representante_nif=(
+        f"{_ACUERDO}/ram:SellerTaxRepresentativeTradeParty"
+        "/ram:SpecifiedTaxRegistration/ram:ID[@schemeID='VA']"
+    ),
+    comprador_nif=(
+        f"{_ACUERDO}/ram:BuyerTradeParty/ram:SpecifiedTaxRegistration"
+        "/ram:ID[@schemeID='VA']"
+    ),
+    comprador_registro=(
+        f"{_ACUERDO}/ram:BuyerTradeParty/ram:SpecifiedLegalOrganization/ram:ID"
     ),
     lineas=f"{_TRANSACCION}/ram:IncludedSupplyChainTradeLineItem",
     linea_id="./ram:AssociatedDocumentLineDocument/ram:LineID",
@@ -416,6 +462,17 @@ SINTAXIS_EDIFACT = Sintaxis(
     comprador_nombre=f"{_COMPRADOR_EDI}/S_NAD/C_C080/D_3036",
     comprador_direccion=_direccion_edi(_COMPRADOR_EDI),
     comprador_pais=f"{_COMPRADOR_EDI}/S_NAD/D_3207",
+    # Una referencia detrás del NAD de cada parte, por su cualificador: VA el
+    # de IVA, FC el fiscal, GN el registro legal. VA y FC son los del
+    # esquematrón oficial de EDIFACT. GN es el que ese mismo esquematrón usa
+    # para el registro legal del vendedor en BR-CO-26; para el del comprador
+    # no lo nombra en ninguna regla, así que es una lectura por analogía, y se
+    # dice. El representante fiscal es el NAD+LC.
+    vendedor_nif=f"{_VENDEDOR_EDI}/*/S_RFF/C_C506[D_1153='VA']/D_1154",
+    vendedor_registro_fiscal=f"{_VENDEDOR_EDI}/*/S_RFF/C_C506[D_1153='FC']/D_1154",
+    representante_nif="./*[S_NAD/D_3035='LC']/*/S_RFF/C_C506[D_1153='VA']/D_1154",
+    comprador_nif=f"{_COMPRADOR_EDI}/*/S_RFF/C_C506[D_1153='VA']/D_1154",
+    comprador_registro=f"{_COMPRADOR_EDI}/*/S_RFF/C_C506[D_1153='GN']/D_1154",
     # Cualquier grupo que contenga una línea, se llame como se llame.
     lineas=".//*[S_LIN]",
     linea_id="./S_LIN/D_1082",
@@ -629,6 +686,21 @@ SINTAXIS_FACTURAE = Sintaxis(
     comprador_nombre=_nombre_fe(_COMPRADOR_FE),
     comprador_direccion=_direccion_fe(_COMPRADOR_FE),
     comprador_pais=_pais_fe(_COMPRADOR_FE),
+    # **Facturae no distingue qué clase de identificador es.** Cada parte lleva
+    # un `TaxIdentificationNumber`, obligatorio por esquema, y nada dice si es
+    # el de IVA (BT-31, BT-48), otro fiscal (BT-32) o un registro (BT-47). El
+    # borrador del CIUS español lo reparte a su manera —el del vendedor como
+    # BT-32 y el del comprador como BT-48— y eso cambia lo que pasa en una
+    # operación no sujeta, que prohíbe el BT-48: con esa lectura, toda factura
+    # no sujeta de España sería error. Es un borrador, no una vinculación, así
+    # que aquí no se elige. Las reglas que dependen de la clase se callan en
+    # Facturae; las que se conforman con cualquiera no pueden fallar, porque el
+    # esquema ya exige el número.
+    vendedor_nif=SIN_MAPA,
+    vendedor_registro_fiscal=SIN_MAPA,
+    representante_nif=SIN_MAPA,
+    comprador_nif=SIN_MAPA,
+    comprador_registro=SIN_MAPA,
     lineas="./Items/InvoiceLine",
     # BT-126, el identificador de línea, **no existe en Facturae**. El esquema
     # da `SequenceNumber`, pero es opcional y significa otra cosa —el orden de

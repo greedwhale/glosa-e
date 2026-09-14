@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1441 tests, todos en verde.
+1464 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3820,6 +3820,54 @@ Provocado cinco veces: el tipo cero con redondeo a entero, CII mirando el IGIC,
 la unidad justa que pasa, la nota que no se retira y la regla de tipo cero
 quitada; esta última se pone en rojo también en los casos oficiales. Quedan
 123 pendientes.
+
+### Los identificadores fiscales de cada categoría
+
+**La segunda tanda es BR-{X}-02, 03 y 04: veintisiete reglas**, las de más
+casos oficiales de todas —214—. Si una línea (02), un descuento de documento
+(03) o un cargo (04) usa una categoría, la factura tiene que identificar a
+quien esa categoría pide:
+
+| Categorías | Del vendedor | Del comprador |
+|---|---|---|
+| S, Z, E, L, M | cualquiera: BT-31, BT-32 o el del representante, BT-63 | — |
+| AE | cualquiera | su identificador de IVA, BT-48, o su registro, BT-47 |
+| K | el de IVA: BT-31 o BT-63 | el de IVA, BT-48 |
+| G | el de IVA: BT-31 o BT-63 | — |
+| O | **ninguno** de IVA | **ninguno** de IVA |
+
+La tabla vive en `iva.py` y una prueba la compara con el texto de cada una de
+las veintisiete reglas en la vinculación de UBL: qué identificadores nombra, y
+si los nombra para exigirlos o, en la no sujeta, para prohibirlos. Los mapas
+miran si el elemento está, como el esquematrón: el `PartyTaxScheme`
+de UBL separado por su esquema, el `schemeID` de CII, y en EDIFACT la
+referencia VA, FC o GN detrás del NAD de cada parte. GN, el registro del
+comprador, es una lectura por analogía: el esquematrón de EDIFACT lo usa para el
+del vendedor y no nombra el del comprador en ninguna regla.
+
+**Facturae no dice qué clase de identificador trae, y aquí no se elige.** Cada
+parte lleva un `TaxIdentificationNumber`, obligatorio por esquema, y nada dice
+si es el de IVA o otro. La regla se evalúa con tres valores —está, no
+está, no se sabe—, y con «no se sabe» se calla: en las categorías que se
+conforman con cualquiera no hace falta, porque el esquema ya exige el número;
+en la intracomunitaria, la exportación y la no sujeta, que dependen de la
+clase, no se afirma nada. El borrador del CIUS español sí elige: lee el número
+del comprador como BT-48. Con esa lectura, **toda factura no sujeta que lleve el
+NIF del comprador sería error de BR-O-02**. Es una consecuencia del borrador, no
+de la norma, y queda escrita aquí para cuando haya texto definitivo.
+
+**Las facturas correctas de las pruebas no tenían identificador.** Cincuenta
+pruebas se pusieron en rojo el primer día: las facturas de ejemplo de UBL, CII y
+EDIFACT montadas para «pasar limpias» no identificaban al vendedor, y la norma
+lo pide. Ahora lo llevan, y las de la no sujeta no llevan ninguno de IVA.
+
+**En el corpus**, cuatro facturas EDIFACT sin la referencia de IVA del
+vendedor, y en una ni siquiera su NAD: de 1138 incidencias a 1142. Provocado
+siete veces —la intracomunitaria conformándose con cualquiera, la inversión sin
+comprador, la no sujeta sin prohibir, «no se sabe» leído como «no está», los
+descuentos y cargos contados como líneas, el de IVA de UBL sin filtrar por
+esquema y el NIF de EDIFACT buscado en el comprador—, y las siete en rojo.
+Quedan 96 pendientes.
 
 ## Por qué este y no otro, contestado sin pedir fe
 

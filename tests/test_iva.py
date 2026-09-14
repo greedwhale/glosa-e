@@ -53,11 +53,71 @@ class Ajuste:
     tipo: str | None = "21"
 
 
+# Los identificadores fiscales que traen las facturas de estas pruebas si no se
+# dice otra cosa: el de IVA del vendedor y el del comprador, que es lo que pide
+# la categoría más exigente de las que usan casi todas —la inversión del sujeto
+# pasivo y la intracomunitaria piden los dos—. Las pruebas de BR-{X}-02 a 04 los
+# quitan o los cambian con `partes`.
+PARTES = {"vendedor_nif": "ESB12345678", "comprador_nif": "ESA87654321"}
+
+
 # --- Las dos sintaxis ------------------------------------------------------
 
 
+def _partes_ubl(partes):
+    def esquema(numero, esquema):
+        return (f"<cac:PartyTaxScheme><cbc:CompanyID>{numero}</cbc:CompanyID>"
+                f"<cac:TaxScheme><cbc:ID>{esquema}</cbc:ID></cac:TaxScheme>"
+                "</cac:PartyTaxScheme>")
+    vendedor = "".join((
+        esquema(partes["vendedor_nif"], "VAT") if "vendedor_nif" in partes else "",
+        esquema(partes["vendedor_registro_fiscal"], "TAX")
+        if "vendedor_registro_fiscal" in partes else "",
+    ))
+    comprador = "".join((
+        esquema(partes["comprador_nif"], "VAT") if "comprador_nif" in partes else "",
+        f"<cac:PartyLegalEntity><cbc:CompanyID>{partes['comprador_registro']}"
+        "</cbc:CompanyID></cac:PartyLegalEntity>"
+        if "comprador_registro" in partes else "",
+    ))
+    representante = (
+        f"<cac:TaxRepresentativeParty>{esquema(partes['representante_nif'], 'VAT')}"
+        "</cac:TaxRepresentativeParty>" if "representante_nif" in partes else ""
+    )
+    return (f"<cac:AccountingSupplierParty><cac:Party>{vendedor}</cac:Party>"
+            "</cac:AccountingSupplierParty>"
+            f"<cac:AccountingCustomerParty><cac:Party>{comprador}</cac:Party>"
+            f"</cac:AccountingCustomerParty>{representante}")
+
+
+def _partes_cii(partes):
+    def registro(numero, esquema):
+        return (f"<ram:SpecifiedTaxRegistration><ram:ID schemeID=\"{esquema}\">"
+                f"{numero}</ram:ID></ram:SpecifiedTaxRegistration>")
+    vendedor = "".join((
+        registro(partes["vendedor_nif"], "VA") if "vendedor_nif" in partes else "",
+        registro(partes["vendedor_registro_fiscal"], "FC")
+        if "vendedor_registro_fiscal" in partes else "",
+    ))
+    comprador = "".join((
+        f"<ram:SpecifiedLegalOrganization><ram:ID>{partes['comprador_registro']}"
+        "</ram:ID></ram:SpecifiedLegalOrganization>"
+        if "comprador_registro" in partes else "",
+        registro(partes["comprador_nif"], "VA") if "comprador_nif" in partes else "",
+    ))
+    representante = (
+        f"<ram:SellerTaxRepresentativeTradeParty>"
+        f"{registro(partes['representante_nif'], 'VA')}"
+        "</ram:SellerTaxRepresentativeTradeParty>"
+        if "representante_nif" in partes else ""
+    )
+    return (f"<ram:SellerTradeParty>{vendedor}</ram:SellerTradeParty>"
+            f"<ram:BuyerTradeParty>{comprador}</ram:BuyerTradeParty>"
+            f"{representante}")
+
+
 def ubl(lineas=(), grupos=(), ajustes=(), total_iva="21.00",
-        descuentos_total=None, cargos_total=None):
+        descuentos_total=None, cargos_total=None, partes=PARTES):
     xml_lineas = "".join(
         f"""<cac:InvoiceLine>
     <cbc:ID>{l.ident}</cbc:ID>
@@ -109,6 +169,7 @@ def ubl(lineas=(), grupos=(), ajustes=(), total_iva="21.00",
          xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2">
   <cbc:ID>F-2026-0001</cbc:ID>
   <cbc:DocumentCurrencyCode>{MONEDA}</cbc:DocumentCurrencyCode>
+  {_partes_ubl(partes)}
   {xml_ajustes}
   <cac:TaxTotal>
     {'' if total_iva is None else
@@ -121,7 +182,7 @@ def ubl(lineas=(), grupos=(), ajustes=(), total_iva="21.00",
 
 
 def cii(lineas=(), grupos=(), ajustes=(), total_iva="21.00",
-        descuentos_total=None, cargos_total=None):
+        descuentos_total=None, cargos_total=None, partes=PARTES):
     xml_lineas = "".join(
         f"""<ram:IncludedSupplyChainTradeLineItem>
     <ram:AssociatedDocumentLineDocument><ram:LineID>{l.ident}</ram:LineID>
@@ -182,7 +243,7 @@ def cii(lineas=(), grupos=(), ajustes=(), total_iva="21.00",
   <rsm:ExchangedDocument><ram:ID>F-2026-0001</ram:ID></rsm:ExchangedDocument>
   <rsm:SupplyChainTradeTransaction>
     {xml_lineas}
-    <ram:ApplicableHeaderTradeAgreement/>
+    <ram:ApplicableHeaderTradeAgreement>{_partes_cii(partes)}</ram:ApplicableHeaderTradeAgreement>
     <ram:ApplicableHeaderTradeDelivery/>
     <ram:ApplicableHeaderTradeSettlement>
       <ram:InvoiceCurrencyCode>{MONEDA}</ram:InvoiceCurrencyCode>
@@ -807,11 +868,13 @@ class TestCategorias:
         assert "no hay tipo que aplicar" in problema.mensaje
 
     def test_no_sujeta_bien_puesta(self, revisar):
+        """Y bien puesta es también sin identificadores de IVA: BR-O-02."""
         assert revisar(
             lineas=[Linea("1", "100.00", categoria="O", tipo=None)],
             grupos=[Grupo("100.00", "0.00", categoria="O", tipo=None,
                           motivo="No sujeta, articulo 7 de la Ley del IVA")],
             total_iva="0.00",
+            partes={},
         ) == []
 
     def test_no_sujeta_no_se_mezcla(self, revisar):
@@ -1333,3 +1396,113 @@ class TestLaCuotaDeCadaCategoria:
         assert self.cuota("L", "7", "100.00", "12.00", SINTAXIS_UBL) == [
             ("BR-AF-09", ERROR), ("BR-CO-17", ERROR)]
         assert self.cuota("L", "7", "100.00", "12.00", SINTAXIS_CII) == [("BR-CO-17", ERROR)]
+
+
+class TestLosIdentificadoresDeCadaCategoria:
+    """BR-{X}-02 a 04: a quién tiene que identificar la factura según la categoría.
+
+    Cinco categorías se conforman con cualquier identificador fiscal del
+    vendedor o de su representante; la inversión del sujeto pasivo pide además
+    el del comprador, sea de IVA o su registro; la intracomunitaria y la
+    exportación no se conforman con cualquiera, piden el de IVA; y la no sujeta
+    los prohíbe. La cifra final dice de qué cuelga la categoría: 02 una línea,
+    03 un descuento de documento, 04 un cargo.
+    """
+
+    SIN = {}
+
+    def test_al_tipo_general_sin_identificar_al_vendedor(self, revisar):
+        incidencias = revisar(lineas=[Linea("1", "100.00"), Linea("2", "0.00")],
+                              grupos=[Grupo("100.00", "21.00")], partes=self.SIN)
+        problema = una(incidencias, "BR-S-02")
+        assert problema.gravedad == ERROR
+        # Una queja para las dos líneas, que las nombra.
+        assert "línea 1" in problema.encontrado and "línea 2" in problema.encontrado
+
+    def test_basta_otro_identificador_fiscal(self, revisar):
+        """BT-32: no hace falta que sea el de IVA."""
+        incidencias = revisar(lineas=[Linea("1", "100.00")], grupos=[Grupo("100.00", "21.00")],
+                              partes={"vendedor_registro_fiscal": "B12345678"})
+        assert "BR-S-02" not in codigos(incidencias)
+
+    def test_basta_el_del_representante(self, revisar):
+        incidencias = revisar(lineas=[Linea("1", "100.00")], grupos=[Grupo("100.00", "21.00")],
+                              partes={"representante_nif": "ESB87654321"})
+        assert "BR-S-02" not in codigos(incidencias)
+
+    def test_un_descuento_y_un_cargo_llevan_su_cifra(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="Z", tipo="0")],
+            ajustes=[Ajuste("10.00", categoria="Z", tipo="0"),
+                     Ajuste("5.00", es_cargo=True, categoria="Z", tipo="0")],
+            grupos=[Grupo("95.00", "0.00", categoria="Z", tipo="0")],
+            total_iva="0.00", descuentos_total="10.00", cargos_total="5.00",
+            partes=self.SIN,
+        )
+        assert {"BR-Z-02", "BR-Z-03", "BR-Z-04"} <= codigos(incidencias, ERROR)
+
+    def test_la_inversion_pide_tambien_al_comprador(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="AE", tipo="0")],
+            grupos=[Grupo("100.00", "0.00", categoria="AE", tipo="0", motivo="Art. 84")],
+            total_iva="0.00", partes={"vendedor_nif": "ESB12345678"},
+        )
+        problema = una(incidencias, "BR-AE-02")
+        assert "comprador" in problema.campo
+
+    def test_y_al_comprador_le_basta_su_registro(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="AE", tipo="0")],
+            grupos=[Grupo("100.00", "0.00", categoria="AE", tipo="0", motivo="Art. 84")],
+            total_iva="0.00",
+            partes={"vendedor_nif": "ESB12345678", "comprador_registro": "A87654321"},
+        )
+        assert "BR-AE-02" not in codigos(incidencias)
+
+    def test_la_intracomunitaria_no_se_conforma_con_cualquiera(self, revisar):
+        """Del vendedor, el de IVA; del comprador, el de IVA. Un registro no vale."""
+        for partes, quien in (
+            ({"vendedor_registro_fiscal": "B12345678", "comprador_nif": "FR123"}, "vendedor"),
+            ({"vendedor_nif": "ESB12345678", "comprador_registro": "123"}, "comprador"),
+        ):
+            incidencias = revisar(
+                lineas=[Linea("1", "100.00", categoria="K", tipo="0")],
+                grupos=[Grupo("100.00", "0.00", categoria="K", tipo="0", motivo="Art. 25")],
+                total_iva="0.00", partes=partes,
+            )
+            assert quien in una(incidencias, "BR-IC-02").campo
+
+    def test_la_exportacion_pide_el_de_iva_del_vendedor(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="G", tipo="0")],
+            grupos=[Grupo("100.00", "0.00", categoria="G", tipo="0", motivo="Art. 21")],
+            total_iva="0.00", partes={"vendedor_registro_fiscal": "B12345678"},
+        )
+        assert "BR-G-02" in codigos(incidencias, ERROR)
+
+    def test_la_no_sujeta_prohibe_los_de_iva(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="O", tipo=None)],
+            grupos=[Grupo("100.00", "0.00", categoria="O", tipo=None, motivo="Art. 7")],
+            total_iva="0.00",
+        )
+        problema = una(incidencias, "BR-O-02")
+        assert "BT-31" in problema.encontrado and "BT-48" in problema.encontrado
+
+    def test_pero_no_los_que_no_son_de_iva(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="O", tipo=None)],
+            grupos=[Grupo("100.00", "0.00", categoria="O", tipo=None, motivo="Art. 7")],
+            total_iva="0.00",
+            partes={"vendedor_registro_fiscal": "B12345678", "comprador_registro": "123"},
+        )
+        assert "BR-O-02" not in codigos(incidencias)
+
+    def test_en_facturae_se_calla_lo_que_no_se_sabe(self):
+        """Facturae no distingue la clase de identificador: ni exige ni prohíbe."""
+        from validador.sintaxis import SINTAXIS_FACTURAE
+
+        for categoria in ("S", "K", "G", "O", "AE"):
+            apunte = iva.Apunte("línea 1", Decimal(100), categoria, Decimal(0))
+            assert iva._regla_identificadores(
+                etree.Element("Invoice"), SINTAXIS_FACTURAE, [apunte]) == []

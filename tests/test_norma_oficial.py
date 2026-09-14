@@ -52,7 +52,7 @@ import re
 from lxml import etree
 
 from herramientas.norma_oficial import huella
-from validador import en16931
+from validador import en16931, iva
 from validador.codigos import codigos_del_paquete
 from validador.sintaxis import (
     SINTAXIS_CII,
@@ -91,17 +91,6 @@ PENDIENTES = (
     "BR-DEC-15", "BR-DEC-16", "BR-DEC-17", "BR-DEC-18", "BR-DEC-19",
     "BR-DEC-20", "BR-DEC-23", "BR-DEC-24", "BR-DEC-25", "BR-DEC-27",
     "BR-DEC-28",
-    # Los identificadores fiscales que exige cada categoría (02-04): el del
-    # vendedor, el de su representante y, en algunas, el del comprador.
-    "BR-S-02", "BR-S-03", "BR-S-04",
-    "BR-Z-02", "BR-Z-03", "BR-Z-04",
-    "BR-E-02", "BR-E-03", "BR-E-04",
-    "BR-AE-02", "BR-AE-03", "BR-AE-04",
-    "BR-IC-02", "BR-IC-03", "BR-IC-04",
-    "BR-G-02", "BR-G-03", "BR-G-04",
-    "BR-O-02", "BR-O-03", "BR-O-04",
-    "BR-AF-02", "BR-AF-03", "BR-AF-04",
-    "BR-AG-02", "BR-AG-03", "BR-AG-04",
     # Intracomunitaria: la fecha de entrega (11) y el país de destino (12).
     "BR-IC-11", "BR-IC-12",
     # No sujeta: que no se mezcle con otras categorías (12-14).
@@ -418,3 +407,42 @@ def test_la_cuota_de_cada_categoria_es_la_de_su_esquematron():
         assert activas == set(mapa.comprueba_la_cuota_por_tipo), sintaxis
     for mapa in (SINTAXIS_EDIFACT, SINTAXIS_FACTURAE):
         assert mapa.comprueba_la_cuota_por_tipo == SINTAXIS_UBL.comprueba_la_cuota_por_tipo
+
+
+# Cómo nombra la vinculación de UBL a cada identificador fiscal, sin espacios.
+# «vendedor_cualquiera» es el `PartyTaxScheme` del vendedor sin filtrar por
+# esquema: BT-31 o BT-32, lo que haya.
+_IVA_UBL = "[cac:TaxScheme/(normalize-space(upper-case(cbc:ID))='VAT')]/cbc:CompanyID"
+_IDENTIFICADORES_UBL = {
+    "vendedor_cualquiera": "cac:AccountingSupplierParty/cac:Party/cac:PartyTaxScheme/cbc:CompanyID",
+    "vendedor_nif": "cac:AccountingSupplierParty/cac:Party/cac:PartyTaxScheme" + _IVA_UBL,
+    "representante_nif": "cac:TaxRepresentativeParty/cac:PartyTaxScheme" + _IVA_UBL,
+    "comprador_nif": "cac:AccountingCustomerParty/cac:Party/cac:PartyTaxScheme" + _IVA_UBL,
+    "comprador_registro": "cac:AccountingCustomerParty/cac:Party/cac:PartyLegalEntity/cbc:CompanyID",
+}
+
+
+def test_los_identificadores_de_cada_categoria_son_los_de_la_vinculacion():
+    """BR-{X}-02 a 04: la tabla de `iva.py` contra el texto de cada regla.
+
+    Qué identificadores nombra cada una, y si los nombra para exigirlos o
+    —en la no sujeta— para prohibirlos. Las pruebas oficiales ya lo comprueban
+    caso a caso; esto comprueba que la tabla no dice de más ni de menos en los
+    casos que las pruebas no montan.
+    """
+    for familia, categoria in FAMILIAS.items():
+        exigidos: set[str] = set()
+        for _, campos, _ in iva.IDENTIFICADORES_EXIGIDOS.get(categoria, ()):
+            campos = set(campos)
+            if "vendedor_registro_fiscal" in campos:
+                campos -= {"vendedor_nif", "vendedor_registro_fiscal"}
+                campos.add("vendedor_cualquiera")
+            exigidos |= campos
+        prohibidos = set(iva.IDENTIFICADORES_PROHIBIDOS.get(categoria, ()))
+        for cifra in "234":
+            regla = f"BR-{familia}-0{cifra}"
+            texto = re.sub(r"\s+", "", vinculacion("UBL")[regla])
+            nombrados = {k for k, v in _IDENTIFICADORES_UBL.items() if v in texto}
+            negados = {k for k, v in _IDENTIFICADORES_UBL.items() if "not(//" + v in texto}
+            assert nombrados == exigidos | prohibidos, (regla, nombrados)
+            assert negados == prohibidos, (regla, negados)

@@ -153,7 +153,14 @@ def cii(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
                else "<ram:CountryID>ES</ram:CountryID>")
             + "</ram:PostalTradeAddress>"
         )
-        return f"<ram:{etiqueta}><ram:Name>{nombre}</ram:Name>{direccion}</ram:{etiqueta}>"
+        # BT-31 del vendedor: sin él, la línea al tipo general es BR-S-02.
+        nif = (
+            '<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">ESB12345678'
+            "</ram:ID></ram:SpecifiedTaxRegistration>"
+            if clave == "vendedor" and "nif_vendedor" not in omitir else ""
+        )
+        return (f"<ram:{etiqueta}><ram:Name>{nombre}</ram:Name>{direccion}{nif}"
+                f"</ram:{etiqueta}>")
 
     return PLANTILLA_CII.format(
         perfil=si(
@@ -257,8 +264,13 @@ def ubl(lineas=(("1", "100.00"),), suma_lineas="100.00", base="100.00",
                     "</cac:Country>")
             + "</cac:PostalAddress>"
         )
+        nif = (
+            "<cac:PartyTaxScheme><cbc:CompanyID>ESB12345678</cbc:CompanyID>"
+            "<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>"
+            if clave == "vendedor" and "nif_vendedor" not in omitir else ""
+        )
         return (
-            f"<cac:{etiqueta}><cac:Party>{direccion}"
+            f"<cac:{etiqueta}><cac:Party>{direccion}{nif}"
             f"<cac:PartyLegalEntity><cbc:RegistrationName>{nombre}"
             f"</cbc:RegistrationName></cac:PartyLegalEntity>"
             f"</cac:Party></cac:{etiqueta}>"

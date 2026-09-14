@@ -91,6 +91,9 @@ CUERPO = (
     "DTM+137:20260819:102'"
     "FTX+DOC+++urn:cen.eu:en16931:2017'"
     "NAD+SE+++Talleres Ejemplo SL+Calle Mayor 1+Madrid++28001+ES'"
+    # BT-31, el identificador de IVA del vendedor, en su RFF detrás del NAD.
+    # Sin él, la línea al tipo general es BR-S-02.
+    "RFF+VA:ESB12345678'"
     "NAD+BY+++Cliente SA+Gran Via 2+Madrid++28013+ES'"
     "CUX+2:EUR:4'"
     "LIN+1'"
@@ -363,13 +366,18 @@ class TestLosGrupos:
         assert not codigos(quejas(sobre(cuerpo)), ERROR)
 
     def test_una_referencia_detras_de_una_parte_es_de_esa_parte(self):
-        """El NIF del vendedor va en un RFF detrás de su NAD."""
-        cuerpo = CUERPO.replace(
-            "NAD+BY", "RFF+VA:ESB12345674'NAD+BY", 1
-        )
-        raiz, _ = edifact.convertir(sobre(cuerpo))
+        """El NIF del vendedor va en un RFF detrás de su NAD, y es suyo.
+
+        La factura de estas pruebas lo lleva desde que BR-S-02 lo pide: es el
+        `RFF+VA` que va detrás del `NAD+SE`, y no puede acabar colgando del
+        comprador, que viene justo después.
+        """
+        raiz, _ = edifact.convertir(sobre(CUERPO))
         vendedor = raiz.xpath("./*[S_NAD/D_3035='SE']")[0]
-        assert vendedor.xpath("string(.//S_RFF/C_C506/D_1154)") == "ESB12345674"
+        comprador = raiz.xpath("./*[S_NAD/D_3035='BY']")[0]
+        assert vendedor.xpath("string(.//S_RFF/C_C506/D_1154)") == "ESB12345678"
+        assert not comprador.xpath(".//S_RFF")
+        assert raiz.xpath(sintaxis.SINTAXIS_EDIFACT.vendedor_nif)
 
     def test_un_segmento_repetido_abre_un_grupo_nuevo(self):
         """Dos líneas son dos grupos, no uno con dos LIN dentro."""
@@ -541,6 +549,11 @@ class TestLasReglasCorren:
         incidencias = quejas(sobre(cuerpo))
         assert "BR-CO-12" not in codigos(incidencias, ERROR)
         assert "BR-CO-15" not in codigos(incidencias, ERROR)
+
+    def test_sin_el_rff_del_vendedor_no_esta_identificado(self):
+        """BR-S-02 en EDIFACT: el identificador es la referencia VA de su NAD."""
+        incidencias = quejas(sobre(CUERPO.replace("RFF+VA:ESB12345678'", "")))
+        assert "BR-S-02" in codigos(incidencias, ERROR)
 
     def test_el_codigo_unico_no_se_reprocha(self):
         """No es que falte: es que EDIFACT no tiene dónde escribirlo."""

@@ -31,6 +31,8 @@ from __future__ import annotations
 import re
 from decimal import Decimal
 
+from lxml import etree
+
 from validador import iva
 from validador.codigos import codigos_del_paquete
 from validador.iva import (
@@ -49,21 +51,31 @@ from validador.iva import (
 )
 from validador.sintaxis import SINTAXIS_UBL
 
-# Los compuestos, escritos. Siete por cada una de las nueve categorías, 63: la
-# que no aparece en el desglose (01), el tipo del concepto según cuelgue de la
-# línea, de un descuento o de un cargo (05, 06, 07), la base (08), la cuota
-# (09, desde el 14-09-2026) y el motivo de exención (10). Con dos cifras, como
-# los escribe la norma. Fueron cincuenta y cuatro hasta que llegó la cuota.
+# Los compuestos, escritos. Diez por cada una de las nueve categorías, 90: la
+# que no aparece en el desglose (01), los identificadores fiscales que exige o
+# prohíbe según cuelgue de una línea, un descuento o un cargo (02, 03, 04), el
+# tipo del concepto con la misma división (05, 06, 07), la base (08), la cuota
+# (09) y el motivo de exención (10). Con dos cifras, como los escribe la norma.
+# Fueron cincuenta y cuatro hasta el 14-09-2026, cuando llegaron 02 a 04 y 09.
 LOS_COMPUESTOS = (
-    "BR-S-01", "BR-S-05", "BR-S-06", "BR-S-07", "BR-S-08", "BR-S-09", "BR-S-10",
-    "BR-Z-01", "BR-Z-05", "BR-Z-06", "BR-Z-07", "BR-Z-08", "BR-Z-09", "BR-Z-10",
-    "BR-E-01", "BR-E-05", "BR-E-06", "BR-E-07", "BR-E-08", "BR-E-09", "BR-E-10",
-    "BR-AE-01", "BR-AE-05", "BR-AE-06", "BR-AE-07", "BR-AE-08", "BR-AE-09", "BR-AE-10",
-    "BR-IC-01", "BR-IC-05", "BR-IC-06", "BR-IC-07", "BR-IC-08", "BR-IC-09", "BR-IC-10",
-    "BR-G-01", "BR-G-05", "BR-G-06", "BR-G-07", "BR-G-08", "BR-G-09", "BR-G-10",
-    "BR-O-01", "BR-O-05", "BR-O-06", "BR-O-07", "BR-O-08", "BR-O-09", "BR-O-10",
-    "BR-AF-01", "BR-AF-05", "BR-AF-06", "BR-AF-07", "BR-AF-08", "BR-AF-09", "BR-AF-10",
-    "BR-AG-01", "BR-AG-05", "BR-AG-06", "BR-AG-07", "BR-AG-08", "BR-AG-09", "BR-AG-10",
+    "BR-S-01", "BR-S-02", "BR-S-03", "BR-S-04", "BR-S-05",
+    "BR-S-06", "BR-S-07", "BR-S-08", "BR-S-09", "BR-S-10",
+    "BR-Z-01", "BR-Z-02", "BR-Z-03", "BR-Z-04", "BR-Z-05",
+    "BR-Z-06", "BR-Z-07", "BR-Z-08", "BR-Z-09", "BR-Z-10",
+    "BR-E-01", "BR-E-02", "BR-E-03", "BR-E-04", "BR-E-05",
+    "BR-E-06", "BR-E-07", "BR-E-08", "BR-E-09", "BR-E-10",
+    "BR-AE-01", "BR-AE-02", "BR-AE-03", "BR-AE-04", "BR-AE-05",
+    "BR-AE-06", "BR-AE-07", "BR-AE-08", "BR-AE-09", "BR-AE-10",
+    "BR-IC-01", "BR-IC-02", "BR-IC-03", "BR-IC-04", "BR-IC-05",
+    "BR-IC-06", "BR-IC-07", "BR-IC-08", "BR-IC-09", "BR-IC-10",
+    "BR-G-01", "BR-G-02", "BR-G-03", "BR-G-04", "BR-G-05",
+    "BR-G-06", "BR-G-07", "BR-G-08", "BR-G-09", "BR-G-10",
+    "BR-O-01", "BR-O-02", "BR-O-03", "BR-O-04", "BR-O-05",
+    "BR-O-06", "BR-O-07", "BR-O-08", "BR-O-09", "BR-O-10",
+    "BR-AF-01", "BR-AF-02", "BR-AF-03", "BR-AF-04", "BR-AF-05",
+    "BR-AF-06", "BR-AF-07", "BR-AF-08", "BR-AF-09", "BR-AF-10",
+    "BR-AG-01", "BR-AG-02", "BR-AG-03", "BR-AG-04", "BR-AG-05",
+    "BR-AG-06", "BR-AG-07", "BR-AG-08", "BR-AG-09", "BR-AG-10",
 )
 
 # Los ocho que este fichero dio por inexistentes, nombrados uno a uno para que
@@ -103,6 +115,19 @@ LO_QUE_DICE_EL_ESQUEMATRON = {
     "L": (NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
     "M": (NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
 }
+
+# Una factura UBL con los cinco identificadores fiscales, para provocar la no
+# sujeta, que es la única que se queja de que estén.
+IDENTIFICADA = """<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+  xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+  xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2">
+  <cac:AccountingSupplierParty><cac:Party><cac:PartyTaxScheme>
+    <cbc:CompanyID>ESB12345678</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+  </cac:PartyTaxScheme></cac:Party></cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty><cac:Party><cac:PartyTaxScheme>
+    <cbc:CompanyID>ESA87654321</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+  </cac:PartyTaxScheme></cac:Party></cac:AccountingCustomerParty>
+</Invoice>"""
 
 CERO_D = Decimal(0)
 VEINTIUNO = Decimal(21)
@@ -162,6 +187,18 @@ def _lo_que_sale_de_verdad() -> set[str]:
         grupo = Grupo(categoria, VEINTIUNO, Decimal(100), Decimal(999), None)
         for i in iva._reglas_cuota(grupo, SINTAXIS_UBL):
             salen.add(i.codigo)
+
+        # BR-{X}-02 a 04: sin ningún identificador fiscal, las ocho que exigen
+        # se quejan; con todos, la no sujeta. De una línea, un descuento y un
+        # cargo.
+        vacia = etree.fromstring(
+            '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"/>')
+        llena = etree.fromstring(IDENTIFICADA)
+        for extra in ({}, {"es_ajuste": True}, {"es_ajuste": True, "es_cargo": True}):
+            apunte = _apunte(categoria, VEINTIUNO, **extra)
+            for raiz in (vacia, llena):
+                for i in iva._regla_identificadores(raiz, SINTAXIS_UBL, [apunte]):
+                    salen.add(i.codigo)
 
         # BR-{X}-01: hay conceptos de esa categoría y el desglose no la recoge.
         for i in iva._regla_hay_desglose([], [_apunte(categoria, VEINTIUNO)]):

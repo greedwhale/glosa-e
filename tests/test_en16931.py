@@ -77,13 +77,22 @@ def factura(
             return ""
         return f'<cbc:{etiqueta} currencyID="EUR">{valor}</cbc:{etiqueta}>'
 
+    # BT-31. Desde el 14-09-2026 una línea al tipo general sin identificador
+    # fiscal del vendedor es BR-S-02, así que la factura correcta lo lleva.
+    nif_vendedor = (
+        ""
+        if "PartyTaxScheme" in omitir
+        else """<cac:PartyTaxScheme><cbc:CompanyID>ESB12345678</cbc:CompanyID>
+          <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>"""
+    )
     vendedor = (
         ""
         if "vendedor" in omitir
-        else """<cac:AccountingSupplierParty><cac:Party>
+        else f"""<cac:AccountingSupplierParty><cac:Party>
         <cac:PostalAddress><cac:Country>
           <cbc:IdentificationCode>ES</cbc:IdentificationCode>
         </cac:Country></cac:PostalAddress>
+        {nif_vendedor}
         <cac:PartyLegalEntity><cbc:RegistrationName>Vendedor SL</cbc:RegistrationName>
         </cac:PartyLegalEntity></cac:Party></cac:AccountingSupplierParty>"""
     )

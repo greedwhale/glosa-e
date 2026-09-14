@@ -1742,6 +1742,26 @@ CODIGOS: dict[str, str] = {
         'esta regla el impuesto de esas líneas no lo reclama nadie: no hay '
         'entrada que cuadrar, así que no hay nada que descuadre.'
     ),
+    "BR-S-02": (
+        'Hay líneas al tipo general y la factura no identifica fiscalmente al '
+        'vendedor. Quien repercute IVA tiene que decir con qué identidad lo '
+        'hace, y la norma acepta tres formas: su identificador de IVA '
+        '(BT-31), otro identificador fiscal suyo (BT-32) o el de IVA de su '
+        'representante fiscal (BT-63). Cualquiera de las tres basta, y el '
+        'informe nombra las líneas afectadas en una sola queja. En Facturae '
+        'no se evalúa, y no hace falta: el esquema ya exige el número de '
+        'identificación fiscal de las dos partes.'
+    ),
+    "BR-S-03": (
+        'Lo mismo que BR-S-02, cuando lo que va a tipo general es un '
+        'descuento de documento y no una línea. Da igual de qué cuelgue la '
+        'categoría: la identificación que pide es la misma.'
+    ),
+    "BR-S-04": (
+        'Lo mismo que BR-S-02, cuando lo que va a tipo general es un cargo de '
+        'documento —un porte, un embalaje— y no una línea. Suma a la misma '
+        'base, y la factura tiene que identificar a las mismas partes.'
+    ),
     "BR-S-05": (
         'Una línea dice ser de tipo general y su tipo no es mayor que cero. '
         'Es una contradicción, no un descuadre: la categoría S significa '
@@ -1820,6 +1840,29 @@ CODIGOS: dict[str, str] = {
         'ha hecho con cada euro facturado. El informe nombra los conceptos '
         'que llevan esa categoría, que es por dónde se empieza a arreglarlo.'
     ),
+    "BR-O-02": (
+        'Hay líneas no sujetas y la factura trae un identificador de IVA: el '
+        'del vendedor (BT-31), el de su representante (BT-63) o el del '
+        'comprador (BT-48). Es la única categoría que prohíbe en vez de '
+        'exigir, porque la norma la piensa para quien no está en el IVA: lo '
+        'que no está sujeto no se identifica ante el impuesto. Otro '
+        'identificador fiscal del vendedor (BT-32) o el registro del '
+        'comprador (BT-47) sí pueden estar. En Facturae se calla, y no por '
+        'descuido. El formato no dice si su número es el de IVA u otro; el '
+        'borrador del CIUS español lee el del comprador como BT-48, y con esa '
+        'lectura toda factura no sujeta que lleve el NIF del comprador sería '
+        'error. Es un borrador, y aquí no se elige por él.'
+    ),
+    "BR-O-03": (
+        'Lo mismo que BR-O-02, cuando lo que va a no sujeta es un descuento '
+        'de documento y no una línea. Da igual de qué cuelgue la categoría: '
+        'la identificación que pide es la misma.'
+    ),
+    "BR-O-04": (
+        'Lo mismo que BR-O-02, cuando lo que va a no sujeta es un cargo de '
+        'documento —un porte, un embalaje— y no una línea. Suma a la misma '
+        'base, y la factura tiene que identificar a las mismas partes.'
+    ),
     "BR-O-05": (
         'Una línea declarada como no sujeta trae tipo de IVA. Si la operación '
         'no está sujeta no hay tipo que aplicarle, ni siquiera cero: la '
@@ -1887,6 +1930,26 @@ CODIGOS: dict[str, str] = {
         'receptor automático suma las bases declaradas y no le sale la de la '
         'factura.'
     ),
+    "BR-Z-02": (
+        'Hay líneas a tipo cero y la factura no identifica fiscalmente al '
+        'vendedor. Que el tipo sea cero no saca la operación del impuesto: '
+        'está gravada a un tipo que no cobra nada, y quien la declara tiene '
+        'que constar. Vale su identificador de IVA (BT-31), otro '
+        'identificador fiscal suyo (BT-32) o el de IVA de su representante '
+        'fiscal (BT-63). En Facturae no se evalúa, y no hace falta: el '
+        'esquema ya exige el número de identificación fiscal de las dos '
+        'partes.'
+    ),
+    "BR-Z-03": (
+        'Lo mismo que BR-Z-02, cuando lo que va a tipo cero es un descuento '
+        'de documento y no una línea. Da igual de qué cuelgue la categoría: '
+        'la identificación que pide es la misma.'
+    ),
+    "BR-Z-04": (
+        'Lo mismo que BR-Z-02, cuando lo que va a tipo cero es un cargo de '
+        'documento —un porte, un embalaje— y no una línea. Suma a la misma '
+        'base, y la factura tiene que identificar a las mismas partes.'
+    ),
     "BR-Z-05": (
         'Una línea dice ser de tipo cero y declara un tipo que no es cero. Es '
         'la contradicción del tipo general leída al revés: allí se declara '
@@ -1952,6 +2015,25 @@ CODIGOS: dict[str, str] = {
         'que la justifica —el motivo— cuelga de esa entrada. Dos entradas '
         'exentas con dos artículos distintos parecen más precisas y la norma '
         'las rechaza: pide exactamente una.'
+    ),
+    "BR-E-02": (
+        'Hay líneas exentas y la factura no identifica fiscalmente al '
+        'vendedor. Una exención se invoca, y la invoca alguien: la operación '
+        'está sujeta al impuesto aunque no pague, así que el vendedor tiene '
+        'que constar con su identificador de IVA (BT-31), otro identificador '
+        'fiscal suyo (BT-32) o el de IVA de su representante fiscal (BT-63). '
+        'En Facturae no se evalúa, y no hace falta: el esquema ya exige el '
+        'número de identificación fiscal de las dos partes.'
+    ),
+    "BR-E-03": (
+        'Lo mismo que BR-E-02, cuando lo que va a exenta es un descuento de '
+        'documento y no una línea. Da igual de qué cuelgue la categoría: la '
+        'identificación que pide es la misma.'
+    ),
+    "BR-E-04": (
+        'Lo mismo que BR-E-02, cuando lo que va a exenta es un cargo de '
+        'documento —un porte, un embalaje— y no una línea. Suma a la misma '
+        'base, y la factura tiene que identificar a las mismas partes.'
     ),
     "BR-E-05": (
         'Una línea se declara exenta y trae un tipo que no es cero. Exenta '
@@ -2020,6 +2102,27 @@ CODIGOS: dict[str, str] = {
         'autorrepercutirse. Sin ella la factura llega sin cuota y sin '
         'explicación; con dos, no sabe cuál sumar.'
     ),
+    "BR-AE-02": (
+        'Hay líneas con inversión del sujeto pasivo y falta identificar a una '
+        'de las dos partes. Aquí la norma pide las dos, por el propio '
+        'régimen: el impuesto lo ingresa quien recibe, así que la factura '
+        'tiene que decir quién es, con su identificador de IVA (BT-48) o su '
+        'registro legal (BT-47); y quién la emite, con cualquiera de los tres '
+        'identificadores del vendedor. El informe dice cuál de las dos falta. '
+        'En Facturae no se evalúa, y no hace falta: el esquema ya exige el '
+        'número de identificación fiscal del vendedor y del comprador.'
+    ),
+    "BR-AE-03": (
+        'Lo mismo que BR-AE-02, cuando lo que va a inversión del sujeto '
+        'pasivo es un descuento de documento y no una línea. Da igual de qué '
+        'cuelgue la categoría: la identificación que pide es la misma.'
+    ),
+    "BR-AE-04": (
+        'Lo mismo que BR-AE-02, cuando lo que va a inversión del sujeto '
+        'pasivo es un cargo de documento —un porte, un embalaje— y no una '
+        'línea. Suma a la misma base, y la factura tiene que identificar a '
+        'las mismas partes.'
+    ),
     "BR-AE-05": (
         'Una línea declara inversión del sujeto pasivo y trae un tipo que no '
         'es cero. Quien emite no repercute nada —lo declara quien recibe—, '
@@ -2083,6 +2186,27 @@ CODIGOS: dict[str, str] = {
         'desglose, que tiene que ser una, es donde eso queda escrito con su '
         'base y con su motivo.'
     ),
+    "BR-IC-02": (
+        'Hay líneas de entrega intracomunitaria y falta el identificador de '
+        'IVA de una de las partes. Aquí no vale cualquier identificador: la '
+        'exención de estas entregas descansa en que vendedor y comprador '
+        'estén identificados a efectos de IVA, así que la norma pide el de '
+        'IVA del vendedor (BT-31) o de su representante (BT-63), y el de IVA '
+        'del comprador (BT-48). Un número fiscal nacional o un registro '
+        'mercantil no bastan. En Facturae se calla: el formato no dice si su '
+        'número es el de IVA u otro, y esta regla depende justo de eso.'
+    ),
+    "BR-IC-03": (
+        'Lo mismo que BR-IC-02, cuando lo que va a entrega intracomunitaria '
+        'es un descuento de documento y no una línea. Da igual de qué cuelgue '
+        'la categoría: la identificación que pide es la misma.'
+    ),
+    "BR-IC-04": (
+        'Lo mismo que BR-IC-02, cuando lo que va a entrega intracomunitaria '
+        'es un cargo de documento —un porte, un embalaje— y no una línea. '
+        'Suma a la misma base, y la factura tiene que identificar a las '
+        'mismas partes.'
+    ),
     "BR-IC-05": (
         'Una línea declarada como entrega intracomunitaria trae un tipo que '
         'no es cero. El impuesto se devenga en el país del comprador y quien '
@@ -2133,6 +2257,25 @@ CODIGOS: dict[str, str] = {
         'justificarla en una entrada del desglose, y en una sola: sin ella no '
         'hay base exportada ni motivo que la sostenga, y lo que queda es una '
         'factura sin impuesto y sin razón aparente para no llevarlo.'
+    ),
+    "BR-G-02": (
+        'Hay líneas de exportación y falta el identificador de IVA del '
+        'vendedor o el de su representante fiscal. El comprador está fuera de '
+        'la Unión y no tiene por qué tener identificador europeo, así que la '
+        'norma solo pide el del vendedor; pero ése sí tiene que ser el de IVA '
+        '(BT-31 o BT-63), no otro identificador fiscal. En Facturae se calla: '
+        'el formato no dice si su número es el de IVA u otro, y esta regla '
+        'depende justo de eso.'
+    ),
+    "BR-G-03": (
+        'Lo mismo que BR-G-02, cuando lo que va a exportación es un descuento '
+        'de documento y no una línea. Da igual de qué cuelgue la categoría: '
+        'la identificación que pide es la misma.'
+    ),
+    "BR-G-04": (
+        'Lo mismo que BR-G-02, cuando lo que va a exportación es un cargo de '
+        'documento —un porte, un embalaje— y no una línea. Suma a la misma '
+        'base, y la factura tiene que identificar a las mismas partes.'
     ),
     "BR-G-05": (
         'Una línea declarada como exportación trae un tipo que no es cero. '
@@ -2205,6 +2348,25 @@ CODIGOS: dict[str, str] = {
         'comprobar. Aquí se sigue a cada uno, así que en una factura CII sólo '
         'sale BR-CO-17. EDIFACT y Facturae van con UBL.'
     ),
+    "BR-AF-02": (
+        'Hay líneas con IGIC y la factura no identifica fiscalmente al '
+        'vendedor. Es la misma exigencia que en el tipo general: el IGIC '
+        'sustituye al IVA en Canarias, y quien lo repercute tiene que constar '
+        'con su identificador de IVA (BT-31), otro identificador fiscal suyo '
+        '(BT-32) o el de IVA de su representante fiscal (BT-63). En Facturae '
+        'no se evalúa, y no hace falta: el esquema ya exige el número de '
+        'identificación fiscal de las dos partes.'
+    ),
+    "BR-AF-03": (
+        'Lo mismo que BR-AF-02, cuando lo que va a IGIC es un descuento de '
+        'documento y no una línea. Da igual de qué cuelgue la categoría: la '
+        'identificación que pide es la misma.'
+    ),
+    "BR-AF-04": (
+        'Lo mismo que BR-AF-02, cuando lo que va a IGIC es un cargo de '
+        'documento —un porte, un embalaje— y no una línea. Suma a la misma '
+        'base, y la factura tiene que identificar a las mismas partes.'
+    ),
     "BR-AF-05": (
         'Una línea con IGIC declara un tipo negativo. La norma no le fija al '
         'IGIC un tipo concreto, pero sí el signo: cero o positivo. Lo que '
@@ -2269,6 +2431,25 @@ CODIGOS: dict[str, str] = {
         'UBL la evalúa con menos de una unidad de margen y el de CII la da '
         'por duplicada de BR-CO-17 y no la mira, y aquí se sigue a cada uno. '
         'EDIFACT y Facturae van con UBL.'
+    ),
+    "BR-AG-02": (
+        'Hay líneas con IPSI y la factura no identifica fiscalmente al '
+        'vendedor. Igual que con el IVA y el IGIC: quien repercute el '
+        'impuesto de Ceuta y Melilla tiene que constar con su identificador '
+        'de IVA (BT-31), otro identificador fiscal suyo (BT-32) o el de IVA '
+        'de su representante fiscal (BT-63). En Facturae no se evalúa, y no '
+        'hace falta: el esquema ya exige el número de identificación fiscal '
+        'de las dos partes.'
+    ),
+    "BR-AG-03": (
+        'Lo mismo que BR-AG-02, cuando lo que va a IPSI es un descuento de '
+        'documento y no una línea. Da igual de qué cuelgue la categoría: la '
+        'identificación que pide es la misma.'
+    ),
+    "BR-AG-04": (
+        'Lo mismo que BR-AG-02, cuando lo que va a IPSI es un cargo de '
+        'documento —un porte, un embalaje— y no una línea. Suma a la misma '
+        'base, y la factura tiene que identificar a las mismas partes.'
     ),
     "BR-AG-05": (
         'Una línea con IPSI declara un tipo negativo. El IPSI, el impuesto de '
