@@ -28,7 +28,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1579 tests, todos en verde.
+1749 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3936,6 +3936,43 @@ de 1142 a 1276 incidencias: 133 de las nuevas caen en 57 facturas EDIFACT y una
 en una UBL de prueba sin nada en la línea. De esas 58, 56 ya tenían algún
 error; las dos que cambian de veredicto son los ejemplos de la Comisión, por el
 prefijo. Provocado quince veces, las quince en rojo. Quedan 49 pendientes.
+
+### Cuántos decimales lleva cada importe: 21 reglas
+
+**Dos como mucho, en todos los importes**: los descuentos y cargos y sus bases,
+los totales, el desglose y el neto de cada línea (BR-DEC-01 a BR-DEC-28). Los
+precios y las cantidades pueden llevar más. Viven en `validador/decimales.py`, y
+buscan los descuentos, los cargos y las líneas con `modelo.grupos`: «descuento 2»
+es el mismo en BR-DEC-01 que en BR-31.
+
+**Lo escrito o el valor.** ¿`10.500` son tres decimales? Casi todas las
+vinculaciones oficiales dicen que sí, porque cuentan los caracteres que hay
+detrás del punto. Dos dicen que no: las de CII para el total del impuesto
+redondean y comparan. Aquí se hace lo que haga cada una, regla a regla. Lo
+guarda `Sintaxis.decimales_por_valor`, y `test_norma_oficial` lo lee de la
+copia oficial. Cuando lo que sobra son ceros, el informe lo dice: el importe
+está bien y basta con no escribirlos.
+
+| Qué | Decisión |
+|---|---|
+| Facturae | Se mira el valor en las veintiuna: su esquema escribe los importes con hasta ocho decimales (`DoubleUpToEightDecimalType`), y `1500.00000000` es un importe de dos. No escribe la base de un descuento, y el total con IVA, el total del impuesto y el redondeo no se leen (ver sus mapas): esas ocho no se miran |
+| BR-DEC-13 y 15 en UBL | La vinculación compara la moneda del importe con un `cbc:DocumentCurrencyCode` que busca dentro del importe. El filtro no deja pasar ninguno y la regla se cumple siempre; está medido evaluándola tal cual en `tests/test_decimales.py`. Aquí se miran como dice la norma |
+| BR-DEC-15 | El total cuya moneda es la de contabilidad, lo sea también de la factura o no, como en la vinculación de CII |
+| EDIFACT | Se cuenta lo escrito, como en su vinculación. BR-DEC-15 y 17 no se miran, porque la moneda de contabilidad y el redondeo no se leen |
+
+**Y cambió cómo se nombra un descuento de línea.** El informe junta los sitios
+con comas, y el nombre llevaba otra: «línea 1, cargo 2, línea 1, cargo 3». Ahora
+es «cargo 2 de la línea 1», también en BR-41 a BR-44.
+
+**Medido.** No hay ni una prueba oficial de estas reglas. Las 165 de
+`tests/test_decimales.py` montan cada importe en las cuatro sintaxis y
+comprueban que salte esa regla y ninguna otra. El corpus pasa de 1276 a 1291
+incidencias. Las 15 nuevas caen en cuatro facturas EDIFACT que ya tenían
+errores, y las 15 son ceros de más —`9999.990000`—; en UBL, CII y Facturae no
+sale ninguna. Provocado diecisiete veces, las diecisiete en rojo. Las dos que
+quitaban la llamada desde el validador salieron en verde a la primera, porque
+las pruebas llamaban al módulo directamente; ahora hay una que pasa por la
+entrada. Quedan 28 pendientes.
 
 ## Por qué este y no otro, contestado sin pedir fe
 

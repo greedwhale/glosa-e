@@ -49,6 +49,7 @@ import functools
 import pathlib
 import re
 
+import pytest
 from lxml import etree
 
 from herramientas.norma_oficial import huella
@@ -78,12 +79,6 @@ CARPETAS = ("Invoice-unit-UBL", "CreditNote-unit-UBL", "cii")
 PENDIENTES = (
     # Condiciones que cruzan dos campos.
     "BR-CO-05", "BR-CO-06", "BR-CO-07", "BR-CO-08",
-    # Cuántos decimales admite cada importe: dos.
-    "BR-DEC-01", "BR-DEC-02", "BR-DEC-05", "BR-DEC-06", "BR-DEC-09",
-    "BR-DEC-10", "BR-DEC-11", "BR-DEC-12", "BR-DEC-13", "BR-DEC-14",
-    "BR-DEC-15", "BR-DEC-16", "BR-DEC-17", "BR-DEC-18", "BR-DEC-19",
-    "BR-DEC-20", "BR-DEC-23", "BR-DEC-24", "BR-DEC-25", "BR-DEC-27",
-    "BR-DEC-28",
     # El pago fraccionado italiano (split payment).
     "BR-B-01", "BR-B-02",
     # Listas de códigos.
@@ -138,7 +133,16 @@ DISCREPANCIAS: dict[str, tuple[str, tuple[str, ...]]] = {}
 
 # Implementadas sin ninguna prueba oficial que las provoque. Se dice, porque
 # una regla sin prueba oficial solo tiene las de aquí.
-SIN_PRUEBA_OFICIAL = ("BR-IC-10",)
+SIN_PRUEBA_OFICIAL = (
+    "BR-IC-10",
+    # Las de decimales: ni una. Sus pruebas están en `test_decimales.py`, en
+    # las cuatro sintaxis.
+    "BR-DEC-01", "BR-DEC-02", "BR-DEC-05", "BR-DEC-06", "BR-DEC-09",
+    "BR-DEC-10", "BR-DEC-11", "BR-DEC-12", "BR-DEC-13", "BR-DEC-14",
+    "BR-DEC-15", "BR-DEC-16", "BR-DEC-17", "BR-DEC-18", "BR-DEC-19",
+    "BR-DEC-20", "BR-DEC-23", "BR-DEC-24", "BR-DEC-25", "BR-DEC-27",
+    "BR-DEC-28",
+)
 
 
 @functools.cache
@@ -485,3 +489,33 @@ def test_las_repetidas_son_la_misma_regla_en_la_vinculacion_y_aqui():
                 sintaxis, co)
         assert filas[co][1:6] == filas[otra][1:6], co
         assert otra in filas[co][6], f"la explicación de {co} no dice que es {otra}"
+
+
+# --- Los decimales: lo escrito o el valor ----------------------------------------
+#
+# «Dos decimales como mucho» se lee de dos formas en las vinculaciones: contando
+# los caracteres detrás del punto o redondeando y comparando. Cuál usa cada
+# regla en cada sintaxis está en `Sintaxis.decimales_por_valor`, y se lee de
+# aquí. Facturae no tiene vinculación y se decide en `sintaxis.py`.
+
+CUENTA_LO_ESCRITO = re.compile(r"string-length\(substring-after\(")
+MIRA_EL_VALOR = re.compile(r"round\(\s*\.\s*\*\s*100\s*\)\s*div\s*100")
+
+
+@pytest.mark.parametrize("nombre, sintaxis", [
+    ("UBL", SINTAXIS_UBL), ("CII", SINTAXIS_CII), ("EDIFACT", SINTAXIS_EDIFACT),
+], ids=["UBL", "CII", "EDIFACT"])
+def test_los_decimales_se_cuentan_como_en_cada_vinculacion(nombre, sintaxis):
+    expresiones = {r: e for r, e in vinculacion(nombre).items() if r.startswith("BR-DEC-")}
+    assert set(expresiones) == {r for r in inventario() if r.startswith("BR-DEC-")}
+    por_valor = {r for r, e in expresiones.items() if MIRA_EL_VALOR.search(e)}
+    escritas = {r for r, e in expresiones.items() if CUENTA_LO_ESCRITO.search(e)}
+    assert not por_valor & escritas, f"{nombre}: las dos formas en {por_valor & escritas}"
+    assert por_valor | escritas == set(expresiones), (
+        f"{nombre}: ni una ni otra en {set(expresiones) - por_valor - escritas}")
+    assert por_valor == set(sintaxis.decimales_por_valor)
+
+
+def test_facturae_mira_el_valor_en_todas_las_de_decimales():
+    assert set(SINTAXIS_FACTURAE.decimales_por_valor) == {
+        r for r in inventario() if r.startswith("BR-DEC-")}

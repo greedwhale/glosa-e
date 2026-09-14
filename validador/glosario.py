@@ -2776,6 +2776,175 @@ CODIGOS: dict[str, str] = {
         'Facturae no se mira, porque su número fiscal no dice de cuál de las '
         'tres clases es, y ahí no se sabe si lo trae.'
     ),
+    "BR-DEC-01": (
+        'El importe de un descuento de documento (BT-92) lleva más de dos '
+        'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
+        'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
+        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
+        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'porque su esquema escribe los importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-02": (
+        'La base sobre la que se calcula un descuento de documento (BT-93) lleva '
+        'más de dos decimales, y la norma admite dos como mucho. Se cuentan las '
+        'cifras escritas detrás del punto, como en las vinculaciones oficiales '
+        'de UBL, CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo '
+        'que 10.50, y basta con no escribir el cero. Facturae no escribe la base '
+        'de un descuento o de un cargo, y ahí no se mira.'
+    ),
+    "BR-DEC-05": (
+        'El importe de un cargo de documento (BT-99) lleva más de dos decimales, '
+        'y la norma admite dos como mucho. Se cuentan las cifras escritas detrás '
+        'del punto, como en las vinculaciones oficiales de UBL, CII y EDIFACT: '
+        '10.500 son tres decimales aunque valga lo mismo que 10.50, y basta con '
+        'no escribir el cero. En Facturae se mira el valor, porque su esquema '
+        'escribe los importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-06": (
+        'La base sobre la que se calcula un cargo de documento (BT-100) lleva '
+        'más de dos decimales, y la norma admite dos como mucho. Se cuentan las '
+        'cifras escritas detrás del punto, como en las vinculaciones oficiales '
+        'de UBL, CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo '
+        'que 10.50, y basta con no escribir el cero. Facturae no escribe la base '
+        'de un descuento o de un cargo, y ahí no se mira.'
+    ),
+    "BR-DEC-09": (
+        'La suma de los importes netos de las líneas (BT-106) lleva más de dos '
+        'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
+        'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
+        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
+        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'porque su esquema escribe los importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-10": (
+        'El total de los descuentos de documento (BT-107) lleva más de dos '
+        'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
+        'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
+        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
+        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'porque su esquema escribe los importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-11": (
+        'El total de los cargos de documento (BT-108) lleva más de dos '
+        'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
+        'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
+        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
+        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'porque su esquema escribe los importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-12": (
+        'El total de la factura sin IVA (BT-109) lleva más de dos decimales, y '
+        'la norma admite dos como mucho. Se cuentan las cifras escritas detrás '
+        'del punto, como en las vinculaciones oficiales de UBL, CII y EDIFACT: '
+        '10.500 son tres decimales aunque valga lo mismo que 10.50, y basta con '
+        'no escribir el cero. En Facturae se mira el valor, porque su esquema '
+        'escribe los importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-13": (
+        'El total del IVA en la moneda de la factura (BT-110) lleva más de dos '
+        'decimales, y la norma admite dos como mucho. En UBL y EDIFACT se '
+        'cuentan las cifras escritas detrás del punto; en CII se mira el valor, '
+        'como hace su vinculación oficial con este total, y 21.000 vale. La '
+        'vinculación de UBL la escribe con un filtro que no deja pasar ningún '
+        'importe y se cumple siempre; aquí se mira como dice la norma. En '
+        'Facturae no se mira: su total repercutido incluye el recargo de '
+        'equivalencia y no es este total.'
+    ),
+    "BR-DEC-14": (
+        'El total de la factura con IVA (BT-112) lleva más de dos decimales, y '
+        'la norma admite dos como mucho. Se cuentan las cifras escritas detrás '
+        'del punto, como en las vinculaciones oficiales de UBL, CII y EDIFACT: '
+        '10.500 son tres decimales aunque valga lo mismo que 10.50. En Facturae '
+        'no se mira: con retenciones su total no es este.'
+    ),
+    "BR-DEC-15": (
+        'El total del IVA en la moneda de contabilidad (BT-111) lleva más de dos '
+        'decimales, y la norma admite dos como mucho. Es el total cuya moneda es '
+        'la de contabilidad, lo sea también de la factura o no, como en la '
+        'vinculación de CII. En UBL se cuentan las cifras escritas detrás del '
+        'punto; en CII se mira el valor. En EDIFACT y en Facturae no se mira, '
+        'porque este total no se lee. La vinculación de UBL no la ve nunca, por '
+        'el mismo filtro que BR-DEC-13.'
+    ),
+    "BR-DEC-16": (
+        'El importe ya pagado (BT-113) lleva más de dos decimales, y la norma '
+        'admite dos como mucho. Se cuentan las cifras escritas detrás del punto, '
+        'como en las vinculaciones oficiales de UBL, CII y EDIFACT: 10.500 son '
+        'tres decimales aunque valga lo mismo que 10.50, y basta con no escribir '
+        'el cero. En Facturae se mira el valor, porque su esquema escribe los '
+        'importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-17": (
+        'El redondeo del importe a pagar (BT-114) lleva más de dos decimales, y '
+        'la norma admite dos como mucho. Se cuentan las cifras escritas detrás '
+        'del punto, como en las vinculaciones oficiales de UBL y CII. En EDIFACT '
+        'y en Facturae el redondeo no se lee, y ahí no se mira.'
+    ),
+    "BR-DEC-18": (
+        'El importe a pagar (BT-115) lleva más de dos decimales, y la norma '
+        'admite dos como mucho. Se cuentan las cifras escritas detrás del punto, '
+        'como en las vinculaciones oficiales de UBL, CII y EDIFACT: 10.500 son '
+        'tres decimales aunque valga lo mismo que 10.50, y basta con no escribir '
+        'el cero. En Facturae se mira el valor, porque su esquema escribe los '
+        'importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-19": (
+        'La base de una categoría del desglose de IVA (BT-116) lleva más de dos '
+        'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
+        'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
+        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
+        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'porque su esquema escribe los importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-20": (
+        'La cuota de una categoría del desglose de IVA (BT-117) lleva más de dos '
+        'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
+        'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
+        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
+        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'porque su esquema escribe los importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-23": (
+        'El importe neto de una línea (BT-131) lleva más de dos decimales, y la '
+        'norma admite dos como mucho. El precio unitario y la cantidad pueden '
+        'llevar más decimales; el importe de la línea no. Se cuentan las cifras '
+        'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
+        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
+        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'porque su esquema escribe los importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-24": (
+        'El importe de un descuento de línea (BT-136) lleva más de dos '
+        'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
+        'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
+        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
+        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'porque su esquema escribe los importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-25": (
+        'La base sobre la que se calcula un descuento de línea (BT-137) lleva '
+        'más de dos decimales, y la norma admite dos como mucho. Se cuentan las '
+        'cifras escritas detrás del punto, como en las vinculaciones oficiales '
+        'de UBL, CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo '
+        'que 10.50, y basta con no escribir el cero. Facturae no escribe la base '
+        'de un descuento o de un cargo, y ahí no se mira.'
+    ),
+    "BR-DEC-27": (
+        'El importe de un cargo de línea (BT-141) lleva más de dos decimales, y '
+        'la norma admite dos como mucho. Se cuentan las cifras escritas detrás '
+        'del punto, como en las vinculaciones oficiales de UBL, CII y EDIFACT: '
+        '10.500 son tres decimales aunque valga lo mismo que 10.50, y basta con '
+        'no escribir el cero. En Facturae se mira el valor, porque su esquema '
+        'escribe los importes con hasta ocho decimales.'
+    ),
+    "BR-DEC-28": (
+        'La base sobre la que se calcula un cargo de línea (BT-142) lleva más de '
+        'dos decimales, y la norma admite dos como mucho. Se cuentan las cifras '
+        'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
+        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
+        '10.50, y basta con no escribir el cero. Facturae no escribe la base de '
+        'un descuento o de un cargo, y ahí no se mira.'
+    ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "
         "cadena llega igual, pero que una autoridad estuviera cualificada "

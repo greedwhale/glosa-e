@@ -57,7 +57,7 @@ import re
 from validador.incidencias import AVISO, ERROR, Incidencia
 from validador.sintaxis import SIN_MAPA, Sintaxis, a_decimal, texto
 
-__all__ = ["PREFIJOS_IVA", "reglas"]
+__all__ = ["PREFIJOS_IVA", "grupos", "reglas"]
 
 # Los prefijos que BR-CO-09 admite en un identificador de IVA: los códigos
 # ISO 3166-1 alfa-2, más EL para Grecia y 1A para Kosovo. Copiados de la
@@ -351,18 +351,27 @@ def _es_cargo(nodo, sintaxis: Sintaxis) -> bool:
     return marca in sintaxis.marcas_de_cargo
 
 
-def _ajustes(nodos: list, sintaxis: Sintaxis, cargos: bool, prefijo: str) -> list[tuple[str, object]]:
+def _ajustes(nodos: list, sintaxis: Sintaxis, cargos: bool, sufijo: str) -> list[tuple[str, object]]:
     """Los descuentos o los cargos, numerados como en `iva.py`: por su puesto
-    entre todos los ajustes, para que «cargo 3» sea el mismo en los dos informes."""
+    entre todos los ajustes, para que «cargo 3» sea el mismo en los dos informes.
+
+    Los de línea llevan la línea detrás —«cargo 2 de la línea 1»— y no delante
+    con una coma: el informe los junta con comas, y «línea 1, cargo 2, línea 1,
+    cargo 3» no deja ver dónde acaba cada uno.
+    """
     return [
-        (f"{prefijo}{'cargo' if cargos else 'descuento'} {indice}", nodo)
+        (f"{'cargo' if cargos else 'descuento'} {indice}{sufijo}", nodo)
         for indice, nodo in enumerate(nodos, start=1)
         if _es_cargo(nodo, sintaxis) == cargos
     ]
 
 
-def _grupos(raiz, sintaxis: Sintaxis, cual: str) -> list[tuple[str, object]]:
-    """Las apariciones de un grupo, cada una con cómo nombrarla."""
+def grupos(raiz, sintaxis: Sintaxis, cual: str) -> list[tuple[str, object]]:
+    """Las apariciones de un grupo, cada una con cómo nombrarla.
+
+    Pública porque la usan también las reglas de decimales, que miran los
+    mismos descuentos, cargos y líneas: numerados igual en los dos sitios.
+    """
     def sueltos(ruta: str, nombre: str) -> list[tuple[str, object]]:
         nodos = _nodos(raiz, ruta, sintaxis)
         if len(nodos) == 1:
@@ -376,8 +385,12 @@ def _grupos(raiz, sintaxis: Sintaxis, cual: str) -> list[tuple[str, object]]:
             for dentro in _nodos(linea, ruta, sintaxis)
         ]
 
+    if cual == "documento":
+        return [("", raiz)]
     if cual == "lineas":
         return [(f"línea {nombre}", linea) for nombre, linea in _lineas(raiz, sintaxis)]
+    if cual == "desglose":
+        return sueltos(sintaxis.desglose, "entrada")
     if cual in ("descuentos_documento", "cargos_documento"):
         return _ajustes(_nodos(raiz, sintaxis.cargos, sintaxis), sintaxis,
                         cual == "cargos_documento", "")
@@ -386,7 +399,7 @@ def _grupos(raiz, sintaxis: Sintaxis, cual: str) -> list[tuple[str, object]]:
             encontrado
             for nombre, linea in _lineas(raiz, sintaxis)
             for encontrado in _ajustes(_nodos(linea, sintaxis.linea_cargos, sintaxis),
-                                       sintaxis, cual == "cargos_linea", f"línea {nombre}, ")
+                                       sintaxis, cual == "cargos_linea", f" de la línea {nombre}")
         ]
     if cual == "direccion_representante":
         return [
@@ -434,7 +447,7 @@ def _reglas_de_grupo(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     incidencias: list[Incidencia] = []
     for codigo, grupo, pide, modo, con_texto, que_falta, explicacion in _GRUPOS:
         donde = []
-        for nombre, nodo in _grupos(raiz, sintaxis, grupo):
+        for nombre, nodo in grupos(raiz, sintaxis, grupo):
             valores = []
             for campo in pide:
                 ruta = getattr(sintaxis, campo.lstrip("@?"))
@@ -558,7 +571,7 @@ def _regla_periodos(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
         ("BR-30", "periodos_de_linea", "El periodo de la línea"),
     ):
         al_reves = []
-        for nombre, periodo in _grupos(raiz, sintaxis, grupo):
+        for nombre, periodo in grupos(raiz, sintaxis, grupo):
             inicio = _dia(texto(periodo, sintaxis.periodo_inicio, sintaxis))
             fin = _dia(texto(periodo, sintaxis.periodo_fin, sintaxis))
             if inicio and fin and fin < inicio:
@@ -642,7 +655,7 @@ def _regla_transferencia_sin_cuenta(raiz, sintaxis: Sintaxis) -> list[Incidencia
     """BR-61: un pago por transferencia dice a qué cuenta."""
     if SIN_MAPA in (sintaxis.pagos, sintaxis.pago_medio, sintaxis.pago_cuenta, sintaxis.cuenta_id):
         return []
-    pagos = _grupos(raiz, sintaxis, "pagos")
+    pagos = grupos(raiz, sintaxis, "pagos")
     sin_cuenta = [
         (nombre, medio)
         for nombre, pago in pagos

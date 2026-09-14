@@ -584,6 +584,9 @@ class TestElMapaEsSoloUnMapa:
                     # Qué códigos de medio de pago son una transferencia.
                     # Tampoco es una ruta.
                     "medios_de_transferencia",
+                    # Qué reglas de decimales miran el valor y no lo escrito.
+                    # Tampoco es una ruta.
+                    "decimales_por_valor",
                 ):
                     continue
                 # «self::» es tan relativa como «./», y hace falta en EDIFACT

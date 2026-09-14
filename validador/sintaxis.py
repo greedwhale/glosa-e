@@ -206,6 +206,7 @@ class Sintaxis:
     cargos: str
     cargo_es_cargo: str  # relativa: true si suma, false si resta
     cargo_importe: str
+    cargo_base: str  # BT-93, 100, 137 y 142, sobre lo que se calcula el porcentaje
     cargo_categoria: str
     cargo_tipo: str
 
@@ -251,6 +252,21 @@ class Sintaxis:
     # la vinculación oficial —30 y 58—; Facturae tiene su propia lista, y en
     # ella la transferencia es el 04. Tampoco es una ruta.
     medios_de_transferencia: frozenset[str]
+
+    # Qué reglas BR-DEC miran el **valor** y no lo **escrito**. La norma dice
+    # «como mucho dos decimales» y las vinculaciones lo leen de dos formas: casi
+    # todas cuentan los caracteres que hay detrás del punto
+    # —`string-length(substring-after(., '.')) <= 2`—, así que `10.500` son tres
+    # decimales aunque valga lo mismo que `10.50`; unas pocas redondean y
+    # comparan —`. = round(. * 100) div 100`—, y ahí `10.500` vale. En UBL y
+    # EDIFACT las veintiuna cuentan caracteres; en CII, todas menos BR-DEC-13 y
+    # BR-DEC-15, las del total del impuesto. No se escribe a mano:
+    # `test_norma_oficial` lo lee de la expresión de cada una. Facturae no
+    # tiene vinculación y su esquema escribe los importes con hasta ocho
+    # decimales —`DoubleUpToEightDecimalType`—, así que ahí se mira el valor
+    # en las veintiuna: un `1500.00000000` es un importe de dos decimales bien
+    # escrito en Facturae.
+    decimales_por_valor: frozenset[str]
 
     # Con qué se escribe «esto suma» en `cargo_es_cargo`. UBL y CII usan un
     # booleano, y por eso durante dos sintaxis esto no hizo falta. EDIFACT lo
@@ -394,6 +410,7 @@ SINTAXIS_UBL = Sintaxis(
     cargos="./cac:AllowanceCharge",
     cargo_es_cargo="./cbc:ChargeIndicator",
     cargo_importe="./cbc:Amount",
+    cargo_base="./cbc:BaseAmount",
     cargo_categoria="./cac:TaxCategory/cbc:ID",
     cargo_tipo="./cac:TaxCategory/cbc:Percent",
     suma_lineas=f"{_TOTAL_UBL}/cbc:LineExtensionAmount",
@@ -409,6 +426,7 @@ SINTAXIS_UBL = Sintaxis(
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
     medios_de_transferencia=frozenset({"30", "58"}),
+    decimales_por_valor=frozenset(),
 )
 
 # En CII casi todo cuelga de SupplyChainTradeTransaction, repartido en tres
@@ -590,6 +608,7 @@ SINTAXIS_CII = Sintaxis(
     cargos=f"{_COBRO}/ram:SpecifiedTradeAllowanceCharge",
     cargo_es_cargo="./ram:ChargeIndicator/udt:Indicator",
     cargo_importe="./ram:ActualAmount",
+    cargo_base="./ram:BasisAmount",
     cargo_categoria="./ram:CategoryTradeTax/ram:CategoryCode",
     cargo_tipo="./ram:CategoryTradeTax/ram:RateApplicablePercent",
     suma_lineas=f"{_SUMARIO}/ram:LineTotalAmount",
@@ -605,6 +624,7 @@ SINTAXIS_CII = Sintaxis(
     base_admite_una_unidad=frozenset({"Z", "E", "AE", "K", "G"}),
     comprueba_la_cuota_por_tipo=frozenset({"S"}),
     medios_de_transferencia=frozenset({"30", "58"}),
+    decimales_por_valor=frozenset({"BR-DEC-13", "BR-DEC-15"}),
 )
 
 # --- EDIFACT ---------------------------------------------------------------
@@ -845,6 +865,7 @@ SINTAXIS_EDIFACT = Sintaxis(
     cargo_importe=(
         "./*/S_MOA/C_C516[D_5025='8' or D_5025='23' or D_5025='204']/D_5004"
     ),
+    cargo_base="./*/S_MOA/C_C516[D_5025='25']/D_5004",
     cargo_categoria="./*[S_TAX]/S_TAX/D_5305",
     cargo_tipo="./*[S_TAX]/S_TAX/C_C243/D_5278",
     suma_lineas=_total_edi("79"),
@@ -870,6 +891,7 @@ SINTAXIS_EDIFACT = Sintaxis(
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
     medios_de_transferencia=frozenset({"30", "58"}),
+    decimales_por_valor=frozenset(),
     marcas_de_cargo=("c",),
 )
 
@@ -1139,6 +1161,9 @@ SINTAXIS_FACTURAE = Sintaxis(
     ),
     cargo_es_cargo="name(.)",
     cargo_importe="./DiscountAmount|./ChargeAmount",
+    # Facturae da el porcentaje y el importe del descuento, no la base sobre
+    # la que se calcula.
+    cargo_base=SIN_MAPA,
     # Un descuento o cargo general de Facturae no lleva IVA propio: se aplica
     # antes del desglose y afecta a la base entera.
     cargo_categoria=SIN_MAPA,
@@ -1208,6 +1233,13 @@ SINTAXIS_FACTURAE = Sintaxis(
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),  # y aquí
     # «04 Transferencia», en `PaymentMeansType` del esquema oficial.
     medios_de_transferencia=frozenset({"04"}),
+    decimales_por_valor=frozenset({
+        "BR-DEC-01", "BR-DEC-02", "BR-DEC-05", "BR-DEC-06", "BR-DEC-09",
+        "BR-DEC-10", "BR-DEC-11", "BR-DEC-12", "BR-DEC-13", "BR-DEC-14",
+        "BR-DEC-15", "BR-DEC-16", "BR-DEC-17", "BR-DEC-18", "BR-DEC-19",
+        "BR-DEC-20", "BR-DEC-23", "BR-DEC-24", "BR-DEC-25", "BR-DEC-27",
+        "BR-DEC-28",
+    }),
     # `cargo_es_cargo` devuelve el nombre del elemento, no un booleano. En
     # minúscula porque quien compara pasa la marca por `.lower()` antes, igual
     # que la «c» de EDIFACT: con «Charge» no casaba ninguno y los cargos se

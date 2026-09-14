@@ -496,6 +496,17 @@ def test_un_defecto_repetido_es_una_incidencia_que_dice_donde():
     assert all(f"descuento {n}" in quejas[0].campo for n in (1, 2, 3))
 
 
+def test_los_de_linea_se_nombran_con_la_linea_detras():
+    """El informe junta los sitios con comas: con la línea delante y otra coma,
+    «línea 1, descuento 1, línea 2, descuento 1» no deja ver cuántos son."""
+    ajuste = ("<cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator>"
+              "<cbc:Amount>1</cbc:Amount></cac:AllowanceCharge>")
+    raiz = ubl(f"<cac:InvoiceLine><cbc:ID>1</cbc:ID>{ajuste}</cac:InvoiceLine>"
+               f"<cac:InvoiceLine><cbc:ID>2</cbc:ID>{ajuste}</cac:InvoiceLine>")
+    assert la(raiz, SINTAXIS_UBL, "BR-42").campo == (
+        "Descuentos de línea · descuento 1 de la línea 1, descuento 1 de la línea 2")
+
+
 def test_un_nombre_en_blanco_no_es_un_nombre():
     """Donde las dos vinculaciones piden texto —`normalize-space(...) != ''`—,
     aquí también: espacios o un comentario no son un nombre. Donde piden que
