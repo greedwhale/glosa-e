@@ -39,6 +39,7 @@ que no repartir nada, porque no repartir nada se nota.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import re
@@ -807,6 +808,92 @@ def _hacia_fuera(texto: str) -> tuple[str, int]:
     return _RE_ANCLA.sub(_una, texto), cuantos
 
 
+# --- La política de contenido ------------------------------------------------
+#
+# La página promete que no le pide nada a nadie, y hasta aquí eso lo sostenían
+# el código y una comprobación del banco que cuenta las peticiones **después**
+# de hechas. La política de contenido (CSP) cambia la naturaleza de la frase:
+# el navegador tiene orden de no pedirle nada a otro dominio —ni scripts, ni
+# datos, ni imágenes, ni letras—, y si un cambio de mañana lo intentara, se
+# negaría él. Pasa de «no lo hacemos» a «no se puede».
+#
+# Va en un <meta> puesto al montar, y no en una cabecera de `vercel.json`,
+# por tres razones: viaja con el sitio y no con el alojamiento; se prueba en
+# local igual que en producción; y los scripts en línea se autorizan por su
+# huella, que solo se puede calcular sobre la página que de verdad se publica.
+# Una cabecera escrita a mano tendría que llevar 'unsafe-inline' para ellos, o
+# se quedaría vieja el primer día que alguien tocara un script. Lo único que un
+# <meta> no admite, `frame-ancestors`, va de cabecera en `vercel.json`.
+#
+# 'wasm-unsafe-eval' es lo que Pyodide necesita para compilar su WebAssembly, y
+# no abre el `eval` de JavaScript. Los estilos van con 'unsafe-inline' porque
+# hay atributos style= y esos no se autorizan por huella sin abrir más; un
+# estilo tampoco saca nada fuera si imágenes y letras solo pueden venir de aquí.
+#
+# Y lo que la política bloquearía **en silencio** no se monta: un manejador en
+# línea (onclick=) o un enlace javascript: dejarían un botón muerto sin un solo
+# error en rojo, que es el fallo de siempre de este repositorio.
+_RE_SCRIPT = re.compile(r"<script\b([^>]*)>(.*?)</script>", re.S | re.I)
+_RE_MANEJADOR = re.compile(r"<[a-z][^>]*?\son[a-z]+\s*=", re.I)
+_CHARSET = '<meta charset="utf-8">'
+
+
+class SinPolitica(Exception):
+    """Una página en la que la política de contenido no se puede poner bien."""
+
+
+def politica_de_contenido(texto: str) -> str:
+    """La política para una página, con la huella de cada script en línea.
+
+    La huella es la del texto tal como lo lee el navegador, que convierte los
+    CRLF en LF antes de nada: calculada sobre los bytes de un fichero escrito
+    en Windows, no coincidiría con ninguna y la página no arrancaría.
+    """
+    huellas = []
+    for atributos, cuerpo in _RE_SCRIPT.findall(texto):
+        if "src=" in atributos:
+            continue
+        if atributos.strip():
+            raise SinPolitica(
+                f"un <script{atributos}> en línea: solo se autorizan por huella "
+                "los <script> a secas, y este quedaría bloqueado sin avisar")
+        cuerpo = cuerpo.replace("\r\n", "\n").replace("\r", "\n")
+        huella = base64.b64encode(hashlib.sha256(cuerpo.encode("utf-8")).digest())
+        huellas.append(f"'sha256-{huella.decode('ascii')}'")
+    scripts = " ".join(["'self'", *huellas, "'wasm-unsafe-eval'"])
+    return (
+        "default-src 'none'; "
+        f"script-src {scripts}; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "font-src 'self'; "
+        "connect-src 'self'; "
+        "base-uri 'none'; "
+        "form-action 'none'"
+    )
+
+
+def _con_politica(destino: Path) -> int:
+    """Pone la política en cada página, la primera cosa de su <head>."""
+    paginas = sorted(destino.glob("*.html"))
+    for ruta in paginas:
+        texto = ruta.read_text(encoding="utf-8")
+        cuerpo_sin_scripts = _RE_SCRIPT.sub("", texto)
+        if _RE_MANEJADOR.search(cuerpo_sin_scripts) or 'href="javascript:' in texto:
+            raise SinPolitica(
+                f"«{ruta.name}» lleva un manejador en línea o un enlace "
+                "javascript:, y la política lo bloquearía sin dar error: el "
+                "botón se quedaría muerto. Pásalo a un addEventListener.")
+        if texto.count(_CHARSET) != 1:
+            raise SinPolitica(
+                f"«{ruta.name}» no tiene un {_CHARSET} (o tiene más de uno), así "
+                "que no hay dónde poner la política antes que ningún recurso")
+        meta = ('<meta http-equiv="Content-Security-Policy" content="'
+                + politica_de_contenido(texto) + '">')
+        ruta.write_text(texto.replace(_CHARSET, _CHARSET + "\n" + meta), encoding="utf-8")
+    return len(paginas)
+
+
 # El buzón al que escribir si alguien encuentra un fallo de seguridad, donde se
 # busca: `.well-known/security.txt`, que es el RFC 9116. Quien investiga mira
 # ahí primero, y si no encuentra a dónde escribir lo normal es que lo publique
@@ -1199,6 +1286,9 @@ def montar_sitio(
     # fichero que de verdad se publica.
     _para_buscadores(destino)
     _para_investigadores(destino, _correo_del_titular(pagina), date.today())
+    # La política, después de todo lo que reescribe una página: las huellas de
+    # los scripts tienen que ser las del texto que se publica.
+    _con_politica(destino)
 
     huellas = {}
     for camino in sorted(destino.rglob("*")):

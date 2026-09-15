@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1885 tests, todos en verde.
+1895 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -4227,6 +4227,82 @@ Los dos se provocaron: una palabra de la política, solo la fecha, el correo de
 la ficha, la licencia quitada, una regla de menos en la portada, otros casos en
 el aviso legal, la frase reescrita y una discrepancia declarada, ocho rojos. Un
 comentario HTML cambiado sigue en verde, que es lo que tiene que pasar.
+
+## Lo que distingue a esto, contado por el navegador de quien mira
+
+Que la factura no sale del ordenador, que no hay terceros, que no hay cookies
+ni analítica: eso lo escribe cualquiera en una línea, y quien lee no distingue
+al que lo cumple del que lo dice. Estaba en el aviso legal, medido, y en la
+portada no se veía; en el móvil, «no se sube a ningún sitio» ni siquiera cabía
+en la primera pantalla.
+
+### El testigo
+
+Al lado del lema, un panel que **cuenta** en lugar de afirmar: cuántos ficheros
+ha pedido la página y a qué dominios, cuántas cookies hay, si hay algo guardado
+en el navegador, y —en cuanto se suelta una factura— cuántas peticiones se han
+hecho mientras se leía. Las cifras las da el propio navegador (Resource
+Timing), suben en directo mientras se descarga el validador, y la lista de
+ficheros con su peso está a un clic.
+
+Tres decisiones, y las tres salen de no pintar un cero que nadie ha contado:
+
+- **Un observador, no el búfer.** `performance.getEntriesByType` deja de
+  apuntar a partir de 250 entradas, y el contador se quedaría quieto diciendo
+  cero. Provocado con el búfer a 1: el búfer se quedó en 23 y el testigo contó
+  24.
+- **La ventana de la lectura se cierra al hacer otra cosa, no al acabar.** Una
+  petición se apunta cuando termina, y cerrar antes la dejaría fuera. Si cae
+  algo de más, se cuenta de más.
+- **Dice lo que no ve.** Las cookies HttpOnly y lo que hagan las extensiones no
+  se ven desde la página, y el pie lo dice. Si el navegador no deja contar, el
+  testigo dice «sin contar» en vez de ceros.
+
+Provocado en el navegador: una imagen de otro dominio lo pone en rojo con el
+nombre del dominio, una cookie y un dato guardado aparecen a los dos segundos,
+y una petición ajena durante la lectura sale en rojo en la fila de la factura.
+
+El mismo recuento va al pie del veredicto de cada informe: «Mientras se leía,
+tu navegador no ha hecho ninguna petición».
+
+### La política de contenido: de «no lo hace» a «no puede»
+
+Contar las peticiones dice que no han pasado. `--sitio` pone ahora en cada
+página, como primera cosa del `<head>`, una política de contenido que le
+prohíbe al navegador pedir scripts, datos, imágenes o letras a otro dominio. Va
+en un `<meta>` y no en una cabecera por tres razones: viaja con el sitio, se
+prueba en local igual que en producción, y los scripts en línea se autorizan
+**por su huella**, calculada sobre la página que se publica —y sobre el texto
+con LF, que es como lo lee el navegador, no sobre los CRLF de Windows—.
+`frame-ancestors`, que un `<meta>` no admite, va de cabecera en `vercel.json`
+junto a `nosniff` y `Referrer-Policy: no-referrer`.
+
+Medido antes de escribir nada: Pyodide arranca, valida y corre el banco con la
+política puesta, sin una sola violación. Le basta `'wasm-unsafe-eval'`, que no
+abre el `eval` de JavaScript.
+
+Lo que la política bloquearía **en silencio** no se monta (`SinPolitica`): un
+`onclick=`, un `href="javascript:"`, un `<script>` en línea con atributos, o
+una página sin `<meta charset>` donde ponerla primero. Cinco roturas del
+montaje, cinco rojos.
+
+Y el banco tiene una comprobación nueva, la 42, «el navegador tiene orden de no
+pedir nada fuera»: que la política está, que dice lo que tiene que decir, y
+que el navegador la cumple. Esto último sin tocar la red: la política no
+permite `eval`, así que si `eval` corre, está escrita y nadie la aplica. Probarlo
+con una petición a otro dominio sería justo lo que la página no hace, y un
+intento bloqueado deja apunte en Resource Timing y pondría en rojo al testigo.
+Provocada en la página montada: sin la política, con `connect-src` abierto y con
+la política movida al `<body>` —donde el navegador la ignora—, tres rojos con su
+motivo. Un script tocado después de montar no llega a correr.
+
+No es crítica: en la carpeta `web/` sin montar sale en rojo, y es verdad.
+
+### Las cifras, en la portada
+
+La ficha cambia «Dónde corre», que ya lo cuenta el testigo, por **219 de sus 223
+reglas**; el botón del banco dice cuántas corre, y «Qué mira» cuántos códigos
+hay explicados. Las tres con guardián contra lo que se mide.
 
 ## La marca
 

@@ -8,6 +8,95 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23949494'/%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M25 17 H15 V47 H25'/%3E%3Cpath d='M34 24 h16'/%3E%3Cpath d='M34 40 h16'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="./glosa.css">
 <style>
+/* --- La portada: el lema, el testigo y la ficha --------------------------
+   El testigo va al lado del lema y no debajo de todo porque es la primera
+   pregunta de quien llega con una factura ajena en la mano —¿adónde va esto?—
+   y la respuesta tiene que estar en la primera pantalla, también en el movil.
+   En estrecho se apila entre el lema y la ficha, por lo mismo.
+
+   La forma es la de la glosa del informe: el rotulo en el margen, contra un
+   filete, y lo medido al lado. Sin tics verdes ni sellos: un tic verde es
+   justo lo que esta pagina se dedica a no pintar sin decir contra que. */
+.portada .cuerpo {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 23rem);
+  grid-template-areas: "lema testigo" "ficha testigo";
+  grid-template-rows: auto 1fr; gap: 0 3rem; align-items: start;
+}
+.portada .lema { grid-area: lema; }
+.portada .ficha { grid-area: ficha; }
+.testigo {
+  grid-area: testigo; background: var(--panel); border: 1px solid var(--borde);
+  border-radius: 12px; box-shadow: var(--sombra); padding: .95rem 1.15rem 1rem;
+}
+.testigo .cabeza { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; margin-bottom: .35rem; }
+.testigo h2 {
+  font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em;
+  color: var(--tenue); font-weight: 600;
+}
+.testigo .vivo { font-size: var(--t0); color: var(--tenue); white-space: nowrap; }
+.testigo .vivo::before {
+  content: ""; display: inline-block; width: .45rem; height: .45rem;
+  border-radius: 50%; background: var(--acento); margin-right: .4rem;
+}
+/* Late cuando entra una peticion nueva, y solo entonces: un punto que
+   parpadea siempre no dice nada. */
+.testigo .vivo.late::before { animation: late .9s ease-out; }
+@keyframes late {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--acento) 55%, transparent); }
+  to   { box-shadow: 0 0 0 .5rem transparent; }
+}
+.testigo .vivo.sin::before { background: var(--aviso); }
+.testigo dl { margin: 0; }
+.testigo dl > div {
+  display: grid; grid-template-columns: 5.25rem minmax(0, 1fr); gap: 0 1rem;
+  padding: .7rem 0; border-top: 1px dashed var(--borde);
+}
+.testigo dt {
+  font-size: var(--t0); text-transform: uppercase; letter-spacing: .09em;
+  font-weight: 700; color: var(--tinta-2); text-align: right; padding-top: .2rem;
+}
+.testigo dd {
+  margin: 0; padding-left: .9rem; border-left: 2px solid var(--borde);
+  font-size: var(--t1); color: var(--tinta-2); line-height: 1.5;
+}
+.testigo dd b {
+  display: block; color: var(--tinta); font-weight: 600; font-size: var(--t2);
+  font-variant-numeric: tabular-nums; margin-bottom: .1rem;
+}
+.testigo dd b.mal { color: var(--error); }
+.testigo dd span { display: block; }
+.testigo details { margin-top: .3rem; }
+.testigo summary { cursor: pointer; color: var(--acento); font-size: var(--t0); font-variant-numeric: tabular-nums; }
+.testigo summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 3px; }
+.testigo ol {
+  list-style: none; margin: .45rem 0 0; padding: .45rem .6rem; max-height: 11rem;
+  overflow: auto; background: var(--panel-2); border-radius: 6px;
+  font: var(--t0)/1.55 var(--mono); color: var(--tinta-2);
+}
+.testigo ol li { display: flex; justify-content: space-between; gap: .75rem; }
+.testigo ol li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.testigo ol li span:last-child { flex: none; color: var(--tenue); font-variant-numeric: tabular-nums; }
+.testigo ol li.ajeno { color: var(--error); }
+.testigo .pie { font-size: var(--t0); color: var(--tenue); margin: .55rem 0 0; line-height: 1.5; }
+@media (max-width: 54rem) {
+  .portada .cuerpo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lema" "testigo" "ficha"; grid-template-rows: auto; }
+  .testigo { margin-top: 1.5rem; }
+}
+/* En el movil el margen se come media pantalla y cada frase se parte en cinco
+   renglones: el testigo medía 540 px y empujaba la zona de soltar a la tercera
+   pantalla. Como en la glosa del informe, el rotulo sube encima. */
+@media (max-width: 34rem) {
+  .testigo dl > div { grid-template-columns: minmax(0, 1fr); gap: .2rem; padding: .6rem 0; }
+  .testigo dt { text-align: left; padding-top: 0; }
+  .testigo dd { padding-left: .75rem; }
+}
+@media (prefers-reduced-motion: reduce) { .testigo .vivo.late::before { animation: none; } }
+
+/* La linea del informe que dice lo que se pidio mientras se leia. Pequena y
+   al pie del veredicto: es la prueba de la frase, no la frase. */
+.veredicto p.red { margin-top: .6rem; font-size: var(--t0); color: var(--tenue); }
+.veredicto p.red.mal { color: var(--error); font-weight: 600; }
+
 /* --- La herramienta ------------------------------------------------------ */
 #herramienta { scroll-margin-top: 5rem; }
 .caja-suelta { box-shadow: var(--sombra); padding: 0; overflow: hidden; }
@@ -300,15 +389,62 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 
     <div class="portada">
       <h1>La factura electrónica,<br>en castellano.</h1>
-      <p class="lema"><b>Lo que dice tu factura, y lo que no se ha podido mirar.</b>
-      Suelta un fichero y te decimos qué pone, contra qué norma se ha comprobado
-      y qué se ha quedado fuera. Gratis y sin registro.</p>
-      <dl class="ficha">
-        <div><dt>Dónde corre</dt><dd>En tu ordenador</dd></div>
-        <div><dt>La firma</dt><dd>Cadena, revocación y sello</dd></div>
-        <div><dt>Contra qué</dt><dd>EN 16931 · RD 238/2026</dd></div>
-        <div><dt>Formatos</dt><dd>Facturae · UBL · CII · EDIFACT</dd></div>
-      </dl>
+      <div class="cuerpo">
+        <p class="lema"><b>Lo que dice tu factura, y lo que no se ha podido mirar.</b>
+        Suelta un fichero y te decimos qué pone, contra qué norma se ha comprobado
+        y qué se ha quedado fuera. Gratis y sin registro.</p>
+
+        <!-- El testigo.
+
+             Lo que distingue a esta herramienta —la factura no sale del
+             navegador, no hay terceros, no hay cookies— lo dice cualquiera en
+             una línea, y quien lee no puede distinguir al que lo cumple del
+             que lo escribe. Así que aquí no se afirma: se cuenta. Las cifras
+             salen del propio navegador de quien mira (Resource Timing), en
+             directo, mientras el validador se descarga; y la lista de ficheros
+             está a un clic.
+
+             Dice lo que no alcanza a ver, porque es verdad: lo que hagan las
+             extensiones del navegador y las cookies HttpOnly no se ven desde
+             la página. Y si el navegador no deja contar, lo dice en vez de
+             pintar ceros. -->
+        <aside class="testigo" id="testigo" aria-labelledby="testigo-titulo">
+          <div class="cabeza">
+            <h2 id="testigo-titulo">Lo que ve tu navegador</h2>
+            <span class="vivo" id="tg-vivo">en directo</span>
+          </div>
+          <dl>
+            <div>
+              <dt>Tu factura</dt>
+              <dd><b id="tg-factura">No sale de aquí</b>
+              <span id="tg-factura-pie">Se lee en este navegador. Al soltarla,
+              aquí se cuenta lo que pide la página mientras tanto.</span></dd>
+            </div>
+            <div>
+              <dt>Terceros</dt>
+              <dd><b id="tg-ajenos">—</b>
+              <span id="tg-propias">Contando lo que pide la página…</span>
+              <details id="tg-lista-caja" hidden><summary id="tg-lista-resumen">Ver cuáles</summary><ol id="tg-lista"></ol></details></dd>
+            </div>
+            <div>
+              <dt>Cookies</dt>
+              <dd><b id="tg-cookies">—</b>
+              <span id="tg-guardado">Ni analítica ni nada guardado entre visitas.</span></dd>
+            </div>
+          </dl>
+          <p class="pie">Cifras de tu propio navegador, leídas por esta página,
+          que además le prohíbe pedir nada a otro dominio. Lo que no alcanza a
+          ver —tus extensiones, las cookies HttpOnly— está en sus herramientas
+          de desarrollo; <a href="./legal.html#privacidad">así se midió</a>.</p>
+        </aside>
+
+        <dl class="ficha">
+          <div><dt>De la norma</dt><dd>219 de sus 223 reglas</dd></div>
+          <div><dt>La firma</dt><dd>Cadena, revocación y sello</dd></div>
+          <div><dt>Contra qué</dt><dd>EN 16931 · RD 238/2026</dd></div>
+          <div><dt>Formatos</dt><dd>Facturae · UBL · CII · EDIFACT</dd></div>
+        </dl>
+      </div>
     </div>
 
     <section id="herramienta">
@@ -359,7 +495,9 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Un
       «válida» a secas no significa nada si no dice contra qué. Cada informe
       termina diciendo qué se ha mirado y con qué, para que no haya que
-      suponerlo.</p>
+      suponerlo. Cada aviso lleva su código, y los 370 están <a
+      href="./incidencias.html">explicados uno a uno</a>, con la norma de la
+      que salen.</p>
       <div class="tres">
         <div class="panel">
           <h3><span class="num">1</span> La forma</h3>
@@ -435,7 +573,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
         que firmó después. Todas contra el mismo código que acaba de leer tu
         factura, no contra una copia preparada.</p>
         <p class="probar">
-          <button type="button" id="correr-banco" disabled>Correrlas aquí</button>
+          <button type="button" id="correr-banco" disabled>Correr las 42 aquí</button>
           <span id="banco-nota">Se corren en tu navegador. Lo único que se baja es el fichero de comprobaciones, de este mismo sitio.</span>
         </p>
         <div id="banco-salida"></div>
@@ -683,6 +821,155 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 const $ = (id) => document.getElementById(id);
 const escapar = (s) => String(s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const plural = (n, uno, varios) => n + " " + (n === 1 ? uno : varios);
+
+// --- El testigo ------------------------------------------------------------
+//
+// Cuenta lo que la pagina le pide a la red con lo que el navegador apunta de
+// cada peticion (Resource Timing). Con un observador y no leyendo
+// `performance.getEntriesByType` a secas, porque ese bufer se llena —250
+// entradas por defecto— y a partir de ahi lo nuevo no se apunta: el contador
+// se quedaria quieto diciendo cero, que es la mentira que no puede decir. El
+// observador recibe todas, y `buffered` le trae las que pasaron antes de que
+// corriera este script: la hoja de estilo, glosa.js y la letra.
+const red = {
+  cuenta: false,   // si el navegador deja contar
+  vistas: [],      // { ruta, host, bytes }, por orden de llegada
+  lectura: null,   // { nombre, desde, hasta }: lo que se pidio mientras se leia
+};
+
+const esAjena = (v) => v.host !== location.host;
+const hostsAjenos = (vistas) => [...new Set(vistas.filter(esAjena).map((v) => v.host))];
+
+function tamano(bytes) {
+  const es = (n, d) => n.toLocaleString("es-ES", { maximumFractionDigits: d });
+  return bytes >= 1e6 ? es(bytes / 1e6, 1) + " MB" : es(Math.max(1, Math.round(bytes / 1e3)), 0) + " KB";
+}
+
+function latir() {
+  const vivo = $("tg-vivo");
+  vivo.classList.remove("late");
+  void vivo.offsetWidth;   // sin esto, quitar y poner la clase no reinicia el latido
+  vivo.classList.add("late");
+}
+
+function pintarTestigo() {
+  const vistas = red.vistas;
+  const ajenos = hostsAjenos(vistas);
+  $("tg-ajenos").textContent = plural(ajenos.length, "dominio ajeno", "dominios ajenos");
+  $("tg-ajenos").classList.toggle("mal", ajenos.length > 0);
+  $("tg-propias").textContent = ajenos.length
+    ? "La página ha pedido " + plural(vistas.length, "fichero", "ficheros") +
+      ", y " + vistas.filter(esAjena).length + " fuera de " + location.host +
+      ": " + ajenos.join(", ") + "."
+    : "La página ha pedido " + plural(vistas.length, "fichero", "ficheros") +
+      (vistas.length === 1 ? ", de " : ", todos de ") + location.host + ".";
+
+  const total = vistas.reduce((suma, v) => suma + v.bytes, 0);
+  $("tg-lista-caja").hidden = vistas.length === 0;
+  $("tg-lista-resumen").textContent = "Ver cuáles · " + tamano(total);
+  const lista = $("tg-lista");
+  for (const v of vistas.slice(lista.children.length)) {
+    const li = document.createElement("li");
+    li.classList.toggle("ajeno", esAjena(v));
+    const ruta = document.createElement("span");
+    ruta.textContent = (esAjena(v) ? v.host : "") + v.ruta;
+    ruta.title = ruta.textContent;
+    const peso = document.createElement("span");
+    peso.textContent = v.bytes ? tamano(v.bytes) : "—";
+    li.append(ruta, peso);
+    lista.appendChild(li);
+  }
+
+  // Las cookies que la pagina alcanza a ver, y lo guardado en el navegador.
+  // Una cookie HttpOnly no sale en `document.cookie`, y por eso el pie lo dice.
+  const cookies = document.cookie ? document.cookie.split(";").length : 0;
+  let guardado = null;
+  try { guardado = localStorage.length + sessionStorage.length; } catch (e) { /* bloqueado */ }
+  $("tg-cookies").textContent = plural(cookies, "cookie", "cookies");
+  $("tg-cookies").classList.toggle("mal", cookies > 0);
+  $("tg-guardado").textContent =
+    guardado === null ? "Lo guardado en el navegador no se deja mirar desde aquí."
+    : cookies || guardado ? "Y " + plural(guardado, "dato guardado", "datos guardados") + " en el navegador."
+    : "Ni analítica ni rastreo, y nada guardado en el navegador.";
+
+  pintarLectura();
+}
+
+function empezarATestiguar() {
+  const puede = window.PerformanceObserver &&
+    (PerformanceObserver.supportedEntryTypes || []).includes("resource");
+  if (!puede) {
+    // Negarse antes que pintar ceros que nadie ha contado.
+    red.cuenta = false;
+    $("tg-vivo").textContent = "sin contar";
+    $("tg-vivo").classList.add("sin");
+    $("tg-ajenos").textContent = "Sin contar";
+    $("tg-propias").textContent = "Tu navegador no deja contar desde la página " +
+      "lo que se pide. La pestaña Red de sus herramientas lo enseña todo.";
+    return;
+  }
+  red.cuenta = true;
+  new PerformanceObserver((lista) => {
+    let nuevas = 0;
+    for (const entrada of lista.getEntries()) {
+      // Solo http(s) va a algún sitio: `data:` y `blob:` salen del propio
+      // documento, y contarlos hizo gritar una vez al banco sin motivo.
+      if (!/^https?:/.test(entrada.name)) continue;
+      const url = new URL(entrada.name);
+      red.vistas.push({ ruta: url.pathname, host: url.host, bytes: entrada.encodedBodySize || 0 });
+      nuevas += 1;
+    }
+    if (nuevas) { pintarTestigo(); latir(); }
+  }).observe({ type: "resource", buffered: true });
+  pintarTestigo();
+  // Una cookie o algo guardado no pasa por la red, así que no despierta al
+  // observador: sin esto el testigo seguiría diciendo «0 cookies» después de
+  // que alguien pusiera una.
+  setInterval(pintarTestigo, 2000);
+}
+
+// Lo que se pide mientras se lee una factura. La ventana se abre al empezar a
+// leer y se cierra cuando se hace otra cosa, no al acabar: una peticion que
+// saliera durante la lectura se apunta cuando termina, que puede ser despues,
+// y cerrar antes la dejaria fuera. Si algo cae dentro sin ser de la lectura,
+// se cuenta de mas, que es el lado bueno para equivocarse.
+function empezarLectura(nombre) {
+  cerrarLectura();
+  red.lectura = { nombre, desde: red.vistas.length, hasta: null };
+}
+
+function cerrarLectura() {
+  if (red.lectura && red.lectura.hasta === null) red.lectura.hasta = red.vistas.length;
+}
+
+function pintarLectura() {
+  const lectura = red.lectura;
+  const linea = $("red-informe");
+  if (!lectura) return;
+  if (!red.cuenta) {
+    if (linea) linea.textContent = "Tu navegador no deja contar desde la página " +
+      "lo que se pidió mientras se leía.";
+    return;
+  }
+  const pedidas = red.vistas.slice(lectura.desde, lectura.hasta === null ? undefined : lectura.hasta);
+  const ajenos = hostsAjenos(pedidas);
+  const cuantas = plural(pedidas.length, "petición", "peticiones");
+  $("tg-factura").textContent = cuantas + " mientras se leía";
+  $("tg-factura").classList.toggle("mal", ajenos.length > 0);
+  $("tg-factura-pie").textContent = lectura.nombre + ". " + (pedidas.length === 0
+    ? "Se ha leído dentro de este navegador, sin pedirle nada a nadie."
+    : "Pedidas: " + pedidas.map((v) => (esAjena(v) ? v.host : "") + v.ruta).join(", ") + ".");
+  if (linea) {
+    linea.textContent = pedidas.length === 0
+      ? "Mientras se leía, tu navegador no ha hecho ninguna petición: la factura no ha salido de aquí."
+      : "Mientras se leía, la página ha pedido " + plural(pedidas.length, "fichero", "ficheros") +
+        (ajenos.length ? ", también a " + ajenos.join(", ") : " de " + location.host) + ".";
+    linea.classList.toggle("mal", ajenos.length > 0);
+  }
+}
+
+empezarATestiguar();
 
 const FASES_TOTALES = 5;
 let hechas = 0;
@@ -793,7 +1080,6 @@ function pintarInforme(datos) {
   // que dice qué se ha dado por bueno y con qué base, y si no se nombra,
   // quien lee no sabe que existe.
   const cuenta = (g) => todas.filter((i) => i.gravedad === g).length;
-  const plural = (n, uno, varios) => n + " " + (n === 1 ? uno : varios);
   const marcadores = [["error", "error", "errores"],
                       ["aviso", "aviso", "avisos"],
                       ["nota", "nota", "notas"]]
@@ -807,6 +1093,7 @@ function pintarInforme(datos) {
       "<h3>" + titulo + "</h3>" +
       "<p>" + escapar(datos.resumen) + "</p>" +
       (marcadores ? "<div class='cuentas'>" + marcadores + "</div>" : "") +
+      "<p class='red' id='red-informe'></p>" +
     "</div>"
   );
 
@@ -840,6 +1127,7 @@ function pintarInforme(datos) {
   );
 
   $("informe").innerHTML = partes.join("");
+  pintarLectura();
   $("informe").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -903,6 +1191,7 @@ async function verElEjemplo() {
   const antes = boton.textContent;
   boton.textContent = "Validando…";
   try {
+    empezarLectura(FACTURA_DE_EJEMPLO);
     const datos = await Glosa.validarEjemplo(FACTURA_DE_EJEMPLO);
     pintarInforme(datos);
     // Encima del informe y no debajo: quien llega desde el botón tiene que
@@ -948,6 +1237,8 @@ async function soltar(ficheros) {
     }
   }
 
+  empezarLectura(ficheros.length === 1 ? ficheros[0].name
+                                       : plural(ficheros.length, "fichero", "ficheros"));
   $("informe").innerHTML =
     "<div class='veredicto'><h3>Leyendo…</h3><p>" +
     ficheros.length + " fichero(s).</p></div>";
@@ -969,6 +1260,7 @@ async function soltar(ficheros) {
 // el que dejo la cache —ese es el fallo que se repite en este proyecto, y aqui
 // saldria todo verde sin haber probado nada.
 async function correrElBanco() {
+  cerrarLectura();
   const boton = $("correr-banco");
   const salida = $("banco-salida");
   const antes = boton.textContent;

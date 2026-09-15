@@ -80,7 +80,7 @@ caché —todo verde, y no es lo que crees que has probado—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, 41 comprobaciones que deben salir todas
+Arriba, el tiempo de arranque. Abajo, 42 comprobaciones que deben salir todas
 en verde; 31 están marcadas como **críticas** y son las que, si fallan, tumban
 la idea entera. Están todas, en el orden en que corren, y esa lista completa
 no es cosmética: la tabla se quedó corta durante meses, con críticas sin
@@ -182,7 +182,7 @@ visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
 0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
 menos de 5 s.
 
-Los 41 resultados coinciden exactamente con los de la misma prueba
+Los 42 resultados coinciden exactamente con los de la misma prueba
 ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
 Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
 en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización
@@ -195,7 +195,7 @@ página sin anclas—. Verificar y montar cuesta 20,8 ms allí.
 
 ## La prueba de soltar una factura firmada
 
-No basta con que las 41 salgan verdes: la zona de arrastre es la
+No basta con que las 42 salgan verdes: la zona de arrastre es la
 interacción del producto, y hay que verla funcionar. Soltando
 `ejemplos/fe-0001.xml`, que es un Facturae 3.2.2 firmado:
 

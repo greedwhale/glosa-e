@@ -122,6 +122,36 @@ def test_la_tesis_dice_cuantas_comprobaciones_corre_el_navegador():
         f"Cámbiala a {hay}.")
 
 
+def _cifra_de_la_portada(patron: str) -> int:
+    """La cifra que la portada publica con esa frase, sobre el texto con los
+    saltos de línea reducidos a un espacio."""
+    texto = " ".join(PORTADA.read_text(encoding="utf-8").split())
+    hallados = re.findall(patron, texto)
+    assert len(hallados) == 1, (
+        f"«{patron}» aparece {len(hallados)} veces en la portada y tiene que "
+        "aparecer una: si se ha reescrito la frase, este guardián está ciego")
+    return int(hallados[0])
+
+
+def test_la_portada_dice_cuantas_comprobaciones_corre_el_boton():
+    hay = len(re.findall(r"^@comprobar\(", BANCO.read_text(encoding="utf-8"),
+                         re.MULTILINE))
+    dice = _cifra_de_la_portada(r'id="correr-banco" disabled>Correr las (\d+) aquí<')
+    assert dice == hay, (
+        f"el botón de la portada promete correr {dice} y el banco tiene {hay}. "
+        f"Cámbialo a {hay}.")
+
+
+def test_la_portada_dice_cuantos_codigos_hay_explicados():
+    from validador.codigos import codigos_del_paquete
+
+    hay = len(codigos_del_paquete())
+    dice = _cifra_de_la_portada(
+        r'los (\d+) están <a href="./incidencias.html">explicados uno a uno')
+    assert dice == hay, (
+        f"la portada dice {dice} códigos explicados y hay {hay}. Cámbiala a {hay}.")
+
+
 def test_el_catalogo_no_se_puede_publicar_vacio():
     """La plantilla tiene que llevar la marca donde se pega el catálogo.
 
@@ -387,7 +417,7 @@ def test_el_aviso_legal_dice_bajo_que_licencia_se_publica():
 # sin cambiar esto deja la suite en rojo.
 
 FECHA_DE_LA_POLITICA = "15 de septiembre de 2026"
-HUELLA_DE_LA_POLITICA = "1cc0c928401ebb9eb0338a6355a8d36b23eee84b895a55d24079bfa706947c5d"
+HUELLA_DE_LA_POLITICA = "85914b344d6e4c3cf3200a2082df1f16c33dbc328b6938a6cc731e0858439a10"
 
 
 def _texto_de_la_politica() -> str:

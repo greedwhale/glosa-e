@@ -635,6 +635,8 @@ def cifras_de_la_norma() -> dict[str, int]:
 # La página, el patrón con un grupo por cifra —sobre el texto con los espacios
 # y saltos de línea reducidos a uno— y qué medida es cada grupo.
 PUBLICADAS = (
+    ("index.html", r"<dt>De la norma</dt><dd>(\d+) de sus (\d+) reglas</dd>",
+     ("comprobadas", "reglas")),
     ("index.html",
      r"Las (\d+) reglas de EN 16931, de los campos obligatorios al desglose de "
      r"IVA: (\d+) se comprueban y (\d+) no se pueden",

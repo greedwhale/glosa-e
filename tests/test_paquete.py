@@ -315,7 +315,8 @@ CANDADO = {
 # de casa y uno que ya trae `rel`. Sin ellos, la prueba de que los de fuera se
 # abren aparte no probaría nada.
 PAGINA = """<!doctype html>
-<head><title>glosa</title>
+<head><meta charset="utf-8">
+<title>glosa</title>
 <meta name="description" content="La de prueba.">
 <link rel="stylesheet" href="./glosa.css">
 <script src="./glosa.js"></script>
@@ -849,6 +850,62 @@ class TestElSitioQueSePublica:
         assert (repositorio / "sitio" / paquete.NOMBRE).is_file()
         assert (repositorio / "sitio" / paquete.MANIFIESTO).is_file()
 
+    def test_cada_pagina_lleva_la_politica_antes_que_nada(self, repositorio):
+        _montar(repositorio)
+        for ruta in (repositorio / "sitio").glob("*.html"):
+            texto = ruta.read_text(encoding="utf-8")
+            assert texto.count("Content-Security-Policy") == 1, ruta.name
+            cabeza = texto[texto.index('<meta charset="utf-8">'):]
+            siguiente = cabeza.split("\n", 2)[1]
+            assert siguiente.startswith('<meta http-equiv="Content-Security-Policy"'), (
+                f"en «{ruta.name}» la política no va justo detrás del charset, y "
+                "lo que se cargue antes que ella no la obedece")
+            assert "connect-src 'self'" in texto and "default-src 'none'" in texto
+
+    def test_la_politica_autoriza_cada_script_en_linea_por_su_huella(self, repositorio):
+        """Y la huella es la del texto con LF, que es como lo lee el navegador.
+
+        Una página escrita en Windows lleva CRLF; si la huella se calculara
+        sobre esos bytes no coincidiría con ninguna, y la página se quedaría
+        sin su script sin un solo error a la vista del que monta.
+        """
+        import base64
+        import hashlib
+
+        con_script = PAGINA.replace("</head>", "<script>\r\nuno();\r\ndos();\r\n</script>\n</head>")
+        (repositorio / "web" / "index.html").write_bytes(con_script.encode("utf-8"))
+        _montar(repositorio)
+        texto = (repositorio / "sitio" / "index.html").read_text(encoding="utf-8")
+        esperada = base64.b64encode(
+            hashlib.sha256("\nuno();\ndos();\n".encode("utf-8")).digest()).decode()
+        assert f"'sha256-{esperada}'" in texto
+
+    def test_la_huella_no_depende_de_como_se_escribio_el_fichero(self):
+        import base64
+        import hashlib
+
+        esperada = base64.b64encode(hashlib.sha256(b"uno();\ndos();").digest()).decode()
+        for fin in ("\n", "\r\n", "\r"):
+            politica = paquete.politica_de_contenido(f"<script>uno();{fin}dos();</script>")
+            assert f"'sha256-{esperada}'" in politica, repr(fin)
+
+    @pytest.mark.parametrize("trozo", [
+        '<button onclick="hacer()">hacer</button>',
+        '<a href="javascript:hacer()">hacer</a>',
+        '<script type="module">hacer();</script>',
+    ], ids=["manejador", "javascript", "script-con-atributos"])
+    def test_lo_que_la_politica_bloquearia_en_silencio_no_se_monta(self, repositorio, trozo):
+        (repositorio / "web" / "banco.html").write_text(
+            PAGINA.replace("</body>", trozo + "\n</body>"), encoding="utf-8")
+        with pytest.raises(paquete.SinPolitica):
+            _montar(repositorio)
+
+    def test_sin_charset_no_hay_donde_ponerla_y_no_se_monta(self, repositorio):
+        (repositorio / "web" / "legal.html").write_text(
+            PAGINA.replace('<meta charset="utf-8">', ""), encoding="utf-8")
+        with pytest.raises(paquete.SinPolitica, match="charset"):
+            _montar(repositorio)
+
     def test_montar_dos_veces_no_deja_restos(self, repositorio):
         """Un wheel viejo que sobreviva al remontado es el fallo de siempre."""
         _montar(repositorio)
@@ -1054,7 +1111,7 @@ class TestLaBitacoraSeComprueba:
         # Con `<head>`, `<title>` y descripción: el montaje le pone a cada
         # página su canónica y su tarjeta, y se niega con la que no los tenga.
         (repositorio / "web" / bitacora.NOMBRE).write_text(
-            "<html><head><title>bitacora</title>"
+            '<html><head><meta charset="utf-8"><title>bitacora</title>'
             '<meta name="description" content="La de prueba.">'
             "</head><body>" + bitacora.HUECO + "</body></html>",
             encoding="utf-8")

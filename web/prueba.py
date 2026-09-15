@@ -1535,4 +1535,64 @@ def _():
     return "%d peticiones y todas a %s" % (len(nombres), js.location.host)
 
 
+# Lo que la politica tiene que decir para que la frase «no le pide nada a
+# nadie» sea del navegador y no solo nuestra.
+_POLITICA_EXIGIDA = {
+    "default-src": {"'none'"},
+    "connect-src": {"'self'"},
+    "img-src": {"'self'", "data:"},
+    "font-src": {"'self'"},
+}
+
+
+@comprobar("el navegador tiene orden de no pedir nada fuera")
+def _():
+    """La politica de contenido: puesta, diciendo lo que tiene que decir, y
+    cumplida por el navegador.
+
+    La de arriba cuenta las peticiones despues de hechas: dice que no ha
+    pasado. Esta dice que **no puede pasar**. `--sitio` pone en cada pagina una
+    politica que solo deja pedir a este mismo sitio.
+
+    Que el navegador la hace cumplir se prueba sin tocar la red: la politica no
+    permite `eval`, asi que si `eval` corre, la politica esta escrita y nadie
+    la aplica. Probarlo pidiendo algo a otro dominio seria justo lo que esta
+    pagina no hace; y un intento bloqueado deja apunte en Resource Timing, que
+    pondria en rojo al testigo de la portada sin que nada hubiera salido.
+
+    En la carpeta `web/` sin montar sale en rojo, y es verdad: esa copia no
+    lleva politica.
+    """
+    js = _desde_el_navegador()
+    if js is None:
+        return "fuera del navegador no hay politica que mirar"
+    meta = js.document.querySelector('meta[http-equiv="Content-Security-Policy"]')
+    # El `null` de JavaScript llega como JsNull y no como None: con un `is not
+    # None` a secas esto pasaba y reventaba una linea mas abajo, en rojo pero
+    # sin decir por que. Provocado quitando la politica de la pagina montada.
+    assert meta is not None and type(meta).__name__ != "JsNull", (
+        "esta pagina no lleva politica de contenido: la pone `--sitio` al montar")
+    directivas = {}
+    for trozo in str(meta.content).split(";"):
+        partes = trozo.split()
+        if partes:
+            directivas[partes[0]] = set(partes[1:])
+    for nombre, exigido in _POLITICA_EXIGIDA.items():
+        assert directivas.get(nombre) == exigido, "%s dice %s y tiene que decir %s" % (
+            nombre, " ".join(sorted(directivas.get(nombre, ()))) or "nada",
+            " ".join(sorted(exigido)))
+    sueltos = sorted(v for v in directivas.get("script-src", ())
+                     if v not in ("'self'", "'wasm-unsafe-eval'")
+                     and not v.startswith("'sha256-"))
+    assert not sueltos, "script-src deja pasar " + ", ".join(sueltos)
+    try:
+        js.eval("1")
+    except Exception:
+        pass
+    else:
+        raise AssertionError(
+            "eval ha corrido: la politica esta escrita y el navegador no la aplica")
+    return "solo a %s, y el navegador la cumple" % js.location.host
+
+
 json.dumps(resultados)
