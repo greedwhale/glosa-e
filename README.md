@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1876 tests, todos en verde.
+1885 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -3678,7 +3678,15 @@ Convenio de Berna; hoy no reserva nada que no estuviera reservado igual. La
 segunda es que **aquí sería falsa**: el validador se publica bajo AGPL-3.0-only
 y su código entero viaja al navegador de quien abre la página. Decir que todos
 los derechos están reservados contradiría la licencia que el propio sitio
-publica dos líneas más abajo. Hay una prueba que lo comprueba.
+publica en el aviso legal. Hay una prueba que lo comprueba.
+
+Hasta el 15-09-2026 no la publicaba: el aviso legal decía que el código y los
+textos «son de su autor», y la licencia solo salía en `security.txt`. Ahora el
+apartado «De quién es cada cosa» dice AGPL-3.0-only, que el código viaja entero
+en la rueda, y lo que es de otros y viaja con la página —Pyodide, MPL 2.0, con
+el intérprete bajo la licencia de la PSF; lxml, BSD; Literata, OFL 1.1—.
+`test_el_aviso_legal_dice_bajo_que_licencia_se_publica` compara esa sección
+con la etiqueta de `pyproject.toml`.
 
 Lo que sí está reservado son los textos, que es lo que la línea dice. Y quién es
 dueño de cada cosa —los XSD de la AEAT, de OASIS y de UN/CEFACT; las anclas, del
@@ -4188,6 +4196,37 @@ si el botón deja de funcionar **no da error**: se queda apagado, o se queda
 ha dejado de poder comprobarse. `test_lo_que_las_paginas_llaman_existe_en_glosa_js`
 compara cada `Glosa.loquesea` que llaman las seis páginas con lo que
 `window.Glosa` entrega de verdad.
+
+## Lo publicado, repasado contra lo hecho
+
+El 15-09-2026 se leyó lo que dice la web contra lo que hace el repositorio, y
+seis cosas se habían quedado atrás. Ninguna era mentira el día que se escribió:
+
+| Qué decía | Qué pasaba |
+|---|---|
+| la portada: la ficha de quien está detrás «no está publicada» | lo estaba desde el 31-08, nombre y correo, en el aviso legal |
+| el aviso legal: «Última actualización: 30 de agosto» | la política cambió el 31, con el buzón en Estados Unidos y la ficha |
+| lo medido de la privacidad, «el 28 de agosto» | se volvió a medir: 23 ficheros al abrir, todos de `www.glosa-e.com`; 0 peticiones al validar `fe-0001.xml`; sin cookies y sin nada guardado |
+| «Son unos 15 MB la primera vez» | 9,86 MB por el cable, con el HTML; 15 era lo que ocupa en disco |
+| el alcance: «EN 16931 y RD 238/2026» | faltaban las 223 reglas —219 hechas y 4 imposibles—, el contraste con las pruebas oficiales y el borrador del anexo I |
+| la licencia | ver «La línea de autoría» |
+
+Dos guardianes nuevos, para que no vuelva a pasar por el mismo sitio:
+
+- **Las cifras de la norma en la web** —portada, aviso legal y libro blanco—
+  se leen de las páginas y se comparan con lo que mide `test_norma_oficial.py`:
+  reglas, hechas, imposibles, cuántas tienen casos oficiales y cuántos casos.
+  «Dice lo mismo que la prueba» exige además `DISCREPANCIAS` vacía.
+- **La fecha de la política va atada a su texto.** Una fecha no se deduce de
+  nada, así que `test_documentacion.py` guarda la huella SHA-256 de lo que la
+  página dice —sin marcado, sin comentarios, con la ficha de `glosa.js`, que
+  es de donde salen el responsable y el correo— al lado de la fecha. Cambiar
+  una palabra sin cambiar la fecha es rojo.
+
+Los dos se provocaron: una palabra de la política, solo la fecha, el correo de
+la ficha, la licencia quitada, una regla de menos en la portada, otros casos en
+el aviso legal, la frase reescrita y una discrepancia declarada, ocho rojos. Un
+comentario HTML cambiado sigue en verde, que es lo que tiene que pasar.
 
 ## La marca
 

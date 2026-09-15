@@ -605,3 +605,70 @@ def test_el_esquematron_de_codigos_de_edifact_es_de_otra_epoca():
     unidades = next(a for a in comprobaciones if a.getparent().get("context") == "//D_6411")
     vieja = frozenset(LISTA_ENTRE_ESPACIOS.findall(unidades.get("test"))[0].split())
     assert vieja != listas_de_codigos.UNECE_REC_20
+
+
+# --- Lo que la web publica de todo esto --------------------------------------
+#
+# La portada, el aviso legal y el libro blanco dicen cuántas reglas se
+# comprueban y con qué se han contrastado. Son cifras que se mueven solas —una
+# regla que se declara imposible, un caso nuevo en la próxima versión del
+# esquematrón— y están escritas a mano en tres páginas, que es como se quedan
+# atrás. Se leen de las páginas y se comparan con lo que mide este fichero.
+
+WEB = pathlib.Path(__file__).resolve().parent.parent / "web"
+
+
+@functools.cache
+def cifras_de_la_norma() -> dict[str, int]:
+    hechas = implementadas()
+    con_caso = {regla for _, regla, _, _ in casos()}
+    return {
+        "reglas": len(inventario()),
+        "comprobadas": len(hechas),
+        "imposibles": len(NO_EVALUABLES),
+        "con_caso_oficial": len(con_caso & hechas),
+        "sin_caso_oficial": len(hechas - con_caso),
+        "casos": len(casos()),
+    }
+
+
+# La página, el patrón con un grupo por cifra —sobre el texto con los espacios
+# y saltos de línea reducidos a uno— y qué medida es cada grupo.
+PUBLICADAS = (
+    ("index.html",
+     r"Las (\d+) reglas de EN 16931, de los campos obligatorios al desglose de "
+     r"IVA: (\d+) se comprueban y (\d+) no se pueden",
+     ("reglas", "comprobadas", "imposibles")),
+    ("legal.html", r"se comprueban (\d+) de sus (\d+) reglas\. Las otras (\d+)",
+     ("comprobadas", "reglas", "imposibles")),
+    ("legal.html", r"De las (\d+), (\d+) tienen casos en las pruebas oficiales",
+     ("comprobadas", "con_caso_oficial")),
+    ("legal.html", r"en sus (\d+) casos este validador dice lo mismo",
+     ("casos",)),
+    ("legal.html", r"las otras (\d+) no tienen ninguno", ("sin_caso_oficial",)),
+    ("tesis.html", r"No comprueba (\d+) de las (\d+) reglas de la EN 16931",
+     ("imposibles", "reglas")),
+    ("tesis.html", r"qué cubren las otras (\d+)", ("comprobadas",)),
+)
+
+
+@pytest.mark.parametrize("pagina, patron, que", PUBLICADAS,
+                         ids=lambda v: v if isinstance(v, str) and v.endswith(".html") else "")
+def test_lo_que_la_web_dice_de_la_norma_es_lo_de_hoy(pagina, patron, que):
+    texto = " ".join((WEB / pagina).read_text(encoding="utf-8").split())
+    encontrados = re.findall(patron, texto)
+    assert len(encontrados) == 1, (
+        f"«{patron}» aparece {len(encontrados)} veces en {pagina} y tiene que "
+        "aparecer una. Si se ha reescrito la frase, este guardián se ha quedado "
+        "ciego y hay que volver a apuntarlo.")
+    dice = encontrados[0] if isinstance(encontrados[0], tuple) else (encontrados[0],)
+    medidas = cifras_de_la_norma()
+    for cifra, medida in zip(dice, que, strict=True):
+        assert int(cifra) == medidas[medida], (
+            f"{pagina} dice {cifra} ({medida}) y hoy son {medidas[medida]}. La "
+            "página la lee quien está decidiendo si fiarse: cámbiala.")
+    if "casos" in que:
+        # «Dice lo mismo que la prueba» solo es cierto con la lista vacía.
+        assert not DISCREPANCIAS, (
+            f"{pagina} dice que en todos los casos oficiales se dice lo mismo "
+            f"que la prueba, y hay {len(DISCREPANCIAS)} discrepancias declaradas")

@@ -7,17 +7,18 @@
 
 // --- Quien esta detras -----------------------------------------------------
 //
-// Vacio a proposito, y esto no es un hueco olvidado.
+// Nombre comercial y correo, y nada mas. Lo que falta no es un hueco olvidado.
 //
 // Mientras no haya empresa ni nada de pago, esto es una herramienta gratuita
-// sin actividad economica: el aviso legal con identificacion del titular que
-// pide el articulo 10 de la LSSI no le aplica todavia. En cuanto se ofrezca un
-// servicio de pago si aplica, y hay que publicar quien lo ofrece.
+// sin actividad economica, y el articulo 10 de la LSSI no pide todavia NIF ni
+// domicilio. Lo que si hace falta desde el primer dia es que quien usa esto
+// sepa a quien escribe, y para eso bastan el nombre y el correo. Lo demas no
+// se publica antes de hacer falta, porque lo que se publica no se despublica.
 //
-// Por eso las dos cosas van atadas al mismo sitio: **sin titular completo no
-// se pinta la seccion comercial**. No se puede ofrecer una auditoria sin decir
-// quien la hace, y la forma de garantizarlo es que no haya forma de encender
-// lo uno sin lo otro. Rellenar esto es lo unico que hace falta.
+// En cuanto se ofrezca un servicio de pago hay que rellenar el resto, y **sin
+// titular completo no se pinta la seccion comercial**: no se puede ofrecer
+// una auditoria sin decir quien la hace, y la forma de garantizarlo es que no
+// haya forma de encender lo uno sin lo otro.
 const TITULAR = {
   nombre: "Glosa-e",              // nombre comercial; no hay razon social que
                                   // publicar mientras no se venda nada

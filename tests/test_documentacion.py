@@ -14,6 +14,8 @@ La solución es la de siempre aquí: que no se pueda, en vez de pedir que
 alguien se acuerde.
 """
 
+import hashlib
+import html
 import re
 import subprocess
 import sys
@@ -351,6 +353,69 @@ def test_el_readme_dice_bajo_que_licencia_se_publica():
     declarada = licencia_declarada(RAIZ)
     assert declarada in README.read_text(encoding="utf-8"), (
         f"el proyecto se publica como «{declarada}» y el README no lo dice")
+
+def test_el_aviso_legal_dice_bajo_que_licencia_se_publica():
+    """El código viaja entero al navegador; el aviso legal dice con qué
+    condiciones.
+
+    Hasta el 15-09-2026 decía «el código del validador y los textos de esta
+    página son de su autor», mientras `security.txt` decía AGPL-3.0-only y el
+    README contaba que el sitio publicaba la licencia. No la publicaba.
+    """
+    from validador.paquete import licencia_declarada
+
+    declarada = licencia_declarada(RAIZ)
+    legal = LEGAL.read_text(encoding="utf-8")
+    titulo = "<h3>De quién es cada cosa</h3>"
+    assert titulo in legal, (
+        "el aviso legal ya no tiene la sección «De quién es cada cosa» con esa "
+        "forma, y este guardián se ha quedado ciego")
+    seccion = legal[legal.index(titulo) + len(titulo):]
+    seccion = seccion[:seccion.index("<h3>")]
+    assert declarada in seccion, (
+        f"el proyecto se publica como «{declarada}» y el aviso legal no lo "
+        "dice donde dice de quién es cada cosa")
+
+
+# --- La fecha de la política -------------------------------------------------
+#
+# «Última actualización: 30 de agosto de 2026» siguió ahí después de que el 31
+# se añadieran a la política el buzón en Estados Unidos y la ficha del titular.
+# En una política de privacidad la fecha es parte de lo que se promete: dice
+# desde cuándo vale lo que pone. No se puede deducir de nada, así que se ata al
+# texto. Cambiar una palabra de la página, o de la ficha que la página pinta,
+# sin cambiar esto deja la suite en rojo.
+
+FECHA_DE_LA_POLITICA = "15 de septiembre de 2026"
+HUELLA_DE_LA_POLITICA = "1cc0c928401ebb9eb0338a6355a8d36b23eee84b895a55d24079bfa706947c5d"
+
+
+def _texto_de_la_politica() -> str:
+    """Lo que dice la página, sin marcado, sin comentarios y sin la fecha.
+
+    Los comentarios fuera: no son lo que se promete. La ficha de `glosa.js`
+    dentro: el responsable del tratamiento y el correo salen de ahí.
+    """
+    pagina = LEGAL.read_text(encoding="utf-8")
+    cuerpo = pagina[pagina.index("<main>"):pagina.index("</main>")]
+    cuerpo = re.sub(r"<!--.*?-->", " ", cuerpo, flags=re.S)
+    cuerpo = re.sub(r'<p class="fecha">.*?</p>', " ", cuerpo, flags=re.S)
+    cuerpo = html.unescape(re.sub(r"<[^>]+>", " ", cuerpo))
+    ficha = " ".join(f"{campo}={valor}" for campo, valor in sorted(_ficha().items()))
+    return " ".join(f"{cuerpo} {ficha}".split())
+
+
+def test_la_fecha_de_la_politica_es_la_de_su_ultimo_cambio():
+    fechas = re.findall(r'<p class="fecha">Última actualización: (.*?)\.</p>',
+                        LEGAL.read_text(encoding="utf-8"))
+    assert fechas == [FECHA_DE_LA_POLITICA], (
+        f"legal.html dice {fechas} y aquí consta «{FECHA_DE_LA_POLITICA}»")
+    hay = hashlib.sha256(_texto_de_la_politica().encode("utf-8")).hexdigest()
+    assert hay == HUELLA_DE_LA_POLITICA, (
+        "La política o el aviso legal han cambiado y su fecha no. Pon la de "
+        "hoy en `legal.html` y en FECHA_DE_LA_POLITICA, y "
+        f'HUELLA_DE_LA_POLITICA = "{hay}".')
+
 
 # --- Lo que la portada promete que se puede correr ---------------------------
 # La seccion «Por qué este» no cuenta las comprobaciones: las corre, delante de

@@ -164,7 +164,8 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Verificar una lista de confianza y montar el ancla | 20,8 ms |
 | Rechazar una lista de confianza manipulada | 14,1 ms |
 | Validar un lote de 200 | 2,05 s · 10,3 ms cada una · 23 MB de memoria |
-| Lo que descomprime el navegador | 14,71 MB |
+| Lo que descomprime el navegador | 17,07 MB (15-09-2026; eran 14,71) |
+| Lo que baja por el cable la primera vez | 9,86 MB en 24 peticiones, todas a `www.glosa-e.com` (15-09-2026) |
 
 La fila de los 10 ejemplos se midió el 06-09-2026 sobre `www.glosa-e.com`, con
 cuatro pasadas de calentamiento y la mediana de siete, **y con la máquina en
@@ -226,7 +227,7 @@ WebAssembly, sin que el fichero salga del ordenador.
 
 ## Lo que queda por resolver antes de que esto sea un producto
 
-- **Los 9,7 MB del primer arranque.** Eso es lo que viaja por el cable con
+- **Los 9,9 MB del primer arranque.** Eso es lo que viaja por el cable con
   Brotli puesto —el `.wasm` pesa 9,6 MB en disco y 3,6 por el cable—, y no hay
   mucho que rascar sin quitar cosas: 3,6 el intérprete, 2,5 la biblioteca
   estándar, 1,6 lxml, 1,2 los esquemas y las anclas. La primera visita nunca va
@@ -234,7 +235,8 @@ WebAssembly, sin que el fichero salga del ordenador.
 
   Eran 9,4 hasta el 11-09-2026, cuando entraron los 18 esquemas de UBL 2.5. El
   zip ya viene comprimido y Brotli no le saca nada, así que lo que crece por el
-  cable es exactamente lo que crece en disco: 0,25 MB.
+  cable es exactamente lo que crece en disco: 0,25 MB. El 15-09-2026 eran
+  9,86, y de esa medida sale el «unos 10 MB» de la portada.
 
   Lo que sí se arregló es **la segunda visita**, que estaba rota de una forma
   que no se veía. Cada fichero se pedía con `?v=` y la hora dentro, para que el
@@ -267,7 +269,7 @@ WebAssembly, sin que el fichero salga del ordenador.
 
   De modo que en el navegador la comprobación de forma **se hace**. Lo que
   falta de verdad aquí no es tenerlos: es que el peso del paquete crece con
-  ellos, y eso ya está contado arriba en los 9,7 MB.
+  ellos, y eso ya está contado arriba en los 9,9 MB.
 - **Las anclas de confianza, en el navegador.** Encadenar funciona aquí —está
   comprobado—, y las anclas hay que meterlas en el disco virtual, igual que las
   facturas de ejemplo: unos cientos de KB que se cachean.
