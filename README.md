@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1937 tests, todos en verde.
+1965 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1302,9 +1302,14 @@ Todo esto sin salir a la red:
    el XML después de firmarlo, o una herramienta lo vuelve a guardar y lo
    rompe—. Basta un espacio de más.
 2. **Que la firma la hiciera la clave privada del certificado que se enseña.**
-3. **Que el certificado estuviera vigente** el día que la firma declara.
-4. **Que el certificado presentado sea el que XAdES dice haber usado.**
-5. **Que los algoritmos no estén retirados.**
+3. **Que lo que la firma cubre sea esta factura**, y no otra cosa.
+4. **Que el certificado estuviera vigente** el día que la firma declara —fecha
+   que se lee de lo firmado, no de cualquier parte del documento—.
+5. **Que el certificado presentado sea el que XAdES dice haber usado.**
+6. **Que los algoritmos no estén retirados.**
+
+La tercera y el inciso de la cuarta son del 15-09-2026 y salen de una
+auditoría; el porqué está más abajo, en «Una firma auténtica sobre otra cosa».
 
 ### Qué no, y por qué se dice
 
@@ -1316,10 +1321,10 @@ Todo esto sin salir a la red:
   cuándo se firmó.
 
 Traducido: responde **«¿ha cambiado alguien este documento después de
-firmarlo?»**. No responde «¿de quién es este certificado?». Un documento
-firmado con un certificado que el remitente se ha inventado pasa las cinco
-comprobaciones —de hecho es justo lo que hacen los tests—, y por eso el informe
-dice lo que no mira:
+firmarlo?»** y **«¿es esta factura lo que se firmó?»**. No responde «¿de quién
+es este certificado?». Un documento firmado con un certificado que el remitente
+se ha inventado pasa las seis comprobaciones —de hecho es justo lo que hacen los
+tests—, y por eso el informe dice lo que no mira:
 
 ```
 No se comprueba de quién es el certificado ni si está revocado
@@ -1329,6 +1334,102 @@ red—, ni si lo que dice la factura es cierto.
 
 Ese párrafo cambia solo cuando el lote trae firmas. Sobre uno sin firmar sería
 explicar qué mitad de algo que no hay se comprueba.
+
+### Una firma auténtica sobre otra cosa
+
+Las dos primeras comprobaciones —los resúmenes cuadran, el valor de la firma
+cuadra— se pueden cumplir enteras **sobre otro documento**. Una firma XAdES
+cualquiera, hecha por quien sea sobre lo que sea, se despega de su documento y
+se cuelga de una factura inventada: si la referencia va por identificador y la
+canonicalización es exclusiva —que es lo corriente—, lo que cubre viaja con
+ella y sigue verificando. No hace falta ninguna clave privada: basta una firma
+suya sobre cualquier cosa, y un certificado suyo lo hay en cada factura que
+manda.
+
+Hasta el 15-09-2026 eso salía **sin un solo error**, y con la nota que nombra al
+firmante y a la autoridad que lo avala. Ahora se exige que alguna referencia
+comprobada cubra la factura que se está leyendo, y si ninguna lo hace sale
+`FIRMA-NO-CUBRE` en error.
+
+La misma maniobra dentro de un solo fichero es el señuelo. En una firma
+envolvente —la factura va dentro de un `ds:Object` al que la firma apunta por
+identificador, que es como referencian su contenido 9 de las 24 firmas del
+corpus— basta meter un `Facturae` inventado **delante** del que está firmado:
+`formato.detectar`, `facturae.py` y
+`en16931.py` se quedan con el primero, y la firma sigue cubriendo el segundo.
+Por eso «cubrir» no es «tener una referencia que verifique», sino cubrir el
+elemento que las reglas leen como factura.
+
+Tres cosas más salieron del mismo sitio, y son la misma idea con tres caras:
+
+- **Las referencias son las del `SignedInfo`, y solo esas.** Estaban cogidas de
+  cualquier parte de la firma. Un resumen lo rehace cualquiera sin ninguna
+  clave, así que bastaba colgar de un `ds:Object` una referencia al documento
+  con su resumen bien calculado. Con el `SignedInfo` fuera de su sitio, además,
+  no quedaba valor de firma que comprobar y el informe salía sin una sola queja
+  de firma.
+- **La fecha y el certificado declarados se leen de las propiedades firmadas.**
+  `SigningTime` y `SigningCertificate` se buscaban con `.//` y mandaba el
+  primero en orden de documento. Un `ds:Object` sin firmar metido delante del
+  de verdad no rompe ningún resumen y decidía la fecha con la que se miden la
+  caducidad del certificado y su revocación: un tercero que ni firmó borraba un
+  `FIRMA-CADUCADA` del informe.
+- **Un identificador repetido no se resuelve a ciegas.** Quedarse con el primer
+  elemento que lleve ese `Id` es la maniobra clásica contra los verificadores de
+  XML firmado. Ahora, si aparece más de uno, se dice que no se sabe cuál es el
+  firmado en vez de elegir.
+
+Y la puerta que lo ata todo: **`cadena.py` no dice de quién es un certificado
+cuya firma no se ha comprobado.** Era el agujero de fondo. `firma.py` decía
+correctamente «no se ha podido comprobar la firma» —con un método de firma
+inventado basta— y `cadena.py`, que miraba por su cuenta, escribía igual «La
+firma de Fulano llega a tal autoridad». Esa nota es la única frase del informe
+que nombra a alguien. Ahora las dos preguntan a la misma función, `examinar`, y
+la nota sale solo si la firma se sostiene: el valor cuadra, ninguna referencia
+está alterada y alguna cubre la factura.
+
+Y la última pieza, del 15-09-2026: **la línea de estado dice en qué quedó la
+firma, no que haya una.** Decía «· firmado» por el mero hecho de traer un
+bloque `Signature`, así que una factura falsificada —certificado ajeno copiado,
+resúmenes rehechos, algoritmo de firma inventado para que nadie llegue a
+comprobar el valor— se leía así:
+
+```
+Facturae v3.2.2 (factura) · firmado — sin errores, 2 aviso(s).
+```
+
+Ya no se nombraba a nadie y un aviso decía que la firma no se había podido
+comprobar, pero encima de «sin errores» la palabra que se lleva quien lee es
+«firmado». Ahora hay cuatro etiquetas y la diferencia entre las dos malas
+importa:
+
+| Cuándo | Qué dice |
+|---|---|
+| todas las firmas se sostienen | `· firmado` |
+| se ha mirado y no se sostiene: el valor no cuadra, alguien tocó un trozo firmado, o lo que firma no es esta factura | `· firma que no se sostiene` |
+| no se ha sabido mirar —un algoritmo que aquí no se conoce— | `· firma sin comprobar` |
+| nadie la ha mirado: una detección a secas, sin validar | `· con firma` |
+
+«Sin comprobar» y «no se sostiene» van aparte a propósito: hay algoritmos
+legítimos fuera de la tabla —RSA-PSS, sin ir más lejos— y acusar a una firma
+correcta de estar rota es el error simétrico del que se acaba de cerrar. Con
+varias firmas manda la peor: que una cuadre no arregla que otra no.
+
+El estado sale de los **mismos** exámenes con los que se escriben las glosas de
+la firma, hechos una sola vez y pasados a las dos partes. Que cada uno mirara
+por su cuenta es exactamente lo que dejó a `cadena.py` nombrando al firmante de
+una firma sin comprobar; repetirlo en la línea de estado habría costado otra
+pasada entera y habría permitido que la línea dijera una cosa y las glosas
+otra.
+
+Lo que cuesta, medido: 0,9 ms de examen en una factura de 3 KB y 160 ms en una
+de 1 MB con 4.000 líneas; se hace tres veces por firma —el informe, la cadena y
+los sellos— y sale a un 4 % del tiempo de validar la grande. No se guarda en
+caché a propósito: una caché que no sepa cuándo el documento dejó de ser el
+mismo es el fallo que este repositorio ya ha tenido cuatro veces.
+
+Las 19 facturas firmadas del corpus dan exactamente el mismo informe que antes
+del arreglo, código por código y campo por campo.
 
 ### Sin dependencias nuevas
 

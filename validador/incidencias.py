@@ -75,6 +75,11 @@ class Informe:
 
     deteccion: Deteccion | None = None
     incidencias: list[Incidencia] = field(default_factory=list)
+    # En qué quedó la firma al comprobarla: `FIRMA_EN_PIE`, `FIRMA_ROTA`,
+    # `FIRMA_SIN_COMPROBAR`, o `None` si no trae firma o nadie la ha mirado.
+    # Va en el informe y no en la detección a propósito: la detección es lo que
+    # se ve sin validar, y esto es el resultado de validar.
+    firma: str | None = None
 
     @property
     def errores(self) -> list[Incidencia]:
@@ -118,7 +123,9 @@ class Informe:
         # la condición es siempre falsa y el mensaje no salía nunca.
         if self.deteccion is not None and not self.deteccion:
             return f"No se ha podido validar. {self.deteccion.motivo}"
-        cabecera = self.deteccion.resumen() if self.deteccion else "Documento"
+        cabecera = (
+            self.deteccion.resumen(self.firma) if self.deteccion else "Documento"
+        )
         if self.conforme:
             cola = "sin errores"
             if self.avisos:

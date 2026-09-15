@@ -24,10 +24,22 @@ Se comprueba, y sin conexión a ninguna parte:
    a serializar y lo rompe—.
 2. **Que la firma la hiciera la clave privada de ese certificado.** RSA sobre
    el `SignedInfo` canonicalizado.
-3. **Que el certificado estuviera vigente** en la fecha que la firma declara.
-4. **Que el certificado que se presenta sea el que la firma dice haber usado**
+3. **Que lo que la firma cubre sea esta factura.** Las tres de arriba se pueden
+   cumplir todas sobre otro documento: una firma XAdES de cualquiera sobre
+   cualquier cosa se despega y se cuelga de una factura inventada, y sigue
+   verificando entera porque lo que cubre viaja con ella. Ver `_regla_cubre`.
+4. **Que el certificado estuviera vigente** en la fecha que la firma declara,
+   que se lee **de lo firmado** y no de cualquier sitio: ver
+   `propiedades_firmadas`.
+5. **Que el certificado que se presenta sea el que la firma dice haber usado**
    (la propiedad `SigningCertificate` de XAdES guarda su resumen).
-5. **Que los algoritmos no estén obsoletos.**
+6. **Que los algoritmos no estén obsoletos.**
+
+Las tres cosas de las que sale «esta firma se sostiene» —que el valor cuadre,
+que ninguna referencia esté alterada y que alguna cubra la factura— las junta
+`examinar`, y ahí las mira también `cadena.py` antes de decir de quién es el
+certificado. Que cada uno lo mirara por su cuenta es lo que permitía que el
+informe no comprobara una firma y aun así nombrara a su firmante.
 
 **De quién es el certificado lo responde `cadena.py`**, encadenándolo hasta un
 ancla de confianza instalada. Aquí no: aquí solo se mira el certificado que el
@@ -41,9 +53,10 @@ documento enseña, sin preguntarse quién lo avala.
 - Que quien firma esté autorizado a facturar por ese NIF.
 
 Traducido: este módulo responde **«¿alguien ha cambiado este documento después
-de firmarlo?»** y **«¿la firma cuadra con el certificado que trae dentro?»**.
-Un documento firmado con un certificado que el remitente se haya inventado pasa
-las cinco comprobaciones de aquí; lo caza `cadena.py` si hay anclas puestas.
+de firmarlo?»**, **«¿la firma cuadra con el certificado que trae dentro?»** y
+**«¿es esta factura lo que se firmó?»**. Un documento firmado con un
+certificado que el remitente se haya inventado pasa las seis comprobaciones de
+aquí; lo caza `cadena.py` si hay anclas puestas.
 
 Por qué no se usa una librería de criptografía
 ----------------------------------------------
@@ -73,12 +86,22 @@ from datetime import datetime, timezone
 
 from lxml import etree
 
-from validador.formato import FACTURAE, NS_FIRMA, Deteccion
+from validador.formato import (
+    FACTURAE,
+    FIRMA_EN_PIE,
+    FIRMA_ROTA,
+    FIRMA_SIN_COMPROBAR,
+    NS_FIRMA,
+    Deteccion,
+)
 from validador.incidencias import AVISO, ERROR, Incidencia
 
 __all__ = ["reglas", "hay_firma", "certificados_de", "momento_de_firma",
            "leer_certificado", "Certificado", "ALGORITMOS_ROTOS",
-           "ClaveNoSoportada", "verificar", "CURVAS", "Curva"]
+           "ClaveNoSoportada", "verificar", "CURVAS", "Curva",
+           "examinar", "Examen", "Comprobada", "referencias_de",
+           "comprobar_referencia", "propiedades_firmadas",
+           "examinar_todas", "estado_de_la_firma"]
 
 # --- Algoritmos ------------------------------------------------------------
 
@@ -881,9 +904,98 @@ def verificar(
 # --- Lectura del XML -------------------------------------------------------
 
 
+_NS = {"ds": NS_FIRMA}
+
+# Las propiedades XAdES han pasado por tres namespaces —1.2.2, 1.3.1 y 1.3.2— y
+# en las facturas reales conviven: de las 24 firmas del corpus, 5 declaran
+# 1.2.2 y 17 la 1.3.2. Se reconocen por el prefijo común en vez de por una
+# lista, y **no** por el nombre a secas: aceptar cualquier `SignedProperties`
+# de cualquier namespace deja que valga un elemento inventado con ese nombre.
+_XADES = "http://uri.etsi.org/01903/"
+
+
 def _hijo(nodo, nombre: str):
     encontrados = nodo.xpath(f"./*[local-name()='{nombre}']")
     return encontrados[0] if encontrados else None
+
+
+def _hijo_ds(nodo, nombre: str):
+    """Un hijo del namespace de XML-DSig, y solo de ese.
+
+    La diferencia con `_hijo` importa donde se decide algo: un
+    `<x:SignatureValue>` de otro namespace no es el valor de una firma, y
+    tratarlo como si lo fuera es dejar que quien escribe el documento elija qué
+    se comprueba.
+    """
+    encontrados = nodo.xpath(f"./ds:{nombre}", namespaces=_NS)
+    return encontrados[0] if encontrados else None
+
+
+def _signedinfo(firma):
+    """El `SignedInfo` **hijo** de la firma. El único que cuenta.
+
+    Lo que el valor de la firma cubre es este bloque y nada más. Buscarlo por
+    descendiente —o buscar las referencias por descendiente, que es lo que se
+    hacía— deja que cuenten unas escritas en cualquier otro sitio de la firma,
+    por ejemplo dentro de un `ds:Object`, que nadie firmó.
+    """
+    return _hijo_ds(firma, "SignedInfo")
+
+
+def referencias_de(firma) -> list:
+    """Las `Reference` que la firma cubre de verdad: las de su `SignedInfo`.
+
+    **Este es el agujero número dos de la auditoría del 15-09-2026.** Estaban
+    cogidas con `.//Reference`, o sea en cualquier parte de la firma. Un
+    resumen es un hash y lo rehace cualquiera sin ninguna clave, así que
+    bastaba colgar de un `ds:Object` una referencia al documento —con su
+    resumen bien calculado— para que el validador diera por comprobado lo que
+    la firma no cubría. Con el `SignedInfo` fuera de su sitio, además, no había
+    valor de firma que comprobar y el informe salía **sin una sola queja**.
+    """
+    firmado = _signedinfo(firma)
+    if firmado is None:
+        return []
+    return firmado.xpath("./ds:Reference", namespaces=_NS)
+
+
+def _es_propiedades(nodo) -> bool:
+    """¿Es este elemento unas `SignedProperties` de XAdES?"""
+    if nodo is None:
+        return False
+    etiqueta = str(nodo.tag)
+    return etiqueta.startswith("{" + _XADES) and etiqueta.endswith("}SignedProperties")
+
+
+def _dentro_de(nodo, posible_antepasado) -> bool:
+    """¿Cuelga `nodo` de `posible_antepasado`? (o es él mismo)"""
+    if nodo is None or posible_antepasado is None:
+        return False
+    actual = nodo
+    while actual is not None:
+        if actual is posible_antepasado:
+            return True
+        actual = actual.getparent()
+    return False
+
+
+def factura_leida(raiz):
+    """El elemento que las reglas leen como factura.
+
+    Casi siempre es la raíz. Cuando la raíz es la propia firma —Facturae
+    firmado «en envolvente», que está en el corpus— la factura cuelga de
+    dentro, y `formato.detectar`, `facturae.py` y `en16931.py` se quedan con
+    **el primer** `Facturae` que aparece. Aquí hay que mirar el mismo, porque
+    la pregunta que se contesta es si la firma cubre lo que se está validando,
+    no si cubre algo.
+    """
+    if raiz is None:
+        return None
+    if str(raiz.tag) == f"{{{NS_FIRMA}}}Signature":
+        internos = raiz.xpath("//*[local-name()='Facturae']")
+        if internos:
+            return internos[0]
+    return raiz
 
 
 def _texto_b64(nodo) -> bytes | None:
@@ -905,15 +1017,22 @@ def hay_firma(raiz) -> list:
 
 
 def certificados_de(firma) -> list[Certificado]:
-    """Los certificados que trae una firma, el primero el que firma.
+    """Los certificados del `KeyInfo` de la firma, el primero el que firma.
 
     XAdES permite meter la cadena entera en el `KeyInfo`, y lo normal es que el
     primero sea el del firmante. Los que no se puedan leer se saltan en
     silencio: de que falte el del firmante ya se queja `reglas`, y un
     intermedio ilegible solo significa que la cadena no llegará arriba.
+
+    **Del `KeyInfo` y no de toda la firma.** Con `.//` entraban también los
+    certificados de un `ds:Object` cualquiera —hay dos firmas así en el
+    corpus— y el primero en orden de documento decidía con qué certificado se
+    comprobaba todo. No permite falsificar nada, porque la firma tiene que
+    cuadrar con el certificado que se elija, pero sí acusar en falso a un
+    documento correcto al que alguien haya colgado un certificado de adorno.
     """
     salida = []
-    for texto in firma.xpath(".//*[local-name()='X509Certificate']/text()"):
+    for texto in firma.xpath("./ds:KeyInfo//ds:X509Certificate/text()", namespaces=_NS):
         crudo = base64.b64decode("".join(texto.split()), validate=False)
         try:
             salida.append(leer_certificado(crudo))
@@ -932,24 +1051,52 @@ def _canonicalizar(nodo, algoritmo: str | None) -> bytes | None:
     )
 
 
-def _por_identificador(raiz, identificador: str):
-    encontrados = raiz.xpath(
-        "//*[@Id=$i or @id=$i or @ID=$i]", i=identificador
-    )
-    return encontrados[0] if encontrados else None
+def _con_identificador(raiz, identificador: str) -> list:
+    """**Todos** los elementos con ese identificador, no el primero.
+
+    Que haya más de uno no es un detalle de higiene: un `Id` es único por
+    definición del esquema, y quedarse con el primero que aparezca es la
+    maniobra clásica contra los verificadores de XML firmado —se deja el
+    elemento firmado donde estaba y se mete una copia con el mismo `Id`
+    delante—. Aquí se cuentan para poder decir que no se sabe cuál es.
+    """
+    return raiz.xpath("//*[@Id=$i or @id=$i or @ID=$i]", i=identificador)
 
 
-def _contenido_referenciado(raiz, firma, referencia) -> tuple[bytes | None, str]:
+def _sin_esta_firma(raiz, firma):
+    """Una copia del documento sin **esta** firma, que es lo que quita XAdES.
+
+    «Esta» y no cualquiera: en un fichero con dos firmas, quitar la primera que
+    aparezca daría otros bytes y la comprobación mentiría.
+    """
+    arbol = etree.fromstring(etree.tostring(raiz))
+    # `getelementpath` da una ruta en notación {namespace}etiqueta, que no
+    # depende de los prefijos declarados. Con `getpath`, que sí los usa, la
+    # copia no los tiene declarados en su contexto de evaluación y lxml
+    # responde «Undefined namespace prefix» en cualquier documento con
+    # prefijos —o sea, en todos los Facturae firmados—.
+    ruta = raiz.getroottree().getelementpath(firma)
+    gemela = arbol.find(ruta)
+    if gemela is None:
+        return None
+    gemela.getparent().remove(gemela)
+    return arbol
+
+
+def _contenido_referenciado(raiz, firma, referencia):
     """Los octetos sobre los que se calculó el resumen de una `Reference`.
 
-    Devuelve también el motivo cuando no se ha podido, para poder decirlo en
-    vez de dar la referencia por buena.
+    Devuelve `(octetos, motivo, objetivo)`: el motivo cuando no se ha podido
+    —para poder decirlo en vez de dar la referencia por buena— y el elemento al
+    que apunta, que es lo que permite saber **qué** cubre la firma y no solo si
+    el resumen cuadra.
     """
     uri = referencia.get("URI")
     transformadas = referencia.xpath(
-        ".//*[local-name()='Transform']/@Algorithm"
+        "./ds:Transforms/ds:Transform/@Algorithm", namespaces=_NS
     )
     c14n = next((t for t in transformadas if t in _C14N), None)
+    envolvente = "http://www.w3.org/2000/09/xmldsig#enveloped-signature" in transformadas
     desconocidas = [
         t
         for t in transformadas
@@ -957,41 +1104,287 @@ def _contenido_referenciado(raiz, firma, referencia) -> tuple[bytes | None, str]
         and t != "http://www.w3.org/2000/09/xmldsig#enveloped-signature"
     ]
     if desconocidas:
-        return None, f"lleva una transformación que aquí no se sabe aplicar: {desconocidas[0]}"
+        return (
+            None,
+            f"lleva una transformación que aquí no se sabe aplicar: {desconocidas[0]}",
+            None,
+        )
 
     if uri is None:
-        return None, "no dice a qué se refiere"
+        return None, "no dice a qué se refiere", None
 
     if uri == "":
-        # Documento entero. La transformada «enveloped-signature» quita **esta**
-        # firma, no cualquiera: en un fichero con dos firmas, quitar la primera
-        # que aparezca daría un resultado distinto y la comprobación mentiría.
-        arbol = etree.fromstring(etree.tostring(raiz))
-        # `getelementpath` da una ruta en notación {namespace}etiqueta, que no
-        # depende de los prefijos declarados. Con `getpath`, que sí los usa, la
-        # copia no los tiene declarados en su contexto de evaluación y lxml
-        # responde «Undefined namespace prefix» en cualquier documento con
-        # prefijos —o sea, en todos los Facturae firmados—.
-        ruta = raiz.getroottree().getelementpath(firma)
-        gemela = arbol.find(ruta)
-        if gemela is None:
-            return None, "no se ha podido aislar la firma para quitarla"
-        gemela.getparent().remove(gemela)
-        return _canonicalizar(arbol, c14n), ""
+        arbol = _sin_esta_firma(raiz, firma)
+        if arbol is None:
+            return None, "no se ha podido aislar la firma para quitarla", None
+        return _canonicalizar(arbol, c14n), "", raiz
 
     if not uri.startswith("#"):
-        return None, "apunta a un fichero de fuera, que aquí no está"
+        return None, "apunta a un fichero de fuera, que aquí no está", None
 
-    objetivo = _por_identificador(raiz, uri[1:])
-    if objetivo is None:
-        return None, f"apunta a «{uri}», que no está en el documento"
-    return _canonicalizar(objetivo, c14n), ""
+    hallados = _con_identificador(raiz, uri[1:])
+    if not hallados:
+        return None, f"apunta a «{uri}», que no está en el documento", None
+    if len(hallados) > 1:
+        return (
+            None,
+            f"apunta a «{uri}» y ese identificador aparece {len(hallados)} veces "
+            "en el documento: no se sabe cuál es el que se firmó",
+            None,
+        )
+    objetivo = hallados[0]
+
+    if envolvente and _dentro_de(firma, objetivo):
+        # La firma va dentro de lo que dice cubrir, así que hay que quitarla
+        # antes de resumir. Con la raíz se sabe hacer —es el mismo camino que
+        # `URI=""`—; con un elemento de en medio no, porque canonicalizar un
+        # trozo arrastra los namespaces declarados por encima y copiarlo suelto
+        # da otros bytes. Decirlo es mejor que acusar al documento de alterado,
+        # que es lo que salía antes.
+        if objetivo is raiz:
+            arbol = _sin_esta_firma(raiz, firma)
+            if arbol is None:
+                return None, "no se ha podido aislar la firma para quitarla", None
+            return _canonicalizar(arbol, c14n), "", raiz
+        return (
+            None,
+            "la firma va dentro de lo que dice cubrir y aquí no se sabe "
+            "quitarla de en medio",
+            objetivo,
+        )
+    return _canonicalizar(objetivo, c14n), "", objetivo
+
+
+@dataclass(frozen=True)
+class Comprobada:
+    """Una `Reference` de la firma, ya comprobada.
+
+    `estado` es «bien», «alterada» —el resumen no cuadra— o «sin_comprobar»,
+    que es lo que sale cuando aquí no se sabe rehacer ese resumen. Los tres son
+    distintos y ninguno se puede leer como los otros dos.
+    """
+
+    uri: str | None
+    alg: str | None
+    estado: str
+    motivo: str = ""
+    objetivo: object | None = None
+    declarado: str = ""
+    calculado: str = ""
+
+
+def comprobar_referencia(raiz, firma, referencia) -> Comprobada:
+    """Rehace el resumen de una referencia y lo compara con el declarado."""
+    uri = referencia.get("URI")
+    metodo = referencia.xpath("./ds:DigestMethod/@Algorithm", namespaces=_NS)
+    alg = _RESUMEN.get(metodo[0] if metodo else "")
+    declarado = _hijo_ds(referencia, "DigestValue")
+    if alg is None or declarado is None or declarado.text is None:
+        return Comprobada(
+            uri,
+            None,
+            "sin_comprobar",
+            "el resumen usa un algoritmo que aquí no se conoce, o no viene",
+            declarado=metodo[0] if metodo else "",
+        )
+    octetos, motivo, objetivo = _contenido_referenciado(raiz, firma, referencia)
+    if octetos is None:
+        return Comprobada(uri, alg, "sin_comprobar", motivo, objetivo)
+    calculado = base64.b64encode(hashlib.new(alg, octetos).digest()).decode()
+    escrito = "".join(declarado.text.split())
+    if calculado != escrito:
+        return Comprobada(uri, alg, "alterada", "", objetivo, escrito, calculado)
+    return Comprobada(uri, alg, "bien", "", objetivo, escrito, calculado)
+
+
+def _lo_que_tiene_que_cubrir(raiz, firma, padre):
+    """Qué tiene que cubrir esta firma para que garantice algo. Y si es contrafirma.
+
+    Lo normal es la factura que se lee. La excepción es la contrafirma —una
+    firma que cuelga de otra y que lo que firma es el valor de aquella—: pedirle
+    que cubra la factura sería inventarse un requisito que XAdES no tiene.
+
+    Una firma que envuelve a la factura, o que va dentro de ella, no es una
+    contrafirma aunque cuelgue de otra: firma la factura.
+    """
+    documento = factura_leida(raiz)
+    if padre is None or _dentro_de(firma, documento) or _dentro_de(documento, firma):
+        return documento, False
+    valores = padre.xpath("./ds:SignatureValue", namespaces=_NS)
+    return (valores[0] if valores else padre), True
+
+
+@dataclass(frozen=True)
+class Examen:
+    """Todo lo que se sabe de una firma después de comprobarla.
+
+    Existe para que **una sola** respuesta valga para los dos que preguntan: el
+    informe, que escribe cada queja, y `cadena.py`, que decide si puede decir de
+    quién es el certificado. Antes cada uno miraba por su cuenta y `cadena.py`
+    no se enteraba de que la firma no se había comprobado: escribía igual «La
+    firma de Fulano llega a tal autoridad» sobre una firma falsificada.
+    """
+
+    certificado: Certificado | None
+    certificado_crudo: bytes | None
+    ilegible: bool
+    referencias: tuple[Comprobada, ...]
+    # (estado, motivo, campo, encontrado, algoritmo, obsoleto) — ver `_valor_de_la_firma`
+    valor: tuple
+    cubre: bool
+    apunta_a_lo_suyo: bool
+    a_que_apunta: str
+    propiedades: object | None
+    contrafirma: bool
+    padre_verificada: bool
+
+    @property
+    def verificada(self) -> bool:
+        """La firma se sostiene entera: cuadra y cubre lo que tiene que cubrir.
+
+        Las cuatro condiciones son una sola cosa dicha por partes. Que falte
+        cualquiera significa que esta firma no acredita esta factura, y por
+        tanto que **no se puede decir de quién es**: ni el nombre del
+        certificado, ni la autoridad a la que llega, ni la nota de confianza.
+        """
+        return (
+            self.valor[0] == "bien"
+            and self.cubre
+            and self.padre_verificada
+            and all(una.estado != "alterada" for una in self.referencias)
+        )
+
+    @property
+    def momento(self) -> datetime | None:
+        """La fecha que declara lo firmado. Ver `momento_de_firma`."""
+        return _fecha_de(self.propiedades)
+
+
+def examinar(firma, raiz=None) -> Examen:
+    """Comprueba una firma entera: certificado, referencias, valor y alcance.
+
+    **Lo que cuesta, medido el 15-09-2026** (CPython 3.14, este ordenador):
+    0,9 ms en una factura de 3 KB y 160 ms en una de 1 MB con 4.000 líneas,
+    casi todo en canonicalizar el documento para rehacer el resumen. Se hace
+    tres veces por firma —el informe, la cadena y los sellos preguntan cada uno
+    por su cuenta— y sale a un 4 % del tiempo de validar la factura de 1 MB y a
+    un 10 % de la pequeña.
+
+    **No se guarda en caché a propósito.** Una caché aquí tendría que saber
+    cuándo el documento deja de ser el mismo, y el fallo que este repositorio
+    ha tenido cuatro veces con distinto disfraz es exactamente ese: algo
+    guardado haciéndose pasar por lo de ahora. En el navegador, además, el
+    intérprete sigue vivo entre factura y factura. Un 4 % se paga; un veredicto
+    de la factura anterior, no.
+    """
+    if raiz is None:
+        raiz = firma.getroottree().getroot()
+
+    cert = None
+    crudo = None
+    ilegible = False
+    textos = firma.xpath("./ds:KeyInfo//ds:X509Certificate/text()", namespaces=_NS)
+    if textos:
+        try:
+            crudo = base64.b64decode("".join(textos[0].split()))
+            cert = leer_certificado(crudo)
+        except (ValueError, IndexError, binascii.Error):
+            ilegible = True
+            crudo = None
+
+    referencias = tuple(
+        comprobar_referencia(raiz, firma, una) for una in referencias_de(firma)
+    )
+    padre = next(firma.iterancestors(f"{{{NS_FIRMA}}}Signature"), None)
+    objetivo, contrafirma = _lo_que_tiene_que_cubrir(raiz, firma, padre)
+    cubre = any(
+        una.estado == "bien" and _dentro_de(objetivo, una.objetivo)
+        for una in referencias
+    )
+    # «Apunta» aunque no se haya podido comprobar: es la diferencia entre una
+    # firma que no cubre la factura y una que sí la cubre y cuyo resumen no se
+    # ha sabido rehacer. La segunda ya tiene su queja y no es esta.
+    apunta = any(_dentro_de(objetivo, una.objetivo) for una in referencias)
+    propiedades = next(
+        (
+            una.objetivo
+            for una in referencias
+            if una.estado == "bien" and _es_propiedades(una.objetivo)
+        ),
+        None,
+    )
+    return Examen(
+        certificado=cert,
+        certificado_crudo=crudo,
+        ilegible=ilegible,
+        referencias=referencias,
+        valor=_valor_de_la_firma(firma, cert),
+        cubre=cubre,
+        apunta_a_lo_suyo=apunta,
+        a_que_apunta=", ".join(
+            una.uri if una.uri else "el documento entero" for una in referencias
+        ),
+        propiedades=propiedades,
+        contrafirma=contrafirma,
+        padre_verificada=(
+            examinar(padre, raiz).verificada if contrafirma and padre is not None
+            else True
+        ),
+    )
+
+
+def examinar_todas(raiz) -> tuple[Examen, ...]:
+    """Las firmas del documento, ya comprobadas, en orden de documento.
+
+    Se hace una sola vez y el resultado va a los dos que lo necesitan: las
+    reglas, que escriben cada queja, y la línea de estado del informe. Que cada
+    uno llamara a `examinar` por su cuenta costaría otra pasada entera —160 ms
+    en una factura de 1 MB— y, peor, permitiría que la línea dijera una cosa y
+    las glosas otra.
+    """
+    return tuple(examinar(una, raiz) for una in hay_firma(raiz))
+
+
+def estado_de_la_firma(examenes) -> str | None:
+    """En qué queda la firma del documento. `None` si no trae ninguna.
+
+    Tres estados, y la diferencia entre los dos malos importa: **rota** es que
+    se ha mirado y no se sostiene —el valor no cuadra, alguien tocó un trozo
+    firmado, o lo que firma no es esta factura—; **sin comprobar** es que no se
+    ha sabido mirar, casi siempre porque usa un algoritmo que aquí no se conoce
+    (RSA-PSS, por ejemplo, que es legítimo). Acusar a la segunda de lo que hizo
+    la primera sería señalar a facturas correctas.
+
+    Con varias firmas manda la peor: que una cuadre no arregla que otra no.
+    """
+    if not examenes:
+        return None
+    if all(uno.verificada for uno in examenes):
+        return FIRMA_EN_PIE
+    if any(_esta_rota(uno) for uno in examenes):
+        return FIRMA_ROTA
+    return FIRMA_SIN_COMPROBAR
+
+
+def _esta_rota(examen: Examen) -> bool:
+    """Se ha podido mirar y está mal, frente a no haberse podido mirar.
+
+    Lo de `apunta_a_lo_suyo` y no `cubre`: una firma que apunta a la factura
+    pero cuyo resumen no se ha sabido rehacer tiene `cubre` en falso sin que
+    nadie haya demostrado nada contra ella. La que no apunta siquiera —la firma
+    trasplantada— sí está rota, y se ve sin criptografía ninguna.
+    """
+    return (
+        examen.valor[0] == "mal"
+        or any(una.estado == "alterada" for una in examen.referencias)
+        or not examen.apunta_a_lo_suyo
+    )
 
 
 # --- Las reglas ------------------------------------------------------------
 
 
-def _regla_referencias(raiz, firma, donde: str) -> list[Incidencia]:
+def _regla_referencias(examen: Examen, donde: str) -> list[Incidencia]:
     """Que cada trozo firmado siga diciendo lo que decía al firmarlo.
 
     Esta es la comprobación que más vale de todo el módulo, y no necesita
@@ -999,55 +1392,38 @@ def _regla_referencias(raiz, firma, donde: str) -> list[Incidencia]:
     documento se ha modificado después de firmarse —a mano, o por una
     herramienta que lo volvió a guardar—.
     """
-    incidencias: list[Incidencia] = []
-    referencias = firma.xpath(".//*[local-name()='Reference']")
-    if not referencias:
+    if not examen.referencias:
         return [
             Incidencia(
                 "FIRMA-VACIA",
                 ERROR,
-                "La firma no cubre nada: no tiene ni una referencia. Está "
-                "puesta, pero no garantiza ninguna parte del documento.",
+                "La firma no cubre nada: no tiene ni una referencia en su "
+                "bloque `SignedInfo`. Está puesta, pero no garantiza ninguna "
+                "parte del documento.",
                 campo=f"{donde}Firma electrónica",
                 encontrado="0 referencias",
             )
         ]
 
-    for numero, referencia in enumerate(referencias, start=1):
-        uri = referencia.get("URI")
-        nombre = "el documento entero" if uri == "" else f"«{uri}»"
-        metodo = referencia.xpath("./*[local-name()='DigestMethod']/@Algorithm")
-        alg = _RESUMEN.get(metodo[0] if metodo else "")
-        declarado = _hijo(referencia, "DigestValue")
-        if alg is None or declarado is None or declarado.text is None:
-            incidencias.append(
-                Incidencia(
-                    "FIRMA-SIN-COMPROBAR",
-                    AVISO,
-                    f"No se ha podido comprobar la parte firmada {nombre}: el "
-                    "resumen usa un algoritmo que aquí no se conoce, o no viene.",
-                    campo=f"{donde}Firma · referencia {numero}",
-                    encontrado=metodo[0] if metodo else "(sin algoritmo)",
-                )
-            )
-            continue
-
-        octetos, motivo = _contenido_referenciado(raiz, firma, referencia)
-        if octetos is None:
+    incidencias: list[Incidencia] = []
+    for numero, una in enumerate(examen.referencias, start=1):
+        nombre = "el documento entero" if una.uri == "" else f"«{una.uri}»"
+        if una.estado == "sin_comprobar":
             incidencias.append(
                 Incidencia(
                     "FIRMA-SIN-COMPROBAR",
                     AVISO,
                     f"No se ha podido comprobar la parte firmada {nombre}: "
-                    f"{motivo}.",
+                    f"{una.motivo}.",
                     campo=f"{donde}Firma · referencia {numero}",
-                    encontrado=uri or "(sin URI)",
+                    encontrado=(
+                        una.declarado or una.uri or "(sin URI)"
+                        if una.alg is None
+                        else una.uri or "(sin URI)"
+                    ),
                 )
             )
-            continue
-
-        calculado = base64.b64encode(hashlib.new(alg, octetos).digest()).decode()
-        if calculado != "".join(declarado.text.split()):
+        elif una.estado == "alterada":
             incidencias.append(
                 Incidencia(
                     "FIRMA-ALTERADA",
@@ -1056,35 +1432,125 @@ def _regla_referencias(raiz, firma, donde: str) -> list[Incidencia]:
                     f"{nombre} ya no coincide con el resumen que guarda la "
                     "firma. La factura no vale como documento firmado.",
                     campo=f"{donde}Firma · referencia {numero}",
-                    esperado=f"resumen {declarado.text.strip()[:24]}…",
-                    encontrado=f"resumen {calculado[:24]}…",
+                    esperado=f"resumen {una.declarado[:24]}…",
+                    encontrado=f"resumen {una.calculado[:24]}…",
                 )
             )
     return incidencias
 
 
-def _regla_valor(raiz, firma, cert: Certificado | None, donde: str) -> list[Incidencia]:
-    """Que la firma la hiciera la clave privada del certificado que se enseña."""
-    firmado = _hijo(firma, "SignedInfo")
-    if firmado is None:
-        return []
-    metodo = firmado.xpath("./*[local-name()='SignatureMethod']/@Algorithm")
-    pareja = _FIRMA.get(metodo[0] if metodo else "")
-    valor = _texto_b64(_hijo(firma, "SignatureValue"))
+def _regla_cubre(examen: Examen, donde: str) -> list[Incidencia]:
+    """Que lo que la firma cubre sea **esta factura**.
 
-    incidencias: list[Incidencia] = []
-    if pareja is None:
+    **El agujero número dos de la auditoría del 15-09-2026**, y el más difícil
+    de ver porque aquí no falla nada: la firma verifica, los resúmenes cuadran
+    y el certificado es de quien dice. Lo que nadie comprobaba es *sobre qué*.
+
+    Una firma XAdES de cualquiera sobre cualquier cosa —un acuse de recibo, un
+    documento de otro trámite— se despega de su documento y se cuelga de una
+    factura inventada: sigue verificando, porque lo que cubre viaja con ella, y
+    el informe la daba por buena y nombraba al firmante. No hace falta ninguna
+    clave privada, solo una firma suya sobre otra cosa.
+
+    Lo mismo, dentro de un mismo fichero, es el señuelo: en una firma
+    envolvente se mete un `Facturae` inventado delante del que está firmado y
+    las reglas leen el primero.
+
+    Se exige, por tanto, que alguna referencia comprobada cubra la factura que
+    se está leyendo. Una contrafirma es el caso aparte: cubre el valor de la
+    firma de la que cuelga, y a través de ella el documento.
+    """
+    if not examen.referencias or examen.apunta_a_lo_suyo:
+        # Sin referencias ya se queja `FIRMA-VACIA`; y si alguna apunta a lo
+        # que toca pero no se ha podido comprobar o no cuadra, eso ya lo dicen
+        # `FIRMA-SIN-COMPROBAR` y `FIRMA-ALTERADA` con su motivo. Repetirlo
+        # aquí sería contar dos veces el mismo problema.
+        return []
+    if examen.contrafirma:
         return [
             Incidencia(
-                "FIRMA-SIN-COMPROBAR",
-                AVISO,
-                "No se ha podido comprobar la firma: usa un algoritmo que aquí "
-                "no se conoce. Solo se sabe verificar RSA.",
-                campo=f"{donde}Algoritmo de firma",
-                encontrado=metodo[0] if metodo else "(no dice)",
+                "FIRMA-NO-CUBRE",
+                ERROR,
+                "Esta contrafirma no cubre la firma de la que cuelga, así que "
+                "no acredita nada de ella ni de la factura.",
+                campo=f"{donde}Qué cubre la firma",
+                esperado="una referencia al valor de la firma contrafirmada",
+                encontrado=examen.a_que_apunta or "(a nada del documento)",
             )
         ]
+    return [
+        Incidencia(
+            "FIRMA-NO-CUBRE",
+            ERROR,
+            "La firma no cubre la factura: lo que garantiza es otro trozo del "
+            "documento. Puede ser auténtica y estar intacta —y aun así no dice "
+            "nada de esta factura—: una firma de otra cosa, colgada aquí, "
+            "verifica igual. Como documento firmado, esta factura no vale.",
+            campo=f"{donde}Qué cubre la firma",
+            esperado="una referencia que cubra la factura",
+            encontrado=examen.a_que_apunta or "(a nada de la factura)",
+        )
+    ]
+
+
+def _valor_de_la_firma(firma, cert: Certificado | None):
+    """¿Cuadra el valor de la firma con el certificado? Y si no se sabe, por qué.
+
+    Devuelve `(estado, motivo, campo, encontrado, alg, obsoleto)`, con estado
+    «bien», «mal» o «sin_comprobar». Va aparte de la regla porque la respuesta
+    la necesitan dos: el informe, para escribirla, y `cadena.py`, para no
+    decir de quién es un certificado cuya firma nadie ha comprobado.
+    """
+    firmado = _signedinfo(firma)
+    if firmado is None:
+        return (
+            "sin_comprobar",
+            "la firma no trae su bloque `SignedInfo` en su sitio, así que no "
+            "hay nada que comprobar",
+            "Firma electrónica",
+            "(sin SignedInfo)",
+            None,
+            False,
+        )
+    metodo = firmado.xpath("./ds:SignatureMethod/@Algorithm", namespaces=_NS)
+    pareja = _FIRMA.get(metodo[0] if metodo else "")
+    if pareja is None:
+        return (
+            "sin_comprobar",
+            "usa un algoritmo que aquí no se conoce. Se saben verificar RSA y "
+            "curva elíptica (ECDSA), con SHA-1, SHA-256, SHA-384 y SHA-512",
+            "Algoritmo de firma",
+            metodo[0] if metodo else "(no dice)",
+            None,
+            False,
+        )
     alg, obsoleto = pareja
+    valor = _texto_b64(_hijo_ds(firma, "SignatureValue"))
+    if valor is None or cert is None:
+        return ("sin_comprobar", "", "", "", alg, obsoleto)
+    declarado = firmado.xpath("./ds:CanonicalizationMethod/@Algorithm", namespaces=_NS)
+    octetos = _canonicalizar(firmado, declarado[0] if declarado else None)
+    if octetos is None:
+        return (
+            "sin_comprobar",
+            "canonicaliza con un método que aquí no se sabe reproducir",
+            "Canonicalización",
+            declarado[0] if declarado else "(no dice)",
+            alg,
+            obsoleto,
+        )
+    # `concatenada` porque en XML-DSig una firma de curva son los dos números
+    # pegados y rellenos con ceros, no el DER que llevan los certificados.
+    bien = verificar(valor, octetos, cert, alg, concatenada=True)
+    return ("bien" if bien else "mal", "", "", "", alg, obsoleto)
+
+
+def _regla_valor(examen: Examen, donde: str) -> list[Incidencia]:
+    """Que la firma la hiciera la clave privada del certificado que se enseña."""
+    cert = examen.certificado
+    estado, motivo, campo, encontrado, alg, obsoleto = examen.valor
+
+    incidencias: list[Incidencia] = []
     if obsoleto:
         incidencias.append(
             Incidencia(
@@ -1114,27 +1580,21 @@ def _regla_valor(raiz, firma, cert: Certificado | None, donde: str) -> list[Inci
             )
         )
 
-    if valor is None or cert is None:
-        return incidencias
-
-    declarado = firmado.xpath("./*[local-name()='CanonicalizationMethod']/@Algorithm")
-    octetos = _canonicalizar(firmado, declarado[0] if declarado else None)
-    if octetos is None:
-        incidencias.append(
-            Incidencia(
-                "FIRMA-SIN-COMPROBAR",
-                AVISO,
-                "No se ha podido comprobar la firma: canonicaliza con un "
-                "método que aquí no se sabe reproducir.",
-                campo=f"{donde}Canonicalización",
-                encontrado=declarado[0] if declarado else "(no dice)",
+    if estado == "sin_comprobar":
+        if motivo:
+            incidencias.append(
+                Incidencia(
+                    "FIRMA-SIN-COMPROBAR",
+                    AVISO,
+                    f"No se ha podido comprobar la firma: {motivo}. Sin eso "
+                    "tampoco se mira de quién es el certificado.",
+                    campo=f"{donde}{campo}",
+                    encontrado=encontrado,
+                )
             )
-        )
         return incidencias
 
-    # `concatenada` porque en XML-DSig una firma de curva son los dos números
-    # pegados y rellenos con ceros, no el DER que llevan los certificados.
-    if not verificar(valor, octetos, cert, alg, concatenada=True):
+    if estado == "mal":
         incidencias.append(
             Incidencia(
                 "FIRMA-NO-CUADRA",
@@ -1149,10 +1609,10 @@ def _regla_valor(raiz, firma, cert: Certificado | None, donde: str) -> list[Inci
     return incidencias
 
 
-def _regla_certificado(
-    firma, cert: Certificado | None, cuando: datetime | None, donde: str
-) -> list[Incidencia]:
+def _regla_certificado(examen: Examen, donde: str) -> list[Incidencia]:
     """Vigencia del certificado, y que sea el que la firma dice haber usado."""
+    cert = examen.certificado
+    cuando = examen.momento
     incidencias: list[Incidencia] = []
     if cert is None:
         return incidencias
@@ -1178,23 +1638,34 @@ def _regla_certificado(
     # XAdES guarda el resumen del certificado con el que se firmó, dentro de
     # las propiedades que la propia firma cubre. Si el certificado que viene en
     # el `KeyInfo` no es ese, alguien lo ha cambiado por el camino.
+    #
+    # **Se lee de las propiedades firmadas y de ningún otro sitio.** Estaba
+    # cogido con `.//SigningCertificate` en cualquier parte de la firma, así
+    # que metiendo un `ds:Object` sin firmar delante del de verdad se declaraba
+    # el resumen del certificado sustituido y esta comprobación —que existe
+    # justo para cazar esa sustitución— daba por bueno el cambio. Es el agujero
+    # número tres de la auditoría del 15-09-2026, el mismo de la fecha.
+    propiedades = examen.propiedades
+    if propiedades is None:
+        return incidencias
     guardado = None
-    for propiedades in firma.xpath(".//*[local-name()='SigningCertificate']") + firma.xpath(
-        ".//*[local-name()='SigningCertificateV2']"
+    for declarado in propiedades.xpath(
+        ".//*[local-name()='SigningCertificate' or local-name()='SigningCertificateV2']"
     ):
-        metodo = propiedades.xpath(".//*[local-name()='DigestMethod']/@Algorithm")
-        valor = propiedades.xpath(".//*[local-name()='DigestValue']/text()")
+        metodo = declarado.xpath(".//*[local-name()='DigestMethod']/@Algorithm")
+        valor = declarado.xpath(".//*[local-name()='DigestValue']/text()")
         if metodo and valor:
             guardado = (_RESUMEN.get(metodo[0]), "".join(valor[0].split()))
         break
     if guardado is None or guardado[0] is None:
         return incidencias
 
-    presentado = firma.xpath(".//*[local-name()='X509Certificate']/text()")
-    if not presentado:
+    presentado = examen.certificado_crudo
+    if presentado is None:
         return incidencias
-    der = base64.b64decode("".join(presentado[0].split()))
-    calculado = base64.b64encode(hashlib.new(guardado[0], der).digest()).decode()
+    calculado = base64.b64encode(
+        hashlib.new(guardado[0], presentado).digest()
+    ).decode()
     if calculado != guardado[1]:
         incidencias.append(
             Incidencia(
@@ -1210,6 +1681,39 @@ def _regla_certificado(
     return incidencias
 
 
+def propiedades_firmadas(firma, raiz=None):
+    """Las `SignedProperties` de XAdES **que la firma cubre**, si las hay.
+
+    Es donde XAdES guarda lo que la firma declara de sí misma: cuándo se firmó,
+    con qué certificado y con qué política. Todo eso vale porque va dentro de
+    un trozo que una referencia del `SignedInfo` resume; fuera de ahí lo
+    escribe cualquiera.
+
+    Y eso es justo lo que pasaba: se leían con `.//*[local-name()=…]` en
+    cualquier parte de la firma, y el primero en orden de documento mandaba.
+    Un `ds:Object` sin firmar metido delante del de verdad no rompe ningún
+    resumen —no lo cubre nadie— y decidía la fecha con la que se miden la
+    caducidad del certificado y su revocación. Con eso, un tercero que ni
+    firmó ni tiene clave alguna borraba un `FIRMA-CADUCADA` del informe.
+
+    Se resuelven solo las referencias que apuntan a unas `SignedProperties`,
+    que son cuatro líneas de XML: no hace falta rehacer el resumen del
+    documento entero para saber qué fecha se firmó.
+    """
+    if raiz is None:
+        raiz = firma.getroottree().getroot()
+    for referencia in referencias_de(firma):
+        uri = referencia.get("URI") or ""
+        if not uri.startswith("#"):
+            continue
+        hallados = _con_identificador(raiz, uri[1:])
+        if len(hallados) != 1 or not _es_propiedades(hallados[0]):
+            continue
+        if comprobar_referencia(raiz, firma, referencia).estado == "bien":
+            return hallados[0]
+    return None
+
+
 def momento_de_firma(firma) -> datetime | None:
     """La fecha que la firma declara. **No es prueba de nada por sí sola.**
 
@@ -1217,8 +1721,19 @@ def momento_de_firma(firma) -> datetime | None:
     puede poner la que quiera. Sirve para comprobar la vigencia del certificado
     contra lo que el propio documento afirma, que es mejor que nada, no para
     demostrar cuándo se firmó.
+
+    Lo que sí garantiza ahora es que la escribió **quien firma** y no quien
+    tocara el fichero después: sale de las propiedades que la firma cubre. Ver
+    `propiedades_firmadas`.
     """
-    for nodo in firma.xpath(".//*[local-name()='SigningTime']"):
+    return _fecha_de(propiedades_firmadas(firma))
+
+
+def _fecha_de(propiedades) -> datetime | None:
+    """El `SigningTime` que hay dentro de unas propiedades firmadas."""
+    if propiedades is None:
+        return None
+    for nodo in propiedades.xpath(".//*[local-name()='SigningTime']"):
         crudo = (nodo.text or "").strip()
         if not crudo:
             continue
@@ -1230,9 +1745,30 @@ def momento_de_firma(firma) -> datetime | None:
     return None
 
 
-def _regla_es_xades(firma, donde: str) -> list[Incidencia]:
-    if firma.xpath(".//*[local-name()='QualifyingProperties']"):
+def _regla_es_xades(firma, examen: Examen, donde: str) -> list[Incidencia]:
+    """Que sea XAdES de verdad: con propiedades **firmadas**.
+
+    Unas propiedades XAdES que la firma no cubre son un adorno: dicen la fecha
+    y el certificado que quiera quien las escriba, y las escribe cualquiera que
+    toque el fichero. Antes bastaba que existieran en alguna parte de la firma,
+    así que pegar un `ds:Object` con pinta de XAdES callaba este aviso.
+    """
+    if examen.propiedades is not None:
         return []
+    if firma.xpath(".//*[local-name()='QualifyingProperties']"):
+        return [
+            Incidencia(
+                "FIRMA-NO-XADES",
+                AVISO,
+                "La firma lleva propiedades XAdES y no las cubre: ninguna "
+                "referencia firmada apunta a ellas. La fecha de firma y el "
+                "certificado que declaran no los garantiza nadie, así que aquí "
+                "no se usan.",
+                campo=f"{donde}Tipo de firma",
+                esperado="unas propiedades XAdES cubiertas por la firma",
+                encontrado="propiedades sin firmar",
+            )
+        ]
     return [
         Incidencia(
             "FIRMA-NO-XADES",
@@ -1266,54 +1802,61 @@ def _sin_firmar(deteccion: Deteccion) -> list[Incidencia]:
     ]
 
 
-def reglas(raiz, deteccion: Deteccion) -> list[Incidencia]:
-    """Lo que se puede decir de la firma de un documento sin salir a la red."""
+def _regla_certificado_presente(examen: Examen, donde: str) -> list[Incidencia]:
+    if examen.ilegible:
+        return [
+            Incidencia(
+                "FIRMA-SIN-COMPROBAR",
+                AVISO,
+                "No se ha podido leer el certificado del documento, así que no "
+                "se ha comprobado la firma. El resto de la factura sí se ha "
+                "mirado.",
+                campo=f"{donde}Certificado",
+                encontrado="(ilegible)",
+            )
+        ]
+    if examen.certificado is None:
+        return [
+            Incidencia(
+                "FIRMA-SIN-CERTIFICADO",
+                AVISO,
+                "La firma no trae el certificado con el que se hizo, así que no "
+                "hay con qué comprobarla. Quien reciba la factura tendría que "
+                "conseguirlo por otro lado.",
+                campo=f"{donde}Certificado",
+                encontrado="(no viene)",
+            )
+        ]
+    return []
+
+
+def reglas(raiz, deteccion: Deteccion, examenes=None) -> list[Incidencia]:
+    """Lo que se puede decir de la firma de un documento sin salir a la red.
+
+    `examenes` lo trae quien ya los tiene hechos —`factura._reglas`, que
+    también los necesita para la línea de estado— y así se comprueba una vez en
+    lugar de dos. Sin él se hacen aquí, que es como lo llaman las pruebas.
+    """
     if raiz is None or not deteccion:
         return []
 
     firmas = hay_firma(raiz)
     if not firmas:
         return _sin_firmar(deteccion)
+    if examenes is None:
+        examenes = examinar_todas(raiz)
 
     incidencias: list[Incidencia] = []
-    for numero, firma in enumerate(firmas, start=1):
+    # `strict` porque unos exámenes que no sean de estas firmas es un error de
+    # quien llama, y en silencio saldrían glosas sobre la firma equivocada.
+    for numero, (una, examen) in enumerate(
+        zip(firmas, examenes, strict=True), start=1
+    ):
         donde = f"Firma {numero} · " if len(firmas) > 1 else ""
-        certificado = None
-        crudo = firma.xpath(".//*[local-name()='X509Certificate']/text()")
-        if crudo:
-            try:
-                certificado = leer_certificado(
-                    base64.b64decode("".join(crudo[0].split()))
-                )
-            except (ValueError, IndexError, binascii.Error):
-                incidencias.append(
-                    Incidencia(
-                        "FIRMA-SIN-COMPROBAR",
-                        AVISO,
-                        "No se ha podido leer el certificado del documento, "
-                        "así que no se ha comprobado la firma. El resto de la "
-                        "factura sí se ha mirado.",
-                        campo=f"{donde}Certificado",
-                        encontrado="(ilegible)",
-                    )
-                )
-        else:
-            incidencias.append(
-                Incidencia(
-                    "FIRMA-SIN-CERTIFICADO",
-                    AVISO,
-                    "La firma no trae el certificado con el que se hizo, así "
-                    "que no hay con qué comprobarla. Quien reciba la factura "
-                    "tendría que conseguirlo por otro lado.",
-                    campo=f"{donde}Certificado",
-                    encontrado="(no viene)",
-                )
-            )
-
-        incidencias.extend(_regla_es_xades(firma, donde))
-        incidencias.extend(_regla_referencias(raiz, firma, donde))
-        incidencias.extend(_regla_valor(raiz, firma, certificado, donde))
-        incidencias.extend(
-            _regla_certificado(firma, certificado, momento_de_firma(firma), donde)
-        )
+        incidencias.extend(_regla_certificado_presente(examen, donde))
+        incidencias.extend(_regla_es_xades(una, examen, donde))
+        incidencias.extend(_regla_referencias(examen, donde))
+        incidencias.extend(_regla_cubre(examen, donde))
+        incidencias.extend(_regla_valor(examen, donde))
+        incidencias.extend(_regla_certificado(examen, donde))
     return incidencias

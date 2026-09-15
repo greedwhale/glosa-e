@@ -458,6 +458,34 @@ class TestCreerselaOno:
         )
         assert not una.verificada
 
+    def test_ni_con_una_referencia_colgada_fuera_del_signedinfo(self):
+        """La misma firma de la cabecera, con una referencia al documento entero
+        metida en un `ds:Object`. Esa referencia no la cubre el valor de la
+        firma —la escribe cualquiera, un resumen es un hash— y antes contaba
+        igual: se buscaban referencias en toda la firma y bastaba una `URI=""`
+        para dar la lista por cubierta. Con esto se colaba en el conjunto de
+        anclas una autoridad metida después de firmar."""
+        raiz = etree.fromstring(
+            lista(cubre="#SchemeInfo", servicios=[Serv(certificados=(intermedia(),))])
+        )
+        firma_el = raiz.xpath("//*[local-name()='Signature']")[0]
+        copia = etree.fromstring(etree.tostring(raiz))
+        for una in copia.xpath("//*[local-name()='Signature']"):
+            una.getparent().remove(una)
+        ds = lambda n: f"{{{NS_DS}}}{n}"  # noqa: E731
+        referencia = etree.SubElement(etree.SubElement(firma_el, ds("Object")), ds("Reference"),
+                                      URI="")
+        etree.SubElement(etree.SubElement(referencia, ds("Transforms")), ds("Transform")).set(
+            "Algorithm", "http://www.w3.org/2000/09/xmldsig#enveloped-signature"
+        )
+        etree.SubElement(referencia, ds("DigestMethod")).set("Algorithm", _URI_SHA["sha256"])
+        etree.SubElement(referencia, ds("DigestValue")).text = _resumen(
+            _c14n(copia), "sha256"
+        )
+        una = tsl.leer(etree.tostring(raiz))
+        assert tsl.comprobar_firma(una, [huella_de(firmante())]) != ""
+        assert not una.verificada
+
 
 # --- El conjunto que sale --------------------------------------------------
 

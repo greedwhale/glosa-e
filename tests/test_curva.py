@@ -486,7 +486,23 @@ class TestLaFuerzaDeLaClave:
             "Algorithm", "http://www.w3.org/TR/2001/REC-xml-c14n-20010315")
         etree.SubElement(firmado, "{%s}SignatureMethod" % ds).set(
             "Algorithm", metodo)
-        return firma._regla_valor(None, sig, cert, "")
+        # El examen se monta a mano con lo que esta prueba quiere mirar: el
+        # certificado y el algoritmo. Lo demás —qué cubre, qué declara— es de
+        # otras pruebas, y aquí no hay documento del que colgar la firma.
+        examen = firma.Examen(
+            certificado=cert,
+            certificado_crudo=None,
+            ilegible=False,
+            referencias=(),
+            valor=firma._valor_de_la_firma(sig, cert),
+            cubre=False,
+            apunta_a_lo_suyo=False,
+            a_que_apunta="",
+            propiedades=None,
+            contrafirma=False,
+            padre_verificada=True,
+        )
+        return firma._regla_valor(examen, "")
 
     def test_una_clave_de_curva_no_sale_marcada_como_corta(self):
         # Es lo que de verdad cambia: con un solo mínimo —los 2048 de RSA—

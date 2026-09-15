@@ -3297,3 +3297,154 @@ quinta no podía verse: hasta hoy ninguna regla miraba una factura del CIUS.
 **Las reglas en sí**, 24 códigos `SPFE-`, están en el README. Se provocaron 37
 roturas del módulo, de su cableado y de la frase de alcance, y las 37 salieron
 en rojo.
+
+## Tres maneras de dar por buena la firma de otro, y la nota que nombraba al inocente
+
+Salieron de una auditoría de seguridad del 15-09-2026 sobre el proyecto entero.
+Las tres son de la misma familia y ninguna necesita la clave privada de nadie:
+basta el certificado público de la víctima —que viaja en cada factura que
+manda— o una firma suya sobre cualquier otra cosa.
+
+**El fondo es uno solo.** `firma.py` sabía decir «no he podido comprobar esta
+firma», y lo decía bien. Pero `cadena.py` miraba por su cuenta, y escribía
+igual la única frase del informe que nombra a una persona:
+
+```
+[CONFIANZA-ANCLA] La firma de «EMPRESA VICTIMA SL» llega a «AC DE JUGUETE»
+en 2 eslabones. Esta validación se fía de esa autoridad porque es un ancla…
+```
+
+### 1. Una firma que nadie ha comprobado
+
+**Qué pasaba.** Con un `SignatureMethod` inventado —`urn:un-algoritmo-inventado`
+o cualquier URI que no esté en la tabla— el valor de la firma no se comprueba y
+sale un aviso, que es lo correcto. Lo que no era correcto es que la cadena
+siguiera adelante. Con eso, cualquiera fabrica una factura entera, le pone el
+certificado de la víctima, rehace el resumen del documento —que es un hash, no
+hace falta clave— y pone basura donde va la firma.
+
+**Cómo se reprodujo.** Una autoridad de juguete instalada como ancla, un
+certificado suyo a nombre de «EMPRESA VICTIMA SL» y una factura del atacante:
+
+```
+sin errores, 2 aviso(s)   ← la falsificada
+sin errores, 2 aviso(s)   ← la auténtica
+```
+
+El mismo veredicto, y en las dos la nota con el nombre de la víctima. En
+consola, las dos salen con código 0.
+
+**Arreglado**: `cadena.reglas_de_documento` y `cadena.sellos_del_documento`
+preguntan antes a `firma.examinar(...).verificada`, que es «el valor cuadra,
+ninguna referencia está alterada y alguna cubre la factura». Sin eso no se dice
+de quién es el certificado ni se escribe la nota. No se añade ninguna queja
+nueva: de que la firma no se sostiene ya se queja `firma.py`, con el motivo.
+
+### 2. Una firma auténtica sobre otra cosa, y el señuelo
+
+**Qué pasaba.** Nadie comprobaba **qué** cubría la firma. Una firma XAdES real
+de la víctima sobre un acuse de recibo —referencia por identificador,
+canonicalización exclusiva— se despega y se cuelga de una factura inventada:
+verifica entera, porque lo que cubre viaja con ella.
+
+Y la variante de dentro de un fichero: en una firma envolvente, un `Facturae`
+de mentira metido delante del que está firmado. Las reglas leen el primero
+—`formato.detectar`, `facturae.py` y `en16931.py` se quedan con
+`//*[local-name()='Facturae']`— y la firma sigue cubriendo el segundo.
+
+**Cómo se reprodujo.** Las dos, con la clave de juguete de los tests: la
+trasplantada salía «sin errores, 3 avisos», y el señuelo enseñaba en el informe
+el total inventado con la firma dada por buena.
+
+**Arreglado** con `FIRMA-NO-CUBRE`, en error: tiene que haber una referencia
+comprobada que cubra el elemento que las reglas leen como factura. Una
+contrafirma es el caso aparte y lo que tiene que cubrir es el valor de la firma
+de la que cuelga. De paso, tres agujeros del mismo sitio:
+
+| Dónde | Qué pasaba |
+|---|---|
+| `referencias_de` | Las `Reference` se cogían con `.//`, o sea de cualquier parte de la firma. Un resumen lo rehace cualquiera: bastaba colgar de un `ds:Object` una referencia al documento. Con el `SignedInfo` fuera de su sitio, además, no había valor que comprobar y el informe salía **sin una sola queja de firma** |
+| `_con_identificador` | Con dos elementos con el mismo `Id`, se cogía el primero. Ahora se dice que no se sabe cuál es el firmado |
+| `certificados_de` | El certificado salía del primer `X509Certificate` de toda la firma, no del `KeyInfo`. No falsifica nada —la firma tiene que cuadrar con el que se elija— pero acusa en falso a un documento correcto al que alguien cuelgue un certificado de adorno |
+
+Lo mismo estaba en `tsl.py`, que es de donde salen las anclas: comprobaba que
+la firma cubriera la lista entera —eso ya estaba bien visto— pero buscando las
+referencias con `.//`, así que una referencia `URI=""` colgada de un `ds:Object`
+daba por cubierta una lista a la que se le hubieran añadido autoridades después
+de firmarla.
+
+### 3. La fecha y el certificado que la firma declara
+
+**Qué pasaba.** `SigningTime` y `SigningCertificate` se leían con `.//` y
+mandaba el primero en orden de documento. Un `ds:Object` sin firmar, metido
+detrás del `KeyInfo` —o sea, delante del de verdad—, no rompe ningún resumen
+porque no lo cubre nadie.
+
+Con eso, alguien que ni firmó ni tiene clave borraba un error del informe:
+
+```
+4a  firmada con el certificado ya caducado   1 error(es)  ← FIRMA-CADUCADA
+4b  con un SigningTime inyectado             sin errores
+```
+
+Esa misma fecha es con la que se mide la revocación, y el `SigningCertificate`
+inyectado tapaba justo la sustitución de certificado que esa comprobación
+existe para cazar.
+
+**Arreglado**: las dos cosas se leen de las `SignedProperties` que una
+referencia del `SignedInfo` cubre y cuyo resumen cuadra (`propiedades_firmadas`).
+Unas propiedades XAdES que la firma no cubre ya no la hacen XAdES: sale
+`FIRMA-NO-XADES` diciendo que están sin firmar. Y una fecha con el resumen roto
+no se usa **para nada**, ni para dar por bueno ni para acusar.
+
+### 4. Y la palabra que quedaba: «firmado»
+
+**Qué pasaba.** Cerradas las tres, la factura falsificada del caso 1 ya no
+nombraba a nadie y llevaba su aviso. Pero la línea de estado se escribía en la
+detección, que no comprueba nada, y salía así:
+
+```
+Facturae v3.2.2 (factura) · firmado — sin errores, 2 aviso(s).
+```
+
+«Firmado» ahí es el titular, y lo único que había detrás era que el documento
+traía un bloque `Signature`. Es la misma clase de fallo que los tres de arriba
+—afirmar de la firma algo que no se ha comprobado—, solo que en la línea que se
+lee primero.
+
+**Arreglado**: cuatro etiquetas, y las dos malas separadas. `· firmado` solo si
+todas las firmas se sostienen; `· firma que no se sostiene` si se ha mirado y
+está mal; `· firma sin comprobar` si no se ha sabido mirar —un algoritmo fuera
+de la tabla, y RSA-PSS es legítimo—; `· con firma` cuando nadie la ha mirado.
+Con varias firmas manda la peor.
+
+El estado sale de los mismos exámenes con los que se escriben las glosas, una
+sola pasada para los dos. Que cada uno mirara por su cuenta es justo lo que
+produjo el caso 1.
+
+### Lo que se probó, y cómo
+
+24 pruebas nuevas, las 24 en rojo antes del arreglo. Después, **12 roturas
+provocadas** —quitar la puerta de `cadena.py`, volver a `.//Reference`, quitar
+la exigencia de cubrir, resolver el identificador repetido a ciegas, leer la
+fecha de cualquier sitio, no comprobar el resumen de las propiedades, sacar el
+certificado de cualquier parte, devolver `tsl.py` a `.//`, volver a poner
+«firmado» en las cuatro etiquetas, dar el estado por bueno en cuanto hay firma,
+no distinguir rota de sin comprobar, y pintar la cabecera sin mirar en qué quedó
+la firma— y las 12 salieron en rojo.
+
+La suite entera en verde, y **las 19 facturas firmadas del corpus dan el mismo
+informe que antes**, código por código y campo por campo: lo que se ha cerrado
+no era una firma legítima de nadie. De los 20 ficheros con bloque de firma del
+corpus, los 10 que además son facturas reconocidas siguen diciendo `· firmado`;
+los otros 10 son XAdES sueltos que no son facturas y su línea sigue siendo
+«Formato no reconocido».
+
+**Lo que cuesta**: 0,9 ms de examen en una factura de 3 KB y 160 ms en una de
+1 MB con 4.000 líneas, tres veces por firma. Un 4 % del tiempo de validar la
+grande. Sin caché a propósito.
+
+**Lo que sigue abierto y no es de aquí**: un certificado sin `basicConstraints`
+ni `keyUsage` se sigue aceptando como emisor —RFC 5280 dice que no—, las
+extensiones críticas de un certificado no se aplican, y el `keyUsage` de la
+hoja no se mira. Es la revisión de `cadena.py`, no la de `firma.py`.

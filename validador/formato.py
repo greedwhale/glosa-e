@@ -114,6 +114,31 @@ def _version_edifact(bruto: bytes | None) -> str | None:
     return encontrado.group(1).decode("latin-1").upper() if encontrado else None
 
 
+# En qué queda la firma del documento después de mirarla. Los tres estados
+# viven aquí, y no en `firma.py`, porque quien los escribe es la línea de
+# estado de `Deteccion` y `firma.py` ya importa de este módulo: al revés habría
+# un ciclo de importación.
+FIRMA_EN_PIE = "en pie"
+FIRMA_SIN_COMPROBAR = "sin comprobar"
+FIRMA_ROTA = "rota"
+
+# Lo que sale en la línea de estado por cada uno. `None` es el cuarto caso y no
+# es lo mismo que «sin comprobar»: significa que nadie ha llegado a mirarlas
+# —una detección a secas, sin validar—, y por eso dice solo lo que se ve.
+#
+# Antes había una sola etiqueta, «· firmado», y salía por el mero hecho de que
+# el documento trajera un bloque `Signature`. Una factura con una firma
+# falsificada —un algoritmo inventado, que no se puede comprobar— se leía
+# «Facturae v3.2.2 (factura) · firmado — sin errores», y ese «firmado» al lado
+# de «sin errores» es justo lo que este proyecto no puede decir.
+_ETIQUETA_FIRMA = {
+    FIRMA_EN_PIE: "· firmado",
+    FIRMA_SIN_COMPROBAR: "· firma sin comprobar",
+    FIRMA_ROTA: "· firma que no se sostiene",
+    None: "· con firma",
+}
+
+
 @dataclass(frozen=True)
 class Deteccion:
     """Lo que se ha podido averiguar sobre un documento."""
@@ -130,8 +155,14 @@ class Deteccion:
     def __bool__(self) -> bool:
         return self.familia is not None
 
-    def resumen(self) -> str:
-        """Una línea legible, para logs y para el informe al usuario."""
+    def resumen(self, firma: str | None = None) -> str:
+        """Una línea legible, para logs y para el informe al usuario.
+
+        `firma` es en qué quedó la firma al comprobarla, que aquí no se sabe
+        —esto es la detección, y la detección solo ve que hay un bloque de
+        firma—. Lo trae quien sí lo sabe: `Informe.resumen`. Ver
+        `_ETIQUETA_FIRMA`.
+        """
         if not self:
             return f"Formato no reconocido: {self.motivo}"
         partes = [self.familia]
@@ -142,7 +173,7 @@ class Deteccion:
         if self.conforme_en16931:
             partes.append("· conforme EN 16931")
         if self.firmado:
-            partes.append("· firmado")
+            partes.append(_ETIQUETA_FIRMA[firma])
         return " ".join(partes)
 
 

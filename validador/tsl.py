@@ -501,25 +501,33 @@ def comprobar_firma(lista: Lista, esperados) -> str:
 
     # A partir de aquí ya sabemos de quién es el certificado. Falta lo otro:
     # que la firma sea suya de verdad y que cubra lo que estamos leyendo.
-    referencias = lista._firma.xpath(".//*[local-name()='Reference']")
+    #
+    # **Las referencias son las del `SignedInfo` y solo esas.** Estaban cogidas
+    # con `.//Reference`, o sea en cualquier parte de la firma, y un resumen lo
+    # rehace cualquiera sin ninguna clave: bastaba colgar de un `ds:Object` una
+    # referencia `URI=""` con el resumen bien calculado para que esta función
+    # diera por cubierta una lista que la firma no cubría. De aquí salen las
+    # anclas de confianza, así que eso era la puerta de entrada al almacén.
+    referencias = firma.referencias_de(lista._firma)
     if not referencias:
         return "la firma no cubre nada: no tiene ni una referencia"
     cubre_el_documento = False
     for referencia in referencias:
         metodo = referencia.xpath("./*[local-name()='DigestMethod']/@Algorithm")
         alg = firma._RESUMEN.get(metodo[0] if metodo else "")
-        declarado = firma._hijo(referencia, "DigestValue")
-        if alg is None or declarado is None or declarado.text is None:
+        if alg is None:
             return "la firma usa un resumen que aquí no se conoce"
-        octetos, motivo = firma._contenido_referenciado(
+        comprobada = firma.comprobar_referencia(
             lista._arbol, lista._firma, referencia
         )
-        if octetos is None:
-            return f"no se ha podido comprobar lo que cubre la firma: {motivo}"
-        calculado = base64.b64encode(hashlib.new(alg, octetos).digest()).decode()
-        if calculado != "".join(declarado.text.split()):
+        if comprobada.estado == "sin_comprobar":
+            return (
+                "no se ha podido comprobar lo que cubre la firma: "
+                f"{comprobada.motivo}"
+            )
+        if comprobada.estado == "alterada":
             return "la lista se ha modificado después de firmarla"
-        if referencia.get("URI") == "":
+        if comprobada.objetivo is lista._arbol:
             cubre_el_documento = True
 
     if not cubre_el_documento:

@@ -21,7 +21,8 @@ from pathlib import Path
 import pytest
 from lxml import etree
 
-from validador import factura, firma
+from validador import cadena, factura, firma
+from validador.cadena import Almacen
 from validador.formato import detectar, parser
 from validador.incidencias import AVISO, ERROR
 
@@ -583,6 +584,426 @@ class TestAQuienSeLePide:
         sin_xades = codigos(quejas(documento(con_xades=False)))
         assert "FIRMA-ALTERADA" not in sin_xades
         assert "FIRMA-NO-CUADRA" not in sin_xades
+
+
+# --- Firmas que no son de quien dicen, o no de lo que dicen ----------------
+#
+# Las tres maniobras de la auditoría del 15-09-2026. Ninguna necesita la clave
+# privada de nadie: basta con el certificado de la víctima, que viaja en cada
+# factura que firma, o con una firma suya sobre cualquier otra cosa. Las tres
+# salían «sin errores» y con la nota que nombra al firmante.
+
+ENV = "http://www.w3.org/2000/09/xmldsig#enveloped-signature"
+EXC = "http://www.w3.org/2001/10/xml-exc-c14n#"
+
+
+def _ds(nombre):
+    return f"{{{NS_DS}}}{nombre}"
+
+
+def _xa(nombre):
+    return f"{{{NS_XADES}}}{nombre}"
+
+
+def con_ancla(tmp_path, der=None) -> Almacen:
+    """Un almacén con el certificado de juguete puesto de ancla.
+
+    Con él la cadena llega y sale la nota que dice de quién es la firma: es la
+    nota que no puede salir sobre una firma que no se ha verificado.
+    """
+    carpeta = tmp_path / "anclas"
+    carpeta.mkdir(exist_ok=True)
+    (carpeta / "juguete.cer").write_bytes(der or certificado())
+    return Almacen(carpeta)
+
+
+def declaraciones_de_confianza(datos: bytes, almacen: Almacen) -> list:
+    raiz = etree.fromstring(datos, parser=parser())
+    return [
+        i
+        for i in cadena.reglas_de_documento(raiz, detectar(datos), almacen)
+        if i.codigo == "CONFIANZA-ANCLA"
+    ]
+
+
+def _resumen_del_documento(raiz) -> str:
+    """Lo que un falsificador puede recalcular sin clave: un resumen es un hash."""
+    copia = etree.fromstring(etree.tostring(raiz))
+    for una in copia.xpath("//*[local-name()='Signature']"):
+        una.getparent().remove(una)
+    return _resumen(_c14n(copia), "sha256")
+
+
+def falsificada(total="999.00", metodo="urn:un-algoritmo-inventado") -> bytes:
+    """Una factura inventada con el certificado de la víctima y sin su clave.
+
+    El resumen del documento se rehace, que es solo un hash; el valor de la
+    firma no se puede rehacer, así que se pone basura y un método de firma que
+    no existe para que nadie intente comprobarla.
+    """
+    raiz = etree.fromstring(documento().replace(b"121.00", total.encode()))
+    raiz.xpath("//*[local-name()='Reference'][@URI='']/*[local-name()='DigestValue']")[
+        0
+    ].text = _resumen_del_documento(raiz)
+    raiz.xpath("//*[local-name()='SignatureMethod']")[0].set("Algorithm", metodo)
+    valor = raiz.xpath("//*[local-name()='SignatureValue']")[0]
+    valor.text = base64.b64encode(b"\x01" * ((N.bit_length() + 7) // 8)).decode()
+    return etree.tostring(raiz)
+
+
+def firma_sobre_otra_cosa():
+    """Una firma auténtica de la clave de juguete sobre un acuse de recibo.
+
+    Referencia por identificador y canonicalización exclusiva, que es lo que
+    permite despegarla de su documento y pegarla en otro sin que deje de
+    verificar. Firmas así las produce cualquier herramienta de firma.
+    """
+    otro = etree.fromstring(b'<Acuse><Texto Id="acuse">Recibido</Texto></Acuse>')
+    texto = otro[0]
+    exc = lambda n: etree.tostring(n, method="c14n", exclusive=True)  # noqa: E731
+    firma_el = etree.SubElement(otro, _ds("Signature"), Id="SigAcuse")
+    firmado = etree.SubElement(firma_el, _ds("SignedInfo"))
+    etree.SubElement(firmado, _ds("CanonicalizationMethod")).set("Algorithm", EXC)
+    etree.SubElement(firmado, _ds("SignatureMethod")).set("Algorithm", _URI_FIRMA["sha256"])
+    ref = etree.SubElement(firmado, _ds("Reference"), URI="#acuse")
+    etree.SubElement(etree.SubElement(ref, _ds("Transforms")), _ds("Transform")).set(
+        "Algorithm", EXC
+    )
+    etree.SubElement(ref, _ds("DigestMethod")).set("Algorithm", _URI_SHA["sha256"])
+    etree.SubElement(ref, _ds("DigestValue")).text = _resumen(exc(texto), "sha256")
+    etree.SubElement(firma_el, _ds("SignatureValue")).text = base64.b64encode(
+        _firmar(exc(firmado), "sha256", N, D)
+    ).decode()
+    datos = etree.SubElement(etree.SubElement(firma_el, _ds("KeyInfo")), _ds("X509Data"))
+    etree.SubElement(datos, _ds("X509Certificate")).text = base64.b64encode(
+        certificado()
+    ).decode()
+    return firma_el, texto
+
+
+def trasplantada(total="999.00") -> bytes:
+    """Una factura del atacante con la firma del acuse colgada dentro."""
+    raiz = etree.fromstring(CUERPO.format(total=total).encode())
+    firma_el, texto = firma_sobre_otra_cosa()
+    robada = etree.fromstring(etree.tostring(firma_el))
+    etree.SubElement(robada, _ds("Object")).append(etree.fromstring(etree.tostring(texto)))
+    raiz.append(robada)
+    return etree.tostring(raiz, xml_declaration=True, encoding="UTF-8")
+
+
+def envolvente(total="121.00") -> bytes:
+    """Un Facturae firmado en modo envolvente: la raíz es la firma.
+
+    La factura va dentro de un `ds:Object` con identificador, y la firma cubre
+    ese objeto. Es el modo legítimo en que la firma no cubre la raíz.
+    """
+    firma_el = etree.Element(_ds("Signature"), Id="Sig1", nsmap={"ds": NS_DS})
+    firmado = etree.SubElement(firma_el, _ds("SignedInfo"))
+    etree.SubElement(firmado, _ds("CanonicalizationMethod")).set("Algorithm", C14N)
+    etree.SubElement(firmado, _ds("SignatureMethod")).set("Algorithm", _URI_FIRMA["sha256"])
+    ref = etree.SubElement(firmado, _ds("Reference"), URI="#CONTENT")
+    etree.SubElement(etree.SubElement(ref, _ds("Transforms")), _ds("Transform")).set(
+        "Algorithm", C14N
+    )
+    etree.SubElement(ref, _ds("DigestMethod")).set("Algorithm", _URI_SHA["sha256"])
+    resumen = etree.SubElement(ref, _ds("DigestValue"))
+    valor = etree.SubElement(firma_el, _ds("SignatureValue"))
+    datos = etree.SubElement(etree.SubElement(firma_el, _ds("KeyInfo")), _ds("X509Data"))
+    etree.SubElement(datos, _ds("X509Certificate")).text = base64.b64encode(
+        certificado()
+    ).decode()
+    objeto = etree.SubElement(firma_el, _ds("Object"), Id="CONTENT")
+    objeto.append(etree.fromstring(CUERPO.format(total=total).encode()))
+    resumen.text = _resumen(_c14n(objeto), "sha256")
+    valor.text = base64.b64encode(_firmar(_c14n(firmado), "sha256", N, D)).decode()
+    return etree.tostring(firma_el, xml_declaration=True, encoding="UTF-8")
+
+
+def con_objeto_delante(datos: bytes, contenido) -> bytes:
+    """Mete un `ds:Object` sin firmar justo después del `KeyInfo`.
+
+    Es decir, **delante** del objeto de verdad: quien lea «el primero que
+    aparezca» se queda con el del atacante. Nada de lo firmado cambia.
+    """
+    raiz = etree.fromstring(datos)
+    info = raiz.xpath("//*[local-name()='KeyInfo']")[0]
+    objeto = etree.Element(_ds("Object"))
+    objeto.append(contenido)
+    info.addnext(objeto)
+    return etree.tostring(raiz)
+
+
+def propiedades_falsas(firmado_el=None, cert=None):
+    """Unas propiedades XAdES con la pinta de las buenas y sin firmar."""
+    cualificadas = etree.Element(_xa("QualifyingProperties"), Target="#Sig1")
+    firmadas = etree.SubElement(cualificadas, _xa("SignedProperties"), Id="Falsas")
+    de_la_firma = etree.SubElement(firmadas, _xa("SignedSignatureProperties"))
+    if firmado_el is not None:
+        etree.SubElement(de_la_firma, _xa("SigningTime")).text = firmado_el.isoformat()
+    if cert is not None:
+        resumen = etree.SubElement(
+            etree.SubElement(etree.SubElement(de_la_firma, _xa("SigningCertificate")),
+                             _xa("Cert")),
+            _xa("CertDigest"),
+        )
+        etree.SubElement(resumen, _ds("DigestMethod")).set("Algorithm", _URI_SHA["sha256"])
+        etree.SubElement(resumen, _ds("DigestValue")).text = _resumen(cert, "sha256")
+    return cualificadas
+
+
+class TestUnaFirmaQueNoSeHaVerificadoNoNombraANadie:
+    """1. La falsificación sin clave.
+
+    Con un método de firma que no se conoce, el valor no se comprueba y sale un
+    aviso. Hasta aquí bien. Lo que estaba mal es que `cadena.py` seguía adelante
+    por su cuenta y escribía «La firma de «Pruebas SL» llega a …»: una
+    declaración de autoría sobre una firma que nadie había comprobado.
+    """
+
+    def test_la_buena_si_la_nombra(self, tmp_path):
+        # Sin esto, las de abajo pasarían por no mirar nada.
+        assert len(declaraciones_de_confianza(documento(), con_ancla(tmp_path))) == 1
+
+    def test_con_un_metodo_inventado_no(self, tmp_path):
+        datos = falsificada()
+        assert "FIRMA-SIN-COMPROBAR" in codigos(quejas(datos))
+        assert declaraciones_de_confianza(datos, con_ancla(tmp_path)) == []
+
+    def test_con_una_firma_que_no_cuadra_tampoco(self, tmp_path):
+        datos = falsificada(metodo=_URI_FIRMA["sha256"])
+        assert "FIRMA-NO-CUADRA" in codigos(quejas(datos), ERROR)
+        assert declaraciones_de_confianza(datos, con_ancla(tmp_path)) == []
+
+    def test_con_una_canonicalizacion_que_no_sabemos_hacer_tampoco(self, tmp_path):
+        raiz = etree.fromstring(documento())
+        raiz.xpath("//*[local-name()='CanonicalizationMethod']")[0].set(
+            "Algorithm", "http://www.w3.org/2006/12/xml-c14n11"
+        )
+        datos = etree.tostring(raiz)
+        assert declaraciones_de_confianza(datos, con_ancla(tmp_path)) == []
+
+    def test_el_informe_entero_no_da_por_buena_la_falsificada(self, tmp_path):
+        informe = factura.validar(falsificada(), almacen=con_ancla(tmp_path))
+        assert "CONFIANZA-ANCLA" not in {i.codigo for i in informe.notas}
+
+    def test_las_referencias_cuentan_solo_dentro_del_signedinfo(self, tmp_path):
+        """Un `SignedInfo` sacado de su sitio no es un `SignedInfo`.
+
+        Sin él no hay valor de firma que comprobar, y antes eso devolvía
+        silencio: las referencias se buscaban en cualquier parte de la firma,
+        verificaban contra el documento —un resumen lo rehace cualquiera— y
+        el informe quedaba sin una sola queja de firma.
+        """
+        raiz = etree.fromstring(falsificada(metodo=_URI_FIRMA["sha256"]))
+        firma_el = raiz.xpath("//*[local-name()='Signature']")[0]
+        firmado = firma_el.xpath("./*[local-name()='SignedInfo']")[0]
+        firma_el.remove(firmado)
+        etree.SubElement(firma_el, _ds("Object")).append(firmado)
+        datos = etree.tostring(raiz)
+        assert codigos(quejas(datos), ERROR), [i.texto() for i in quejas(datos)]
+        assert declaraciones_de_confianza(datos, con_ancla(tmp_path)) == []
+
+
+class TestUnaFirmaTieneQueCubrirLaFactura:
+    """2. El trasplante.
+
+    Una firma auténtica sobre otra cosa, colgada de una factura inventada: el
+    valor verifica, las referencias verifican —cubren el acuse, que viaja con
+    ella— y nada exigía que alguna cubriera la factura.
+    """
+
+    def test_la_firma_trasplantada_verifica_pero_no_cubre(self, tmp_path):
+        salen = quejas(trasplantada())
+        assert "FIRMA-NO-CUADRA" not in codigos(salen)  # la firma es auténtica
+        assert "FIRMA-ALTERADA" not in codigos(salen)  # y lo que cubre, intacto
+        assert "FIRMA-NO-CUBRE" in codigos(salen, ERROR)
+
+    def test_y_no_nombra_a_nadie(self, tmp_path):
+        assert declaraciones_de_confianza(trasplantada(), con_ancla(tmp_path)) == []
+
+    def test_una_envolvente_de_verdad_si_cubre(self, tmp_path):
+        # El modo legítimo en que la referencia no es `URI=""`: la factura va
+        # dentro del objeto firmado.
+        datos = envolvente()
+        assert detectar(datos).familia == "Facturae"
+        assert codigos(quejas(datos), ERROR) == set(), [i.texto() for i in quejas(datos)]
+        assert len(declaraciones_de_confianza(datos, con_ancla(tmp_path))) == 1
+
+    def test_una_factura_de_mentira_delante_de_la_firmada(self, tmp_path):
+        """El envoltorio con señuelo: la factura que se lee no es la firmada.
+
+        Las reglas de Facturae se quedan con el primer `Facturae` que
+        aparece. Metiendo uno inventado delante del objeto firmado, la firma
+        sigue verificando entera y lo que se valida es el señuelo.
+        """
+        senuelo = etree.fromstring(CUERPO.format(total="999.00").encode())
+        datos = con_objeto_delante(envolvente(), senuelo)
+        primera = etree.fromstring(datos).xpath("//*[local-name()='InvoiceTotal']")[0]
+        assert primera.text == "999.00"  # lo que leen las reglas es el señuelo
+        assert "FIRMA-NO-CUBRE" in codigos(quejas(datos), ERROR)
+        assert declaraciones_de_confianza(datos, con_ancla(tmp_path)) == []
+
+    def test_un_identificador_repetido_no_se_resuelve_a_ciegas(self, tmp_path):
+        # Dos elementos con el Id que firma la referencia: no se sabe cuál es
+        # el firmado, y quedarse con el primero es exactamente la trampa.
+        raiz = etree.fromstring(envolvente())
+        copia = etree.fromstring(
+            etree.tostring(raiz.xpath("//*[@Id='CONTENT']")[0])
+        )
+        raiz.append(copia)
+        datos = etree.tostring(raiz)
+        salen = quejas(datos)
+        assert any(
+            i.codigo == "FIRMA-SIN-COMPROBAR" and "2 veces" in i.mensaje for i in salen
+        ), [i.texto() for i in salen]
+        assert declaraciones_de_confianza(datos, con_ancla(tmp_path)) == []
+
+
+class TestLoQueDeclaraLaFirmaSaleDeLoFirmado:
+    """3. La fecha, el certificado declarado y las propiedades XAdES.
+
+    Se leían con `.//*[local-name()=…]` en cualquier parte de la firma, y el
+    primero que apareciera mandaba. Un `ds:Object` sin firmar, metido delante
+    del de verdad, no rompe ningún resumen y decidía la fecha con la que se
+    mide la caducidad y la revocación.
+    """
+
+    VIEJO = dict(desde=HOY - timedelta(days=800), hasta=HOY - timedelta(days=30))
+
+    def test_una_fecha_sin_firmar_no_tapa_una_caducidad(self):
+        datos = documento(cert=certificado(**self.VIEJO))
+        assert "FIRMA-CADUCADA" in codigos(quejas(datos), ERROR)  # la de partida
+        falsa = propiedades_falsas(firmado_el=HOY - timedelta(days=400))
+        manipulada = con_objeto_delante(datos, falsa)
+        assert "FIRMA-ALTERADA" not in codigos(quejas(manipulada))
+        assert "FIRMA-CADUCADA" in codigos(quejas(manipulada), ERROR)
+
+    def test_la_fecha_que_se_usa_es_la_firmada(self):
+        falsa = propiedades_falsas(firmado_el=datetime(2001, 1, 1, tzinfo=timezone.utc))
+        raiz = etree.fromstring(con_objeto_delante(documento(), falsa))
+        assert firma.momento_de_firma(firma.hay_firma(raiz)[0]) == HOY
+
+    def test_un_certificado_declarado_sin_firmar_no_tapa_la_sustitucion(self):
+        otro = certificado(modulo=N2, comun="Otro SL")
+        raiz = etree.fromstring(documento())
+        raiz.xpath("//*[local-name()='X509Certificate']")[0].text = base64.b64encode(
+            otro
+        ).decode()
+        manipulada = con_objeto_delante(etree.tostring(raiz), propiedades_falsas(cert=otro))
+        assert "FIRMA-OTRO-CERTIFICADO" in codigos(quejas(manipulada), ERROR)
+
+    def test_unas_propiedades_xades_sin_firmar_no_la_hacen_xades(self):
+        datos = documento(con_xades=False)
+        assert "FIRMA-NO-XADES" in codigos(quejas(datos))  # la de partida
+        manipulada = con_objeto_delante(datos, propiedades_falsas(firmado_el=HOY))
+        assert "FIRMA-NO-XADES" in codigos(quejas(manipulada), AVISO)
+
+    def test_ni_dan_fecha(self):
+        raiz = etree.fromstring(
+            con_objeto_delante(documento(con_xades=False), propiedades_falsas(firmado_el=HOY))
+        )
+        assert firma.momento_de_firma(firma.hay_firma(raiz)[0]) is None
+
+    def test_unas_propiedades_tocadas_no_acusan_de_nada(self):
+        """Tocar la fecha dentro de lo firmado rompe su resumen, y entonces no
+        se usa **para nada**: ni para dar por bueno ni para acusar. Sin
+        comprobar ese resumen, una fecha que nadie ha firmado acabaría en el
+        informe como un certificado caducado."""
+        raiz = etree.fromstring(documento())
+        tiempo = raiz.xpath("//*[local-name()='SigningTime']")[0]
+        tiempo.text = (HOY - timedelta(days=800)).isoformat()
+        salen = quejas(etree.tostring(raiz))
+        assert "FIRMA-ALTERADA" in codigos(salen, ERROR)
+        assert "FIRMA-CADUCADA" not in codigos(salen)
+
+    def test_y_la_fecha_tocada_tampoco_se_devuelve(self):
+        # Lo mismo, un piso más abajo: `momento_de_firma` es lo que usan
+        # `cadena.py` y `sellos.py`, y con el resumen de las propiedades roto no
+        # hay fecha firmada que devolver.
+        raiz = etree.fromstring(documento())
+        raiz.xpath("//*[local-name()='SigningTime']")[0].text = (
+            HOY - timedelta(days=800)
+        ).isoformat()
+        assert firma.momento_de_firma(firma.hay_firma(raiz)[0]) is None
+
+    def test_el_certificado_que_firma_sale_del_keyinfo(self):
+        # Un certificado metido en un objeto sin firmar, delante del bloque de
+        # claves, no es el certificado de la firma.
+        otro = etree.Element(_ds("X509Certificate"))
+        otro.text = base64.b64encode(certificado(modulo=N2, comun="Otro SL")).decode()
+        raiz = etree.fromstring(documento())
+        firma_el = firma.hay_firma(raiz)[0]
+        objeto = etree.Element(_ds("Object"))
+        objeto.append(otro)
+        firma_el.xpath("./*[local-name()='SignatureValue']")[0].addnext(objeto)
+        certs = firma.certificados_de(firma.hay_firma(raiz)[0])
+        assert [c.sujeto for c in certs] == ["Pruebas SL"]
+        assert codigos(quejas(etree.tostring(raiz)), ERROR) == set()
+
+
+# --- La línea de estado ----------------------------------------------------
+
+
+class TestLaLineaDeEstadoDiceEnQueQuedoLaFirma:
+    """«· firmado» tiene que costar más que traer un bloque `Signature`.
+
+    Era la última pieza del mismo fallo: el informe dejó de decir de quién es
+    una firma que no ha comprobado, pero la línea de arriba seguía poniendo
+    «Facturae v3.2.2 (factura) · firmado» por haber visto el bloque. Encima de
+    un «sin errores», ese «firmado» es la palabra que quien lee se lleva.
+    """
+
+    def test_una_firma_buena_dice_firmado(self):
+        informe = factura.validar(documento())
+        assert informe.firma == "en pie"
+        assert "· firmado" in informe.resumen()
+
+    def test_una_firma_que_no_se_sabe_comprobar_no_dice_firmado(self):
+        # El caso del falsificador sin clave: algoritmo inventado para que
+        # nadie llegue a comprobar el valor. También el de una RSA-PSS
+        # legítima, y por eso la línea dice «sin comprobar» y no «rota».
+        informe = factura.validar(falsificada())
+        assert informe.firma == "sin comprobar"
+        assert "· firma sin comprobar" in informe.resumen()
+        assert "· firmado" not in informe.resumen()
+
+    def test_una_firma_trasplantada_dice_que_no_se_sostiene(self):
+        informe = factura.validar(trasplantada())
+        assert informe.firma == "rota"
+        assert "· firma que no se sostiene" in informe.resumen()
+
+    def test_un_documento_tocado_despues_de_firmarlo_tambien(self):
+        roto = documento().replace(b"<InvoiceTotal>121.00", b"<InvoiceTotal>999.00")
+        assert factura.validar(roto).firma == "rota"
+
+    def test_una_firma_envolvente_legitima_sigue_diciendo_firmado(self):
+        # La que no cubre la raíz porque la factura va dentro de ella. Si esta
+        # sale «rota», el arreglo acusa a documentos correctos.
+        assert factura.validar(envolvente()).firma == "en pie"
+
+    def test_con_dos_firmas_manda_la_peor(self):
+        # Que una cuadre no arregla que la otra no: el documento que sale de
+        # aquí no está firmado, está firmado a medias.
+        raiz = etree.fromstring(documento())
+        robada, texto = firma_sobre_otra_cosa()
+        etree.SubElement(robada, _ds("Object")).append(
+            etree.fromstring(etree.tostring(texto))
+        )
+        raiz.append(robada)
+        informe = factura.validar(etree.tostring(raiz))
+        assert informe.firma == "rota"
+        assert "· firmado" not in informe.resumen()
+
+    def test_sin_firma_la_linea_no_habla_de_firmas(self):
+        informe = factura.validar(CUERPO.format(total="121.00").encode())
+        assert informe.firma is None
+        assert "firma" not in informe.resumen()
+
+    def test_la_deteccion_a_secas_no_dice_firmado(self):
+        # `detectar` no comprueba nada: solo ve que hay un bloque de firma, y
+        # eso es lo único que su línea puede decir.
+        assert "· con firma" in detectar(documento()).resumen()
+        assert "· firmado" not in detectar(documento()).resumen()
 
 
 # --- En el orquestador -----------------------------------------------------

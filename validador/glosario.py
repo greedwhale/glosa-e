@@ -1023,6 +1023,22 @@ CODIGOS: dict[str, str] = {
         'concreto; una sin referencias es un papel en blanco firmado y '
         'grapado a la factura.'
     ),
+    "FIRMA-NO-CUBRE": (
+        'La firma verifica y no cubre esta factura. Es el caso que peor se ve '
+        'solo, porque no falla nada: el valor de la firma cuadra con su '
+        'certificado, los resúmenes de lo que cubre coinciden y el certificado '
+        'es de quien dice ser. Lo que no dice ninguna de esas tres cosas es '
+        '**sobre qué** se firmó. Una firma XAdES de cualquiera sobre cualquier '
+        'otra cosa —el acuse de un trámite, un documento de otro expediente— '
+        'se despega de su documento y se cuelga de una factura inventada: '
+        'sigue verificando entera, porque lo que cubre viaja con ella. Dentro '
+        'de un mismo fichero, la variante es el señuelo: se firma una factura '
+        'y se mete otra delante, que es la que se lee. Por eso se exige que '
+        'alguna referencia comprobada cubra la factura que se está mirando; si '
+        'ninguna lo hace, el documento no vale como firmado aunque su firma '
+        'sea auténtica. Una contrafirma es el caso aparte, y lo que tiene que '
+        'cubrir es el valor de la firma de la que cuelga.'
+    ),
     "FIRMA-SIN-CERTIFICADO": (
         'La firma no trae dentro el certificado con el que se hizo, así que '
         'no hay con qué comprobarla. XML-DSig lo permite, porque da por '

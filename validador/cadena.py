@@ -837,6 +837,10 @@ def sellos_del_documento(raiz, deteccion, almacen: Almacen | None = None,
     incidencias: list[Incidencia] = []
     for numero, una in enumerate(firma.hay_firma(raiz), start=1):
         donde = f"Firma {numero} · " if numero > 1 else donde_base
+        # Por lo mismo que arriba: un sello acredita **cuándo existía esa
+        # firma**, y de una firma que no se sostiene no hay nada que fechar.
+        if not firma.examinar(una, raiz).verificada:
+            continue
         acreditado = sellos.momento_probado(una)
         if acreditado is None:
             continue
@@ -986,6 +990,19 @@ def reglas_de_documento(
         incidencias.append(sin_renovar)
     for numero, una in enumerate(firmas, start=1):
         donde = f"Firma {numero} · " if len(firmas) > 1 else ""
+        # **La puerta.** De quién es un certificado solo se dice cuando su
+        # firma se sostiene: cuadra con él y cubre la factura. Sin esto, este
+        # módulo seguía por su cuenta y escribía «La firma de Fulano llega a
+        # tal autoridad» sobre firmas que `firma.py` no había podido comprobar
+        # —un método de firma inventado bastaba— o que cubrían otra cosa. Esa
+        # nota es la única frase del informe que nombra a alguien, y quien la
+        # lee la lee como una acreditación de autoría.
+        #
+        # No se dice nada aquí a cambio: de que la firma no se sostiene ya se
+        # queja `firma.py`, con el motivo escrito. Añadir una queja más sería
+        # contar dos veces lo mismo.
+        if not firma.examinar(una, raiz).verificada:
+            continue
         # De dónde sale la fecha con la que se mide todo lo demás. Un sello
         # de tiempo comprobado gana a `SigningTime` **siempre**, y no por
         # cortesía: la declarada la escribe quien firma, y es justo el dato

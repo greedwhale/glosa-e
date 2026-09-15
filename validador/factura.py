@@ -185,11 +185,16 @@ def _reglas(
     almacen: Almacen | None = None,
     listas: AlmacenDeListas | None = None,
     sintacticas: list[Incidencia] | None = None,
-) -> list[Incidencia]:
+) -> tuple[list[Incidencia], str | None]:
     """Todas las reglas sobre un documento ya parseado y ya identificado.
 
     La forma va primero porque es lo primero que mira un receptor: si el
     documento no cumple el esquema, ni llega a leer los numeros.
+
+    Devuelve además en qué quedó la firma, que no es una queja sino el estado
+    del documento: lo pinta la línea de estado del informe. Sale de los mismos
+    exámenes con los que se escriben las glosas de la firma —una sola pasada, y
+    sin que la línea pueda decir una cosa y las glosas otra.
     """
     # Una sola vez, y sirve para los dos bandos: el reglamento español no
     # aplica a una factura extranjera, y tampoco tiene sentido medirle los
@@ -202,7 +207,8 @@ def _reglas(
     incidencias.extend(edifact.totales_de_otra_guia(raiz, deteccion))
     incidencias.extend(edifact.iva_fuera_del_desglose(raiz, deteccion))
     incidencias.extend(facturae.reglas(raiz, deteccion))
-    incidencias.extend(firma.reglas(raiz, deteccion))
+    examenes = firma.examinar_todas(raiz) if raiz is not None else ()
+    incidencias.extend(firma.reglas(raiz, deteccion, examenes))
     incidencias.extend(sellos.reglas_de_documento(raiz, deteccion))
     incidencias.extend(
         cadena.reglas_de_documento(raiz, deteccion, almacen, listas, hoy)
@@ -213,7 +219,7 @@ def _reglas(
         )
     )
     incidencias.extend(codigo_unico.reglas(raiz, deteccion, hoy=hoy))
-    return _podar(incidencias)
+    return _podar(incidencias), firma.estado_de_la_firma(examenes)
 
 
 def validar(
@@ -231,11 +237,10 @@ def validar(
     if isinstance(datos, str):
         datos = datos.encode("utf-8")
     raiz, sintacticas = _arbol(datos, deteccion)
-    informe.incidencias.extend(
-        _reglas(
-            raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
-        )
+    incidencias, informe.firma = _reglas(
+        raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
     )
+    informe.incidencias.extend(incidencias)
     return informe
 
 
@@ -584,11 +589,10 @@ def validar_lote(
             raiz, sintacticas = _arbol(datos, deteccion)
             informe = Informe(deteccion=deteccion)
             if deteccion:
-                informe.incidencias.extend(
-                    _reglas(
-                        raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
-                    )
+                incidencias, informe.firma = _reglas(
+                    raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
                 )
+                informe.incidencias.extend(incidencias)
         except Exception as error:  # noqa: BLE001 - ver `_se_atraganta`
             lote.informes.append((camino, _se_atraganta(camino, error)))
             continue
