@@ -7,7 +7,12 @@
 
 // --- Quien esta detras -----------------------------------------------------
 //
-// Nombre comercial y correo, y nada mas. Lo que falta no es un hueco olvidado.
+// El nombre de quien responde, la marca y el correo, y nada mas. Lo que falta
+// no es un hueco olvidado.
+//
+// El nombre es el de una persona y no el de la marca, desde el 15-09-2026. El
+// RGPD pide la identidad del responsable del tratamiento, y «Glosa-e» es un
+// nombre comercial: no identifica a nadie ante quien ejercer un derecho.
 //
 // Mientras no haya empresa ni nada de pago, esto es una herramienta gratuita
 // sin actividad economica, y el articulo 10 de la LSSI no pide todavia NIF ni
@@ -20,8 +25,8 @@
 // una auditoria sin decir quien la hace, y la forma de garantizarlo es que no
 // haya forma de encender lo uno sin lo otro.
 const TITULAR = {
-  nombre: "Glosa-e",              // nombre comercial; no hay razon social que
-                                  // publicar mientras no se venda nada
+  nombre: "Dunior Hernández Martínez",   // el titular y responsable del tratamiento
+  marca: "Glosa-e",                      // el nombre comercial, que no identifica a nadie
   nif: "",
   domicilio: "",
   correo: "contacto@glosa-e.com",

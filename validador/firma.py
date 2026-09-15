@@ -491,7 +491,7 @@ def _certificado_de_curva(der, tbs, campos, salto, spki, tipo, partes):
     curva = CURVAS.get(cual)
     if curva is None:
         raise ClaveNoSoportada(
-            f"la clave usa una curva que no conocemos (OID {cual or 'ilegible'})"
+            f"la clave usa una curva que aquí no se conoce (OID {cual or 'ilegible'})"
         )
     bits = spki[1][1]
     if not bits or bits[0] != 0:
@@ -503,7 +503,7 @@ def _certificado_de_curva(der, tbs, campos, salto, spki, tipo, partes):
         # hay ni uno así en circulación: los 63 de la lista española van sin
         # comprimir. Escribirlo sería código que nadie ejerce.
         raise ClaveNoSoportada(
-            "la clave de curva viene comprimida y no sabemos descomprimirla"
+            "la clave de curva viene comprimida y aquí no se sabe descomprimir"
         )
     if len(punto) != curva.octetos * 2 + 1:
         raise ValueError("el punto de la clave no tiene el tamaño de su curva")
@@ -957,7 +957,7 @@ def _contenido_referenciado(raiz, firma, referencia) -> tuple[bytes | None, str]
         and t != "http://www.w3.org/2000/09/xmldsig#enveloped-signature"
     ]
     if desconocidas:
-        return None, f"lleva una transformación que no sabemos aplicar: {desconocidas[0]}"
+        return None, f"lleva una transformación que aquí no se sabe aplicar: {desconocidas[0]}"
 
     if uri is None:
         return None, "no dice a qué se refiere"
@@ -980,7 +980,7 @@ def _contenido_referenciado(raiz, firma, referencia) -> tuple[bytes | None, str]
         return _canonicalizar(arbol, c14n), ""
 
     if not uri.startswith("#"):
-        return None, "apunta a un fichero de fuera, que no tenemos"
+        return None, "apunta a un fichero de fuera, que aquí no está"
 
     objetivo = _por_identificador(raiz, uri[1:])
     if objetivo is None:
@@ -1025,7 +1025,7 @@ def _regla_referencias(raiz, firma, donde: str) -> list[Incidencia]:
                     "FIRMA-SIN-COMPROBAR",
                     AVISO,
                     f"No se ha podido comprobar la parte firmada {nombre}: el "
-                    "resumen usa un algoritmo que no conocemos o no viene.",
+                    "resumen usa un algoritmo que aquí no se conoce, o no viene.",
                     campo=f"{donde}Firma · referencia {numero}",
                     encontrado=metodo[0] if metodo else "(sin algoritmo)",
                 )
@@ -1078,8 +1078,8 @@ def _regla_valor(raiz, firma, cert: Certificado | None, donde: str) -> list[Inci
             Incidencia(
                 "FIRMA-SIN-COMPROBAR",
                 AVISO,
-                "No se ha podido comprobar la firma: usa un algoritmo que no "
-                "conocemos. Solo se sabe verificar RSA.",
+                "No se ha podido comprobar la firma: usa un algoritmo que aquí "
+                "no se conoce. Solo se sabe verificar RSA.",
                 campo=f"{donde}Algoritmo de firma",
                 encontrado=metodo[0] if metodo else "(no dice)",
             )
@@ -1125,7 +1125,7 @@ def _regla_valor(raiz, firma, cert: Certificado | None, donde: str) -> list[Inci
                 "FIRMA-SIN-COMPROBAR",
                 AVISO,
                 "No se ha podido comprobar la firma: canonicaliza con un "
-                "método que no sabemos reproducir.",
+                "método que aquí no se sabe reproducir.",
                 campo=f"{donde}Canonicalización",
                 encontrado=declarado[0] if declarado else "(no dice)",
             )

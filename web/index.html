@@ -218,6 +218,43 @@
 #banco-salida ul { list-style: none; margin: .85rem 0 0; padding: 0; display: grid; gap: .35rem; }
 #banco-salida li { font-family: var(--mono); font-size: var(--t1); color: var(--error); }
 #banco-salida .pie { margin-top: .85rem; font-size: var(--t1); color: var(--tinta-2); }
+/* Frente a los demas. Una tabla de verdad y no tarjetas con tics: son seis
+   filas de preguntas con dos respuestas, y eso se lee en columnas. La columna
+   de aqui lleva el filete de la glosa, que es donde este producto pone lo
+   que afirma; la de los demas va un tono por debajo, sin rojo: es un dato con
+   fecha, no una acusacion. */
+.frente { margin: 0 0 1.75rem; }
+.frente table { width: 100%; border-collapse: collapse; font-size: var(--t1); }
+.frente caption { text-align: left; color: var(--tenue); font-size: var(--t1); padding-bottom: .8rem; caption-side: top; }
+.frente thead th {
+  font-size: var(--t0); text-transform: uppercase; letter-spacing: .09em;
+  color: var(--tenue); font-weight: 600; text-align: left; padding: 0 .9rem .5rem 0;
+  border-bottom: 1px solid var(--borde-fuerte);
+}
+.frente tbody th { text-align: left; font-weight: 600; color: var(--tinta); width: 26%; }
+.frente tbody th, .frente td { padding: .8rem .9rem .8rem 0; vertical-align: top; border-bottom: 1px dashed var(--borde); line-height: 1.5; }
+.frente tbody tr:last-child > * { border-bottom: 0; }
+.frente td:nth-child(2) { color: var(--tinta-2); width: 37%; }
+.frente td:nth-child(3) { color: var(--tinta); border-left: 2px solid var(--acento); padding-left: .9rem; }
+.frente thead th:nth-child(3) { padding-left: .9rem; }
+/* En el movil, cada pregunta es un bloque con sus dos respuestas rotuladas:
+   tres columnas a 360 px son tres tiras de dos palabras. */
+@media (max-width: 40rem) {
+  .frente thead { display: none; }
+  .frente table, .frente caption, .frente tbody, .frente tr, .frente tbody th, .frente td { display: block; width: auto; }
+  .frente tr { padding: .75rem 0; border-bottom: 1px dashed var(--borde); }
+  .frente tbody tr:last-child { border-bottom: 0; }
+  .frente tbody th, .frente td { border-bottom: 0; padding: 0 0 .45rem; }
+  .frente td::before {
+    content: attr(data-rotulo); display: block; font-size: var(--t0);
+    text-transform: uppercase; letter-spacing: .09em; color: var(--tenue); font-weight: 600;
+  }
+  /* Con la misma especificidad que el ancho de arriba, o el 37 % se queda
+     puesto y la respuesta de los demás ocupa un tercio del bloque. */
+  .frente td:nth-child(2) { width: auto; }
+  .frente td:nth-child(3) { padding-left: .75rem; }
+}
+
 /* De donde sale lo que aqui se dice de los demas. Va en gris y pequeno a
    proposito: es la nota al pie de una afirmacion, no la afirmacion. */
 .procedencia { margin-top: 1.5rem; font-size: var(--t1); color: var(--tenue); max-width: 42rem; }
@@ -375,7 +412,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
         <a href="./incidencias.html"><b>Qué significa cada aviso</b><span>Cada código que puede salir, con la norma de la que sale.</span></a>
         <a href="./tesis.html"><b>Por qué se explica en vez de certificar</b><span>La tesis del proyecto, y el caso que la puso a prueba.</span></a>
         <a href="./banco.html"><b>Banco de pruebas</b><span>Las comprobaciones, corriéndolas tu navegador delante de ti.</span></a>
-        <a href="./bitacora.html"><b>Bitácora</b><span>Lo que vamos midiendo, con la fecha y la fuente al lado.</span></a>
+        <a href="./bitacora.html"><b>Bitácora</b><span>Lo que se va midiendo, con la fecha y la fuente al lado.</span></a>
         <a href="./legal.html"><b>Aviso legal y privacidad</b><span>Qué se mide, qué no se guarda y qué no acredita esto.</span></a>
         <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20"><b>Escríbeme</b><span>Dudas, fallos que veas y propuestas. Se abre tu programa de correo.</span></a>
       </nav>
@@ -391,8 +428,8 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       <h1>La factura electrónica,<br>en castellano.</h1>
       <div class="cuerpo">
         <p class="lema"><b>Lo que dice tu factura, y lo que no se ha podido mirar.</b>
-        Suelta un fichero y te decimos qué pone, contra qué norma se ha comprobado
-        y qué se ha quedado fuera. Gratis y sin registro.</p>
+        Suelta un fichero y el informe dice qué pone, contra qué norma se ha
+        comprobado y qué se ha quedado fuera. Gratis y sin registro.</p>
 
         <!-- El testigo.
 
@@ -562,8 +599,78 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       ha hecho del que lo dice. Aquí no hace falta creerlo: las mismas
       comprobaciones que acaban de leer tu factura las corre tu navegador
       cuando tú lo digas. Una de ellas es que <b>esta página no le pide nada a
-      nadie</b> — la promesa de privacidad, comprobada por ti y no por
-      nosotros.</p>
+      nadie</b> — la promesa de privacidad, comprobada por ti sin tener que
+      creerse a nadie.</p>
+
+      <!-- Frente a los demás.
+
+           Cada celda de la columna del medio es de un día y de algo que se
+           puede volver a mirar: lo que apuntó el navegador al abrir cada
+           herramienta sin aceptar nada, su formulario, y lo que cada una
+           publica de sí misma. Sin nombres en la tabla —van al pie, con su
+           enlace— y sin nada que no se haya visto: no se subió ninguna
+           factura a ninguna, así que de lo que hacen con ella solo se dice lo
+           que dicen ellas o lo que dice su formulario.
+
+           Y lo que no favorece también va: dos de las seis dicen, como esta,
+           que la factura se lee en el navegador. Lo que las separa no es la
+           frase, es poder comprobarla. -->
+      <div class="frente">
+        <table>
+          <caption>Seis validadores gratuitos de facturas españolas, abiertos
+          uno a uno el 15-09-2026, y lo mismo aquí.</caption>
+          <thead>
+            <tr><th scope="col">Lo que conviene preguntar</th><th scope="col">En los seis</th><th scope="col">Aquí</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">¿Adónde va tu factura?</th>
+              <td data-rotulo="En los seis">Tres la mandan a su servidor con un
+              formulario. Dos dicen que se lee en el navegador; uno no lo
+              aclara.</td>
+              <td data-rotulo="Aquí">A ningún sitio, y no hace falta creerlo:
+              <a href="#testigo">el testigo de arriba</a> cuenta lo que se pide
+              mientras se lee.</td>
+            </tr>
+            <tr>
+              <th scope="row">¿Quién más se entera de que has entrado?</th>
+              <td data-rotulo="En los seis">Cuatro le piden algo a Google al
+              abrir la herramienta: su analítica o sus etiquetas.</td>
+              <td data-rotulo="Aquí">Nadie. La página tiene prohibido pedir nada
+              a otro dominio, y <a href="./banco.html">el banco</a> comprueba
+              que tu navegador lo cumple.</td>
+            </tr>
+            <tr>
+              <th scope="row">¿Deja algo en tu navegador?</th>
+              <td data-rotulo="En los seis">Cuatro, sin haber aceptado nada: tres
+              ponen cookies —entre 2 y 10— y dos guardan datos.</td>
+              <td data-rotulo="Aquí">Nada, ni al abrir ni después.</td>
+            </tr>
+            <tr>
+              <th scope="row">¿Y la firma?</th>
+              <td data-rotulo="En los seis">Ninguno dice contra qué lista de
+              autoridades la comprueba ni si mira la revocación. Dos solo miran
+              si está.</td>
+              <td data-rotulo="Aquí">Hasta la lista de confianza del Estado, con
+              revocación y sello de tiempo, y <a href="#trae">se dice de qué día
+              es la lista</a>.</td>
+            </tr>
+            <tr>
+              <th scope="row">¿Se puede ver cómo comprueba?</th>
+              <td data-rotulo="En los seis">Ninguno enseña sus comprobaciones
+              corriendo.</td>
+              <td data-rotulo="Aquí">Sí: el banco las corre en tu navegador,
+              justo debajo.</td>
+            </tr>
+            <tr>
+              <th scope="row">¿Qué formatos lee?</th>
+              <td data-rotulo="En los seis">Cuatro, solo Facturae.</td>
+              <td data-rotulo="Aquí">Facturae, UBL, CII y EDIFACT: los cuatro del
+              RD 238/2026.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <div class="panel comprobar">
         <p class="rotulo">El banco de pruebas</p>
@@ -579,14 +686,19 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
         <div id="banco-salida"></div>
       </div>
 
-      <p class="procedencia">De dónde sale esto: el <b>11-09-2026</b> miramos
-      los validadores gratuitos de facturas españolas que salen buscando, y
-      ninguno enseña sus comprobaciones corriendo. De la firma dicen poco o no
-      dicen nada — <a href="https://aidoks.eu/en/facturae-validator" rel="nofollow noopener">aiDoks</a>
-      publica que no la verifica criptográficamente y remite a AutoFirma o a
-      VALIDe; el <a href="https://plataforma.firma-e.com/VisualizadorFacturae/" rel="nofollow noopener">visualizador de firma-e</a>
-      dice que valida la firma, sin decir contra qué lista de autoridades ni si
-      mira la revocación. Si algo de esto ha cambiado o está mal,
+      <p class="procedencia">De dónde sale la tabla: el <b>15-09-2026</b> se
+      abrieron los seis validadores gratuitos de facturas españolas que salen
+      buscando —<a href="https://www.facturaview.es/" rel="nofollow noopener">FacturaView</a>,
+      <a href="https://invoice.docuflair.com/es/validar/facturae" rel="nofollow noopener">Docuflair</a>,
+      <a href="https://facturax.app/herramientas/validador-facturae" rel="nofollow noopener">FacturaX</a>,
+      <a href="https://plataforma.firma-e.com/VisualizadorFacturae/" rel="nofollow noopener">firma-e</a>,
+      <a href="https://viewer.facturadirecta.com/" rel="nofollow noopener">Facturadirecta</a>
+      y <a href="https://app.aidoks.eu/validation" rel="nofollow noopener">aiDoks</a>—,
+      sin aceptar nada y sin subir ninguna factura. Lo del servidor sale de su
+      formulario o de lo que dice cada uno; los terceros, las cookies y lo
+      guardado, de lo que apuntó el navegador al abrir; la firma y los
+      formatos, de lo que publica cada uno sobre su herramienta. Si
+      algo de esto ha cambiado o está mal,
       <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20lo%20que%20dice%20la%20portada">dímelo y lo corrijo</a>.</p>
     </section>
 
@@ -748,7 +860,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 
         <details id="cuesta">
           <summary>
-            <h3>¿Cuánto cuesta y qué datos pedís?</h3>
+            <h3>¿Cuánto cuesta y qué datos pide?</h3>
             <span class="a"><span class="corta si">Gratis, y ninguno</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
           </summary>
           <div class="r">
@@ -774,7 +886,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             <p>Lo justo, y por eso está el <a href="./banco.html">banco de
             pruebas</a>: <b>tu propio navegador corre las comprobaciones</b>
             —las mismas que usa el validador— delante de ti, y si algo sale en
-            rojo lo ves tú, no nosotros.</p>
+            rojo lo ves tú antes que nadie.</p>
             <p>Y la parte incómoda: esta herramienta se equivoca como cualquier
             otra. Lo que promete no es acertar siempre, sino <b>no afirmar más
             de lo que ha comprobado</b>. Cuando algo no se ha mirado, lo dice.</p>
@@ -790,10 +902,10 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
         <p class="texto" style="color:var(--tinta-2)">Esta herramienta mira las
         facturas de una en una y no guarda nada. Para lo otro —revisar la
         facturación de un periodo entero, entender por qué un cliente rechaza
-        lo que emites, o preparar la entrada del RD 238/2026— hacemos auditorías
+        lo que emites, o preparar la entrada del RD 238/2026— hay auditorías
         de facturación con el mismo criterio que ves aquí: lo que se ha mirado,
         con qué, y lo que se ha quedado fuera.</p>
-        <a class="boton" id="escalon-boton" href="#">Escríbenos</a>
+        <a class="boton" id="escalon-boton" href="#">Escríbeme</a>
       </div>
     </section>
 
@@ -1296,7 +1408,7 @@ async function correrElBanco() {
       resultados.length + (criticas ? " (" + criticas + " crítica" +
         (criticas > 1 ? "s" : "") + ")" : "") + "</h3>" +
       "<p>Entonces la herramienta de arriba no es de fiar, y lo estás viendo " +
-      "tú antes que nosotros — que es exactamente para lo que está esto.</p>" +
+      "tú antes que nadie — que es exactamente para lo que está esto.</p>" +
       "<ul>" + fallan.slice(0, 5).map((r) =>
         "<li>" + escapar(r.nombre) + " — " + escapar(r.detalle) + "</li>").join("") +
       "</ul>" + pie + "</div>";

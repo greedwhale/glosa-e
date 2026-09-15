@@ -399,7 +399,7 @@ def _leer_tstinfo(der: bytes) -> dict:
         raise ValueError("al TSTInfo le faltan campos")
     if _entero(campos[0][1]) != 1:
         raise ValueError(
-            f"es un sello de una versión que no conocemos "
+            f"es un sello de una versión que aquí no se conoce "
             f"(la {_entero(campos[0][1])})"
         )
 
@@ -536,7 +536,7 @@ def comprobar(sello: Sello) -> str:
     if guardado is None:
         return "lo que la autoridad firmó no incluye el resumen del sello"
     if not sello.resumen_firma:
-        return "está firmado con un algoritmo de resumen que no conocemos"
+        return "está firmado con un algoritmo de resumen que aquí no se conoce"
     calculado = hashlib.new(sello.resumen_firma, sello.contenido).digest()
     if guardado != calculado:
         return (
@@ -680,7 +680,7 @@ def sellos_de(firma) -> list[Hallado]:
                     salida.append(Hallado(
                         clase, c14n=c14n, otro_formato=True,
                         motivo="viene escrito como XML y no como un token de "
-                               "RFC 3161, que es la forma que sabemos leer"))
+                               "RFC 3161, que es la forma que aquí se sabe leer"))
                 continue
             for texto in nodo.xpath(
                 ".//*[local-name()='EncapsulatedTimeStamp']/text()"
@@ -723,7 +723,7 @@ def entrada_del_sello(firma, c14n: str | None) -> tuple[bytes | None, str]:
     # no son los que el sello dice cubrir, y con ellos un veredicto inventado
     # —«este sello no es de esta firma» sobre un sello que sí lo es—.
     if c14n is not None and c14n not in _C14N:
-        return None, f"el sello se canonicaliza de una forma que no sabemos aplicar: {c14n}"
+        return None, f"el sello se canonicaliza de una forma que aquí no se sabe aplicar: {c14n}"
     return _canonicalizar(valor, c14n), ""
 
 

@@ -275,6 +275,24 @@ def test_si_la_pagina_se_identifica_la_privacidad_dice_quien_responde():
         "sitios que dicen quien esta detras acaban diciendo cosas distintas")
 
 
+def test_el_responsable_del_tratamiento_es_alguien_y_no_la_marca():
+    """Hasta el 15-09-2026 la política decía «Responsable del tratamiento:
+    Glosa-e». Es un nombre comercial: el RGPD pide la identidad de quien
+    responde, y ante una marca no se ejerce ningún derecho. La marca va en su
+    propio campo, y el nombre no puede volver a ser ella."""
+    ficha = _ficha()
+    if not (ficha.get("nombre") and ficha.get("correo")):
+        pytest.skip("la ficha esta vacia: no hay responsable que publicar")
+    assert ficha.get("marca"), "la ficha ha perdido el campo de la marca"
+    assert ficha["nombre"].strip().lower() != ficha["marca"].strip().lower(), (
+        "el titular y responsable del tratamiento vuelve a ser la marca "
+        f"«{ficha['marca']}», que no identifica a nadie")
+    legal = LEGAL.read_text(encoding="utf-8")
+    assert "ponSiHay(t.marca," in legal, (
+        "el aviso legal ya no pinta la marca, y la ficha dice un nombre sin "
+        "decir de qué")
+
+
 def test_el_menu_escribe_a_la_direccion_de_la_ficha():
     """La única copia de la dirección que no sale de `glosa.js`.
 
@@ -417,7 +435,7 @@ def test_el_aviso_legal_dice_bajo_que_licencia_se_publica():
 # sin cambiar esto deja la suite en rojo.
 
 FECHA_DE_LA_POLITICA = "15 de septiembre de 2026"
-HUELLA_DE_LA_POLITICA = "85914b344d6e4c3cf3200a2082df1f16c33dbc328b6938a6cc731e0858439a10"
+HUELLA_DE_LA_POLITICA = "e2c28843407f19b768351e3d80b96bbc38dfd284cb6f2303014ff5b5888d3a54"
 
 
 def _texto_de_la_politica() -> str:

@@ -1193,7 +1193,7 @@ CODIGOS: dict[str, str] = {
         'Hay una parte de la firma que este validador no ha podido comprobar, '
         'y lo dice en vez de dar por buena la parte que sí ha mirado. Sale '
         'por tres causas distintas y las tres van con su motivo escrito: una '
-        'canonicalización que no sabemos reproducir, una parte firmada que no '
+        'canonicalización que aquí no se sabe reproducir, una parte firmada que no '
         'se ha podido resolver, o un certificado ilegible. Ninguna acusa al '
         'documento, y todas cambian lo que vale el resto del informe. La '
         'alternativa sería un informe sin quejas de firma, que es exactamente '

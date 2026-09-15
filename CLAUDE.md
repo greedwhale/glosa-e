@@ -152,9 +152,12 @@ prueba que están escritos.
 
 ## Las dos puertas de la ficha del titular
 
-`TITULAR` en `web/glosa.js` ya no está vacío: lleva **nombre comercial y
-correo**, y nada más. De ahí salen dos puertas distintas, y la diferencia es lo
-que hay que respetar al tocarlo:
+`TITULAR` en `web/glosa.js` ya no está vacío: lleva **el nombre de quien
+responde, la marca y el correo**, y nada más. El nombre es el de una persona
+—Dunior Hernández Martínez, desde el 15-09-2026— y no «Glosa-e», porque el RGPD
+pide la identidad del responsable del tratamiento y una marca no identifica a
+nadie; hay prueba de que no vuelva a ser la marca. De ahí salen dos puertas
+distintas, y la diferencia es lo que hay que respetar al tocarlo:
 
 | Puerta | Pide | Enciende |
 |---|---|---|

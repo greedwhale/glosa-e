@@ -199,7 +199,7 @@ def leer_entradas(carpeta: Path) -> list[Entrada]:
 
 _PORTADA = """<div class="portada">
   <h1>Bitácora</h1>
-  <p class="entrada-lema">Lo que vamos midiendo sobre facturas y normas
+  <p class="entrada-lema">Lo que se va midiendo sobre facturas y normas
   reales. Cada entrada lleva la fecha en que se midió y la fuente al lado, y
   las que se han corregido dicen qué se corrigió.</p>
 </div>

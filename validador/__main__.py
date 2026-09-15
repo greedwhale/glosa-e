@@ -725,7 +725,7 @@ def _montar_anclas(
         # una noticia distinta de que se queden fuera las retiradas, y quien
         # monta el conjunto tiene que enterarse sin abrir el manifiesto.
         print(
-            f"  {resumen.no_usables} traen certificado y no sabemos usarlo, "
+            f"  {resumen.no_usables} traen certificado y aquí no se sabe usarlo, "
             "y siguen siendo autoridades cualificadas:"
         )
         for cual, cuantos in resumen.motivos:

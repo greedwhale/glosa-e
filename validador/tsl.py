@@ -510,7 +510,7 @@ def comprobar_firma(lista: Lista, esperados) -> str:
         alg = firma._RESUMEN.get(metodo[0] if metodo else "")
         declarado = firma._hijo(referencia, "DigestValue")
         if alg is None or declarado is None or declarado.text is None:
-            return "la firma usa un resumen que no conocemos"
+            return "la firma usa un resumen que aquí no se conoce"
         octetos, motivo = firma._contenido_referenciado(
             lista._arbol, lista._firma, referencia
         )
@@ -533,11 +533,11 @@ def comprobar_firma(lista: Lista, esperados) -> str:
     pareja = firma._FIRMA.get(metodo[0] if metodo else "")
     valor = firma._texto_b64(firma._hijo(lista._firma, "SignatureValue"))
     if pareja is None or valor is None:
-        return "la firma usa un algoritmo que no sabemos comprobar"
+        return "la firma usa un algoritmo que aquí no se sabe comprobar"
     declarada = firmado.xpath("./*[local-name()='CanonicalizationMethod']/@Algorithm")
     octetos = firma._canonicalizar(firmado, declarada[0] if declarada else None)
     if octetos is None:
-        return "la firma canonicaliza de una forma que no sabemos reproducir"
+        return "la firma canonicaliza de una forma que aquí no se sabe reproducir"
     if not firma.verificar(valor, octetos, cert, pareja[0], concatenada=True):
         return "la firma no cuadra con el certificado que la lista enseña"
 
@@ -702,7 +702,7 @@ def _manifiesto(lista: Lista, resumen: Resumen, cuando: datetime) -> str:
         f"    {'sin certificado':<16}{resumen.sin_certificado}  "
         "(se identifican de otra forma)",
         f"    {'no utilizables':<16}{resumen.no_usables}  "
-        "(traen certificado y no sabemos usarlo)",
+        "(traen certificado y aquí no se sabe usarlo)",
         f"    {'repetidos':<16}{resumen.repetidos}  "
         "(un certificado, varios servicios)",
     ]
@@ -717,7 +717,7 @@ def _manifiesto(lista: Lista, resumen: Resumen, cuando: datetime) -> str:
         "firmó antes de la fecha que dice ESTADOS.tsv. Sin esa fila no se usan:",
         "una ventana que no se sabe dónde acaba no es una ventana.",
         "",
-        "Las que no sabemos usar no están en ninguna de las dos, y sus facturas",
+        "Las que aquí no se saben usar no están en ninguna de las dos, y sus facturas",
         "saldrán como «no llega a ninguna autoridad conocida». No es la misma",
         "noticia que una retirada: esa autoridad sigue siendo cualificada y el",
         "corto es este validador.",

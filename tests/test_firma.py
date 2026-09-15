@@ -440,7 +440,7 @@ class TestQueClaseDeClave:
         )
         with pytest.raises(firma.ClaveNoSoportada) as fallo:
             firma.leer_certificado(crudo)
-        assert "curva que no conocemos" in str(fallo.value)
+        assert "curva que aquí no se conoce" in str(fallo.value)
         assert "truncado" not in str(fallo.value)
 
     def test_una_clave_de_curva_comprimida(self):

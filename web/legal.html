@@ -63,7 +63,7 @@ article li { margin-bottom: .4rem; }
         <a href="./incidencias.html"><b>Qué significa cada aviso</b><span>Cada código que puede salir, con la norma de la que sale.</span></a>
         <a href="./tesis.html"><b>Por qué se explica en vez de certificar</b><span>La tesis del proyecto, y el caso que la puso a prueba.</span></a>
         <a href="./banco.html"><b>Banco de pruebas</b><span>Las comprobaciones, corriéndolas tu navegador delante de ti.</span></a>
-        <a href="./bitacora.html"><b>Bitácora</b><span>Lo que vamos midiendo, con la fecha y la fuente al lado.</span></a>
+        <a href="./bitacora.html"><b>Bitácora</b><span>Lo que se va midiendo, con la fecha y la fuente al lado.</span></a>
         <a href="./legal.html"><b>Aviso legal y privacidad</b><span>Qué se mide, qué no se guarda y qué no acredita esto.</span></a>
         <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20"><b>Escríbeme</b><span>Dudas, fallos que veas y propuestas. Se abre tu programa de correo.</span></a>
       </nav>
@@ -80,7 +80,7 @@ article li { margin-bottom: .4rem; }
       <p>Lo de siempre en estas páginas es una lista de cosas que podrían pasar
       con tus datos. Aquí se puede ser más concreto, porque la factura no llega
       a ningún servidor: se lee dentro de tu navegador. Esto cuenta qué ocurre
-      de verdad, incluido lo que no nos gusta.</p>
+      de verdad, incluido lo que no gusta contar.</p>
     </div>
 
     <section id="privacidad">
@@ -97,8 +97,12 @@ article li { margin-bottom: .4rem; }
              esta política**, con su nombre y su dirección, para que la AEPD y
              cualquier interesado puedan dirigirse a él.
 
-             Cuando Glosa-e pase a cobrar de forma recurrente, hay que revisar
-             esto y añadirlo si procede. Va aquí y no en un cuaderno aparte
+             Ojo con leerlo como «cuando se cobre»: el artículo 3.2 alcanza la
+             oferta de servicios «independientemente de que se requiera un
+             pago». Lo que puede eximir hoy es el 27.2, el tratamiento
+             ocasional y sin riesgo probable —aquí, los registros del
+             alojamiento y algún correo—. Está por confirmar con un asesor, y
+             hay que revisarlo en cuanto se cobre. Va aquí y no en un cuaderno aparte
              porque este es el fichero que habrá que tocar; y no dice quién es
              el responsable ni dónde vive, porque un comentario en HTML viaja
              al navegador como todo lo demás. -->
@@ -107,13 +111,13 @@ article li { margin-bottom: .4rem; }
           <dt>Contacto</dt><dd id="p-correo">—</dd>
         </dl>
 
-        <p>Una promesa es «no miramos tus ficheros». Esto es otra cosa: el
+        <p>Lo habitual es prometer que nadie mira tus ficheros. Esto es otra cosa: el
         validador entero —Python, lxml, los esquemas y las anclas— se descarga
         y corre <b>dentro de tu navegador</b>. No hay servidor al que subir la
-        factura, así que no hay nada que prometer sobre qué haríamos con ella.
+        factura, así que no hay nada que prometer sobre qué se haría con ella.
         No llega.</p>
 
-        <p>Se puede comprobar sin creernos. Abre las herramientas de desarrollo
+        <p>Se puede comprobar sin creerse nada. Abre las herramientas de desarrollo
         de tu navegador, ve a la pestaña de red, y suelta una factura. Esto es
         lo que se midió el 15 de septiembre de 2026 al validar
         <code>fe-0001.xml</code>:</p>
@@ -235,6 +239,7 @@ article li { margin-bottom: .4rem; }
         <article>
           <dl class="ficha">
             <dt>Titular</dt><dd id="t-nombre"></dd>
+            <dt id="t-marca-et" hidden>Marca</dt><dd id="t-marca" hidden></dd>
             <dt id="t-nif-et" hidden>NIF</dt><dd id="t-nif" hidden></dd>
             <dt id="t-domicilio-et" hidden>Domicilio</dt><dd id="t-domicilio" hidden></dd>
             <dt>Correo</dt><dd id="t-correo"></dd>
@@ -304,7 +309,7 @@ article li { margin-bottom: .4rem; }
         <p>Los esquemas XSD son de sus organismos —la Agencia Tributaria para
         Facturae, OASIS para UBL, UN/CEFACT para CII—, y las anclas de confianza
         salen de la lista de confianza publicada por el Estado español; ni unos
-        ni otras son nuestros, viajan con la página para poder comprobar sin
+        ni otras son de aquí, viajan con la página para poder comprobar sin
         conexión y se dice de dónde salen y de cuándo son.</p>
 
         <h3>Ley aplicable</h3>
@@ -364,6 +369,7 @@ if (Glosa.hayIdentificacion()) {
   $("aviso-sin-titular").hidden = true;
   $("aviso-con-titular").hidden = false;
   $("t-nombre").textContent = t.nombre;
+  ponSiHay(t.marca, "t-marca-et", "t-marca");
   ponSiHay(t.nif, "t-nif-et", "t-nif");
   ponSiHay(t.domicilio, "t-domicilio-et", "t-domicilio");
   ponSiHay(t.registro, "t-registro-et", "t-registro");

@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1895 tests, todos en verde.
+1937 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -4297,6 +4297,67 @@ la política movida al `<body>` —donde el navegador la ignora—, tres rojos c
 motivo. Un script tocado después de montar no llega a correr.
 
 No es crítica: en la carpeta `web/` sin montar sale en rojo, y es verdad.
+
+### Frente a los demás, con fecha y sin suponer
+
+«Por qué este» lleva una tabla de seis preguntas —adónde va la factura, quién
+más se entera, qué deja en el navegador, la firma, si se ve cómo comprueba y qué
+formatos lee— con dos respuestas: la de los seis validadores gratuitos de
+facturas españolas que salen buscando, y la de aquí. Sin nombres en la tabla;
+van al pie, con su enlace, la fecha y un correo para avisar de que algo cambió.
+
+Antes de escribir una celda se abrieron los seis el **15-09-2026**, sin aceptar
+nada y sin subirles ninguna factura: lo que apuntó el navegador al abrir cada
+herramienta, su formulario y lo que cada uno publica de sí mismo.
+
+| | Lo medido |
+|---|---|
+| la factura | tres la envían a su servidor con un formulario `multipart`; dos dicen que se lee en el navegador; uno no lo aclara |
+| terceros al abrir | cuatro le piden algo a Google: analítica o etiquetas |
+| lo que dejan | tres ponen cookies sin aceptar nada, de 2 a 10; dos guardan datos en el navegador; cuatro en total |
+| la firma | ninguno dice contra qué lista la comprueba ni si mira la revocación; dos solo miran que esté |
+| las comprobaciones | ninguno las enseña corriendo |
+| formatos | cuatro leen solo Facturae |
+
+**Lo que no se esperaba, y va en la tabla igual:** dos de los seis dicen, como
+esta página, que la factura no sale del navegador, y uno de ellos no le pide
+nada a nadie al abrir. La frase «tu factura no se sube» no distingue a nadie.
+Lo que distingue es poder comprobarla —el testigo, la política, el banco— y lo
+que viene detrás: la firma hasta la lista del Estado y los cuatro formatos.
+Escrita de memoria, la tabla habría dicho que «los demás la suben», y era falso
+para un tercio.
+
+### Una sola voz
+
+La web hablaba en tres personas: «te decimos», «no nos gusta», «Escríbenos» al
+lado de «Escríbeme», y el informe decía «no sabemos reproducir» junto a «solo
+se sabe verificar RSA». Ahora habla como el informe, en impersonal, y en
+primera del singular solo para el contacto. Cambiaron la portada, el aviso
+legal, el banco, el libro blanco, el menú de las seis páginas, la entrada de la
+bitácora y veintiún mensajes del informe —«aquí no se sabe reproducir»—.
+
+`tests/test_voz.py` lo vigila con una red de forma: -amos, -emos, -imos, -áis,
+-éis, nos, nuestro, en las páginas sin comentarios, en el JavaScript y en las
+cadenas del informe y del banco sin docstrings. Primero se comprueba que la red
+caza las frases que ya se colaron; lo que caiga sin ser un verbo va a una lista
+con su motivo, que hoy tiene una palabra: «tramos». Provocado en el lema, en la
+bitácora, en un mensaje del informe y en un texto que pinta el JavaScript:
+cuatro rojos. En un comentario HTML, verde.
+
+### Quién responde
+
+La política decía «Responsable del tratamiento: Glosa-e», que es una marca y no
+identifica a nadie ante quien ejercer un derecho. Desde el 15-09-2026 la ficha
+de `glosa.js` lleva el nombre de quien responde —**Dunior Hernández Martínez**—
+y la marca en su propio campo, y el aviso legal pinta las dos cosas.
+`test_el_responsable_del_tratamiento_es_alguien_y_no_la_marca` impide que el
+nombre vuelva a ser la marca. NIF y domicilio siguen sin publicarse, por lo de
+siempre.
+
+De paso se corrigió la nota interna sobre el representante en la Unión, que lo
+ataba a cobrar: el artículo 3.2 del RGPD alcanza la oferta de servicios aunque
+sea gratis. Lo que puede eximir es el 27.2, el tratamiento ocasional, y queda
+para un asesor.
 
 ### Las cifras, en la portada
 

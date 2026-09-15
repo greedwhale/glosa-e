@@ -583,8 +583,8 @@ def _sirve(lista: Lista, emisor: Certificado, cert: Certificado) -> str:
     if lista.criticas_sin_entender:
         cual = sorted(lista.criticas_sin_entender)[0]
         return (
-            f"trae una extensión marcada como imprescindible que no sabemos "
-            f"leer ({cual}), así que no se puede saber qué dice"
+            f"trae una extensión marcada como imprescindible que aquí no se "
+            f"sabe leer ({cual}), así que no se puede saber qué dice"
         )
     if emisor.usos and "firmar_crl" not in emisor.usos:
         return (
@@ -619,7 +619,7 @@ def comprobar(
     """
     if not listas:
         return Veredicto(
-            "sin_saber", motivo="no tenemos ninguna lista de esa autoridad"
+            "sin_saber", motivo="no hay ninguna lista de esa autoridad"
         )
 
     fallos: list[tuple[Lista, str]] = []

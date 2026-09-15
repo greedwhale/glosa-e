@@ -565,7 +565,7 @@ def construir(
             return Cadena(
                 eslabones,
                 llega=False,
-                motivo=f"no tenemos el certificado de «{quien}»",
+                motivo=f"no está el certificado de «{quien}»",
             )
 
         fallo = None

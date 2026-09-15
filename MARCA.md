@@ -184,6 +184,12 @@ principio. Queda aquí para que la página no se salga.
    falta, no «vuelve a bajarlo» sobre un fichero que está entero.
 5. **Lo que no se ha mirado se dice igual de alto que lo que se ha mirado.**
 6. **Ninguna cifra sin poder enseñar de dónde sale.**
+7. **Una sola voz, la del informe.** Impersonal: «se ha comprobado», «aquí no
+   se sabe reproducir». La primera persona del singular, solo para el contacto
+   —«Escríbeme», «dímelo y lo corrijo»—, porque quien contesta un correo es una
+   persona. Nunca el plural: hasta el 15-09-2026 convivían «te decimos», «no
+   nos gusta» y «Escríbenos» con «Escríbeme», y el informe decía «no sabemos»
+   al lado de «solo se sabe». Lo vigila `tests/test_voz.py`.
 
 ## Lo que la marca no puede prometer nunca
 
