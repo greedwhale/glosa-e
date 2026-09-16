@@ -67,7 +67,7 @@ OFICIAL = pathlib.Path(__file__).resolve().parent / "en16931-oficial"
 
 # La huella de la copia. Si alguien la rehace con otro commit, esto se pone en
 # rojo y hay que cambiarla a sabiendas, junto con `PROCEDENCIA.md`.
-HUELLA = "9359948d767adf8cc86c21243e2d7f87159b9c3e408f09b1dcfde0a044b6187d"
+HUELLA = "78001153d1161ba4e003c4bd5e9f9d52030a71b9c4afb78fbe00b293a52e4226"
 
 ISO = "{http://purl.oclc.org/dsdl/schematron}"
 VEFA = "{http://difi.no/xsd/vefa/validator/1.0}"

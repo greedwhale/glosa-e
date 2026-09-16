@@ -97,9 +97,17 @@ def huella(carpeta: pathlib.Path) -> str:
     Normalizados porque git en Windows convierte LF en CRLF al sacar los
     ficheros de texto: sin esto la huella cambiaría según la máquina, y un
     guardián que salta en unas máquinas sí y en otras no enseña a ignorarlo.
+
+    **Y en orden de texto, no de `Path`**, por lo mismo. `sorted` sobre rutas
+    compara como el sistema: en Windows sin distinguir mayúsculas y en Linux
+    distinguiéndolas, así que `cii/BR-CO-15-2.xml` iba delante de
+    `CreditNote-unit-UBL/` en una máquina y detrás en la otra. La misma copia
+    daba dos huellas, y solo se vio al correr la suite en GitHub, el
+    16-09-2026. La huella fijada cambió entonces sin que cambiara un byte.
     """
     h = hashlib.sha256()
-    for f in sorted(p for p in carpeta.rglob("*") if p.is_file()):
+    ficheros = (p for p in carpeta.rglob("*") if p.is_file())
+    for f in sorted(ficheros, key=lambda p: p.relative_to(carpeta).as_posix()):
         if f.name == "PROCEDENCIA.md":
             continue
         h.update(f.relative_to(carpeta).as_posix().encode("utf-8") + b"\0")

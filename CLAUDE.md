@@ -105,7 +105,9 @@ pasaba por él. Git llama a su gancho en todo push, se escriba como se escriba.
 corre la suite en cada push y cada pull request, sobre una copia recién sacada,
 se empuje desde donde se empuje. Es la única de estas puertas que no depende de
 la copia, y montarla destapó que la suite solo pasaba *aquí*: en una copia
-limpia fallaban 6 pruebas que leían `esquemas/`, `anclas/` o `muestras/`.
+limpia fallaban 6 pruebas que leían `esquemas/`, `anclas/` o `muestras/`, y en
+Linux 2 más —el banco escribía en la raíz del disco y la huella de la copia
+oficial dependía de cómo ordena rutas el sistema—.
 `tests/test_pruebas_en_github.py` vigila que allí corra la suite entera, con el
 Python del flujo, las versiones de `requisitos-pruebas.txt` y la comprobación
 llamada `suite`. **No está enganchado a Vercel, a propósito**, así que por sí

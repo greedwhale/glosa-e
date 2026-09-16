@@ -34,6 +34,7 @@ pasa el fichero entero y se queda con `resultados`. Aquí se hace lo mismo.
 from __future__ import annotations
 
 import pathlib
+import re
 
 import pytest
 
@@ -42,7 +43,7 @@ BANCO = RAIZ / "web" / "prueba.py"
 
 
 @pytest.fixture(scope="module")
-def espacio() -> dict:
+def espacio(tmp_path_factory) -> dict:
     """Ejecuta el banco entero una vez y deja ver todo lo que definió.
 
     `scope="module"` porque tarda unos tres segundos y las pruebas de aquí
@@ -54,21 +55,27 @@ def espacio() -> dict:
     tener el banco dentro del alcance de pytest.
     """
     import os
-
-    anterior = os.environ.get("EJEMPLOS")
     # El banco busca los ejemplos donde se los pongan; en el navegador es la
-    # ruta del sitio y aquí es la carpeta del repositorio.
-    os.environ["EJEMPLOS"] = str(RAIZ / "ejemplos")
+    # ruta del sitio y aquí es la carpeta del repositorio. Y escribe donde se
+    # le diga: en el navegador, la raíz del disco virtual; aquí, una carpeta
+    # temporal nueva, y no la raíz del disco de quien corre la suite.
+    puestas = {
+        "EJEMPLOS": str(RAIZ / "ejemplos"),
+        "DISCO_DEL_BANCO": str(tmp_path_factory.mktemp("disco-del-banco")),
+    }
+    anteriores = {nombre: os.environ.get(nombre) for nombre in puestas}
+    os.environ.update(puestas)
     try:
         espacio: dict = {"__name__": "banco"}
         exec(compile(BANCO.read_text(encoding="utf-8"), str(BANCO), "exec"),
              espacio)
         return espacio
     finally:
-        if anterior is None:
-            os.environ.pop("EJEMPLOS", None)
-        else:
-            os.environ["EJEMPLOS"] = anterior
+        for nombre, anterior in anteriores.items():
+            if anterior is None:
+                os.environ.pop(nombre, None)
+            else:
+                os.environ[nombre] = anterior
 
 
 @pytest.fixture(scope="module")
@@ -87,6 +94,36 @@ def test_el_banco_corre_entero(resultados):
     assert declaradas >= 38, (
         f"el banco tiene {declaradas} comprobaciones y antes tenía 38. Si se "
         "ha quitado alguna, que sea a propósito."
+    )
+
+
+def test_el_banco_escribe_en_su_carpeta_y_no_en_la_raiz(espacio):
+    """Lo que monta el banco va a la carpeta que se le da.
+
+    Escribía en la raíz: en el navegador es el disco virtual de Pyodide, que
+    no es de nadie, pero aquí era la raíz del disco de quien corría la suite.
+    En Windows dejó seis carpetas `anclas*` en `C:` desde agosto, reutilizadas
+    de una vez a la siguiente; en Linux, cinco comprobaciones críticas en rojo
+    con `PermissionError`. Se descubrió al correr la suite en GitHub, el
+    16-09-2026.
+    """
+    disco = pathlib.Path(espacio["DISCO"])
+    assert disco.is_dir() and disco.parent != disco, (
+        f"el banco ha escrito en {disco}, que no es la carpeta temporal"
+    )
+    hay = {p.name for p in disco.iterdir()}
+    faltan = sorted({"anclas", "anclas-pagina", "anclas-tsl",
+                     "anclas-retiradas", "anclas-mezcla"} - hay)
+    assert not faltan, (
+        f"el banco no ha montado {faltan} en su carpeta: las ha escrito en "
+        "otro sitio."
+    )
+    en_la_raiz = re.findall(r"[\"'](/anclas[^\"']*)[\"']",
+                            BANCO.read_text(encoding="utf-8"))
+    assert not en_la_raiz, (
+        f"web/prueba.py escribe en {en_la_raiz}, en la raíz del disco. Fuera "
+        "del navegador eso es el disco de quien corre la suite: va con "
+        "`os.path.join(DISCO, ...)`."
     )
 
 

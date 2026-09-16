@@ -11,6 +11,15 @@ import time
 from datetime import date
 
 BASE = os.environ.get("EJEMPLOS", "/ejemplos")
+
+# Donde escribe el banco las anclas que monta. En el navegador, la raiz del
+# disco virtual de Pyodide, que nace vacio con cada pagina y muere con ella.
+# Fuera del navegador hay que darle una carpeta: con la raiz por defecto,
+# `test_banco.py` escribia `anclas`, `anclas-tsl` y cuatro mas en la raiz del
+# disco de quien corria la suite, y las reutilizaba de una vez a la siguiente.
+# En Linux, donde `/` no se puede escribir, cinco comprobaciones criticas caian
+# con PermissionError: asi se descubrio, al correr la suite en GitHub.
+DISCO = os.environ.get("DISCO_DEL_BANCO", "/")
 HOY = date(2026, 9, 20)
 
 # Medido fuera, con CPython 3.14 y lxml 6.0.2. Ver la comprobacion de c14n.
@@ -418,10 +427,11 @@ def _():
     hoja = leer_certificado(crudo)
 
     import os
-    os.makedirs("/anclas", exist_ok=True)
-    with open("/anclas/ejemplo.cer", "wb") as f:
+    carpeta = os.path.join(DISCO, "anclas")
+    os.makedirs(carpeta, exist_ok=True)
+    with open(os.path.join(carpeta, "ejemplo.cer"), "wb") as f:
         f.write(crudo)
-    almacen = Almacen("/anclas")
+    almacen = Almacen(carpeta)
     assert not almacen.vacio, "no ha leido el ancla del disco virtual"
     assert almacen.contiene(hoja), "no reconoce su propio certificado"
     assert construir(hoja, almacen).llega, "no encadena hasta el ancla"
@@ -582,10 +592,11 @@ def _():
     if hoja is None:
         return "no hay ninguna firmada entre los ejemplos"
 
-    os.makedirs("/anclas-pagina", exist_ok=True)
-    with open("/anclas-pagina/ejemplo.cer", "wb") as f:
+    carpeta = os.path.join(DISCO, "anclas-pagina")
+    os.makedirs(carpeta, exist_ok=True)
+    with open(os.path.join(carpeta, "ejemplo.cer"), "wb") as f:
         f.write(hoja.der)
-    almacen = Almacen("/anclas-pagina", procedencia="viene con la pagina")
+    almacen = Almacen(carpeta, procedencia="viene con la pagina")
 
     notas = [i for i in reglas([hoja], almacen) if i.gravedad == "nota"]
     assert len(notas) == 1, "no declara nada: " + str(notas)
@@ -595,7 +606,7 @@ def _():
     assert hoja.huella() in nota.mensaje, "no deja constancia de la huella"
     # Y que no se cuela la ruta del disco virtual, que a quien lee no le dice
     # nada y encima suena a que el ancla la puso el.
-    assert "/anclas-pagina" not in nota.mensaje, nota.mensaje
+    assert "anclas-pagina" not in nota.mensaje, nota.mensaje
     return "dice de donde viene el ancla y con que huella"
 
 
@@ -887,11 +898,12 @@ def _():
     fallo = tsl.comprobar_firma(una, [_huella(cert)])
     assert fallo == "", "no se cree una lista buena: " + fallo
 
-    os.makedirs("/anclas-tsl", exist_ok=True)
-    resumen = tsl.montar(una, "/anclas-tsl")
+    carpeta = os.path.join(DISCO, "anclas-tsl")
+    os.makedirs(carpeta, exist_ok=True)
+    resumen = tsl.montar(una, carpeta)
     assert resumen.escritas == 1, resumen.escritas
 
-    almacen = Almacen("/anclas-tsl")
+    almacen = Almacen(carpeta)
     assert almacen.contiene(hoja), "lo montado no sirve de ancla"
     notas = [i for i in reglas([hoja], almacen)
              if i.gravedad == "nota" and i.codigo == "CONFIANZA-ANCLA"]
@@ -921,7 +933,7 @@ def _():
     otra = tsl.leer(datos)
     assert "no se ha dicho" in tsl.comprobar_firma(otra, [])
     try:
-        tsl.montar(otra, "/anclas-coladas")
+        tsl.montar(otra, os.path.join(DISCO, "anclas-coladas"))
     except ValueError:
         pass
     else:
@@ -948,7 +960,7 @@ def _():
     una = tsl.leer(_tsl_de_juguete(cert, hoja.der, estado="withdrawn"))
     assert tsl.comprobar_firma(una, [_huella(cert)]) == "", "no se cree la lista"
 
-    destino = "/anclas-retiradas"
+    destino = os.path.join(DISCO, "anclas-retiradas")
     os.makedirs(destino, exist_ok=True)
     resumen = tsl.montar(una, destino)
     assert resumen.escritas == 0, "una retirada no es un ancla vigente"
@@ -1029,7 +1041,7 @@ def _():
 
     # Con los tipos de siempre no sale nada: una autoridad de sellado no es una
     # autoridad de certificacion, y montarla ahi seria ampliar la confianza.
-    destino = "/anclas-mezcla"
+    destino = os.path.join(DISCO, "anclas-mezcla")
     os.makedirs(destino, exist_ok=True)
     assert tsl.montar(una, destino).escritas == 0, "monta un sellador como CA"
 
