@@ -239,6 +239,99 @@ def escribir(carpeta: Path, nombre: str, contenido: str) -> Path:
     return ruta
 
 
+class TestCadaFicheroPorSuNombre:
+    """Dos ficheros que se llaman igual siguen siendo dos.
+
+    El lote identificaba cada fichero por `camino.name`. Con `a/factura.xml` y
+    `b/factura.xml` duplicados y un `c/factura.xml` distinto, el duplicado
+    marcaba a los tres y la queja decía «las dos vienen en factura.xml».
+    """
+
+    def _tres(self, tmp_path):
+        rutas = []
+        for carpeta, numero in (("a", "F-2026-0001"), ("b", "F-2026-0001"),
+                                ("c", "F-2026-0002")):
+            (tmp_path / carpeta).mkdir()
+            rutas.append(escribir(tmp_path / carpeta, "factura.xml",
+                                  ubl(numero=numero, fecha="2026-03-02")))
+        return factura.validar_lote(rutas, hoy=HOY)
+
+    def test_el_duplicado_no_arrastra_al_tercero(self, tmp_path):
+        lote = self._tres(tmp_path)
+        assert lote.senialados == {"a/factura.xml", "b/factura.xml"}
+        assert "1 correcto(s)" in lote.resumen()
+
+    def test_y_la_queja_dice_cuales_son(self, tmp_path):
+        lote = self._tres(tmp_path)
+        queja = next(i for i in lote.cruzadas if i.codigo == "CU-10")
+        assert "a/factura.xml" in queja.mensaje and "b/factura.xml" in queja.mensaje
+
+    def test_los_nombres_se_quedan_cortos_si_no_se_repiten(self, tmp_path):
+        a = escribir(tmp_path, "a.xml", ubl())
+        (tmp_path / "otra").mkdir()
+        b = escribir(tmp_path / "otra", "b.xml", ubl(numero="F-2026-0002"))
+        assert factura.validar_lote([a, b], hoy=HOY).nombres == ["a.xml", "b.xml"]
+
+    def test_con_nombres_dados_manda_el_dado(self, tmp_path):
+        # Es el caso del navegador: la ruta es la del disco virtual, y el
+        # nombre, el que tenía en el ordenador de quien lo soltó.
+        (tmp_path / "0").mkdir()
+        (tmp_path / "1").mkdir()
+        a = escribir(tmp_path / "0", "factura__.xml", ubl(numero="F-2026-0001"))
+        b = escribir(tmp_path / "1", "factura__.xml", ubl(numero="F-2026-0002"))
+        lote = factura.validar_lote([a, b], hoy=HOY,
+                                    nombres=["factura ñ.xml", "factura ç.xml"])
+        assert lote.nombres == ["factura ñ.xml", "factura ç.xml"]
+        assert lote.cruzadas == [] and lote.conforme, lote.detalle()
+
+    def test_lo_que_sigue_repetido_se_numera(self, tmp_path):
+        a = escribir(tmp_path, "a.xml", ubl())
+        assert factura.nombres_unicos([a, a]) == ["a.xml", "a.xml (2)"]
+        assert factura.nombres_unicos([a, a], ["x", "x"]) == ["x", "x (2)"]
+
+    def test_y_se_niega_si_no_hay_un_nombre_por_fichero(self, tmp_path):
+        a = escribir(tmp_path, "a.xml", ubl())
+        with pytest.raises(ValueError):
+            factura.validar_lote([a], hoy=HOY, nombres=["a.xml", "b.xml"])
+
+    def test_el_informe_de_la_pagina_usa_los_nombres_de_quien_los_solto(
+        self, tmp_path, monkeypatch
+    ):
+        """El Python que corre la página, tal cual está escrito en `glosa.js`.
+
+        Con lo que le deja `validar()`: cada fichero en su carpeta, con el
+        nombre limpio, y al lado los nombres de verdad. Sin los nombres, la
+        página enseñaba «factura__.xml» dos veces y no se sabía cuál era cuál.
+        """
+        import json
+        import re
+
+        from validador.cadena import Almacen
+        from validador.esquema import Catalogo
+
+        codigo = (Path(__file__).resolve().parent.parent / "web" / "glosa.js").read_text(
+            encoding="utf-8")
+        informe = re.search(r"const INFORME = `(.*?)`;", codigo, re.S).group(1)
+        rutas = []
+        for orden, numero in enumerate(("F-2026-0001", "F-2026-0002")):
+            (tmp_path / str(orden)).mkdir()
+            rutas.append(str(escribir(tmp_path / str(orden), "factura__.xml",
+                                      ubl(numero=numero))))
+        # Lo que el navegador tiene y aquí no: el catálogo y las anclas por
+        # defecto de la página. Vacíos, que para esto basta.
+        monkeypatch.setattr(Almacen, "por_defecto",
+                            classmethod(lambda cls, *a: Almacen(tmp_path / "nada")))
+        monkeypatch.setattr(Catalogo, "por_defecto",
+                            classmethod(lambda cls, *a: Catalogo(tmp_path / "nada")))
+        espacio = {"_rutas": rutas, "_nombres": ["factura ñ.xml", "factura ç.xml"]}
+        *cuerpo, ultima = informe.strip().rsplit("\n\njson.dumps", 1)
+        exec(cuerpo[0], espacio)
+        datos = json.loads(eval("json.dumps" + ultima, espacio))
+        assert [d["nombre"] for d in datos["documentos"]] == ["factura ñ.xml",
+                                                              "factura ç.xml"]
+        assert datos["cruzadas"] == []
+
+
 class TestValidarLote:
     def test_duplicado_entre_ficheros(self, tmp_path):
         """Ningún fichero por separado puede ver esto: es la razón de la clase."""
@@ -568,6 +661,37 @@ class TestLoQueSeHaMirado:
         lote = factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY)
         assert "esquema XSD" in lote.alcance(forma=True)
         assert "esquema XSD" not in lote.alcance(forma=False)
+
+    def test_el_codigo_unico_se_promete_donde_se_mira(self, tmp_path):
+        escribir(tmp_path, "a.xml", ubl())
+        lote = factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY)
+        assert "código único" in lote.alcance().splitlines()[0]
+
+    def test_no_en_edifact(self, tmp_path):
+        """De un EDIFACT no se saca el código único.
+
+        Dos copias idénticas salían «2 correctos», sin el duplicado, debajo de
+        una frase que decía haber comprobado el código único.
+        """
+        ejemplo = Path(__file__).resolve().parent.parent / "ejemplos" / "edi-0001.edi"
+        if not ejemplo.is_file():
+            pytest.skip("no está el ejemplo EDIFACT")
+        rutas = []
+        for nombre in ("uno.edi", "dos.edi"):
+            rutas.append(tmp_path / nombre)
+            rutas[-1].write_bytes(ejemplo.read_bytes())
+        alcance = factura.validar_lote(rutas, hoy=HOY).alcance()
+        primera, segunda = alcance.splitlines()
+        assert "código único" not in primera
+        assert "el código único de las facturas EDIFACT" in segunda
+
+    def test_ni_sobre_ficheros_que_no_se_han_podido_leer(self, tmp_path):
+        lote = factura.validar_lote(
+            [tmp_path / "no-existe.xml", tmp_path / "tampoco.xml"], hoy=HOY
+        )
+        alcance = lote.alcance()
+        assert "código único" not in alcance
+        assert alcance.startswith("No se ha comprobado nada")
 
     def test_la_consola_lo_dice_segun_tenga_esquemas(self, tmp_path, capsys):
         escribir(tmp_path, "a.xml", ubl())

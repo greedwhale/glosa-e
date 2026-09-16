@@ -1059,6 +1059,99 @@ class TestLaFraseDelFinalNoSeApuntaLoQueNoHaMirado:
         assert "la validez de las firmas electrónicas" in alcance
 
 
+def con_segunda_firma(datos: bytes, cert: bytes) -> bytes:
+    """El documento con otra firma que también lo cubre entero y se sostiene.
+
+    Va dentro del `ds:Object` de la primera y no al lado: la primera quita solo
+    su propio bloque al resumir el documento, así que una firma puesta al lado
+    después la rompería. Dentro, se va con ella. La segunda cubre el documento
+    sin sí misma, que es el documento de antes de meterla.
+    """
+    raiz = etree.fromstring(datos)
+    resumen_doc = _resumen(_c14n(raiz), "sha256")
+    objeto = raiz.xpath("//*[local-name()='Signature']/*[local-name()='Object']")[0]
+    otra = etree.SubElement(objeto, _ds("Signature"), Id="Sig2")
+    firmado = etree.SubElement(otra, _ds("SignedInfo"))
+    etree.SubElement(firmado, _ds("CanonicalizationMethod")).set("Algorithm", C14N)
+    etree.SubElement(firmado, _ds("SignatureMethod")).set("Algorithm", _URI_FIRMA["sha256"])
+    ref = etree.SubElement(firmado, _ds("Reference"), URI="")
+    etree.SubElement(etree.SubElement(ref, _ds("Transforms")), _ds("Transform")).set(
+        "Algorithm", "http://www.w3.org/2000/09/xmldsig#enveloped-signature"
+    )
+    etree.SubElement(ref, _ds("DigestMethod")).set("Algorithm", _URI_SHA["sha256"])
+    etree.SubElement(ref, _ds("DigestValue")).text = resumen_doc
+    etree.SubElement(otra, _ds("SignatureValue")).text = base64.b64encode(
+        _firmar(_c14n(firmado), "sha256", N, D)
+    ).decode()
+    datos_x509 = etree.SubElement(etree.SubElement(otra, _ds("KeyInfo")), _ds("X509Data"))
+    etree.SubElement(datos_x509, _ds("X509Certificate")).text = base64.b64encode(cert).decode()
+    return etree.tostring(raiz, xml_declaration=True, encoding="UTF-8")
+
+
+class TestLaFraseNoPrometeQueLaCadenaLlegue:
+    """«se ha comprobado que ese certificado lleve a una autoridad de confianza».
+
+    Salía también con `CADENA-DESCONOCIDA` en el informe. Es un aviso, así que
+    el veredicto seguía siendo «sin errores», y la frase prometía justo lo que
+    el aviso de encima negaba.
+    """
+
+    PROMESA = "que ese certificado lleve a una autoridad de confianza instalada"
+
+    def _alcance(self, tmp_path, *documentos, listas=False):
+        almacen = con_ancla(tmp_path)
+        rutas = []
+        for numero, datos in enumerate(documentos):
+            rutas.append(tmp_path / f"{numero}.xml")
+            rutas[-1].write_bytes(datos)
+        lote = factura.validar_lote(rutas, hoy=HOY.date(), almacen=almacen)
+        return lote.alcance(anclas=True, listas=listas)
+
+    def _ajena(self):
+        # La misma clave con otro nombre: la firma cuadra, y la cadena no llega
+        # a ningún ancla, porque el ancla es el certificado de «Pruebas SL».
+        return documento(cert=certificado(comun="Ajena SL"))
+
+    def test_si_llega_lo_promete(self, tmp_path):
+        alcance = self._alcance(tmp_path, documento())
+        assert self.PROMESA in alcance
+        assert "de quién es el certificado" not in alcance
+
+    def test_si_no_llega_no(self, tmp_path):
+        alcance = self._alcance(tmp_path, self._ajena())
+        assert self.PROMESA not in alcance
+        assert "de quién es el certificado de este documento" in alcance
+
+    def test_ni_promete_mirar_la_revocacion_de_lo_que_no_llega(self, tmp_path):
+        # La revocación solo se mira sobre una cadena que llega.
+        alcance = self._alcance(tmp_path, self._ajena(), listas=True)
+        assert "que no lo hayan anulado" not in alcance
+
+    def test_con_una_de_cada_dice_las_dos_cosas(self, tmp_path):
+        alcance = self._alcance(tmp_path, documento(), self._ajena())
+        assert self.PROMESA in alcance
+        assert "de quién es el certificado de uno de los documentos" in alcance
+
+    def test_con_dos_firmas_en_un_documento_tienen_que_llegar_las_dos(self, tmp_path):
+        # Una nota de confianza por firma que llega. Con que llegara una, el
+        # documento entero pasaba por «llega» y la otra firma, de quien no se
+        # sabe, quedaba debajo de la promesa.
+        datos = con_segunda_firma(documento(), certificado(comun="Ajena SL"))
+        raiz = etree.fromstring(datos)
+        assert sum(e.verificada for e in firma.examinar_todas(raiz)) == 2
+        alcance = self._alcance(tmp_path, datos)
+        assert self.PROMESA not in alcance
+        assert "de quién es el certificado de este documento" in alcance
+
+    def test_una_firma_rota_no_cuenta_para_ninguna_de_las_dos(self, tmp_path):
+        # Su cadena no se mira —de una firma que no se sostiene no se dice de
+        # quién es—, y el error ya deja el veredicto donde tiene que estar.
+        roto = documento().replace(b"<InvoiceTotal>121.00", b"<InvoiceTotal>999.00")
+        alcance = self._alcance(tmp_path, roto)
+        assert self.PROMESA not in alcance
+        assert "de quién es el certificado" not in alcance
+
+
 # --- En el orquestador -----------------------------------------------------
 
 

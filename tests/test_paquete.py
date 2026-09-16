@@ -266,11 +266,17 @@ class TestElPaqueteDeVerdad:
         assert not almacen.sellos.vacio
 
     @pytest.mark.skipif(not EJEMPLO.exists(), reason="no está el ejemplo")
-    def test_el_informe_promete_las_tres_cosas(self, tmp_path):
+    def test_el_informe_dice_lo_que_ha_mirado_con_el_paquete(self, tmp_path):
         """El resumen del final cambia según lo que de verdad se ha mirado.
 
         Es la razón de ser de todo esto: sin el paquete, la página comprueba
-        el contenido y su propia frase final lo dice. Con él, dice las tres.
+        el contenido y su propia frase final lo dice. Con él, dice la forma, y
+        de la cadena dice lo que ha pasado.
+
+        Se llamaba «promete las tres cosas» y pedía «autoridad de confianza
+        instalada» sobre el ejemplo firmado, cuya cadena no llega a ninguna de
+        las anclas del paquete: pedía la promesa que el punto 8 de la auditoría
+        del 15-09-2026 encontró falsa.
         """
         from validador import factura
 
@@ -281,7 +287,9 @@ class TestElPaqueteDeVerdad:
             almacen=Almacen(suelto / "anclas"),
         ).alcance(forma=True, anclas=True)
         assert "esquema XSD" in con
-        assert "autoridad de confianza instalada" in con
+        assert "necesita anclas de confianza instaladas" not in con
+        assert "autoridad de confianza instalada" not in con
+        assert "de quién es el certificado de este documento" in con
 
 
 # --- El sitio que se publica -----------------------------------------------
@@ -1219,6 +1227,68 @@ class TestQueDosVueltasDenElMismoFichero:
             dentro = json.loads(z.read(paquete.MANIFIESTO))
         assert ficha.external_attr >> 16 & 0o400, "sin permiso de lectura"
         assert dentro["armado"] == "2026-09-10"
+
+
+class TestSoloSeBorraLoQueMontoEsto:
+    """Montar el sitio empieza por borrar el destino entero.
+
+    Y lo borraba fuera lo que fuera. Probado en una carpeta temporal que hacía
+    de carpeta de trabajo: se llevó un `anclas/` y un `Proyecto 1/` y salió con
+    código 0. Un `--sitio ..` lanzado desde Factura-e hacía eso de verdad.
+    """
+
+    def test_una_carpeta_ajena_no_se_toca(self, repositorio):
+        ajena = repositorio / "trabajo"
+        (ajena / "Proyecto 1").mkdir(parents=True)
+        (ajena / "Proyecto 1" / "estrategia.py").write_text("# suyo\n", encoding="utf-8")
+        with pytest.raises(paquete.NoEsUnSitio):
+            _montar(repositorio, destino="trabajo")
+        assert (ajena / "Proyecto 1" / "estrategia.py").is_file()
+
+    def test_ni_un_fichero(self, repositorio):
+        (repositorio / "nota.txt").write_text("mía\n", encoding="utf-8")
+        with pytest.raises(paquete.NoEsUnSitio):
+            _montar(repositorio, destino="nota.txt")
+        assert (repositorio / "nota.txt").read_text(encoding="utf-8") == "mía\n"
+
+    def test_ni_la_carpeta_desde_la_que_se_trabaja_aunque_lleve_el_testigo(
+        self, repositorio, monkeypatch
+    ):
+        # Ni con testigo: es la única que no se arregla montando otra vez. Se
+        # trabaja desde `web/` y se apunta a la carpeta que la contiene; si la
+        # guardia falla, lo que se borra es el repositorio de mentira de esta
+        # prueba y no nada de fuera de ella.
+        (repositorio / paquete.TESTIGO_DEL_SITIO).write_text("", encoding="utf-8")
+        monkeypatch.chdir(repositorio / "web")
+        with pytest.raises(paquete.NoEsUnSitio):
+            _montar(repositorio, destino=".")
+        assert (repositorio / "muestras" / "de-un-cliente.xml").is_file()
+
+    def test_una_carpeta_vacia_si(self, repositorio):
+        (repositorio / "sitio").mkdir()
+        _montar(repositorio)
+        assert (repositorio / "sitio" / "index.html").is_file()
+
+    def test_y_un_sitio_montado_antes_tambien(self, repositorio):
+        # Lo normal: montar encima del de la vez anterior.
+        _montar(repositorio)
+        (repositorio / "sitio" / "sobra.txt").write_text("de ayer\n", encoding="utf-8")
+        _montar(repositorio)
+        assert not (repositorio / "sitio" / "sobra.txt").exists()
+
+    def test_el_testigo_va_nada_mas_crear_la_carpeta(self, repositorio, monkeypatch):
+        # Un montaje que se para a medias tiene que poder repetirse sin borrar
+        # a mano: el testigo ya está puesto aunque no haya llegado al final.
+        def se_cae(*_):
+            raise RuntimeError("a medias")
+
+        monkeypatch.setattr(paquete, "_para_buscadores", se_cae)
+        with pytest.raises(RuntimeError):
+            _montar(repositorio)
+        assert (repositorio / "sitio" / paquete.TESTIGO_DEL_SITIO).is_file()
+        monkeypatch.undo()
+        _montar(repositorio)
+        assert (repositorio / "sitio" / "index.html").is_file()
 
 
 class TestParaQueSeLlegueDesdeFuera:

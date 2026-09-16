@@ -80,6 +80,10 @@ class Informe:
     # Va en el informe y no en la detección a propósito: la detección es lo que
     # se ve sin validar, y esto es el resultado de validar.
     firma: str | None = None
+    # Cuántas firmas del documento se sostienen. Son las únicas cuya cadena se
+    # mira, así que la frase del final necesita el número para saber si todas
+    # las que se miraron llegaron a un ancla.
+    firmas_verificadas: int = 0
 
     @property
     def errores(self) -> list[Incidencia]:

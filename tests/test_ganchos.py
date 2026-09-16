@@ -1,31 +1,28 @@
 # -*- coding: utf-8 -*-
-"""El gancho que guarda la puerta de producción, provocado.
+"""Los dos ganchos que guardan la puerta de producción, provocados.
 
-Por qué existe
---------------
-No hay CI. Un push a `main` lo construye Vercel y lo publica, y lo único que
-hay entre un test rojo y la página que ve la gente es
-`.claude/hooks/antes-de-empujar.py`. Claude Code solo bloquea una orden cuando
-el gancho **sale con código 2**: con cualquier otro código —incluido el 1 que
-deja una excepción sin recoger— la orden sigue adelante.
+Por qué hay dos
+---------------
+No hay CI. Un push a `main` lo construye Vercel y lo publica sin correr las
+pruebas. Hasta el 16-09-2026 la única puerta era `.claude/hooks/antes-de-
+empujar.py`, que leía la orden escrita en Claude Code y corría la suite si le
+parecía un push. La auditoría del 15-09-2026 le encontró nueve maneras de pasar
+—`git -C . push`, `git.exe push`, un `--dry-run` en un comentario, solo el
+primer `cd`...—, que corría las pruebas sobre la carpeta y no sobre lo que se
+empujaba, y la de fondo: un push desde la consola no pasaba por él.
 
-Ahí estaba el agujero. `subprocess.run(..., timeout=600)` lanza
-`TimeoutExpired`, y arrancar un ejecutable puede lanzar `OSError`; las dos
-subían sin recoger hasta `sys.exit(main())`, imprimían una traza y salían con
-1. El push se publicaba **después de que el gancho hubiera fallado**, que es la
-peor forma de tener una puerta: la que además tranquiliza.
+Ahora la suite la corre **git**, con `.githooks/pre-push`, en todo push de la
+copia. Y el gancho de Claude Code queda de portero: no deja que una orden se
+salte a git.
 
 Lo que esto comprueba, y lo que no
 -----------------------------------
-**Sí:** que cada camino de fallo del gancho acaba en 2, y que las órdenes que
-no son un push siguen pasando sin pagar la suite.
+**Sí:** las decisiones de los dos, con git y pytest sustituidos.
 
-**No:** que el gancho esté *conectado*. La declaración vive en los ajustes de
-usuario (`C:\\Users\\PC\\.claude\\settings.json`), fuera del repositorio, así
-que en una máquina nueva este fichero está y la puerta no existe. Eso solo se
-comprueba provocándolo de verdad, y así está escrito en `CLAUDE.md`:
-
-    git push remoto-que-no-existe main   # con gancho tarda ~36 s; sin él, uno
+**No:** que estén *conectados*. `core.hooksPath` es configuración local de git
+y la declaración del de Claude Code vive en los ajustes de usuario; ninguna de
+las dos viaja con el repositorio. Eso solo se comprueba provocándolos de
+verdad, como dice `CLAUDE.md`.
 """
 from __future__ import annotations
 
@@ -38,130 +35,274 @@ import subprocess
 import pytest
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
-GANCHO = RAIZ / ".claude" / "hooks" / "antes-de-empujar.py"
+PORTERO = RAIZ / ".claude" / "hooks" / "antes-de-empujar.py"
+DE_GIT = RAIZ / ".githooks" / "antes-de-empujar.py"
+TRABAJO = RAIZ.parent
 
 
-@pytest.fixture(scope="module")
-def gancho():
-    """El gancho cargado como módulo, que su nombre con guiones no permite."""
-    especificacion = importlib.util.spec_from_file_location(
-        "antes_de_empujar", GANCHO)
+def _cargar(ruta: pathlib.Path, nombre: str):
+    """Un gancho como módulo, que su nombre con guiones no permite importar."""
+    especificacion = importlib.util.spec_from_file_location(nombre, ruta)
     modulo = importlib.util.module_from_spec(especificacion)
     especificacion.loader.exec_module(modulo)
     return modulo
 
 
-def correr(gancho, monkeypatch, orden: str, *, entrada: str | None = None,
-           corriendo=None) -> int:
-    """Llama al gancho como lo llama Claude Code: un JSON por la entrada.
+@pytest.fixture
+def portero(monkeypatch):
+    modulo = _cargar(PORTERO, "portero")
+    # Puesto por defecto. Las pruebas que miran el caso contrario lo cambian.
+    monkeypatch.setattr(modulo, "ganchos_puestos", lambda: True)
+    return modulo
 
-    `corriendo` sustituye a `subprocess.run` **siempre**, incluso cuando la
-    prueba no espera que se use: si algún camino lo llamara de verdad, esto
-    lanzaría la suite entera desde dentro de la suite.
+
+def decide(portero, orden: str, desde: pathlib.Path = RAIZ) -> bool:
+    """¿Para? Por la entrada, como lo llama Claude Code."""
+    return portero.decidir(orden, desde) is not None
+
+
+# --- El portero -------------------------------------------------------------
+
+
+class TestElPorteroNoSeLeenLasOrdenesComoAntes:
+    """Las nueve de la auditoría, y dos más que salieron al reproducirlas.
+
+    Con el gancho de git puesto, un push normal **pasa**: la suite la corre git
+    y da igual cómo se escriba la orden. Lo que importa es que, sin el gancho
+    puesto, **ninguna** de estas pase.
     """
-    texto = entrada if entrada is not None else json.dumps(
-        {"tool_input": {"command": orden}, "cwd": str(RAIZ)})
-    monkeypatch.setattr(gancho.sys, "stdin", io.StringIO(texto))
 
-    def prohibido(*_a, **_k):
-        raise AssertionError("no debería haber llegado a correr los tests")
+    PUSHES = [
+        "git push origin main",
+        "git -C /c/Users/PC/Claude/Factura-e push origin main",
+        "git -C . push origin main",
+        "git -c core.askPass=x push origin main",
+        "git.exe push origin main",
+        '"C:\\Program Files\\Git\\cmd\\git.exe" push origin main',
+        '& "C:\\Program Files\\Git\\cmd\\git.exe" push origin main',
+        "git push origin main # --dry-run",
+        "git push --dry-run origin main && git push origin main",
+        'cd "/c/Users/PC/Claude/Proyecto 1" && cd /c/Users/PC/Claude/Factura-e && git push',
+        "Set-Location C:\\Users\\PC\\Claude\\Factura-e; git -C . push",
+        "cd /c/Users/PC/Claude/Factura-e\ngit push origin main",
+    ]
 
-    monkeypatch.setattr(gancho.subprocess, "run", corriendo or prohibido)
-    return gancho.main()
+    @pytest.mark.parametrize("orden", PUSHES)
+    def test_sin_el_gancho_de_git_ningun_push_pasa(self, portero, monkeypatch, orden):
+        monkeypatch.setattr(portero, "ganchos_puestos", lambda: False)
+        assert decide(portero, orden)
 
-
-class TestLoQueDejaPasar:
-    def test_una_orden_que_no_es_un_push_no_paga_la_suite(self, gancho,
-                                                          monkeypatch):
-        assert correr(gancho, monkeypatch, "git status") == 0
-
-    def test_un_ensayo_no_publica_y_no_se_mira(self, gancho, monkeypatch):
-        assert correr(gancho, monkeypatch, "git push --dry-run origin main") == 0
-
-    def test_una_entrada_ilegible_sin_push_no_estorba(self, gancho, monkeypatch):
-        """El gancho está roto, pero esa orden no publica nada."""
-        assert correr(gancho, monkeypatch, "", entrada="{esto no es JSON") == 0
-
-    def test_la_suite_en_verde_deja_publicar(self, gancho, monkeypatch):
-        hecho = subprocess.CompletedProcess([], 0, stdout="", stderr="")
-        assert correr(gancho, monkeypatch, "git push origin main",
-                      corriendo=lambda *a, **k: hecho) == 0
+    @pytest.mark.parametrize("orden", PUSHES)
+    def test_con_el_gancho_puesto_pasan_y_prueba_git(self, portero, orden):
+        assert not decide(portero, orden)
 
 
-class TestLoQuePara:
-    """Todo lo de aquí tiene que salir con 2. Con 1 el push se publica igual."""
+class TestLoQueSeSaltaAGit:
+    @pytest.mark.parametrize("orden", [
+        "git push --no-verify origin main",
+        "git -C . push --no-verify",
+        "git send-pack origin main",
+        "git -c core.hooksPath=/dev/null push origin main",
+        "git --config-env core.hooksPath=VACIO push",
+        "GIT_CONFIG_PARAMETERS=\"'core.hooksPath=x'\" git push",
+        "$env:GIT_CONFIG_PARAMETERS=\"'core.hooksPath=x'\"; git push",
+        "git config --unset core.hooksPath",
+        "git config core.hooksPath otra-carpeta",
+        'git config alias.p "push --no-verify"',
+    ])
+    def test_para(self, portero, orden):
+        assert decide(portero, orden)
 
-    def test_la_suite_en_rojo(self, gancho, monkeypatch):
-        hecho = subprocess.CompletedProcess(
-            [], 1, stdout="E   assert 1 == 2\n1 failed", stderr="")
-        assert correr(gancho, monkeypatch, "git push origin main",
-                      corriendo=lambda *a, **k: hecho) == 2
+    def test_se_deja_poner_el_gancho_y_leerlo(self, portero):
+        assert not decide(portero, "git config core.hooksPath .githooks")
+        assert not decide(portero, "git config --get core.hooksPath")
 
-    def test_la_suite_que_se_queda_colgada(self, gancho, monkeypatch, capsys):
-        """El fallo que salía con 1: `TimeoutExpired` subía sin recoger."""
-        def cuelga(*_a, **_k):
-            raise subprocess.TimeoutExpired(cmd="pytest", timeout=600)
 
-        assert correr(gancho, monkeypatch, "git push origin main",
-                      corriendo=cuelga) == 2
-        assert "produccion" in capsys.readouterr().err
+class TestLoQueNoEsAsuntoSuyo:
+    def test_lo_que_no_es_git(self, portero, monkeypatch):
+        monkeypatch.setattr(portero, "ganchos_puestos", lambda: False)
+        assert not decide(portero, "./.venv/Scripts/python.exe -m pytest -q")
+        assert not decide(portero, "git status")
+        assert not decide(portero, 'git commit -m "push a main"')
 
-    def test_el_interprete_que_no_arranca(self, gancho, monkeypatch, capsys):
-        """El otro: cualquier `OSError` al lanzar el proceso."""
-        def revienta(*_a, **_k):
-            raise OSError(8, "Formato de ejecutable no válido")
+    def test_otro_proyecto_de_la_carpeta_de_trabajo(self, portero, monkeypatch):
+        monkeypatch.setattr(portero, "ganchos_puestos", lambda: False)
+        otro = TRABAJO / "Proyecto 1"
+        assert not decide(portero, "git push --no-verify", desde=otro)
+        assert not decide(portero, f'cd "{otro}" && git push')
+        assert not decide(portero, f'git -C "{otro}" push --no-verify')
 
-        assert correr(gancho, monkeypatch, "git push origin main",
-                      corriendo=revienta) == 2
-        assert "nadie ha comprobado nada" in capsys.readouterr().err
+    def test_una_orden_ilegible_que_no_parece_un_push(self, portero):
+        assert not decide(portero, 'echo "sin cerrar')
 
-    def test_cualquier_otra_rotura_del_gancho(self, gancho, monkeypatch, capsys):
-        """La red de debajo de todo, por lo que no está previsto."""
+    def test_una_orden_ilegible_que_si(self, portero):
+        # Sin poder leerla no se sabe si lleva `--no-verify`.
+        assert decide(portero, 'git push origin main -m "sin cerrar')
+
+
+class TestElPorteroComoLoLlamaClaudeCode:
+    """Todo lo de aquí tiene que salir con 2. Con 1 la orden sigue adelante."""
+
+    def correr(self, portero, monkeypatch, texto: str) -> int:
+        monkeypatch.setattr(portero.sys, "stdin", io.StringIO(texto))
+        return portero.main()
+
+    def entrada(self, orden: str) -> str:
+        return json.dumps({"tool_input": {"command": orden}, "cwd": str(RAIZ)})
+
+    def test_para_con_dos(self, portero, monkeypatch, capsys):
+        assert self.correr(portero, monkeypatch, self.entrada("git push --no-verify")) == 2
+        assert "--no-verify" in capsys.readouterr().err
+
+    def test_deja_pasar_con_cero(self, portero, monkeypatch):
+        assert self.correr(portero, monkeypatch, self.entrada("git status")) == 0
+
+    def test_una_entrada_ilegible_con_un_push_dentro(self, portero, monkeypatch):
+        """Si Claude Code cambiara la forma de la entrada, esto es lo único."""
+        assert self.correr(portero, monkeypatch,
+                           '{"tool_input": {"comm git push origin main') == 2
+
+    def test_una_entrada_ilegible_sin_push_no_estorba(self, portero, monkeypatch):
+        assert self.correr(portero, monkeypatch, "{esto no es JSON") == 0
+
+    def test_si_el_portero_se_rompe_con_un_push_para(self, portero, monkeypatch):
         def revienta(*_a, **_k):
             raise RuntimeError("algo que no se le ocurrió a nadie")
 
-        assert correr(gancho, monkeypatch, "git push origin main",
-                      corriendo=revienta) == 2
-        assert "no ha llegado a comprobar nada" in capsys.readouterr().err
+        monkeypatch.setattr(portero, "decidir", revienta)
+        assert self.correr(portero, monkeypatch, self.entrada("git push")) == 2
+        assert self.correr(portero, monkeypatch, self.entrada("ls")) == 0
 
-    def test_una_entrada_ilegible_con_un_push_dentro(self, gancho, monkeypatch,
-                                                     capsys):
-        """Si Claude Code cambiara la forma de la entrada, esto es lo único.
+    def test_si_no_se_puede_preguntar_a_git_para(self, portero, monkeypatch):
+        # Sin git a mano no se sabe si el gancho está puesto.
+        def sin_git(*_a, **_k):
+            raise OSError("no está git")
 
-        Sin esto el gancho devolvería 0 a todo y seguiría pareciendo que
-        guarda la puerta: verde, y no es lo que crees que has probado.
-        """
-        assert correr(gancho, monkeypatch, "",
-                      entrada='{"tool_input": {"comm git push origin main') == 2
-        assert "no ha podido leer su entrada" in capsys.readouterr().err
+        modulo = _cargar(PORTERO, "portero_sin_git")
+        monkeypatch.setattr(modulo.subprocess, "run", sin_git)
+        assert self.correr(modulo, monkeypatch, self.entrada("git push")) == 2
 
-    def test_sin_entorno_virtual_no_hay_manera_de_comprobar_nada(
-            self, gancho, monkeypatch, capsys):
-        monkeypatch.setattr(gancho, "PYTHON", RAIZ / "no-existe" / "python.exe")
-        assert correr(gancho, monkeypatch, "git push origin main") == 2
-        assert "publica en producción" in capsys.readouterr().err
+    def test_ganchos_puestos_lee_la_configuracion_de_git(self, monkeypatch):
+        modulo = _cargar(PORTERO, "portero_config")
+        for escrito, puesto in ((".githooks\n", True), ("otra\n", False)):
+            hecho = subprocess.CompletedProcess([], 0, stdout=escrito, stderr="")
+            monkeypatch.setattr(modulo.subprocess, "run", lambda *a, h=hecho, **k: h)
+            assert modulo.ganchos_puestos() is puesto
+        vacio = subprocess.CompletedProcess([], 1, stdout="", stderr="")
+        monkeypatch.setattr(modulo.subprocess, "run", lambda *a, **k: vacio)
+        assert modulo.ganchos_puestos() is False
 
 
-def test_ningun_camino_del_gancho_sale_con_uno(gancho, monkeypatch):
-    """El resumen de todo lo de arriba, dicho de una vez.
+# --- El gancho de git -------------------------------------------------------
 
-    El 1 es el código que no sirve para nada aquí: no bloquea, y quien lo ve
-    en el registro cree que el gancho ha hecho algo. Los únicos dos válidos
-    son 0 —pasa— y 2 —no pasa—.
+HEAD = "a" * 40
+OTRO = "b" * 40
+CEROS = "0" * 40
+
+
+class Git:
+    """Lo que el gancho le pregunta a git y a pytest, contestado a mano."""
+
+    def __init__(self, cabeza=HEAD, pendiente="", suite=None):
+        self.cabeza = cabeza
+        self.pendiente = pendiente
+        self.suite = suite
+        self.corrio_la_suite = False
+
+    def __call__(self, orden, **_k):
+        if orden[:2] == ["git", "rev-parse"]:
+            return subprocess.CompletedProcess(orden, 0, stdout=self.cabeza + "\n")
+        if orden[:2] == ["git", "status"]:
+            return subprocess.CompletedProcess(orden, 0, stdout=self.pendiente)
+        self.corrio_la_suite = True
+        if isinstance(self.suite, BaseException):
+            raise self.suite
+        return self.suite or subprocess.CompletedProcess(orden, 0, stdout="", stderr="")
+
+
+@pytest.fixture
+def de_git(monkeypatch):
+    modulo = _cargar(DE_GIT, "gancho_de_git")
+    monkeypatch.setattr(modulo, "PYTHON", pathlib.Path(__file__))  # existe
+    return modulo
+
+
+def empujar(modulo, monkeypatch, git: Git, lineas: str) -> int:
+    monkeypatch.setattr(modulo.subprocess, "run", git)
+    monkeypatch.setattr(modulo.sys, "stdin", io.StringIO(lineas))
+    return modulo.main()
+
+
+def rama(sha=HEAD, remota="refs/heads/main") -> str:
+    return f"refs/heads/main {sha} {remota} {CEROS}\n"
+
+
+class TestElGanchoDeGit:
+    def test_head_en_verde_pasa_y_corre_la_suite(self, de_git, monkeypatch):
+        git = Git()
+        assert empujar(de_git, monkeypatch, git, rama()) == 0
+        assert git.corrio_la_suite
+
+    def test_en_rojo_para(self, de_git, monkeypatch, capsys):
+        git = Git(suite=subprocess.CompletedProcess(
+            [], 1, stdout="E   assert 1 == 2\n1 failed", stderr=""))
+        assert empujar(de_git, monkeypatch, git, rama()) != 0
+        assert "assert 1 == 2" in capsys.readouterr().err
+
+    def test_lo_que_no_es_head_para_sin_probar(self, de_git, monkeypatch):
+        # Se prueba la carpeta: empujar otro commit sería publicar lo no probado.
+        git = Git()
+        assert empujar(de_git, monkeypatch, git, rama(sha=OTRO)) != 0
+        assert not git.corrio_la_suite
+
+    def test_con_cambios_sin_commit_para_sin_probar(self, de_git, monkeypatch, capsys):
+        git = Git(pendiente=" M validador/firma.py\n?? nuevo.py\n")
+        assert empujar(de_git, monkeypatch, git, rama()) != 0
+        assert not git.corrio_la_suite
+        assert "validador/firma.py" in capsys.readouterr().err
+
+    def test_borrar_una_rama_o_empujar_una_etiqueta_no_publica(self, de_git, monkeypatch):
+        git = Git(pendiente=" M sucio.py\n")
+        lineas = (f"(delete) {CEROS} refs/heads/vieja {OTRO}\n"
+                  f"refs/tags/v1 {OTRO} refs/tags/v1 {CEROS}\n")
+        assert empujar(de_git, monkeypatch, git, lineas) == 0
+        assert not git.corrio_la_suite
+
+    def test_una_linea_que_no_se_entiende_para(self, de_git, monkeypatch):
+        assert empujar(de_git, monkeypatch, Git(), "esto no son cuatro partes\n") != 0
+
+    def test_la_suite_colgada_para(self, de_git, monkeypatch):
+        git = Git(suite=subprocess.TimeoutExpired(cmd="pytest", timeout=900))
+        assert empujar(de_git, monkeypatch, git, rama()) != 0
+
+    def test_sin_poder_arrancar_la_suite_para(self, de_git, monkeypatch):
+        git = Git(suite=OSError(8, "Formato de ejecutable no válido"))
+        assert empujar(de_git, monkeypatch, git, rama()) != 0
+
+    def test_sin_entorno_virtual_para(self, de_git, monkeypatch):
+        monkeypatch.setattr(de_git, "PYTHON", RAIZ / "no-existe" / "python.exe")
+        assert empujar(de_git, monkeypatch, Git(), rama()) != 0
+
+    def test_si_git_falla_para(self, de_git, monkeypatch):
+        def roto(orden, **_k):
+            raise subprocess.CalledProcessError(128, orden)
+
+        monkeypatch.setattr(de_git.subprocess, "run", roto)
+        monkeypatch.setattr(de_git.sys, "stdin", io.StringIO(rama()))
+        assert de_git.main() != 0
+
+
+def test_el_gancho_de_git_sale_con_lf():
+    """Con CRLF, `#!/bin/sh` deja de serlo y el push falla sin probar nada."""
+    assert b"\r\n" not in (RAIZ / ".githooks" / "pre-push").read_bytes()
+
+
+def test_el_gancho_de_git_llama_al_guion_que_se_prueba_aqui():
+    """Si uno cambia de nombre y el otro no, git llamaría a un fichero que no está.
+
+    Fallaría cerrando —`exec` de algo que no existe sale distinto de 0—, pero
+    todo lo de este fichero seguiría en verde probando un guion que nadie usa.
     """
-    casos = [
-        ("git status", None, "{}"),
-        ("git push --dry-run x y", None, None),
-        ("git push origin main", lambda *a, **k: (_ for _ in ()).throw(
-            subprocess.TimeoutExpired(cmd="pytest", timeout=600)), None),
-        ("git push origin main", lambda *a, **k: (_ for _ in ()).throw(
-            OSError("lo que sea")), None),
-        ("git push origin main", lambda *a, **k: subprocess.CompletedProcess(
-            [], 1, stdout="1 failed", stderr=""), None),
-        ("", None, "no es json y no habla de git"),
-        ("", None, "no es json y dice git push"),
-    ]
-    for orden, corriendo, entrada in casos:
-        salida = correr(gancho, monkeypatch, orden, entrada=entrada,
-                        corriendo=corriendo)
-        assert salida in (0, 2), f"«{orden or entrada}» ha salido con {salida}"
+    llamada = (RAIZ / ".githooks" / "pre-push").read_text(encoding="utf-8")
+    assert f"{DE_GIT.parent.name}/{DE_GIT.name}" in llamada
+    assert llamada.startswith("#!/bin/sh\n")

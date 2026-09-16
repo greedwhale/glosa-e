@@ -344,6 +344,14 @@ class TestCabecera:
         cero = cambia(BUENA, antes, '<cbc:PrepaidAmount currencyID="EUR">0.00</cbc:PrepaidAmount>' + antes)
         assert codigos(cero) == set()
 
+    @pytest.mark.parametrize("escrito", ["NaN", "1E+3"])
+    def test_lo_que_no_es_un_numero_no_se_acusa_de_no_ser_cero(self, escrito):
+        # «NaN» no es igual a cero y salía acusado de no serlo, encima de la
+        # queja del esquema. Un importe que no es un número es cosa del XSD.
+        antes = "<cbc:PayableAmount currencyID"
+        raro = cambia(BUENA, antes, f'<cbc:PrepaidAmount currencyID="EUR">{escrito}</cbc:PrepaidAmount>' + antes)
+        assert "SPFE-IMPORTE-PAGADO" not in codigos(raro)
+
 
 class TestRectificativa:
 

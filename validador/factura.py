@@ -37,6 +37,7 @@ from validador import (
     facturae,
     firma,
     sellos,
+    sintaxis,
     solucion_publica,
 )
 from validador.formato import (
@@ -187,17 +188,30 @@ def _reglas(
     almacen: Almacen | None = None,
     listas: AlmacenDeListas | None = None,
     sintacticas: list[Incidencia] | None = None,
-) -> tuple[list[Incidencia], str | None]:
+) -> tuple[list[Incidencia], str | None, int]:
     """Todas las reglas sobre un documento ya parseado y ya identificado.
 
     La forma va primero porque es lo primero que mira un receptor: si el
     documento no cumple el esquema, ni llega a leer los numeros.
 
     Devuelve además en qué quedó la firma, que no es una queja sino el estado
-    del documento: lo pinta la línea de estado del informe. Sale de los mismos
+    del documento: lo pinta la línea de estado del informe. Y cuántas firmas se
+    sostienen, que es lo que necesita la frase del final. Sale de los mismos
     exámenes con los que se escriben las glosas de la firma —una sola pasada, y
     sin que la línea pueda decir una cosa y las glosas otra.
     """
+    # Las cuentas, con precisión de sobra: con la de `Decimal` por defecto un
+    # importe de treinta cifras se llevaba el informe entero al redondear. Ver
+    # `sintaxis.cuentas`.
+    with sintaxis.cuentas():
+        return _reglas_con_cuentas(
+            raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
+        )
+
+
+def _reglas_con_cuentas(
+    raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
+) -> tuple[list[Incidencia], str | None, int]:
     # Una sola vez, y sirve para los dos bandos: el reglamento español no
     # aplica a una factura extranjera, y tampoco tiene sentido medirle los
     # tipos de IVA contra los que se usan aquí.
@@ -221,7 +235,11 @@ def _reglas(
         )
     )
     incidencias.extend(codigo_unico.reglas(raiz, deteccion, hoy=hoy))
-    return _podar(incidencias), firma.estado_de_la_firma(examenes)
+    return (
+        _podar(incidencias),
+        firma.estado_de_la_firma(examenes),
+        sum(1 for examen in examenes if examen.verificada),
+    )
 
 
 def validar(
@@ -239,7 +257,7 @@ def validar(
     if isinstance(datos, str):
         datos = datos.encode("utf-8")
     raiz, sintacticas = _arbol(datos, deteccion)
-    incidencias, informe.firma = _reglas(
+    incidencias, informe.firma, informe.firmas_verificadas = _reglas(
         raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
     )
     informe.incidencias.extend(incidencias)
@@ -323,6 +341,27 @@ class InformeLote:
 
     informes: list[tuple[Path, Informe]] = field(default_factory=list)
     cruzadas: list[Incidencia] = field(default_factory=list)
+    # Cómo se llama cada fichero en el informe, en el mismo orden que
+    # `informes` y sin repetir ninguno. Ver `nombres_unicos`.
+    nombres: list[str] = field(default_factory=list)
+
+    @property
+    def nombrados(self) -> list[tuple[Path, Informe, str]]:
+        """Cada informe con el nombre por el que se le conoce en el lote.
+
+        Hasta aquí cada fichero se identificaba por `camino.name`, y dos
+        ficheros con el mismo nombre en carpetas distintas eran el mismo para
+        el lote: un duplicado entre dos de ellos marcaba también al tercero, y
+        la queja decía «las dos vienen en factura.xml». En el navegador era
+        peor, porque el nombre se limpia antes de escribirlo y «factura ñ.xml»
+        y «factura ç.xml» acababan en el mismo fichero: uno pisaba al otro y
+        **el primero no se validaba nunca**.
+        """
+        nombres = self.nombres or nombres_unicos([c for c, _ in self.informes])
+        return [
+            (camino, informe, nombre)
+            for (camino, informe), nombre in zip(self.informes, nombres, strict=True)
+        ]
 
     @property
     def errores(self) -> list[Incidencia]:
@@ -371,14 +410,14 @@ class InformeLote:
     def resumen(self) -> str:
         senialados = self.senialados
         mirados = [
-            (camino, informe)
-            for camino, informe in self.informes
+            (nombre, informe)
+            for _, informe, nombre in self.nombrados
             if informe.validado
         ]
         correctos = sum(
             1
-            for camino, informe in mirados
-            if informe.conforme and camino.name not in senialados
+            for nombre, informe in mirados
+            if informe.conforme and nombre not in senialados
         )
         partes = [
             f"{len(self.informes)} fichero(s)",
@@ -434,6 +473,31 @@ class InformeLote:
             and informe.firma not in (FIRMA_EN_PIE, FIRMA_ROTA)
         )
 
+    def _llegan(self, informe: Informe) -> bool | None:
+        """¿Llegan a un ancla todas las firmas verificadas? `None` si no hay.
+
+        Una nota de confianza por cada firma que llega, y solo por esas: si hay
+        menos notas que firmas verificadas, alguna no llegó —`CADENA-
+        DESCONOCIDA`, `CADENA-RETIRADA`, `CADENA-ROTA`—, sin tener que llevar
+        aquí la lista de las maneras de no llegar.
+        """
+        if not informe.firmas_verificadas:
+            return None
+        notas = sum(
+            1 for i in informe.incidencias if i.codigo == cadena.NOTA_DE_CONFIANZA
+        )
+        return notas >= informe.firmas_verificadas
+
+    @property
+    def con_cadena_que_llega(self) -> int:
+        """Documentos cuyas firmas verificadas llegan, todas, a un ancla."""
+        return sum(1 for _, informe in self.informes if self._llegan(informe) is True)
+
+    @property
+    def con_cadena_que_no_llega(self) -> int:
+        """Documentos con alguna firma verificada que no llega a ningún ancla."""
+        return sum(1 for _, informe in self.informes if self._llegan(informe) is False)
+
     def alcance(
         self, forma: bool = True, anclas: bool = False, listas: bool = False
     ) -> str:
@@ -483,7 +547,12 @@ class InformeLote:
                 "la aritmética del formato Facturae (líneas, totales, impuestos "
                 "y cabecera de lote)"
             )
-        mirado.append("el código único del RD 238/2026")
+        # Solo donde se mira. Iba siempre, y se prometía sobre un lote de
+        # EDIFACT —dos copias idénticas salían «2 correctos», sin el duplicado:
+        # de un EDIFACT no se saca el código único— y hasta sobre un lote de
+        # ficheros que no se habían podido leer.
+        if familias & {UBL, FACTURAE, CII}:
+            mirado.append("el código único del RD 238/2026")
         if any(
             informe.deteccion is not None
             and informe.deteccion.familia == UBL
@@ -516,25 +585,39 @@ class InformeLote:
                     "certificado que trae dentro"
                 )
                 if anclas:
-                    mirado.append(
-                        "que ese certificado lleve a una autoridad de confianza "
-                        "instalada"
-                    )
-                    if listas:
+                    # Lo mismo que con la firma. «Se ha comprobado que ese
+                    # certificado lleve a una autoridad de confianza» salía
+                    # también con `CADENA-DESCONOCIDA` en el informe, que es un
+                    # aviso y deja el veredicto en «sin errores»: la frase
+                    # prometía justo lo que el aviso de encima negaba.
+                    if self.con_cadena_que_llega:
                         mirado.append(
-                            "que no lo hayan anulado, según las listas de "
-                            "revocación instaladas"
+                            "que ese certificado lleve a una autoridad de "
+                            "confianza instalada"
                         )
-                        # Lo que queda no es un defecto del validador: ninguna
-                        # lista sabe lo que pasó después de publicarse.
-                        sin_mirar.append(
-                            "si lo anularon después de la última lista que tengas"
+                        if listas:
+                            mirado.append(
+                                "que no lo hayan anulado, según las listas de "
+                                "revocación instaladas"
+                            )
+                            # Lo que queda no es un defecto del validador:
+                            # ninguna lista sabe lo que pasó después de
+                            # publicarse.
+                            sin_mirar.append(
+                                "si lo anularon después de la última lista que "
+                                "tengas"
+                            )
+                        else:
+                            sin_mirar.append(
+                                "si el certificado está anulado —hace falta la "
+                                "lista de revocación de su autoridad—"
+                            )
+                    sin_mirar.extend(
+                        self._de_cuantos(
+                            self.con_cadena_que_no_llega,
+                            "de quién es el certificado",
                         )
-                    else:
-                        sin_mirar.append(
-                            "si el certificado está anulado —hace falta la lista "
-                            "de revocación de su autoridad—"
-                        )
+                    )
                 else:
                     # Decir «firma comprobada» a secas dejaría creer que también
                     # se sabe de quién es, que es la mitad que más importa.
@@ -546,21 +629,23 @@ class InformeLote:
             # El porqué no se repite aquí: son cuatro motivos distintos y cada
             # documento lleva el suyo escrito en su aviso. Esta frase solo
             # tiene que dejar de apuntarse la comprobación.
-            cuantas = self.con_firma_sin_comprobar
-            if cuantas and len(self.informes) == 1:
-                sin_mirar.append("la firma de este documento —su aviso dice por qué—")
-            elif cuantas == 1:
-                sin_mirar.append(
-                    "la firma de uno de los documentos —su aviso dice por qué—"
-                )
-            elif cuantas:
-                sin_mirar.append(
-                    f"la firma de {cuantas} de los documentos —sus avisos dicen "
-                    "por qué—"
-                )
+            sin_mirar.extend(
+                self._de_cuantos(self.con_firma_sin_comprobar, "la firma")
+            )
         else:
             sin_mirar.append("la validez de las firmas electrónicas")
+        if EDIFACT in familias:
+            sin_mirar.append("el código único de las facturas EDIFACT")
         sin_mirar.append("si lo que dice la factura es cierto")
+        if not mirado:
+            # Solo pasa si no se ha podido leer ningún fichero: cualquiera que
+            # se lea como factura aporta al menos sus reglas. Antes esto no
+            # podía pasar, porque el código único se prometía siempre —hasta
+            # sobre un lote de ficheros que no existían—.
+            return (
+                "No se ha comprobado nada: ninguno de los ficheros se ha podido "
+                "leer como factura."
+            )
         return (
             "«Sin errores» quiere decir que se ha comprobado "
             + ", ".join(mirado)
@@ -569,15 +654,29 @@ class InformeLote:
             + "."
         )
 
+    def _de_cuantos(self, cuantos: int, que: str) -> list[str]:
+        """«la firma de este documento —su aviso dice por qué—», y sus plurales.
+
+        El porqué no se repite en la frase: cada documento lo lleva escrito en
+        su aviso, y son varios motivos distintos.
+        """
+        if not cuantos:
+            return []
+        if len(self.informes) == 1:
+            return [f"{que} de este documento —su aviso dice por qué—"]
+        if cuantos == 1:
+            return [f"{que} de uno de los documentos —su aviso dice por qué—"]
+        return [f"{que} de {cuantos} de los documentos —sus avisos dicen por qué—"]
+
     def detalle(
         self, forma: bool = True, anclas: bool = False, listas: bool = False
     ) -> str:
         senialados = self.senialados
         lineas: list[str] = []
-        for camino, informe in self.informes:
+        for camino, informe, nombre in self.nombrados:
             lineas.append(str(camino))
             resumen = informe.resumen()
-            if camino.name in senialados and informe.conforme:
+            if nombre in senialados and informe.conforme:
                 # Decirlo aquí y no solo al final. Quien revisa un lote de
                 # doscientos ficheros lee la línea de cada uno; si esta dice
                 # «sin errores» a secas, no vuelve a bajar a mirar.
@@ -605,12 +704,58 @@ def _sangrar(texto: str, margen: str) -> str:
     return "\n".join(margen + linea for linea in texto.splitlines())
 
 
+def nombres_unicos(
+    caminos: list[Path], dados: list[str] | None = None
+) -> list[str]:
+    """Un nombre por fichero, corto y sin que se repita ninguno.
+
+    El de la ruta, o el que se da. Si dos rutas distintas acaban igual, se sube
+    por sus carpetas hasta que se distingan —`a/factura.xml` y
+    `b/factura.xml`—, que es lo que quien lee reconoce. Lo que siga repetido
+    después —la misma ruta dos veces, o dos nombres dados iguales— se numera:
+    `factura.xml (2)`. Numerado y no fundido, porque son dos entradas del lote
+    y cada una tiene su informe.
+    """
+    if dados is not None and len(dados) != len(caminos):
+        raise ValueError(
+            f"hay {len(caminos)} ficheros y {len(dados)} nombres para ellos"
+        )
+    nombres = list(dados) if dados is not None else [c.name for c in caminos]
+    if dados is None:
+        hondo = max((len(c.parts) for c in caminos), default=1)
+        for cuantas in range(2, hondo + 1):
+            # Solo se sube por un nombre que llevan rutas **distintas**. La
+            # misma ruta dos veces no se distingue subiendo —se llegaba a la
+            # ruta entera, `C:/Users/...`, y seguían iguales—: esa se numera.
+            rutas: dict[str, set[Path]] = {}
+            for camino, nombre in zip(caminos, nombres):
+                rutas.setdefault(nombre, set()).add(camino)
+            repetidos = {n for n, cuales in rutas.items() if len(cuales) > 1}
+            if not repetidos:
+                break
+            nombres = [
+                Path(*c.parts[-cuantas:]).as_posix() if n in repetidos else n
+                for c, n in zip(caminos, nombres)
+            ]
+    usados: set[str] = set()
+    salida = []
+    for nombre in nombres:
+        propuesto, vez = nombre, 1
+        while propuesto in usados:
+            vez += 1
+            propuesto = f"{nombre} ({vez})"
+        usados.add(propuesto)
+        salida.append(propuesto)
+    return salida
+
+
 def validar_lote(
     rutas: list[str | Path],
     hoy: date | None = None,
     catalogo: Catalogo | None = None,
     almacen: Almacen | None = None,
     listas: AlmacenDeListas | None = None,
+    nombres: list[str] | None = None,
 ) -> InformeLote:
     """Valida varios ficheros y además los compara entre sí.
 
@@ -618,8 +763,13 @@ def validar_lote(
     de todos los ficheros para las reglas de conjunto. Esa segunda pasada es la
     razón de ser de esta función: un duplicado entre dos ficheros no puede
     detectarlo ninguno de los dos por separado.
+
+    `nombres` es cómo se llama cada fichero para quien lee, si no es el de su
+    ruta: en el navegador la ruta es la del disco virtual y el nombre, el que
+    tenía en el ordenador de quien lo soltó.
     """
-    lote = InformeLote()
+    caminos = [Path(ruta) for ruta in rutas]
+    lote = InformeLote(nombres=nombres_unicos(caminos, nombres))
     # Un solo catalogo para todo el lote: asi el esquema se compila una vez y
     # no una por fichero, que es lo que de verdad cuesta.
     catalogo = catalogo or Catalogo.por_defecto()
@@ -630,8 +780,7 @@ def validar_lote(
     todos: list[codigo_unico.CodigoUnico] = []
     procedencias: list[str] = []
 
-    for ruta in rutas:
-        camino = Path(ruta)
+    for camino, nombre in zip(caminos, lote.nombres, strict=True):
         try:
             datos = camino.read_bytes()
         except OSError as error:
@@ -645,7 +794,7 @@ def validar_lote(
             raiz, sintacticas = _arbol(datos, deteccion)
             informe = Informe(deteccion=deteccion)
             if deteccion:
-                incidencias, informe.firma = _reglas(
+                incidencias, informe.firma, informe.firmas_verificadas = _reglas(
                     raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
                 )
                 informe.incidencias.extend(incidencias)
@@ -662,7 +811,7 @@ def validar_lote(
         if codigo_unico.obligado_en_espania(raiz, deteccion):
             for codigo in codigo_unico.extraer_de(raiz, deteccion):
                 todos.append(codigo)
-                procedencias.append(camino.name)
+                procedencias.append(nombre)
 
     # Solo interesa lo que cruza ficheros. Lo que ya dijo el informe de un
     # fichero sobre sus propias facturas no se repite aquí.

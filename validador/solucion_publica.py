@@ -56,7 +56,6 @@ Lo que no se comprueba está en `NO_SE_COMPRUEBA`, con el porqué de cada cosa.
 from __future__ import annotations
 
 import re
-from decimal import Decimal, InvalidOperation
 
 from validador import cius_es
 from validador.en16931 import _UNCL1001
@@ -64,7 +63,7 @@ from validador.formato import MARCADOR_CIUS_ES, UBL
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 from validador.listas_de_codigos import lista
 from validador.modelo import grupos
-from validador.sintaxis import NS_CIUS_ES, POR_ID, SIN_MAPA, SINTAXIS_UBL
+from validador.sintaxis import NS_CIUS_ES, POR_ID, SIN_MAPA, SINTAXIS_UBL, a_decimal
 
 __all__ = ["AnexoCambiado", "NO_SE_COMPRUEBA", "declara_el_cius", "reglas"]
 
@@ -680,11 +679,10 @@ def _importe_pagado(raiz) -> list[Incidencia]:
     incidencias: list[Incidencia] = []
     for pagado in _nodos(raiz, SINTAXIS_UBL.anticipos):
         escrito = _escrito(pagado)
-        try:
-            if Decimal(escrito) == 0:
-                continue
-        except InvalidOperation:
-            # Un importe que no es un número es cosa del esquema.
+        valor = a_decimal(escrito)
+        # Un importe que no es un número es cosa del esquema. «NaN» también:
+        # con `Decimal` a secas no era igual a cero y salía acusado de no serlo.
+        if valor is None or valor == 0:
             continue
         incidencias.append(
             Incidencia(

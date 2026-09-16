@@ -395,6 +395,17 @@ def _revisar_pyodide(carpeta: Path) -> list[str]:
 # Así que al montar el sitio se deja escrito cuál es.
 NOMBRE_DE_LA_RUEDA = "rueda.json"
 
+# Lo que deja cada montaje en la carpeta que monta, y lo primero que escribe.
+# Montar empieza por borrar la carpeta entera, y sin esto la borraba **fuera la
+# que fuera**: `--sitio ..` lanzado desde Factura-e se llevaba la carpeta de
+# trabajo, con `Proyecto 1` dentro, y salía con código 0. Ahora solo se borra
+# una carpeta vacía o una que lleve este testigo, o sea, una que montó esto.
+#
+# Se escribe nada más crear la carpeta y no al final, a propósito: un montaje
+# que se para a medias tiene que poder repetirse sin que haya que borrar a mano
+# lo que dejó.
+TESTIGO_DEL_SITIO = ".montado-por-glosa"
+
 # Quién sabe dónde están el wheel y las facturas de ejemplo. Lo saben las dos
 # páginas —la herramienta y el banco—, y por eso está escrito una sola vez en
 # el cargador que las dos cargan: dos copias son la forma de que un día
@@ -491,6 +502,47 @@ class SinPagina(Exception):
 
 class RuedaVieja(Exception):
     """El wheel de `dist/` no es el del código que hay ahora mismo."""
+
+
+class NoEsUnSitio(Exception):
+    """La carpeta de destino tiene cosas y no las ha montado `--sitio`."""
+
+
+def _se_puede_borrar(destino: Path) -> None:
+    """Se niega a borrar lo que no ha montado esto. Ver `TESTIGO_DEL_SITIO`.
+
+    Tres negativas. Un fichero no es una carpeta de sitio. La carpeta desde la
+    que se trabaja, o una que la contenga, no se borra **nunca**, lleve lo que
+    lleve: es el caso que más destroza y el único que no se arregla montando
+    otra vez. Y una carpeta con cosas dentro solo se borra si lleva el testigo.
+    """
+    if not destino.exists():
+        return
+    if not destino.is_dir():
+        raise NoEsUnSitio(
+            f"«{destino}» es un fichero, no una carpeta. Montar el sitio empieza "
+            "por borrar el destino, y esto no se borra."
+        )
+    real = destino.resolve()
+    aqui = Path.cwd().resolve()
+    if real == aqui or real in aqui.parents:
+        raise NoEsUnSitio(
+            f"«{destino}» es la carpeta desde la que se trabaja, o una que la "
+            "contiene. Montar el sitio empieza por borrar el destino entero, y "
+            "eso se llevaría el repositorio. Elige una carpeta nueva, como "
+            "`sitio`."
+        )
+    if not any(destino.iterdir()):
+        return
+    if (destino / TESTIGO_DEL_SITIO).is_file():
+        return
+    raise NoEsUnSitio(
+        f"«{destino}» tiene cosas dentro y no las ha montado `--sitio`: no lleva "
+        f"el testigo «{TESTIGO_DEL_SITIO}» que deja cada montaje. Montar empieza "
+        "por borrar la carpeta entera, así que no se toca. Si es un sitio montado "
+        "antes de que existiera el testigo, bórrala a mano una vez; si no, elige "
+        "otra carpeta."
+    )
 
 
 class SinPaquete(Exception):
@@ -1055,9 +1107,15 @@ def montar_sitio(
     if (pagina / bitacora.CARPETA).is_dir():
         bitacora.leer_entradas(pagina / bitacora.CARPETA)
 
+    _se_puede_borrar(destino)
     if destino.exists():
         shutil.rmtree(destino)
     (destino / "dist").mkdir(parents=True)
+    (destino / TESTIGO_DEL_SITIO).write_text(
+        "Esta carpeta la monta `python -m validador --sitio`, y se borra entera "
+        "al volver a montarla.\n",
+        encoding="utf-8",
+    )
     (destino / "ejemplos").mkdir(parents=True)
 
     codigo = cargador.read_text(encoding="utf-8")

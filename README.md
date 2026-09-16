@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1972 tests, todos en verde.
+2168 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1352,6 +1352,21 @@ se conoce, una canonicalización que no se sabe reproducir, un `SignedInfo` que
 no está en su sitio, un certificado ilegible— y cada documento lleva el suyo
 escrito. Una firma que se ha mirado y está rota **sí** cuenta como comprobada:
 ahí la promesa se cumple, y de que esté rota se queja el error.
+
+Lo mismo con la cadena, desde el 16-09-2026. «Se ha comprobado que ese
+certificado lleve a una autoridad de confianza instalada» salía en cuanto había
+anclas puestas, también con `CADENA-DESCONOCIDA` en el informe: un aviso, así
+que el veredicto seguía siendo «sin errores» debajo de una frase que prometía
+lo que el aviso negaba. Ahora se promete si **todas** las firmas que se
+sostienen llegan a un ancla —se cuenta una nota de confianza por firma—, y los
+documentos que no llegan van al otro lado: «no se comprueba de quién es el
+certificado de este documento —su aviso dice por qué—».
+
+Y el código único se promete solo donde se mira: en UBL, CII y Facturae. De un
+EDIFACT no se saca, y la frase decía haberlo comprobado sobre dos copias
+idénticas que salían «2 correctos». Con EDIFACT en el lote, ahora dice que el
+suyo no se comprueba; y un lote en el que no se ha podido leer nada dice «no se
+ha comprobado nada», que antes salía como «se ha comprobado el código único».
 
 ### Una firma auténtica sobre otra cosa
 

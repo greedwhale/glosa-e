@@ -3469,3 +3469,131 @@ grande. Sin caché a propósito.
 ni `keyUsage` se sigue aceptando como emisor —RFC 5280 dice que no—, las
 extensiones críticas de un certificado no se aplican, y el `keyUsage` de la
 hoja no se mira. Es la revisión de `cadena.py`, no la de `firma.py`.
+
+
+## Cinco puertas que se abrían solas: la parte alta de la auditoría
+
+Los puntos 4 a 8 de la auditoría del 15-09-2026. Ninguno falsifica una factura,
+como los tres primeros; todos hacen algo peor de lo que prometen sin decirlo.
+Los cinco se reprodujeron antes de tocar nada.
+
+### 4. `--sitio` borraba la carpeta que se le dijera
+
+**Qué pasaba.** Montar el sitio empieza por `shutil.rmtree(destino)`, sin mirar
+qué es el destino. Probado en una carpeta temporal que hacía de carpeta de
+trabajo, con un `anclas/` y un `Proyecto 1/` dentro: los dos borrados, y código
+de salida 0. Un `--sitio ..` lanzado desde Factura-e hacía eso de verdad.
+
+**Arreglado**: cada montaje deja un testigo, `.montado-por-glosa`, y lo deja
+**lo primero**, para que un montaje que se para a medias se pueda repetir. Solo
+se borra una carpeta vacía o una con el testigo; la carpeta desde la que se
+trabaja, o una que la contenga, no se borra nunca, lleve lo que lleve. La
+misma prueba de antes sale ahora con código 2, `NoEsUnSitio`, y los dos
+ficheros en su sitio.
+
+Un sitio montado antes de que existiera el testigo también se niega: se borra a
+mano una vez. Aceptarlo por parecerse a un sitio habría sido acordarse de algo
+para siempre.
+
+### 5. La puerta de producción, con nueve maneras de pasar
+
+**Qué pasaba.** El gancho de Claude Code corría la suite antes de un push, y
+decidía si la orden era un push con una expresión regular. No reconocía
+`git -C . push`, `git -c x=y push`, `git.exe push` ni la ruta entera de git; un
+`--dry-run` en cualquier parte lo apagaba, hasta en un comentario; solo miraba
+el primer `cd`. Al reproducirlo salieron dos más: `Set-Location` de PowerShell
+y `git send-pack`. Y dos de fondo: probaba la carpeta, no lo que se empujaba, y
+**un push desde la consola no pasaba por él**. Vercel no corre las pruebas.
+
+**Arreglado cambiando quién guarda la puerta.** La suite la corre ahora git, en
+`.githooks/pre-push`, que git llama en todo push de la copia —desde Claude
+Code, desde la consola, con un alias—, con las referencias que se empujan por
+la entrada. Se niega si lo empujado no es HEAD o si hay cambios sin commit, y
+así lo probado es lo publicado; y si la suite no pasa, se cuelga o no arranca.
+
+Medido con git 2.55 en un repositorio de usar y tirar antes de escribirlo:
+git llama al gancho también con `--dry-run`, y **no** lo llama con
+`--no-verify` ni con `git send-pack`. Eso es lo que queda para el gancho de
+Claude Code, que pasa a portero: se niega a esas dos, a cualquier orden que
+toque `core.hooksPath` —con `-c`, con `--config-env`, con
+`GIT_CONFIG_PARAMETERS`, con `git config`— salvo para ponerlo en `.githooks`,
+a un alias con `--no-verify` dentro, y a empujar Factura-e mientras el gancho
+de git no esté puesto. Con los otros proyectos de la carpeta no se mete.
+
+`core.hooksPath` es configuración local y no viaja: está puesto en esta copia,
+y `CLAUDE.md` dice cómo ponerlo y cómo provocarlo. Provocado aquí, empujando a
+un repositorio desnudo temporal con la carpeta sin commit: se niega en 0,8 s.
+
+### 6. Dos ficheros que se llamaban igual eran uno
+
+**Qué pasaba.** El lote identificaba cada fichero por `camino.name`. En
+consola, con `a/factura.xml` y `b/factura.xml` duplicados y `c/factura.xml`
+distinto: «0 correctos, 3 con errores», y la queja decía «las dos vienen en
+factura.xml». En el navegador era peor: el nombre se limpia antes de escribirlo
+en el disco virtual, `factura ñ.xml` y `factura ç.xml` acababan los dos en
+`factura__.xml`, el segundo pisaba al primero y **el primero no se validaba
+nunca**.
+
+**Arreglado**: cada fichero tiene un nombre único en el lote. De la ruta se
+sube por las carpetas hasta que se distinguen —`a/factura.xml`—; lo que sigue
+repetido se numera. En el navegador cada fichero va a su propia carpeta y el
+informe usa el nombre que tenía en el ordenador de quien lo soltó. La consola
+dice ahora «1 correcto, 2 con errores» y nombra `a/` y `b/`.
+
+### 7. Un importe raro se llevaba el informe entero
+
+**Qué pasaba.** `Decimal` lee «NaN», «Infinity» y números de treinta cifras
+sin quejarse. La primera comparación o el primer redondeo a céntimos lanzaba
+`InvalidOperation` y salía «no se ha podido validar»: se perdía la forma, la
+firma, todo, por un campo. La sonda de la auditoría cambia cada número de los
+ejemplos por diez valores raros: **198 combinaciones** tumbaban el informe.
+
+**Arreglado en dos sitios.** El lector de números solo acepta la forma de
+`xs:decimal` —signo, cifras y un punto—, que es también la de los patrones de
+Facturae: lo demás se lee como lo que es, texto que no es un número, y de eso
+se queja el esquema, sin una segunda queja de aritmética hecha con él. Y las
+reglas corren con 400 cifras de precisión, en un contexto local, así que un
+importe de treinta cifras —válido para `xs:decimal`— se mide en vez de
+reventar. Aquí solo se multiplica, se suma y se divide entre potencias de diez:
+la precisión no alarga ninguna cifra que se enseñe.
+
+La misma sonda: **0 combinaciones**. Lo que cuesta, medido alternando las dos
+precisiones: los siete ejemplos, 1.422–1.430 ms con 400 y 1.412–1.433 ms con
+28; una factura de 1.000 líneas, 4.121 ms y 4.112–4.124 ms. No se distingue del
+ruido.
+
+### 8. «Qué se ha mirado» prometía lo que no se miró
+
+**Qué pasaba.** Tres promesas falsas en la frase que dice cuánto vale el «sin
+errores»:
+
+```
+1. dos copias de un EDIFACT     «2 correctos», y la frase: «se ha comprobado el código único»
+2. firma con CADENA-DESCONOCIDA  la frase: «que ese certificado lleve a una autoridad de confianza»
+3. ficheros que no existen       la frase: «se ha comprobado el código único»
+```
+
+**Arreglado**: el código único se promete solo si hay alguna factura UBL, CII o
+Facturae; con EDIFACT se dice que su código único no se comprueba. Que la
+cadena llega se promete solo si llega, contado por firma —una nota de
+confianza por cada firma que se sostiene— y lo que no llega va al otro lado:
+«no se comprueba de quién es el certificado de este documento —su aviso dice
+por qué—». Y un lote sin nada legible dice «no se ha comprobado nada», en vez
+de una frase que acababa en «se ha comprobado .».
+
+Tres pruebas pedían la promesa falsa y se han cambiado: una de `test_cadena`,
+una de `test_paquete` y una comprobación del banco, las tres sobre el ejemplo
+firmado, cuya cadena no llega a ninguna de las anclas del paquete.
+
+### Lo que se probó, y cómo
+
+Cada uno reproducido primero, con la prueba de concepto de la auditoría o una
+nueva. Después, **42 roturas provocadas** con un guion que mete cada fallo, corre
+las pruebas que lo tienen que cazar y lo deshace: 4 del punto 4, 18 del 5, 7 del
+6, 6 del 7 y 7 del 8. Las 42 en rojo. Dos salieron en verde la primera vez y
+destaparon pruebas que no probaban nada: la de que la precisión no se queda
+cambiada leía el «antes» ya contaminado por otra prueba, y ninguna tenía un
+documento con dos firmas de las que solo llegara una. Las dos se rehicieron
+hasta ponerse en rojo.
+
+La suite entera, 2168 pruebas, en verde.

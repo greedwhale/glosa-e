@@ -573,9 +573,14 @@ class TestSobreUnaFacturaDeVerdad:
         lote = factura.validar_lote([EJEMPLO], almacen=Almacen(tmp_path))
         sin = lote.alcance(forma=False, anclas=False)
         con = lote.alcance(forma=False, anclas=True)
-        assert "de quién es el certificado" in sin
-        assert "autoridad de confianza instalada" in con
-        assert "autoridad de confianza instalada" not in sin
+        assert "necesita anclas de confianza instaladas" in sin
+        assert "necesita anclas de confianza instaladas" not in con
+        # Y con anclas tampoco promete que la cadena llegue: la del ejemplo no
+        # llega a ninguna, y hasta el 16-09-2026 esta prueba pedía justo esa
+        # promesa. Lo que se dice es que no se sabe de quién es, y dónde mirar
+        # por qué. Que la promesa sale cuando sí llega lo prueba `test_firma`.
+        assert "autoridad de confianza instalada" not in con
+        assert "de quién es el certificado de este documento" in con
 
     def test_un_documento_sin_firma_no_dice_nada_de_cadenas(self, tmp_path):
         from validador import factura

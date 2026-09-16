@@ -29,3 +29,10 @@
 # sacarla no romperia la huella —se calcula normalizada—, pero la copia dejaria
 # de ser byte a byte la que publica la Comision, que es lo que dice ser.
 tests/en16931-oficial/** -text
+
+# El gancho de git que corre las pruebas antes de publicar. Lo ejecuta el `sh`
+# de git, y con CRLF la primera linea deja de ser `#!/bin/sh` para ser
+# `#!/bin/sh` mas un retorno de carro: con `core.autocrlf` puesto —lo esta en
+# esta maquina—, una copia nueva sacaria el gancho con CRLF y el push fallaria
+# sin llegar a probar nada. Con LF siempre, se saque donde se saque.
+.githooks/pre-push   text eol=lf

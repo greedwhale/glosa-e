@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from decimal import ROUND_FLOOR, Decimal, InvalidOperation
+from decimal import ROUND_FLOOR, Decimal, InvalidOperation, localcontext
 
 from validador import cius_es
 
@@ -1424,12 +1424,62 @@ def texto(nodo, ruta: str, sintaxis: Sintaxis) -> str | None:
 
 
 def a_decimal(bruto: str | None) -> Decimal | None:
+    """Un número del documento, o `None` si no se deja leer como uno.
+
+    **Solo finitos.** `Decimal` acepta «NaN», «sNaN», «Infinity» y
+    «-Infinity», y los devolvía tan contento. Luego la primera comparación o el
+    primer redondeo lanzaba `InvalidOperation` y se llevaba el informe entero
+    —la forma, la firma, todo—, con un «no se ha podido validar» por un solo
+    campo. Ninguno de los cuatro es un número para ningún esquema de los que se
+    leen aquí —`xs:decimal` no los admite y el patrón de Facturae tampoco—, así
+    que se leen como lo que son, texto que no es un número, y de eso se queja
+    el XSD.
+
+    **Y solo con la forma de `xs:decimal`**: signo, cifras y un punto. `Decimal`
+    lee también «1E+500» y «1_000.00», que tampoco son números para ningún
+    esquema: el XSD se quejaba de la forma y a la vez las reglas hacían cuentas
+    con ellos y se quejaban de la aritmética. Y en Facturae, «1E+500» redondeado
+    a céntimos volvía a pasar de la precisión y a tumbar el informe.
+    """
     if bruto is None:
         return None
+    limpio = bruto.strip()
+    if not _FORMA_DE_DECIMAL.fullmatch(limpio):
+        return None
     try:
-        return Decimal(bruto.strip())
+        return Decimal(limpio)
     except InvalidOperation:
         return None
+
+
+# La forma léxica de `xs:decimal` (XML Schema 1.0, 3.2.3.1), que es también la
+# de los patrones de Facturae: sin exponente, sin guiones bajos, sin «NaN».
+# `[0-9]` y no `\d`, que en Python casa también con cifras de otras escrituras.
+_FORMA_DE_DECIMAL = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)")
+
+
+# La precisión con la que corren las reglas. La de `Decimal` por defecto son 28
+# cifras, y un importe de treinta —válido para `xs:decimal`, que no pone
+# límite— hacía lanzar `InvalidOperation` al primer redondeo a céntimos: otra
+# vez el informe entero perdido por un campo.
+#
+# Aquí solo se multiplica, se suma y se divide entre potencias de diez, así que
+# una precisión amplia no alarga ninguna cifra que se enseñe: solo deja de
+# reventar. Con 400 caben productos de tres factores de más de cien cifras cada
+# uno —cantidad por precio por tipo—, que ya no son una factura. Lo que pase de
+# ahí sigue reventando, y reventar ahí es lo honrado: sale «no se ha podido
+# validar» en vez de un «sin errores» sobre cuentas que no se han hecho.
+PRECISION_DE_LAS_CUENTAS = 400
+
+
+def cuentas():
+    """El contexto decimal con el que se aplican las reglas. Ver arriba.
+
+    Local y no puesto a mano en `getcontext()`: en el navegador el intérprete
+    sigue vivo entre factura y factura, y un contexto cambiado para siempre es
+    estado que se arrastra.
+    """
+    return localcontext(prec=PRECISION_DE_LAS_CUENTAS)
 
 
 def importe(nodo, ruta: str, sintaxis: Sintaxis) -> Decimal | None:

@@ -1,0 +1,17 @@
+#!/bin/sh
+# La puerta de producción, puesta en git y no en quien teclea el push.
+#
+# Un push a `main` lo construye Vercel y lo publica, y Vercel no corre las
+# pruebas. Hasta el 16-09-2026 la única puerta era un gancho de Claude Code que
+# leía la orden escrita: un `git -C . push`, un `git.exe push` o un push hecho
+# desde la consola de siempre publicaban sin probar nada. Git, en cambio, llama
+# a este fichero en **todo** push de esta copia, lo escriba quien lo escriba y
+# se llame como se llame la orden.
+#
+# Se activa una vez por copia del repositorio, porque la configuración de git
+# no viaja con él:
+#
+#     git config core.hooksPath .githooks
+#
+# El gancho de Claude Code se niega a empujar Factura-e mientras no esté puesto.
+exec ./.venv/Scripts/python.exe .githooks/antes-de-empujar.py "$@"

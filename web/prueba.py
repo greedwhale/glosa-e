@@ -1196,10 +1196,20 @@ def _():
     )
     dice = lote.alcance(forma=not catalogo.vacio, anclas=not almacen.vacio)
     assert ("esquema XSD" in dice) == (not catalogo.vacio), dice
-    assert ("autoridad de confianza instalada" in dice) == (not almacen.vacio), dice
-    return "promete %s la forma y %s las anclas" % (
+    # Con anclas puestas no puede echarlas de menos, y sin ellas no puede
+    # callarse que faltan.
+    assert ("necesita anclas de confianza instaladas" in dice) == almacen.vacio, dice
+    # Y que la cadena llega solo se promete si llega. Hasta el 16-09-2026 esto
+    # pedia la promesa en cuanto habia anclas, y la cadena del ejemplo no llega
+    # a ninguna: la comprobacion daba por bueno justo lo que era falso.
+    llega = lote.con_cadena_que_llega > 0
+    assert ("autoridad de confianza instalada" in dice) == (
+        not almacen.vacio and llega
+    ), dice
+    return "promete %s la forma; anclas %s, y la cadena del ejemplo %s" % (
         "si" if not catalogo.vacio else "no",
-        "si" if not almacen.vacio else "no",
+        "puestas" if not almacen.vacio else "sin poner",
+        "llega" if llega else "no llega, y lo dice",
     )
 
 

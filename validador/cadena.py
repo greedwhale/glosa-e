@@ -662,6 +662,13 @@ def _describir(cadena: Cadena) -> str:
     return " ← ".join(c.sujeto or "(sin nombre)" for c in cadena.eslabones)
 
 
+# La nota que sale cuando la cadena de una firma llega a un ancla, y solo
+# entonces: hay una por cada firma que llega. Con nombre porque la frase del
+# final del informe cuenta cuántas salen para no prometer que una cadena llegó
+# cuando lo que salió fue `CADENA-DESCONOCIDA`.
+NOTA_DE_CONFIANZA = "CONFIANZA-ANCLA"
+
+
 def _nota_de_confianza(cadena: Cadena, almacen: Almacen, donde: str) -> Incidencia:
     """Declarar en qué se ha confiado, cuando la cadena llega.
 
@@ -704,6 +711,10 @@ def _nota_de_confianza(cadena: Cadena, almacen: Almacen, donde: str) -> Incidenc
             f"La firma de «{quien}» llega a «{arriba}» en "
             f"{len(cadena.eslabones)} eslabones."
         )
+    # El código escrito aquí y no con `NOTA_DE_CONFIANZA`: el catálogo publicado
+    # lee los códigos del fuente, y con la constante esta nota desaparecía de
+    # él. Que las dos cosas digan lo mismo lo vigilan las pruebas de la frase
+    # del final: si no coinciden, ninguna cadena cuenta como que llega.
     return Incidencia(
         "CONFIANZA-ANCLA",
         NOTA,

@@ -57,9 +57,10 @@ mantener cinco copias de lo mismo.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from validador import paises
+from validador.sintaxis import a_decimal
 from validador.formato import FACTURAE, Deteccion
 from validador.incidencias import AVISO, ERROR, Incidencia
 
@@ -136,16 +137,14 @@ def _texto(nodo, *nombres: str) -> str | None:
 
 
 def _numero(nodo, *nombres: str) -> Decimal | None:
-    crudo = _texto(nodo, *nombres)
-    if crudo is None:
-        return None
-    try:
-        return Decimal(crudo)
-    except InvalidOperation:
-        # Que el importe no sea un número es un problema de forma, y de eso ya
-        # se queja el XSD con su propio mensaje. Aquí lo que toca es callarse y
-        # no comprobar esa suma, no inventar una segunda queja peor redactada.
-        return None
+    # Que el importe no sea un número es un problema de forma, y de eso ya se
+    # queja el XSD con su propio mensaje. Aquí lo que toca es callarse y no
+    # comprobar esa suma, no inventar una segunda queja peor redactada.
+    #
+    # Con el mismo lector que las otras sintaxis y no con `Decimal` a secas:
+    # aquel dejaba pasar «NaN» e «Infinity», y el primer redondeo se llevaba
+    # por delante el informe entero. Ver `sintaxis.a_decimal`.
+    return a_decimal(_texto(nodo, *nombres))
 
 
 def _o_cero(nodo, *nombres: str) -> Decimal:

@@ -86,33 +86,49 @@ detrás del `.whl`).
 
 ## Los ganchos, y por qué el cableado no viaja con ellos
 
-Hay dos, los dos `PreToolUse`, los dos bloquean con **código 2**:
+Hay tres. La suite antes de publicar la corre **git**, no Claude Code:
 
 | Gancho | Dispara con | Hace |
 |---|---|---|
-| `.claude/hooks/antes-de-empujar.py`, versionado | `Bash`, `PowerShell` | ante un `git push`, corre la suite antes y no deja publicar en rojo (36 s medidos el 2026-08-30; `--dry-run` se aparta, que no publica). **Y no deja publicar tampoco cuando no puede comprobar**: la suite colgada, el intérprete que no arranca o una entrada que no se deja leer salen con 2, no con 1. Hasta el 06-09-2026 salían con 1 y el push pasaba *después* de que el gancho fallara |
-| `.claude/hooks/guardian-de-rutas.py` de la **carpeta de trabajo**, fuera del repositorio | `Write`, `Edit`, `NotebookEdit` | se niega a escribir en lo que no se toca, y solo dentro de `C:\Users\PC\Claude\`, para no estorbar en otros proyectos de la máquina |
+| `.githooks/pre-push` → `.githooks/antes-de-empujar.py`, versionados | **todo** `git push` de esta copia: Claude Code, la consola, un alias, un guion | se niega si lo que se empuja no es HEAD o hay cambios sin commit —lo probado tiene que ser lo publicado—, y si la suite no pasa, se cuelga o no arranca. Git cancela con cualquier código distinto de 0. Corre también con `--dry-run`: git no le dice que es un ensayo |
+| `.claude/hooks/antes-de-empujar.py`, versionado, `PreToolUse` | `Bash`, `PowerShell` | el **portero**: con código 2, no deja que una orden sobre Factura-e se salte a git —`--no-verify`, `git send-pack`, tocar `core.hooksPath`, un alias con `--no-verify`— ni empujar mientras el gancho de git no esté puesto |
+| `.claude/hooks/guardian-de-rutas.py` de la **carpeta de trabajo**, fuera del repositorio, `PreToolUse` | `Write`, `Edit`, `NotebookEdit` | se niega a escribir en lo que no se toca, y solo dentro de `C:\Users\PC\Claude\`, para no estorbar en otros proyectos de la máquina |
 
-**Se declaran en los ajustes de usuario**, `C:\Users\PC\.claude\settings.json`,
-no en los del proyecto. La razón está medida: con la declaración en
-`C:\Users\PC\Claude\.claude\settings.json` —la carpeta de trabajo—, una
-sesión arrancada en `Factura-e` no los cargaba y los dos dejaban pasar todo.
-Los ajustes de proyecto se leen de la raíz de la sesión, no de sus ancestros;
-los de usuario se leen siempre.
+**Por qué la suite pasó a git** (16-09-2026). El gancho de Claude Code la
+corría él mismo y decidía leyendo la orden escrita con una expresión regular.
+La auditoría del 15-09-2026 le encontró nueve maneras de pasar —`git -C .
+push`, `git.exe push`, un `--dry-run` en un comentario, solo el primer `cd`—,
+que probaba la carpeta y no lo empujado, y que un push desde la consola no
+pasaba por él. Git llama a su gancho en todo push, se escriba como se escriba.
 
-**El script viaja con el repositorio; la declaración no.** En una máquina nueva
-`antes-de-empujar.py` está ahí y la puerta no existe: no falla, no avisa, y el
-push publica igual. Es el disfraz de siempre —sale todo verde y no es lo que
-crees que has probado—, así que **la única comprobación que vale es
-provocarlos**, no leer el `settings.json` ni fiarse de que el fichero exista:
+**Nada de esto viaja entero con el repositorio.** Los guiones sí; el cableado
+no:
+
+- `core.hooksPath` es configuración local de git. En una copia nueva hay que
+  ponerlo una vez: `git config core.hooksPath .githooks`. Sin él, un push desde
+  la consola publica sin probar; desde Claude Code, el portero se niega.
+- Los de Claude Code **se declaran en los ajustes de usuario**,
+  `C:\Users\PC\.claude\settings.json`, no en los del proyecto. Medido: con la
+  declaración en `C:\Users\PC\Claude\.claude\settings.json` —la carpeta de
+  trabajo—, una sesión arrancada en `Factura-e` no los cargaba y dejaban pasar
+  todo. Los ajustes de proyecto se leen de la raíz de la sesión, no de sus
+  ancestros; los de usuario se leen siempre.
+
+Es el disfraz de siempre —sale todo verde y no es lo que crees que has
+probado—, así que **la única comprobación que vale es provocarlos**, no leer la
+configuración ni fiarse de que los ficheros existan:
 
 ```
-git push remoto-que-no-existe main   # con gancho tarda ~36 s; sin él, uno
+git init --bare /tmp/prueba.git
+git push /tmp/prueba.git HEAD:refs/heads/prueba   # con un fichero sin commit: se niega en ~1 s
+git push --no-verify /tmp/prueba.git HEAD         # desde Claude Code: bloqueado por el portero
 ```
 
-y un `Write` a `sitio/loquesea` tiene que salir bloqueado. El panel de `/hooks`
-solo existe en la terminal interactiva, y allí tampoco prueba que corran:
-prueba que están escritos.
+Empujar a un repositorio desnudo de usar y tirar no publica nada. Ya no vale
+`git push remoto-que-no-existe`: git falla al buscar el remoto antes de llamar
+al gancho, con gancho o sin él. Y un `Write` a `sitio/loquesea` tiene que salir
+bloqueado. El panel de `/hooks` solo existe en la terminal interactiva, y allí
+tampoco prueba que corran: prueba que están escritos.
 
 ## Detalles operativos
 

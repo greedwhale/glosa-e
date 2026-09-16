@@ -499,7 +499,8 @@ if _a.declarada:
     _a = Almacen(_a.carpeta, 'que viene con esta pagina, ' + _a.declarada,
                  _a.sellos_en)
 _c = Catalogo.por_defecto()
-_lote = factura.validar_lote(list(_rutas), catalogo=_c, almacen=_a)
+_lote = factura.validar_lote(list(_rutas), catalogo=_c, almacen=_a,
+                             nombres=list(_nombres))
 
 def _inc(i):
     return {
@@ -510,13 +511,13 @@ def _inc(i):
 
 _senialados = _lote.senialados
 _docs = []
-for _camino, _informe in _lote.informes:
+for _camino, _informe, _nombre in _lote.nombrados:
     _docs.append({
-        "nombre": _camino.name,
+        "nombre": _nombre,
         "resumen": _informe.resumen(),
         "conforme": _informe.conforme,
         "validado": _informe.validado,
-        "choca": _camino.name in _senialados,
+        "choca": _nombre in _senialados,
         "incidencias": [_inc(i) for i in
                         # Por gravedad y de mayor a menor: lo que hay que
                         # arreglar primero, y las notas al final. Estaban en
@@ -544,15 +545,25 @@ json.dumps({
 // Valida ficheros del disco de quien mira. No salen de su ordenador: se
 // escriben en el disco virtual del navegador, que vive en su memoria.
 async function validar(ficheros) {
-  pyodide.FS.mkdirTree("/entrada");
   const rutas = [];
+  const nombres = [];
+  let orden = 0;
   for (const f of ficheros) {
-    // El nombre se limpia porque acaba siendo una ruta en el disco virtual.
-    const destino = "/entrada/" + f.name.replace(/[^\w.\-]/g, "_");
+    // El nombre se limpia porque acaba siendo una ruta en el disco virtual. Y
+    // cada fichero va en su propia carpeta, porque limpio deja de ser único:
+    // «factura ñ.xml» y «factura ç.xml» salían los dos «factura__.xml», el
+    // segundo pisaba al primero, y el primero no se validaba nunca —el informe
+    // traía dos veces el segundo, «sin errores», y un duplicado que no era—.
+    const carpeta = "/entrada/" + orden++;
+    pyodide.FS.mkdirTree(carpeta);
+    const destino = carpeta + "/" + f.name.replace(/[^\w.\-]/g, "_");
     pyodide.FS.writeFile(destino, new Uint8Array(await f.arrayBuffer()));
     rutas.push(destino);
+    // Y en el informe, el nombre que tenía en su ordenador, no el limpio.
+    nombres.push(f.name);
   }
   pyodide.globals.set("_rutas", rutas);
+  pyodide.globals.set("_nombres", nombres);
   return JSON.parse(await pyodide.runPythonAsync(INFORME));
 }
 
@@ -572,6 +583,7 @@ async function validarEjemplo(nombre) {
       "«" + nombre + "» no es una de las facturas que trae la pagina.");
   }
   pyodide.globals.set("_rutas", ["/ejemplos/" + nombre]);
+  pyodide.globals.set("_nombres", [nombre]);
   return JSON.parse(await pyodide.runPythonAsync(INFORME));
 }
 
