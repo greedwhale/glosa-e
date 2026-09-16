@@ -43,6 +43,8 @@ from validador.formato import (
     CII,
     EDIFACT,
     FACTURAE,
+    FIRMA_EN_PIE,
+    FIRMA_ROTA,
     UBL,
     Deteccion,
     detectar,
@@ -401,6 +403,37 @@ class InformeLote:
             for _, informe in self.informes
         )
 
+    @property
+    def con_firma_comprobada(self) -> int:
+        """Cuántos documentos traen una firma a la que se ha llegado a mirar.
+
+        Mirarla y que esté mal cuenta: lo que no cuenta es no haber sabido
+        mirarla. Nada que ver con `sin_comprobar`, que son los ficheros que no
+        se han podido abrir siquiera.
+        """
+        return sum(
+            1
+            for _, informe in self.informes
+            if informe.firma in (FIRMA_EN_PIE, FIRMA_ROTA)
+        )
+
+    @property
+    def con_firma_sin_comprobar(self) -> int:
+        """Cuántos traen firma y nadie ha podido decir si se sostiene.
+
+        Un algoritmo que aquí no se conoce, una canonicalización que no se sabe
+        reproducir, un `SignedInfo` que no está donde tiene que estar. Cada uno
+        lleva su aviso; esto es para que la frase del final no se apunte una
+        comprobación que sobre ellos no se ha hecho.
+        """
+        return sum(
+            1
+            for _, informe in self.informes
+            if informe.deteccion is not None
+            and informe.deteccion.firmado
+            and informe.firma not in (FIRMA_EN_PIE, FIRMA_ROTA)
+        )
+
     def alcance(
         self, forma: bool = True, anclas: bool = False, listas: bool = False
     ) -> str:
@@ -469,38 +502,61 @@ class InformeLote:
             )
         sin_mirar = []
         if self.firmados:
-            mirado.append(
-                "que las firmas no estén rotas: que nadie haya tocado el "
-                "documento desde que se firmó, y que la firma cuadre con el "
-                "certificado que trae dentro"
-            )
-            if anclas:
+            # Todo lo que esta frase promete de la firma cuelga de haber podido
+            # comprobar alguna. Con una firma que no se ha sabido mirar —basta
+            # un método de firma inventado—, decía «se ha comprobado que las
+            # firmas no estén rotas» sobre la única firma del lote, que nadie
+            # había mirado. El documento lo decía en su aviso y en su línea de
+            # estado; la frase que resume el informe entero se lo callaba, y es
+            # la que se lee para saber qué vale el «sin errores».
+            if self.con_firma_comprobada:
                 mirado.append(
-                    "que ese certificado lleve a una autoridad de confianza "
-                    "instalada"
+                    "que las firmas no estén rotas: que nadie haya tocado el "
+                    "documento desde que se firmó, y que la firma cuadre con el "
+                    "certificado que trae dentro"
                 )
-                if listas:
+                if anclas:
                     mirado.append(
-                        "que no lo hayan anulado, según las listas de "
-                        "revocación instaladas"
+                        "que ese certificado lleve a una autoridad de confianza "
+                        "instalada"
                     )
-                    # Lo que queda no es un defecto del validador: ninguna
-                    # lista sabe lo que pasó después de publicarse.
-                    sin_mirar.append(
-                        "si lo anularon después de la última lista que tengas"
-                    )
+                    if listas:
+                        mirado.append(
+                            "que no lo hayan anulado, según las listas de "
+                            "revocación instaladas"
+                        )
+                        # Lo que queda no es un defecto del validador: ninguna
+                        # lista sabe lo que pasó después de publicarse.
+                        sin_mirar.append(
+                            "si lo anularon después de la última lista que tengas"
+                        )
+                    else:
+                        sin_mirar.append(
+                            "si el certificado está anulado —hace falta la lista "
+                            "de revocación de su autoridad—"
+                        )
                 else:
+                    # Decir «firma comprobada» a secas dejaría creer que también
+                    # se sabe de quién es, que es la mitad que más importa.
                     sin_mirar.append(
-                        "si el certificado está anulado —hace falta la lista "
-                        "de revocación de su autoridad—"
+                        "de quién es el certificado ni si está revocado —lo "
+                        "primero necesita anclas de confianza instaladas, lo "
+                        "segundo salir a la red—"
                     )
-            else:
-                # Decir «firma comprobada» a secas dejaría creer que también se
-                # sabe de quién es, que es la mitad que más importa.
+            # El porqué no se repite aquí: son cuatro motivos distintos y cada
+            # documento lleva el suyo escrito en su aviso. Esta frase solo
+            # tiene que dejar de apuntarse la comprobación.
+            cuantas = self.con_firma_sin_comprobar
+            if cuantas and len(self.informes) == 1:
+                sin_mirar.append("la firma de este documento —su aviso dice por qué—")
+            elif cuantas == 1:
                 sin_mirar.append(
-                    "de quién es el certificado ni si está revocado —lo primero "
-                    "necesita anclas de confianza instaladas, lo segundo salir "
-                    "a la red—"
+                    "la firma de uno de los documentos —su aviso dice por qué—"
+                )
+            elif cuantas:
+                sin_mirar.append(
+                    f"la firma de {cuantas} de los documentos —sus avisos dicen "
+                    "por qué—"
                 )
         else:
             sin_mirar.append("la validez de las firmas electrónicas")

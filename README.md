@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-1965 tests, todos en verde.
+1972 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
@@ -1328,12 +1328,30 @@ tests—, y por eso el informe dice lo que no mira:
 
 ```
 No se comprueba de quién es el certificado ni si está revocado
-—para eso hace falta la lista de confianza europea y salir a la
-red—, ni si lo que dice la factura es cierto.
+—lo primero necesita anclas de confianza instaladas, lo segundo
+salir a la red—, ni si lo que dice la factura es cierto.
 ```
 
 Ese párrafo cambia solo cuando el lote trae firmas. Sobre uno sin firmar sería
 explicar qué mitad de algo que no hay se comprueba.
+
+Y cambia también **cuando alguna firma no se ha sabido comprobar**. La frase
+decía «se ha comprobado que las firmas no estén rotas» aunque la única firma
+del lote fuera una que nadie ha podido mirar: el documento lo decía en su línea
+de estado y en su aviso, y la frase que resume el informe entero se lo callaba.
+Ahora la promesa cuelga de haber comprobado alguna, y las que no se han sabido
+mirar se cuentan al otro lado:
+
+```
+No se comprueba la firma de este documento —su aviso dice por qué—,
+ni si lo que dice la factura es cierto.
+```
+
+El porqué no se repite ahí: son cuatro motivos distintos —un algoritmo que no
+se conoce, una canonicalización que no se sabe reproducir, un `SignedInfo` que
+no está en su sitio, un certificado ilegible— y cada documento lleva el suyo
+escrito. Una firma que se ha mirado y está rota **sí** cuenta como comprobada:
+ahí la promesa se cumple, y de que esté rota se queja el error.
 
 ### Una firma auténtica sobre otra cosa
 

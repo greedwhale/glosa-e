@@ -1006,6 +1006,59 @@ class TestLaLineaDeEstadoDiceEnQueQuedoLaFirma:
         assert "· firmado" not in detectar(documento()).resumen()
 
 
+class TestLaFraseDelFinalNoSeApuntaLoQueNoHaMirado:
+    """«Qué se ha mirado» es lo que dice cuánto vale el «sin errores».
+
+    Con una firma que no se ha sabido comprobar, la línea del documento y su
+    aviso lo decían, y esta frase —la que resume el informe entero— seguía
+    diciendo «se ha comprobado que las firmas no estén rotas».
+    """
+
+    def _lote(self, tmp_path, **ficheros):
+        for nombre, datos in ficheros.items():
+            (tmp_path / f"{nombre}.xml").write_bytes(datos)
+        return factura.validar_lote(sorted(tmp_path.iterdir()), hoy=HOY.date())
+
+    def test_con_una_firma_sin_comprobar_no_dice_haberla_mirado(self, tmp_path):
+        alcance = self._lote(tmp_path, a=falsificada()).alcance()
+        assert "que las firmas no estén rotas" not in alcance
+
+    def test_y_lo_dice_donde_dice_lo_que_no_se_mira(self, tmp_path):
+        alcance = self._lote(tmp_path, a=falsificada()).alcance()
+        assert "No se comprueba la firma de este documento" in alcance
+
+    def test_con_una_firma_buena_lo_sigue_prometiendo(self, tmp_path):
+        alcance = self._lote(tmp_path, a=documento()).alcance()
+        assert "que las firmas no estén rotas" in alcance
+        assert "su aviso dice por qué" not in alcance
+
+    def test_una_firma_rota_si_se_ha_mirado(self, tmp_path):
+        # Mirarla y que esté mal es haberla mirado: ahí la promesa se cumple,
+        # y de que esté rota ya se queja el error.
+        roto = documento().replace(b"<InvoiceTotal>121.00", b"<InvoiceTotal>999.00")
+        alcance = self._lote(tmp_path, a=roto).alcance()
+        assert "que las firmas no estén rotas" in alcance
+        assert "su aviso dice por qué" not in alcance
+
+    def test_con_una_de_cada_dice_las_dos_cosas(self, tmp_path):
+        alcance = self._lote(tmp_path, a=documento(), b=falsificada()).alcance()
+        assert "que las firmas no estén rotas" in alcance
+        assert "la firma de uno de los documentos" in alcance
+
+    def test_y_cuenta_cuantas_son(self, tmp_path):
+        alcance = self._lote(
+            tmp_path, a=falsificada(), b=falsificada(total="998.00")
+        ).alcance()
+        assert "la firma de 2 de los documentos" in alcance
+
+    def test_sobre_un_lote_sin_firmas_no_habla_de_ninguna(self, tmp_path):
+        alcance = self._lote(
+            tmp_path, a=CUERPO.format(total="121.00").encode()
+        ).alcance()
+        assert "su aviso dice por qué" not in alcance
+        assert "la validez de las firmas electrónicas" in alcance
+
+
 # --- En el orquestador -----------------------------------------------------
 
 

@@ -3422,16 +3422,37 @@ El estado sale de los mismos exámenes con los que se escriben las glosas, una
 sola pasada para los dos. Que cada uno mirara por su cuenta es justo lo que
 produjo el caso 1.
 
+### 5. Y la frase que resume el informe, diciendo lo mismo
+
+**Qué pasaba.** «Qué se ha mirado» es la frase que dice cuánto vale el «sin
+errores». Sobre cualquier lote con firmas decía «se ha comprobado que las
+firmas no estén rotas», aunque la única firma fuera una que nadie había sabido
+comprobar. El documento lo decía en su línea de estado y en su aviso; el
+resumen del informe entero se lo callaba, y es el que se lee para saber qué
+vale el veredicto.
+
+**Arreglado**: la promesa cuelga de haber comprobado alguna
+(`con_firma_comprobada`), y las que no se han sabido mirar se cuentan al otro
+lado, donde va lo que no se comprueba. Una firma mirada y rota sí cuenta como
+comprobada: ahí la promesa se cumple. Sobre una factura falsificada sola, la
+frase queda así:
+
+```
+No se comprueba la firma de este documento —su aviso dice por qué—,
+ni si lo que dice la factura es cierto.
+```
+
 ### Lo que se probó, y cómo
 
-24 pruebas nuevas, las 24 en rojo antes del arreglo. Después, **12 roturas
+31 pruebas nuevas, las 31 en rojo antes del arreglo. Después, **14 roturas
 provocadas** —quitar la puerta de `cadena.py`, volver a `.//Reference`, quitar
 la exigencia de cubrir, resolver el identificador repetido a ciegas, leer la
 fecha de cualquier sitio, no comprobar el resumen de las propiedades, sacar el
 certificado de cualquier parte, devolver `tsl.py` a `.//`, volver a poner
 «firmado» en las cuatro etiquetas, dar el estado por bueno en cuanto hay firma,
-no distinguir rota de sin comprobar, y pintar la cabecera sin mirar en qué quedó
-la firma— y las 12 salieron en rojo.
+no distinguir rota de sin comprobar, pintar la cabecera sin mirar en qué quedó
+la firma, y devolverle a la frase del final las firmas que no ha mirado, de las
+dos maneras— y las 14 salieron en rojo.
 
 La suite entera en verde, y **las 19 facturas firmadas del corpus dan el mismo
 informe que antes**, código por código y campo por campo: lo que se ha cerrado
