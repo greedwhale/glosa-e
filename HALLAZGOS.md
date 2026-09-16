@@ -3597,3 +3597,83 @@ documento con dos firmas de las que solo llegara una. Las dos se rehicieron
 hasta ponerse en rojo.
 
 La suite entera, 2168 pruebas, en verde.
+
+
+## La suite solo pasaba en esta carpeta
+
+El 16-09-2026 la suite pasó a correr también dentro de GitHub, en cada push y
+cada pull request (`.github/workflows/pruebas.yml`), para que dejara de
+depender del gancho de la copia que empuja. Antes de escribir el flujo se corrió
+la suite en una copia recién clonada, que es lo que ve GitHub. Salió en rojo.
+
+### Qué pasaba
+
+**En una copia limpia, en Windows: 6 fallos, 2128 pasan, 34 saltadas.** Aquí
+pasaban porque esta carpeta tiene lo que no se versiona:
+
+- las dos de `test_paises` leían `esquemas/Facturaev3_2_2.xsd` y su docstring
+  decía que ese esquema «sí está en el repositorio»;
+- tres de `test_edifact` validaban dos facturas de terceros de `muestras/`, y
+  sin ellas la frase decía «no se ha comprobado nada»;
+- `fe-0001.xml` en `test_ejemplos` decía `CADENA-DESCONOCIDA` aquí, con
+  `anclas/` instaladas, y `CADENA-SIN-ANCLAS` en la copia limpia. `conftest.py`
+  ya aislaba los esquemas por esta misma razón, y las anclas no.
+
+**En GitHub, en Linux, dos más: 2 fallos, 2138 pasan, en 23 s.**
+
+- **El banco escribía en la raíz del disco.** `web/prueba.py` monta anclas en
+  `/anclas`, `/anclas-tsl` y cuatro más: en el navegador es el disco virtual de
+  Pyodide, y en `test_banco.py` era el disco de quien corría la suite. En Linux,
+  `PermissionError` y cinco comprobaciones críticas en rojo. En Windows no
+  fallaba, que es peor: había seis carpetas `anclas*` en `C:\` desde el
+  27-08-2026, reescritas en cada vuelta y reutilizadas de una a la siguiente.
+- **La huella de la copia oficial dependía del sistema.** Se ordenaba con
+  `sorted` sobre rutas, que en Windows no distingue mayúsculas y en Linux sí:
+  `cii/BR-CO-15-2.xml` iba delante de `CreditNote-unit-UBL/` en una máquina y
+  detrás en la otra. La misma copia daba dos huellas.
+
+### Arreglado
+
+- `test_paises` lee el esquema de `web/paquete.zip`, que se versiona y es lo
+  que se publica.
+- `test_edifact` usa `ejemplos/edi-0001.edi` y `ejemplos/f-0001.xml`: lo que se
+  prueba es la frase, no aquellas facturas.
+- `conftest.py` aísla también las anclas, y `fe-0001.xml` dice en la tabla lo
+  que dice sin ellas. Con un ancla que no le corresponde ya lo fija
+  `test_cadena.py`, con un almacén propio. Las revocaciones se probaron igual,
+  con una lista ilegible en el entorno, y la suite salía idéntica: no se aíslan.
+- El banco escribe en `DISCO_DEL_BANCO`, que en el navegador sigue siendo `/` y
+  en `test_banco.py` una carpeta temporal nueva. Una prueba mira que monte ahí y
+  que no quede ninguna ruta `/anclas` en el banco. Las seis carpetas de `C:\` no
+  se han borrado desde aquí: son de fuera del proyecto.
+- La huella ordena por el texto de la ruta. El valor fijado cambió sin que
+  cambiara un byte, y en Windows sale ahora el mismo que en Linux.
+
+Y para que el verde de GitHub hable de lo mismo que el de aquí,
+`requisitos-pruebas.txt` fija las versiones, y `test_pruebas_en_github.py`
+comprueba que lo instalado es lo fijado, que el Python es el del flujo, que se
+dispara sin filtros, que hay un solo trabajo y se llama `suite`, que pytest no
+lleva opciones de más ni `continue-on-error` ni `if:`, y que las acciones van
+por commit.
+
+### Lo que no se ha podido cerrar
+
+Que `main` **rechace** lo que no pase. Eso es la protección de la rama, y en un
+repositorio privado con el plan gratuito GitHub no la ofrece: la API contesta
+403, «Upgrade to GitHub Pro or make this repository public», tanto a la
+protección clásica como a los rulesets. Medido con un pull request de
+provocación con la comprobación en rojo: GitHub lo daba por `MERGEABLE`. Hoy el
+rojo de GitHub avisa, y a la vista, pero no impide.
+
+### Lo que se probó
+
+- **27 roturas provocadas**, las 27 en rojo: 16 del flujo y sus versiones, 7 de
+  las pruebas que dependían de la carpeta y 4 de lo de Linux.
+- Copia limpia en Windows: **2140 pasan, 34 saltadas, 0 fallos**.
+- GitHub: **2141 pasan, 34 saltadas**, 25 s de suite y 45 s de trabajo.
+- Un rojo de verdad dentro de GitHub, con una aserción que solo falla allí para
+  poder empujarla sin saltarse el gancho: en rojo en el push y en el pull
+  request, con el fallo en el registro. El pull request se cerró sin fusionar y
+  la rama se borró.
+
+La suite entera, 2175 pruebas, en verde.
