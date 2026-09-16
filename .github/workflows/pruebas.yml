@@ -1,0 +1,63 @@
+# La suite entera, en GitHub, en cada push y en cada pull request.
+#
+# Por qué existe. Hasta el 16-09-2026 la suite solo la corría el gancho de git
+# de la copia que empujaba, `.githooks/pre-push`, y ese gancho no viaja: una
+# copia sin `core.hooksPath`, un `--no-verify` desde la consola o una edición
+# en la web de GitHub publicaban sin probar. Esto corre dentro de GitHub, sobre
+# lo que llega, se empuje desde donde se empuje, y el registro queda a la vista.
+#
+# No está enganchado a Vercel, a propósito. Vercel despliega por su cuenta lo
+# que llega a `main`; lo que impide que llegue algo sin pasar por aquí es la
+# protección de la rama, que se pone en GitHub y no en este fichero.
+#
+# Corre sobre lo que se versiona y nada más. Las pruebas que necesitan facturas
+# de terceros, el anexo de Hacienda o los esquemas y las anclas montados se
+# saltan, y `-rs` deja escrito en el registro cuáles y por qué.
+
+name: pruebas
+
+on:
+  # Sin filtros de ramas ni de rutas, a propósito. Si la protección exige esta
+  # comprobación y un filtro la deja sin correr, GitHub la espera para siempre y
+  # no se fusiona nada; y un filtro de rutas mal escrito deja pasar sin probar
+  # justo el cambio que la rompe.
+  push:
+  pull_request:
+
+# Solo leer. Las pruebas no escriben nada en el repositorio, y un paso
+# comprometido con permiso de escritura sí podría.
+permissions:
+  contents: read
+
+jobs:
+  # El nombre del trabajo es el de la comprobación que exige la protección de la
+  # rama. Si cambia, la regla sigue esperando el viejo y no pasa ninguna fusión
+  # hasta cambiarla también en GitHub.
+  suite:
+    name: suite
+    runs-on: ubuntu-24.04
+    # El gancho local corta a los 15 minutos. Sin tope, una prueba colgada se
+    # comería seis horas de los minutos del plan antes de que GitHub la parara.
+    timeout-minutes: 20
+    steps:
+      # Fijadas por commit y no por etiqueta: una etiqueta se puede mover, y lo
+      # que corre aquí cambiaría sin que nadie tocara este fichero.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14.6"
+
+      # Solo lo fijado en `requisitos-pruebas.txt`, y sin dependencias por su
+      # cuenta: si falta alguna, `pip check` se niega aquí en vez de dejar que
+      # se cuele una versión que nadie ha elegido.
+      - name: Dependencias fijadas
+        run: |
+          python -m pip install --disable-pip-version-check --no-deps -r requisitos-pruebas.txt
+          python -m pip check
+
+      # Sin `-x`: aquí interesa ver todos los fallos de una vez, no el primero.
+      - name: Suite
+        run: python -m pytest -q --no-header -p no:cacheprovider -rs

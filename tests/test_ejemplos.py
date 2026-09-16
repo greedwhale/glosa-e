@@ -22,13 +22,17 @@ resultado es mejor como si es peor.
 La tabla se lee en los dos sentidos: si aparece un ejemplo nuevo sin declarar,
 esto se pone en rojo; si desaparece uno declarado, también.
 
-Sin esquemas, como toda la suite
---------------------------------
-`conftest.py` apunta el catálogo de esquemas a una carpeta que no existe, y por
-buenas razones que están escritas allí. Eso vale también aquí, y tiene una
-consecuencia que conviene saber leyendo la tabla: **los códigos `XSD-*` no
-salen**. Sobre el sitio publicado, que sí lleva los 24 esquemas, los tres
-ficheros EDIFACT añaden un `XSD-NO-APLICA` que aquí no está.
+Sin esquemas ni anclas, como toda la suite
+------------------------------------------
+`conftest.py` apunta el catálogo de esquemas y el almacén de anclas a carpetas
+que no existen, y por buenas razones que están escritas allí. Eso vale también
+aquí, y tiene dos consecuencias que conviene saber leyendo la tabla. **Los
+códigos `XSD-*` no salen**: sobre el sitio publicado, que sí lleva los 24
+esquemas, los tres ficheros EDIFACT añaden un `XSD-NO-APLICA` que aquí no está.
+Y **`fe-0001.xml` dice `CADENA-SIN-ANCLAS`**: con las anclas del paquete dice
+`CADENA-DESCONOCIDA`, porque su certificado es de juguete. Eso lo fija
+`test_cadena.py` con un almacén propio, que no depende de lo que tenga
+instalado quien corra la suite.
 
 No es un hueco disimulado: lo que estas pruebas fijan son las reglas de
 negocio, el IVA y la sintaxis, que es donde estaban los ocho ejemplos rotos.
@@ -71,7 +75,7 @@ ESPERADO: dict[str, tuple[bool, tuple[str, ...]]] = {
     # `IVA-CATEGORIA-SIN-MAPA` ya no sale: desde que la categoria se deduce
     # del `TaxTypeCode` y del tipo, esta factura va a S al 21% y las BR-S-*
     # corren de verdad sobre ella.
-    "fe-0001.xml": (True, ("BR-01", "BR-14", "BR-21", "CADENA-DESCONOCIDA",
+    "fe-0001.xml": (True, ("BR-01", "BR-14", "BR-21", "CADENA-SIN-ANCLAS",
                            "FIRMA-DEBIL", "SELLO-FALTA")),
     "r-0001.xml": (True, ()),
 }

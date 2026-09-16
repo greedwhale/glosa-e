@@ -36,6 +36,9 @@ from validador.formato import EDIFACT, detectar
 from validador.incidencias import AVISO, ERROR
 
 MUESTRAS = pathlib.Path("muestras")
+# Los publicados, que se versionan: lo que una prueba lea de aquí existe en
+# cualquier copia del repositorio.
+EJEMPLOS = pathlib.Path(__file__).resolve().parent.parent / "ejemplos"
 EJEMPLOS_CEF = sorted(MUESTRAS.glob("cef_EDIFACT_EXAMPLE*.xml"))
 PLANOS = sorted(MUESTRAS.glob("edi_*.edi"))
 HARRASSOWITZ = MUESTRAS / "edi_folio_harrassowitz_d96a.edi"
@@ -796,28 +799,30 @@ class TestLoQueElResumenPromete:
 
     Prometer de más es el peor fallo que puede tener: quien la lee se fía de
     una comprobación que no se ha hecho.
+
+    Usaban dos facturas de terceros de `muestras/`, que no se versiona. Sin
+    ellas el lote no leía nada y la frase decía «no se ha comprobado nada»: en
+    rojo en cualquier copia que no fuera esta. Lo que se prueba es la frase, no
+    esas facturas, así que van los ejemplos publicados, que sí viajan.
     """
 
     def test_un_lote_de_edifact_no_promete_un_esquema_xsd(self):
         """Porque no lo hay: EDIFACT no es XML."""
-        carpeta = pathlib.Path("muestras")
-        lote = factura.validar_lote([carpeta / "edi_apiome_tipica_d96a.edi"])
+        lote = factura.validar_lote([EJEMPLOS / "edi-0001.edi"])
         frase = lote.alcance(forma=True)
         assert "esquema XSD" not in frase
         assert "cuentas que EDIFACT obliga" in frase
 
     def test_pero_si_promete_las_reglas_europeas(self):
         """Que sí se le han pasado, y son la mayor parte del trabajo."""
-        carpeta = pathlib.Path("muestras")
-        lote = factura.validar_lote([carpeta / "edi_apiome_tipica_d96a.edi"])
+        lote = factura.validar_lote([EJEMPLOS / "edi-0001.edi"])
         assert "EN 16931" in lote.alcance(forma=True)
 
     def test_en_un_lote_mezclado_el_esquema_vuelve(self):
         """Con un UBL delante sí hay forma que comprobar, y se dice."""
-        carpeta = pathlib.Path("muestras")
         lote = factura.validar_lote([
-            carpeta / "edi_apiome_tipica_d96a.edi",
-            carpeta / "cef_BIS3_Invoice_positive.XML",
+            EJEMPLOS / "edi-0001.edi",
+            EJEMPLOS / "f-0001.xml",
         ])
         frase = lote.alcance(forma=True)
         assert "esquema XSD" in frase

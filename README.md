@@ -29,11 +29,18 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2168 tests, todos en verde.
+2174 tests, todos en verde.
 
 ```bash
+.venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
 .venv/Scripts/python.exe -m pytest -q
 ```
+
+Corren también en GitHub, en cada push y en cada pull request
+(`.github/workflows/pruebas.yml`), sobre una copia recién sacada y con las
+versiones de `requisitos-pruebas.txt`. Allí se saltan las que necesitan lo que
+no se versiona —facturas de terceros, el anexo de Hacienda, los esquemas y las
+anclas montados— y el registro dice cuáles.
 
 Ese número lo vigila `tests/test_documentacion.py`: recolecta la suite y se
 pone rojo si esta línea se queda atrás. Antes decía 985 y hacía meses que no

@@ -101,6 +101,20 @@ push`, `git.exe push`, un `--dry-run` en un comentario, solo el primer `cd`—,
 que probaba la carpeta y no lo empujado, y que un push desde la consola no
 pasaba por él. Git llama a su gancho en todo push, se escriba como se escriba.
 
+**Y además, dentro de GitHub** (16-09-2026). `.github/workflows/pruebas.yml`
+corre la suite en cada push y cada pull request, sobre una copia recién sacada,
+se empuje desde donde se empuje. Es la única de estas puertas que no depende de
+la copia, y montarla destapó que la suite solo pasaba *aquí*: en una copia
+limpia fallaban 6 pruebas que leían `esquemas/`, `anclas/` o `muestras/`.
+`tests/test_pruebas_en_github.py` vigila que allí corra la suite entera, con el
+Python del flujo, las versiones de `requisitos-pruebas.txt` y la comprobación
+llamada `suite`. **No está enganchado a Vercel, a propósito**, así que por sí
+solo avisa y no impide: lo que la convierte en puerta es que la protección de
+`main` exija `suite`, y **GitHub no la ofrece en un repositorio privado con el
+plan gratuito** —medido: la API contesta 403, «Upgrade to GitHub Pro or make
+this repository public»—. Si se activa, un push directo a `main` se rechaza y
+se publica con rama y pull request.
+
 **Nada de esto viaja entero con el repositorio.** Los guiones sí; el cableado
 no:
 

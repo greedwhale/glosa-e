@@ -1,0 +1,17 @@
+# Las versiones con las que corre la suite, aquí y en GitHub.
+#
+# Tienen que ser las mismas en los dos sitios: si GitHub instalara otra lxml, su
+# verde no diría nada de lo probado aquí. `tests/test_pruebas_en_github.py`
+# compara este fichero con lo instalado en quien corre la suite, así que cambiar
+# el venv sin cambiar esto se pone rojo antes de llegar a empujar.
+#
+# No es la lxml de la página: esa la trae Pyodide, con su propia versión.
+#
+#   .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
+lxml==6.1.2
+pytest==9.1.1
+iniconfig==2.3.0
+packaging==26.3
+pluggy==1.6.0
+Pygments==2.21.0
+colorama==0.4.6 ; sys_platform == "win32"

@@ -14,6 +14,13 @@ oficial de Facturae, que enumera los 235 países que una factura española puede
 escribir. Si mañana alguien toca la tabla o llega un esquema nuevo con países
 añadidos, esto lo dice.
 
+**Se lee de `web/paquete.zip`, no de `esquemas/`.** Decía que lo leía «del
+repositorio» y lo leía de `esquemas/`, que no se versiona: pasaba en esta
+carpeta y en una copia recién clonada reventaba con `FileNotFoundError`. Lo
+descubrió montar las pruebas en GitHub, el 16-09-2026. El paquete sí se
+versiona y es lo que se publica, así que es además el esquema contra el que
+valida la página.
+
 Lo que no cubre, dicho: la lista ISO de dos letras vive en los esquemas CII de
 la Comisión y no está desglosada en este repositorio, así que la comprobación
 contra ella se hizo una vez, al construir la tabla —233 parejas, cero
@@ -23,18 +30,21 @@ from __future__ import annotations
 
 import pathlib
 import re
+import zipfile
 
 from validador.paises import ALPHA2, alpha2
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
-ESQUEMA = RAIZ / "esquemas" / "Facturaev3_2_2.xsd"
+PAQUETE = RAIZ / "web" / "paquete.zip"
+ESQUEMA = "esquemas/Facturaev3_2_2.xsd"
 
 # Los dos que Facturae admite y que ISO retiró. Ver `facturae._RETIRADOS`.
 RETIRADOS = {"ANT", "ZAR"}
 
 
 def _paises_del_esquema() -> set[str]:
-    texto = ESQUEMA.read_text(encoding="utf-8")
+    with zipfile.ZipFile(PAQUETE) as paquete:
+        texto = paquete.read(ESQUEMA).decode("utf-8")
     bloque = re.search(
         r'<xs:simpleType name="CountryType">.*?</xs:simpleType>', texto, re.S)
     assert bloque, "el esquema oficial ya no declara `CountryType` así"
