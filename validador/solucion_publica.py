@@ -8,9 +8,24 @@ A las facturas UBL que declaran el CIUS de la solución pública en su
 El anexo I del proyecto de orden dice qué tienen que llevar «como mínimo» las
 facturas que se remiten a la AEAT, y lo dice **en UBL**: sus rutas son de UBL y
 de nada más. Qué le corresponde a cada campo en Facturae, en CII o en EDIFACT
-no lo ha publicado nadie, y aplicarlo a otra sintaxis sería inventarse esa
+no lo publica nadie, y aplicarlo a otra sintaxis sería inventarse esa
 correspondencia. A un documento de otra sintaxis que declare el CIUS se le
 avisa de que no se ha comprobado, que es distinto de callar.
+
+Esto dejó de ser una ausencia el **17-09-2026**. Preguntada por escrito si
+pensaba publicar esa correspondencia, la AEAT contestó que no es suya: «cae en
+la responsabilidad de las plataformas privadas, o en su caso, de la definición
+por parte del Ministerio de Economía que regula la interconexión entre
+plataformas privadas y sus formatos». Y remitió, para la semántica europea, a
+las partes de CEN que sí existen —`16931-3-2` para UBL, `-3-3` para CII y
+`-3-4` para EDIFACT, ratificadas por UNE en septiembre de 2026—, que mapean la
+EN 16931 y **no** los campos españoles del anexo. Para Facturae no hay ninguna.
+
+Lo que cambia es la frase, no el código: antes aquí se decía que no constaba
+publicada, que es lo único que se podía sostener; ahora consta que quien podría
+publicarla ha dicho que no lo hará. Se sigue avisando igual, porque una
+correspondencia escrita por cada plataforma para sí misma no es una que este
+validador pueda dar por buena.
 
 Tampoco se aplica a una factura UBL que no lo declare. Quien emite para Peppol
 o para una plataforma privada no se ha comprometido con este CIUS, y exigírselo
@@ -24,6 +39,37 @@ Sometido a audiencia pública el 17-04-2026 y sin publicar en el BOE. Todo lo
 que sale de aquí lleva el prefijo `SPFE-`, y cada factura que se mide con él
 lleva una NOTA que lo dice: que no salga ninguna queja quiere decir que cumple
 el borrador, no la orden.
+
+Y es un borrador que ya cambió
+------------------------------
+El **10-09-2026**, en un seminario del portal de entidades desarrolladoras, la
+AEAT presentó las «principales novedades» del anexo I. El texto nuevo no está
+publicado —solo las transparencias—, y la orden se quiere en vigor el
+01-10-2026. Lo que se anunció toca a este módulo por lo menos aquí:
+
+- **La extensión de rectificativas desaparece**: se usará el grupo `BG-24` de
+  la norma, con la lista L10 para el uso y las L2 para tipo, modalidad e
+  importe rectificado. `_rectificativa()` exige hoy la extensión en toda 384 o
+  471, y con el anexo nuevo eso es dar por mala una factura bien hecha.
+- **El indicador de copia pasa a `0..1`**. `_copia()` lo pide como obligatorio.
+- **Entra el 389** para las facturas expedidas por el destinatario, junto al
+  471, en la lista L1 de `_tipo_de_factura()`.
+- **El NIF del vendedor va en `BT-31` o en `BT-32`**, y el de `BT-32` con el
+  esquema «LOC» y `@schemeID` «FC», no con «VAT». `_nif()` solo admite «VAT».
+- **L4 gana las categorías nuevas de la EN 16931:2026**, entre ellas la `N`,
+  y se han pedido códigos VATEX propios de España.
+- **L3A se recorta**: fuera el régimen simplificado, el recargo de equivalencia
+  y el de agricultura, ganadería y pesca. `_claves_de_regimen()` los admite.
+- **`BG-34` (`BT-179` y `BT-180`) se usa para el IEDMT**, y esos términos están
+  en la edición de 2026. Aquí están en `NO_SE_COMPRUEBA` por no tener ruta.
+- Se incorpora un **mensaje de anulación** —un `ApplicationResponse` de UBL—,
+  que es un documento nuevo y no una regla sobre la factura.
+
+Nada de esto se ha tocado: **unas transparencias no son una fuente con la que
+reescribir reglas**, y el anexo de abril sigue siendo el único texto publicado.
+Lo que sí se hace es decirlo donde se ve, en la NOTA `SPFE-BORRADOR` de cada
+factura medida. El día que salga el texto, esta sección es la lista de lo que
+hay que revisar.
 
 De dónde sale cada comprobación
 -------------------------------
@@ -415,8 +461,9 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
                 AVISO,
                 f"El documento es {deteccion.familia} y declara el CIUS de la "
                 "solución pública, que el anexo I solo define sobre UBL. Las "
-                "reglas del anexo no se han comprobado: no hay publicada una "
-                "correspondencia de sus campos con esta sintaxis.",
+                "reglas del anexo no se han comprobado: no hay correspondencia "
+                "publicada de sus campos con esta sintaxis, y la AEAT contestó "
+                "el 17-09-2026 que escribirla es cosa de cada plataforma.",
                 campo="Identificador de especificación",
                 esperado="una factura UBL 2.5",
                 encontrado=deteccion.perfil,
@@ -426,13 +473,23 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
         return []
 
     incidencias = [
+        # El aviso dice dos cosas y las dos hacen falta. Que el anexo es un
+        # borrador se sabía desde el principio. Que ese borrador **ya no es el
+        # último** se sabe desde el 10-09-2026, cuando la AEAT presentó sus
+        # novedades en el portal de desarrolladores sin publicar el texto
+        # nuevo: hay reglas de aquí que con el anexo nuevo darían por mala una
+        # factura bien hecha —la extensión de rectificativas desaparece—. No se
+        # pueden reescribir sobre unas transparencias, así que lo que toca es
+        # decirlo en cada factura que se mide. Se quita cuando salga el texto.
         Incidencia(
             "SPFE-BORRADOR",
             NOTA,
             "La factura declara el CIUS de la solución pública y se ha medido "
             "con el anexo I del proyecto de orden, que es un borrador: se "
             "sometió a audiencia pública el 17-04-2026 y no está publicado en "
-            "el BOE. Lo que dicen las reglas SPFE- puede cambiar con la orden.",
+            "el BOE. Además, el 10-09-2026 la AEAT anunció cambios en ese "
+            "anexo y todavía no ha publicado el texto: aquí se mide con el de "
+            "abril, así que alguna regla SPFE- puede haber quedado vieja.",
             campo="Identificador de especificación",
             encontrado=_valor(raiz, SINTAXIS_UBL.perfil),
         )

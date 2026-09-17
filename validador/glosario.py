@@ -44,7 +44,9 @@ FAMILIAS: dict[str, str] = {
         "facturas de la solución pública de la AEAT. Solo se comprueba en las "
         "facturas UBL que declaran su CIUS, `urn:aeat.es:CIUS-ES-SPFE`. Es un "
         "borrador sometido a audiencia pública el 17-04-2026 y sin publicar en "
-        "el BOE, así que lo que dice puede cambiar con la orden."
+        "el BOE, así que lo que dice puede cambiar con la orden. De hecho ya "
+        "cambió: la AEAT presentó sus novedades el 10-09-2026 y el texto nuevo "
+        "no está publicado."
     ),
     "XSD": (
         "La forma del fichero, comprobada contra el esquema oficial de su "
@@ -3121,14 +3123,21 @@ CODIGOS: dict[str, str] = {
         "el anexo I, que es un borrador. Es una nota y no un fallo: dice con "
         "qué se ha comprobado. Que no salga ninguna queja SPFE- quiere decir "
         "que la factura cumple el borrador del 17-04-2026, no la orden que se "
-        "publique."
+        "publique. Y el 10-09-2026 la AEAT presentó cambios de ese anexo —la "
+        "extensión de rectificativas desaparece, el indicador de copia deja de "
+        "ser obligatorio, entran códigos y categorías nuevos— sin publicar "
+        "todavía el texto: hasta que salga, alguna regla SPFE- mide lo de "
+        "abril."
     ),
     "SPFE-SINTAXIS": (
         "El documento declara el CIUS de la solución pública y no es UBL. El "
-        "anexo I solo describe los campos en UBL, y nadie ha publicado a qué "
-        "corresponden en Facturae, CII o EDIFACT, así que las reglas del anexo "
-        "no se han comprobado. Para la solución pública, la AEAT ha dicho que "
-        "solo admitirá UBL 2.5."
+        "anexo I solo describe los campos en UBL, y a qué corresponden en "
+        "Facturae, CII o EDIFACT no lo publica nadie: preguntada por escrito, "
+        "la AEAT contestó el 17-09-2026 que esa correspondencia es cosa de "
+        "cada plataforma privada o de lo que defina el Ministerio de Economía "
+        "sobre interconexión. Así que las reglas del anexo no se han "
+        "comprobado. Para la solución pública, la AEAT ha dicho que solo "
+        "admitirá UBL 2.5."
     ),
     "SPFE-ESPECIFICACION": (
         "El identificador de especificación (cbc:CustomizationID) nombra el "

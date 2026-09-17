@@ -112,7 +112,7 @@ que firmamos nosotros es una opinión que puedes discutir. Sale esto:
 
 ```
 ejemplos\cii-A-0001.xml
-  CII vD16B (factura) · conforme EN 16931 — 2 error(es).
+  CII vD16B (factura) · dice seguir EN 16931 — 2 error(es).
 
   [BR-S-08 · EN 16931] La base declarada para S (tipo general) al 21% no
   coincide con la suma de lo que va a ese tipo.
@@ -128,7 +128,7 @@ ejemplos\cii-A-0001.xml
     Tiene: línea 2
 
 ejemplos\f-0006.xml
-  UBL v2.1 (factura) · conforme EN 16931 — 2 error(es).
+  UBL v2.1 (factura) · dice seguir EN 16931 — 2 error(es).
 
   [BR-CO-10 · EN 16931] La suma de importes de línea que declara la factura
   no coincide con la suma real de sus líneas. Suele ser una línea añadida o
@@ -152,7 +152,7 @@ ejemplos\fe-0001.xml
     Tiene: 512 bits
 
 ejemplos\r-0001.xml
-  UBL v2.1 (abono) · conforme EN 16931 — sin errores.
+  UBL v2.1 (abono) · dice seguir EN 16931 — sin errores.
 
 Entre ficheros:
 
@@ -2299,7 +2299,7 @@ Listas de revocación en revocaciones:
 ## Ejemplo de salida
 
 ```
-UBL v2.1 (factura) · conforme EN 16931 — 4 error(es).
+UBL v2.1 (factura) · dice seguir EN 16931 — 4 error(es).
 
 [BR-CO-10] La suma de importes de línea que declara la factura no coincide
 con la suma real de sus líneas. Suele ser una línea añadida o modificada sin
@@ -2907,7 +2907,7 @@ no sale. Por eso `ejemplos/edi-0002-cortado.edi` es la misma factura que
 
 ```
 ejemplos\edi-0002-cortado.edi
-  EDIFACT v96A (factura) · conforme EN 16931 — 1 error(es), 1 aviso(s).
+  EDIFACT v96A (factura) · dice seguir EN 16931 — 1 error(es), 1 aviso(s).
 
   [EDI-MENSAJE-DESCONTADO · ISO 9735] El mensaje dice tener un número de
   segmentos distinto del que tiene. Esa cuenta incluye el UNH y el UNT, y es
@@ -3494,9 +3494,10 @@ anexo pide. **24 códigos, todos con el prefijo `SPFE-`** y la etiqueta «anexo 
 orden que todavía es un proyecto.
 
 **Solo a las facturas UBL que declaran el CIUS** en su `CustomizationID`. El
-anexo describe los campos en UBL y en nada más, y nadie ha publicado a qué
-corresponden en Facturae, CII o EDIFACT: aplicarlo a otra sintaxis sería
-inventarse esa correspondencia. Un documento de otra sintaxis que declare el
+anexo describe los campos en UBL y en nada más, y a qué corresponden en
+Facturae, CII o EDIFACT no lo publica nadie —la Agencia contestó el 17-09-2026
+que no le toca a ella, como se cuenta más abajo—: aplicarlo a otra sintaxis
+sería inventarse esa correspondencia. Un documento de otra sintaxis que declare el
 CIUS recibe `SPFE-SINTAXIS`, un aviso de que no se ha comprobado, que es
 distinto de callar. Y una factura UBL que no lo declara no se mide con el
 anexo: quien emite para Peppol o para una plataforma privada no se ha
@@ -3561,6 +3562,99 @@ factura del CIUS quiere decir también que cumple el borrador del anexo, así qu
 la línea del informe que dice qué se ha mirado lo añade cuando en el lote hay
 una factura que lo declara, y dice «lo que se puede comprobar en UBL», no el
 anexo entero. En un lote sin ninguna no lo dice.
+
+### Lo que contestó la Agencia, y lo que dejó abierto
+
+La pregunta de arriba —qué le corresponde en Facturae, CII o EDIFACT a cada
+campo del anexo— se le hizo por escrito al buzón técnico de la AEAT el
+**10-09-2026**, con acuse el 11 y respuesta el **17-09-2026**. Tres preguntas,
+tres respuestas, y es la única fuente directa de la Agencia que hay aquí:
+
+| Se preguntó | Contestó |
+|---|---|
+| Si la Agencia piensa publicar la correspondencia entre Facturae 3.2.2, CII y EDIFACT INVOIC y los elementos del anexo I, o si recae en cada plataforma al amparo del artículo 7.2 | Que «cae en la responsabilidad de las plataformas privadas, o en su caso, de la definición por parte del Ministerio de Economía que regula la interconexión entre plataformas privadas y sus formatos» |
+| Qué hacer en la copia fiel del artículo 4.2 con un concepto del original que no tiene equivalente en la sintaxis de la solución pública: omitirlo o recogerlo en una extensión | Que «se pueden omitir o incluirlos en una extensión», y que «si el concepto del original no es equivalente, no se realizará la validación del dato» |
+| Si los documentos de validación del portal de desarrolladores cubrirán las extensiones propias del anexo I o solo las reglas de negocio de la EN 16931 | Que «cubrirán principalmente las personalizaciones realizadas en el anexo I» |
+
+**Lo que cambia aquí es una frase, no una comprobación.** Hasta ese día el
+validador decía que no constaba publicada esa correspondencia, que es lo único
+que se puede sostener mirando lo que hay. Ahora consta que quien podría
+publicarla ha dicho que no lo hará, y `SPFE-SINTAXIS` lo dice con fecha. El
+aviso sigue saliendo igual: una correspondencia que cada plataforma escriba
+para sí misma no es una que este validador pueda dar por buena.
+
+**Lo de la copia fiel es una decisión de diseño que se gana por adelantado.**
+El día que se mida una copia fiel, que le falte un concepto del original no
+puede ser un error: la propia Agencia dice que se puede omitir. Y tampoco puede
+serlo un dato que viaje en una extensión.
+
+**Y los documentos del portal son el contraste que hoy no existe.** Las 24
+reglas `SPFE-` salen de leer una tabla de un borrador; cuando se publiquen esos
+documentos habrá por fin con qué compararlas, y cubren justo lo español. Por eso
+el portal de desarrolladores entra en la vigilancia mensual de las fuentes.
+
+**Dos cosas que hay que leer con cuidado, porque no las dice la respuesta.** La
+primera: la lista de normas que adjunta llama «Facturae» a
+`UNE-CEN/TS 16931-3-4:2026`, cuyo título propio —el que la respuesta copia a
+continuación— es el de UN/EDIFACT. **Facturae sigue sin ninguna parte CEN**, que
+es exactamente lo que sostiene que el mapa de `SINTAXIS_FACTURAE` esté escrito
+aquí y sus decisiones sean de esta casa. Es además el envoltorio desatendido de
+siempre, ahora dentro de la respuesta de la Agencia: esa portada dice `D16B` y
+la revisión de 2026 mapea `D.24A S4`. La segunda: lo que remite es la semántica
+europea —`16931-3-2` para UBL, `-3-3` para CII y `-3-4` para EDIFACT,
+ratificadas por UNE en septiembre de 2026 y de pago—, y esas partes mapean la
+EN 16931, no los campos españoles del anexo. Lo preguntado sigue sin existir.
+
+Lo que la respuesta no toca, porque no estaba preguntado: a qué edición de la
+EN 16931 apunta el artículo 7.1, y si el anexo mantendrá el 381 fuera de L1 y la
+`K` fuera de L4. Las dos siguen esperando a la orden.
+
+### El anexo ya cambió, y el texto no está publicado
+
+Mirando el portal de entidades desarrolladoras el **17-09-2026** —se fue a
+buscar dónde saldrán esos documentos de validación— apareció otra cosa: un
+**seminario del 10-09-2026** con tres presentaciones, y una se titula
+«Principales novedades anexo I». O sea que el anexo sobre el que están escritas
+las 24 reglas `SPFE-` **ya no es el último**, la orden se quiere en vigor el
+**01-10-2026**, y el texto nuevo no está publicado: solo hay transparencias.
+
+Es el fallo de siempre de esta casa con otro disfraz. La vigilancia mensual de
+las fuentes miraba la huella del PDF del anexo, y esa huella no ha cambiado
+—porque lo que hay de nuevo es **otro documento en otro sitio**—. La fuente
+seguía verde y el contenido estaba viejo.
+
+Lo anunciado, y a qué regla le da:
+
+| Novedad del 10-09-2026 | Qué pasa aquí hoy |
+|---|---|
+| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | `SPFE-RECTIFICATIVA` la exige en toda 384 o 471: daría por mala una factura bien hecha |
+| El indicador de copia pasa a `0..1` | `SPFE-COPIA` lo pide obligatorio |
+| Entra el **389** para la factura expedida por el destinatario, junto al 471 | `SPFE-TIPO-DE-FACTURA` mide con la L1 de abril |
+| El NIF del vendedor va en `BT-31` o en `BT-32`, este con esquema «LOC» y `@schemeID` «FC» | `SPFE-NIF` solo admite el esquema «VAT» |
+| L4 gana las categorías de la EN 16931:2026, entre ellas la `N`; y se han pedido códigos VATEX propios de España | `SPFE-CATEGORIA` mide con la L4 de abril |
+| L3A se recorta: fuera el simplificado, el recargo de equivalencia y el de agricultura, ganadería y pesca | `SPFE-CLAVE-DE-REGIMEN` los sigue admitiendo |
+| `BG-34` (`BT-179`, `BT-180`) se usa para el IEDMT | Están en `NO_SE_COMPRUEBA` por no tener ruta en el anexo de abril |
+| Mensaje de anulación de factura, un `ApplicationResponse` de UBL | Documento nuevo: aquí no se valida ninguno |
+
+**No se ha tocado ni una regla, y es a propósito.** Unas transparencias no son
+un texto normativo: dicen qué va a cambiar, no cómo queda redactado. Reescribir
+24 reglas sobre ocho viñetas es exactamente lo que este repositorio no hace. Lo
+que sí se hace es **decirlo donde se ve**: la NOTA `SPFE-BORRADOR` que lleva
+cada factura medida dice ahora que el anexo cambió el 10-09-2026 y que el texto
+no está publicado, así que alguna regla puede haber quedado vieja. Y la lista de
+arriba vive también en la cabecera de `validador/solucion_publica.py`, que es
+donde se va a mirar el día que salga el texto.
+
+**Y una cosa que la tercera presentación deja escrita.** La técnica, del
+Departamento de Informática Tributaria, dice contra qué valida la solución
+pública: `UNE-EN 16931-1:2026`, la de junio, y `UNE-CEN/TS 16931-3-2:2026`, la
+de septiembre. Es la **edición de 2026**, la misma pregunta que quedó abierta
+en `HALLAZGOS.md` al discutir a qué edición apunta el artículo 7.1 —allí sigue
+abierta, porque esto vale para la solución pública y lo dice una transparencia,
+no el boletín—. La misma presentación dice que los documentos de validación, el
+catálogo de servicios y los WSDL se publicarán en ese portal antes de que haya
+entorno de pruebas, con octubre de 2026 como referencia. Por eso el portal
+entra ahora en la vigilancia mensual.
 
 ## Que a esto se llegue desde fuera
 
