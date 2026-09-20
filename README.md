@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2209 tests, todos en verde.
+2277 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3265,6 +3265,59 @@ Hay que rehacerlo cada vez que se renueve la lista de confianza, unos seis
 meses. Si se olvida, lo dice el propio validador: `ANCLAS-SIN-RENOVAR` sale en
 cada informe y en el recuadro de la página.
 
+### Y lo demás que viaja, que hasta el 20-09-2026 no lo miraba nadie
+
+El zip se contrasta con su SHA-256 desde el 06-09-2026. Lo que viaja al lado
+—el intérprete, la rueda del validador, las diez facturas de ejemplo y el
+fichero de comprobaciones del banco— no se contrastaba con nada, y son bastante
+más de 15 MB corriendo dentro del navegador de un desconocido.
+
+**El intérprete.** `--traer-pyodide` dejaba un `HUELLAS.txt` al lado de lo
+bajado. Parecía lo mismo y no lo es: se calcula de lo que llega, vive dentro de
+`vendor/`, que no se versiona, y por lo tanto no viaja. Era un recibo —«esto
+llegó»— haciéndose pasar por un contrato —«esto tenía que llegar»—. La
+diferencia se ve en lo que permite: un día que el CDN sirviera otra cosa, la
+construcción la bajaría, la apuntaría como buena y la publicaría. Y como
+reutilizaba lo que ya estuviera en la carpeta sin mirarlo, una descarga cortada
+de ayer se apuntaba hoy como buena.
+
+Ahora las seis huellas están escritas en `validador/paquete.py`, versionadas, y
+lo que no cuadra no se baja, no se monta y no se publica. Contrastadas dos
+veces contra el CDN, con tres semanas de diferencia —30-08-2026 y
+20-09-2026—, byte a byte iguales las seis. Subir de versión pasa a ser lo que
+es: cambiar el intérprete que corre en el ordenador de otro, y se hace a mano.
+
+**Lo que se baja al abrir la página.** `rueda.json` lleva la huella de cada
+fichero desde que existe, y solo servía para que el navegador no sirviera una
+copia vieja: iban detrás de la dirección, en el `?v=`, y **no las miraba
+nadie**. Medido: con un byte de más en la rueda, la página arrancaba y ponía
+«Listo». Ahora se comparan, y provocado sale así:
+
+```
+El validador (factura_e-0.1.0-py3-none-any.whl) no es lo que la pagina dice
+traer: rueda.json publica e05dcb664e11... y lo que ha llegado resume
+9419bf446c0a... . No se usa.
+```
+
+Lo mismo con un ejemplo cambiado y con `prueba.py`, que es el que más importa:
+un fichero de comprobaciones servido de una caché vieja corre las pruebas de
+ayer contra el código de hoy y sale todo verde. Ya pasó.
+
+Esto **no es una frontera de seguridad** y no se va a decir que lo sea: el
+manifiesto y los ficheros salen del mismo sitio, y quien pudiera cambiar uno
+cambiaría el otro. Lo que caza es el fallo de esta casa —algo servido de una
+caché haciéndose pasar por lo de hoy— y su pariente, la descarga a medias, que
+no da ningún error: deja el fichero corto y sigue.
+
+Queda una grieta, y se dice porque está medida: la rueda se baja dos veces. Lo
+ideal sería bajarla una y darle los bytes a `loadPackage`, pero solo acepta una
+dirección y la pide él. `emfs:`, que sirve para instalar desde el disco virtual
+del navegador, lo bloquea la propia política de contenido de la página
+—`connect-src 'self'` no admite ese esquema— y **no falla**: `loadPackage`
+escribe un aviso en la consola y devuelve tan contento; lo cazó el `pyimport`
+que ya estaba puesto detrás por esto mismo. Así que se mira la copia que se
+baja y se instala la que pide él, que en el sitio publicado sale de la caché.
+
 ### Dos cosas que el paquete se niega a hacer
 
 No empaqueta anclas **sin manifiesto**, porque un conjunto que no dice de dónde
@@ -3701,6 +3754,64 @@ no el boletín—. La misma presentación dice que los documentos de validación
 catálogo de servicios y los WSDL se publicarán en ese portal antes de que haya
 entorno de pruebas, con octubre de 2026 como referencia. Por eso el portal
 entra ahora en la vigilancia mensual.
+
+### La copia fiel, y los dos números que cambian
+
+Quien no emita por la solución pública tiene que mandarle una **copia fiel** en
+UBL de cada factura, a la vez que la emite. El original sigue siendo el que es
+—Facturae, CII, EDIFACT— y a la AEAT viaja una copia escrita en otra sintaxis.
+Esa traducción **no la publica nadie**, y desde el 17-09-2026 consta que no la
+va a publicar la Agencia. La respuesta del buzón trae además la regla que
+decide el tono: un concepto sin equivalente **se puede omitir o llevar en una
+extensión**, y lo que no sea equivalente no se valida. Es decir, que a la copia
+le falte algo del original no es el fallo de nadie. Por eso todo lo que sale de
+`validador/copia_fiel.py` es **NOTA**.
+
+**Por dónde se empezó, y por qué por ahí.** Midiendo, el 20-09-2026, qué llevan
+de verdad las facturas que hay aquí. Lo primero que salió fue la asimetría
+entre sintaxis:
+
+| Sintaxis | Facturas miradas | Rutas del mapa | Caminos con datos que el mapa no lee |
+|---|---:|---:|---:|
+| CII | 20 | 100 | **12**, todos términos europeos conocidos |
+| Facturae | 14 | 50 | **67** |
+
+Y dentro de esos 67, lo que decidió el orden de trabajo: no es que falten
+datos, es que **cambian cifras**. El esquema de Facturae define su total como
+la base más los impuestos repercutidos **menos los retenidos**, y su total de
+impuestos repercutidos incluye el **recargo de equivalencia**. `BT-112` es la
+base más las cuotas de IVA, y `BT-110` solo las cuotas. Quien copie campo a
+campo pondrá en la copia dos números que no son los suyos, y un número
+equivocado no se ve, mientras que un hueco sí.
+
+**Cuántas facturas están en ese caso: 6 de las 14.** Seis llevan retenciones y
+cuatro recargo —las cuatro, dentro de las seis—. Dos llevan suplidos.
+
+Lo que dice el módulo, con los importes al lado:
+
+| Nota | Cuándo sale | Qué dice |
+|---|---|---|
+| `COPIA-TOTAL` | hay retenciones o recargo | el total de la copia es la base más las cuotas, sin restar la retención |
+| `COPIA-CUOTA` | hay recargo de equivalencia | la cuota de la copia no lleva el recargo: en el anexo tiene grupo propio |
+| `COPIA-SUPLIDO` | hay suplidos | son `BT-179` y `BT-180`, de la edición de 2026, y el anexo de abril no les da ruta |
+| `COPIA-SIN-SITIO` | hay gastos financieros | ni la norma ni el anexo tienen dónde ponerlos |
+
+**La tabla se escribe entera, con el porqué de cada fila**, en
+`CORRESPONDENCIAS`: once conceptos, cada uno con lo que le pasa —llega igual,
+llega en la extensión española, llega con otro número, no tiene sitio, no se
+sabe todavía— y de dónde sale esa decisión. Tres filas están en «no se sabe» a
+propósito: el total a pagar —la misma duda de `SPFE-TOTAL-A-PAGAR`—, los
+suplidos y los importes retenidos que no son de impuestos. Lo que desbloquea
+las tres es el texto nuevo del anexo.
+
+Y el cepo de siempre, porque una nota cuyo porqué ya no está escrito es peor
+que no tenerla: si alguien quita una fila de la tabla y deja la regla que la
+usa, **el paquete no se monta** (`TablaIncompleta`). Provocado en las pruebas.
+
+Lo que esto **no** es: no convierte nada —aquí no se escribe ninguna copia—, no
+valida la copia, que es otro documento con sus propias reglas `SPFE-`, y no
+adivina dónde se escriben en Facturae los campos españoles del anexo, que es lo
+que está cambiando.
 
 ## Que a esto se llegue desde fuera
 

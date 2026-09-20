@@ -3817,3 +3817,208 @@ país reventaba con un EDIFACT que no se puede convertir —`raiz` a `None`—, 
 paró `TestNadaRevienta`, que precisamente existe para eso.
 
 La suite entera, 2209 pruebas, en verde.
+
+
+## Siete de la parte media: lo que viajaba sin mirarse y lo que seguía por detrás
+
+Los puntos 11 a 14 y 21 a 23 de la auditoría del 15-09-2026. Ninguno da un
+aprobado falso a una factura. Tres son de la misma familia —**algo que llega al
+navegador de un desconocido sin que nadie lo contraste**— y dos son el fallo de
+esta casa otra vez: lo que hay en pantalla no es lo que está pasando.
+
+### 11. La cadena de suministro, sin fijar
+
+Tres agujeros con la misma forma.
+
+**El intérprete.** `--traer-pyodide` escribía un `HUELLAS.txt` al lado de lo
+bajado, y parecía que eso era fijarlo. No lo era: se calcula de lo que llega,
+vive dentro de `vendor/`, que no se versiona, y por lo tanto no viaja. Un
+recibo —«esto llegó»— haciéndose pasar por un contrato —«esto tenía que
+llegar»—. La diferencia está en lo que permite: el día que el CDN sirviera otra
+cosa, la construcción de Vercel la bajaría, la apuntaría como buena y la
+publicaría. Y peor, porque no hace falta que nadie ataque nada: reutilizaba lo
+que ya estuviera en la carpeta **sin mirarlo**, así que una descarga cortada de
+ayer se apuntaba hoy como buena.
+
+Reproducido cortando `pyodide.js` a 5.000 bytes: `--traer-pyodide` lo daba por
+bueno y `--sitio` lo publicaba. Ahora las seis huellas están escritas en
+`validador/paquete.py`, y lo que no cuadra no se baja, no se monta y no se
+publica. Contrastadas contra el CDN dos veces con tres semanas en medio
+—30-08-2026 y 20-09-2026—, byte a byte iguales las seis. Hay dos capas, porque
+son dos preguntas distintas: al traerlo se compara con la tabla fijada, y al
+montar con `HUELLAS.txt`, que caza lo que se estropee **después** de traerlo.
+
+**Lo que se instala al construir.** `vercel.json` instalaba `lxml` sin versión,
+y setuptools ni eso. Fijados: lxml 6.1.2, la misma que corre la suite —hay
+prueba que compara los dos sitios—, y setuptools 84.0.0 en
+`[build-system] requires`, que es donde de verdad se lee: `pip wheel` construye
+en un entorno aislado y se trae el que diga ahí, no el que haya al lado.
+
+**Lo que la página se baja.** `rueda.json` lleva la huella de cada fichero
+desde que existe, y solo servía de `?v=` para que el navegador no sirviera una
+copia vieja: **no las miraba nadie**. Medido: con un byte de más en la rueda, la
+página arrancaba y ponía «Listo en 5 s». Ahora la rueda, los diez ejemplos y
+`prueba.py` se comparan con lo publicado, y provocado sale así:
+
+```
+El validador (factura_e-0.1.0-py3-none-any.whl) no es lo que la pagina dice
+traer: rueda.json publica e05dcb664e11... y lo que ha llegado resume
+9419bf446c0a... . No se usa.
+```
+
+Las huellas del manifiesto pasan a ser enteras; en el `?v=` se siguen
+escribiendo los ocho primeros, así que ninguna dirección cambia y la caché de
+quien ya haya pasado sigue valiendo. Ocho caracteres bastan para saber que algo
+cambió y no bastan para comparar.
+
+Y una grieta que se queda, dicha porque está medida: la rueda se baja dos
+veces. Lo ideal sería bajarla una y darle los bytes a `loadPackage`, pero solo
+acepta una dirección y la pide él. `emfs:`, que sirve para instalar desde el
+disco virtual, lo bloquea la propia política de contenido de la página
+—`connect-src 'self'` no admite ese esquema— y **no falla**: `loadPackage`
+escribe un aviso en la consola y devuelve tan contento. Lo cazó el `pyimport`
+que ya estaba detrás, puesto por esta misma razón hace dos semanas.
+
+### 12. El guardián de rutas, con dos puertas abiertas
+
+`Sitio/index.html`, `ANCLAS/x.pem` y `proyecto 1/estrategia.py` pasaban los
+tres. En Windows son las mismas carpetas que las prohibidas —medido: `ls
+SITIO/` lista lo mismo que `ls sitio/`—, así que el gancho estaba mirando el
+nombre y no el sitio. Y `NotebookEdit` pasaba **siempre**, porque el gancho lee
+`file_path` y esa herramienta manda `notebook_path`.
+
+Ahora compara sin mirar mayúsculas y mira todas las rutas que manda la
+herramienta, cualquier campo que acabe en «path»: enumerar los nombres es lo que
+ya falló una vez. Sus decisiones se prueban en `tests/test_guardian_de_rutas.py`
+—18 casos, seis que tienen que parar y tres que no—, y se saltan donde el gancho
+no está, que es todo sitio que no sea esta máquina.
+
+### 13. Con barra final, la página sin CSS ni JS
+
+`https://www.glosa-e.com/banco/` contestaba 200 con el HTML del banco, y
+`/banco/glosa.css`, `/banco/glosa.js` y `/banco/prueba.py` contestaban 404: la
+página cargaba desnuda y el banco se quedaba colgado. Es lo que pasa cuando
+`cleanUrls` sirve `/banco/` y la página busca sus cosas con rutas relativas.
+Una línea en `vercel.json`: `"trailingSlash": false`, que redirige `/banco/` a
+`/banco` con un 308.
+
+### 14. Una factura de 4.000 líneas, cuatro segundos en vez de veinte
+
+`LEEME.md` publicaba «Validar una factura: 5–120 ms». Se había medido sobre las
+facturas de ejemplo, que tienen una línea o dos, y se publicaba como si fuera lo
+que cuesta validar una factura. La auditoría soltó una de 4.000 líneas y la
+pestaña se quedó parada.
+
+Dos causas, las dos aburridas y ninguna de algoritmo:
+
+- **cada ruta XPath se compilaba en cada uso.** Una factura de 800 líneas hacía
+  31.235 llamadas a `texto()` y 16.080 a `_nodos()`, compilando las mismas
+  cuatro docenas de rutas una y otra vez. Medido aparte: 8.000 evaluaciones de
+  la misma ruta cuestan 315 ms sueltas y 32 compilándola una vez;
+- **el catálogo de esquemas y el almacén de anclas se rehacían en cada
+  validación**, y no cambian nunca. Construirlos no cuesta nada —son
+  perezosos—, pero el esquema compilado y los certificados leídos viven dentro,
+  así que uno nuevo tira ese trabajo y lo vuelve a hacer.
+
+Medido en el navegador, sobre el sitio montado en local, antes y después, con
+la misma factura y el mismo Chrome:
+
+| Líneas | Antes | Después |
+|---|---|---|
+| 1 | 416–463 ms | 17–23 ms (la primera, 460: arma el catálogo) |
+| 100 | 1.009–1.206 ms | ~130 ms |
+| 1.000 | 5,7 s | ~1,1 s |
+| 4.000 | 20,5–23,8 s | 4,2–5,3 s |
+
+Y fuera del navegador, que es donde se ve la causa limpia: 4.000 líneas pasan
+de 4.137 ms a 1.705, y la factura de ejemplo de 70 ms a 1,9 rehaciendo o no el
+catálogo.
+
+La primera medición de esto salió mal y conviene apuntarlo: una tanda daba
+4.396 ms donde la siguiente daba 729, y no había cambiado el código —estaba el
+navegador cargando Pyodide al lado—. Es exactamente lo que `LEEME.md` ya avisa
+desde el 06-09. Las cifras de arriba son con calentamiento y mediana de cinco.
+
+Lo que sigue siendo verdad, y ahora está escrito donde se publica: 4.000 líneas
+son cuatro segundos largos con la pestaña parada, porque esto valida en el hilo
+de la página. Cuatro segundos no son veinte, pero tampoco son nada.
+
+### 21. Una negativa que salía con traza de Python
+
+Una página con un `onclick=` levantaba `SinPolitica`, y `--sitio` **no la
+cazaba**: traza de Python, código 1, y 409 ficheros montados sin `rueda.json`.
+Una carpeta a medias con cara de sitio, que es lo que el paso siguiente publica
+sin enterarse —la misma lección que ya había dejado la bitácora, escrita en su
+propia prueba—.
+
+El fallo no es que faltara una excepción en un `except`: es que hubiera una
+lista escrita a mano. Ahora todas cuelgan de `paquete.NoSeMonta`, `__main__`
+caza la raíz, y una prueba recorre el módulo para que ninguna quede suelta. Y
+lo que no depende de nada de lo que pasa por el medio —un `onclick=`, un enlace
+`javascript:`, un `<script defer>` en línea— se mira **antes** de tocar el
+destino, así que no queda nada montado. El charset se sigue mirando al
+escribir, porque adelantarlo cambiaba el diagnóstico de una página sin
+cabecera: se llevaba una queja sobre la política en vez de la que dice qué le
+pasa.
+
+Al arreglarlo apareció el mismo fallo en el otro sitio: `--traer-pyodide`
+tampoco cazaba nada y la huella que no cuadra habría salido igual, con traza.
+
+### 22. «No ha arrancado» mientras la descarga seguía
+
+La auditoría lo vio una vez y dudaba de si lo había contaminado la propia
+prueba. No: es reproducible y es peor de lo que parecía.
+
+Provocado con un servidor que sirve el sitio y se atasca a propósito: manda
+64 KB de `python_stdlib.zip`, se calla 45 s y después intenta escribir el resto,
+que es la conexión que se murió en producción el 08-09-2026. El vigilante saltó
+a los 30 s y la página pintó «No ha arrancado». Y entonces:
+
+- a los 45 s el servidor escribió los 2,48 MB que faltaban y **el cliente
+  seguía ahí**;
+- detrás se bajaron lxml, la rueda, el paquete de esquemas y anclas y los diez
+  ejemplos: unos 5 MB, con la página diciendo que no había arrancado;
+- y el validador acababa **vivo**: `Glosa.validarEjemplo("f-0001.xml")`
+  devolvía el informe entero con la zona de arrastre apagada.
+
+`Promise.race` no para al que pierde. Ahora hay un `AbortController` cuya señal
+va en cada petición, y al saltar el vigilante se abandona de verdad. Medido con
+el mismo servidor: después de «No ha arrancado» no se pide nada más, y
+`pyodide` se queda en `null`.
+
+Lo que **no** hace, porque se midió y no se va a prometer: la petición que
+estaba en vuelo no se corta del lado del servidor. Al escribir el resto, el
+servidor no ve ningún error; Chrome se traga lo que quedaba para reutilizar la
+conexión. Lo que se para es la cadena.
+
+Y una segunda mitad del mismo fallo: el `fetch` bueno se devolvía al acabar la
+carrera, no al acabar la faena, así que lo que siguiera bajando después ya no
+pasaba por el vigilante y no lo contaba nadie.
+
+### 23. El servidor de desarrollo, abierto a la red
+
+`python -m http.server` sin `--bind` escucha en `0.0.0.0` y en `[::]`. Medido:
+el servidor de `web` contestaba en la IP de la red local de esta máquina
+sirviendo el repositorio entero —`.git/HEAD` devolvía `ref: refs/heads/main`, y
+`muestras/` y `anclas/` daban 200—. Si otro equipo llega o no depende del
+cortafuegos de Windows, y eso no se ha medido: hay una regla de entrada para un
+`python.exe`, pero para el del sistema, no para el del entorno virtual que usa
+`launch.json`.
+
+No hacía falta seguir midiendo. Los dos servidores llevan `--bind 127.0.0.1`.
+
+### Lo que se probó, y cómo
+
+Los siete reproducidos antes de tocar nada, y cinco de los siete provocados
+**en el navegador**, que es donde viven: la rueda con un byte de más, un ejemplo
+cambiado, `prueba.py` cambiado, el intérprete cortado y la conexión que se
+muere. La suite no ejecuta JavaScript y no se va a fingir que sí: lo que guarda
+en verde es que el código siga escrito, y lo que se midió está en el
+docstring de cada prueba, con sus cifras.
+
+Y un fallo propio por el camino, que es el que mejor enseña por qué esto se
+prueba dos veces. Probé si `loadPackage` admitía instalar desde el disco
+virtual con `emfs:`, salió sin excepción y lo di por bueno; el sitio montado se
+quedó sin validador. `loadPackage` no lanza: escribe un aviso en la consola y
+devuelve. Lo cazó la línea que ya estaba puesta detrás por esa razón, y la
+lección es la de siempre aquí: que no falle no es que funcione.

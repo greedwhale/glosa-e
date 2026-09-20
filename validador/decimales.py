@@ -34,7 +34,14 @@ from __future__ import annotations
 
 from validador.incidencias import ERROR, Incidencia
 from validador.modelo import grupos
-from validador.sintaxis import SIN_MAPA, Sintaxis, a_decimal, texto
+from validador.sintaxis import (
+    SIN_MAPA,
+    Sintaxis,
+    a_decimal,
+    buscar,
+    como_texto,
+    texto,
+)
 
 __all__ = ["reglas"]
 
@@ -90,13 +97,13 @@ _IMPORTES = (
 
 
 def _escrito(nodo) -> str:
-    return (nodo if isinstance(nodo, str) else nodo.xpath("string()")).strip()
+    return (nodo if isinstance(nodo, str) else como_texto(nodo)).strip()
 
 
 def _nodos(nodo, ruta: str, sintaxis: Sintaxis) -> list:
     if ruta == SIN_MAPA:
         return []
-    return list(nodo.xpath(ruta, namespaces=sintaxis.espacios))
+    return list(buscar(nodo, ruta, sintaxis.espacios))
 
 
 def _importes(raiz, nodo, sintaxis: Sintaxis, campo: str) -> list:

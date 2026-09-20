@@ -48,10 +48,18 @@ funcionar no se ha visto.
 **Negarse vale más que acordarse.** Cuando algo puede romperse en silencio, la
 solución es que **no se pueda montar** sin enterarse: `SinRueda`, `SinPagina`,
 `SinPyodide`, `RuedaVieja` —el `.whl` de `dist/` comparado con el paquete
-byte a byte **y también por su licencia**, porque `--sitio` no lo construye—, y
-la negativa cuando `glosa.js` y `paquete.py` declaran versiones
-distintas de Pyodide. Es el patrón de este proyecto; úsalo antes que un
-comentario que pida memoria.
+byte a byte **y también por su licencia**, porque `--sitio` no lo construye—,
+`PyodideQueNoCuadra` —lo que se baja contra las huellas fijadas en
+`HUELLAS_DE_PYODIDE`— y la negativa cuando `glosa.js` y `paquete.py` declaran
+versiones distintas de Pyodide. Es el patrón de este proyecto; úsalo antes que
+un comentario que pida memoria.
+
+Todas cuelgan de **`paquete.NoSeMonta`**, y eso también sale de un fallo: la
+lista que `__main__` cazaba estaba escrita a mano y `SinPolitica` se añadió sin
+tocarla, así que una página con un `onclick=` salía con traza de Python y
+código 1 —no 2— dejando 409 ficheros montados y ningún `rueda.json`. Una
+negativa nueva hereda de `NoSeMonta` y ya está cazada; hay prueba que recorre
+el módulo y no deja ninguna suelta.
 
 **El código es AGPL-3.0-only.** Desde el 01-09-2026; antes era MIT. El motor
 entero viaja al navegador de quien abre la página, en claro, dentro del `.whl`:
@@ -61,9 +69,20 @@ en tres sitios que tienen que decir lo mismo, y hay guardián para cada salto:
 `pyproject.toml`, el fichero `LICENSE`, y el `dist-info` de la rueda. El porqué
 entero está en el README.
 
-**Las versiones se fijan y no se siguen a `latest`.** Pyodide 314.0.6, lxml
-6.0.2. Lo que se prueba es una combinación concreta; si se mueve sola, el día
-que algo se rompa no se sabrá qué cambió.
+**Las versiones se fijan y no se siguen a `latest`.** Lo que se prueba es una
+combinación concreta; si se mueve sola, el día que algo se rompa no se sabrá
+qué cambió. Son dos juegos distintos y conviene no confundirlos:
+
+| Dónde | Qué | Escrito en |
+|---|---|---|
+| en el navegador | Pyodide 314.0.6 y su lxml 6.0.2 | `paquete.py` y `glosa.js`, que tienen que decir lo mismo |
+| en lo que construye | lxml 6.1.2, setuptools 84.0.0 | `vercel.json`, `requisitos-pruebas.txt` y `[build-system]` |
+
+setuptools va en `pyproject.toml` y no en la orden de Vercel porque `pip wheel`
+construye en un entorno aislado y se trae el que diga `requires`. Y los seis
+ficheros de Pyodide llevan su SHA-256 fijado en `HUELLAS_DE_PYODIDE`:
+`HUELLAS.txt` no valía para esto —se calcula de lo que se baja y vive en
+`vendor/`, que no se versiona—.
 
 **No prometer de más.** Es la tesis del producto y la razón del nombre —una
 glosa explica, no certifica—. Ni el informe, ni la página, ni la política de
@@ -92,7 +111,7 @@ Hay tres. La suite antes de publicar la corre **git**, no Claude Code:
 |---|---|---|
 | `.githooks/pre-push` → `.githooks/antes-de-empujar.py`, versionados | **todo** `git push` de esta copia: Claude Code, la consola, un alias, un guion | se niega si lo que se empuja no es HEAD o hay cambios sin commit —lo probado tiene que ser lo publicado—, y si la suite no pasa, se cuelga o no arranca. Git cancela con cualquier código distinto de 0. Corre también con `--dry-run`: git no le dice que es un ensayo |
 | `.claude/hooks/antes-de-empujar.py`, versionado, `PreToolUse` | `Bash`, `PowerShell` | el **portero**: con código 2, no deja que una orden sobre Factura-e se salte a git —`--no-verify`, `git send-pack`, tocar `core.hooksPath`, un alias con `--no-verify`— ni empujar mientras el gancho de git no esté puesto |
-| `.claude/hooks/guardian-de-rutas.py` de la **carpeta de trabajo**, fuera del repositorio, `PreToolUse` | `Write`, `Edit`, `NotebookEdit` | se niega a escribir en lo que no se toca, y solo dentro de `C:\Users\PC\Claude\`, para no estorbar en otros proyectos de la máquina |
+| `.claude/hooks/guardian-de-rutas.py` de la **carpeta de trabajo**, fuera del repositorio, `PreToolUse` | `Write`, `Edit`, `NotebookEdit` | se niega a escribir en lo que no se toca, y solo dentro de `C:\Users\PC\Claude\`, para no estorbar en otros proyectos de la máquina. Mira **todas** las rutas que manda la herramienta, no solo `file_path`, y **sin mirar mayúsculas**: `NotebookEdit` manda `notebook_path` y pasaba siempre, y `Sitio/`, `ANCLAS/` y `proyecto 1/` pasaban los tres porque Windows no las distingue. Sus decisiones se prueban en `tests/test_guardian_de_rutas.py`, que se salta donde el gancho no está |
 
 **Por qué la suite pasó a git** (16-09-2026). El gancho de Claude Code la
 corría él mismo y decidía leyendo la orden escrita con una expresión regular.
@@ -159,6 +178,12 @@ tampoco prueba que corran: prueba que están escritos.
   `\\n` dentro de `<<'FIN'` se convirtió en un salto real y produjo un
   `SyntaxError` en un fichero de 400 líneas. Usa `Write` y luego `python
   el_parche.py`.
+- **Los dos servidores de `launch.json` escuchan en `127.0.0.1`** y no en
+  todas las interfaces. `python -m http.server` a secas escucha en `0.0.0.0`:
+  medido, el de `web` contestaba en la IP de la red local sirviendo el
+  repositorio entero —`.git/HEAD`, `muestras/`, `anclas/`—. Que otro equipo
+  llegue depende del cortafuegos, y eso no se ha medido; lo que se arregla con
+  `--bind` no hace falta medirlo.
 - **El sitio se monta, no se sube el repositorio**:
   ```
   ./.venv/Scripts/python.exe -m validador --traer-pyodide   # una vez

@@ -82,3 +82,59 @@ class TestElVigilanteSigueAhi:
             "si se cambia el límite hay que volver a medir los tres casos del "
             "encabezado de este fichero, no solo el número"
         )
+
+
+class TestAlAbandonarSeAbandonaDeVerdad:
+    """Punto 22 de la auditoría, medido el 20-09-2026 y peor de lo que parecía.
+
+    `Promise.race` no para al que pierde. El vigilante saltaba, la página
+    pintaba «No ha arrancado»... y la descarga seguía por detrás.
+
+    Provocado con un servidor que sirve el sitio y se atasca a propósito:
+    manda 64 KB de `python_stdlib.zip`, se calla 45 s y después intenta
+    escribir el resto. Lo que se mide es si el cliente sigue al otro lado.
+
+    | | Antes | Después |
+    |---|---|---|
+    | El vigilante salta | a los 30 s | a los 30 s |
+    | Lo que se bajó después de «No ha arrancado» | lxml, el wheel, el paquete y los diez ejemplos: unos 5 MB | nada |
+    | `Glosa.validarEjemplo()` con la zona apagada | devolvía el informe entero | `pyodide` es `null` |
+
+    Lo segundo es lo que convierte esto en el fallo de esta casa y no en un
+    desperdicio de ancho de banda: lo que había en pantalla no era lo que
+    estaba pasando.
+
+    **Lo que no hace**, porque se midió y conviene no prometerlo: la petición
+    que estaba en vuelo no se corta del lado del servidor. Al escribir el resto
+    a los 45 s, el servidor no ve ningún error —Chrome se traga lo que quedaba
+    para poder reutilizar la conexión—. Lo que se para es la cadena: esa
+    respuesta ya no va a ninguna parte y detrás de ella no se pide nada más.
+    """
+
+    def test_hay_un_mando_para_abandonar(self):
+        codigo = _codigo()
+        assert "const mando = new AbortController();" in codigo
+        assert "mando.abort(error);" in codigo, (
+            "el vigilante avisa y no abandona: sin `abort`, todo lo demás es "
+            "un cartel"
+        )
+
+    def test_la_senial_va_en_cada_peticion(self):
+        codigo = _codigo()
+        assert "signal: mando.signal" in codigo
+        assert "AbortSignal.any([suya, mando.signal])" in codigo, (
+            "quien traiga su propia señal se quedaría sin ella"
+        )
+
+    def test_el_fetch_bueno_se_devuelve_cuando_acaba_la_faena(self):
+        """Y no cuando acaba la carrera, que es antes.
+
+        Devolviéndolo en el `finally` de la carrera, lo que siguiera bajando
+        después ya no pasaba por el vigilante y no lo contaba nadie.
+        """
+        codigo = _codigo()
+        assert "const enMarcha = faena();" in codigo
+        assert re.search(
+            r"enMarcha\s*\n\s*\.finally\(\(\) => \{\s*\n\s*clearInterval\(reloj\);"
+            r"\s*\n\s*globalThis\.fetch = deVerdad;", codigo
+        ), "el `fetch` bueno ya no se devuelve al acabar la faena"

@@ -1,5 +1,12 @@
 [build-system]
-requires = ["setuptools>=77"]
+# Fijado y no `>=77`, por lo mismo que Pyodide y lxml: lo que construye la
+# rueda decide lo que hay dentro —metadatos, RECORD, orden— y la rueda se
+# publica con su huella en la dirección. Con un rango, la construcción de
+# Vercel se traía el setuptools de ese día y la rueda podía cambiar sin que
+# cambiara una línea de este repositorio.
+#
+# 84.0.0 es el que usa esta copia, medido: `pip wheel . -v` lo dice.
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]

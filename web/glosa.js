@@ -139,8 +139,47 @@ async function leerElManifiesto() {
 // fichero cambia —asi que el de ayer sigue sin poder servirse— y no cambia
 // cuando no cambia, asi que el navegador puede guardarlo un ano.
 function conHuella(direccion, clave) {
-  const huella = MANIFIESTO && MANIFIESTO.huellas && MANIFIESTO.huellas[clave];
-  return direccion + "?v=" + (huella || Date.now());
+  const huella = laHuellaDe(clave);
+  // Los ocho primeros y no la huella entera: para que la direccion cambie
+  // cuando el fichero cambia bastan, y son los mismos ocho de siempre, asi
+  // que a quien ya haya pasado por aqui le sigue valiendo lo que tiene
+  // guardado. La huella entera esta para compararla, no para escribirla.
+  return direccion + "?v=" + (huella ? huella.slice(0, 8) : Date.now());
+}
+
+function laHuellaDe(clave) {
+  return (MANIFIESTO && MANIFIESTO.huellas && MANIFIESTO.huellas[clave]) || null;
+}
+
+// Lo que ha llegado, contra lo que el manifiesto dice que tenia que llegar.
+//
+// Hasta el 20-09-2026 esas huellas solo servian de `?v=`: iban detras de la
+// direccion para que el navegador no sirviera una copia vieja, y **no las
+// miraba nadie**. Medido: con un byte de mas en el wheel, la pagina arrancaba
+// y ponia «Listo».
+//
+// Esto no es una frontera de seguridad y no se va a decir que lo sea: el
+// manifiesto y los ficheros salen del mismo sitio, y quien pudiera cambiar uno
+// cambiaria el otro. Lo que caza es el fallo de esta casa —algo servido de una
+// cache haciendose pasar por lo de hoy— y su pariente, la descarga a medias,
+// que no da error: deja un fichero corto y sigue.
+//
+// Devuelve `true` si cuadra, y `null` cuando **no se ha podido comprobar**: en
+// desarrollo no hay manifiesto, y `crypto.subtle` no existe fuera de https y
+// localhost. No comprobado no es lo mismo que comprobado y bien, y por eso no
+// devuelve `false` ahi.
+async function comprobar(clave, bytes, queEs) {
+  const publicada = laHuellaDe(clave);
+  if (!publicada) return null;
+  const medida = await huellaDe(bytes);
+  if (medida === null) return null;
+  if (medida !== publicada) {
+    throw new Error(
+      queEs + " no es lo que la pagina dice traer: rueda.json publica " +
+      publicada.slice(0, 12) + "... y lo que ha llegado resume " +
+      medida.slice(0, 12) + "... . No se usa.");
+  }
+  return true;
 }
 
 // El nombre del wheel lleva la version dentro, asi que no se escribe a mano:
@@ -162,33 +201,58 @@ async function buscarWheel() {
   // lado diciendo cual es. En desarrollo no existe y se cae al listado, que es
   // lo que sirve la carpeta.
   const { rueda } = await leerElManifiesto();
-  if (rueda) return DIST + rueda;
+  if (rueda) return { donde: DIST + rueda, clave: "dist/" + rueda, fresco: false };
 
   const listado = await fetch(DIST);
   if (listado.ok) {
     const nombres = [...(await listado.text()).matchAll(/href="([^"]+\.whl)"/g)]
       .map((m) => decodeURIComponent(m[1].split("/").pop()));
     if (nombres.length) {
-      const donde = DIST + nombres.sort().pop();
       // En desarrollo el nombre del wheel no cambia entre compilaciones de la
-      // misma version, asi que sin esto el navegador sirve el de ayer y la
-      // pagina corre un validador viejo sin decirlo. Paso de verdad.
-      //
-      // Aqui no vale el `?v=` de siempre, porque `loadPackage` lo rechaza. Lo
-      // que si vale es pedirlo una vez con `cache: "reload"`: **misma**
-      // direccion, pero obligando al navegador a bajarlo otra vez y a dejar
-      // esa copia en su cache. Cuando `loadPackage` pida esa direccion, lo que
-      // encuentre ya es lo de hoy.
-      //
-      // En el sitio publicado esto no corre —hay manifiesto y la huella va en
-      // la ruta—, que es lo que hay que hacer alli: nada.
-      await fetch(donde, { cache: "reload" });
-      return donde;
+      // misma version, asi que sin `cache: "reload"` el navegador sirve el de
+      // ayer y la pagina corre un validador viejo sin decirlo. Paso de verdad.
+      // En el sitio publicado no hace falta: la huella va en la ruta, y ademas
+      // ahora se compara.
+      return { donde: DIST + nombres.sort().pop(), clave: null, fresco: true };
     }
   }
   throw new Error(
     "No hay ningun .whl en " + DIST + ", ni suelto ni anunciado en rueda.json."
   );
+}
+
+// Instala el validador, mirando antes lo que llega.
+//
+// **Se baja dos veces, y eso tiene un porque.** Lo ideal seria bajarlo una vez
+// y darle los bytes a `loadPackage`, para que lo comprobado y lo instalado
+// fueran literalmente lo mismo. No se puede: `loadPackage` solo acepta un
+// nombre o una direccion, y la direccion la pide el con `fetch`. Tampoco vale
+// `emfs:`, que sirve para instalar desde el disco virtual —medido el
+// 20-09-2026: la politica de contenido lo bloquea, porque `connect-src 'self'`
+// no admite ese esquema, y `loadPackage` no se queja: escribe un aviso en la
+// consola y devuelve tan contento; lo cazo el `pyimport` de abajo—.
+//
+// La segunda peticion no deberia costar cable: el sitio publicado sirve
+// `dist/*.whl` con permiso para guardarlo un ano —`immutable`—, asi que sale de
+// la cache del navegador. En local se ven las dos, porque `python -m
+// http.server` no manda esa cabecera.
+//
+// Y lo que queda: entre la copia que se mira y la que instala `loadPackage`
+// cabe, en teoria, que no sean la misma. Esto no es una frontera de seguridad
+// y no se va a decir que lo sea. Lo que caza es lo que de verdad pasa aqui
+// —una copia vieja de la cache, una descarga a medias—, y para eso las dos
+// vienen del mismo sitio y valen igual.
+async function instalarElValidador() {
+  const { donde, clave, fresco } = await buscarWheel();
+  const respuesta = await fetch(donde, fresco ? { cache: "reload" } : undefined);
+  if (!respuesta.ok) {
+    throw new Error("El validador no ha llegado: " + donde + " da " +
+                    respuesta.status + ".");
+  }
+  const crudo = new Uint8Array(await respuesta.arrayBuffer());
+  await comprobar(clave, crudo, "El validador (" + donde.split("/").pop() + ")");
+  await pyodide.loadPackage(donde);
+  return donde;
 }
 
 // El SHA-256 de unos bytes, o `null` cuando el navegador no puede calcularlo.
@@ -346,6 +410,19 @@ const SIN_BYTES = 30000;
 // que es cambiar un fallo silencioso por otro.
 async function conVigilante(faena) {
   const deVerdad = globalThis.fetch;
+  // El mando para abandonar. `Promise.race` no para al que pierde: sin esto,
+  // el vigilante saltaba, la pagina decia «No ha arrancado» y la descarga
+  // seguia por detras. Medido el 20-09-2026 con un servidor que se atasca a
+  // proposito: el vigilante salto a los 30 s, y a los 45 el servidor escribio
+  // el resto de `python_stdlib.zip` y **el cliente seguia ahi**; detras se
+  // bajaron lxml, el wheel, el paquete y los diez ejemplos, casi 5 MB, con la
+  // pagina puesta en que no habia arrancado. Y el validador acababa vivo: se
+  // le podia pedir un informe por consola mientras la zona estaba apagada.
+  //
+  // Es lo de siempre con otro disfraz: lo que hay en pantalla no es lo que
+  // esta pasando. Ademas duele donde mas: en una conexion que se esta muriendo,
+  // esas peticiones abiertas son lo que le queda.
+  const mando = new AbortController();
   let abiertas = 0;
   let ultimoByte = Date.now();
   let reloj = null;
@@ -368,12 +445,29 @@ async function conVigilante(faena) {
     }
   };
 
-  globalThis.fetch = async (...args) => {
+  // La senial de abandono se le engancha a cada peticion. Si quien llama traia
+  // la suya, se juntan las dos con `AbortSignal.any`, que es lo unico que
+  // permite no quitarle la suya a nadie; donde no exista, manda la nuestra,
+  // porque aqui nadie pasa senial —Pyodide pide con `fetch(url)`— y quedarse
+  // sin poder abandonar es peor.
+  const conSenial = (opciones) => {
+    const suya = opciones && opciones.signal;
+    if (suya && typeof AbortSignal.any === "function") {
+      return { ...opciones, signal: AbortSignal.any([suya, mando.signal]) };
+    }
+    return { ...(opciones || {}), signal: mando.signal };
+  };
+
+  globalThis.fetch = async (entrada, opciones) => {
     abiertas += 1;
     ultimoByte = Date.now();
     let respuesta;
     try {
-      respuesta = await deVerdad(...args);
+      // Un `Request` ya trae su senial dentro y no se le puede cambiar: hay
+      // que rehacerlo. Lo demas va por el camino normal.
+      respuesta = entrada instanceof Request
+        ? await deVerdad(new Request(entrada, { signal: mando.signal }))
+        : await deVerdad(entrada, conSenial(opciones));
     } catch (error) {
       abiertas -= 1;
       throw error;
@@ -387,9 +481,23 @@ async function conVigilante(faena) {
     return respuesta;
   };
 
+  // La faena, aparte de la carrera a proposito: el `fetch` bueno se devuelve
+  // **cuando ella acaba**, no cuando acaba la carrera. Devolviendolo en el
+  // `finally` de la carrera, lo que siguiera bajando despues ya no pasaba por
+  // aqui y no lo contaba nadie.
+  const enMarcha = faena();
+  enMarcha
+    .finally(() => {
+      clearInterval(reloj);
+      globalThis.fetch = deVerdad;
+    })
+    // Que se abandone no puede dejar una promesa rechazada sin dueno, que en
+    // el navegador sale por la consola como si fuera un fallo aparte.
+    .catch(() => {});
+
   try {
     return await Promise.race([
-      faena(),
+      enMarcha,
       new Promise((_, mal) => {
         reloj = setInterval(() => {
           if (abiertas > 0 && Date.now() - ultimoByte > SIN_BYTES) {
@@ -401,9 +509,12 @@ async function conVigilante(faena) {
         }, 1000);
       }),
     ]);
-  } finally {
+  } catch (error) {
     clearInterval(reloj);
-    globalThis.fetch = deVerdad;
+    // Aqui es donde se abandona de verdad. Sin esta linea todo lo de arriba es
+    // un cartel.
+    mando.abort(error);
+    throw error;
   }
 }
 
@@ -441,8 +552,7 @@ async function arrancarDeVerdad(avisar) {
   // micropip sobraba: eran 115 KB de descarga y un paso de resolucion que no
   // resolvia nada.
   t = performance.now();
-  const elWheel = await buscarWheel();
-  await pyodide.loadPackage(elWheel);
+  const elWheel = await instalarElValidador();
   // `loadPackage` **no se queja** si el wheel no llega: escribe un aviso en la
   // consola y devuelve como si todo hubiera ido bien. Con micropip esto fallaba
   // aqui mismo; sin el, el arranque dice «Listo en 5 s» sin validador dentro y
@@ -468,10 +578,15 @@ async function arrancarDeVerdad(avisar) {
   t = performance.now();
   pyodide.FS.mkdirTree("/ejemplos");
   await Promise.all(EJEMPLOS.map(async (nombre) => {
-    const respuesta = await fetch(
-      conHuella(EJEMPLOS_EN + nombre, "ejemplos/" + nombre));
-    pyodide.FS.writeFile("/ejemplos/" + nombre,
-                         new Uint8Array(await respuesta.arrayBuffer()));
+    const clave = "ejemplos/" + nombre;
+    const respuesta = await fetch(conHuella(EJEMPLOS_EN + nombre, clave));
+    const crudo = new Uint8Array(await respuesta.arrayBuffer());
+    // Tambien estos. Son las facturas con las que alguien decide si esto le
+    // sirve, antes de soltar una suya: un ejemplo servido a medias daria un
+    // informe que no es el que esa factura merece, sin que nada pareciera
+    // roto.
+    await comprobar(clave, crudo, "El ejemplo «" + nombre + "»");
+    pyodide.FS.writeFile("/ejemplos/" + nombre, crudo);
   }));
   decir("Facturas de ejemplo", seg(performance.now() - t));
 
@@ -494,11 +609,24 @@ from validador import factura
 from validador.cadena import Almacen
 from validador.esquema import Catalogo
 
-_a = Almacen.por_defecto()
-if _a.declarada:
-    _a = Almacen(_a.carpeta, 'que viene con esta pagina, ' + _a.declarada,
-                 _a.sellos_en)
-_c = Catalogo.por_defecto()
+# El catalogo y el almacen se arman **una vez** y se guardan.
+#
+# Construirlos no cuesta nada —son perezosos—, pero el esquema compilado y los
+# certificados leidos viven dentro de cada uno, asi que uno nuevo en cada
+# validacion tira ese trabajo y lo vuelve a hacer. Medido en esta maquina, con
+# la factura de ejemplo: 70 ms rehaciendolos y 1,9 ms reusandolos. Eso se
+# pagaba **en cada factura soltada**, y en el navegador cuesta bastante mas.
+#
+# Se puede guardar porque aqui no cambian: las carpetas salen del paquete que
+# se descomprimio al arrancar, y eso pasa una vez. En consola no hay nada que
+# guardar, porque cada orden es un proceso nuevo.
+if "_c" not in globals():
+    _a = Almacen.por_defecto()
+    if _a.declarada:
+        _a = Almacen(_a.carpeta, 'que viene con esta pagina, ' + _a.declarada,
+                     _a.sellos_en)
+    _c = Catalogo.por_defecto()
+
 _lote = factura.validar_lote(list(_rutas), catalogo=_c, almacen=_a,
                              nombres=list(_nombres))
 
@@ -594,8 +722,13 @@ async function validarEjemplo(nombre) {
 // la pagina siguio diciendo «las 33 comprobaciones pasan» tan contenta.
 async function correrBanco() {
   await leerElManifiesto();
-  const codigo = await (
-    await fetch(conHuella("./prueba.py", "prueba.py"))).text();
+  const respuesta = await fetch(conHuella("./prueba.py", "prueba.py"));
+  const crudo = new Uint8Array(await respuesta.arrayBuffer());
+  // Y este el que mas: es el fichero que dice si el validador hace lo que
+  // promete. Uno servido de una cache vieja corre las comprobaciones de ayer
+  // contra el codigo de hoy y sale todo verde, que ya paso.
+  await comprobar("prueba.py", crudo, "El fichero de comprobaciones");
+  const codigo = new TextDecoder("utf-8").decode(crudo);
   return JSON.parse(await pyodide.runPythonAsync(codigo));
 }
 

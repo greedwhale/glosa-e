@@ -153,8 +153,10 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Arranque en frío del todo (primera visita) | ~42 s |
 | Arranque con la CDN ya cacheada | 11,25 s |
 | Arranque con la caché ya caliente | ~4,8 s |
-| Validar una factura | 5–120 ms |
-| Validar los 10 de `ejemplos/` | 798 ms |
+| Validar una factura de una línea | 17–23 ms (el 15-09: 416–463) |
+| Validar los 10 de `ejemplos/` | 280 ms, mediana de 5 (el 06-09, en producción: 798) |
+| Validar una factura de 1.000 líneas | 1,1 s (el 15-09: 5,7) |
+| Validar una factura de 4.000 líneas | 4,2–5,3 s (el 15-09: 20,5–23,8) |
 | Verificar una firma XAdES | 17 ms |
 | Encadenar hasta un ancla de confianza | 3,2 ms |
 | Leer y verificar una lista de revocación | 4,8 ms |
@@ -166,6 +168,25 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Validar un lote de 200 | 2,05 s · 10,3 ms cada una · 23 MB de memoria |
 | Lo que descomprime el navegador | 17,07 MB (15-09-2026; eran 14,71) |
 | Lo que baja por el cable la primera vez | 9,86 MB en 24 peticiones, todas a `www.glosa-e.com` (15-09-2026) |
+
+Las filas de validar cambiaron el 20-09-2026 y aquí decían de más. «5–120 ms»
+se había medido sobre las facturas de ejemplo, que tienen una línea o dos, y se
+publicaba como si fuera lo que cuesta validar **una factura**: la auditoría del
+15-09-2026 soltó una de 4.000 líneas y la pestaña se quedó bloqueada. Eran dos
+cosas, las dos aburridas:
+
+- cada ruta XPath se compilaba en cada uso. Una factura de 800 líneas hacía
+  31.235 llamadas a `texto()` y 16.080 a `_nodos()`, compilando las mismas
+  cuatro docenas de rutas una y otra vez. Compilándolas una sola vez, medido
+  fuera del navegador: una factura de 4.000 líneas pasa de 4.137 ms a 1.705;
+- el catálogo de esquemas y el almacén de anclas se rehacían **en cada
+  validación**, y no cambian nunca. Fuera del navegador: 70 ms frente a 1,9.
+  Esa es la que se nota en una factura normal.
+
+Lo que sigue siendo verdad: 4.000 líneas son 4 segundos largos con la pestaña
+parada, porque esto valida en el hilo de la página. Cuatro segundos no son
+treinta y ocho, pero tampoco son nada, y quien tenga facturas así conviene que
+lo sepa antes de soltarlas.
 
 La fila de los 10 ejemplos se midió el 06-09-2026 sobre `www.glosa-e.com`, con
 cuatro pasadas de calentamiento y la mediana de siete, **y con la máquina en

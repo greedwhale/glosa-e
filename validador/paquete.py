@@ -293,9 +293,70 @@ _PAQUETES_DE_PYODIDE = ("lxml",)
 CARPETA_DE_PYODIDE = "vendor/pyodide"
 NOMBRE_DE_HUELLAS = "HUELLAS.txt"
 
+# Lo que tiene que llegar, escrito aquí y versionado.
+#
+# `HUELLAS.txt` existía desde el principio y **no fijaba nada**: se calcula de
+# lo que se baja, se escribe dentro de `vendor/`, que no se versiona, y por lo
+# tanto no viaja. Era un recibo —«esto llegó»— haciéndose pasar por un contrato
+# —«esto tenía que llegar»—. La diferencia se ve en lo que cada uno permite
+# decir: con un recibo, un día que el CDN sirviera otra cosa, la construcción de
+# Vercel la bajaría, la apuntaría como buena y la publicaría; y como
+# `traer_pyodide` reutiliza lo que ya está en la carpeta sin mirarlo, un
+# fichero a medias de una descarga cortada se apuntaba igual.
+#
+# Son 15 MB que corren dentro del navegador de quien abre la página. Con la
+# tabla aquí, lo que no cuadre no se baja, no se monta y no se publica.
+#
+# Contrastadas dos veces contra el CDN, a tres semanas de distancia: al bajarlas
+# el 30-08-2026 y otra vez el 20-09-2026, los seis ficheros byte a byte iguales.
+#
+# Subir de versión es cambiar el intérprete de un desconocido: se hace a mano,
+# bajándolo, mirando qué trae y escribiendo las huellas nuevas aquí. Lo que no
+# puede pasar es que se mueva solo.
+HUELLAS_DE_PYODIDE = {
+    "lxml-6.0.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl":
+        "13b273a49a4737efb22148af07644fb1b2db6540768b92d14ecdf852ed2d6148",
+    "pyodide-lock.json":
+        "3fdaef09e9e365c85e002737720f8d0ab8f278c1c244a2dde6a37663cf488ad4",
+    "pyodide.asm.mjs":
+        "2ac5eba365ec12839c75c03b39b3be1dd63b798852cc460b014b52238be042f7",
+    "pyodide.asm.wasm":
+        "3a0a00dfeaa348ac20f9ef09904233d32d33f644339662d4af368f8a2010f37a",
+    "pyodide.js":
+        "8d653521230f8e92f2e2f587e03f29d3abcdfb1c1744442d06fd8235007adb6b",
+    "python_stdlib.zip":
+        "80c5be6babfe03297069703410c3c29404dcf2525d2b128746bae5536f94831f",
+}
 
-class SinPyodide(Exception):
+
+class NoSeMonta(Exception):
+    """La raíz de todas las negativas de montar el sitio.
+
+    Existe por un fallo concreto y aburrido: la lista de las que `__main__`
+    cazaba estaba escrita a mano, una a una, y `SinPolitica` se añadió después
+    sin tocarla. Resultado —medido el 20-09-2026—: una página con un manejador
+    en línea salía con **traza de Python y código 1** en vez de con la negativa
+    de esta casa, y dejaba 409 ficheros montados y ningún `rueda.json`.
+
+    Es el patrón de esta casa al revés: una lista que hay que acordarse de
+    ampliar. Con una raíz común, la negativa que se escriba mañana ya está
+    cazada el día que se escribe. Lo guarda una prueba que recorre el módulo:
+    toda excepción de aquí o hereda de esta, o consta a propósito como de otra
+    cosa.
+    """
+
+
+class SinPyodide(NoSeMonta):
     """No está el intérprete alojado aquí, así que no se monta el sitio."""
+
+
+class PyodideQueNoCuadra(NoSeMonta):
+    """Un fichero del intérprete no es el que este repositorio fijó.
+
+    Distinta de `SinPyodide` a propósito: que falte se arregla bajándolo y no
+    quiere decir nada; que esté y no cuadre quiere decir que lo que se iba a
+    servir no es lo que se probó, y eso no se arregla solo.
+    """
 
 
 def _bajar(url: str, destino: Path) -> bytes:
@@ -335,23 +396,62 @@ def _lo_que_hace_falta(carpeta: Path) -> list[str]:
     return ficheros
 
 
+def _que_cuadre(nombre: str, crudo: bytes, de_donde) -> str:
+    """La huella de unos bytes, si es la que este repositorio fijó.
+
+    Si no, no devuelve nada: se niega. Lo que se sirve al navegador de quien
+    visita la página tiene que ser lo que aquí se probó, y «casi» no vale: un
+    `python_stdlib.zip` cortado a la mitad se apunta tan bien como uno entero.
+    """
+    esperada = HUELLAS_DE_PYODIDE.get(nombre)
+    medida = hashlib.sha256(crudo).hexdigest()
+    if esperada is None:
+        raise PyodideQueNoCuadra(
+            f"«{nombre}» hace falta para servir el intérprete y no tiene huella "
+            f"fijada en `HUELLAS_DE_PYODIDE`. Si de verdad hace falta, se mira "
+            "qué es y se escribe su huella ahí; lo que no se sabe qué es no se "
+            "reparte."
+        )
+    if medida != esperada:
+        raise PyodideQueNoCuadra(
+            f"«{nombre}» ({de_donde}) no es el que este repositorio fijó: "
+            f"aquí consta {esperada[:12]}... y esos bytes resumen "
+            f"{medida[:12]}... . No se monta. Si el fichero está a medias de "
+            "una descarga cortada, bórralo y vuelve a traerlo; si el CDN ha "
+            "cambiado de verdad, es un cambio de intérprete y se mira a mano."
+        )
+    return medida
+
+
 def traer_pyodide(
     destino: str | Path = CARPETA_DE_PYODIDE,
     version: str = VERSION_DE_PYODIDE,
 ) -> list[str]:
-    """Baja el intérprete y deja sus huellas escritas al lado.
+    """Baja el intérprete, lo contrasta con lo fijado y apunta las huellas.
 
     Las huellas no son ceremonia. Estos ficheros se sirven a quien visite la
     página, así que lo que se reparte tiene que poder contrastarse con lo que
-    se bajó: si un día el CDN sirviera otra cosa, la única forma de enterarse
-    es tener apuntado lo de antes.
+    se fijó —ver `HUELLAS_DE_PYODIDE`—. `HUELLAS.txt` se sigue escribiendo al
+    lado, pero ya no decide nada: es el recibo de lo que hay en esa carpeta,
+    para que `--sitio` pueda ver si algo se ha estropeado después.
     """
     carpeta = Path(destino)
+    if version != VERSION_DE_PYODIDE:
+        raise PyodideQueNoCuadra(
+            f"Las huellas fijadas aquí son las de Pyodide {VERSION_DE_PYODIDE} "
+            f"y se ha pedido {version}, así que no habría con qué contrastar lo "
+            "que se baje. Subir de versión es cambiar el intérprete que corre "
+            "en el navegador de quien visita: se baja a mano, se mira qué trae "
+            "y se escriben sus huellas en `HUELLAS_DE_PYODIDE`."
+        )
     carpeta.mkdir(parents=True, exist_ok=True)
     raiz = DE_DONDE_SE_BAJA.format(version)
 
-    # El candado primero: sin él no se sabe qué más hace falta.
-    _bajar(raiz + "pyodide-lock.json", carpeta / "pyodide-lock.json")
+    # El candado primero: sin él no se sabe qué más hace falta. Y se mira antes
+    # de creerle, porque de un candado que no es el fijado tampoco vale la
+    # lista de lo que dice que hace falta.
+    candado = "pyodide-lock.json"
+    _que_cuadre(candado, _bajar(raiz + candado, carpeta / candado), raiz)
 
     huellas: dict[str, str] = {}
     traidos: list[str] = []
@@ -359,10 +459,14 @@ def traer_pyodide(
         ruta = carpeta / nombre
         if ruta.is_file():
             crudo = ruta.read_bytes()
+            de_donde = str(ruta)
         else:
             crudo = _bajar(raiz + nombre, ruta)
+            de_donde = raiz
             traidos.append(nombre)
-        huellas[nombre] = hashlib.sha256(crudo).hexdigest()
+        # También lo que ya estaba. Reutilizar sin mirar es lo que permitía que
+        # una descarga cortada de ayer se apuntara hoy como buena.
+        huellas[nombre] = _que_cuadre(nombre, crudo, de_donde)
 
     lineas = [
         f"# Pyodide {version}, bajado de {raiz}",
@@ -375,15 +479,56 @@ def traer_pyodide(
     return traidos
 
 
+def _apuntadas(carpeta: Path) -> dict[str, str]:
+    """Lo que dice `HUELLAS.txt` de esa carpeta, si está."""
+    ruta = carpeta / NOMBRE_DE_HUELLAS
+    if not ruta.is_file():
+        return {}
+    apuntadas = {}
+    for linea in ruta.read_text(encoding="utf-8").splitlines():
+        if linea.strip() and not linea.startswith("#"):
+            huella, _, nombre = linea.partition("  ")
+            apuntadas[nombre.strip()] = huella.strip()
+    return apuntadas
+
+
 def _revisar_pyodide(carpeta: Path) -> list[str]:
-    """Qué falta de lo que el candado dice que hace falta."""
+    """Qué falta de lo que el candado dice que hace falta, y qué no cuadra.
+
+    Lo que falta se devuelve; lo que **está y no cuadra** se niega aquí mismo.
+    Son dos cosas distintas: que falte se arregla bajándolo, y que no cuadre
+    quiere decir que lo que se iba a publicar no es lo que se trajo.
+
+    Se contrasta con `HUELLAS.txt`, el recibo que dejó `--traer-pyodide`, y no
+    con la tabla fijada: esto también corre sobre carpetas que no son la de
+    Pyodide de verdad —las pruebas montan una en pequeño— y lo que aquí hay que
+    cazar es que un fichero se haya estropeado **después** de traerlo. De que
+    lo traído sea lo fijado se encarga `traer_pyodide`, que es donde se puede.
+    """
     if not (carpeta / "pyodide-lock.json").is_file():
         raise SinPyodide(
             f"No está «{carpeta}», que es donde vive el intérprete que se "
             "sirve con la página. Tráelo con `python -m validador "
             "--traer-pyodide`. Se baja una vez y pesa unos 8 MB."
         )
-    return [n for n in _lo_que_hace_falta(carpeta) if not (carpeta / n).is_file()]
+    hacen_falta = _lo_que_hace_falta(carpeta)
+    faltan = [n for n in hacen_falta if not (carpeta / n).is_file()]
+
+    apuntadas = _apuntadas(carpeta)
+    for nombre in hacen_falta:
+        esperada = apuntadas.get(nombre)
+        if nombre in faltan or esperada is None:
+            continue
+        medida = hashlib.sha256((carpeta / nombre).read_bytes()).hexdigest()
+        if medida != esperada:
+            raise PyodideQueNoCuadra(
+                f"«{nombre}» no es el que se trajo: «{NOMBRE_DE_HUELLAS}» "
+                f"apunta {esperada[:12]}... y el fichero resume "
+                f"{medida[:12]}... . Algo lo ha cambiado después de bajarlo, y "
+                "eso se sirve a quien abra la página. Vuelve a traerlo con "
+                "`python -m validador --traer-pyodide`."
+            )
+    return faltan
 
 
 # --- El sitio que se publica -----------------------------------------------
@@ -492,19 +637,19 @@ _DE_LA_PAGINA = (
 )
 
 
-class SinRueda(Exception):
+class SinRueda(NoSeMonta):
     """No hay wheel que servir, así que la página no arrancaría."""
 
 
-class SinPagina(Exception):
+class SinPagina(NoSeMonta):
     """Falta el index.html, o ya no dice dónde busca sus cosas."""
 
 
-class RuedaVieja(Exception):
+class RuedaVieja(NoSeMonta):
     """El wheel de `dist/` no es el del código que hay ahora mismo."""
 
 
-class NoEsUnSitio(Exception):
+class NoEsUnSitio(NoSeMonta):
     """La carpeta de destino tiene cosas y no las ha montado `--sitio`."""
 
 
@@ -545,7 +690,7 @@ def _se_puede_borrar(destino: Path) -> None:
     )
 
 
-class SinPaquete(Exception):
+class SinPaquete(NoSeMonta):
     """Se ha exigido el paquete de esquemas y anclas, y no está o está vacío.
 
     Solo se levanta con `exigir_paquete=True`. Montar sin paquete sigue siendo
@@ -890,7 +1035,7 @@ _RE_MANEJADOR = re.compile(r"<[a-z][^>]*?\son[a-z]+\s*=", re.I)
 _CHARSET = '<meta charset="utf-8">'
 
 
-class SinPolitica(Exception):
+class SinPolitica(NoSeMonta):
     """Una página en la que la política de contenido no se puede poner bien."""
 
 
@@ -925,17 +1070,35 @@ def politica_de_contenido(texto: str) -> str:
     )
 
 
+def _lo_que_la_politica_bloquearia(nombre: str, texto: str) -> None:
+    """Se niega si esta página lleva algo que la política mataría en silencio.
+
+    Separada de `_con_politica` para poder preguntarlo **antes** de montar
+    nada, sobre las páginas de `web/`, y otra vez al final sobre las que de
+    verdad se publican, que incluyen las generadas de una plantilla.
+
+    Aquí no se mira el `<meta charset>`. Eso es una condición de **escribir**
+    la política, y adelantarla cambiaba el diagnóstico de una página sin
+    cabecera: se llevaba una queja sobre la política en vez de la que dice qué
+    le pasa de verdad, que es que no tiene `</head>`.
+    """
+    cuerpo_sin_scripts = _RE_SCRIPT.sub("", texto)
+    if _RE_MANEJADOR.search(cuerpo_sin_scripts) or 'href="javascript:' in texto:
+        raise SinPolitica(
+            f"«{nombre}» lleva un manejador en línea o un enlace "
+            "javascript:, y la política lo bloquearía sin dar error: el "
+            "botón se quedaría muerto. Pásalo a un addEventListener.")
+    # Y que las huellas se puedan calcular: un `<script defer>` en línea se
+    # quedaría fuera de la política y bloqueado sin decir nada.
+    politica_de_contenido(texto)
+
+
 def _con_politica(destino: Path) -> int:
     """Pone la política en cada página, la primera cosa de su <head>."""
     paginas = sorted(destino.glob("*.html"))
     for ruta in paginas:
         texto = ruta.read_text(encoding="utf-8")
-        cuerpo_sin_scripts = _RE_SCRIPT.sub("", texto)
-        if _RE_MANEJADOR.search(cuerpo_sin_scripts) or 'href="javascript:' in texto:
-            raise SinPolitica(
-                f"«{ruta.name}» lleva un manejador en línea o un enlace "
-                "javascript:, y la política lo bloquearía sin dar error: el "
-                "botón se quedaría muerto. Pásalo a un addEventListener.")
+        _lo_que_la_politica_bloquearia(ruta.name, texto)
         if texto.count(_CHARSET) != 1:
             raise SinPolitica(
                 f"«{ruta.name}» no tiene un {_CHARSET} (o tiene más de uno), así "
@@ -1106,6 +1269,15 @@ def montar_sitio(
     # cuesta nada y se hace dos veces a propósito.
     if (pagina / bitacora.CARPETA).is_dir():
         bitacora.leer_entradas(pagina / bitacora.CARPETA)
+
+    # Y la política, por lo mismo y con la misma lección. `_con_politica` corre
+    # al final, que es donde tiene que correr —las huellas tienen que ser las
+    # del texto que de verdad se publica—, y hasta el 20-09-2026 era también el
+    # único sitio donde se miraba si una página lleva un `onclick=`. Eso no
+    # depende de nada de lo que pasa por el medio: se puede ver aquí, antes de
+    # escribir el primer byte. Se mira dos veces a propósito, como la bitácora.
+    for html in sorted(pagina.glob("*.html")):
+        _lo_que_la_politica_bloquearia(html.name, html.read_text(encoding="utf-8"))
 
     _se_puede_borrar(destino)
     if destino.exists():
@@ -1355,7 +1527,13 @@ def montar_sitio(
         relativo = camino.relative_to(destino).as_posix()
         if relativo == f"dist/{NOMBRE_DE_LA_RUEDA}":
             continue
-        huellas[relativo] = hashlib.sha256(camino.read_bytes()).hexdigest()[:8]
+        # La huella **entera**, no los ocho primeros. Ocho bastan para que la
+        # dirección cambie cuando el fichero cambia, que es para lo único que
+        # servía esto; desde el 20-09-2026 la página también las compara con
+        # lo que se baja, y ahí ocho caracteres son una comprobación de
+        # mentira. En el `?v=` se siguen usando los ocho primeros, así que las
+        # direcciones no cambian y la caché de quien ya haya pasado vale.
+        huellas[relativo] = hashlib.sha256(camino.read_bytes()).hexdigest()
 
     (destino / "dist" / NOMBRE_DE_LA_RUEDA).write_text(
         json.dumps({"rueda": f"{huella_rueda}/{rueda.name}", "huellas": huellas},

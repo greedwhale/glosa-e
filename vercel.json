@@ -1,10 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "echo 'sin dependencias de node'",
-  "buildCommand": "python3 -m pip install --quiet --disable-pip-version-check --break-system-packages lxml && python3 -m pip wheel . --no-deps --wheel-dir dist && python3 -m validador --traer-pyodide && python3 -m validador --sitio sitio --exigir-paquete",
+  "buildCommand": "python3 -m pip install --quiet --disable-pip-version-check --break-system-packages lxml==6.1.2 && python3 -m pip wheel . --no-deps --wheel-dir dist && python3 -m validador --traer-pyodide && python3 -m validador --sitio sitio --exigir-paquete",
   "outputDirectory": "sitio",
   "framework": null,
   "cleanUrls": true,
+  "trailingSlash": false,
   "redirects": [
     { "source": "/codigo-BR-AE-1", "destination": "/codigo-BR-AE-01", "permanent": true },
     { "source": "/codigo-BR-AE-2", "destination": "/codigo-BR-AE-02", "permanent": true },

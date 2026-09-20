@@ -55,7 +55,14 @@ from __future__ import annotations
 import re
 
 from validador.incidencias import AVISO, ERROR, Incidencia
-from validador.sintaxis import SIN_MAPA, Sintaxis, a_decimal, texto
+from validador.sintaxis import (
+    SIN_MAPA,
+    Sintaxis,
+    a_decimal,
+    buscar,
+    como_texto,
+    texto,
+)
 
 __all__ = ["PREFIJOS_IVA", "grupos", "reglas"]
 
@@ -317,14 +324,14 @@ _GRUPOS: tuple[tuple[str, str, tuple[str, ...], str, bool, str, str], ...] = (
 
 def _escrito(nodo) -> str:
     """Lo que dice un nodo, sin comentarios: `string()` de XPath, como el oficial."""
-    return (nodo if isinstance(nodo, str) else nodo.xpath("string()")).strip()
+    return (nodo if isinstance(nodo, str) else como_texto(nodo)).strip()
 
 
 def _esta(nodo, ruta: str, sintaxis: Sintaxis, con_texto: bool) -> bool | None:
     """Si el campo está —o dice algo—, si no, o None si la sintaxis no lo tiene."""
     if ruta == SIN_MAPA:
         return None
-    encontrados = nodo.xpath(ruta, namespaces=sintaxis.espacios)
+    encontrados = buscar(nodo, ruta, sintaxis.espacios)
     if isinstance(encontrados, str):
         encontrados = [encontrados] if encontrados.strip() else []
     if not con_texto:
@@ -335,7 +342,7 @@ def _esta(nodo, ruta: str, sintaxis: Sintaxis, con_texto: bool) -> bool | None:
 def _nodos(nodo, ruta: str, sintaxis: Sintaxis) -> list:
     if ruta == SIN_MAPA:
         return []
-    return list(nodo.xpath(ruta, namespaces=sintaxis.espacios))
+    return list(buscar(nodo, ruta, sintaxis.espacios))
 
 
 def _lineas(raiz, sintaxis: Sintaxis) -> list[tuple[str, object]]:

@@ -12,6 +12,7 @@ cadena llegando, sin que nada en el documento lo delate—. Las dos cosas se
 notan poco y se reparten fácil, que es la peor combinación.
 """
 
+import hashlib
 import json
 import re
 import zipfile
@@ -339,6 +340,17 @@ ESTILO = ('@font-face { src: url("./letra/literata.woff2?v=abc12345"); }\n'
           ":root { --papel: #fbfaf7; }\n")
 
 
+def _apuntar_huellas(carpeta):
+    """`HUELLAS.txt` de una carpeta de intérprete, como lo deja traerlo."""
+    lineas = [f"# de mentira, para las pruebas", ""]
+    for fichero in sorted(carpeta.glob("*")):
+        if fichero.is_file() and fichero.name != paquete.NOMBRE_DE_HUELLAS:
+            huella = hashlib.sha256(fichero.read_bytes()).hexdigest()
+            lineas.append(f"{huella}  {fichero.name}")
+    (carpeta / paquete.NOMBRE_DE_HUELLAS).write_text(
+        "\n".join(lineas) + "\n", encoding="utf-8")
+
+
 @pytest.fixture
 def repositorio(tmp_path):
     """Un repositorio en pequeño: la página, un wheel y unos ejemplos."""
@@ -373,6 +385,10 @@ def repositorio(tmp_path):
     for nombre in ("pyodide.js", "pyodide.asm.mjs", "pyodide.asm.wasm",
                    "python_stdlib.zip", "lxml-0.0.0.whl", "micropip-0.0.0.whl"):
         (py / nombre).write_bytes(b"x")
+    # Y su recibo, que es lo que `--sitio` mira para saber si algo se ha
+    # estropeado después de traerlo. Lo escribe `--traer-pyodide` de verdad;
+    # aquí se escribe a mano porque este intérprete de mentira no se baja.
+    _apuntar_huellas(py)
 
     # Facturas de terceros, que no salen de aquí.
     (tmp_path / "muestras").mkdir()
@@ -601,7 +617,14 @@ class TestElSitioQueSePublica:
         for pedido in ("paquete.zip", "PAQUETE.json", "prueba.py",
                        "glosa.js", "glosa.css", "ejemplos/f-0001.xml"):
             assert pedido in huellas, pedido
-            assert len(huellas[pedido]) == 8
+            # Entera, desde el 20-09-2026. Para que la dirección cambie cuando
+            # el fichero cambia bastan ocho caracteres, y son los ocho que la
+            # página sigue poniendo en el `?v=`; lo que no se puede hacer con
+            # ocho es **comparar** lo que llega, que es lo que la página hace
+            # ahora con el wheel, el fichero del banco y los ejemplos.
+            assert len(huellas[pedido]) == 64, pedido
+            assert huellas[pedido] == hashlib.sha256(
+                (repositorio / "sitio" / pedido).read_bytes()).hexdigest()
 
         # El propio manifiesto no se firma: es lo único que se pide siempre
         # fresco, porque de él salen las demás huellas.
@@ -1470,3 +1493,184 @@ class TestElBuzonDeSeguridad:
         with pytest.raises(paquete.SinPagina) as motivo:
             _montar(repositorio)
         assert "security.txt" in str(motivo.value)
+
+
+class TestNingunaNegativaSaleConTraza:
+    """La lista de negativas que `--sitio` cazaba estaba escrita a mano.
+
+    Lo que pasó, medido el 20-09-2026: `SinPolitica` se añadió después y nadie
+    tocó el `except`, así que una página con un `onclick=` salía con traza de
+    Python y código 1 —no 2— y dejaba 409 ficheros montados y ningún
+    `rueda.json`. Es una carpeta a medias con cara de sitio, que es justo lo
+    que el paso siguiente publica sin enterarse.
+    """
+
+    def test_todas_cuelgan_de_la_raiz(self):
+        """La que se escriba mañana ya está cazada el día que se escribe."""
+        import inspect
+
+        # Las dos de `--empaquetar`, que no montan ningún sitio. Están aquí
+        # escritas para que añadir una excepción obligue a decidir de cuál de
+        # las dos clases es, en vez de dejarla suelta sin que nadie lo note.
+        DE_OTRA_COSA = {"SinManifiesto", "SinRenovar", "NoSeMonta"}
+
+        sueltas = [
+            nombre
+            for nombre, cosa in vars(paquete).items()
+            if inspect.isclass(cosa)
+            and issubclass(cosa, Exception)
+            and cosa.__module__ == paquete.__name__
+            and nombre not in DE_OTRA_COSA
+            and not issubclass(cosa, paquete.NoSeMonta)
+        ]
+        assert not sueltas, (
+            f"{sueltas} no hereda(n) de `NoSeMonta`, así que `--sitio` saldría "
+            "con traza de Python y código 1 al levantarla(s). O hereda, o "
+            "consta en DE_OTRA_COSA."
+        )
+
+    def test_la_raiz_caza_a_las_siete(self):
+        for cual in (paquete.SinRueda, paquete.SinPagina, paquete.SinPyodide,
+                     paquete.RuedaVieja, paquete.SinPaquete,
+                     paquete.NoEsUnSitio, paquete.SinPolitica):
+            assert issubclass(cual, paquete.NoSeMonta), cual.__name__
+
+    def test_la_orden_sale_con_2_y_cuenta_el_motivo(self, monkeypatch, capsys):
+        from validador import __main__
+
+        def negarse(*_, **__):
+            raise paquete.SinPolitica("un onclick= de mentira")
+
+        monkeypatch.setattr(paquete, "montar_sitio", negarse)
+        assert __main__._montar_sitio(Path("sitio")) == 2
+        error = capsys.readouterr().err
+        assert "No se ha montado nada" in error
+        assert "un onclick= de mentira" in error
+
+
+class TestLaPoliticaSeMiraAntesDeTocarNada:
+    """Como la bitácora, y por lo mismo: no dejar una carpeta a medias.
+
+    `_con_politica` corre al final, que es donde tiene que correr —las huellas
+    de los scripts tienen que ser las del texto que de verdad se publica—. Lo
+    que no tenía que esperar al final es mirar si una página lleva un
+    `onclick=`: eso se ve leyendo `web/`.
+    """
+
+    def test_un_manejador_en_linea_no_deja_carpeta(self, repositorio):
+        (repositorio / "web" / "banco.html").write_text(
+            PAGINA.replace("<body>", '<body onclick="nada()">'),
+            encoding="utf-8",
+        )
+        with pytest.raises(paquete.SinPolitica) as fallo:
+            _montar(repositorio)
+        assert "banco.html" in str(fallo.value)
+        assert not (repositorio / "sitio").exists(), (
+            "se ha quedado media carpeta montada: con salida 2 es peor que un "
+            "fallo limpio, porque el paso siguiente la publica igual"
+        )
+
+    def test_un_enlace_javascript_tampoco(self, repositorio):
+        (repositorio / "web" / "legal.html").write_text(
+            PAGINA.replace("</body>", '<a href="javascript:void(0)">x</a></body>'),
+            encoding="utf-8",
+        )
+        with pytest.raises(paquete.SinPolitica):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+    def test_un_script_en_linea_con_atributos_tampoco(self, repositorio):
+        """Quedaría fuera de la política y bloqueado sin decir nada."""
+        (repositorio / "web" / "index.html").write_text(
+            PAGINA.replace("</body>", "<script defer>hola()</script></body>"),
+            encoding="utf-8",
+        )
+        with pytest.raises(paquete.SinPolitica):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+    def test_una_pagina_sana_se_monta_y_lleva_su_politica(self, repositorio):
+        _montar(repositorio)
+        texto = (repositorio / "sitio" / "index.html").read_text(encoding="utf-8")
+        assert 'http-equiv="Content-Security-Policy"' in texto
+
+
+class TestUnInterpreteEstropeadoNoSePublica:
+    """Lo que se sirve al navegador tiene que ser lo que se trajo.
+
+    `--traer-pyodide` contrasta lo que baja con las huellas fijadas en
+    `HUELLAS_DE_PYODIDE`. Aquí se caza lo otro: que un fichero se estropee
+    **después**, en el disco, entre traerlo y publicarlo. Eso se mira contra
+    `HUELLAS.txt`, que es el recibo que dejó traerlo.
+    """
+
+    def test_un_fichero_cambiado_despues_de_traerlo(self, repositorio):
+        roto = repositorio / "vendor" / "pyodide" / "pyodide.asm.wasm"
+        roto.write_bytes(b"otra cosa")
+        with pytest.raises(paquete.PyodideQueNoCuadra) as motivo:
+            _montar(repositorio)
+        assert "pyodide.asm.wasm" in str(motivo.value)
+        assert not (repositorio / "sitio").exists(), (
+            "se ha quedado media carpeta: la negativa va antes de tocar nada"
+        )
+
+    def test_uno_a_medias_tampoco(self, repositorio):
+        """Una descarga cortada no da error: deja el fichero corto y sigue."""
+        corto = repositorio / "vendor" / "pyodide" / "python_stdlib.zip"
+        corto.write_bytes(b"")
+        with pytest.raises(paquete.PyodideQueNoCuadra):
+            _montar(repositorio)
+
+    def test_sin_recibo_no_se_inventa_una_queja(self, repositorio):
+        """Sin `HUELLAS.txt` no hay con qué comparar, y eso no es un hallazgo.
+
+        La carpeta se trajo antes de que existiera el recibo, o se montó a
+        mano. Lo que se publique se sigue mirando por otros sitios; lo que no
+        se puede es dar por malo algo que no se ha podido comprobar.
+        """
+        (repositorio / "vendor" / "pyodide" / paquete.NOMBRE_DE_HUELLAS).unlink()
+        _montar(repositorio)
+        assert (repositorio / "sitio" / "index.html").is_file()
+
+
+class TestComoSeSirveLoQueSeMonta:
+    """Dos ficheros de configuración que deciden cómo llega esto a alguien."""
+
+    VERCEL = Path(__file__).resolve().parent.parent / "vercel.json"
+    LANZADOR = Path(__file__).resolve().parent.parent / ".claude" / "launch.json"
+
+    def test_la_barra_final_no_deja_la_pagina_desnuda(self):
+        """Punto 13 de la auditoría, medido sobre `www.glosa-e.com`.
+
+        `/banco/` contestaba 200 con el HTML del banco, y `/banco/glosa.css`,
+        `/banco/glosa.js` y `/banco/prueba.py` contestaban 404: la página
+        cargaba sin estilo ni validador y el banco se quedaba colgado. Es lo
+        que pasa cuando `cleanUrls` sirve también la forma con barra y la
+        página busca sus cosas con rutas relativas.
+        """
+        dicho = json.loads(self.VERCEL.read_text(encoding="utf-8"))
+        assert dicho.get("trailingSlash") is False, (
+            "sin `\"trailingSlash\": false`, `/banco/` sirve la página y sus "
+            "`./glosa.css` y `./glosa.js` se piden dentro de `/banco/`, donde "
+            "no hay nada"
+        )
+
+    def test_los_servidores_de_local_no_salen_a_la_red(self):
+        """Punto 23. `http.server` sin `--bind` escucha en `0.0.0.0`.
+
+        Medido: el de `web` contestaba en la IP de la red local de esta
+        máquina sirviendo el repositorio entero, `.git/HEAD` incluido, que es
+        `muestras/` y `anclas/` repartidas a quien pase.
+        """
+        dicho = json.loads(self.LANZADOR.read_text(encoding="utf-8"))
+        for servidor in dicho["configuraciones" if "configuraciones" in dicho
+                              else "configurations"]:
+            argumentos = servidor.get("runtimeArgs", [])
+            assert "--bind" in argumentos, (
+                f"el servidor «{servidor['name']}» escucha en todas las "
+                "interfaces"
+            )
+            assert argumentos[argumentos.index("--bind") + 1] == "127.0.0.1", (
+                f"el servidor «{servidor['name']}» se ata a algo que no es "
+                "esta máquina"
+            )

@@ -48,19 +48,19 @@ from __future__ import annotations
 
 from validador.incidencias import ERROR, Incidencia
 from validador.modelo import grupos
-from validador.sintaxis import SIN_MAPA, Sintaxis
+from validador.sintaxis import SIN_MAPA, Sintaxis, buscar, como_texto
 
 __all__ = ["reglas"]
 
 
 def _escrito(nodo) -> str:
-    return nodo if isinstance(nodo, str) else nodo.xpath("string()")
+    return nodo if isinstance(nodo, str) else como_texto(nodo)
 
 
 def _nodos(nodo, ruta: str, sintaxis: Sintaxis) -> list:
     if ruta == SIN_MAPA:
         return []
-    return list(nodo.xpath(ruta, namespaces=sintaxis.espacios))
+    return list(buscar(nodo, ruta, sintaxis.espacios))
 
 
 def _asunto(nota: str) -> str | None:

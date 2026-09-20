@@ -378,6 +378,11 @@ def _traer_pyodide(destino: Path) -> int:
     """
     try:
         traidos = paquete.traer_pyodide(destino)
+    except paquete.NoSeMonta as motivo:
+        # La huella que no cuadra sale por aquí. Con la negativa de esta casa y
+        # código 2, no con una traza de Python: ver `paquete.NoSeMonta`.
+        print(f"No se ha traído nada.\n\n  {motivo}", file=sys.stderr)
+        return 2
     except OSError as error:
         print(
             f"No se ha podido traer el intérprete: {error}\n\n  Hace falta "
@@ -413,9 +418,11 @@ def _montar_sitio(destino: Path, exigir_paquete: bool = False) -> int:
     """
     try:
         sitio = paquete.montar_sitio(destino, exigir_paquete=exigir_paquete)
-    except (paquete.SinRueda, paquete.SinPagina, paquete.SinPyodide,
-            paquete.RuedaVieja, paquete.SinPaquete, paquete.NoEsUnSitio,
-            bitacora.SinEntrada) as motivo:
+    # `paquete.NoSeMonta` y no la lista de las siete: la lista estaba escrita a
+    # mano y `SinPolitica` se añadió sin tocarla, así que una página con un
+    # `onclick=` salía con traza de Python y código 1 en vez de con la
+    # negativa. Ver `paquete.NoSeMonta`.
+    except (paquete.NoSeMonta, bitacora.SinEntrada) as motivo:
         print(f"No se ha montado nada.\n\n  {motivo}", file=sys.stderr)
         return 2
     except OSError as error:

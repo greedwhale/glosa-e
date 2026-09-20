@@ -13,8 +13,11 @@ ninguna regla.
 from __future__ import annotations
 
 import re
+import threading
 from dataclasses import dataclass
 from decimal import ROUND_FLOOR, Decimal, InvalidOperation, localcontext
+
+from lxml import etree
 
 from validador import cius_es
 
@@ -1400,9 +1403,74 @@ SINTAXIS: dict[str, Sintaxis] = {
 
 # --- Lectura ---------------------------------------------------------------
 
+# Las rutas, compiladas una vez.
+#
+# `nodo.xpath(ruta)` compila la expresión **en cada llamada**, y aquí se llaman
+# las mismas cuatro docenas de rutas una y otra vez: una factura de 800 líneas
+# hacía 31.235 llamadas a `texto()` y 16.080 a `_nodos()`. Medido en esta
+# máquina: 8.000 evaluaciones de la misma ruta cuestan 315 ms sueltas y 32
+# compilándola una sola vez. Diez veces.
+#
+# Esto no cambia lo que se lee: `etree.XPath(r)(nodo)` evalúa lo mismo que
+# `nodo.xpath(r)`, relativo al nodo que se le pasa.
+#
+# **Una caché por hilo**, y no una compartida. lxml dice que un evaluador de
+# XPath no es seguro entre hilos, y aquí nadie valida en paralelo hoy —ni la
+# consola ni el navegador—, pero una caché global convertiría eso en una
+# condición que hay que acordarse de mantener. Con `threading.local` el que
+# llegue mañana se encuentra lo mismo que había antes de esto.
+#
+# La entrada guarda el diccionario de espacios además de su `id`, y no de
+# adorno: guardando solo el número, Python podría liberar ese diccionario y
+# darle el mismo `id` a otro, y entonces una ruta se evaluaría con los espacios
+# de otra sintaxis. Eso no da error, da un campo leído del sitio equivocado,
+# que es la clase de fallo que aquí no se deja pasar. Guardar el diccionario lo
+# mantiene vivo y su `id` no se puede reutilizar mientras esté en la caché.
+_COMPILADAS = threading.local()
+
+# Las sintaxis son cuatro constantes de módulo, así que lo que cabe aquí son
+# las rutas de esas cuatro y no crece más. El tope está por si alguien llama
+# con diccionarios de espacios recién hechos: antes que comerse la memoria, se
+# vacía y se vuelve a empezar.
+_TOPE_DE_RUTAS = 4000
+
+
+def _compilada(ruta: str, espacios: dict):
+    guardadas = getattr(_COMPILADAS, "rutas", None)
+    if guardadas is None:
+        guardadas = _COMPILADAS.rutas = {}
+    clave = (ruta, id(espacios))
+    entrada = guardadas.get(clave)
+    if entrada is None:
+        if len(guardadas) >= _TOPE_DE_RUTAS:
+            guardadas.clear()
+        entrada = guardadas[clave] = (espacios, etree.XPath(ruta, namespaces=espacios))
+    return entrada[1]
+
+
+def buscar(nodo, ruta: str, espacios: dict):
+    """Lo mismo que `nodo.xpath(ruta, namespaces=espacios)`, sin recompilar."""
+    return _compilada(ruta, espacios)(nodo)
+
+
+# `string()` de XPath, que es lo que la norma llama el valor de un elemento:
+# el texto de dentro y el de todos sus hijos, sin comentarios. Se compila una
+# vez por lo mismo que lo demás —se llamaba 4.800 veces en una factura de 800
+# líneas— y vive aquí para que las tres copias de `_escrito` que hay repartidas
+# lean exactamente lo mismo.
+_COMO_TEXTO = threading.local()
+
+
+def como_texto(nodo) -> str:
+    """El `string()` de un nodo."""
+    cual = getattr(_COMO_TEXTO, "ruta", None)
+    if cual is None:
+        cual = _COMO_TEXTO.ruta = etree.XPath("string()")
+    return cual(nodo)
+
 
 def texto(nodo, ruta: str, sintaxis: Sintaxis) -> str | None:
-    encontrados = nodo.xpath(ruta, namespaces=sintaxis.espacios)
+    encontrados = buscar(nodo, ruta, sintaxis.espacios)
     # Una ruta que llama a una función de XPath devuelve **el valor suelto**,
     # no una lista de nodos. Hasta Facturae ninguna lo hacía y esta rama no
     # existía, así que `encontrados[0]` cogía la primera letra de la cadena:
