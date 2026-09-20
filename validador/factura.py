@@ -31,6 +31,7 @@ from lxml import etree
 from validador import (
     cadena,
     codigo_unico,
+    copia_fiel,
     edifact,
     en16931,
     esquema,
@@ -194,6 +195,9 @@ def _reglas_con_cuentas(
     incidencias.extend(edifact.totales_de_otra_guia(raiz, deteccion))
     incidencias.extend(edifact.iva_fuera_del_desglose(raiz, deteccion))
     incidencias.extend(facturae.reglas(raiz, deteccion))
+    # Después de las suyas: lo de la copia fiel no es un fallo de la factura,
+    # es lo que le va a pasar al copiarse a la solución pública.
+    incidencias.extend(copia_fiel.reglas(raiz, deteccion))
     examenes = firma.examinar_todas(raiz) if raiz is not None else ()
     incidencias.extend(firma.reglas(raiz, deteccion, examenes))
     incidencias.extend(sellos.reglas_de_documento(raiz, deteccion))

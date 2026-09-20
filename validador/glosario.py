@@ -58,6 +58,16 @@ FAMILIAS: dict[str, str] = {
         "sino de la especificación de Facturae y de lo que la Administración "
         "espera de ella."
     ),
+    "COPIA": (
+        "Qué le pasaría a esta factura al copiarla a la solución pública. "
+        "Quien no emita por ella tiene que mandarle una copia fiel en UBL, y "
+        "hay conceptos de Facturae que en la copia cambian de sitio, cambian "
+        "de importe o no tienen dónde ir. No son fallos de la factura: son "
+        "notas de lo que hay que decidir al copiarla. La correspondencia entre "
+        "sintaxis no la publica nadie —la AEAT contestó el 17-09-2026 que es "
+        "cosa de cada plataforma—, así que esta es la de este validador, con "
+        "el porqué de cada fila escrito al lado."
+    ),
     "EDI": (
         "Sintaxis EDIFACT. Es el cuarto formato de la ley y el único que no es "
         "XML: se lee por segmentos separados por apóstrofos, con sus propias "
@@ -3281,6 +3291,35 @@ CODIGOS: dict[str, str] = {
         "(BR-CO-16) no se ha comprobado. Es una nota: dice lo que no se ha "
         "podido mirar, en vez de dar por mal un total que el anexo da por "
         "bueno."
+    ),
+    "COPIA-TOTAL": (
+        "El total de una factura Facturae no es el total con impuestos de la "
+        "norma europea, y en la copia fiel va el europeo. El esquema de "
+        "Facturae define su total como la base más los impuestos repercutidos "
+        "**menos los retenidos**; BT-112 es la base más las cuotas de IVA, y "
+        "la retención viaja aparte, en la extensión española del anexo. Copiar "
+        "el importe tal cual pone en la copia un número que no es el suyo."
+    ),
+    "COPIA-CUOTA": (
+        "El total de impuestos repercutidos de Facturae suma «todas las cuotas "
+        "y recargos», recargo de equivalencia incluido, y BT-110 es solo la "
+        "suma de las cuotas de IVA: en el anexo el recargo tiene su propio "
+        "grupo, con base, tipo y cuota. Copiar el importe tal cual infla la "
+        "cuota de IVA de la copia."
+    ),
+    "COPIA-SUPLIDO": (
+        "La factura lleva suplidos —importes pagados en nombre del cliente— y "
+        "no se sabe dónde se escriben en la copia. Son BT-179 y BT-180, "
+        "términos de la edición de 2026 de la norma, y el anexo I de abril no "
+        "les da ruta. El 10-09-2026 la AEAT dijo que el anexo nuevo los usa, "
+        "pero ese texto no está publicado."
+    ),
+    "COPIA-SIN-SITIO": (
+        "La factura lleva un concepto que en la copia no tiene dónde ir: ni la "
+        "norma europea ni el anexo tienen campo para eso. No es un fallo. "
+        "Preguntada por escrito, la AEAT contestó el 17-09-2026 que un "
+        "concepto sin equivalente se puede omitir o llevar en una extensión, y "
+        "que lo que no sea equivalente no se validará."
     ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "

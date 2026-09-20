@@ -78,6 +78,12 @@ NORMAS: tuple[tuple[str, str, str], ...] = (
     # lo que comprueban estas —tipos vigentes, categorías, redondeos— es
     # criterio de la casa.
     ("IVA-", CASA, "el desglose de impuestos, con criterio de este validador"),
+    # La copia fiel la manda el real decreto, pero **la correspondencia entre
+    # sintaxis no la publica nadie**: preguntada por escrito, la AEAT contestó
+    # el 17-09-2026 que es cosa de cada plataforma privada. Así que estas notas
+    # salen de leer las fórmulas del esquema de Facturae y el anexo, y eso es
+    # criterio de la casa mientras no haya un texto que las firme.
+    ("COPIA-", CASA, "la correspondencia con la copia fiel, que no publica nadie"),
 )
 
 
