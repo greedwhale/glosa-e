@@ -76,6 +76,29 @@ def _nombre(comun: str) -> bytes:
     return _secuencia(_der(0x31, atributo))
 
 
+# Los bits de keyUsage en el orden de X.509, para poder construir uno.
+_ORDEN_DE_USOS = (
+    "firma",  # 0 digitalSignature
+    "no_repudio",  # 1 contentCommitment
+    "cifrar_clave",
+    "cifrar_datos",
+    "acuerdo_clave",
+    "firmar_certificados",
+    "firmar_crl",
+)
+
+
+def _key_usage(*cuales: str) -> bytes:
+    numero = 0
+    for nombre in cuales:
+        numero |= 1 << (7 - _ORDEN_DE_USOS.index(nombre))
+    return _secuencia(
+        _der(0x06, b"\x55\x1d\x0f"),
+        _der(0x01, b"\xff"),
+        _der(0x04, _der(0x03, bytes([0, numero]))),
+    )
+
+
 def certificado(
     modulo: int = N,
     exponente: int = E,
@@ -83,6 +106,7 @@ def certificado(
     hasta: datetime | None = None,
     comun: str = "Pruebas SL",
     spki: bytes | None = None,
+    usos: tuple[str, ...] | None = None,
 ) -> bytes:
     """Un X.509 con lo justo para que `leer_certificado` lo entienda.
 
@@ -108,6 +132,9 @@ def certificado(
         _secuencia(_tiempo(desde), _tiempo(hasta)),
         _nombre(comun),
         spki,
+        # Sin `usos` no va ninguna extensión, que es como estaba: keyUsage es
+        # opcional en X.509 y no ponerla significa «sin restricción».
+        _der(0xA3, _secuencia(_key_usage(*usos))) if usos else b"",
     )
     return _secuencia(
         tbs,
@@ -509,6 +536,80 @@ class TestElCertificado:
 
 
 # --- Algoritmos ------------------------------------------------------------
+
+
+class TestParaQueSirveElCertificado:
+    """`keyUsage` dice para qué se emitió el certificado, y no se miraba.
+
+    Lo encontró la auditoría del 15-09-2026 junto al agujero de la cadena: se
+    comprobaba el keyUsage del que **emite** certificados y no el del que
+    **firma** el documento. Un certificado de cifrado o de autenticación en
+    web firmaba una factura y no lo decía nadie.
+    """
+
+    def test_el_que_no_sirve_para_firmar_lo_dice(self):
+        der = certificado(usos=("cifrar_clave",))
+        salen = quejas(documento(cert=der))
+        cual = [i for i in salen if i.codigo == "FIRMA-USO-NO-PERMITIDO"]
+        assert cual, codigos(salen)
+        assert cual[0].gravedad == AVISO
+        assert cual[0].encontrado == "cifrar_clave"
+
+    def test_y_la_firma_sigue_cuadrando(self):
+        """Es un aviso, no un error: lo que falla es para qué vale.
+
+        Si esto saliera como error, una firma perfectamente auténtica quedaría
+        marcada como rota, que es justo lo contrario de lo que pasa.
+        """
+        der = certificado(usos=("cifrar_clave",))
+        salen = quejas(documento(cert=der))
+        assert not [i for i in salen if i.codigo.startswith("FIRMA-NO-")]
+        assert "FIRMA-ALTERADA" not in codigos(salen)
+
+    def test_el_que_si_sirve_no_se_queja(self):
+        for uso in ("firma", "no_repudio"):
+            der = certificado(usos=(uso, "cifrar_clave"))
+            assert "FIRMA-USO-NO-PERMITIDO" not in codigos(quejas(documento(cert=der)))
+
+    def test_el_que_no_declara_usos_tampoco(self):
+        """Ausente no es «para nada», es «sin restricción».
+
+        Es el caso normal: de 38 certificados de facturas de verdad, dos no
+        declaran usos. Quejarse de ellos sería inventar un problema.
+        """
+        assert "FIRMA-USO-NO-PERMITIDO" not in codigos(quejas(documento()))
+
+
+class TestUnaFirmaSinSignedInfo:
+    """Sin `SignedInfo` no hay nada que verificar, y eso tiene que decirse.
+
+    La auditoría lo encontró callado: en una instalación sin esquemas —la de
+    la consola recién clonada, y la de la página antes del paquete— no salía
+    ningún FIRMA-*, o sea que un documento con un bloque de firma vacío se leía
+    igual que uno sin firma. Con esquemas lo caza el XSD, pero no se puede
+    depender de que estén.
+
+    Quedó cerrado al arreglar los tres puntos críticos del 16-09-2026. La
+    prueba está aquí para que no vuelva a abrirse sin que nadie se entere.
+    """
+
+    def sin_signedinfo(self) -> bytes:
+        datos = documento()
+        raiz = etree.fromstring(datos)
+        firmado = raiz.find(f".//{{{NS_DS}}}SignedInfo")
+        assert firmado is not None, "el documento de prueba ya no trae SignedInfo"
+        firmado.getparent().remove(firmado)
+        return etree.tostring(raiz, xml_declaration=True, encoding="UTF-8")
+
+    def test_no_pasa_en_silencio(self):
+        salen = codigos(quejas(self.sin_signedinfo()))
+        assert [c for c in salen if c.startswith("FIRMA-")], salen
+
+    def test_y_el_documento_no_se_da_por_firmado(self):
+        from validador import factura
+
+        informe = factura.validar(self.sin_signedinfo())
+        assert "· firmado" not in informe.resumen(), informe.resumen()
 
 
 class TestAlgoritmos:

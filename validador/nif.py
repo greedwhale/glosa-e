@@ -16,17 +16,45 @@ _LETRAS_NIF = "TRWAGMYFPDXBNJZSQVHLCKE"
 # Prefijos del NIE y su equivalencia numérica.
 _PREFIJOS_NIE = {"X": "0", "Y": "1", "Z": "2"}
 
+# Las tres claves de persona física que no son un DNI ni un NIE. La AEAT las
+# describe en la composición del NIF: K para residentes en España menores de
+# catorce años, L para españoles residentes fuera y M para extranjeros sin NIE.
+# No son entidades, y por eso su control **no** es el de las personas
+# jurídicas: es el mismo del DNI, el resto de dividir entre 23.
+#
+# Aquí estaban tratadas como tipos de entidad y el resultado era peor que un
+# error: `M1234567L` —un NIF real y correcto— no llegaba siquiera a
+# comprobarse, porque la expresión del CIF exige que el control esté entre 0 y
+# J, y salía «el formato no corresponde a un NIF, NIE ni CIF español», o sea
+# CU-01 en error sobre una factura buena.
+#
+# Lo que la AEAT publica es la composición —letra, siete caracteres y un
+# carácter alfabético de verificación—, no el algoritmo. El del módulo 23 es el
+# que cuadra con esa forma y el que usan las validaciones de siempre; y aunque
+# no fuera exactamente el de la Agencia, esto solo puede mejorar lo de antes,
+# que era rechazarlos todos. Se aceptan solo con siete **dígitos**: con letras
+# en medio no hay nada que dividir entre 23, y lo que no se sabe comprobar no
+# se da por bueno.
+_CLAVES_DE_PERSONA = {
+    "K": "españoles residentes en España menores de catorce años",
+    "L": "españoles residentes en el extranjero",
+    "M": "extranjeros sin NIE",
+}
+
 # Letras de control del CIF, indexadas por el dígito de control calculado.
 _LETRAS_CIF = "JABCDEFGHI"
 
-# Tipos de entidad cuyo control es siempre una letra.
-_CIF_CONTROL_LETRA = set("KPQRSNW")
+# Tipos de entidad cuyo control es siempre una letra. Sin la K, que es de
+# persona física: ver `_CLAVES_DE_PERSONA`.
+_CIF_CONTROL_LETRA = set("PQRSNW")
 # Tipos de entidad cuyo control es siempre un dígito.
 _CIF_CONTROL_DIGITO = set("ABEH")
 # Tipos de entidad reconocidos. El resto admite letra o dígito indistintamente.
-_CIF_TIPOS = set("ABCDEFGHJKLMNPQRSUVW")
+# Tampoco están K, L ni M, por lo mismo.
+_CIF_TIPOS = set("ABCDEFGHJNPQRSUVW")
 
 _RE_NIF = re.compile(r"^\d{8}[A-Z]$")
+_RE_NIF_PERSONAL = re.compile(r"^[KLM]\d{7}[A-Z]$")
 _RE_NIE = re.compile(r"^[XYZ]\d{7}[A-Z]$")
 _RE_CIF = re.compile(r"^[A-Z]\d{7}[0-9A-J]$")
 
@@ -63,6 +91,31 @@ def validar_nif(documento: str) -> Resultado:
             False,
             "NIF",
             f"La letra no corresponde al número: debería terminar en {esperada}, no en {doc[8]}.",
+        )
+    return Resultado(True, "NIF", "NIF correcto.")
+
+
+def validar_nif_personal(documento: str) -> Resultado:
+    """Comprueba un NIF de persona física de los que empiezan por K, L o M.
+
+    El control se calcula como el del DNI, sobre los siete dígitos: son
+    personas, no entidades. Ver `_CLAVES_DE_PERSONA`.
+    """
+    doc = normalizar(documento)
+    if not _RE_NIF_PERSONAL.match(doc):
+        return Resultado(
+            False,
+            None,
+            "Un NIF que empieza por K, L o M lleva siete dígitos y una letra.",
+        )
+    esperada = _letra_nif(int(doc[1:8]))
+    if doc[8] != esperada:
+        return Resultado(
+            False,
+            "NIF",
+            f"La letra no corresponde al número: debería terminar en {esperada}, "
+            f"no en {doc[8]}. Los NIF que empiezan por {doc[0]} son de "
+            f"{_CLAVES_DE_PERSONA[doc[0]]} y llevan la letra del DNI.",
         )
     return Resultado(True, "NIF", "NIF correcto.")
 
@@ -161,6 +214,8 @@ def validar(documento: str) -> Resultado:
         return validar_nif(doc)
     if _RE_NIE.match(doc):
         return validar_nie(doc)
+    if _RE_NIF_PERSONAL.match(doc):
+        return validar_nif_personal(doc)
     if _RE_CIF.match(doc):
         return validar_cif(doc)
     return Resultado(

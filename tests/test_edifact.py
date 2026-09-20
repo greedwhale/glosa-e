@@ -507,6 +507,54 @@ class TestSeReconoce:
         assert deteccion.tipo_documento == "factura"
 
 
+class TestElBomDelBlocDeNotas:
+    """Tres bytes delante, y el fichero dejaba de ser una factura.
+
+    La marca de orden de bytes de UTF-8 la pone el Bloc de notas de Windows al
+    «Guardar como UTF-8», que es como acaba guardado un EDIFACT que alguien ha
+    abierto para mirarlo. En XML no se nota —el parser la salta— y aquí sí: la
+    tira deja de empezar por UNA, UNB o UNH.
+
+    Salía por la puerta de al lado: «No es XML válido y tampoco EDIFACT», o
+    sea, no se comprobaba absolutamente nada de una factura correcta.
+    """
+
+    MARCA = b"\xef\xbb\xbf"
+
+    def test_se_reconoce_igual(self):
+        deteccion = detectar(self.MARCA + sobre(CUERPO))
+        assert deteccion.familia == EDIFACT
+        assert deteccion.version == "96A"
+        assert deteccion.tipo_documento == "factura"
+
+    def test_y_se_valida_igual(self):
+        """No basta con reconocerlo: `es_plano` decidía aparte si se podía leer.
+
+        Con la marca contestaba que no, y el informe salía con `SIN-SOPORTE`
+        —«identificado, pero no se ha podido leer entero»— sobre la misma
+        factura que sin la marca se valida sin una queja. Un aviso de que no se
+        ha mirado nada es mejor que el silencio, pero sigue siendo no mirar.
+        """
+        limpio = factura.validar(sobre(CUERPO))
+        marcado = factura.validar(self.MARCA + sobre(CUERPO))
+        assert marcado.validado
+        assert "SIN-SOPORTE" not in {i.codigo for i in marcado.incidencias}
+        assert [i.codigo for i in marcado.incidencias] == [
+            i.codigo for i in limpio.incidencias
+        ]
+        assert marcado.resumen() == limpio.resumen()
+
+    def test_la_marca_no_se_cuela_en_el_texto(self):
+        """Se quita antes de elegir el juego de caracteres.
+
+        En latin-1 no falla nada, así que sin quitarla antes se habría colado
+        como tres símbolos pegados al UNA y el fallo sería el mismo con peor
+        pista.
+        """
+        assert not edifact.descifrar(self.MARCA + sobre(CUERPO)).startswith("\ufeff")
+        assert edifact.descifrar(self.MARCA + sobre(CUERPO)).startswith("UN")
+
+
 # --- Las reglas de siempre, sobre EDIFACT ----------------------------------
 
 

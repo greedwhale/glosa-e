@@ -50,6 +50,7 @@ from lxml import etree
 
 from validador.formato import EDIFACT as FAMILIA
 from validador.formato import parser as _parser
+from validador.formato import sin_marca
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
 # --- Los caracteres de servicio --------------------------------------------
@@ -939,8 +940,16 @@ def iva_fuera_del_desglose(raiz, deteccion) -> list[Incidencia]:
 
 
 def es_plano(datos: bytes) -> bool:
-    """Si esto parece un EDIFACT de los de verdad, en tira."""
-    cabeza = datos.lstrip()[:3].upper()
+    """Si esto parece un EDIFACT de los de verdad, en tira.
+
+    Sin la marca de orden de bytes por el mismo motivo que la detección: un
+    fichero guardado con el Bloc de notas la trae delante y sin quitarla esto
+    contestaba que no. El resultado no era un error claro, que es lo peor:
+    `detectar` sí lo reconocía y aquí se decía que no se puede leer, así que
+    salía un `SIN-SOPORTE` —«identificado pero no validado»— sobre una factura
+    perfectamente legible.
+    """
+    cabeza = sin_marca(datos).lstrip()[:3].upper()
     return cabeza in (b"UNA", b"UNB", b"UNH")
 
 
@@ -953,6 +962,11 @@ def descifrar(datos: bytes) -> str:
     falla nunca y deja el texto legible aunque alguna tilde salga rara. Fallar
     aquí sería no poder decir nada de la factura.
     """
+    # La marca de orden de bytes se quita **antes** de decidir el juego de
+    # caracteres: en latin-1 no falla —nada falla en latin-1— y se colaría
+    # convertida en tres símbolos raros pegados al UNA, que es peor que el
+    # fallo original porque ya no se ve de dónde sale.
+    datos = sin_marca(datos)
     for juego in ("utf-8", "latin-1"):
         try:
             return datos.decode(juego)

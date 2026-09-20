@@ -36,7 +36,7 @@ from lxml import etree
 
 from validador import edifact, nif
 from validador import paises
-from validador.formato import CII, FACTURAE, UBL, detectar, parser
+from validador.formato import CII, EDIFACT, FACTURAE, UBL, detectar, parser
 from validador.incidencias import AVISO, ERROR, Incidencia, Informe
 
 # Tope de longitud del número de factura, serie incluida. Tomado de Verifactu.
@@ -706,6 +706,21 @@ def pais_emisor(raiz, deteccion) -> str | None:
                     # retiro no se convierte en Congo por nuestra cuenta.
                     return paises.alpha2(escrito)
         return None
+    if deteccion.familia == EDIFACT:
+        # EDIFACT no estaba en la tabla, así que esta función contestaba None
+        # para todas y `obligado_en_espania` las daba por españolas: a una
+        # factura alemana al 19 % le salía IVA-TIPO diciendo que ese tipo no
+        # está vigente en España. Es el hallazgo n.º 1 del proyecto —reglas
+        # españolas cayendo sobre facturas de fuera— volviendo por el cuarto
+        # formato, el único que no es XML y por eso no encaja en la tabla de
+        # rutas: el país del vendedor vive en el NAD del sobre y se lee con el
+        # mapa de sintaxis, como el resto de los campos de EDIFACT.
+        from validador import sintaxis
+
+        escrito = sintaxis.texto(
+            raiz, sintaxis.SINTAXIS_EDIFACT.vendedor_pais, sintaxis.SINTAXIS_EDIFACT
+        )
+        return escrito.strip().upper() if escrito else None
     camino = _PAIS_DEL_EMISOR.get(deteccion.familia)
     if camino is None:
         return None
@@ -834,9 +849,28 @@ def obligado_en_espania(raiz, deteccion) -> bool:
     un dato que falta sería dar por revisado lo que no se ha mirado, que es
     peor que una queja de más. Del país ausente ya se queja BR-09.
     """
+    if raiz is None:
+        # De un documento que no se ha podido leer no se sabe de dónde es, y
+        # la respuesta por defecto es la de abajo: sí. Va explícito porque las
+        # ramas que siguen leen del árbol y sin esto reventaban con un
+        # AttributeError sobre None —visto al probar un EDIFACT con separadores
+        # propios, que se detecta como EDIFACT y no se llega a convertir—.
+        return True
     pais = pais_emisor(raiz, deteccion)
     if pais is not None:
         return pais == "ES"
+    if deteccion.familia == EDIFACT:
+        # De EDIFACT no se sacan códigos únicos —el RD no se los pide— así que
+        # el repaso de abajo se quedaba sin nada que mirar y contestaba «sí».
+        # La pista que queda es la misma: el número de IVA del vendedor, que
+        # en EDIFACT va en el RFF+VA detrás de su NAD.
+        from validador import sintaxis
+
+        return not parece_de_fuera(
+            sintaxis.texto(
+                raiz, sintaxis.SINTAXIS_EDIFACT.vendedor_nif, sintaxis.SINTAXIS_EDIFACT
+            )
+        )
     return not any(
         parece_de_fuera(codigo.nif_emisor) for codigo in extraer_de(raiz, deteccion)
     )

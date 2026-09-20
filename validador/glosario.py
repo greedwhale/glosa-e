@@ -463,6 +463,18 @@ CODIGOS: dict[str, str] = {
         'España, siempre, hicieran lo que hicieran. De ese hueco se informa '
         'una vez y como nota.'
     ),
+    "FIRMA-USO-NO-PERMITIDO": (
+        'El certificado con el que se firmó dice para qué sirve —su keyUsage— '
+        'y firmar no está en la lista: no lleva ni digitalSignature ni '
+        'contentCommitment, que es el no repudio. La aritmética de la firma '
+        'puede cuadrar perfectamente; lo que no cuadra es el uso, porque quien '
+        'emitió ese certificado lo emitió para otra cosa —cifrar, autenticarse '
+        'en una web— y lo dejó escrito dentro. Es aviso y no error por lo '
+        'mismo que FIRMA-DEBIL: lo que falla es para qué vale, no si cuadra. '
+        'Un certificado que no declara usos no sale aquí: en X.509 esa '
+        'extensión es opcional y no ponerla significa «sin restricción», no '
+        '«para nada».'
+    ),
     "FIRMA-DEBIL": (
         'La firma está hecha con SHA-1, retirado para firma electrónica desde '
         'hace años porque se sabe fabricar dos documentos distintos con el '

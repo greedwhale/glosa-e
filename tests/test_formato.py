@@ -210,6 +210,18 @@ class TestCasosLimite:
         ).resumen()
         assert "no reconocido" in formato.detectar(b"<x/>").resumen()
 
+    def test_la_linea_no_dice_que_cumpla_la_norma(self):
+        """Decía «· conforme EN 16931» y esto es solo la detección.
+
+        Lo único mirado aquí es el identificador de perfil que trae escrito el
+        documento, y lo escribe quien la emite. La misma línea salía en una
+        factura con dos errores de EN 16931, al lado del recuento: «UBL v2.1
+        (factura) · conforme EN 16931 — 2 error(es)».
+        """
+        linea = formato.detectar(UBL_FACTURA.encode("utf-8")).resumen()
+        assert "dice seguir EN 16931" in linea
+        assert "conforme" not in linea
+
     def test_archivo_inexistente(self):
         d = formato.detectar_archivo("no/existe/factura.xml")
         assert not d

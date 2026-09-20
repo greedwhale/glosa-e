@@ -30,6 +30,40 @@ class TestNIF:
         assert not nif.validar("123456789")  # sin letra
 
 
+class TestNIFDePersonaSinDNI:
+    """K, L y M: personas físicas, no entidades.
+
+    Estaban en la tabla de tipos de entidad, y con eso `M1234567L` —correcto—
+    no llegaba a comprobarse: la forma del CIF pide el control entre 0 y J, y
+    una L no lo es. Sobre una factura con ese NIF salía CU-01 en error.
+    """
+
+    @pytest.mark.parametrize("documento", ["K1234567L", "L1234567L", "M1234567L"])
+    def test_las_tres_claves_valen_con_la_letra_del_dni(self, documento):
+        resultado = nif.validar(documento)
+        assert resultado.valido, resultado.motivo
+        assert resultado.tipo == "NIF"
+
+    def test_la_letra_que_no_cuadra_dice_cual_toca_y_por_que(self):
+        resultado = nif.validar("M1234567A")
+        assert not resultado.valido
+        assert "debería terminar en L" in resultado.motivo
+        assert "extranjeros sin NIE" in resultado.motivo
+
+    def test_no_se_les_aplica_el_control_de_las_entidades(self):
+        """Con el control del CIF, `M1234567J` pasaba por bueno."""
+        assert not nif.validar("M1234567J").valido
+
+    def test_con_letras_en_medio_no_se_da_por_bueno(self):
+        """La AEAT admite siete caracteres alfanuméricos; el módulo 23 no.
+
+        Lo que no se sabe comprobar no se aprueba: se dice que no se reconoce.
+        """
+        resultado = nif.validar("M12A4567L")
+        assert not resultado.valido
+        assert resultado.tipo is None
+
+
 class TestNIE:
     @pytest.mark.parametrize(
         "documento",

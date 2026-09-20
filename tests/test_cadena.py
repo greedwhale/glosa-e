@@ -232,6 +232,70 @@ class TestLoQueTieneQueParar:
         assert not resultado.llega
         assert "no es un certificado de autoridad" in resultado.motivo
 
+    def test_una_intermedia_que_nunca_dijo_ser_autoridad(self, tmp_path):
+        """El mismo fallo de arriba, pero callándose en vez de mintiendo.
+
+        `basicConstraints` es opcional en X.509: un certificado puede no
+        traerla, y entonces no dice ni que sea autoridad ni que no lo sea. Se
+        miraba solo el «no lo soy», así que a este se le dejaba pasar y la
+        cadena subía por él hasta la raíz de verdad: tres eslabones y el
+        informe diciendo que la firma llegaba a la autoridad.
+        """
+        sin_basic = certificado(
+            "CA intermedia", "Raiz de pruebas", INTERMEDIA, RAIZ, serie=2,
+            extensiones=_key_usage("firmar_certificados"),
+        )
+        falsa = certificado(
+            "Banco Importante SA", "CA intermedia", INTRUSO, INTERMEDIA, serie=99
+        )
+        resultado = cadena_de(falsa, [raiz()], [sin_basic], tmp_path=tmp_path)
+        assert not resultado.llega
+        assert "no dice ser un certificado de autoridad" in resultado.motivo
+
+    def test_una_intermedia_con_una_extension_critica_que_no_entendemos(self, tmp_path):
+        """«Crítica» quiere decir: si no la entiendes, no lo aceptes.
+
+        El caso que importa es `nameConstraints`, que limita a qué nombres
+        puede emitir una autoridad. Aplicarla no está hecho; saltársela es
+        aceptar certificados que esa autoridad no tenía derecho a emitir, y
+        decir además que la cadena llega.
+        """
+        con_limites = certificado(
+            "CA intermedia", "Raiz de pruebas", INTERMEDIA, RAIZ, serie=2,
+            extensiones=(
+                _basic_constraints(True)
+                + _key_usage("firmar_certificados")
+                + _extension(b"\x55\x1d\x1e", b"\x30\x00", critica=True)
+            ),
+        )
+        hija = certificado(
+            "Talleres Paco SL", "CA intermedia", HOJA, INTERMEDIA, serie=3
+        )
+        resultado = cadena_de(hija, [raiz()], [con_limites], tmp_path=tmp_path)
+        assert not resultado.llega
+        assert "nameConstraints" in resultado.motivo
+
+    def test_al_ancla_no_se_le_piden_esas_dos_cosas(self, tmp_path):
+        """Y esto también hace falta: un ancla es una decisión, no un hallazgo.
+
+        Quien monta el almacén decide en quién cree. X.509 tampoco procesa las
+        extensiones del ancla, y exigírselas dejaría fuera a las raíces viejas
+        —sin extensiones— y a las dos de las 268 instaladas que traen una
+        crítica que este validador no lee. Lo que viaja dentro del documento sí
+        lo elige quien firma, y a eso no se le afloja nada.
+        """
+        vieja = certificado(
+            "Raiz vieja", "Raiz vieja", RAIZ, RAIZ,
+            extensiones=_extension(b"\x55\x1d\x1e", b"\x30\x00", critica=True),
+        )
+        hija = certificado("CA intermedia", "Raiz vieja", INTERMEDIA, RAIZ, serie=2,
+                           es_ca=True)
+        hoja_de = certificado(
+            "Talleres Paco SL", "CA intermedia", HOJA, INTERMEDIA, serie=3
+        )
+        resultado = cadena_de(hoja_de, [vieja], [hija], tmp_path=tmp_path)
+        assert resultado.llega, resultado.motivo
+
     def test_y_con_ca_puesto_pero_sin_permiso_de_firmar(self, tmp_path):
         """`keyUsage` sin `keyCertSign`: dice ser autoridad y no puede firmar."""
         coja = certificado(

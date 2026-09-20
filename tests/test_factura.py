@@ -417,6 +417,37 @@ class TestValidarLote:
         assert lote.errores == []
 
 
+EDI = Path(__file__).resolve().parent.parent / "ejemplos" / "edi-0001.edi"
+
+
+def edi_aleman() -> bytes:
+    """El ejemplo EDIFACT mudado a Berlin y al 19%, que es el tipo aleman.
+
+    Se cambian tambien los importes para que la factura siga cuadrando: si no,
+    las quejas serian de aritmetica y no del tipo, que es lo que se mira aqui.
+    """
+    texto = EDI.read_text(encoding="utf-8")
+    aleman = (texto
+              .replace("Valladolid++47001+ES'RFF+VA:ESB47123456",
+                       "Berlin++10115+DE'RFF+VA:DE123456789")
+              .replace(":::21+S", ":::19+S")
+              .replace("MOA+176:172.20", "MOA+176:155.80")
+              .replace("MOA+388:992.20", "MOA+388:975.80")
+              .replace("MOA+9:992.20", "MOA+9:975.80")
+              .replace("MOA+124:172.20", "MOA+124:155.80"))
+    assert aleman.count("19+S") == 4 and "DE123456789" in aleman, (
+        "el ejemplo EDIFACT ha cambiado y este apanio ya no lo muda de pais")
+    return aleman.encode("utf-8")
+
+
+def edi_al_25() -> bytes:
+    """El ejemplo espaniol con un tipo que no esta vigente en Espania."""
+    texto = EDI.read_text(encoding="utf-8")
+    al_25 = texto.replace(":::21+S", ":::25+S")
+    assert al_25 != texto
+    return al_25.encode("utf-8")
+
+
 class TestOrigen:
     @pytest.mark.parametrize(
         "codigo,esperado",
@@ -432,7 +463,16 @@ class TestOrigen:
             # que hacer con la queja.
             ("IVA-TIPO-SIN-DESGLOSE", factura.CASA),
             ("IVA-SIN-TOTAL", factura.CASA),
-            ("SIN-SOPORTE", factura.OTRA),
+            # `SIN-SOPORTE` salia con la etiqueta del cajon de por defecto,
+            # que se leia «Formato»: ni lo exige una norma de formato ni sale
+            # de ninguna otra. Es de la casa, y el cajon de por defecto ya no
+            # miente sobre eso.
+            ("SIN-SOPORTE", factura.CASA),
+            ("PERFIL-SIN-EN16931", factura.CASA),
+            ("VALIDADOR-SE-ATRAGANTA", factura.CASA),
+            # Se quedaba fuera de la lista de la firma y caia en el mismo
+            # cajon, mientras la pagina publicada lo daba por firma.
+            ("ANCLAS-SIN-RENOVAR", factura.SELLO),
         ],
     )
     def test_por_el_prefijo(self, codigo, esperado):
@@ -505,6 +545,44 @@ class TestAQuienLeAplicaElReglamentoEspanol:
         """
         informe = factura.validar(al_25(), hoy=HOY)
         assert "IVA-TIPO" in codigos(informe, AVISO), informe.detalle()
+
+    def test_a_la_edifact_extranjera_tampoco_se_le_miden(self):
+        """El mismo fallo, por el cuarto formato.
+
+        `pais_emisor` tenia una tabla de rutas con UBL y CII, y EDIFACT no
+        estaba: contestaba None para todas y de EDIFACT no se sacan codigos
+        unicos, asi que el repaso siguiente se quedaba sin nada que mirar y las
+        daba por espaniolas. Una factura alemana al 19% recibia IVA-TIPO.
+        """
+        informe = factura.validar(edi_aleman(), hoy=HOY)
+        assert "IVA-TIPO" not in codigos(informe), informe.detalle()
+
+    def test_a_la_edifact_espaniola_si(self):
+        """Y la otra mitad: el ejemplo espaniol, al 21%, con un tipo inventado."""
+        informe = factura.validar(edi_al_25(), hoy=HOY)
+        assert "IVA-TIPO" in codigos(informe, AVISO), informe.detalle()
+
+    def test_el_pais_del_sobre_manda_aunque_el_iva_no_lleve_prefijo(self):
+        """El caso que de verdad prueba que se lee el pais del NAD.
+
+        Provocado: quitando esa lectura, la prueba de arriba seguia en verde,
+        porque el numero de IVA de la factura alemana empieza por DE y la pista
+        del prefijo la salvaba. Hay facturas alemanas cuyo numero de IVA viene
+        sin el prefijo —lo dice el comentario de `pais_emisor`— y esas son las
+        que se apoyan solo en el pais.
+        """
+        sin_prefijo = edi_aleman().replace(b"RFF+VA:DE123456789",
+                                           b"RFF+VA:123456789")
+        assert b"DE123456789" not in sin_prefijo
+        informe = factura.validar(sin_prefijo, hoy=HOY)
+        assert "IVA-TIPO" not in codigos(informe), informe.detalle()
+
+    def test_sin_pais_en_el_sobre_manda_el_numero_de_iva(self):
+        """Un EDIFACT sin NAD de pais: queda el RFF+VA, que trae el prefijo."""
+        sin_pais = edi_aleman().replace(b"Berlin++10115+DE", b"Berlin++10115")
+        assert b"+DE'" not in sin_pais
+        informe = factura.validar(sin_pais, hoy=HOY)
+        assert "IVA-TIPO" not in codigos(informe), informe.detalle()
 
     def test_dos_facturas_de_paises_distintos_no_son_un_duplicado(self, tmp_path):
         """Las reglas de conjunto tambien tenian que acotarse.

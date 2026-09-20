@@ -130,6 +130,47 @@ class TestLoQueSeDiceDeCadaCodigo:
             etiqueta, _ = pagina_incidencias._norma(codigo.codigo)
             assert etiqueta, f"{codigo.codigo} sin norma"
 
+    def test_la_pagina_y_el_informe_dicen_la_misma_norma(self):
+        """Los dos caminos, código a código, sobre el catálogo entero.
+
+        Eran dos tablas escritas por separado, y el 15-09-2026 no decían lo
+        mismo en 16 de los 371 códigos: los doce `IVA-*` salían aquí como «Ley
+        del IVA» —o sea, exigidos por una ley— y en el informe como criterio
+        propio, que es lo que son; `ANCLAS-SIN-RENOVAR` salía aquí como firma y
+        allí como «Formato»; y tres más caían allí en un cajón que se leía
+        «Formato» sin serlo.
+
+        Que hoy salga verde no es mérito de esta prueba: la tabla ya es una
+        sola, en `normas.py`. Lo que esta prueba impide es que vuelva a haber
+        dos, que es lo que pasó.
+        """
+        from validador import factura
+        from validador.incidencias import ERROR, Incidencia
+
+        distintos = []
+        for codigo in codigos_del_paquete():
+            en_la_pagina = pagina_incidencias._norma(codigo.codigo)[0]
+            en_el_informe = factura.origen(Incidencia(codigo.codigo, ERROR, ""))
+            if en_la_pagina != en_el_informe:
+                distintos.append(
+                    f"{codigo.codigo}: página «{en_la_pagina}», informe "
+                    f"«{en_el_informe}»")
+        assert not distintos, (
+            "La misma queja cambia de norma según dónde se lea:\n  "
+            + "\n  ".join(distintos))
+
+    def test_lo_que_no_sale_de_ninguna_norma_lo_dice(self):
+        """El cajón de por defecto es «De la casa», no «Formato».
+
+        Un código nuestro que nadie haya clasificado tiene que salir como lo
+        que es —una opinión de este validador— y no como un problema del
+        formato del documento, que es lo que decía el informe de
+        `SIN-SOPORTE`, `PERFIL-SIN-EN16931` y `VALIDADOR-SE-ATRAGANTA`.
+        """
+        assert pagina_incidencias._norma("CHORRADA-SIN-NORMA")[0] == "De la casa"
+        for codigo in ("SIN-SOPORTE", "PERFIL-SIN-EN16931", "VALIDADOR-SE-ATRAGANTA"):
+            assert pagina_incidencias._norma(codigo)[0] == "De la casa", codigo
+
     def test_el_revocado_no_es_un_problema_de_la_lista(self):
         """El fallo que ya se cazó una vez, escrito para que no vuelva.
 

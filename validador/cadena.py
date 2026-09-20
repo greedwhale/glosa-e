@@ -478,21 +478,77 @@ class Cadena:
         return self.eslabones[0] if self.eslabones else None
 
 
-def _eslabon(hijo: Certificado, padre: Certificado, hondo: int) -> str | None:
+# Las extensiones críticas que este validador sí sabe leer. Una crítica que no
+# esté aquí obliga, según X.509, a no dar el certificado por bueno: «crítica»
+# quiere decir exactamente eso, que quien no la entienda no lo acepte.
+#
+# `nameConstraints` es el caso que importa y el que encontró la auditoría:
+# limita a qué nombres puede emitir una autoridad —una CA de una universidad
+# que solo puede emitir bajo su dominio, por ejemplo—, y saltársela es aceptar
+# certificados que esa autoridad no tenía derecho a emitir. Aplicarla de verdad
+# es un trabajo que no está hecho; decir que la cadena llega sin haberla mirado
+# es peor que no contestar.
+_EXTENSIONES_QUE_SE_ENTIENDEN = {
+    "551d13": "basicConstraints",
+    "551d0f": "keyUsage",
+}
+# Para que el mensaje diga algo más que un OID en hexadecimal.
+_NOMBRE_DE_EXTENSION = {
+    "551d1e": "nameConstraints, que limita a qué nombres puede emitir",
+    "551d25": "extendedKeyUsage, que limita para qué sirve el certificado",
+    "551d20": "certificatePolicies",
+    "551d24": "policyConstraints",
+    "551d37": "inhibitAnyPolicy",
+    "551d11": "subjectAltName",
+}
+
+
+def _eslabon(
+    hijo: Certificado, padre: Certificado, hondo: int, es_ancla: bool = False
+) -> str | None:
     """¿Puede el padre haber emitido al hijo? Devuelve el fallo, o None.
 
     El orden importa: primero lo que descalifica al padre como autoridad, y
     solo después la criptografía. Verificar la firma de un certificado que no
     tenía derecho a firmarla contestaría a la pregunta equivocada.
+
+    `es_ancla` afloja dos comprobaciones y solo dos, y no por comodidad: un
+    ancla no es un certificado más de la cadena, es la decisión de quien montó
+    el almacén. X.509 tampoco procesa las extensiones del ancla, y aflojarlas
+    aquí es lo que permite instalar una raíz vieja —de las v1, sin extensiones—
+    sin que el validador se invente que no es una autoridad. Lo que se empuja
+    dentro del documento, en cambio, lo elige quien firma: ahí no se afloja
+    nada. Medido sobre las 268 anclas instaladas: las 268 declaran ser
+    autoridad, y dos traen una extensión crítica que este validador no lee.
     """
-    # En un certificado v3, `basicConstraints` es obligatorio en una CA. Un v1
-    # no tiene extensiones y no se puede saber; se acepta solo si es un ancla,
-    # y eso ya lo ha decidido quien nos llama.
+    # En un certificado v3, `basicConstraints` es obligatorio en una CA.
     if padre.es_autoridad is False:
         return (
             f"«{padre.sujeto or 'el emisor'}» no es un certificado de autoridad "
             "y aun así aparece emitiendo a otro"
         )
+    if not es_ancla and padre.es_autoridad is None:
+        # Este era el agujero: `es_autoridad` es None cuando el certificado no
+        # trae `basicConstraints`, y solo se miraba el False. Con un keyUsage
+        # que dijera «firmar_certificados» —o sin keyUsage siquiera— cualquier
+        # certificado servía de eslabón, que es el mismo fallo clásico de
+        # basicConstraints por la puerta de atrás: la cadena subía por él hasta
+        # una raíz de verdad y el informe decía que la firma llegaba a la AC.
+        return (
+            f"«{padre.sujeto or 'el emisor'}» no dice ser un certificado de "
+            "autoridad —no trae basicConstraints— y aparece emitiendo a otro"
+        )
+    if not es_ancla:
+        sin_entender = sorted(
+            padre.criticas_sin_entender - set(_EXTENSIONES_QUE_SE_ENTIENDEN)
+        )
+        if sin_entender:
+            cual = _NOMBRE_DE_EXTENSION.get(sin_entender[0], sin_entender[0])
+            return (
+                f"«{padre.sujeto or 'el emisor'}» trae una extensión crítica "
+                f"que este validador no sabe aplicar ({cual}), así que no se "
+                "puede decir que la cadena llegue"
+            )
     if padre.usos and "firmar_certificados" not in padre.usos:
         return (
             f"«{padre.sujeto or 'el emisor'}» no tiene permiso para firmar "
@@ -572,7 +628,7 @@ def construir(
         for padre in candidatos:
             if padre.der in vistos:
                 continue
-            fallo = _eslabon(actual, padre, hondo)
+            fallo = _eslabon(actual, padre, hondo, es_ancla=padre.der in anclas)
             if fallo is None:
                 if padre.der in anclas:
                     return Cadena(

@@ -235,7 +235,7 @@ class TestLasBuenas:
         assert factura.origen(Incidencia("SPFE-NIF", ERROR, "")) == factura.SOLUCION_PUBLICA
         detalle = factura.validar(cambia(BUENA, "<cbc:CopyIndicator>false</cbc:CopyIndicator>", "")
                                   .encode("utf-8")).detalle(norma=factura.origen)
-        assert "[SPFE-COPIA · anexo I (borrador)]" in detalle
+        assert "[SPFE-COPIA · Anexo I (borrador)]" in detalle
 
 
 # --- A quién se aplica ---------------------------------------------------------

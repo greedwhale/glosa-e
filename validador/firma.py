@@ -361,6 +361,11 @@ class ClaveNoSoportada(ValueError):
     """
 
 # keyUsage es un BIT STRING; el bit 5 es el que permite firmar certificados.
+# Los dos usos de keyUsage con los que se firma un documento: digitalSignature
+# y contentCommitment —el que antes se llamaba nonRepudiation—. Ver
+# `_regla_valor`.
+_USOS_DE_FIRMA = frozenset({"firma", "no_repudio"})
+
 _USOS = (
     "firma",  # 0 digitalSignature
     "no_repudio",  # 1 contentCommitment
@@ -1562,6 +1567,31 @@ def _regla_valor(examen: Examen, donde: str) -> list[Incidencia]:
                 campo=f"{donde}Algoritmo de firma",
                 esperado="RSA con SHA-256 o mejor",
                 encontrado="RSA con SHA-1",
+            )
+        )
+    if cert is not None and cert.usos and not (_USOS_DE_FIRMA & cert.usos):
+        # El certificado dice para qué sirve y firmar no está en la lista. No
+        # invalida la aritmética —la firma puede cuadrar— pero sí dice que
+        # quien lo emitió no lo emitió para esto, y eso no se puede callar:
+        # aceptarlo sin más es dar por buena una firma hecha con un certificado
+        # de cifrado o de autenticación. Aviso y no error por lo mismo que
+        # FIRMA-DEBIL: lo que falla es para qué vale, no si cuadra.
+        #
+        # Solo cuando el certificado declara sus usos: keyUsage es opcional, y
+        # ausente no significa «para nada», significa «sin restricción».
+        # Medido en 38 certificados de facturas reales: 36 declaran keyUsage y
+        # todos los que firman traen digitalSignature o contentCommitment.
+        incidencias.append(
+            Incidencia(
+                "FIRMA-USO-NO-PERMITIDO",
+                AVISO,
+                "El certificado con el que se ha firmado dice, en su keyUsage, "
+                "que no sirve para firmar: no lleva ni digitalSignature ni "
+                "contentCommitment (no repudio). La firma puede cuadrar, pero "
+                "quien emitió el certificado no lo emitió para esto.",
+                campo=f"{donde}Usos del certificado",
+                esperado="digitalSignature o contentCommitment",
+                encontrado=", ".join(sorted(cert.usos)),
             )
         )
     if cert is not None and cert.clave_debil:

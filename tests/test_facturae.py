@@ -549,7 +549,9 @@ class TestEnElOrquestador:
     def test_la_queja_dice_de_donde_sale(self):
         informe = factura.validar(fe(total="999.99"), hoy=HOY)
         salta = [i for i in informe.incidencias if i.codigo == "FE-TOTAL"][0]
-        assert factura.origen(salta) == "formato Facturae"
+        # En mayúscula desde que la etiqueta es una sola y la usan los dos
+        # sitios: en la ficha de la página es un título.
+        assert factura.origen(salta) == "Formato Facturae"
 
 
 # --- Las ramas gemelas que nadie provocaba ---------------------------------

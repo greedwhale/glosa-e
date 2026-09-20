@@ -41,6 +41,7 @@ import html
 import re
 from pathlib import Path
 
+from validador import normas
 from validador.codigos import (
     Codigo,
     SinLeer,
@@ -78,34 +79,10 @@ def nombre_de(codigo: str) -> str:
     """El fichero que le toca a un código. `BR-CO-10` → `codigo-BR-CO-10.html`."""
     return FICHA.format(codigo)
 
-# El mismo reparto que `factura.origen`, pero por prefijo y no por incidencia:
-# aquí no hay incidencias, hay códigos. Se escribe al lado a propósito en vez
-# de importar `factura`, que arrastra lxml y el catálogo entero para contestar
-# una pregunta que es una tabla de prefijos.
-_NORMAS = (
-    ("BR-", "EN 16931", "la norma europea de factura electrónica"),
-    ("CU-", "RD 238/2026", "el real decreto español del código único"),
-    ("SPFE-", "Anexo I (borrador)",
-     "el contenido mínimo de las facturas de la solución pública, en proyecto de orden"),
-    ("XSD-", "Esquema XSD", "el esquema oficial del formato"),
-    ("FE-", "Formato Facturae", "la especificación española de Facturae"),
-    ("EDI-", "ISO 9735", "la sintaxis de EDIFACT"),
-    ("NIF-", "De la casa", "no lo exige ninguna norma de las anteriores"),
-    ("IVA-", "Ley del IVA", "el desglose de impuestos"),
-)
-_DE_LA_FIRMA = ("FIRMA-", "CADENA-", "REVOCA", "CONFIANZA-", "SELLO-", "ANCLAS-")
-
-
-def _norma(codigo: str) -> tuple[str, str]:
-    for prefijo, etiqueta, detalle in _NORMAS:
-        if codigo.startswith(prefijo):
-            return etiqueta, detalle
-    if codigo.startswith(_DE_LA_FIRMA):
-        # «REVOCA» y no «REVOCACION-», igual que en `factura.origen`: el código
-        # de la anulación confirmada es `REVOCADO` a secas, y sin esto salía
-        # etiquetado como un problema de formato, que es justo lo que no es.
-        return "Firma electrónica", "eIDAS y las normas ETSI de firma"
-    return "De la casa", "no lo exige ninguna norma concreta"
+# La tabla la comparte con el informe y vive en `normas.py`, que no importa
+# nada: aquí tenerla aparte costó que la página dijera «Ley del IVA» de doce
+# códigos que son criterio propio. Ver el porqué entero allí.
+_norma = normas.norma
 
 
 def _fila(uno: Codigo) -> str:

@@ -36,6 +36,7 @@ from validador import (
     esquema,
     facturae,
     firma,
+    normas,
     sellos,
     sintaxis,
     solucion_publica,
@@ -78,58 +79,28 @@ _SOBRA_SI: dict[str, tuple[str, ...]] = {
     "BR-CO-16": ("SPFE-TOTAL-A-PAGAR",),
 }
 
-# De qué reglamento sale cada queja, por el prefijo de su código. Va en el
-# informe, junto al código, porque cambia lo que hay que hacer con la queja:
-# lo que firma una norma te lo rechaza el receptor, lo que firmamos nosotros
-# es una opinión que puedes discutir.
-EUROPEA = "EN 16931"
-ESPANOLA = "RD 238/2026"
-# El contenido mínimo de la solución pública. No es el real decreto: es el
-# anexo de una orden que todavía es un proyecto, y la etiqueta lo dice.
-SOLUCION_PUBLICA = "anexo I (borrador)"
-FORMA = "Esquema XSD"
-NACIONAL = "formato Facturae"
-SELLO = "firma electrónica"
-# La norma que manda en la sintaxis de EDIFACT: cómo se separan los
-# segmentos, y sobre todo las cuentas del sobre.
-SINTAXIS_EDI = "ISO 9735"
-CASA = "de la casa"
-OTRA = "Formato"
+# De qué reglamento sale cada queja. Va en el informe, junto al código, porque
+# cambia lo que hay que hacer con ella: lo que firma una norma te lo rechaza el
+# receptor, lo que firmamos nosotros es una opinión que puedes discutir.
+#
+# La tabla está en `normas.py` y no aquí desde el 20-09-2026: la página del
+# catálogo tenía su propia copia y las dos dejaron de decir lo mismo en 16
+# códigos. Estos nombres se quedan porque los usan las pruebas y quien importe
+# `factura`; el que ya no está es `OTRA`, el cajón de por defecto, que se leía
+# «Formato» y se tragaba códigos que son de la casa.
+EUROPEA = normas.EUROPEA
+ESPANOLA = normas.ESPANOLA
+SOLUCION_PUBLICA = normas.SOLUCION_PUBLICA
+FORMA = normas.FORMA
+NACIONAL = normas.NACIONAL
+SELLO = normas.SELLO
+SINTAXIS_EDI = normas.SINTAXIS_EDI
+CASA = normas.CASA
 
 
 def origen(incidencia: Incidencia) -> str:
     """A qué norma responde una incidencia."""
-    if incidencia.codigo.startswith("BR-"):
-        return EUROPEA
-    if incidencia.codigo.startswith("CU-"):
-        return ESPANOLA
-    if incidencia.codigo.startswith("SPFE-"):
-        return SOLUCION_PUBLICA
-    if incidencia.codigo.startswith("XSD-"):
-        return FORMA
-    if incidencia.codigo.startswith("FE-"):
-        return NACIONAL
-    if incidencia.codigo.startswith(
-        ("FIRMA-", "CADENA-", "REVOCA", "CONFIANZA-", "SELLO-")
-    ):
-        # «REVOCA» y no «REVOCACION-» a propósito: el código de la anulación
-        # confirmada es `REVOCADO`, a secas, y sin esto salía etiquetado como
-        # un problema de formato, que es justo lo que no es. Lo mismo le pasaba
-        # a todo lo de los sellos de tiempo, que es lo contrario de un problema
-        # de formato: es de lo que cuelga la fecha de la firma.
-        return SELLO
-    if incidencia.codigo.startswith("EDI-"):
-        return SINTAXIS_EDI
-    if incidencia.codigo.startswith("NIF-"):
-        # No lo firma el RD 238/2026 —el código único solo usa el NIF del
-        # emisor—, así que no puede salir con su etiqueta. Es nuestra.
-        return CASA
-    if incidencia.codigo.startswith("IVA-"):
-        # `IVA-` es el prefijo de las comprobaciones propias. Sin esta rama
-        # caían en OTRA, que se lee «Formato», y una regla de IVA no es un
-        # problema de formato: es que opinamos nosotros.
-        return CASA
-    return OTRA
+    return normas.norma(incidencia.codigo)[0]
 
 
 def _arbol(datos: bytes, deteccion: Deteccion):

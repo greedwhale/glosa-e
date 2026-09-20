@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2175 tests, todos en verde.
+2209 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -120,7 +120,7 @@ ejemplos\cii-A-0001.xml
     Debería ser: 100.00 (línea 1)
     Tiene: 150.00
 
-  [IVA-TIPO-SIN-DESGLOSE · de la casa] Hay 50.00 a S (tipo general) al 10%,
+  [IVA-TIPO-SIN-DESGLOSE · De la casa] Hay 50.00 a S (tipo general) al 10%,
   pero el desglose no trae ninguna entrada a ese tipo. El desglose va por
   categoría y tipo, no solo por categoría.
     Campo: Desglose de IVA
@@ -145,7 +145,7 @@ ejemplos\f-0006.xml
 ejemplos\fe-0001.xml
   Facturae v3.2.2 (factura) · firmado — sin errores, 1 aviso(s).
 
-  [FIRMA-DEBIL · firma electrónica] La clave del certificado es de 512 bits.
+  [FIRMA-DEBIL · Firma electrónica] La clave del certificado es de 512 bits.
   Para firma electrónica se piden 2048 como mínimo.
     Campo: Clave del certificado
     Debería ser: 2048 bits o más
@@ -696,7 +696,7 @@ sale cada queja.
 [BR-S-08 · EN 16931]              te lo rechaza el receptor
 [CU-10 · RD 238/2026]            te lo rechaza Hacienda
 [XSD-ORDEN · Esquema XSD]        no pasa ni de la puerta
-[IVA-TIPO-SIN-DESGLOSE · de la casa]   opinamos nosotros
+[IVA-TIPO-SIN-DESGLOSE · De la casa]   opinamos nosotros
 ```
 
 No es adorno: cambia lo que hay que hacer con la queja. Lo que firma una norma
@@ -756,6 +756,20 @@ entre trescientas facturas no se ve a ojo:
 Los huecos y los retrocesos van como aviso a propósito: un hueco puede ser una
 factura anulada, y un lote parcial no tiene por qué estar completo. Marcarlos
 como error daría falsos positivos constantes.
+
+**Los NIF que empiezan por K, L o M son de persona física**, y hasta el
+20-09-2026 CU-01 los daba por inválidos todos. Son las claves que asigna la
+AEAT a quien no tiene DNI ni NIE: K para menores de catorce años residentes en
+España, L para españoles que viven fuera y M para extranjeros sin NIE. Estaban
+en la tabla de tipos de entidad, así que se les medía el control del CIF
+—letra de la J a la I, o dígito—, y el suyo es el del DNI: el resto de dividir
+entre 23. Un `M1234567L` correcto ni siquiera llegaba a comprobarse, porque la
+forma del CIF no admite una L de control: salía «el formato no corresponde a un
+NIF, NIE ni CIF español» y con ello un error sobre una factura buena. La AEAT
+publica la composición —letra, siete caracteres y un carácter de verificación—
+pero no el algoritmo, así que se aceptan solo con siete **dígitos**: con letras
+en medio no hay nada que dividir entre 23, y lo que no se sabe comprobar no se
+da por bueno.
 
 ```
 [CU-13] La serie tiene huecos: falta(n) 3 número(s) entre el primero y el
@@ -1314,9 +1328,14 @@ Todo esto sin salir a la red:
    que se lee de lo firmado, no de cualquier parte del documento—.
 5. **Que el certificado presentado sea el que XAdES dice haber usado.**
 6. **Que los algoritmos no estén retirados.**
+7. **Que el certificado sirva para firmar**, según lo que él mismo declara en
+   su `keyUsage`. Uno de cifrado o de autenticación en web puede firmar un XML
+   perfectamente; lo que dice esta comprobación es que quien lo emitió no lo
+   emitió para eso (`FIRMA-USO-NO-PERMITIDO`, aviso).
 
 La tercera y el inciso de la cuarta son del 15-09-2026 y salen de una
 auditoría; el porqué está más abajo, en «Una firma auténtica sobre otra cosa».
+La séptima es del 20-09-2026 y sale de la misma auditoría.
 
 ### Qué no, y por qué se dice
 
@@ -1674,7 +1693,7 @@ moderno, que es exactamente donde hace falta.
 Cuando cuadra, sale así:
 
 ```
-[SELLO-TIEMPO · firma electrónica] La firma lleva un sello de tiempo de «TSU de
+[SELLO-TIEMPO · Firma electrónica] La firma lleva un sello de tiempo de «TSU de
 prueba» del 2026-08-27 a las 22:32:13 UTC, con una precisión de ±1 s 500 ms
 100 µs, y el sello cuadra: esa autoridad vio esta firma ese día, así que la
 firma ya existía entonces. Esa es la fecha que se usa para la vigencia y la
@@ -1690,7 +1709,7 @@ fecha del sello **sustituya** a la declarada en todo lo que cuelga de ella, y
 eso cambia resultados:
 
 ```
-[REVOCACION-POSTERIOR · firma electrónica] El certificado que firma se anuló el
+[REVOCACION-POSTERIOR · Firma electrónica] El certificado que firma se anuló el
 2026-03-02, después del 2026-01-01 en que el sello de tiempo de «TSU de prueba»
 acredita que esta firma ya existía. La factura se firmó cuando el certificado
 aún valía, y eso no depende de lo que declare quien firma.
@@ -1709,7 +1728,7 @@ existía esta firma»—, que es una acusación que antes no se podía sostener.
 ### Cuando no hay sello, se dice
 
 ```
-[SELLO-FALTA · firma electrónica] La firma no lleva sello de tiempo de un
+[SELLO-FALTA · Firma electrónica] La firma no lleva sello de tiempo de un
 tercero. La fecha que se ha usado para comprobar la vigencia del certificado y
 la revocación es la que declara quien firma, el 2026-03-02: quien firma puede
 escribir la que quiera, y fechando hacia atrás se esquivan las dos
@@ -1744,7 +1763,7 @@ Y cuando la autoridad se reconoce, se declara igual que con las anclas de
 firma:
 
 ```
-[SELLO-CONFIANZA · firma electrónica] La fecha la acredita «TSU de prueba», que
+[SELLO-CONFIANZA · Firma electrónica] La fecha la acredita «TSU de prueba», que
 está publicada como autoridad de sellado en la lista de confianza del Estado:
 de la lista de confianza de ES, publicada por MINISTERIO DE ASUNTOS ECONOMICOS
 Y TRANSFORMACION DIGITAL el 2026-08-06.
@@ -1753,7 +1772,7 @@ Y TRANSFORMACION DIGITAL el 2026-08-06.
 Cuando no:
 
 ```
-[SELLO-TSA-DESCONOCIDA · firma electrónica] El sello de tiempo de «TSU de
+[SELLO-TSA-DESCONOCIDA · Firma electrónica] El sello de tiempo de «TSU de
 prueba» cuadra, pero esa autoridad no llega a ninguna de las de sellado que hay
 instaladas: la cadena se queda en «AC de sellos de prueba», que no está entre
 ellas. El sello es coherente; lo que no consta es que quien lo firmó sea una
@@ -1764,7 +1783,7 @@ Y cuando no hay ninguna instalada, se dice eso y no se calla, que es la misma
 política que con las anclas de firma:
 
 ```
-[SELLO-SIN-CONTRASTAR · firma electrónica] El sello de tiempo de «TSU de
+[SELLO-SIN-CONTRASTAR · Firma electrónica] El sello de tiempo de «TSU de
 prueba» cuadra, pero no hay anclas de sellado instaladas, así que no se ha
 comprobado que sea una autoridad cualificada. Un sello se puede fabricar
 entero, autoridad incluida, y este pasaría igual: la fecha vale lo que valga
@@ -1820,18 +1839,18 @@ firma, que es exactamente para lo que existe.
 Y entonces el camino entero, sobre una factura del Gobierno de 2007:
 
 ```
-[SELLO-TIEMPO · firma electrónica] La firma lleva un sello de tiempo de «TSA1
+[SELLO-TIEMPO · Firma electrónica] La firma lleva un sello de tiempo de «TSA1
 ACCV 2016» del 2026-08-27 a las 23:53:44 UTC, con una precisión de ±0 s 500 ms
 1 µs, y el sello cuadra: esa autoridad vio esta firma ese día, así que la firma
 ya existía entonces. Esa es la fecha que se usa para la vigencia y la
 revocación, en vez de la que declara quien firma.
 
-[SELLO-CONFIANZA · firma electrónica] La fecha la acredita «TSA1 ACCV 2016»,
+[SELLO-CONFIANZA · Firma electrónica] La fecha la acredita «TSA1 ACCV 2016»,
 que está publicada como autoridad de sellado en la lista de confianza del
 Estado: de la lista de confianza de ES, publicada por MINISTERIO DE ASUNTOS
 ECONOMICOS Y TRANSFORMACION DIGITAL el 2026-08-06.
 
-[SELLO-DESPUES-DE-CADUCAR · firma electrónica] El certificado (Usuario ejemplo
+[SELLO-DESPUES-DE-CADUCAR · Firma electrónica] El certificado (Usuario ejemplo
 FacturaE) caducó el 2008-12-10, y lo único que hay acreditado de esta firma es
 que ya existía el 2026-08-27, después. …
 ```
@@ -1998,12 +2017,12 @@ Así que hay un tercer nivel además de error y aviso: la **nota**, que dice lo
 que se ha dado por bueno y con qué.
 
 ```
-[CONFIANZA-ANCLA · firma electrónica] La firma de «Talleres Paco SL» llega a
+[CONFIANZA-ANCLA · Firma electrónica] La firma de «Talleres Paco SL» llega a
 «CA intermedia» en 2 eslabones. Esta validación se fía de esa autoridad porque
 es un ancla instalada en anclas/intermedia.cer, con huella SHA-256
 EE:CA:8D:AA:…
 
-[CONFIANZA-REVOCACION · firma electrónica] No consta anulado ningún
+[CONFIANZA-REVOCACION · Firma electrónica] No consta anulado ningún
 certificado de la cadena: se ha comprobado 1 certificado contra la lista de
 «CA intermedia», publicada el 2026-09-18. Una lista solo responde por lo que
 se sabía el día que se publicó.
@@ -2026,17 +2045,44 @@ Es la condición que hace aceptable traer anclas puestas en una distribución:
 callarlo sería fabricar confianza en silencio, que es justo lo que este
 validador existe para no hacer.
 
-### Los tres fallos clásicos, y dónde se paran
+### Los cinco fallos clásicos, y dónde se paran
 
 1. **`basicConstraints`.** Un certificado que no es de autoridad no puede haber
    emitido a otro. Los validadores que no lo miraban —que fueron muchos y
    grandes— dejaban que cualquiera con un certificado normal emitiera
    certificados a nombre de quien quisiera. Es `ERROR`.
+
+   Y **tampoco vale el que no dice nada**. La extensión es opcional: un
+   certificado puede traerla diciendo «no soy autoridad» o no traerla en
+   absoluto, y aquí solo se miraba el primer caso. Con eso, un certificado sin
+   extensiones —o con un `keyUsage` puesto a mano— hacía de eslabón y la cadena
+   subía por él hasta una raíz de verdad. Lo encontró la auditoría del
+   15-09-2026; desde el 20-09-2026 un eslabón tiene que **declararse**
+   autoridad.
 2. **Encadenar solo por el nombre.** Que el emisor declarado coincida con el
    sujeto del siguiente no prueba nada: los nombres los escribe quien hace el
    certificado. Cada eslabón se **verifica criptográficamente**.
 3. **Una raíz falsa con el nombre de una buena.** El almacén compara **byte a
    byte**, no por sujeto.
+4. **Una extensión crítica que no se entiende.** En X.509, «crítica» quiere
+   decir exactamente esto: quien no sepa aplicarla no puede dar el certificado
+   por bueno. La que importa es `nameConstraints`, que limita a qué nombres
+   puede emitir una autoridad —saltársela es aceptar certificados que esa
+   autoridad no tenía derecho a emitir—. Aplicarla de verdad no está hecho, así
+   que la cadena **no llega** y se dice por qué, en vez de afirmar que llega.
+5. **Firmar con un certificado que no es para firmar.** El `keyUsage` del que
+   firma el documento —no el del que emite certificados— tiene que traer
+   `digitalSignature` o `contentCommitment`. Si declara otros usos y ninguno de
+   esos dos, sale `FIRMA-USO-NO-PERMITIDO`, y es **aviso**: la firma puede
+   cuadrar, lo que no cuadra es para qué se emitió ese certificado. Si no
+   declara ninguno, no se dice nada: en X.509 eso significa «sin restricción».
+
+Las tres primeras van sobre cualquier eslabón **menos el ancla**, y eso es
+deliberado: un ancla no es un hallazgo, es la decisión de quien montó el
+almacén, y X.509 tampoco procesa sus extensiones. Exigírselas dejaría fuera
+raíces viejas sin extensiones y dos de las 268 anclas instaladas aquí, que
+traen una crítica que este validador no lee. Lo que viaja **dentro del
+documento** lo elige quien firma: ahí no se afloja nada.
 
 Cada una de estas defensas tiene un test que se pone rojo al quitarla:
 comprobado desactivándolas una por una.
@@ -2044,7 +2090,7 @@ comprobado desactivándolas una por una.
 ### Lo que sale cuando no llega
 
 ```
-[CADENA-DESCONOCIDA · firma electrónica] El certificado que firma no lleva a
+[CADENA-DESCONOCIDA · Firma electrónica] El certificado que firma no lleva a
 ninguna autoridad conocida: no tenemos el certificado de «AC DNIE 001». Puede
 ser que falte un certificado en el almacén, o que no lo emitiera nadie de
 fiar. No es lo mismo y desde aquí no se distingue.
@@ -2134,7 +2180,7 @@ el validador es decir **cuál le falta y dónde dice el propio certificado que
 está**:
 
 ```
-[REVOCACION-SIN-COMPROBAR · firma electrónica] No se ha comprobado si el
+[REVOCACION-SIN-COMPROBAR · Firma electrónica] No se ha comprobado si el
 certificado está anulado: no tenemos ninguna lista de esa autoridad. El propio
 certificado dice que su lista está en http://…/crl.crl; bájala y ponla en la
 carpeta de revocaciones.
@@ -2158,7 +2204,7 @@ certificado no hay forma de comprobar la revocación sin decirle al emisor qué
 estás mirando. Se dice, y que elija quien valida:
 
 ```
-[REVOCACION-SOLO-OCSP · firma electrónica] No se ha comprobado si el
+[REVOCACION-SOLO-OCSP · Firma electrónica] No se ha comprobado si el
 certificado está anulado: su autoridad no publica lista de revocación, solo un
 servicio de consulta (http://ocsp.dnie.es). Preguntarle lleva dentro el número
 de serie del certificado, o sea que le diría a la autoridad qué factura se está
@@ -2195,7 +2241,7 @@ valía —su manera de pedir que no se guarde— o dijo que ya no, se sigue sin
 saber:
 
 ```
-[CONFIANZA-REVOCACION · firma electrónica] No consta anulado ningún certificado
+[CONFIANZA-REVOCACION · Firma electrónica] No consta anulado ningún certificado
 de la cadena: se ha comprobado 1 certificado contra la respuesta OCSP de
 «Servidor de OCSP - Fabrica Nacional de Moneda y Timbre Q2826004J» que trae el
 propio documento, del 2015-12-16 14:41:55+00:00 —mirada 27 segundos antes de la
@@ -2208,7 +2254,7 @@ Cuando la respuesta que trae el documento no sirve, se dice cuál era el
 problema en vez de dejarlo en un «no se ha comprobado» genérico:
 
 ```
-[REVOCACION-OCSP-NO-VALE · firma electrónica] El documento trae dentro 4
+[REVOCACION-OCSP-NO-VALE · Firma electrónica] El documento trae dentro 4
 respuestas OCSP, y con ellas no se ha podido comprobar si el certificado estaba
 anulado: el respondedor contestó que no sabe nada de ese certificado
 («unknown»), que no es lo mismo que decir que está bien.
@@ -2633,7 +2679,7 @@ retiraron. Fuera de ahí no es que falle la firma: es que esa autoridad ya no
 respondía por ella, y se dice con un código propio.
 
 ```
-[CADENA-RETIRADA · firma electrónica] El certificado que firma lleva a una
+[CADENA-RETIRADA · Firma electrónica] El certificado que firma lleva a una
 autoridad que ya no era cualificada cuando se firmó: «AC de antaño» dejó de ser
 una autoridad cualificada el 2025-02-01, antes de la fecha de la firma. La
 firma puede ser auténtica; lo que no la ampara es la lista de confianza del
@@ -2645,7 +2691,7 @@ que ya no lo es —aunque sea correcto— es una decisión más discutible que l
 normal:
 
 ```
-[CONFIANZA-ANCLA · firma electrónica] … Esa autoridad dejó de ser cualificada
+[CONFIANZA-ANCLA · Firma electrónica] … Esa autoridad dejó de ser cualificada
 el 2025-02-01: se acepta porque la factura es anterior, no porque siga vigente.
 ```
 

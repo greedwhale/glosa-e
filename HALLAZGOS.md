@@ -3677,3 +3677,143 @@ rojo de GitHub avisa, y a la vista, pero no impide.
   la rama se borró.
 
 La suite entera, 2175 pruebas, en verde.
+
+
+## Siete de la parte media: lo que decía de más y lo que no miraba
+
+Los puntos 9, 10 y 15 a 19 de la auditoría del 15-09-2026. Ninguno falsifica
+una factura; cinco de los siete hacen lo mismo con distinto disfraz: **afirmar
+algo que no se ha comprobado**, o negar algo correcto.
+
+### 9. Un certificado que nunca dijo ser autoridad, haciendo de autoridad
+
+**Qué pasaba.** `basicConstraints` es opcional en X.509: un certificado puede
+decir «no soy autoridad», decir «lo soy», o no decir nada. Se miraba solo el
+primer caso. Reproducido con una «intermedia» sin esa extensión, con un
+`keyUsage` puesto a mano: la cadena **llegaba**, tres eslabones, y el informe
+daba por buena la firma de un «Banco Importante SA» emitido por quien quiso.
+
+Y dos cosas más que la auditoría nombraba al lado: las extensiones **críticas**
+que este validador no sabe leer se ignoraban —`nameConstraints` es la que
+importa: limita a qué nombres puede emitir una autoridad—, y del certificado
+que **firma el documento** no se miraba su `keyUsage`, solo el de los que
+emiten certificados.
+
+**Arreglado.** Un eslabón tiene que declararse autoridad; una extensión crítica
+que no se entiende corta la cadena diciendo cuál es, en vez de afirmar que
+llega; y un certificado que declara usos y no incluye `digitalSignature` ni
+`contentCommitment` saca `FIRMA-USO-NO-PERMITIDO`, aviso —la firma puede
+cuadrar; lo que no cuadra es para qué se emitió—. Nada de esto se le exige al
+**ancla**: no es un hallazgo, es la decisión de quien montó el almacén, y X.509
+tampoco procesa sus extensiones.
+
+**Medido antes de decidirlo**, que es lo que dice hasta dónde se puede apretar
+sin inventar problemas: las 268 anclas instaladas declaran ser autoridad las
+268, y dos traen una crítica que este validador no lee (`extendedKeyUsage` y
+`certificatePolicies`). En 38 certificados sacados de 20 facturas reales de
+`MuestrasFE/` y `Pfactura3/`: todas las intermedias declaran `cA` y
+`keyCertSign`; los dos únicos con una crítica desconocida son certificados de
+sello de tiempo, no intermedias; y de los 36 que declaran usos, todos los que
+firman traen `digitalSignature` o el no repudio.
+
+### 10. Una firma sin `SignedInfo` que no decía nada
+
+La auditoría la encontró muda en una instalación sin esquemas. Ya no lo está:
+lo cerró el trabajo sobre los tres puntos críticos del 16-09-2026, y hoy saca
+`FIRMA-VACIA`, `FIRMA-NO-XADES` y `FIRMA-SIN-COMPROBAR`, con la línea de estado
+diciendo «firma que no se sostiene». Lo que faltaba era la prueba que lo fija,
+y ahora está.
+
+### 15. «Conforme EN 16931» en una factura con dos errores
+
+La línea de estado salía así: `UBL v2.1 (factura) · conforme EN 16931 — 2
+error(es)`. Contradiciéndose en ocho palabras. Lo único que se había mirado
+para escribir esa etiqueta es el identificador de perfil que el documento lleva
+dentro, y lo escribe quien emite la factura. Ahora dice **«· dice seguir
+EN 16931»**: si cumple o no lo dicen los errores.
+
+### 16. Un NIF correcto que se rechazaba entero
+
+`M1234567L` es un NIF válido y salía «el formato no corresponde a un NIF, NIE
+ni CIF español», o sea `CU-01` en error sobre una factura buena. Las claves K,
+L y M son de **persona física** —menores de catorce años, españoles que viven
+fuera, extranjeros sin NIE— y estaban en la tabla de tipos de entidad, con el
+control del CIF: una letra de la J a la I o un dígito. El suyo es el del DNI,
+el resto de dividir entre 23, y por eso ni siquiera pasaban la forma.
+
+Ahora se comprueban como lo que son. Se aceptan solo con siete **dígitos**: la
+AEAT publica la composición —letra, siete caracteres y un carácter de
+verificación— pero no el algoritmo, y con letras en medio no hay nada que
+dividir entre 23. Lo que no se sabe comprobar no se da por bueno.
+
+### 17. El hallazgo n.º 1 del proyecto, de vuelta por EDIFACT
+
+Una factura alemana al 19 % recibía `IVA-TIPO`: «19% no es un tipo de IVA
+vigente en España». Es exactamente el fallo grande que abre este documento
+—reglas españolas cayendo sobre facturas de fuera— volviendo por el único
+formato que no es XML. `pais_emisor` tenía una tabla de rutas con UBL y CII, y
+EDIFACT no estaba: contestaba «no se sabe» siempre, y como de EDIFACT no se
+sacan códigos únicos, la pista de reserva se quedaba sin nada que mirar y las
+daba todas por españolas.
+
+Ahora el país se lee del NAD del sobre con el mapa de sintaxis, como el resto
+de los campos de EDIFACT, y si no está queda el número de IVA del vendedor.
+
+### 18. Tres bytes del Bloc de notas
+
+Un `.edi` guardado con el Bloc de notas de Windows lleva delante la marca de
+orden de bytes de UTF-8. Con ella, la tira deja de empezar por UNA, UNB o UNH:
+el fichero se caía al otro lado —«no es XML válido y tampoco EDIFACT»— y no se
+comprobaba **nada**. En XML no pasa: el parser la reconoce.
+
+Al arreglar la detección salió un segundo fallo detrás, que es el que enseña
+por qué esto se prueba dos veces: `es_plano` decidía aparte si la tira se podía
+leer y también miraba los bytes con la marca. El resultado era peor que el
+original, porque no se veía: la factura se reconocía y salía un `SIN-SOPORTE`
+—«identificado, pero no se ha podido leer»— sobre un documento perfectamente
+legible.
+
+### 19. La misma queja, dos normas distintas según dónde se leyera
+
+De qué norma sale cada código estaba escrito dos veces: en el informe y en la
+ficha del catálogo publicado. El comentario de la segunda decía «el mismo
+reparto que `factura.origen`» y explicaba por qué se copiaba —importar
+`factura` arrastra lxml entero para contestar una tabla de prefijos—. La razón
+era buena; el resultado, que **16 de los 371 códigos no decían lo mismo en los
+dos sitios**:
+
+- los doce `IVA-*` salían publicados como «Ley del IVA» y en el informe como
+  criterio propio, que es lo que son: lo que pide la norma es el desglose, con
+  sus `BR-*`;
+- `PERFIL-SIN-EN16931`, `SIN-SOPORTE` y `VALIDADOR-SE-ATRAGANTA` caían en el
+  informe en un cajón por defecto que se leía «Formato»;
+- `ANCLAS-SIN-RENOVAR` era firma en la página y «Formato» en el informe.
+
+Ahora la tabla vive en `validador/normas.py`, un módulo sin dependencias que
+pueden leer los dos, y el cajón por defecto dice «De la casa». Una prueba
+compara los dos caminos código a código sobre el catálogo entero: no impide que
+alguien se equivoque, impide que vuelva a haber dos tablas.
+
+### Lo que se probó, y cómo
+
+Los siete reproducidos antes de tocar nada. Después, **22 roturas provocadas**
+con un guion que mete cada fallo, corre las pruebas que lo tienen que cazar y lo
+deshace: 7 del punto 9, 1 del 10, 1 del 15, 3 del 16, 3 del 17, 3 del 18 y 4 del
+19. Las 22 en rojo.
+
+Dos salieron en verde la primera vez, y las dos por el mismo motivo —la prueba
+se apoyaba en otra cosa—:
+
+- la del EDIFACT alemán seguía pasando sin leer el país, porque el número de
+  IVA de esa factura empieza por `DE` y la pista de reserva la salvaba. Se
+  rehízo con una factura alemana cuyo número de IVA viene **sin** prefijo, que
+  es un caso real y el único que prueba lo que dice probar;
+- la del cajón por defecto comparaba contra la propia constante que se estaba
+  rompiendo: al cambiar «De la casa» por «Formato» cambiaban las dos a la vez.
+  Ahora compara contra la palabra escrita.
+
+Y un fallo propio, cazado por una prueba que ya estaba: la lectura nueva del
+país reventaba con un EDIFACT que no se puede convertir —`raiz` a `None`—, y lo
+paró `TestNadaRevienta`, que precisamente existe para eso.
+
+La suite entera, 2209 pruebas, en verde.

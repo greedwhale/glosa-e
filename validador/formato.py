@@ -171,7 +171,14 @@ class Deteccion:
         if self.tipo_documento:
             partes.append(f"({self.tipo_documento})")
         if self.conforme_en16931:
-            partes.append("· conforme EN 16931")
+            # «Dice seguir» y no «conforme». Esto es la **detección**: lo único
+            # que se ha mirado es el identificador de perfil que el documento
+            # lleva escrito, y eso lo pone quien la emite. Decía «· conforme
+            # EN 16931» y salía igual en una factura con dos errores de esa
+            # misma norma —«UBL v2.1 (factura) · conforme EN 16931 — 2
+            # error(es)»—, que es la línea contradiciéndose a sí misma en ocho
+            # palabras. Si cumple o no lo dicen los errores, no esta etiqueta.
+            partes.append("· dice seguir EN 16931")
         if self.firmado:
             partes.append(_ETIQUETA_FIRMA[firma])
         return " ".join(partes)
@@ -331,9 +338,28 @@ def _detectar_cii(raiz: etree._Element, namespace: str) -> Deteccion:
     )
 
 
+# La marca de orden de bytes de UTF-8. La pone delante el Bloc de notas de
+# Windows al «Guardar como UTF-8», y también Excel al exportar: no es un error
+# de quien manda la factura, es lo que hace su editor.
+#
+# En XML da igual —el parser la reconoce y la salta— y en EDIFACT no: la tira
+# empieza por UNA, UNB o UNH y con tres bytes delante deja de empezar por
+# ninguna de las tres. El fichero se caía al otro lado —«no es XML válido y
+# tampoco EDIFACT»— y no se comprobaba nada de nada.
+#
+# Solo la de UTF-8: un EDIFACT en UTF-16 vendría lleno de bytes cero y eso no
+# es esto, es otro problema y se vería.
+MARCA_DE_BYTES = b"\xef\xbb\xbf"
+
+
+def sin_marca(datos: bytes) -> bytes:
+    """Los bytes sin la marca de orden de UTF-8, si la traían."""
+    return datos[len(MARCA_DE_BYTES):] if datos.startswith(MARCA_DE_BYTES) else datos
+
+
 def _detectar_edifact(datos: bytes) -> Deteccion | None:
     """El EDIFACT de toda la vida: una tira de segmentos, no XML."""
-    cabeza = datos.lstrip()[:3].upper()
+    cabeza = sin_marca(datos).lstrip()[:3].upper()
     if cabeza not in (b"UNA", b"UNB", b"UNH"):
         return None
     encontrado = _RE_EDIFACT_UNH.search(datos)
