@@ -154,7 +154,7 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Arranque con la CDN ya cacheada | 11,25 s |
 | Arranque con la caché ya caliente | ~4,8 s |
 | Validar una factura de una línea | 17–23 ms (el 15-09: 416–463) |
-| Validar los 10 de `ejemplos/` | 280 ms, mediana de 5 (el 06-09, en producción: 798) |
+| Validar los 10 de `ejemplos/` | 363 ms, mediana de 7 (el 06-09: 798) |
 | Validar una factura de 1.000 líneas | 1,1 s (el 15-09: 5,7) |
 | Validar una factura de 4.000 líneas | 4,2–5,3 s (el 15-09: 20,5–23,8) |
 | Verificar una firma XAdES | 17 ms |
@@ -167,7 +167,7 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Rechazar una lista de confianza manipulada | 14,1 ms |
 | Validar un lote de 200 | 2,05 s · 10,3 ms cada una · 23 MB de memoria |
 | Lo que descomprime el navegador | 17,07 MB (15-09-2026; eran 14,71) |
-| Lo que baja por el cable la primera vez | 9,86 MB en 24 peticiones, todas a `www.glosa-e.com` (15-09-2026) |
+| Lo que baja por el cable la primera vez | 9,86 MB en 25 peticiones, todas a `www.glosa-e.com` (15-09-2026; eran 24: desde el 20-09 la rueda se pide dos veces y la segunda sale de la caché, 0 bytes medidos) |
 
 Las filas de validar cambiaron el 20-09-2026 y aquí decían de más. «5–120 ms»
 se había medido sobre las facturas de ejemplo, que tienen una línea o dos, y se
