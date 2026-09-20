@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2277 tests, todos en verde.
+2284 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3787,26 +3787,68 @@ equivocado no se ve, mientras que un hueco sí.
 **Cuántas facturas están en ese caso: 6 de las 14.** Seis llevan retenciones y
 cuatro recargo —las cuatro, dentro de las seis—. Dos llevan suplidos.
 
+**La segunda familia: lo evidente**, escrita el mismo día. Se llama evidente
+porque casi todas sus filas son «llega igual» —la calle, la población, el
+código postal, la provincia, el país, el teléfono y el correo pasan de un campo
+a otro sin discusión, y el anexo los recoge uno a uno—. Se escribió entera por
+las tres que estaban escondidas entre ellas, que no son evidentes y sí son
+frecuentes:
+
+| Lo que no era evidente | De 14 | Qué pasa |
+|---|---:|---|
+| La **serie** va pegada al número | 8 | el anexo tiene **un solo campo**, `BT-1`, «número y serie de la factura», y Facturae tiene dos. Nadie dice cómo se juntan: aquí se pegan sin separador, que es como los junta el código único del RD 238/2026 |
+| La dirección **de fuera de España** junta código postal y población | 3 | `PostCodeAndTown` es un campo y la copia pide dos. Ni el esquema de Facturae ni el anexo dicen por dónde se corta la cadena |
+| El **periodo de facturación** no está en el anexo | 9 | la norma tiene `BG-14` y el anexo de abril no lo recoge, aunque el esquema de Facturae lo hace obligatorio en las recapitulativas |
+
+Y lo que se queda en el original, que no lo dice nadie: el **idioma** (11 de
+14), el **lugar de expedición** (8), y el fax, la página web y el CNAE de las
+partes (5). Salen en **una sola nota** con la lista entera, no en cinco notas
+seguidas: los importes con su cifra —uno que se queda fuera ya no cuadra con
+ningún total de la copia— y los demás solo nombrados.
+
 Lo que dice el módulo, con los importes al lado:
 
 | Nota | Cuándo sale | Qué dice |
 |---|---|---|
 | `COPIA-TOTAL` | hay retenciones o recargo | el total de la copia es la base más las cuotas, sin restar la retención |
 | `COPIA-CUOTA` | hay recargo de equivalencia | la cuota de la copia no lleva el recargo: en el anexo tiene grupo propio |
+| `COPIA-SERIE` | la serie trae texto | en la copia, el número de la factura es la serie y el número juntos |
+| `COPIA-DIRECCION` | hay dirección de fuera de España | el código postal y la población hay que partirlos en dos campos |
 | `COPIA-SUPLIDO` | hay suplidos | son `BT-179` y `BT-180`, de la edición de 2026, y el anexo de abril no les da ruta |
-| `COPIA-SIN-SITIO` | hay gastos financieros | ni la norma ni el anexo tienen dónde ponerlos |
+| `COPIA-SIN-SITIO` | hay algo que no viaja | la lista de lo que se queda en el original |
+
+Sobre las 14 facturas de aquí: **11 sacan alguna nota** y 3 no sacan ninguna.
+El ejemplo publicado `ejemplos/fe-0001.xml` saca dos —su serie y su idioma— y
+sigue saliendo conforme, porque ninguna es un error.
 
 **La tabla se escribe entera, con el porqué de cada fila**, en
-`CORRESPONDENCIAS`: once conceptos, cada uno con lo que le pasa —llega igual,
-llega en la extensión española, llega con otro número, no tiene sitio, no se
-sabe todavía— y de dónde sale esa decisión. Tres filas están en «no se sabe» a
-propósito: el total a pagar —la misma duda de `SPFE-TOTAL-A-PAGAR`—, los
-suplidos y los importes retenidos que no son de impuestos. Lo que desbloquea
-las tres es el texto nuevo del anexo.
+`CORRESPONDENCIAS`: **29 conceptos**, cada uno con lo que le pasa y de dónde
+sale esa decisión. Los estados son siete, y los dos que se añadieron con la
+segunda familia son los que no se pueden juntar con nada:
 
-Y el cepo de siempre, porque una nota cuyo porqué ya no está escrito es peor
-que no tenerla: si alguien quita una fila de la tabla y deja la regla que la
-usa, **el paquete no se monta** (`TablaIncompleta`). Provocado en las pruebas.
+| Estado | Qué significa | Ejemplo |
+|---|---|---|
+| llega igual | mismo dato, mismo sitio | la población, `BT-37` |
+| llega, pero en la extensión española | el anexo le da grupo propio | las retenciones |
+| llega con otro número | el importe de la copia no es el de la factura | `BT-112` |
+| **llega, pero cortado de otra manera** | el dato viaja entero y los campos no se cortan igual en los dos formatos | la serie, que se junta; el código postal de fuera, que se parte |
+| **llega, pero el anexo no lo pide** | la norma tiene el término y el anexo no lo lista: llega y no lo mira nadie | el periodo de facturación, la persona de contacto |
+| no tiene sitio | se queda en el original | el idioma |
+| no se sabe todavía | lo desbloquea el texto nuevo del anexo | el total a pagar |
+
+Tres filas siguen en «no se sabe» a propósito: el total a pagar —la misma duda
+de `SPFE-TOTAL-A-PAGAR`—, los suplidos y los importes retenidos que no son de
+impuestos.
+
+Y dos cepos, porque una nota cuyo porqué ya no está escrito es peor que no
+tenerla:
+
+- si alguien quita una fila de la tabla y deja la regla que la usa, **el
+  paquete no se monta** (`TablaIncompleta`);
+- y los `BT-` que cada fila nombra **se comparan con el anexo**, con los 104
+  términos europeos de `cius_es.CAMPOS`: una fila que diga que algo llega a un
+  término que el anexo no recoge, o que diga «el anexo no lo pide» de uno que
+  sí recoge, deja la suite en rojo. Provocado por los dos lados.
 
 Lo que esto **no** es: no convierte nada —aquí no se escribe ninguna copia—, no
 valida la copia, que es otro documento con sus propias reglas `SPFE-`, y no

@@ -3315,11 +3315,33 @@ CODIGOS: dict[str, str] = {
         "pero ese texto no está publicado."
     ),
     "COPIA-SIN-SITIO": (
-        "La factura lleva un concepto que en la copia no tiene dónde ir: ni la "
-        "norma europea ni el anexo tienen campo para eso. No es un fallo. "
-        "Preguntada por escrito, la AEAT contestó el 17-09-2026 que un "
-        "concepto sin equivalente se puede omitir o llevar en una extensión, y "
-        "que lo que no sea equivalente no se validará."
+        "La factura lleva conceptos que en la copia no tienen dónde ir: ni la "
+        "norma europea ni el anexo tienen campo para ellos. Salen todos en una "
+        "sola nota, con su importe los que lo tengan —un importe que se queda "
+        "fuera ya no cuadra con ningún total de la copia— y solo nombrados los "
+        "demás: el idioma, el lugar de expedición, el fax, la página web o el "
+        "CNAE de una de las partes. No es un fallo. Preguntada por escrito, la "
+        "AEAT contestó el 17-09-2026 que un concepto sin equivalente se puede "
+        "omitir o llevar en una extensión, y que lo que no sea equivalente no "
+        "se validará."
+    ),
+    "COPIA-SERIE": (
+        "Facturae guarda la serie y el número de la factura en dos campos, y "
+        "el anexo tiene uno solo para los dos: BT-1, que llama «número y serie "
+        "de la factura». En la copia van juntos, y ningún texto dice cómo se "
+        "juntan. Aquí se pegan sin separador, que es como los trata Verifactu "
+        "y como los junta el código único del RD 238/2026: si la copia llevara "
+        "solo el número, la copia y el original no identificarían la misma "
+        "factura."
+    ),
+    "COPIA-DIRECCION": (
+        "Una dirección de fuera de España escribe el código postal y la "
+        "población en un solo campo —`PostCodeAndTown`—, y la copia los pide "
+        "en dos: BT-38 y BT-37 el vendedor, BT-53 y BT-52 el comprador. Hay "
+        "que partir la cadena y ni el esquema de Facturae ni el anexo dicen "
+        "por dónde, así que lo decide quien copia. La dirección de un centro "
+        "administrativo no cuenta: de él, el anexo se queda con sus "
+        "identificadores y no con su domicilio."
     ),
     "ANCLAS-SIN-RENOVAR": (
         "Las anclas salen de una lista que decía renovarse antes de hoy. La "

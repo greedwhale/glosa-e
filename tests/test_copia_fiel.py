@@ -21,6 +21,8 @@ prueba enciende **un** concepto y comprueba que sale **esa** nota.
 """
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from validador import copia_fiel
@@ -37,13 +39,17 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
   <Parties>
     <SellerParty><TaxIdentification>
       <TaxIdentificationNumber>B12345674</TaxIdentificationNumber>
-    </TaxIdentification></SellerParty>
+    </TaxIdentification>{contacto}</SellerParty>
     <BuyerParty><TaxIdentification>
       <TaxIdentificationNumber>B12345674</TaxIdentificationNumber>
-    </TaxIdentification></BuyerParty>
+    </TaxIdentification>{fuera}</BuyerParty>
   </Parties>
   <Invoices><Invoice>
-    <InvoiceHeader><InvoiceNumber>1</InvoiceNumber></InvoiceHeader>
+    <InvoiceHeader>{serie}<InvoiceNumber>0001</InvoiceNumber></InvoiceHeader>
+    <InvoiceIssueData>
+      <IssueDate>2026-09-20</IssueDate>
+      {idioma}
+    </InvoiceIssueData>
     <TaxesOutputs><Tax>
       <TaxTypeCode>01</TaxTypeCode>
       <TaxRate>21.00</TaxRate>
@@ -58,6 +64,7 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
       <InvoiceTotal>{total}</InvoiceTotal>
       {suplidos}
       {financieros}
+      {subvenciones}
     </InvoiceTotals>
   </Invoice></Invoices>
 </fe:Facturae>
@@ -66,8 +73,32 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
 RECARGO = """<EquivalenceSurcharge>5.20</EquivalenceSurcharge>
       <EquivalenceSurchargeAmount><TotalAmount>5.20</TotalAmount></EquivalenceSurchargeAmount>"""
 
+# El fax cuelga de la entidad, que es donde lo pone el esquema. Y la dirección
+# de fuera junta el código postal y la población en un solo campo: es el dato
+# que hay que partir en dos para la copia.
+CONTACTO = """<LegalEntity><ContactDetails>
+      <TeleFax>911234567</TeleFax>
+    </ContactDetails></LegalEntity>"""
+FUERA = """<Individual><OverseasAddress>
+      <Address>1 High Street</Address>
+      <PostCodeAndTown>SW1A 1AA London</PostCodeAndTown>
+      <CountryCode>GBR</CountryCode>
+    </OverseasAddress></Individual>"""
+# La misma dirección de fuera, pero colgada de un centro administrativo, que
+# **no** tiene ese destino en el anexo. Es la mitad de las que hay en las
+# facturas reales, así que la exclusión se prueba y no se comenta.
+FUERA_EN_UN_CENTRO = """<AdministrativeCentres><AdministrativeCentre>
+      <CentreCode>E00000012</CentreCode>
+      <OverseasAddress>
+        <Address>1 High Street</Address>
+        <PostCodeAndTown>SW1A 1AA London</PostCodeAndTown>
+        <CountryCode>GBR</CountryCode>
+      </OverseasAddress>
+    </AdministrativeCentre></AdministrativeCentres>"""
 
-def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None):
+
+def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
+            serie=None, idioma=False, fax=False, fuera=None, subvenciones=None):
     """Una factura de 100 de base y 21 de IVA, con lo que se le encienda."""
     repercutido = "26.20" if recargo else "21.00"
     total = str(round(100 + float(repercutido) - float(retenido), 2))
@@ -80,6 +111,14 @@ def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None):
                   if suplidos else ""),
         financieros=(f"<TotalFinancialExpenses>{financieros}</TotalFinancialExpenses>"
                      if financieros else ""),
+        subvenciones=(f"<Subsidies><Subsidy><SubsidyDescription>obra</SubsidyDescription>"
+                      f"<SubsidyRate>10.00</SubsidyRate>"
+                      f"<SubsidyAmount>{subvenciones}</SubsidyAmount>"
+                      f"</Subsidy></Subsidies>" if subvenciones else ""),
+        serie=(f"<InvoiceSeriesCode>{serie}</InvoiceSeriesCode>" if serie else ""),
+        idioma="<LanguageName>es</LanguageName>" if idioma else "",
+        contacto=CONTACTO if fax else "",
+        fuera={"parte": FUERA, "centro": FUERA_EN_UN_CENTRO}.get(fuera, ""),
     ).encode("utf-8")
     from lxml import etree
 
@@ -156,6 +195,93 @@ def test_sin_documento_no_hay_nada_que_decir():
     assert copia_fiel.reglas(None, None) == []
 
 
+def test_la_serie_y_el_numero_van_juntos_en_la_copia():
+    """BT-1 es «número y serie», un solo campo, y Facturae tiene dos."""
+    salidas = notas(serie="FRA")
+    assert set(salidas) == {"COPIA-SERIE"}
+    nota = salidas["COPIA-SERIE"]
+    assert nota.gravedad == NOTA
+    assert "FRA0001" in nota.esperado
+    assert "0001" in nota.encontrado and "FRA" in nota.encontrado
+
+
+def test_sin_serie_no_hay_nada_que_juntar():
+    """Seis de las catorce facturas de aquí traen el campo vacío."""
+    assert notas(serie="") == {}
+    assert notas(serie="   ") == {}
+
+
+def test_la_direccion_de_fuera_hay_que_partirla_en_dos():
+    salidas = notas(fuera="parte")
+    assert set(salidas) == {"COPIA-DIRECCION"}
+    nota = salidas["COPIA-DIRECCION"]
+    assert "BT-53" in nota.campo and "BT-52" in nota.campo
+    assert "SW1A 1AA London" in nota.encontrado
+
+
+def test_la_direccion_de_un_centro_administrativo_no_es_la_de_la_parte():
+    """Provocada: la mitad de las direcciones de fuera cuelgan de un centro.
+
+    Del centro, el anexo se queda con sus identificadores y no con su
+    domicilio, así que BT-52 y BT-53 no son su destino y la nota mentiría.
+    """
+    assert notas(fuera="centro") == {}
+
+
+def test_lo_que_se_queda_en_el_original_va_en_una_sola_nota():
+    salidas = notas(idioma=True, fax=True, financieros="1.00", subvenciones="50.00")
+    assert set(salidas) == {"COPIA-SIN-SITIO"}
+    quedan = salidas["COPIA-SIN-SITIO"].encontrado
+    for cosa in ("idioma", "fax", "gastos financieros", "subvenciones"):
+        assert cosa in quedan, quedan
+    # Los importes van con su cifra; los datos, solo nombrados.
+    assert "1.00" in quedan and "50.00" in quedan
+
+
+def test_el_destino_de_cada_fila_existe_en_el_anexo():
+    """El cepo de verdad de esta tabla: los BT- se comparan con el anexo.
+
+    `cius_es.CAMPOS` es la lista de contenido mínimo del anexo I, y de ahí
+    salen los destinos. Si una fila dice que algo llega a un término que el
+    anexo no recoge, o si una fila dice «el anexo no lo pide» de un término
+    que sí recoge, es que la tabla ya no describe el anexo que hay.
+    """
+    from validador import cius_es
+
+    del_anexo = {campo.id for campo in cius_es.CAMPOS}
+    for fila in copia_fiel.CORRESPONDENCIAS:
+        nombrados = re.findall(r"B[TG]-\d+", fila.destino)
+        if fila.efecto in (copia_fiel.IGUAL, copia_fiel.CAMBIA,
+                           copia_fiel.OTRO_CORTE):
+            assert nombrados, fila.concepto
+            for uno in nombrados:
+                assert uno in del_anexo, f"{fila.concepto}: {uno}"
+        if fila.efecto == copia_fiel.NO_LO_PIDEN:
+            assert nombrados, fila.concepto
+            for uno in nombrados:
+                assert uno not in del_anexo, f"{fila.concepto}: {uno}"
+
+
+def test_el_anexo_sigue_teniendo_los_terminos_que_dice_la_cabecera():
+    """104 términos europeos, que es lo que dice el módulo al explicarse.
+
+    No es una cifra de adorno: de esa lista salen los destinos de la tabla y
+    contra ella se comparan. El 10-09-2026 la AEAT anunció que el anexo cambia,
+    así que el día que llegue el texto nuevo esto salta, y saltar es lo que hay
+    que hacer: la tabla entera se vuelve a mirar.
+    """
+    from validador import cius_es
+
+    europeos = {campo.id for campo in cius_es.CAMPOS
+                if not campo.id.startswith(("BT-ES", "BG-ES"))}
+    assert len(europeos) == 104, (
+        f"el anexo trae {len(europeos)} términos europeos y la cabecera de "
+        "`copia_fiel.py` dice 104. Cámbiala, y de paso vuelve a mirar los "
+        "destinos de la tabla: si el anexo se ha movido, alguno habrá dejado "
+        "de ser verdad."
+    )
+
+
 def test_lo_que_las_reglas_miran_tiene_que_estar_en_la_tabla(monkeypatch):
     """El cepo, provocado: una regla sin su fila no se monta.
 
@@ -173,11 +299,14 @@ def test_lo_que_las_reglas_miran_tiene_que_estar_en_la_tabla(monkeypatch):
 
 def test_cada_fila_dice_que_le_pasa_y_por_que():
     efectos = {copia_fiel.IGUAL, copia_fiel.APARTE, copia_fiel.CAMBIA,
+               copia_fiel.OTRO_CORTE, copia_fiel.NO_LO_PIDEN,
                copia_fiel.SIN_SITIO, copia_fiel.POR_DECIDIR}
     for fila in copia_fiel.CORRESPONDENCIAS:
         assert fila.efecto in efectos, fila.concepto
         assert len(fila.porque) > 20, fila.concepto
-        # Lo que cambia de número o no tiene sitio es lo que hay que explicar
-        # con un destino escrito; lo que llega igual, también.
-        if fila.efecto in (copia_fiel.IGUAL, copia_fiel.CAMBIA, copia_fiel.APARTE):
+        # Todo lo que llega de alguna manera tiene que decir adónde; lo único
+        # que puede quedarse sin destino es lo que no tiene sitio.
+        if fila.efecto != copia_fiel.SIN_SITIO:
             assert fila.destino, fila.concepto
+        else:
+            assert not fila.destino, fila.concepto

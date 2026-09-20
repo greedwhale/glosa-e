@@ -56,10 +56,11 @@ HOY = datetime.date(2026, 9, 20)
 
 # fichero -> (conforme, los códigos que saca)
 #
-# `fe-0001.xml` sale conforme **con seis incidencias**, y no es contradictorio:
-# cuatro son NOTA -tres del binding de Facturae diciendo lo que esa sintaxis no
-# tiene dónde escribir- y dos son AVISO de una firma de juguete. Ninguna es
-# ERROR, y `conforme` mira los errores.
+# `fe-0001.xml` sale conforme **con ocho incidencias**, y no es contradictorio:
+# seis son NOTA -tres del binding de Facturae diciendo lo que esa sintaxis no
+# tiene dónde escribir, y dos de lo que le pasaría al copiarse a la solución
+# pública- y dos son AVISO de una firma de juguete. Ninguna es ERROR, y
+# `conforme` mira los errores.
 ESPERADO: dict[str, tuple[bool, tuple[str, ...]]] = {
     "cii-A-0001.xml": (False, ("BR-S-08", "IVA-TIPO-SIN-DESGLOSE")),
     "edi-0001.edi": (True, ()),
@@ -75,7 +76,11 @@ ESPERADO: dict[str, tuple[bool, tuple[str, ...]]] = {
     # `IVA-CATEGORIA-SIN-MAPA` ya no sale: desde que la categoria se deduce
     # del `TaxTypeCode` y del tipo, esta factura va a S al 21% y las BR-S-*
     # corren de verdad sobre ella.
+    # Las dos `COPIA-*` salen de la segunda familia de la tabla de
+    # correspondencia: este ejemplo lleva serie -«FE» y «0001», que en la copia
+    # son un solo campo- e idioma, que en la copia no tiene dónde ir.
     "fe-0001.xml": (True, ("BR-01", "BR-14", "BR-21", "CADENA-SIN-ANCLAS",
+                           "COPIA-SERIE", "COPIA-SIN-SITIO",
                            "FIRMA-DEBIL", "SELLO-FALTA")),
     "r-0001.xml": (True, ()),
 }
