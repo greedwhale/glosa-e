@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2305 tests, todos en verde.
+2311 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3806,6 +3806,25 @@ partes (5). Salen en **una sola nota** con la lista entera, no en cinco notas
 seguidas: los importes con su cifra —uno que se queda fuera ya no cuadra con
 ningún total de la copia— y los demás solo nombrados.
 
+**La tercera familia: las líneas** (21-09-2026): lo que se factura, con su
+cantidad, su precio y su IVA. Es la más larga de las tres y la que más se queda
+fuera, pero lo que la hace útil son tres filas que desde los totales no se ven:
+
+| Lo que esconde una línea | De 14 | Qué pasa |
+|---|---:|---|
+| El **identificador de línea** no existe | 14 | `BT-126` es obligatorio en el anexo y Facturae no tiene ninguno. Su esquema da `SequenceNumber`, pero significa otra cosa —el orden de la línea en un pedido— y 11 de las 14 no traen ni uno. Lo pone quien copia, y tiene que ponerlo **siempre igual**: si la misma factura se copia hoy con las líneas numeradas de una manera y mañana de otra, las dos copias dicen cosas distintas del mismo original |
+| La **unidad de medida** es de otra lista | 11 | Facturae tiene la suya, 36 códigos de dos dígitos, y la norma pide UN/ECE, recomendaciones 20 y 21. De esos 36: 13 llevan el europeo en su propia etiqueta y valen tal cual, 16 lo llevan pero necesitan una `X` delante —los de embalaje—, 1 solo cuadra en mayúsculas y **6 no lo llevan**. Entre esos seis está `01`, «Units», que es justo el que escriben las 18 líneas medidas aquí: en la copia es `C62`. Y tampoco tiene campo propio, porque `BT-130` no está en el anexo: viaja como atributo de la cantidad |
+| El **importe neto** se puede copiar del campo de al lado | 6 | `BT-131` es `GrossAmount` y no `TotalCost`, aunque el nombre invite a lo contrario. El esquema define `TotalCost` como cantidad por precio y `GrossAmount` como «TotalCost − DiscountAmount + ChargeAmount», y lo que la norma pide es el importe **después** de los descuentos de la línea |
+
+Y lo que el anexo no pide de una línea: la **nota** (6 de 14), el **código de
+artículo** (3) y la **fecha de la línea** (3). No sacan nota, y es la misma
+regla de siempre: lo que llega no se cuenta, aunque no lo mire nadie.
+
+**Las referencias que Facturae mete dentro de la línea** —pedido, contrato,
+expediente, albarán— no son de esta familia a propósito: son las mismas que las
+del documento, el anexo tampoco las recoge, y partir esa historia en dos sería
+contarla dos veces a medias. Van con la familia de las referencias.
+
 Lo que dice el módulo, con los importes al lado:
 
 | Nota | Cuándo sale | Qué dice |
@@ -3814,17 +3833,21 @@ Lo que dice el módulo, con los importes al lado:
 | `COPIA-CUOTA` | hay recargo de equivalencia | la cuota de la copia no lleva el recargo: en el anexo tiene grupo propio |
 | `COPIA-SERIE` | la serie trae texto | en la copia, el número de la factura es la serie y el número juntos |
 | `COPIA-DIRECCION` | hay dirección de fuera de España | el código postal y la población hay que partirlos en dos campos |
+| `COPIA-LINEA-UNIDAD` | una línea trae unidad de medida | el código es de la lista de Facturae y la copia pide uno de UN/ECE |
+| `COPIA-LINEA-NETO` | `TotalCost` y `GrossAmount` no valen lo mismo | el importe neto de la línea es el segundo, no el primero |
 | `COPIA-SUPLIDO` | hay suplidos | son `BT-179` y `BT-180`, de la edición de 2026, y el anexo de abril no les da ruta |
 | `COPIA-SIN-SITIO` | hay algo que no viaja | la lista de lo que se queda en el original |
 
-Sobre las 14 facturas de aquí: **11 sacan alguna nota** y 3 no sacan ninguna.
-El ejemplo publicado `ejemplos/fe-0001.xml` saca dos —su serie y su idioma— y
-sigue saliendo conforme, porque ninguna es un error.
+Sobre las 14 facturas de aquí: **las 14 sacan alguna nota**. Eran 11 hasta la
+tercera familia, y las tres que callaban no eran facturas más limpias: eran las
+que no tocaban ningún concepto de los once primeros. Todas tienen líneas. El
+ejemplo publicado `ejemplos/fe-0001.xml` saca tres —su serie, su idioma y la
+unidad de su línea— y sigue saliendo conforme, porque ninguna es un error.
 
 **La tabla se escribe entera, con el porqué de cada fila**, en
-`CORRESPONDENCIAS`: **29 conceptos**, cada uno con lo que le pasa y de dónde
+`CORRESPONDENCIAS`: **41 conceptos**, cada uno con lo que le pasa y de dónde
 sale esa decisión. Los estados son siete, y los dos que se añadieron con la
-segunda familia son los que no se pueden juntar con nada:
+segunda y la tercera familia son los cuatro que no se pueden juntar con nada:
 
 | Estado | Qué significa | Ejemplo |
 |---|---|---|
@@ -3833,6 +3856,8 @@ segunda familia son los que no se pueden juntar con nada:
 | llega con otro número | el importe de la copia no es el de la factura | `BT-112` |
 | **llega, pero cortado de otra manera** | el dato viaja entero y los campos no se cortan igual en los dos formatos | la serie, que se junta; el código postal de fuera, que se parte |
 | **llega, pero el anexo no lo pide** | la norma tiene el término y el anexo no lo lista: llega y no lo mira nadie | el periodo de facturación, la persona de contacto |
+| **llega, pero el código es de otra lista** | el campo existe en los dos sitios y el valor no vale: cada formato lo escribe con su vocabulario | la unidad de medida, `01` frente a `C62` |
+| **no está en la factura: lo pone quien copia** | el anexo pide un campo que Facturae no tiene | el identificador de línea |
 | no tiene sitio | se queda en el original | el idioma |
 | no se sabe todavía | lo desbloquea el texto nuevo del anexo | el total a pagar |
 

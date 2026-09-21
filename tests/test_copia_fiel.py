@@ -57,6 +57,7 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
       <TaxAmount><TotalAmount>21.00</TotalAmount></TaxAmount>
       {recargo}
     </Tax></TaxesOutputs>
+    {lineas}
     <InvoiceTotals>
       <TotalGrossAmountBeforeTaxes>100.00</TotalGrossAmountBeforeTaxes>
       <TotalTaxOutputs>{repercutido}</TotalTaxOutputs>
@@ -69,6 +70,18 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
   </Invoice></Invoices>
 </fe:Facturae>
 """
+
+# Una línea suelta, con lo justo para encender una nota cada vez. Por defecto
+# la factura no lleva ninguna: así `test_una_factura_sin_nada_de_eso_no_dice_nada`
+# sigue diciendo lo que dice.
+LINEA = """<Items><InvoiceLine>
+      <ItemDescription>Una cosa</ItemDescription>
+      <Quantity>1.00</Quantity>
+      {unidad}
+      <UnitPriceWithoutTax>100.00</UnitPriceWithoutTax>
+      {coste}
+      {bruto}
+    </InvoiceLine></Items>"""
 
 RECARGO = """<EquivalenceSurcharge>5.20</EquivalenceSurcharge>
       <EquivalenceSurchargeAmount><TotalAmount>5.20</TotalAmount></EquivalenceSurchargeAmount>"""
@@ -98,11 +111,22 @@ FUERA_EN_UN_CENTRO = """<AdministrativeCentres><AdministrativeCentre>
 
 
 def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
-            serie=None, idioma=False, fax=False, fuera=None, subvenciones=None):
+            serie=None, idioma=False, fax=False, fuera=None, subvenciones=None,
+            unidad=None, coste=None, neto=None):
     """Una factura de 100 de base y 21 de IVA, con lo que se le encienda."""
     repercutido = "26.20" if recargo else "21.00"
     total = str(round(100 + float(repercutido) - float(retenido), 2))
-    bruto = PLANTILLA.format(
+    # La línea se arma si se pide alguna de sus tres piezas. `unidad=""` pide
+    # una línea **sin** unidad, que es un caso distinto de no pedir línea.
+    lineas = ""
+    if unidad is not None or coste is not None or neto is not None:
+        lineas = LINEA.format(
+            unidad=f"<UnitOfMeasure>{unidad}</UnitOfMeasure>" if unidad else "",
+            coste=f"<TotalCost>{coste}</TotalCost>" if coste else "",
+            bruto=f"<GrossAmount>{neto}</GrossAmount>" if neto else "",
+        )
+    documento = PLANTILLA.format(
+        lineas=lineas,
         recargo=RECARGO if recargo else "",
         repercutido=repercutido,
         retenido=retenido,
@@ -122,7 +146,7 @@ def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
     ).encode("utf-8")
     from lxml import etree
 
-    return etree.fromstring(bruto), detectar(bruto)
+    return etree.fromstring(documento), detectar(documento)
 
 
 def notas(**como):
@@ -238,6 +262,64 @@ def test_lo_que_se_queda_en_el_original_va_en_una_sola_nota():
     assert "1.00" in quedan and "50.00" in quedan
 
 
+def test_la_unidad_de_medida_no_vale_escrita_asi():
+    """`01` es «Units» en Facturae y no es un código de UN/ECE.
+
+    Las 18 líneas medidas aquí escriben ese mismo `01`, y es justo uno de los
+    seis códigos de la lista de Facturae que no llevan el europeo en su propia
+    etiqueta: el que más se usa es el que menos ayuda.
+    """
+    unidad = notas(unidad="01")["COPIA-LINEA-UNIDAD"]
+    assert unidad.gravedad == NOTA
+    assert "C62" in unidad.esperado
+    assert "01" in unidad.encontrado
+
+
+def test_sin_unidad_de_medida_no_se_dice_nada():
+    """Que falte es otro problema, y lo acusa `BR-23`, no esto."""
+    assert "COPIA-LINEA-UNIDAD" not in notas(unidad="")
+
+
+def test_una_unidad_que_no_es_la_suelta_no_promete_el_codigo():
+    """De `02` el esquema dice «Hours-HUR» y de `01` no dice nada.
+
+    Aquí solo se promete lo comprobado: la traducción de `01`. Con cualquier
+    otro código la nota dice que hay que traducirlo y no se inventa a qué, que
+    es lo que se puede sostener sin la tabla entera escrita.
+    """
+    unidad = notas(unidad="02")["COPIA-LINEA-UNIDAD"]
+    assert "C62" not in unidad.esperado
+    assert "UN/ECE" in unidad.esperado
+
+
+def test_el_importe_neto_de_la_linea_es_el_bruto_y_no_el_coste():
+    """Con un descuento de línea, `TotalCost` y `GrossAmount` se separan.
+
+    Es el mismo fallo que el de los totales un piso más arriba: copiar el
+    campo de al lado no deja un hueco, deja un número que parece bueno.
+    """
+    neto = notas(coste="100.00", neto="90.00")["COPIA-LINEA-NETO"]
+    assert neto.gravedad == NOTA
+    assert "90.00" in neto.esperado
+    assert "100.00" in neto.encontrado
+    assert "1 de 1" in neto.encontrado
+
+
+def test_una_linea_sin_descuento_no_saca_nota_de_importe():
+    """Cuando los dos campos valen lo mismo no hay nada que decidir."""
+    assert "COPIA-LINEA-NETO" not in notas(coste="100.00", neto="100.00")
+
+
+def test_una_linea_a_la_que_le_falta_un_campo_no_inventa_la_queja():
+    """Provocado: sin `TotalCost`, comparar contra cero acusaría de mentira.
+
+    `_numero` devuelve cero cuando el campo falta, así que la comparación a
+    secas daría «0,00 frente a 90,00» en una factura a la que solo le falta un
+    campo que su propio esquema exige.
+    """
+    assert "COPIA-LINEA-NETO" not in notas(neto="90.00")
+
+
 def test_el_destino_de_cada_fila_existe_en_el_anexo():
     """El cepo de verdad de esta tabla: los BT- se comparan con el anexo.
 
@@ -252,7 +334,8 @@ def test_el_destino_de_cada_fila_existe_en_el_anexo():
     for fila in copia_fiel.CORRESPONDENCIAS:
         nombrados = re.findall(r"B[TG]-\d+", fila.destino)
         if fila.efecto in (copia_fiel.IGUAL, copia_fiel.CAMBIA,
-                           copia_fiel.OTRO_CORTE):
+                           copia_fiel.OTRO_CORTE, copia_fiel.OTRA_LISTA,
+                           copia_fiel.SE_INVENTA):
             assert nombrados, fila.concepto
             for uno in nombrados:
                 assert uno in del_anexo, f"{fila.concepto}: {uno}"
@@ -300,6 +383,7 @@ def test_lo_que_las_reglas_miran_tiene_que_estar_en_la_tabla(monkeypatch):
 def test_cada_fila_dice_que_le_pasa_y_por_que():
     efectos = {copia_fiel.IGUAL, copia_fiel.APARTE, copia_fiel.CAMBIA,
                copia_fiel.OTRO_CORTE, copia_fiel.NO_LO_PIDEN,
+               copia_fiel.OTRA_LISTA, copia_fiel.SE_INVENTA,
                copia_fiel.SIN_SITIO, copia_fiel.POR_DECIDIR}
     for fila in copia_fiel.CORRESPONDENCIAS:
         assert fila.efecto in efectos, fila.concepto
@@ -310,3 +394,8 @@ def test_cada_fila_dice_que_le_pasa_y_por_que():
             assert fila.destino, fila.concepto
         else:
             assert not fila.destino, fila.concepto
+        # Lo que se inventa la copia no sale de ningún campo de Facturae, y la
+        # fila lo dice en voz alta. Si algún día nombra un elemento, es que ha
+        # dejado de inventárselo y el estado está mal puesto.
+        if fila.efecto == copia_fiel.SE_INVENTA:
+            assert fila.facturae == "(no lo tiene)", fila.concepto

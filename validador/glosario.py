@@ -3334,6 +3334,29 @@ CODIGOS: dict[str, str] = {
         "solo el número, la copia y el original no identificarían la misma "
         "factura."
     ),
+    "COPIA-LINEA-UNIDAD": (
+        "La unidad de medida de una línea no vale copiada tal cual. Facturae "
+        "tiene su propia lista de 36 códigos de dos dígitos y la norma pide "
+        "uno de UN/ECE, recomendaciones 20 y 21, así que hay que traducirlo. "
+        "El esquema de Facturae ayuda a medias: 13 de sus códigos llevan el "
+        "europeo dentro de la etiqueta y valen tal cual, 16 lo llevan pero "
+        "necesitan una `X` delante —son los de embalaje, que salen de la "
+        "recomendación 21—, uno solo cuadra en mayúsculas y **seis no lo "
+        "llevan**. Entre esos seis está `01`, «Units», que es el que escriben "
+        "todas las líneas medidas aquí: en la copia se escribe `C62`. Y no "
+        "hay campo donde ponerlo: el anexo no recoge BT-130, así que la "
+        "unidad viaja como atributo de la cantidad."
+    ),
+    "COPIA-LINEA-NETO": (
+        "El importe neto de una línea, BT-131, es `GrossAmount` y no "
+        "`TotalCost`, aunque el nombre invite a lo contrario. El esquema de "
+        "Facturae define `TotalCost` como cantidad por precio y `GrossAmount` "
+        "como «TotalCost - DiscountAmount + ChargeAmount», y lo que la norma "
+        "pide es el importe de la línea **después** de sus descuentos y "
+        "cargos: es el que tiene que cuadrar con la suma de líneas. La nota "
+        "sale cuando los dos campos no valen lo mismo, que es cuando copiar "
+        "el de al lado no deja un hueco sino un número que parece bueno."
+    ),
     "COPIA-DIRECCION": (
         "Una dirección de fuera de España escribe el código postal y la "
         "población en un solo campo —`PostCodeAndTown`—, y la copia los pide "

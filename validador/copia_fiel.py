@@ -44,6 +44,14 @@ mirando, y las dos últimas son las que no dice nadie:
    dos campos aquí y uno solo en la copia, y el código postal de una dirección
    de fuera de España es uno aquí y dos en la copia. Medido el mismo día sobre
    las mismas 14: **8 traen serie y 3 traen dirección de fuera**.
+5. **Lo que llega con otro código.** Facturae escribe listas suyas donde la
+   norma pide las europeas, y eso no es una sospecha: el binding ya lo tiene
+   reconocido en `sintaxis.SINTAXIS_FACTURAE.codigos_con_otra_lista`, que
+   silencia cuatro reglas `BR-CL-` para no acusar a todas las facturas de la
+   sintaxis de algo que es de la sintaxis. Lo que allí se calla, aquí se dice:
+   **qué hay que escribir en la copia**. Medido el 21-09-2026: **11 de las 14
+   llevan unidad de medida, y las 18 líneas que la traen escriben `01`**, que
+   en la lista de Facturae es «Units» y en la copia es `C62`.
 
 De dónde sale cada fila
 -----------------------
@@ -72,14 +80,20 @@ en una fuente distinta y alguna todavía no tiene fuente:
    entre ellas: dos campos que se juntan en uno, uno que hay que partir en dos,
    y datos que el esquema de Facturae obliga a escribir y el anexo no recoge.
 
-Quedan **80 de los 104 términos europeos sin fila** —la tabla nombra 24,
+3. **Las líneas** (21-09-2026): lo que se factura, con su cantidad, su precio
+   y su IVA. Las traen las 14, y esconde tres cosas que desde los totales no
+   se ven: un campo que **la copia pide y la factura no tiene** —el
+   identificador de línea—, un importe que se puede copiar del campo de al
+   lado y parecer bueno —`GrossAmount` y `TotalCost` no valen lo mismo en 6 de
+   las 14— y dos códigos escritos en otro vocabulario. Las referencias que
+   Facturae mete **dentro** de la línea no son de esta familia: son las mismas
+   que las del documento y se escriben con ellas, que si no la misma historia
+   se cuenta dos veces a medias.
+
+Quedan **70 de los 104 términos europeos sin fila** —la tabla nombra 34,
 medido el 21-09-2026—, y es importante no confundir lo que falta con lo que
 espera, porque no son lo mismo:
 
-3. **Las líneas** (`BG-25`, `BG-29`, `BG-30`, `BG-31`): las traen las 14. Es
-   además donde más se queda fuera —`BT-127`, `BT-128`, `BT-130`, `BT-132`,
-   `BT-133`, `BT-150`, `BT-155` a `BT-159` y `BG-26` no están en el anexo—.
-   Limpia del anuncio salvo la clave de régimen, cuya lista `L3A` se recorta.
 4. **Los cargos y las minoraciones** (`BG-20`, `BG-21`, `BG-27`, `BG-28`): 12
    de 14 traen descuentos y 6 cargos. Facturae escribe el **porcentaje** y la
    norma pide el importe.
@@ -89,7 +103,7 @@ espera, porque no son lo mismo:
    del comprador en 8 de 14, y el anexo **no recoge ninguna** de `BT-11` a
    `BT-19`. Se escribe sin la parte de rectificativas, que espera.
 
-Las tres primeras y la mitad de la cuarta **el anuncio del 10-09-2026 no las
+Las dos primeras y la mitad de la tercera **el anuncio del 10-09-2026 no las
 toca**, que es la razón de que vayan delante: escritas hoy no hay que
 reescribirlas. Las tres que quedan sí quedan debajo de él y se escriben después:
 
@@ -130,11 +144,21 @@ from validador.sintaxis import a_decimal
 #   - «el anexo no lo pide» no es «no tiene sitio»: la norma sí tiene el
 #     término y la copia sitio donde escribirlo; lo que no hay es un campo del
 #     anexo, así que llega y no lo mira nadie.
+#   - «el código es de otra lista» no es «llega igual»: el dato viaja, el campo
+#     existe en los dos sitios y el valor **no vale**, porque cada formato lo
+#     escribe con su vocabulario. Copiarlo tal cual pone en la copia un código
+#     que su lista no tiene.
+#   - «lo pone quien copia» es la única fila que no sale de la factura: el
+#     anexo pide un campo que Facturae no tiene, así que la copia se lo
+#     inventa. Se escribe porque inventárselo mal —o distinto cada vez— rompe
+#     la correspondencia entre la copia y el original, y eso no lo avisa nadie.
 IGUAL = "llega igual"
 APARTE = "llega, pero en la extensión española"
 CAMBIA = "llega con otro número"
 OTRO_CORTE = "llega, pero cortado de otra manera"
 NO_LO_PIDEN = "llega, pero el anexo no lo pide"
+OTRA_LISTA = "llega, pero el código es de otra lista"
+SE_INVENTA = "no está en la factura: lo pone quien copia"
 SIN_SITIO = "no tiene sitio"
 POR_DECIDIR = "no se sabe todavía"
 
@@ -336,6 +360,110 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "recapitulativas y en el servicio prestado temporalmente. Medido: 9 de "
         "las 14 facturas de aquí lo traen",
     ),
+
+    # La tercera familia: las líneas. Es la más larga de las tres y la que más
+    # se queda fuera, pero lo que la hace útil son tres filas: un campo que la
+    # copia pide y la factura no tiene, un importe que se puede copiar del
+    # sitio equivocado, y dos códigos escritos en otro idioma.
+    #
+    # Las referencias que Facturae mete **dentro** de la línea -pedido,
+    # contrato, expediente, albarán- no están aquí a propósito: son las mismas
+    # que las del documento, el anexo tampoco las recoge, y contarlas dos veces
+    # partiría en dos una historia que se entiende de una pieza. Van con la
+    # familia de las referencias.
+    Correspondencia(
+        "identificador de línea", "(no lo tiene)", "BT-126", SE_INVENTA,
+        "el anexo pide un identificador por línea y Facturae no tiene ninguno. "
+        "Su esquema da `SequenceNumber`, pero significa otra cosa -el orden de "
+        "la línea en un pedido-, es opcional y casi nadie lo escribe: 11 de las "
+        "14 facturas de aquí no traen ni uno. Así que lo pone quien copia, y "
+        "tiene que ponerlo **siempre igual**: si la misma factura se copia hoy "
+        "con las líneas numeradas de una manera y mañana de otra, las dos "
+        "copias dicen cosas distintas del mismo original. `BR-21` ya avisa de "
+        "que aquí no está, y por eso esta fila no saca nota propia",
+    ),
+    Correspondencia(
+        "nombre del artículo", "ItemDescription", "BT-153", IGUAL,
+        "el anexo tiene dos campos -BT-153 el nombre y BT-154 la descripción- "
+        "y Facturae tiene uno. El que es obligatorio en los dos sitios es el "
+        "nombre, así que ahí va; BT-154 se queda vacío, que es lo que hay que "
+        "hacer con un campo opcional sin origen",
+    ),
+    Correspondencia(
+        "cantidad", "Quantity", "BT-129", IGUAL,
+        "mismo dato y obligatorio en los dos esquemas",
+    ),
+    Correspondencia(
+        "unidad de medida", "UnitOfMeasure",
+        "BT-129 (el atributo de la cantidad)", OTRA_LISTA,
+        "dos cosas a la vez, y las dos hay que hacerlas. En la copia no hay "
+        "campo propio -BT-130 no está en el anexo, que mete la unidad en un "
+        "atributo de BT-129-, y el código **no es el mismo vocabulario**: "
+        "Facturae tiene su lista de 36 valores de dos dígitos y la norma pide "
+        "UN/ECE, recomendaciones 20 y 21. Medido el 21-09-2026 sobre el propio "
+        "esquema de Facturae: de sus 36 códigos, 13 llevan el europeo en su "
+        "etiqueta y vale tal cual, 16 lo llevan pero hay que ponerle una `X` "
+        "delante -son códigos de embalaje, de la 21-, 1 solo cuadra en "
+        "mayúsculas (`KWh`) y **6 no lo llevan en absoluto**. Entre esos seis "
+        "está `01`, «Units», que es justo el que escriben las 18 líneas "
+        "medidas aquí: en la copia es `C62`, y eso lo decide quien copia",
+    ),
+    Correspondencia(
+        "precio unitario", "UnitPriceWithoutTax", "BT-146", IGUAL,
+        "el precio neto del artículo, sin impuestos, en los dos sitios",
+    ),
+    Correspondencia(
+        "importe neto de la línea", "GrossAmount", "BT-131", IGUAL,
+        "y es `GrossAmount` pese al nombre, no `TotalCost`: el esquema define "
+        "`TotalCost` como cantidad por precio y `GrossAmount` como "
+        "«TotalCost - DiscountAmount + ChargeAmount», y BT-131 es el importe "
+        "de la línea **después** de sus descuentos. El que cuadra con la suma "
+        "de líneas es el segundo. Copiar el primero no deja un hueco: deja un "
+        "número que parece bueno y no lo es. Medido: en 6 de las 14 los dos "
+        "campos no valen lo mismo",
+    ),
+    Correspondencia(
+        "categoría de IVA de la línea", "TaxTypeCode", "BT-151", OTRA_LISTA,
+        "el mismo hueco que un piso más arriba: Facturae dice **qué impuesto "
+        "es** -01 IVA, 03 IGIC- y la norma pide de qué **categoría** es -S, Z, "
+        "E, AE, K- en la lista UNCL5305. No es traducir un código por otro: "
+        "hay que deducirlo del impuesto y del tipo, y el validador ya lo hace "
+        "para poder correr las BR-S-*",
+    ),
+    Correspondencia(
+        "tipo de IVA de la línea", "TaxRate", "BT-152", IGUAL,
+        "el porcentaje, que es un número y no un código",
+    ),
+    Correspondencia(
+        "clave de régimen", "SpecialTaxableEventCode", "BG-32 (BT-160 y BT-161)",
+        APARTE,
+        "el anexo le da grupo propio, con el nombre de la propiedad en BT-160 "
+        "y el código en BT-161, y su lista es la española L3A. Ojo al "
+        "copiarla: el 10-09-2026 la AEAT anunció que **L3A se recorta** -fuera "
+        "el régimen simplificado, el recargo de equivalencia y el de "
+        "agricultura, ganadería y pesca-, así que ésta es la única fila de "
+        "esta familia que el texto nuevo puede mover. Medido: 3 de 14",
+    ),
+    Correspondencia(
+        "nota de la línea", "AdditionalLineItemInformation", "BT-127",
+        NO_LO_PIDEN,
+        "la norma tiene la nota de línea y el anexo no la recoge. Medido: 6 de "
+        "14, y es donde Facturae deja lo que no cabe en otro sitio",
+    ),
+    Correspondencia(
+        "código de artículo", "ArticleCode", "BT-155", NO_LO_PIDEN,
+        "es el código que le da el vendedor a lo que vende, BT-155, y el anexo "
+        "no recoge ninguno de los identificadores de artículo: ni el del "
+        "vendedor, ni el del comprador (BT-156), ni el normalizado (BT-157), "
+        "ni la clasificación (BT-158). Medido: 3 de 14",
+    ),
+    Correspondencia(
+        "fecha de la línea", "TransactionDate", "BG-26 (BT-134 y BT-135)",
+        NO_LO_PIDEN,
+        "cuándo se hizo lo de esa línea. La norma tiene el periodo de línea y "
+        "el anexo no lo recoge, igual que no recoge el del documento. Medido: "
+        "3 de 14",
+    ),
 )
 
 # Lo que la tabla tiene que cubrir para que las reglas de abajo no hablen de
@@ -348,6 +476,7 @@ _LO_QUE_SE_MIRA = (
     "InvoiceSeriesCode", "PostCodeAndTown",
     "LanguageName", "PlaceOfIssue",
     "TeleFax", "WebAddress", "CnoCnae", "AdditionalContactDetails",
+    "UnitOfMeasure", "GrossAmount",
 )
 
 
@@ -432,6 +561,84 @@ def _fmt(cantidad: Decimal) -> str:
     return f"{cantidad:.2f}"
 
 
+def _de_las_lineas(factura, etiqueta: str) -> list[Incidencia]:
+    """Lo que hay que decidir al copiar las líneas: el código y el importe.
+
+    De la familia de las líneas solo salen estas dos notas, y no es por
+    ahorrar: las demás filas son «llega igual» -que no se dice- o «el anexo no
+    lo pide» -que llega, y no lo mira nadie-. Lo que hay que contar es lo que
+    obliga a decidir algo o lo que puede acabar en un número equivocado.
+    """
+    incidencias: list[Incidencia] = []
+    lineas = _hijos(factura, "Items", "InvoiceLine")
+    if not lineas:
+        return incidencias
+
+    unidades: list[str] = []
+    descuadradas = 0
+    coste_de_esas = Decimal(0)
+    bruto_de_esas = Decimal(0)
+    for linea in lineas:
+        unidad = _texto(linea, "UnitOfMeasure")
+        if unidad and unidad not in unidades:
+            unidades.append(unidad)
+        # Los dos tienen que estar escritos para compararlos: `_numero`
+        # devuelve cero cuando falta, y un cero contra un importe daría una
+        # queja inventada en una factura a la que solo le falta un campo.
+        if _texto(linea, "TotalCost") and _texto(linea, "GrossAmount"):
+            coste = _numero(linea, "TotalCost")
+            bruto = _numero(linea, "GrossAmount")
+            if coste != bruto:
+                descuadradas += 1
+                coste_de_esas += coste
+                bruto_de_esas += bruto
+
+    if unidades:
+        incidencias.append(
+            Incidencia(
+                "COPIA-LINEA-UNIDAD",
+                NOTA,
+                "La unidad de medida de esta factura no vale escrita así en la "
+                "copia. Facturae tiene su propia lista de unidades, de dos "
+                "dígitos, y la norma pide un código de UN/ECE, recomendaciones "
+                "20 y 21. Hay que traducirlo, y el propio esquema de Facturae "
+                "solo ayuda a medias: de sus 36 códigos, 13 llevan el europeo "
+                "en la etiqueta, 16 lo llevan pero hay que ponerle una X "
+                "delante, y 6 no lo llevan. En la copia tampoco tiene campo "
+                "propio: va en un atributo de la cantidad.",
+                campo=f"{etiqueta}Unidad de medida (el atributo de BT-129 en la copia)",
+                esperado=(
+                    "C62 en la copia, que es la unidad suelta en UN/ECE Rec 20"
+                    if "01" in unidades
+                    else "un código de UN/ECE, recomendaciones 20 y 21"
+                ),
+                encontrado=f"{', '.join(unidades)} en esta factura, "
+                           f"de la lista de Facturae",
+            )
+        )
+    if descuadradas:
+        incidencias.append(
+            Incidencia(
+                "COPIA-LINEA-NETO",
+                NOTA,
+                "El importe neto de una línea de la copia es `GrossAmount` y "
+                "no `TotalCost`, y en esta factura los dos no valen lo mismo. "
+                "El esquema define `TotalCost` como cantidad por precio y "
+                "`GrossAmount` como «TotalCost - DiscountAmount + "
+                "ChargeAmount»; BT-131 es el importe de la línea después de "
+                "sus descuentos y cargos, que es el que cuadra con la suma de "
+                "líneas. Copiar el otro no deja un hueco: deja un número que "
+                "parece bueno.",
+                campo=f"{etiqueta}Importe neto de las líneas (BT-131 en la copia)",
+                esperado=f"{_fmt(bruto_de_esas)} en la copia, que es lo que "
+                         f"suman sus GrossAmount",
+                encontrado=f"{_fmt(coste_de_esas)} si se copiara TotalCost, "
+                           f"en {descuadradas} de {len(lineas)} líneas",
+            )
+        )
+    return incidencias
+
+
 def _de_una_factura(
     factura, etiqueta: str, del_documento: tuple[str, ...] = ()
 ) -> list[Incidencia]:
@@ -460,6 +667,8 @@ def _de_una_factura(
                            f"en su propio campo",
             )
         )
+
+    incidencias.extend(_de_las_lineas(factura, etiqueta))
 
     totales = _hijos(factura, "InvoiceTotals")
     if not totales:
