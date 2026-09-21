@@ -90,7 +90,11 @@ pase. Si alguna vez sale algo aquí, mira `r.filter(...)` con la URL entera
 antes de dar nada por bueno **o por malo**.
 
 Referencia medida (30 ago 2026): en frío 23 peticiones y ~9.175 KB; en caliente
-1 KB con 21 de 22 de caché y «Listo en 5,31 s».
+1 KB con 21 de 22 de caché y «Listo en 5,31 s». Vuelto a medir en frío el
+**21-09-2026**: 24 peticiones, 9.681 KB, `ajenos: []` y «Listo en 66,52 s». El
+tiempo no se compara con los 5,31 s, que son de caliente: para el frío no hay
+referencia de tiempo, y por eso lo que se mira aquí son las peticiones, los
+bytes y los ajenos.
 
 ## 4. Que el veredicto siga siendo el mismo
 
@@ -104,17 +108,24 @@ const p = window.Glosa.paquete;
   esquemas: p.esquemas, anclas: p.anclas, sellos: p.anclas_de_sellos, publicada: p.publicada})
 ```
 
-**Lo esperado:** `conforme: true`, 24 esquemas, 268 anclas de firma, 121 de
-sellado, y estas seis incidencias:
+**Lo esperado** (medido el 21-09-2026 sobre `www.glosa-e.com`):
+`conforme: true`, **42 esquemas**, 268 anclas de firma, 121 de sellado, y estas
+**ocho** incidencias:
 
 ```
 FIRMA-DEBIL · aviso
 CADENA-DESCONOCIDA · aviso
 BR-01 · nota
 BR-14 · nota
-IVA-CATEGORIA-SIN-MAPA · nota
+BR-21 · nota
+COPIA-SERIE · nota
+COPIA-SIN-SITIO · nota
 SELLO-FALTA · nota
 ```
+
+La cifra de esquemas sale de `web/PAQUETE.json` y la lista de códigos de
+`tests/test_ejemplos.py`: **si no cuadran, la que manda es la del repositorio**,
+y lo que hay que mirar es cuál de las dos se quedó atrás.
 
 El código va al lado de la gravedad **a propósito**. Antes aquí ponía
 `["nota","aviso","aviso"]` a secas y se quedó atrás: las tres incidencias
@@ -125,13 +136,26 @@ código delante, un cambio se lee de un vistazo. Y sirvió: el 06-09-2026
 aparecieron tres notas nuevas y se supo en el acto que no había desaparecido
 ninguna.
 
-**Las tres notas nuevas son del binding de Facturae**, que entró ese día. No
-son defectos de la factura: son los tres sitios donde Facturae no tiene dónde
-escribir lo que la norma pide —BT-24, el identificador de especificación; el
-BT-14; y la categoría de IVA en el sentido de la lista UNCL5305, porque
-`TaxTypeCode` dice qué impuesto es y no de qué categoría—. Salen como NOTA
-porque NOTA es la gravedad que existe aquí para decir qué se aceptó y con qué
-base. Medido el 06-09-2026 sobre `www.glosa-e.com`.
+**Ninguna de las seis notas es un defecto de la factura**, y conviene saber
+de dónde viene cada una, porque son tres grupos distintos:
+
+- `BR-01`, `BR-14` y `BR-21` son **del binding de Facturae**, que entró el
+  06-09-2026: los sitios donde esa sintaxis no tiene dónde escribir lo que la
+  norma pide —`BT-24`, el identificador de especificación; el `BT-14`; y
+  `BT-126`, el identificador de línea, que no existe, así que la regla no se
+  puede comprobar y se dice—.
+- `COPIA-SERIE` y `COPIA-SIN-SITIO` son **de la tabla de la copia fiel**
+  (20 y 21-09-2026): este ejemplo lleva serie —«FE» y «0001», que en la copia
+  son un solo campo— e idioma, que en la copia no tiene dónde ir.
+- `SELLO-FALTA` es de siempre.
+
+**`IVA-CATEGORIA-SIN-MAPA` ya no sale**, y no es una nota perdida: desde que la
+categoría se deduce del `TaxTypeCode` y del tipo, esta factura va a `S` al 21 %
+y las `BR-S-*` corren de verdad sobre ella. Un código que desaparece porque
+ahora se sabe la respuesta es lo contrario de un hueco.
+
+Salen como NOTA porque NOTA es la gravedad que existe aquí para decir qué se
+aceptó y con qué base.
 
 Si el número de anclas ha cambiado sin que nadie haya montado el paquete, algo
 va mal.
@@ -163,7 +187,8 @@ const c = res.comprobaciones || res;
   detalle: c.filter(x=>!x.ok).map(x=>x.nombre + ' :: ' + (x.detalle||''))})
 ```
 
-El campo es **`ok`**, no `pasa`. Esperado: 41 comprobaciones, 0 fallan.
+El campo es **`ok`**, no `pasa`. Esperado: **42 comprobaciones, 0 fallan**
+(medido el 21-09-2026; `web/prueba.py` trae 42 `@comprobar`).
 
 Esa cifra sube cada vez que entra una comprobación al banco, así que **la que
 manda es la de `web/prueba.py`**: si no cuadra con la de aquí, mira primero cuál
