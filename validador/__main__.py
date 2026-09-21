@@ -55,6 +55,15 @@ def expandir(patrones: list[str]) -> list[Path]:
     Se aceptan ficheros sueltos, carpetas y comodines. Los comodines se
     expanden aquí porque la consola de Windows, a diferencia de la de Unix, no
     lo hace por su cuenta.
+
+    Una carpeta se recorre **entera**, subcarpetas incluidas. Hasta el
+    21-09-2026 solo se miraba el primer nivel, y eso es el peor fallo que puede
+    tener un validador: medido, una carpeta con un EDIFACT con errores dentro
+    de una subcarpeta salía «1 fichero(s) · 1 correcto(s) · 0 con errores» y
+    código **0** —ese mismo fichero, suelto, sale con código 1—. Ni se nombraba
+    ni se contaba ni se avisaba. Dar por bueno lo que no se ha mirado es
+    exactamente lo que esta casa no hace, y una carpeta de facturas viene
+    organizada por mes o por cliente casi siempre.
     """
     caminos: list[Path] = []
     for patron in patrones:
@@ -63,8 +72,8 @@ def expandir(patrones: list[str]) -> list[Path]:
             caminos.extend(
                 sorted(
                     hijo
-                    for hijo in camino.iterdir()
-                    if hijo.suffix.lower() in EXTENSIONES
+                    for hijo in camino.rglob("*")
+                    if hijo.is_file() and hijo.suffix.lower() in EXTENSIONES
                 )
             )
         elif camino.exists():

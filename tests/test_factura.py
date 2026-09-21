@@ -865,6 +865,25 @@ class TestConsola:
         escribir(tmp_path, "a.xml", ubl(linea="90.00"))
         assert consola.main([str(tmp_path), "--hoy", "2026-09-20"]) == 1
 
+    def test_lo_malo_de_una_subcarpeta_tambien_cuenta(self, tmp_path, capsys):
+        """La prueba de verdad del 29: lo que ve quien encadena guiones.
+
+        Medido antes de arreglarlo: esta misma carpeta salia «1 fichero(s) · 1
+        correcto(s) · 0 con errores» y **codigo 0**, con la factura mala
+        escondida un nivel mas abajo.
+        """
+        escribir(tmp_path, "buena.xml", ubl())
+        dentro = tmp_path / "marzo"
+        dentro.mkdir()
+        escribir(dentro, "mala.xml", ubl(linea="90.00"))
+        assert consola.main([str(tmp_path), "--hoy", "2026-09-20"]) == 1
+        salida = capsys.readouterr().out
+        assert "mala.xml" in salida, (
+            "no basta con el codigo de salida: si no se nombra, quien lo lee "
+            "no sabe cual de las facturas hay que mirar"
+        )
+        assert "2 fichero(s)" in salida
+
     def test_sin_ficheros_devuelve_dos(self, tmp_path, capsys):
         assert consola.main([str(tmp_path)]) == 2
         assert "ningún fichero" in capsys.readouterr().err
@@ -886,6 +905,32 @@ class TestConsola:
     def test_una_carpeta_se_expande(self, tmp_path):
         escribir(tmp_path, "a.xml", ubl())
         escribir(tmp_path, "notas.txt", "esto no es una factura")
+        caminos = consola.expandir([str(tmp_path)])
+        assert [c.name for c in caminos] == ["a.xml"]
+
+    def test_y_se_expande_entera_subcarpetas_incluidas(self, tmp_path):
+        """Hasta el 21-09-2026 solo se miraba el primer nivel.
+
+        Es el peor fallo que puede tener un validador, porque no falla: dice
+        que si. Una carpeta de facturas viene organizada por mes o por cliente
+        casi siempre, y lo de dentro no se nombraba, no se contaba y no se
+        avisaba.
+        """
+        escribir(tmp_path, "arriba.xml", ubl())
+        dentro = tmp_path / "enero" / "un cliente"
+        dentro.mkdir(parents=True)
+        escribir(dentro, "abajo.xml", ubl())
+        caminos = consola.expandir([str(tmp_path)])
+        assert sorted(c.name for c in caminos) == ["abajo.xml", "arriba.xml"]
+
+    def test_y_una_carpeta_dentro_de_otra_no_se_cuela(self, tmp_path):
+        """Que la recursion no se trague las carpetas como si fueran ficheros.
+
+        `rglob("*")` devuelve tambien los directorios, y uno llamado
+        `cosas.xml` casaria con la extension.
+        """
+        escribir(tmp_path, "a.xml", ubl())
+        (tmp_path / "esto.xml").mkdir()
         caminos = consola.expandir([str(tmp_path)])
         assert [c.name for c in caminos] == ["a.xml"]
 

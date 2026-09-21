@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2295 tests, todos en verde.
+2305 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -67,7 +67,7 @@ Necesita Python 3.10 o posterior. Está probado en 3.14.
 factura-e ejemplos --hoy 2026-09-20
 ```
 
-Acepta ficheros sueltos, carpetas o comodines. Devuelve 0 si todo está bien, 1
+Acepta ficheros sueltos, carpetas —**enteras**, subcarpetas incluidas— o comodines. Devuelve 0 si todo está bien, 1
 si hay algún error y 2 si no hay nada que mirar, para poder encadenarlo en un
 script. Con `--solo-errores` calla los avisos y deja solo lo que impide cobrar.
 Con `--esquemas CARPETA` comprueba además la forma, con `--anclas CARPETA` de

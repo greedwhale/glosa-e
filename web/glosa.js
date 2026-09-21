@@ -672,9 +672,48 @@ json.dumps({
 }, ensure_ascii=False)
 `;
 
+// Una validacion cada vez, y las demas esperan su turno.
+//
+// `_rutas` y `_nombres` son globales de Pyodide: la llamada las escribe y
+// luego `INFORME` las lee cuando el Python llega a ejecutarse. Entre esas dos
+// cosas hay un `await`, y ahi cabia otra llamada entera. La segunda pisaba las
+// globales de la primera y las dos salian describiendo los ficheros de la
+// segunda.
+//
+// Medido en produccion el 21-09-2026, dos facturas propias soltadas en el
+// mismo tick, una con errores y otra sin ellos: **20 de 20** informes de la
+// mala volvieron hablando de la buena, con «1 fichero(s) · 1 correcto(s) · 0
+// con errores» y `conforme: true`. Es decir, el peor fallo posible aqui: decir
+// que esta bien algo que no se ha mirado. Con 1 ms de separacion no pasaba
+// ninguna vez de ocho, asi que no es una carrera rara: es lo que ocurre
+// siempre que dos validaciones arrancan juntas.
+//
+// Encolar no hace esperar mas de lo que ya se esperaba. Pyodide corre Python
+// en el hilo principal, asi que dos validaciones nunca fueron simultaneas de
+// verdad; lo unico que hacian a la vez era corromperse. Esto solo lo hace
+// explicito.
+let _cola = Promise.resolve();
+
+function enFila(faena) {
+  const mio = _cola.then(faena);
+  // La cola no se rompe porque una falle: el error se lo queda quien llamo y
+  // aqui se traga, asi que la siguiente arranca igual. Sin esto, una
+  // validacion con error dejaria la pagina sin poder validar nada mas.
+  //
+  // Y por eso `_cola.then(faena)` lleva un solo argumento: con un segundo
+  // —el manejador de rechazo— la faena se correria **otra vez** el dia que la
+  // cola si se rompiera. Es la clase de cosa que hoy no pasa y manana si.
+  _cola = mio.then(() => {}, () => {});
+  return mio;
+}
+
 // Valida ficheros del disco de quien mira. No salen de su ordenador: se
 // escriben en el disco virtual del navegador, que vive en su memoria.
 async function validar(ficheros) {
+  return enFila(() => _validarAhora(ficheros));
+}
+
+async function _validarAhora(ficheros) {
   const rutas = [];
   const nombres = [];
   let orden = 0;
@@ -708,10 +747,16 @@ async function validar(ficheros) {
 // verdad, sin una ruta aparte que pudiera portarse distinto. Si el ejemplo no
 // esta, se dice cual falta en vez de devolver un informe vacio.
 async function validarEjemplo(nombre) {
+  // El nombre se mira fuera de la fila: si no es un ejemplo, no hay nada que
+  // encolar y quien llama se entera ahora y no cuando le toque el turno.
   if (!EJEMPLOS.includes(nombre)) {
     throw new Error(
       "«" + nombre + "» no es una de las facturas que trae la pagina.");
   }
+  return enFila(() => _validarEjemploAhora(nombre));
+}
+
+async function _validarEjemploAhora(nombre) {
   pyodide.globals.set("_rutas", ["/ejemplos/" + nombre]);
   pyodide.globals.set("_nombres", [nombre]);
   return JSON.parse(await pyodide.runPythonAsync(INFORME));

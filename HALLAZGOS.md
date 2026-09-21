@@ -4102,3 +4102,115 @@ La primera versión de la prueba del intérprete comparaba `PYTHON` con
 que salía verde con el arreglo puesto y con el arreglo quitado. Se vio al
 provocarla, que es exactamente para lo que se provoca. Ahora carga el guion con
 un segundo intérprete y mira a cuál de los dos sigue.
+
+## Los dieciséis de la parte baja, barridos en abanico
+
+Los puntos 24 a 39 de la auditoría del 15-09-2026, los que se habían dejado
+para el final por ser de gravedad baja. **Dos no lo eran**: los dos dicen «sin
+errores» de algo que no se ha mirado, que es el peor fallo que puede tener un
+validador porque no falla —dice que sí—. Los dos están cerrados aquí. Los
+catorce restantes están medidos y escritos más abajo.
+
+### Cómo se barrieron, y por qué eso importa
+
+Seis lectores en paralelo, uno por familia de puntos, sin permiso de escritura
+—ni `Write`, ni `Edit`, ni push— y con el navegador reservado a uno solo para
+que no se pisaran. Cada uno devolvía la misma ficha por punto: si se reproduce,
+con qué orden exacta, qué sale, dónde está, si alguna prueba lo caza hoy, si
+puede dar un aprobado falso y qué costaría cerrarlo.
+
+La verificación **no la hizo otro modelo**: como cada ficha traía la orden
+copiable, se volvieron a correr aquí. Doce de los dieciséis se comprobaron así,
+de primera mano; los otros cuatro —31, 33, 34 y 36— se dan por buenos con la
+evidencia que trajeron, y eso queda dicho porque no es lo mismo.
+
+Mereció la pena por lo que corrigió. Un lector afirmó que `huella()` ya se
+protegía de la colisión del punto 26 y que bastaba con imitarla; al repetirlo
+aquí, las dos facturas **también** comparten huella. `huella()` pone la
+longitud por delante de tres partes —NIF, `numero_completo` y fecha— pero
+`numero_completo` ya ha juntado serie y número antes: la defensa está un nivel
+por encima de donde ocurre el choque, y el comentario que la justifica describe
+literalmente el caso que no para. Otros dos detalles de la auditoría estaban
+mal situados: las fichas de códigos no viven en `/reglas/<código>` sino en
+`/codigo-<CÓDIGO>`, y el `escapar()` del punto 39 no está en `glosa.js` —ahí no
+hay ninguno— sino duplicado en `index.html` y `banco.html`.
+
+Y algo que no era un punto de la auditoría: **la lista de los dieciséis no
+estaba en ninguna parte del repositorio**. Hubo que sacarla del registro de una
+sesión anterior. Por eso está aquí abajo entera.
+
+### 29. Una carpeta se miraba por encima, y salía con 0
+
+`expandir()` recorría la carpeta con `iterdir()`, que solo da el primer nivel.
+Una carpeta de facturas viene organizada por mes o por cliente casi siempre.
+
+Reproducido con una carpeta con una factura correcta arriba y un EDIFACT con
+errores dentro de una subcarpeta:
+
+```
+el fichero escondido, validado suelto -> código 1 (1 error)
+la carpeta entera                     -> código 0 · 1 correcto(s) · 0 con errores
+¿se nombra el de la subcarpeta?          no
+```
+
+Ni se nombraba, ni se contaba, ni se avisaba. Para quien encadena guiones, ese
+0 dice «todo revisado y todo bien». Ahora se recorre entera con `rglob`, y la
+misma carpeta sale «2 fichero(s) · 1 correcto(s) · 1 con errores», código 1,
+nombrando el de dentro. Filtrando por `is_file()`, porque `rglob("*")` devuelve
+también los directorios y uno llamado `cosas.xml` habría colado como factura
+—hay prueba de eso, que es la clase de cosa que se arregla y se rompe en el
+mismo movimiento—.
+
+### 32. El navegador podía pintar el informe de otra factura
+
+`_rutas` y `_nombres` son globales de Pyodide. La llamada las escribía y
+`INFORME` las leía cuando el Python llegaba a ejecutarse; entre esas dos cosas
+hay un `await`, y ahí cabía otra llamada entera, que las pisaba.
+
+Medido en producción, dos facturas propias soltadas en el mismo tick, una con
+errores y otra sin ellos:
+
+| Cuándo | Informes de la mala que salían conformes |
+|---|---|
+| antes, en el mismo tick | **20 de 20**, hablando de la buena |
+| antes, con 1 ms de separación | 0 de 8 |
+| después, en el mismo tick | **0 de 20** |
+
+El informe de la factura con errores volvía diciendo «1 fichero(s) · 1
+correcto(s) · 0 con errores» y `conforme: true`. No era una carrera rara: era
+lo que pasaba **siempre** que dos validaciones arrancaban juntas.
+
+Ahora hay una fila: una validación cada vez. Encolar no hace esperar más de lo
+que ya se esperaba —Pyodide corre Python en el hilo principal, así que dos
+validaciones nunca fueron simultáneas de verdad; lo único que hacían a la vez
+era corromperse—. La cola se traga el error de la que falla, porque si no, una
+factura ilegible dejaba la página sin poder validar nada más; provocado con una
+que revienta dentro de la fila, y la siguiente sigue funcionando.
+
+Lo que guarda esto no es un comentario sino una prueba que recorre `glosa.js` y
+exige que **nadie** escriba `_rutas` ni corra `INFORME` fuera de las dos
+funciones que solo se alcanzan por la fila, y que las públicas sigan siendo las
+que se exportan. Una entrada nueva que se olvide de encolar devuelve el fallo
+entero.
+
+### Los catorce que quedan, medidos
+
+Todos se reproducen. Ninguno da un aprobado falso.
+
+| # | Qué pasa | Medido |
+|---|---|---|
+| 24 | Un DOCTYPE con una entidad usada en un importe atraganta al validador | `Internal error in XML Schema validation`, en inglés, dentro del informe |
+| 25a | La expresión regular del número de factura es cuadrática | ×4,00 y ×4,31 al doblar el tamaño; 2.425 ms con 20.000 caracteres. Un número realista: 0,059 ms |
+| 25b | `int()` revienta con números larguísimos | 4.300 dígitos: solo `CU-03`. 4.301: `ValueError`. `validar_archivo` lo atrapa; `validar()` no |
+| 26 | Series que se tocan comparten código único | `A`+`12` y `A1`+`2` dan `B12345674\|A12\|…` las dos: `CU-10` a dos facturas distintas. Y también la misma `huella()` |
+| 27 | Un céntimo de descuadre da dos quejas | `BR-CO-12` y `IVA-BASE-TOLERADA` a la vez. `en16931` compara sin margen desde el 13-09-2026 y la guardia de `iva.py` se quedó con el de 0,01 |
+| 28 | Un `X509Certificate` que no es base64 calla el resto | De **23 incidencias a 1**. El `b64decode` quedó fuera del `try` que protege la línea de debajo |
+| 30 | Un `UNA` con separadores propios | «Mensaje EDIFACT, pero sin cabecera UNH», que es falso: el partidor sí la encuentra |
+| 31 | Un ejemplo que da 404 se escribe como si fuera la factura | En producción lo para la huella de `rueda.json`, de rebote; sin ella, pasa |
+| 33 | `/entrada` no se vacía nunca | 6 validaciones → 6 ficheros, 480.438 B, todos vivos |
+| 34 | Mensajes de libxml2 en inglés dentro del informe | `Premature end of data in tag FileHeader`, `xmlParseEntityRef: no name`… |
+| 35 | Las gravedades no casan con lo que promete la página | `BR-01/14/21` y `SELLO-FALTA` salen NOTA contra la definición de la propia FAQ; y la portada promete «revocación» sin decir bajo qué condición |
+| 36 | El testigo de red cuenta lo servido de caché | Pinta 10,4 MB cuando por el cable fueron 17.769 bytes: usa `encodedBodySize` en vez de `transferSize` |
+| 37 | `legal.html` dice «no se guarda nada» | Y `index.html`, en el mismo sitio, dice «unos 10 MB… se queda en el navegador». Seis ficheros con `immutable` a un año suman ≈15,1 MB |
+| 38 | El 404 y las minúsculas | `/codigo-BR-01` → 200, `/codigo-br-01` → 404. El 404 es el genérico de Vercel, en inglés y sin marca |
+| 39 | Cinco menores | HSTS sin `includeSubDomains` —el `.vercel.app` sí lo lleva—, faltan `Permissions-Policy`, COOP y CORP, `prueba.py` como `octet-stream`, `escapar()` sin comillas —hoy sin impacto: solo recibe `error`, `aviso` o `nota`— y el subdominio de Vercel no redirige |
