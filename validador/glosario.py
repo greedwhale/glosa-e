@@ -3334,6 +3334,18 @@ CODIGOS: dict[str, str] = {
         "solo el número, la copia y el original no identificarían la misma "
         "factura."
     ),
+    "COPIA-CARGO-IVA": (
+        "Un descuento o un cargo general de Facturae no lleva IVA propio: se "
+        "aplica antes del desglose y sobre la base entera. La norma no los "
+        "trata así: agrupa las minoraciones y los cargos del documento **por "
+        "categoría de IVA**, y por eso BT-95 y BT-96 van dentro del grupo de "
+        "minoraciones, y BT-102 y BT-103 dentro del de cargos. Al copiar hay "
+        "que ponerles esa categoría. Si la factura tiene una sola, la cuenta "
+        "está forzada y basta con escribirla. Si tiene dos o más, hay que "
+        "repartir cada descuento entre ellas y no lo dice ningún texto: a "
+        "prorrata de la base de cada una es lo único que deja cuadrar el "
+        "desglose de la copia."
+    ),
     "COPIA-LINEA-UNIDAD": (
         "La unidad de medida de una línea no vale copiada tal cual. Facturae "
         "tiene su propia lista de 36 códigos de dos dígitos y la norma pide "

@@ -90,22 +90,27 @@ en una fuente distinta y alguna todavía no tiene fuente:
    que las del documento y se escriben con ellas, que si no la misma historia
    se cuenta dos veces a medias.
 
-Quedan **70 de los 104 términos europeos sin fila** —la tabla nombra 34,
+4. **Los cargos y las minoraciones** (21-09-2026): los de línea y los del
+   documento. Casi todo pasa sin discusión —el importe, el motivo, las tres
+   sumas— y lo que no pasa es **el IVA de los generales**: la norma agrupa las
+   minoraciones del documento por categoría de IVA y Facturae las aplica sobre
+   la base entera, sin IVA propio. Con una categoría la cuenta está forzada;
+   con dos hay que repartir. Medido: 6 de 14 llevan alguno, y **una** tiene más
+   de una categoría.
+
+Quedan **51 de los 104 términos europeos sin fila** —la tabla nombra 53,
 medido el 21-09-2026—, y es importante no confundir lo que falta con lo que
 espera, porque no son lo mismo:
 
-4. **Los cargos y las minoraciones** (`BG-20`, `BG-21`, `BG-27`, `BG-28`): 12
-   de 14 traen descuentos y 6 cargos. Facturae escribe el **porcentaje** y la
-   norma pide el importe.
 5. **El pago** (`BG-16`, `BG-17`): 12 de 14. Facturae admite varios
    vencimientos y la copia tiene un solo `BT-9`.
 6. **Las referencias** (`BT-10`, `BG-3`, `BG-24`): el albarán en 11 y el pedido
    del comprador en 8 de 14, y el anexo **no recoge ninguna** de `BT-11` a
    `BT-19`. Se escribe sin la parte de rectificativas, que espera.
 
-Las dos primeras y la mitad de la tercera **el anuncio del 10-09-2026 no las
-toca**, que es la razón de que vayan delante: escritas hoy no hay que
-reescribirlas. Las tres que quedan sí quedan debajo de él y se escriben después:
+La primera y la mitad de la segunda **el anuncio del 10-09-2026 no las toca**,
+que es la razón de que vayan delante: escritas hoy no hay que reescribirlas.
+Las tres que quedan sí quedan debajo de él y se escriben después:
 
 7. **El desglose del IVA** —la `L4` gana categorías nuevas—, **la cabecera**
    —entra el `389` en la `L1`— y **las partes** —el NIF del vendedor podrá ir
@@ -464,6 +469,86 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "el anexo no lo recoge, igual que no recoge el del documento. Medido: "
         "3 de 14",
     ),
+
+    # La cuarta familia: los cargos y las minoraciones. Facturae los pone en
+    # dos sitios -en la línea y sobre el total- y la norma también, así que la
+    # mayor parte pasa sin discusión. Lo que no pasa es **el IVA de los
+    # generales**: la norma clasifica cada descuento del documento por
+    # categoría de IVA y Facturae no clasifica ninguno, porque los aplica
+    # antes del desglose y sobre la base entera.
+    Correspondencia(
+        "descuento general", "GeneralDiscounts", "BG-20 (BT-92, BT-95 y BT-96)",
+        OTRO_CORTE,
+        "el importe pasa sin discusión, pero el grupo no: la norma tiene **un "
+        "grupo de minoraciones por categoría de IVA** -de ahí que BT-95 y "
+        "BT-96 vayan dentro- y Facturae tiene un descuento sobre el total, sin "
+        "IVA propio. Con una sola categoría en la factura la cuenta está "
+        "forzada y no hay nada que decidir; con dos o más hay que **repartir** "
+        "el descuento entre ellas y ningún texto dice cómo. Medido el "
+        "21-09-2026: 6 de las 14 llevan descuento o cargo general, y de esas "
+        "**una** tiene más de una categoría",
+    ),
+    Correspondencia(
+        "cargo general", "GeneralSurcharges", "BG-21 (BT-99, BT-102 y BT-103)",
+        OTRO_CORTE,
+        "lo mismo que el descuento general y por lo mismo: en la norma el "
+        "cargo del documento lleva su categoría de IVA y su tipo, y el de "
+        "Facturae se aplica sobre la base entera. Medido: 2 de 14",
+    ),
+    Correspondencia(
+        "porcentaje del descuento", "DiscountRate", "BT-94 y BT-138",
+        NO_LO_PIDEN,
+        "Facturae define el descuento con un porcentaje y un importe, y el "
+        "anexo no recoge ni el porcentaje ni la base sobre la que se calcula "
+        "-BT-93 y BT-137 tampoco están-. A la copia llega el importe, que es "
+        "lo que cuadra las cuentas; de dónde salía, no. Medido: 12 de 14 "
+        "escriben el porcentaje en alguna línea",
+    ),
+    Correspondencia(
+        "porcentaje del cargo", "ChargeRate", "BT-101 y BT-143", NO_LO_PIDEN,
+        "el mismo caso que el del descuento, en el otro sentido. Medido: 3 de 14",
+    ),
+    Correspondencia(
+        "motivo del descuento", "DiscountReason",
+        "BT-97 en el documento, BT-139 en la línea", IGUAL,
+        "el texto del motivo pasa igual en los dos niveles. El **código** del "
+        "motivo -BT-98, BT-105, BT-140 y BT-145- no está en el anexo, y aquí "
+        "no se pierde nada: Facturae tampoco lo tiene. Medido: 12 de 14 "
+        "escriben el motivo",
+    ),
+    Correspondencia(
+        "motivo del cargo", "ChargeReason",
+        "BT-104 en el documento, BT-144 en la línea", IGUAL,
+        "igual que el del descuento. Medido: 6 de 14",
+    ),
+    Correspondencia(
+        "descuentos de la línea", "DiscountsAndRebates", "BG-27 (BT-136 y BT-139)",
+        IGUAL,
+        "el grupo existe en los dos sitios y con el mismo sentido. Ojo a que "
+        "hay que escribirlo **dos veces** en la copia: como grupo propio y "
+        "restado dentro de BT-131, que es el importe neto de la línea. Es la "
+        "misma cuenta que hace `GrossAmount` aquí. Medido: 12 de 14",
+    ),
+    Correspondencia(
+        "cargos de la línea", "Charges", "BG-28 (BT-141 y BT-144)", IGUAL,
+        "lo mismo que los descuentos de línea, sumando en vez de restar. "
+        "Medido: 6 de 14",
+    ),
+    Correspondencia(
+        "suma de las líneas", "TotalGrossAmount", "BT-106", IGUAL,
+        "el esquema lo define como la suma de los importes brutos de los "
+        "detalles, que es exactamente la suma de los importes netos de línea "
+        "de la norma: los dos van después de los descuentos de cada línea y "
+        "antes de los generales",
+    ),
+    Correspondencia(
+        "suma de descuentos generales", "TotalGeneralDiscounts", "BT-107", IGUAL,
+        "la suma de los descuentos del documento, que es lo mismo en los dos",
+    ),
+    Correspondencia(
+        "suma de cargos generales", "TotalGeneralSurcharges", "BT-108", IGUAL,
+        "la suma de los cargos del documento, que es lo mismo en los dos",
+    ),
 )
 
 # Lo que la tabla tiene que cubrir para que las reglas de abajo no hablen de
@@ -477,6 +562,7 @@ _LO_QUE_SE_MIRA = (
     "LanguageName", "PlaceOfIssue",
     "TeleFax", "WebAddress", "CnoCnae", "AdditionalContactDetails",
     "UnitOfMeasure", "GrossAmount",
+    "GeneralDiscounts", "GeneralSurcharges",
 )
 
 
@@ -639,6 +725,61 @@ def _de_las_lineas(factura, etiqueta: str) -> list[Incidencia]:
     return incidencias
 
 
+def _de_los_cargos(factura, etiqueta: str) -> list[Incidencia]:
+    """El IVA que los descuentos generales de Facturae no llevan.
+
+    Es la única nota de la familia, y sale por donde los dos modelos no se
+    parecen: la norma tiene **un grupo de minoraciones por categoría de IVA**
+    y Facturae tiene un descuento sobre el total. El resto de la familia
+    -importes, motivos, sumas, descuentos de línea- pasa sin discusión, y lo
+    que pasa no se cuenta.
+    """
+    totales = _hijos(factura, "InvoiceTotals")
+    if not totales:
+        return []
+    grupos = (_hijos(totales[0], "GeneralDiscounts", "Discount")
+              + _hijos(totales[0], "GeneralSurcharges", "Charge"))
+    if not grupos:
+        return []
+
+    # Las categorías se cuentan por pareja impuesto-tipo y solo de
+    # `TaxesOutputs`: una retención también escribe un `TaxRate` y contarla
+    # diría que la factura tiene dos categorías cuando tiene una.
+    categorias: list[tuple[str, str]] = []
+    for tax in _hijos(factura, "TaxesOutputs", "Tax"):
+        pareja = (_texto(tax, "TaxTypeCode"), _texto(tax, "TaxRate"))
+        if pareja not in categorias:
+            categorias.append(pareja)
+
+    if len(categorias) > 1:
+        esperado = (f"repartidos entre las {len(categorias)} categorías de IVA "
+                    "de la factura, a prorrata de la base de cada una")
+    elif categorias:
+        esperado = (f"la categoría de la factura, al {categorias[0][1]} %, "
+                    "en cada uno de los grupos de la copia")
+    else:
+        esperado = "una categoría de IVA en cada grupo de la copia"
+    return [
+        Incidencia(
+            "COPIA-CARGO-IVA",
+            NOTA,
+            "Los descuentos y cargos generales de esta factura no llevan IVA "
+            "propio, y en la copia tienen que llevarlo. La norma agrupa las "
+            "minoraciones y los cargos del documento **por categoría de IVA** "
+            "-BT-95 y BT-96 en las minoraciones, BT-102 y BT-103 en los "
+            "cargos-, y Facturae los aplica antes del desglose y sobre la "
+            "base entera. Con una sola categoría la cuenta está forzada. Con "
+            "dos o más hay que repartir cada descuento entre ellas, y no lo "
+            "dice ningún texto: a prorrata de cada base es lo único que deja "
+            "cuadrar el desglose de la copia.",
+            campo=f"{etiqueta}Descuentos y cargos generales "
+                  f"(BG-20 y BG-21 en la copia)",
+            esperado=esperado,
+            encontrado=f"{len(grupos)} en esta factura, sin categoría ni tipo",
+        )
+    ]
+
+
 def _de_una_factura(
     factura, etiqueta: str, del_documento: tuple[str, ...] = ()
 ) -> list[Incidencia]:
@@ -669,6 +810,7 @@ def _de_una_factura(
         )
 
     incidencias.extend(_de_las_lineas(factura, etiqueta))
+    incidencias.extend(_de_los_cargos(factura, etiqueta))
 
     totales = _hijos(factura, "InvoiceTotals")
     if not totales:

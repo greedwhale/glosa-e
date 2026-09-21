@@ -56,13 +56,15 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
       <TaxableBase><TotalAmount>100.00</TotalAmount></TaxableBase>
       <TaxAmount><TotalAmount>21.00</TotalAmount></TaxAmount>
       {recargo}
-    </Tax></TaxesOutputs>
+    </Tax>{segundo_tipo}</TaxesOutputs>
+    {retenciones}
     {lineas}
     <InvoiceTotals>
       <TotalGrossAmountBeforeTaxes>100.00</TotalGrossAmountBeforeTaxes>
       <TotalTaxOutputs>{repercutido}</TotalTaxOutputs>
       <TotalTaxesWithheld>{retenido}</TotalTaxesWithheld>
       <InvoiceTotal>{total}</InvoiceTotal>
+      {generales}
       {suplidos}
       {financieros}
       {subvenciones}
@@ -82,6 +84,25 @@ LINEA = """<Items><InvoiceLine>
       {coste}
       {bruto}
     </InvoiceLine></Items>"""
+
+# Un segundo tipo de IVA, que es lo que convierte el descuento general en una
+# decisión: con una sola categoría la cuenta está forzada.
+SEGUNDO_TIPO = """<Tax>
+      <TaxTypeCode>01</TaxTypeCode>
+      <TaxRate>10.00</TaxRate>
+      <TaxableBase><TotalAmount>100.00</TotalAmount></TaxableBase>
+      <TaxAmount><TotalAmount>10.00</TotalAmount></TaxAmount>
+    </Tax>"""
+
+# Una retención con su desglose, que también escribe un `TaxRate`. Está aquí
+# para provocar el fallo de contar categorías por todo el documento: contarla
+# diría que esta factura tiene dos cuando tiene una.
+RETENCIONES = """<TaxesWithheld><Tax>
+      <TaxTypeCode>04</TaxTypeCode>
+      <TaxRate>15.00</TaxRate>
+      <TaxableBase><TotalAmount>100.00</TotalAmount></TaxableBase>
+      <TaxAmount><TotalAmount>15.00</TotalAmount></TaxAmount>
+    </Tax></TaxesWithheld>"""
 
 RECARGO = """<EquivalenceSurcharge>5.20</EquivalenceSurcharge>
       <EquivalenceSurchargeAmount><TotalAmount>5.20</TotalAmount></EquivalenceSurchargeAmount>"""
@@ -112,7 +133,9 @@ FUERA_EN_UN_CENTRO = """<AdministrativeCentres><AdministrativeCentre>
 
 def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
             serie=None, idioma=False, fax=False, fuera=None, subvenciones=None,
-            unidad=None, coste=None, neto=None):
+            unidad=None, coste=None, neto=None,
+            descuento_general=None, cargo_general=None, segundo_tipo=False,
+            retencion_detallada=False):
     """Una factura de 100 de base y 21 de IVA, con lo que se le encienda."""
     repercutido = "26.20" if recargo else "21.00"
     total = str(round(100 + float(repercutido) - float(retenido), 2))
@@ -125,7 +148,22 @@ def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
             coste=f"<TotalCost>{coste}</TotalCost>" if coste else "",
             bruto=f"<GrossAmount>{neto}</GrossAmount>" if neto else "",
         )
+    generales = ""
+    if descuento_general:
+        generales += (f"<GeneralDiscounts><Discount>"
+                      f"<DiscountReason>pronto pago</DiscountReason>"
+                      f"<DiscountRate>10.00</DiscountRate>"
+                      f"<DiscountAmount>{descuento_general}</DiscountAmount>"
+                      f"</Discount></GeneralDiscounts>")
+    if cargo_general:
+        generales += (f"<GeneralSurcharges><Charge>"
+                      f"<ChargeReason>portes</ChargeReason>"
+                      f"<ChargeAmount>{cargo_general}</ChargeAmount>"
+                      f"</Charge></GeneralSurcharges>")
     documento = PLANTILLA.format(
+        generales=generales,
+        segundo_tipo=SEGUNDO_TIPO if segundo_tipo else "",
+        retenciones=RETENCIONES if retencion_detallada else "",
         lineas=lineas,
         recargo=RECARGO if recargo else "",
         repercutido=repercutido,
@@ -318,6 +356,55 @@ def test_una_linea_a_la_que_le_falta_un_campo_no_inventa_la_queja():
     campo que su propio esquema exige.
     """
     assert "COPIA-LINEA-NETO" not in notas(neto="90.00")
+
+
+def test_un_descuento_general_pide_un_iva_que_la_factura_no_lleva():
+    """La norma agrupa las minoraciones por categoría y Facturae no las agrupa.
+
+    Con una sola categoría en la factura no hay nada que decidir, pero sí algo
+    que escribir: BT-95 y BT-96 no existen en el original.
+    """
+    cargo = notas(descuento_general="10.00")["COPIA-CARGO-IVA"]
+    assert cargo.gravedad == NOTA
+    assert "21.00 %" in cargo.esperado
+    assert "1 en esta factura" in cargo.encontrado
+
+
+def test_con_dos_categorias_el_descuento_general_hay_que_repartirlo():
+    """Aquí sí hay decisión, y ningún texto dice cómo se toma."""
+    cargo = notas(descuento_general="10.00", segundo_tipo=True)["COPIA-CARGO-IVA"]
+    assert "2 categorías" in cargo.esperado
+    assert "prorrata" in cargo.esperado
+
+
+def test_un_cargo_general_cuenta_igual_que_un_descuento():
+    """`BG-21` lleva su categoría y su tipo por el mismo motivo que `BG-20`."""
+    cargo = notas(cargo_general="5.00")["COPIA-CARGO-IVA"]
+    assert "1 en esta factura" in cargo.encontrado
+
+
+def test_los_dos_juntos_salen_en_una_sola_nota():
+    """Dos notas seguidas diciendo lo mismo no las lee nadie."""
+    salidas = notas(descuento_general="10.00", cargo_general="5.00")
+    assert "2 en esta factura" in salidas["COPIA-CARGO-IVA"].encontrado
+
+
+def test_una_retencion_no_cuenta_como_otra_categoria_de_iva():
+    """Provocado: una retención también escribe `TaxRate`.
+
+    Contando los tipos por todo el documento, esta factura -que tiene una sola
+    categoría de IVA y una retención- saldría con dos y pediría un reparto que
+    no hace falta.
+    """
+    cargo = notas(descuento_general="10.00",
+                  retencion_detallada=True)["COPIA-CARGO-IVA"]
+    assert "21.00 %" in cargo.esperado
+    assert "prorrata" not in cargo.esperado
+
+
+def test_sin_descuentos_ni_cargos_generales_no_se_dice_nada():
+    """Los de línea no cuentan: ésos pasan sin discusión."""
+    assert "COPIA-CARGO-IVA" not in notas(coste="100.00", neto="90.00")
 
 
 def test_el_destino_de_cada_fila_existe_en_el_anexo():

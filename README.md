@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2311 tests, todos en verde.
+2317 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3825,6 +3825,21 @@ expediente, albarán— no son de esta familia a propósito: son las mismas que 
 del documento, el anexo tampoco las recoge, y partir esa historia en dos sería
 contarla dos veces a medias. Van con la familia de las referencias.
 
+**La cuarta familia: los cargos y las minoraciones** (21-09-2026). Facturae los
+pone en dos sitios —dentro de la línea y sobre el total— y la norma también, así
+que la mayor parte pasa sin discusión: el importe, el texto del motivo y las tres
+sumas. Lo que no pasa es el IVA de los generales:
+
+| Lo que esconde un descuento | De 14 | Qué pasa |
+|---|---:|---|
+| El **general no lleva IVA propio** | 6 | la norma agrupa las minoraciones y los cargos del documento **por categoría de IVA** —`BT-95` y `BT-96` van dentro del grupo, `BT-102` y `BT-103` en el de cargos— y Facturae los aplica antes del desglose, sobre la base entera. Con una sola categoría la cuenta está forzada y basta con escribirla; **con dos o más hay que repartir** cada descuento entre ellas, y no lo dice ningún texto: a prorrata de la base de cada una es lo único que deja cuadrar el desglose de la copia. Aquí pasa en 1 de las 14 |
+| El **porcentaje no tiene sitio** | 12 | Facturae define el descuento con un porcentaje y un importe, y el anexo no recoge ni el porcentaje —`BT-94`, `BT-138`— ni la base sobre la que se calcula —`BT-93`, `BT-137`—. A la copia llega el importe, que es lo que cuadra las cuentas; de dónde salía, no |
+| El **código del motivo** tampoco | 0 | `BT-98`, `BT-105`, `BT-140` y `BT-145` no están en el anexo, y aquí no se pierde nada porque Facturae tampoco los tiene: escribe el motivo en texto, y ése sí pasa |
+
+Y un cabo de la familia anterior que se cierra aquí: un descuento de línea hay
+que escribirlo **dos veces** en la copia —como grupo `BG-27` y restado dentro de
+`BT-131`—, que es exactamente la cuenta que hace `GrossAmount` en Facturae.
+
 Lo que dice el módulo, con los importes al lado:
 
 | Nota | Cuándo sale | Qué dice |
@@ -3833,6 +3848,7 @@ Lo que dice el módulo, con los importes al lado:
 | `COPIA-CUOTA` | hay recargo de equivalencia | la cuota de la copia no lleva el recargo: en el anexo tiene grupo propio |
 | `COPIA-SERIE` | la serie trae texto | en la copia, el número de la factura es la serie y el número juntos |
 | `COPIA-DIRECCION` | hay dirección de fuera de España | el código postal y la población hay que partirlos en dos campos |
+| `COPIA-CARGO-IVA` | hay descuentos o cargos generales | en la copia van agrupados por categoría de IVA, y aquí no la llevan |
 | `COPIA-LINEA-UNIDAD` | una línea trae unidad de medida | el código es de la lista de Facturae y la copia pide uno de UN/ECE |
 | `COPIA-LINEA-NETO` | `TotalCost` y `GrossAmount` no valen lo mismo | el importe neto de la línea es el segundo, no el primero |
 | `COPIA-SUPLIDO` | hay suplidos | son `BT-179` y `BT-180`, de la edición de 2026, y el anexo de abril no les da ruta |
@@ -3845,7 +3861,7 @@ ejemplo publicado `ejemplos/fe-0001.xml` saca tres —su serie, su idioma y la
 unidad de su línea— y sigue saliendo conforme, porque ninguna es un error.
 
 **La tabla se escribe entera, con el porqué de cada fila**, en
-`CORRESPONDENCIAS`: **41 conceptos**, cada uno con lo que le pasa y de dónde
+`CORRESPONDENCIAS`: **52 conceptos**, cada uno con lo que le pasa y de dónde
 sale esa decisión. Los estados son siete, y los dos que se añadieron con la
 segunda y la tercera familia son los cuatro que no se pueden juntar con nada:
 
