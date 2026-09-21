@@ -72,8 +72,35 @@ en una fuente distinta y alguna todavía no tiene fuente:
    entre ellas: dos campos que se juntan en uno, uno que hay que partir en dos,
    y datos que el esquema de Facturae obliga a escribir y el anexo no recoge.
 
-Quedan las familias que dependen de un texto que no está publicado —los campos
-españoles del anexo, los centros administrativos, el lote— y esas esperan.
+Quedan **80 de los 104 términos europeos sin fila** —la tabla nombra 24,
+medido el 21-09-2026—, y es importante no confundir lo que falta con lo que
+espera, porque no son lo mismo:
+
+3. **Las líneas** (`BG-25`, `BG-29`, `BG-30`, `BG-31`): las traen las 14. Es
+   además donde más se queda fuera —`BT-127`, `BT-128`, `BT-130`, `BT-132`,
+   `BT-133`, `BT-150`, `BT-155` a `BT-159` y `BG-26` no están en el anexo—.
+   Limpia del anuncio salvo la clave de régimen, cuya lista `L3A` se recorta.
+4. **Los cargos y las minoraciones** (`BG-20`, `BG-21`, `BG-27`, `BG-28`): 12
+   de 14 traen descuentos y 6 cargos. Facturae escribe el **porcentaje** y la
+   norma pide el importe.
+5. **El pago** (`BG-16`, `BG-17`): 12 de 14. Facturae admite varios
+   vencimientos y la copia tiene un solo `BT-9`.
+6. **Las referencias** (`BT-10`, `BG-3`, `BG-24`): el albarán en 11 y el pedido
+   del comprador en 8 de 14, y el anexo **no recoge ninguna** de `BT-11` a
+   `BT-19`. Se escribe sin la parte de rectificativas, que espera.
+
+Las tres primeras y la mitad de la cuarta **el anuncio del 10-09-2026 no las
+toca**, que es la razón de que vayan delante: escritas hoy no hay que
+reescribirlas. Las tres que quedan sí quedan debajo de él y se escriben después:
+
+7. **El desglose del IVA** —la `L4` gana categorías nuevas—, **la cabecera**
+   —entra el `389` en la `L1`— y **las partes** —el NIF del vendedor podrá ir
+   en `BT-31`, que hoy no está en el anexo, o en `BT-32` con esquema «LOC»—.
+
+Y esperan, éstas sí porque no hay de dónde sacarlas: **los campos españoles del
+anexo**, **los centros administrativos**, **el lote** y las tres filas que
+están en `POR_DECIDIR`. Unas transparencias dicen qué va a cambiar, no cómo
+queda redactado, y una fila cuyo porqué es una diapositiva no vale nada.
 
 **No todas las filas sacan una nota**, y es a propósito: lo que llega igual no
 se dice. Un informe que celebre cada campo que sí viaja no lo lee nadie. Sale
