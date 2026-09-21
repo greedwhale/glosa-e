@@ -69,6 +69,11 @@ article.entrada blockquote p { color: inherit; }
 .cuadro th, .cuadro td { text-align: left; padding: .55rem .9rem .55rem 0; border-bottom: 1px solid var(--borde); }
 .cuadro thead th { color: var(--tenue); font-weight: 600; font-size: var(--t0); text-transform: uppercase; letter-spacing: .08em; }
 .cuadro td.n, .cuadro th.n { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+/* Dos columnas de cifras seguidas se tocaban, y en un movil se leian como un
+   solo numero: «1.112,001.210,00». El `padding-right: 0` es para la ultima,
+   que va pegada al borde de la tabla; a las de en medio hay que devolverles
+   el aire. */
+.cuadro td.n:not(:last-child), .cuadro th.n:not(:last-child) { padding-right: 1.2rem; }
 .cuadro tbody td { color: var(--tinta-2); }
 .cuadro tbody td b { color: var(--tinta); }
 /* La aclaracion dentro de una celda: el plazo del que sale la fecha. */

@@ -1,0 +1,248 @@
+<article class="entrada"
+  data-fecha="2026-09-21"
+  data-titulo="Habrá que mandar a la AEAT una copia de cada factura en otro formato, y nadie publica cómo se traduce"
+  data-entradilla="Quien no emita a través de la solución pública tendrá que mandarle una copia fiel de cada factura, escrita en la sintaxis que ella define. Se preguntó por escrito quién publica la correspondencia entre formatos: la Agencia contestó el 17 de septiembre que no es ella. Y mientras tanto, dos importes del formato español significan otra cosa en la copia: en 6 de cada 14 facturas reales analizadas, copiarlos tal cual pondría un total que no es el suyo.">
+
+  <time datetime="2026-09-21">21 de septiembre de 2026</time>
+  <h1>Habrá que mandar a la AEAT una copia de cada factura en otro formato, y
+  nadie publica cómo se traduce</h1>
+  <p class="lema">La factura original seguirá siendo la que es. A la Agencia
+  viajará <b>otro documento</b>, escrito en otra sintaxis, que tiene que decir
+  lo mismo. Quién decide qué campo va en qué campo es una pregunta con
+  respuesta, y la respuesta llegó el 17 de septiembre: <b>no lo publica la
+  Agencia</b>.</p>
+
+  <h2>La copia fiel, en dos párrafos</h2>
+
+  <p>El proyecto de orden de la Solución Pública de Facturación Electrónica
+  —la SPFE— lo dice así en la presentación que la propia AEAT dio el 10 de
+  septiembre de 2026:</p>
+
+  <blockquote><p>«Cuando la emisión y la interconexión de FE NO se haga a
+  través de la SPFE, se debe enviar una COPIA FIEL a la SPFE simultáneamente
+  a la emisión.»</p></blockquote>
+
+  <p>Y a continuación, la frase que abre todo lo que viene debajo: «<i>la
+  semántica, sintaxis y especificaciones</i>» de esa copia son «<i>las
+  definidas por la SPFE</i>». Es decir: tu factura puede estar en Facturae, en
+  CII o en EDIFACT —el <a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-7295">Real
+  Decreto 238/2026</a> admite las cuatro sintaxis—, pero la copia que reciba la
+  Agencia irá en la suya: <b>UBL</b>, con el contenido que describe el
+  <b>anexo I</b> del proyecto de orden. Son dos documentos distintos, el que
+  emites y el que se copia, y tienen que decir lo mismo.</p>
+
+  <p>Nada de esto obliga todavía a nadie. La orden ministerial de la que
+  cuelga sigue siendo un <b>proyecto</b>, y de ahí salen los plazos que ya se
+  contaron <a href="./bitacora-edifact-reglas-de-2018.html">en la entrada
+  anterior</a>. Lo que sí se puede hacer hoy es la pregunta de ingeniería que
+  viene ahora, porque quien esté construyendo un sistema de facturación se la
+  está haciendo ya.</p>
+
+  <h2>La pregunta: ¿quién escribe la traducción?</h2>
+
+  <p>Si el original está en Facturae y la copia va en la sintaxis de la SPFE,
+  alguien tiene que decir <b>qué campo del uno corresponde a qué campo del
+  otro</b>. No es un detalle de implantación: de esa correspondencia depende
+  que la copia diga lo mismo que el original. Se preguntó por escrito al buzón
+  técnico de la AEAT el <b>10 de septiembre</b>, con acuse el 11 y respuesta el
+  <b>17 de septiembre de 2026</b>.</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Tres preguntas al buzón técnico, y lo que se contestó</caption>
+    <thead><tr><th>Se preguntó</th><th>Se contestó</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Si la Agencia piensa publicar la correspondencia entre Facturae,
+        CII o EDIFACT y los elementos del anexo I, o si recae en cada
+        plataforma</td>
+        <td>Que «<b>cae en la responsabilidad de las plataformas privadas</b>,
+        o en su caso, de la definición por parte del Ministerio de Economía que
+        regula la interconexión entre plataformas privadas y sus formatos»</td>
+      </tr>
+      <tr>
+        <td>Qué hacer en la copia fiel con un concepto del original que no
+        tiene equivalente en la sintaxis de la solución pública</td>
+        <td>Que «se pueden omitir o incluirlos en una extensión», y que «si el
+        concepto del original no es equivalente, <b>no se realizará la
+        validación del dato</b>»</td>
+      </tr>
+      <tr>
+        <td>Si los documentos de validación del portal de desarrolladores
+        cubrirán las extensiones propias del anexo I o solo las reglas de
+        EN 16931</td>
+        <td>Que «cubrirán <b>principalmente las personalizaciones realizadas en
+        el anexo I</b>»</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>La primera respuesta es la que cambia el mapa. <b>La tabla oficial de
+  correspondencia entre las sintaxis que la ley admite y los campos del anexo
+  no la publica la Agencia</b>: la escribe cada plataforma para sí misma. La
+  respuesta deja abierta otra puerta —la definición del Ministerio de Economía
+  que regule la interconexión entre plataformas—, y de esa no hay todavía nada
+  que citar. Mientras tanto, una correspondencia que cada uno se escriba a sí
+  mismo no es algo contra lo que un tercero pueda contrastar nada.</p>
+
+  <h2>Por qué eso no es un detalle: dos importes que cambian por el camino</h2>
+
+  <p>Aquí es donde deja de ser una cuestión de organización. El formato
+  español define dos de sus totales de una manera que <b>no es la europea</b>, y
+  no es una interpretación: está escrito en su esquema oficial, en la
+  documentación de cada elemento.</p>
+
+  <blockquote><p>«Total impuestos repercutidos. <b>Sumatorio de todas Cuotas y
+  Recargos de Equivalencia</b>.»<br>
+  «Total factura. Resultado de: <b>TotalGrossAmountBeforeTaxes +
+  TotalTaxOutputs − TotalTaxesWithheld</b>.»</p></blockquote>
+
+  <p>Traducido: el total de impuestos de Facturae <b>lleva dentro el recargo de
+  equivalencia</b>, y el total de la factura <b>ya tiene restadas las
+  retenciones</b>. El anexo I, en cambio, define sus campos como lo que dice la
+  norma europea: <code>BT-110</code> es la «cuota total del IVA de la factura» y
+  <code>BT-112</code> el «importe total de la factura después de aplicar el
+  IVA». La retención no es un impuesto de la factura para la norma, y el
+  recargo de equivalencia tiene su propio grupo, aparte de la cuota de IVA.</p>
+
+  <p>Con una factura de ejemplo —mil euros de base, IVA del 21 %, retención del
+  15 % y recargo de equivalencia del 5,2 %— los dos documentos dicen esto:</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>El mismo dato, en el original y en la copia</caption>
+    <thead><tr><th>Concepto</th><th class="n">En la factura</th><th class="n">En la copia</th></tr></thead>
+    <tbody>
+      <tr><td>Base imponible</td><td class="n">1.000,00</td><td class="n">1.000,00 <span class="pie">BT-109</span></td></tr>
+      <tr><td>Cuota de IVA <span class="pie">(21 %)</span></td><td class="n">dentro de los 262</td><td class="n">210,00 <span class="pie">BT-110</span></td></tr>
+      <tr><td>Recargo de equivalencia <span class="pie">(5,2 %)</span></td><td class="n">dentro de los 262</td><td class="n">52,00 <span class="pie">grupo propio</span></td></tr>
+      <tr><td>Retención <span class="pie">(15 %)</span></td><td class="n">150,00</td><td class="n">150,00 <span class="pie">grupo propio</span></td></tr>
+      <tr><td><b>Total de impuestos repercutidos</b></td><td class="n"><b>262,00</b></td><td class="n">no hay ese campo</td></tr>
+      <tr><td><b>Total de la factura</b></td><td class="n"><b>1.112,00</b></td><td class="n"><b>1.210,00</b> <span class="pie">BT-112</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Noventa y ocho euros de diferencia en el total, y una cuota de IVA que si
+  se copia tal cual sale inflada en cincuenta y dos, en una factura correcta,
+  bien hecha y bien sumada. Quien construya la
+  copia llevando cada campo a su homónimo —que es lo que hará cualquiera sin
+  una tabla delante— pondrá esos dos números, y serán otros.</p>
+
+  <p>Y esta es la parte incómoda: <b>un hueco se ve y un número equivocado
+  no</b>. Si a la copia le falta un dato, se nota. Si lleva un total distinto,
+  cuadra consigo mismo, pasa las validaciones de la copia y no se parece al
+  original en lo único que un inspector mira primero.</p>
+
+  <p>Falta una tercera cifra, y es de las que no se pueden dar por sabidas:
+  <b>lo que el cliente paga de verdad</b>. Va en otro campo del anexo, y qué
+  entra exactamente en él —con el recargo, con los suplidos, con los importes
+  cobrados en nombre de terceros— es una cuenta que hoy <b>no se puede
+  comprobar</b> contra ningún texto publicado. Aquí se dice así, en vez de
+  elegir una respuesta y presentarla como la buena.</p>
+
+  <h2>Cuántas facturas están en ese caso</h2>
+
+  <p>Se midió el 20 de septiembre de 2026 sobre <b>catorce facturas Facturae
+  reales</b> de terceros, de las que hay para probar el validador:</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Facturas cuyo total cambiaría al copiarlas campo a campo</caption>
+    <thead><tr><th>Qué lleva la factura</th><th class="n">De 14</th></tr></thead>
+    <tbody>
+      <tr><td>Retenciones <span class="pie">(cambia el total)</span></td><td class="n"><b>6</b></td></tr>
+      <tr><td>Recargo de equivalencia <span class="pie">(cambia la cuota)</span></td><td class="n">4 <span class="pie">dentro de las seis</span></td></tr>
+      <tr><td>Suplidos <span class="pie">(sin ruta en el anexo de abril)</span></td><td class="n">2</td></tr>
+      <tr><td><b>Alguna de las anteriores</b></td><td class="n"><b>6</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Seis de catorce. Conviene decir qué es y qué no es ese número:
+  <b>no es una estadística de España</b>, son las facturas que hay aquí para
+  probar, y catorce son pocas. Lo que sí dice es que no hace falta buscar un
+  caso raro: retenciones y recargo de equivalencia son dos cosas corrientes de
+  la facturación española, y las dos caen justo donde el formato español y la
+  norma europea no se entienden.</p>
+
+  <h2>Lo que la Agencia sí dejó resuelto, y lo que no</h2>
+
+  <p>La segunda respuesta de arriba resuelve un problema de verdad y conviene
+  leerla entera: si un concepto del original no tiene equivalente, <b>se puede
+  omitir o llevar en una extensión</b>, y lo que no sea equivalente no se
+  valida. Dicho de otro modo: que a la copia le falte algo del original
+  <b>no es el incumplimiento de nadie</b>. Es una buena noticia y no era
+  evidente.</p>
+
+  <p>Pero fíjate en lo que <b>no</b> cubre. Omitir está permitido; escribir
+  otra cifra no es omitir. Los dos importes de arriba no son conceptos que
+  falten: son conceptos que existen en los dos sitios y <b>significan cosas
+  distintas</b>. Para eso no hay permiso que valga, porque no hay nada roto que
+  perdonar: hay una traducción mal hecha.</p>
+
+  <h2>Qué hacer hoy, si estás construyendo esto</h2>
+
+  <ul>
+    <li><b>No copies los totales.</b> Recalcúlalos con la definición europea:
+    base más cuotas de IVA, sin restar retenciones y sin sumar el recargo.</li>
+    <li><b>La retención y el recargo viajan aparte</b>, en los grupos que el
+    anexo I tiene para ellos, no dentro de la cuota de IVA.</li>
+    <li><b>Escribe tu correspondencia y escribe por qué</b>, campo a campo.
+    Nadie te la va a dar, y el día que haya que defender una copia, la
+    diferencia entre una decisión y una casualidad es que esté escrita.</li>
+  </ul>
+
+  <p>Y una advertencia sobre el calendario: el anexo I que hay publicado es el
+  de abril de 2026, y la propia AEAT presentó cambios sobre él el 10 de
+  septiembre. El texto actualizado <b>no está publicado</b>. Quien esté
+  mapeando campos ahora mismo lo está haciendo contra un documento que ya se
+  sabe que va a cambiar.</p>
+
+  <h2>Qué hace Glosa-e con esto, hoy</h2>
+
+  <p>Cuando lee una factura en Facturae, dice qué le pasaría al copiarse:
+  qué importe cambia, cuál es el que iría en la copia, y qué conceptos se
+  quedarían fuera. Son <code>NOTA</code>, nunca errores —la factura está
+  bien—, y van rotuladas «<b>de la casa</b>»: es la correspondencia de este
+  validador, con su porqué escrito al lado, no una tabla oficial que no
+  existe. Prometer otra cosa sería justo lo que esta entrada critica.</p>
+
+  <p>Es gratis, es código abierto (AGPL-3.0-only) y <b>corre entero en tu
+  navegador</b>: el motor se descarga a tu ordenador y la factura no sale de
+  él. No hay servidor que la reciba, ni copia que quede en ningún sitio.</p>
+
+  <p>Está <b>en desarrollo y en pruebas</b>. Si encuentras algo mal,
+  <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20">escríbeme</a>.</p>
+
+  <footer class="fuentes">
+    <h2>De dónde sale</h2>
+    <ul>
+      <li><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-7295">Real
+      Decreto 238/2026</a> — artículo 7.1, las cuatro sintaxis admitidas.
+      BOE-A-2026-7295, de 25 de marzo.</li>
+      <li><a href="https://www.agenciatributaria.es/AEAT.desarrolladores/Desarrolladores/_menu_/Reuniones/Ejercicio_2026/Seminario_actualizacion_sobre_la_Solucion_Publica_de_Facturacion_Electronica__SPFE____10_09_2026/Seminario_actualizacion_sobre_la_Solucion_Publica_de_Facturacion_Electronica__SPFE____10_09_2026.html">Seminario
+      de la AEAT del 10-09-2026</a>, en el Portal de Entidades Desarrolladoras
+      — de ahí salen las dos frases citadas sobre la copia fiel y el anuncio de
+      los cambios del anexo I.</li>
+      <li><a href="https://www.facturae.gob.es/content/dam/facturae/formato/versiones/Facturaev3_2_2.xml">Esquema
+      oficial de Facturae 3.2.2</a> — la documentación de
+      <code>TotalTaxOutputs</code> y de <code>InvoiceTotal</code>, citada
+      literalmente.</li>
+      <li><a href="https://www.hacienda.gob.es/sgt/normativadoctrina/proyectos/16042026-anexo-i-pom-factura-electronica.pdf">Anexo I
+      del proyecto de orden ministerial</a> (PDF, Ministerio de Hacienda,
+      16-04-2026) — las definiciones de <code>BT-110</code> y
+      <code>BT-112</code>.</li>
+      <li>Respuesta del buzón técnico de la AEAT de 17-09-2026 a una consulta
+      escrita el 10-09-2026. No tiene dirección pública: es correo, y se cita
+      textual lo que contestó.</li>
+    </ul>
+    <p class="metodo"><b>Cómo se midió.</b> Las cifras de facturas reales salen
+    de catorce ficheros Facturae de terceros validados en local el 20 de
+    septiembre de 2026. Los ficheros no salen de la máquina donde se validan y
+    no se publica ningún nombre de empresa, NIF ni dato de las facturas: solo
+    recuentos agregados. La factura del ejemplo numérico es inventada.</p>
+  </footer>
+
+</article>
