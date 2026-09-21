@@ -34,7 +34,15 @@ from pathlib import Path
 
 from lxml import etree
 
-from validador.formato import CII, EDIFACT, FACTURAE, UBL, detectar, parser
+from validador.formato import (
+    CII,
+    EDIFACT,
+    FACTURAE,
+    UBL,
+    detectar,
+    entidades_sin_resolver,
+    parser,
+)
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia, Informe
 
 # Variable de entorno con la carpeta de esquemas, si no se quiere la de al lado.
@@ -777,6 +785,15 @@ def reglas(raiz, deteccion, catalogo: Catalogo | None = None) -> list[Incidencia
                 encontrado=f"{deteccion.familia} {deteccion.version or ''}".strip(),
             )
         ]
+
+    if entidades_sin_resolver(raiz):
+        # `XMLSchema.validate` revienta con «Internal error in XML Schema
+        # validation» en cuanto el árbol trae una referencia a entidad sin
+        # expandir, y esa caída se llevaba el informe entero por delante. No se
+        # dice nada aquí a propósito: lo dice `XML-ENTIDADES`, que además
+        # explica por qué, y decirlo dos veces con otras palabras es lo que
+        # `_podar` existe para evitar.
+        return []
 
     arbol = _documento_a_validar(raiz, deteccion)
     if esquema.validate(arbol):

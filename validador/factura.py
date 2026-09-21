@@ -51,6 +51,7 @@ from validador.formato import (
     UBL,
     Deteccion,
     detectar,
+    entidades_sin_resolver,
     parser,
 )
 from validador.cadena import Almacen
@@ -120,11 +121,50 @@ def _arbol(datos: bytes, deteccion: Deteccion):
     if deteccion.familia not in _FAMILIAS_XML + (EDIFACT,):
         return None, []
     try:
-        return etree.fromstring(datos, parser=parser()), []
+        raiz = etree.fromstring(datos, parser=parser())
     except etree.XMLSyntaxError:
         # `detectar` ya lo parseó sin problemas, así que llegar aquí sería
         # raro. Aun así, mejor no reventar el lote entero por un fichero.
         return None, []
+    return raiz, _entidades(raiz)
+
+
+def _entidades(raiz) -> list[Incidencia]:
+    """La queja de un documento que mete entidades XML en su contenido.
+
+    Reproducido el 21-09-2026 con un Facturae con `<!ENTITY monto "1.00">`
+    usado en un `TotalAmount`: el validador salía con **una sola** incidencia,
+    `VALIDADOR-SE-ATRAGANTA`, porque `XMLSchema.validate` revienta con
+    `Internal error in XML Schema validation` —en inglés, dentro del informe—
+    en cuanto el árbol trae un nodo de referencia a entidad. Todo lo demás se
+    callaba.
+
+    Es error y no aviso, y no es una queja sobre este programa: el documento no
+    dice un importe, dice un nombre que hay que ir a buscar a su propio
+    prólogo. Quien lo reciba puede expandir la entidad o no —la norma XML deja
+    al procesador no validante la opción de no hacerlo—, así que el mismo
+    fichero se lee con dos importes distintos según quién lo abra. Una factura
+    tiene que decir lo que dice sin depender de eso.
+    """
+    afectados = entidades_sin_resolver(raiz)
+    if not afectados:
+        return []
+    return [
+        Incidencia(
+            "XML-ENTIDADES",
+            ERROR,
+            "El documento declara entidades XML en su prólogo y las usa en el "
+            "contenido. Aquí no se expanden —un fichero de fuera no debe poder "
+            "leer ficheros del servidor—, así que esos campos se leen vacíos; "
+            "y quien lo reciba puede expandirlas y leer otra cosa. Escribe los "
+            "valores tal cual y quita el DOCTYPE. Mientras esté, la forma no "
+            "se ha comprobado contra el esquema.",
+            campo="Prólogo del XML",
+            esperado="un documento sin DOCTYPE ni entidades",
+            encontrado=", ".join(afectados[:6])
+            + (f" y {len(afectados) - 6} más" if len(afectados) > 6 else ""),
+        )
+    ]
 
 
 def _podar(incidencias: list[Incidencia]) -> list[Incidencia]:

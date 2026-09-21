@@ -258,6 +258,36 @@ class TestSeguridad:
         identificador = raiz.xpath("//*[local-name()='ID']")[0]
         assert identificador.text is None, "la entidad externa se ha resuelto"
 
+    def test_y_esa_entidad_sin_resolver_se_puede_nombrar(self, tmp_path):
+        """La otra mitad de la de arriba, que estaba sin cerrar.
+
+        No resolver la entidad es lo correcto y deja el campo vacio, asi que
+        el documento se lee distinto de lo que dice. `entidades_sin_resolver`
+        existe para que eso se pueda contar en el informe en vez de callarse;
+        quien lo cuenta es `XML-ENTIDADES`.
+        """
+        ataque = b"""<?xml version="1.0"?>
+<!DOCTYPE Invoice [<!ENTITY monto "100.00">]>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
+  <cbc:ID>&monto;</cbc:ID>
+</Invoice>"""
+        raiz = etree.fromstring(ataque, parser=formato._parser())
+        assert formato.entidades_sin_resolver(raiz) == ["ID"]
+
+    def test_una_factura_normal_no_tiene_ninguna(self):
+        """Si dijera que si de todo, el error saldria en facturas correctas."""
+        raiz = etree.fromstring(
+            b"""<?xml version="1.0"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>F-2026-001</cbc:ID>
+</Invoice>""",
+            parser=formato._parser(),
+        )
+        assert formato.entidades_sin_resolver(raiz) == []
+
     def test_bomba_de_entidades_no_explota(self):
         bomba = b"""<?xml version="1.0"?>
 <!DOCTYPE lolz [

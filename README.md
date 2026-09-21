@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2317 tests, todos en verde.
+2335 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -562,6 +562,15 @@ escrito todo seguido, que es justo como los genera media industria.
 
 **El esquema se compila una vez por lote.** Compilar UBL 2.1 no es barato y en
 trescientos ficheros se notaría; el `Catalogo` los cachea.
+
+**A un árbol con entidades sin expandir no se le pasa el esquema.** libxml2 no
+se queja de esquema: levanta `XMLSchemaValidateError: Internal error in XML
+Schema validation`, y eso salía por el informe como `VALIDADOR-SE-ATRAGANTA`
+—una línea, en inglés, y ninguna otra comprobación del fichero—. Aquí las
+entidades no se expanden a propósito, así que lo que se hace es no darle a
+libxml2 un árbol que no sabe validar, y decir lo que pasa con `XML-ENTIDADES`,
+que es error: el campo que llevaba la entidad se lee vacío, y quien reciba esa
+factura puede expandirla y leer otra cosa.
 
 **Se cortan a veinte.** Un documento roto de verdad da cientos de
 incumplimientos, casi todos consecuencia del primero. Pasado el tope se dice

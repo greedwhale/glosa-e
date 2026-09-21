@@ -207,6 +207,47 @@ class TestSinEsquemas:
         """No tiene sentido un aviso por fichero: lo dice quien orquesta."""
         assert revisar(CORRECTA, Catalogo(tmp_path / "vacia")) == []
 
+
+class TestUnDocumentoConEntidades:
+    """libxml2 se niega a validar un árbol con referencias sin expandir.
+
+    Y no se niega con un fallo de esquema, que sería lo llevadero: levanta
+    `XMLSchemaValidateError: Internal error in XML Schema validation`, que
+    salía por el informe como VALIDADOR-SE-ATRAGANTA y se llevaba por delante
+    **todas** las demás comprobaciones del fichero. Medido el 21-09-2026 sobre
+    un Facturae con `<!ENTITY monto "1.00">`: una sola línea, y en inglés.
+
+    Aquí no se expanden a propósito —`test_formato.TestSeguridad`—, así que lo
+    que se puede hacer es no pasarle a libxml2 un árbol que no sabe validar.
+    Que eso pasa se dice en su sitio, con `XML-ENTIDADES`.
+
+    **Hace falta un catálogo de verdad.** El resto de la suite corre sin
+    esquemas a propósito (`conftest.py`), así que la llamada ni llegaba a
+    `validate` y una regresión aquí salía verde.
+    """
+
+    CON_ENTIDAD = f'''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Invoice [<!ENTITY numero "F-2026-0001">]>
+<Invoice xmlns="{NS_INVOICE}" xmlns:cbc="{NS_CBC}">
+  <cbc:ID>&numero;</cbc:ID>
+  <cbc:IssueDate>2026-03-02</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+</Invoice>'''
+
+    def test_no_se_le_pasa_al_esquema(self, catalogo):
+        """Si se le pasa, esto no falla: revienta."""
+        assert revisar(self.CON_ENTIDAD, catalogo) == []
+
+    def test_y_la_misma_sin_entidades_si_se_comprueba(self, catalogo):
+        """Que el atajo de arriba no se haya llevado por delante la validación.
+
+        Sin esta, saltarse el esquema siempre pasaría las dos.
+        """
+        mal = self.CON_ENTIDAD.replace(
+            '<!DOCTYPE Invoice [<!ENTITY numero "F-2026-0001">]>\n', ""
+        ).replace("&numero;", "0" * 30)  # maxLength=20 en el esquema de juguete
+        assert codigos(revisar(mal, catalogo)), "el esquema ya no mira nada"
+
     def test_con_esquemas_pero_no_el_que_toca(self, catalogo):
         """Si instalaste UBL y te llega un CII, eso sí merece un aviso."""
         cii = """<?xml version="1.0"?>

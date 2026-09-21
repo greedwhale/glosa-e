@@ -199,6 +199,39 @@ def parser() -> etree.XMLParser:
     )
 
 
+def entidades_sin_resolver(raiz) -> list[str]:
+    """Los elementos cuyo contenido es una entidad que aquí no se expande.
+
+    Viene de `parser()`, que lleva `resolve_entities=False` para que un fichero
+    de un tercero no pueda leerse ficheros del servidor. La decisión es buena y
+    tiene un efecto que hay que decir: donde el documento escribió `&monto;`,
+    el árbol se queda con un nodo de referencia y el `.text` del elemento vale
+    `None`. Medido el 21-09-2026 sobre un Facturae con
+    `<!ENTITY monto "1.00">`: el `TotalAmount` se lee vacío, no «1.00».
+
+    Eso es peor que una caída. Un importe que desaparece no se nota: la factura
+    sale sin ese dato y las reglas se quejan —o no— de algo que el documento sí
+    dice. Y el documento no es recuperable leyéndolo de otra manera, porque el
+    siguiente que lo abra puede expandir la entidad y leer un importe distinto
+    del que hemos leído aquí: una factura que dice dos cosas según quién la
+    abra no dice ninguna.
+
+    Devuelve los nombres de los elementos afectados, sin repetir y en el orden
+    del documento, para poder nombrarlos en la queja.
+    """
+    if raiz is None:
+        return []
+    afectados: list[str] = []
+    for nodo in raiz.iter():
+        if not isinstance(nodo, etree._Entity):
+            continue
+        padre = nodo.getparent()
+        nombre = _partir_nombre(padre.tag)[1] if padre is not None else "(raíz)"
+        if nombre not in afectados:
+            afectados.append(nombre)
+    return afectados
+
+
 # Nombre anterior, cuando el parser era privado de este módulo. Se mantiene
 # porque lo usan los tests de seguridad y no cuesta nada.
 _parser = parser

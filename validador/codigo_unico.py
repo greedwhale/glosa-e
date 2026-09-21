@@ -46,9 +46,41 @@ LONGITUD_MAXIMA_NUMERO = 60
 # ilegal, pero casi siempre es un error de tecleo en el año.
 ANIOS_PRESCRIPCION = 4
 
-# Un número de factura acaba casi siempre en dígitos: "F-2026-001" se parte en
-# el prefijo "F-2026-" y el ordinal 001. Es lo que permite ver los huecos.
-_RE_SUFIJO_NUMERICO = re.compile(r"^(?P<prefijo>.*?)(?P<digitos>\d+)$")
+def partir_ordinal(numero: str) -> tuple[str, str] | None:
+    r"""Parte "F-2026-001" en el prefijo "F-2026-" y el ordinal "001".
+
+    Es lo que permite ver los huecos de una serie. Devuelve `None` cuando no
+    hay ordinal que sacar, y también cuando el número es más largo de lo que
+    cabe en el campo: ahí ya se ha quejado CU-03, y de un número que no es
+    válido no hay correlatividad que reconstruir.
+
+    **Por qué no es una expresión regular.** Lo era:
+    `^(?P<prefijo>.*?)(?P<digitos>\d+)$`. Con un número que acaba en algo que
+    no es un dígito, el motor prueba cada corte posible y todos fallan, así que
+    el coste crece con el cuadrado de la longitud. Medido el 21-09-2026 con
+    dígitos y una letra al final: 303 ms con 5.000 caracteres, 961 ms con
+    10.000, 8.891 ms con 20.000. El mismo número acabado en dígitos: 0,2 ms.
+    Recorrerlo del final hacia delante da la misma respuesta en una pasada.
+
+    **Y por qué el tope.** Con el ordinal entre las manos se hace `int()`, y
+    Python se niega a convertir cadenas de más de 4.300 dígitos desde la 3.11
+    —es la defensa contra un `int()` cuadrático—. Un número de 4.301 unos
+    levantaba `ValueError` y el informe entero se convertía en
+    `VALIDADOR-SE-ATRAGANTA`. El tope de aquí es sesenta, así que eso ya no
+    puede pasar; que sea el mismo de CU-03 no es casualidad sino el motivo.
+
+    `isdecimal()` y no `isdigit()`: el primero es exactamente la categoría
+    Unicode Nd, que es lo que casaba `\d`. `isdigit()` acepta además los
+    superíndices, que `int()` no convierte.
+    """
+    if len(numero) > LONGITUD_MAXIMA_NUMERO:
+        return None
+    corte = len(numero)
+    while corte and numero[corte - 1].isdecimal():
+        corte -= 1
+    if corte == len(numero):
+        return None  # no acaba en dígitos: no hay ordinal
+    return numero[:corte], numero[corte:]
 
 _RE_ESPACIOS = re.compile(r"\s+")
 
@@ -420,12 +452,13 @@ def _reglas_de_serie(codigos: list[CodigoUnico]) -> list[Incidencia]:
     anchos: dict[tuple[str, str], int] = {}
 
     for codigo in codigos:
-        casa = _RE_SUFIJO_NUMERICO.match(normalizar_numero(codigo.numero_completo))
-        if not casa:
+        partes = partir_ordinal(normalizar_numero(codigo.numero_completo))
+        if partes is None:
             continue  # un número sin dígitos al final no tiene correlatividad
-        grupo = (codigo.nif_emisor.upper(), casa["prefijo"])
-        series.setdefault(grupo, []).append((int(casa["digitos"]), codigo))
-        anchos[grupo] = max(anchos.get(grupo, 0), len(casa["digitos"]))
+        prefijo, digitos = partes
+        grupo = (codigo.nif_emisor.upper(), prefijo)
+        series.setdefault(grupo, []).append((int(digitos), codigo))
+        anchos[grupo] = max(anchos.get(grupo, 0), len(digitos))
 
     for grupo, entradas in sorted(series.items()):
         if len(entradas) < 2:

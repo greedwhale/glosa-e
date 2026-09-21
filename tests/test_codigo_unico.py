@@ -1,5 +1,6 @@
 """Comprobaciones del código único de factura (RD 238/2026)."""
 
+import time
 from datetime import date
 
 import pytest
@@ -257,6 +258,72 @@ class TestSerie:
             cu(numero="F-009", nif="12345678Z"),
         ]
         assert "CU-13" not in codigos(codigo_unico.revisar_lote(lote, hoy=HOY))
+
+
+class TestPartirOrdinal:
+    """Los puntos 25a y 25b de la auditoria del 15-09-2026.
+
+    Partir "F-2026-001" en prefijo y ordinal es lo que permite ver los huecos
+    de una serie, y se hacia con `^(?P<prefijo>.*?)(?P<digitos>\\d+)$`. Con un
+    numero que **no** acaba en digito, el motor prueba todos los cortes
+    posibles y ninguno vale. Medido el 21-09-2026 con unos y una letra al
+    final: 237 ms con 5.000 caracteres, 923 ms con 10.000, 8.291 ms con
+    20.000. El mismo recorrido hecho a mano, de atras hacia delante, tarda
+    0,0009 ms con 20.000.
+
+    Y con el ordinal en la mano se hace `int()`, que desde Python 3.11 se
+    niega a convertir mas de 4.300 digitos. Un numero de 4.301 unos levantaba
+    `ValueError` y el informe entero se convertia en VALIDADOR-SE-ATRAGANTA.
+    """
+
+    def test_parte_lo_de_siempre(self):
+        assert codigo_unico.partir_ordinal("F-2026-001") == ("F-2026-", "001")
+        assert codigo_unico.partir_ordinal("12") == ("", "12")
+        assert codigo_unico.partir_ordinal("A1") == ("A", "1")
+
+    def test_sin_digitos_al_final_no_hay_ordinal(self):
+        assert codigo_unico.partir_ordinal("SIN-DIGITOS") is None
+        assert codigo_unico.partir_ordinal("F-2026-") is None
+        assert codigo_unico.partir_ordinal("") is None
+
+    def test_los_superindices_no_son_digitos(self):
+        """`isdecimal()` y no `isdigit()`: lo que `int()` sabe convertir.
+
+        `"2".isdigit()` es cierto para el superindice y `int()` lo rechaza.
+        La expresion regular usaba `\\d`, que es la categoria Nd, y esto tiene
+        que seguir diciendo lo mismo.
+        """
+        assert codigo_unico.partir_ordinal("F-\u00b2") is None
+
+    def test_un_numero_mas_largo_de_lo_que_cabe_no_se_parte(self):
+        """De un numero que ya es invalido no hay correlatividad que sacar.
+
+        Es el tope que hace que el `int()` de abajo no pueda ver nunca mas de
+        sesenta digitos.
+        """
+        justo = "1" * codigo_unico.LONGITUD_MAXIMA_NUMERO
+        assert codigo_unico.partir_ordinal(justo) == ("", justo)
+        assert codigo_unico.partir_ordinal(justo + "1") is None
+
+    def test_un_numero_larguisimo_no_tumba_el_lote(self):
+        """La prueba de verdad del 25b: antes esto era un ValueError."""
+        lote = [cu(numero="1" * 4_301), cu(numero="1" * 4_302)]
+        salen = codigos(codigo_unico.revisar_lote(lote, hoy=HOY))
+        assert "CU-03" in salen, "de lo largo que es si hay que quejarse"
+
+    def test_y_el_recorrido_es_lineal_aunque_se_suba_el_tope(self, monkeypatch):
+        """El tope es la defensa de hoy; que sea lineal es la de manana.
+
+        Si algun dia el campo admite mas caracteres, el tope sube y esto se
+        queda solo. Con la expresion regular de antes, veinte mil caracteres
+        costaban 8,3 segundos; el margen de aqui es de dos decimas.
+        """
+        monkeypatch.setattr(codigo_unico, "LONGITUD_MAXIMA_NUMERO", 10 ** 9)
+        adversaria = "1" * 20_000 + "X"
+        arranca = time.perf_counter()
+        assert codigo_unico.partir_ordinal(adversaria) is None
+        tardo = time.perf_counter() - arranca
+        assert tardo < 0.2, f"ha tardado {tardo * 1000:.0f} ms"
 
     def test_fecha_que_retrocede(self):
         lote = [

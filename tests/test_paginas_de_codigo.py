@@ -23,10 +23,13 @@ Lo que se comprueba aquí es lo que puede salir mal al partirlo en 160:
    fichero se publicaría a medias.
 """
 
+import html
 import pathlib
 import re
 
 import pytest
+
+from validador import codigos, glosario, pagina_incidencias
 
 from validador import pagina_incidencias
 from validador.codigos import codigos_del_paquete
@@ -99,6 +102,33 @@ class TestLasQueSalen:
         for nombre in escritas:
             texto = (destino / nombre).read_text(encoding="utf-8")
             assert len(RE_DESCRIPCION.search(texto).group(1)) <= 165, nombre
+
+    def test_y_se_mide_lo_que_ocupa_ya_escapado(self, monkeypatch):
+        """El corte contaba caracteres del texto; la página guarda el escapado.
+
+        Un `<` ocupa cuatro dentro del atributo `content`. La prueba de arriba
+        mide la página montada, así que esto sólo lo caza cuando existe un
+        código cuya explicación nombre una etiqueta XML en sus primeras
+        líneas: el 21-09-2026 había **uno** de 381, y fue el que lo destapó.
+        Ésta lo prueba sin depender de que ese código siga existiendo.
+        """
+        inventado = codigos.Codigo(
+            codigo="XSD-INVENTADO",
+            gravedades=("error",),
+            modulo="esquema.py",
+            linea=1,
+        )
+        monkeypatch.setitem(
+            glosario.CODIGOS,
+            inventado.codigo,
+            "Un <cbc:ID> donde va un <cbc:UUID>, con el <cac:Party> al lado. "
+            + "palabra " * 40,
+        )
+        salida = pagina_incidencias._resumen(inventado)
+        assert len(html.escape(salida)) <= 165, (
+            f"{len(html.escape(salida))} caracteres escapados: el "
+            "presupuesto vuelve a contarse sobre el texto sin escapar"
+        )
 
     def test_no_se_traen_el_titular_ni_el_buscador_del_catalogo(self, montadas):
         destino, escritas = montadas

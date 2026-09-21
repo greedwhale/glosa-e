@@ -1036,3 +1036,58 @@ class TestUnFicheroNoSeLlevaElLote:
         informe = factura.validar_archivo(mala)
         assert [i.codigo for i in informe.incidencias] == ["VALIDADOR-SE-ATRAGANTA"]
         assert any(i.gravedad == ERROR for i in informe.incidencias)
+
+
+class TestUnDoctypeConEntidades:
+    """El punto 24 de la auditoria del 15-09-2026.
+
+    Un Facturae con `<!ENTITY monto "1.00">` usado en un importe salia con
+    **una sola** linea: «Este fichero ha hecho fallar al validador:
+    XMLSchemaValidateError: Internal error in XML Schema validation». En
+    ingles, dentro del informe, y con todas las demas comprobaciones calladas.
+
+    libxml2 se niega a validar contra un XSD un arbol que trae referencias a
+    entidad sin expandir, y aqui no se expanden a proposito —lo guarda
+    `test_formato.TestSeguridad`—. Asi que ahora se dice lo que pasa, que es
+    ademas lo que de verdad le importa a quien recibe la factura: ese campo se
+    lee vacio, y el siguiente que abra el fichero puede leer otra cosa.
+    """
+
+    def _con_entidad(self):
+        """La misma UBL de siempre, con el total escrito como entidad."""
+        sana = ubl()
+        assert sana.count("<cbc:PayableAmount currencyID=\"EUR\">121.00<") == 1
+        return sana.replace(
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<!DOCTYPE Invoice [<!ENTITY total "121.00">]>',
+        ).replace(
+            '<cbc:PayableAmount currencyID="EUR">121.00<',
+            '<cbc:PayableAmount currencyID="EUR">&total;<',
+        )
+
+    def test_se_dice_y_no_se_atraganta(self):
+        informe = factura.validar(self._con_entidad())
+        salen = codigos(informe)
+        assert "XML-ENTIDADES" in salen
+        assert "VALIDADOR-SE-ATRAGANTA" not in salen, (
+            "el informe vuelve a ser una sola linea sobre el propio validador"
+        )
+
+    def test_y_el_resto_de_la_factura_se_sigue_mirando(self):
+        """Lo que se perdia no era una queja: eran todas las demas."""
+        informe = factura.validar(self._con_entidad())
+        assert len(informe.incidencias) > 1, [i.codigo for i in informe.incidencias]
+
+    def test_y_lo_dice_en_castellano(self):
+        """El mensaje de libxml2 llegaba tal cual al informe, en ingles."""
+        informe = factura.validar(self._con_entidad())
+        queja = next(i for i in informe.incidencias if i.codigo == "XML-ENTIDADES")
+        assert queja.gravedad == ERROR
+        assert "PayableAmount" in queja.encontrado
+        todo = " ".join(str(i.mensaje) + str(i.encontrado)
+                        for i in informe.incidencias)
+        assert "Internal error" not in todo
+
+    def test_una_factura_sin_doctype_no_se_entera(self):
+        assert "XML-ENTIDADES" not in codigos(factura.validar(ubl()))

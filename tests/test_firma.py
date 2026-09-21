@@ -1305,3 +1305,49 @@ class TestElEjemploFirmado:
         # Un ejemplo que se enseña tiene que estar bien entero, no solo firmado.
         informe = factura.validar_archivo(EJEMPLO)
         assert informe.validado and informe.conforme, informe.detalle()
+
+
+class TestUnCertificadoQueNoEsBase64:
+    """El punto 28 de la auditoria del 15-09-2026.
+
+    `certificados_de` hacia el `base64.b64decode` **fuera** del `try` que
+    protege la linea de debajo. Un `X509Certificate` mal copiado —dos letras
+    bastan— levantaba `binascii.Error: Incorrect padding` y el informe entero
+    se convertia en una sola linea, VALIDADOR-SE-ATRAGANTA, en ingles.
+
+    Medido el 21-09-2026 sobre el documento firmado de este fichero: de 23
+    incidencias a 1. Las 22 que se callaban no eran sobre la firma: eran sobre
+    la factura.
+    """
+
+    def _roto(self, tmp_path):
+        raiz = etree.fromstring(documento(), parser=parser())
+        raiz.xpath("//*[local-name()='X509Certificate']")[0].text = "AB"
+        camino = tmp_path / "cert-roto.xml"
+        camino.write_bytes(etree.tostring(raiz, xml_declaration=True,
+                                          encoding="UTF-8"))
+        return camino
+
+    def test_no_tumba_el_informe(self, tmp_path):
+        informe = factura.validar_archivo(self._roto(tmp_path))
+        salen = [i.codigo for i in informe.incidencias]
+        assert "VALIDADOR-SE-ATRAGANTA" not in salen, salen
+        assert len(salen) > 10, f"solo quedan {len(salen)}: {salen}"
+
+    def test_y_se_dice_que_la_firma_no_se_ha_comprobado(self, tmp_path):
+        """Lo importante: no atragantarse no puede ser dar por bueno.
+
+        Un certificado ilegible es una firma sin comprobar, y eso se dice.
+        """
+        informe = factura.validar_archivo(self._roto(tmp_path))
+        queja = next(i for i in informe.incidencias
+                     if i.codigo == "FIRMA-SIN-COMPROBAR")
+        assert queja.gravedad == AVISO
+        assert "(ilegible)" in queja.encontrado
+
+    def test_y_certificados_de_devuelve_la_lista_vacia(self):
+        """Sin reventar, que es lo unico que hacia falta cambiar."""
+        raiz = etree.fromstring(documento(), parser=parser())
+        raiz.xpath("//*[local-name()='X509Certificate']")[0].text = "AB"
+        (una,) = firma.hay_firma(raiz)
+        assert firma.certificados_de(una) == []

@@ -53,6 +53,12 @@ FAMILIAS: dict[str, str] = {
         "formato. Es lo primero que se mira: si el documento no cuadra con su "
         "propio esquema, lo que digan las reglas de negocio sobre él vale poco."
     ),
+    "XML": (
+        "Cómo está escrito el fichero como XML, antes de mirar si es una "
+        "factura. No lo exige ninguna norma de facturación: son cosas que "
+        "hacen que el mismo fichero se lea distinto según quién lo abra, y "
+        "una factura que dice dos cosas no dice ninguna."
+    ),
     "FE": (
         "Reglas propias de Facturae, el formato español. No salen de EN 16931 "
         "sino de la especificación de Facturae y de lo que la Administración "
@@ -1072,6 +1078,23 @@ CODIGOS: dict[str, str] = {
         'documento no incumple nada; lo que pasa es que todo lo que este '
         'validador podría decir de esa firma se queda sin decir, y eso vale '
         'más saberlo que suponerlo.'
+    ),
+    "XML-ENTIDADES": (
+        'El documento declara entidades XML en su prólogo —un `<!DOCTYPE …` '
+        'con `<!ENTITY …>` dentro— y las usa en el contenido, así que donde '
+        'debería haber un importe o un nombre hay una referencia que remite '
+        'al propio fichero. Aquí no se expanden, a propósito: un fichero que '
+        'llega de fuera no debe poder hacer que el programa que lo lee abra '
+        'otros ficheros. La consecuencia hay que decirla, y es esta: esos '
+        'campos se leen vacíos. Y no se arregla expandiéndolas, porque la '
+        'norma XML permite a un procesador no validante no hacerlo: el mismo '
+        'fichero se lee con un importe u otro según con qué se abra. Escribe '
+        'los valores tal cual y quita el DOCTYPE. Mientras esté, la forma '
+        'tampoco se comprueba contra el esquema: libxml2 se niega a validar '
+        'un árbol con referencias sin expandir, y antes del 21-09-2026 esa '
+        'negativa se llevaba por delante el informe entero —una factura con '
+        'una entidad salía con una sola línea, «Internal error in XML Schema '
+        'validation», en inglés, y ninguna de las demás comprobaciones—.'
     ),
     "VALIDADOR-SE-ATRAGANTA": (
         'Este fichero ha hecho fallar al validador. No es una queja sobre la '

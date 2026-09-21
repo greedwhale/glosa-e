@@ -1038,9 +1038,20 @@ def certificados_de(firma) -> list[Certificado]:
     """
     salida = []
     for texto in firma.xpath("./ds:KeyInfo//ds:X509Certificate/text()", namespaces=_NS):
-        crudo = base64.b64decode("".join(texto.split()), validate=False)
+        # El `b64decode` **dentro** del try. Estaba fuera, y eso convertía un
+        # certificado mal copiado en una caída del validador entero: medido el
+        # 21-09-2026 con un `X509Certificate` de dos letras, el informe pasaba
+        # de 23 incidencias a una sola, `VALIDADOR-SE-ATRAGANTA`, con
+        # «Incorrect padding» en inglés. `validate=False` hace que se ignoren
+        # los caracteres de fuera del alfabeto, no que la longitud cuadre.
+        #
+        # Saltárselo no es dar nada por bueno: de que no se haya podido leer el
+        # certificado del firmante se queja `FIRMA-SIN-COMPROBAR`, que sale de
+        # `examinar` y dice con todas las letras que la firma no se ha
+        # comprobado.
         try:
-            salida.append(leer_certificado(crudo))
+            salida.append(leer_certificado(base64.b64decode(
+                "".join(texto.split()), validate=False)))
         except (ValueError, IndexError, binascii.Error):
             continue
     return salida

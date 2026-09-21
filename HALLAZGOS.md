@@ -4195,7 +4195,9 @@ entero.
 
 ### Los catorce que quedan, medidos
 
-Todos se reproducen. Ninguno da un aprobado falso.
+Todos se reproducen. Ninguno da un aprobado falso. **Cuatro de ellos —24, 25a,
+25b y 28— se cerraron el mismo día**; la lista al día está al final de la
+entrada siguiente.
 
 | # | Qué pasa | Medido |
 |---|---|---|
@@ -4214,3 +4216,143 @@ Todos se reproducen. Ninguno da un aprobado falso.
 | 37 | `legal.html` dice «no se guarda nada» | Y `index.html`, en el mismo sitio, dice «unos 10 MB… se queda en el navegador». Seis ficheros con `immutable` a un año suman ≈15,1 MB |
 | 38 | El 404 y las minúsculas | `/codigo-BR-01` → 200, `/codigo-br-01` → 404. El 404 es el genérico de Vercel, en inglés y sin marca |
 | 39 | Cinco menores | HSTS sin `includeSubDomains` —el `.vercel.app` sí lo lleva—, faltan `Permissions-Policy`, COOP y CORP, `prueba.py` como `octet-stream`, `escapar()` sin comillas —hoy sin impacto: solo recibe `error`, `aviso` o `nota`— y el subdominio de Vercel no redirige |
+
+## Los cuatro que se atragantaban
+
+La tanda A de los puntos que quedaban de la auditoría del 15-09-2026: 24, 25a,
+25b y 28. Los cuatro tienen el mismo final —`VALIDADOR-SE-ATRAGANTA`— y el
+mismo motivo de fondo: **la red de seguridad funciona, y lo que cae en ella se
+pierde**. Esa red convierte un fichero que revienta el validador en un error
+del fichero, para que un lote de quinientas facturas no se detenga en la
+séptima; pero el informe de esa séptima queda reducido a una sola línea, con el
+nombre de una excepción de Python y el mensaje de la librería en inglés.
+
+Medido hoy, en los cuatro casos: de 23 incidencias a 1, o de 4 a 1. Lo que se
+callaba no eran quejas sobre la firma ni sobre el XML: eran todas las demás.
+
+### 24. Un DOCTYPE con una entidad usada en un importe
+
+`<!ENTITY monto "1.00">` en el prólogo y `&monto;` dentro de un `TotalAmount`.
+El parser de este proyecto lleva `resolve_entities=False` desde el principio
+—un fichero de un tercero no debe poder leer ficheros del servidor, y hay
+prueba de ello desde antes—, así que la referencia se queda sin expandir. Y
+libxml2 se niega a validar contra un XSD un árbol que las trae:
+
+```
+VALIDADOR-SE-ATRAGANTA  error
+  Este fichero ha hecho fallar al validador: XMLSchemaValidateError:
+  Internal error in XML Schema validation
+```
+
+Una línea, en inglés, y ninguna otra comprobación. Ahora salen cuatro, en
+castellano, encabezadas por `XML-ENTIDADES`, que es código nuevo y familia
+nueva.
+
+**Y lo que de verdad importaba no era la caída.** Medido con lxml: en ese
+documento, `TotalAmount.text` vale `None`. El importe no está mal escrito: no
+está. Si la caída se arreglara a secas, la factura pasaría a validarse con un
+total vacío y sin que nadie lo dijera —un falso aprobado de los caros—. Por eso
+`XML-ENTIDADES` es error y no aviso, y por eso no se arregla expandiendo las
+entidades: la norma XML permite a un procesador no validante no expandirlas, o
+sea que el mismo fichero se lee con dos importes distintos según quién lo abra.
+Una factura que dice dos cosas no dice ninguna.
+
+La familia se llama `XML` y no `XSD` a propósito. El esquema no prohíbe esto;
+lo decide este validador, y la etiqueta de la ficha tiene que decir «De la
+casa» y no «Esquema XSD».
+
+### 25a. La expresión regular del número de factura era cuadrática
+
+Partir `F-2026-001` en el prefijo `F-2026-` y el ordinal `001` es lo que
+permite ver los huecos de una serie, y se hacía con
+`^(?P<prefijo>.*?)(?P<digitos>\d+)$`. Con un número que **no** acaba en dígito,
+el motor prueba todos los cortes posibles y ninguno vale:
+
+| Caracteres | La expresión regular | Recorrerlo del final hacia delante |
+|---|---|---|
+| 5.000 | 237 ms | 0,0004 ms |
+| 10.000 | 923 ms | 0,0003 ms |
+| 20.000 | **8.291 ms** | 0,0009 ms |
+
+El mismo número de 20.000 caracteres acabado en dígitos: 0,2 ms. No es un fallo
+del motor, es lo que hace un `.*?` perezoso delante de algo que nunca encaja.
+
+### 25b. `int()` se niega con más de 4.300 dígitos
+
+Con el ordinal en la mano se hace `int()`, y desde Python 3.11 hay un tope de
+4.300 dígitos —la defensa contra un `int()` cuadrático—. Medido sobre
+`ejemplos/f-0001.xml` con el `<cbc:ID>` sustituido:
+
+```
+4.300 unos -> CU-03, y nada más
+4.301 unos -> ValueError, en codigo_unico.py:427
+```
+
+Los dos arreglos son el mismo: `partir_ordinal()` recorre el número del final
+hacia delante y **no toca** los que son más largos de lo que cabe en el campo.
+De un número de sesenta y un caracteres ya se ha quejado CU-03, y de un número
+que no es válido no hay correlatividad que reconstruir. Con eso, el `int()` no
+puede ver nunca más de sesenta dígitos: que el tope sea el mismo que el de
+CU-03 no es casualidad, es el motivo.
+
+Hay prueba de las dos mitades por separado, y la del recorrido levanta el tope
+a propósito: el tope es la defensa de hoy, que sea lineal es la de mañana.
+
+### 28. Un `X509Certificate` que no es base64 callaba el resto
+
+`certificados_de` hacía el `base64.b64decode` **fuera** del `try` que protege
+la línea de debajo. Dos letras bastan:
+
+```
+23 incidencias  ->  1
+                    Incorrect padding
+```
+
+Las 22 que se perdían no eran sobre la firma. Movido el `b64decode` dentro del
+`try`, la misma factura vuelve a salir con 23, y dos de ellas son nuevas:
+`FIRMA-SIN-COMPROBAR` —«no se ha podido leer el certificado, así que no se ha
+comprobado la firma»— y `XSD-TIPO`, porque el esquema también tiene algo que
+decir de un `X509Certificate` que no es base64. Saltarse el certificado
+ilegible no es darlo por bueno: es dejar que lo diga quien sabe decirlo.
+
+### Y una que salió al paso: la descripción de las fichas
+
+Añadir `XML-ENTIDADES` puso en rojo una prueba que no era de ninguno de los
+cuatro puntos: la ficha `/codigo-XML-ENTIDADES` tenía una descripción de 168
+caracteres donde caben 165. El corte medía el texto y lo que acaba en el
+atributo `content` es el texto **escapado**, donde un `<` ocupa cuatro. Una
+explicación que nombre una etiqueta XML en su primera frase se pasaba.
+
+Le pasaba a **una** de 382, y por eso no se había visto nunca. Ahora el
+presupuesto se cuenta ya escapado; las otras 381 descripciones no cambian ni un
+carácter —comprobado una a una—. La destapó la prueba, no la página.
+
+### Nueve roturas provocadas, las nueve en rojo
+
+Y una de ellas enseñó algo. «El esquema vuelve a ver el árbol con entidades»
+salió **verde** a la primera: la suite corre sin esquemas instalados a
+propósito —lo dice `conftest.py`, y con razón—, así que la validación de forma
+ni llegaba a ejecutarse y la regresión pasaba sin que nada se enterara. La
+prueba se reescribió con un catálogo propio, de los de juguete, y con una
+hermana que comprueba que el atajo no se ha llevado por delante la validación
+entera.
+
+### Los once que quedan
+
+| # | Qué pasa | Medido |
+|---|---|---|
+| 26 | Series que se tocan comparten código único | `A`+`12` y `A1`+`2` dan `B12345674\|A12\|…` las dos: `CU-10` a dos facturas distintas. Y también la misma `huella()` |
+| 27 | Un céntimo de descuadre da dos quejas | `BR-CO-12` y `IVA-BASE-TOLERADA` a la vez. `en16931` compara sin margen desde el 13-09-2026 y la guardia de `iva.py` se quedó con el de 0,01 |
+| 30 | Un `UNA` con separadores propios | «Mensaje EDIFACT, pero sin cabecera UNH», que es falso: el partidor sí la encuentra |
+| 31 | Un ejemplo que da 404 se escribe como si fuera la factura | En producción lo para la huella de `rueda.json`, de rebote; sin ella, pasa |
+| 33 | `/entrada` no se vacía nunca | 6 validaciones → 6 ficheros, 480.438 B, todos vivos |
+| 34 | Mensajes de libxml2 en inglés dentro del informe | `Premature end of data in tag FileHeader`, `xmlParseEntityRef: no name`… |
+| 35 | Las gravedades no casan con lo que promete la página | `BR-01/14/21` y `SELLO-FALTA` salen NOTA contra la definición de la propia FAQ; y la portada promete «revocación» sin decir bajo qué condición |
+| 36 | El testigo de red cuenta lo servido de caché | Pinta 10,4 MB cuando por el cable fueron 17.769 bytes: usa `encodedBodySize` en vez de `transferSize` |
+| 37 | `legal.html` dice «no se guarda nada» | Y `index.html`, en el mismo sitio, dice «unos 10 MB… se queda en el navegador». Seis ficheros con `immutable` a un año suman ≈15,1 MB |
+| 38 | El 404 y las minúsculas | `/codigo-BR-01` → 200, `/codigo-br-01` → 404. El 404 es el genérico de Vercel, en inglés y sin marca |
+| 39 | Cinco menores | HSTS sin `includeSubDomains` —el `.vercel.app` sí lo lleva—, faltan `Permissions-Policy`, COOP y CORP, `prueba.py` como `octet-stream`, `escapar()` sin comillas —hoy sin impacto: solo recibe `error`, `aviso` o `nota`— y el subdominio de Vercel no redirige |
+
+El 34 es hermano del 24 y se queda para su tanda: son los mensajes de libxml2
+que sí llegan al informe cuando el documento está mal formado, y ahí no hay una
+caída que evitar sino una traducción que escribir.

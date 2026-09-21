@@ -244,6 +244,14 @@ def _resumen(uno: Codigo) -> str:
 
     Se corta por la última frase entera que quepa y no a media palabra: un
     resumen cortado por la mitad se lee como un fallo de la página.
+
+    **El presupuesto se cuenta ya escapado.** El corte medía caracteres del
+    texto y lo que acaba en el atributo `content` es el texto escapado, donde
+    un `<` ocupa cuatro. Una explicación que nombre una etiqueta XML en su
+    primera frase salía más larga de lo que se había presupuestado: medido el
+    21-09-2026, 159 caracteres que en la página eran 168. Sólo le pasaba a una
+    de las 381, y por eso no se había visto nunca; la que lo destapó fue la
+    prueba, no la página.
     """
     texto, _ = explicar(uno.codigo, uno.familia)
     etiqueta, _detalle = _norma(uno.codigo)
@@ -263,10 +271,14 @@ def _resumen(uno: Codigo) -> str:
     cabeza = f"{uno.codigo} en una factura electrónica: {gravedad} {de_quien}."
     if not texto:
         return f"{cabeza} Qué gravedad tiene y de dónde sale la exigencia."
-    sitio = 158 - len(cabeza)
-    if len(texto) <= sitio:
+    sitio = 158 - len(html.escape(cabeza))
+    if len(html.escape(texto)) <= sitio:
         return f"{cabeza} {texto}"
+    # Se recorta sobre el texto sin escapar —es donde están las frases— pero
+    # se mide sobre el escapado, que es lo que ocupa de verdad.
     recorte = texto[:sitio]
+    while len(html.escape(recorte)) > sitio:
+        recorte = recorte[:-1]
     corte = max(recorte.rfind(". "), recorte.rfind(" "))
     return f"{cabeza} {recorte[: corte + 1].strip().rstrip(',;:')}…"
 
