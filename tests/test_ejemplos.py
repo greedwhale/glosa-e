@@ -56,11 +56,11 @@ HOY = datetime.date(2026, 9, 20)
 
 # fichero -> (conforme, los códigos que saca)
 #
-# `fe-0001.xml` sale conforme **con nueve incidencias**, y no es
-# contradictorio: siete son NOTA -tres del binding de Facturae diciendo lo que
-# esa sintaxis no tiene dónde escribir, y tres de lo que le pasaría al copiarse
-# a la solución pública- y dos son AVISO de una firma de juguete. Ninguna es
-# ERROR, y `conforme` mira los errores.
+# `fe-0001.xml` sale conforme **con diez incidencias**, y no es
+# contradictorio: ocho son NOTA -tres del binding de Facturae diciendo lo que
+# esa sintaxis no tiene dónde escribir, y cuatro de lo que le pasaría al
+# copiarse a la solución pública- y dos son AVISO de una firma de juguete.
+# Ninguna es ERROR, y `conforme` mira los errores.
 ESPERADO: dict[str, tuple[bool, tuple[str, ...]]] = {
     "cii-A-0001.xml": (False, ("BR-S-08", "IVA-TIPO-SIN-DESGLOSE")),
     "edi-0001.edi": (True, ()),
@@ -76,13 +76,16 @@ ESPERADO: dict[str, tuple[bool, tuple[str, ...]]] = {
     # `IVA-CATEGORIA-SIN-MAPA` ya no sale: desde que la categoria se deduce
     # del `TaxTypeCode` y del tipo, esta factura va a S al 21% y las BR-S-*
     # corren de verdad sobre ella.
-    # Las tres `COPIA-*` salen de la tabla de correspondencia: este ejemplo
+    # Las cuatro `COPIA-*` salen de la tabla de correspondencia: este ejemplo
     # lleva serie -«FE» y «0001», que en la copia son un solo campo-, idioma,
-    # que en la copia no tiene dónde ir, y una línea con la unidad `01`, que
-    # es de la lista de Facturae y en la copia se escribe `C62`.
+    # que en la copia no tiene dónde ir, una línea con la unidad `01` -que es
+    # de la lista de Facturae y en la copia se escribe `C62`- y una
+    # transferencia, el `04` de Facturae, que en la lista europea no es una
+    # transferencia sino la reversión de un adeudo.
     "fe-0001.xml": (True, ("BR-01", "BR-14", "BR-21", "CADENA-SIN-ANCLAS",
-                           "COPIA-LINEA-UNIDAD", "COPIA-SERIE",
-                           "COPIA-SIN-SITIO", "FIRMA-DEBIL", "SELLO-FALTA")),
+                           "COPIA-LINEA-UNIDAD", "COPIA-PAGO-MEDIO",
+                           "COPIA-SERIE", "COPIA-SIN-SITIO",
+                           "FIRMA-DEBIL", "SELLO-FALTA")),
     "r-0001.xml": (True, ()),
 }
 

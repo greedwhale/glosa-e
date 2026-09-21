@@ -3357,6 +3357,31 @@ CODIGOS: dict[str, str] = {
         "solo el número, la copia y el original no identificarían la misma "
         "factura."
     ),
+    "COPIA-PAGO-MEDIO": (
+        "El medio de pago va escrito con la lista de Facturae y la copia lo "
+        "pide con la europea, UNCL4461. Esto no es como la unidad de medida, "
+        "donde un código de otra lista se ve al validar: los **19 códigos de "
+        "Facturae existen los 19** en UNCL4461 queriendo decir otra cosa "
+        "—diez tal cual, y los nueve que empiezan por cero en cuanto se les "
+        "quita—. Copiar el dígito, o «normalizarlo» quitándole el cero, no da "
+        "un error: da una factura válida que dice que se paga de otra manera. "
+        "El `19` de Facturae es el pago con tarjeta y el `19` europeo es un "
+        "adeudo de cámara de compensación; el `04` es la transferencia y el "
+        "`4` europeo es la reversión de un adeudo. Ninguna etiqueta del "
+        "esquema trae el código europeo, así que la tabla se escribe a mano: "
+        "Glosa traduce las cinco que se sostienen por nombre —al contado, "
+        "recibo domiciliado, transferencia, cheque y tarjeta— y de las demás "
+        "dice que hay que elegirlas, en vez de poner una parecida."
+    ),
+    "COPIA-VENCIMIENTOS": (
+        "La factura se paga en varios vencimientos y la copia solo admite "
+        "uno. El anexo trae un grupo de instrucciones de pago, `BG-16`, con "
+        "cardinalidad 0..1, y una sola fecha en `BT-9`; Facturae deja repetir "
+        "el vencimiento tantas veces como haga falta. Hay que elegir cuál "
+        "viaja, y el reparto de importes se queda en el original, porque la "
+        "norma no tiene un importe por vencimiento: lo más parecido es "
+        "`BT-115`, que es uno para toda la factura."
+    ),
     "COPIA-CARGO-IVA": (
         "Un descuento o un cargo general de Facturae no lleva IVA propio: se "
         "aplica antes del desglose y sobre la base entera. La norma no los "

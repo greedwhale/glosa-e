@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2335 tests, todos en verde.
+2341 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3849,6 +3849,16 @@ Y un cabo de la familia anterior que se cierra aquí: un descuento de línea hay
 que escribirlo **dos veces** en la copia —como grupo `BG-27` y restado dentro de
 `BT-131`—, que es exactamente la cuenta que hace `GrossAmount` en Facturae.
 
+**La quinta familia: el pago** (21-09-2026). Aquí está el choque más feo de
+toda la tabla, y no se ve sin abrir las dos listas a la vez:
+
+| Lo que esconde el pago | De 14 | Qué pasa |
+|---|---:|---|
+| El **medio de pago** dice otra cosa | 12 | Facturae tiene 19 códigos propios y la norma pide UNCL4461. Medido contra la lista que trae el esquematrón oficial: **los 19 existen también en UNCL4461** —diez tal cual, y los nueve que empiezan por cero en cuanto se les quita—, así que copiar el dígito no da un error: da un código válido que dice otra cosa. El `19` de Facturae es la tarjeta y el `19` europeo es un adeudo de cámara de compensación; el `04` es la transferencia y el `4` europeo es la reversión de un adeudo. Glosa traduce **cinco**, las que se sostienen por nombre, y de las demás dice que hay que elegirlas |
+| **Varios vencimientos** no caben | 0 | `Installment` es `maxOccurs="unbounded"` en Facturae y el anexo tiene `BG-16` con cardinalidad 0..1 y una sola fecha en `BT-9`. Hay que elegir cuál viaja. **Ninguna de las 14 de aquí trae más de uno: el corte existe y no se ha visto**, así que se prueba provocado |
+| La **cuenta de cargo** no está en el anexo | 8 | `BT-91` es término de la norma y el anexo no lo recoge —y la traen más facturas que la de abono, que sí viaja— |
+| La **dirección de la sucursal** no viaja | 8 | de la cuenta, la norma se queda con el identificador y, como mucho, el BIC. Sale en la nota de lo que se queda en el original |
+
 Lo que dice el módulo, con los importes al lado:
 
 | Nota | Cuándo sale | Qué dice |
@@ -3857,6 +3867,8 @@ Lo que dice el módulo, con los importes al lado:
 | `COPIA-CUOTA` | hay recargo de equivalencia | la cuota de la copia no lleva el recargo: en el anexo tiene grupo propio |
 | `COPIA-SERIE` | la serie trae texto | en la copia, el número de la factura es la serie y el número juntos |
 | `COPIA-DIRECCION` | hay dirección de fuera de España | el código postal y la población hay que partirlos en dos campos |
+| `COPIA-PAGO-MEDIO` | hay medio de pago | el código es de la lista de Facturae y en la europea significa otra cosa |
+| `COPIA-VENCIMIENTOS` | hay más de un vencimiento | en la copia cabe uno |
 | `COPIA-CARGO-IVA` | hay descuentos o cargos generales | en la copia van agrupados por categoría de IVA, y aquí no la llevan |
 | `COPIA-LINEA-UNIDAD` | una línea trae unidad de medida | el código es de la lista de Facturae y la copia pide uno de UN/ECE |
 | `COPIA-LINEA-NETO` | `TotalCost` y `GrossAmount` no valen lo mismo | el importe neto de la línea es el segundo, no el primero |
@@ -3870,7 +3882,7 @@ ejemplo publicado `ejemplos/fe-0001.xml` saca tres —su serie, su idioma y la
 unidad de su línea— y sigue saliendo conforme, porque ninguna es un error.
 
 **La tabla se escribe entera, con el porqué de cada fila**, en
-`CORRESPONDENCIAS`: **52 conceptos**, cada uno con lo que le pasa y de dónde
+`CORRESPONDENCIAS`: **62 conceptos**, cada uno con lo que le pasa y de dónde
 sale esa decisión. Los estados son siete, y los dos que se añadieron con la
 segunda y la tercera familia son los cuatro que no se pueden juntar con nada:
 

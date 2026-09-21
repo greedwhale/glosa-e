@@ -69,6 +69,7 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
       {financieros}
       {subvenciones}
     </InvoiceTotals>
+    {pago}
   </Invoice></Invoices>
 </fe:Facturae>
 """
@@ -84,6 +85,26 @@ LINEA = """<Items><InvoiceLine>
       {coste}
       {bruto}
     </InvoiceLine></Items>"""
+
+# Un vencimiento, con lo justo. La dirección de la sucursal es lo que no
+# viaja: de la cuenta, la norma se queda con el identificador.
+VENCIMIENTO = """<Installment>
+      <InstallmentDueDate>2026-10-{dia:02d}</InstallmentDueDate>
+      <InstallmentAmount>121.00</InstallmentAmount>
+      {medio}
+      <AccountToBeCredited>
+        <IBAN>ES9121000418450200051332</IBAN>
+        {sucursal}
+      </AccountToBeCredited>
+    </Installment>"""
+
+SUCURSAL = """<BranchInSpainAddress>
+          <Address>Gran Via 1</Address>
+          <PostCode>28013</PostCode>
+          <Town>Madrid</Town>
+          <Province>Madrid</Province>
+          <CountryCode>ESP</CountryCode>
+        </BranchInSpainAddress>"""
 
 # Un segundo tipo de IVA, que es lo que convierte el descuento general en una
 # decisión: con una sola categoría la cuenta está forzada.
@@ -135,7 +156,8 @@ def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
             serie=None, idioma=False, fax=False, fuera=None, subvenciones=None,
             unidad=None, coste=None, neto=None,
             descuento_general=None, cargo_general=None, segundo_tipo=False,
-            retencion_detallada=False):
+            retencion_detallada=False, medio=None, vencimientos=0,
+            sucursal=False):
     """Una factura de 100 de base y 21 de IVA, con lo que se le encienda."""
     repercutido = "26.20" if recargo else "21.00"
     total = str(round(100 + float(repercutido) - float(retenido), 2))
@@ -160,7 +182,22 @@ def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
                       f"<ChargeReason>portes</ChargeReason>"
                       f"<ChargeAmount>{cargo_general}</ChargeAmount>"
                       f"</Charge></GeneralSurcharges>")
+    # `medio` o `sucursal` piden un vencimiento aunque no se pida ninguno:
+    # así una prueba del medio de pago no tiene que acordarse de los dos.
+    cuantos = vencimientos or (1 if (medio or sucursal) else 0)
+    pago = ""
+    if cuantos:
+        dentro = "".join(
+            VENCIMIENTO.format(
+                dia=1 + i,
+                medio=f"<PaymentMeans>{medio}</PaymentMeans>" if medio else "",
+                sucursal=SUCURSAL if sucursal else "",
+            )
+            for i in range(cuantos)
+        )
+        pago = f"<PaymentDetails>{dentro}</PaymentDetails>"
     documento = PLANTILLA.format(
+        pago=pago,
         generales=generales,
         segundo_tipo=SEGUNDO_TIPO if segundo_tipo else "",
         retenciones=RETENCIONES if retencion_detallada else "",
@@ -405,6 +442,62 @@ def test_una_retencion_no_cuenta_como_otra_categoria_de_iva():
 def test_sin_descuentos_ni_cargos_generales_no_se_dice_nada():
     """Los de línea no cuentan: ésos pasan sin discusión."""
     assert "COPIA-CARGO-IVA" not in notas(coste="100.00", neto="90.00")
+
+
+def test_el_medio_de_pago_pasa_la_validacion_diciendo_otra_cosa():
+    """El caso más feo de la tabla, y el que no se ve.
+
+    Los 19 códigos de Facturae existen los 19 en UNCL4461 con otro
+    significado, así que copiar el dígito no da un error: da una factura
+    válida que dice que se paga de otra manera.
+    """
+    medio = notas(medio="19")["COPIA-PAGO-MEDIO"]
+    assert medio.gravedad == NOTA
+    assert "48" in medio.esperado
+    assert "bank card" in medio.esperado
+    assert "pago mediante tarjeta" in medio.encontrado
+
+
+def test_un_medio_de_pago_sin_equivalente_no_se_inventa():
+    """El 06 es un crédito documentario y no tiene equivalente sostenible.
+
+    Ponerle uno «parecido» es justo el fallo del que avisa la nota, así que
+    aquí se dice que hay que elegirlo a mano y no se da ninguno.
+    """
+    medio = notas(medio="06")["COPIA-PAGO-MEDIO"]
+    assert "a mano" in medio.esperado
+    assert "UNCL4461" in medio.esperado
+    assert "06 en esta factura" in medio.encontrado
+
+
+def test_dos_vencimientos_no_caben_en_la_copia():
+    """Provocado: ninguna de las 14 facturas de aquí trae más de uno.
+
+    El corte existe -`Installment` es `maxOccurs="unbounded"` y `BG-16` es
+    0..1- y no se ha visto, así que se prueba a mano o no se prueba.
+    """
+    vencimientos = notas(vencimientos=2)["COPIA-VENCIMIENTOS"]
+    assert vencimientos.gravedad == NOTA
+    assert "2 en esta factura" in vencimientos.encontrado
+    assert "2026-10-01" in vencimientos.encontrado
+
+
+def test_un_solo_vencimiento_no_saca_esa_nota():
+    """Con uno, la copia lo recoge entero y no hay nada que elegir."""
+    assert "COPIA-VENCIMIENTOS" not in notas(vencimientos=1)
+
+
+def test_la_direccion_de_la_sucursal_se_queda_en_el_original():
+    """De la cuenta, la norma se queda con el identificador y poco más."""
+    sin_sitio = notas(sucursal=True)["COPIA-SIN-SITIO"]
+    assert "sucursal" in sin_sitio.encontrado
+
+
+def test_sin_bloque_de_pago_no_se_dice_nada_del_pago():
+    """Una factura sin `PaymentDetails` no tiene nada que contar aquí."""
+    salidas = notas()
+    assert "COPIA-PAGO-MEDIO" not in salidas
+    assert "COPIA-VENCIMIENTOS" not in salidas
 
 
 def test_el_destino_de_cada_fila_existe_en_el_anexo():

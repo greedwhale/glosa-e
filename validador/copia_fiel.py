@@ -51,7 +51,10 @@ mirando, y las dos últimas son las que no dice nadie:
    sintaxis de algo que es de la sintaxis. Lo que allí se calla, aquí se dice:
    **qué hay que escribir en la copia**. Medido el 21-09-2026: **11 de las 14
    llevan unidad de medida, y las 18 líneas que la traen escriben `01`**, que
-   en la lista de Facturae es «Units» y en la copia es `C62`.
+   en la lista de Facturae es «Units» y en la copia es `C62`. Y el peor de los
+   cuatro es el medio de pago, porque no se ve: los **19 códigos de Facturae
+   existen los 19 en UNCL4461** queriendo decir otra cosa, así que el dígito
+   copiado pasa la validación diciendo que se paga de otra manera.
 
 De dónde sale cada fila
 -----------------------
@@ -98,19 +101,23 @@ en una fuente distinta y alguna todavía no tiene fuente:
    con dos hay que repartir. Medido: 6 de 14 llevan alguno, y **una** tiene más
    de una categoría.
 
-Quedan **51 de los 104 términos europeos sin fila** —la tabla nombra 53,
+5. **El pago** (21-09-2026): dónde y cómo se cobra. Trae el choque más feo
+   de la tabla: los **19 códigos de medio de pago de Facturae existen los 19**
+   en la lista europea queriendo decir otra cosa, así que el dígito copiado no
+   da un error, da una factura que dice que se paga de otra manera. Medido: 12
+   de 14 traen medio de pago.
+
+Quedan **46 de los 104 términos europeos sin fila** —la tabla nombra 58,
 medido el 21-09-2026—, y es importante no confundir lo que falta con lo que
 espera, porque no son lo mismo:
 
-5. **El pago** (`BG-16`, `BG-17`): 12 de 14. Facturae admite varios
-   vencimientos y la copia tiene un solo `BT-9`.
 6. **Las referencias** (`BT-10`, `BG-3`, `BG-24`): el albarán en 11 y el pedido
    del comprador en 8 de 14, y el anexo **no recoge ninguna** de `BT-11` a
    `BT-19`. Se escribe sin la parte de rectificativas, que espera.
 
-La primera y la mitad de la segunda **el anuncio del 10-09-2026 no las toca**,
-que es la razón de que vayan delante: escritas hoy no hay que reescribirlas.
-Las tres que quedan sí quedan debajo de él y se escriben después:
+La mitad de la primera **el anuncio del 10-09-2026 no la toca**, que es la
+razón de que vaya delante: escrita hoy no hay que reescribirla. Las tres que
+quedan sí quedan debajo de él y se escriben después:
 
 7. **El desglose del IVA** —la `L4` gana categorías nuevas—, **la cabecera**
    —entra el `389` en la `L1`— y **las partes** —el NIF del vendedor podrá ir
@@ -549,6 +556,83 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "suma de cargos generales", "TotalGeneralSurcharges", "BT-108", IGUAL,
         "la suma de los cargos del documento, que es lo mismo en los dos",
     ),
+
+    # La quinta familia: el pago. Es la del choque más feo de todos, y no se ve
+    # sin abrir las dos listas a la vez: los 19 códigos de medio de pago de
+    # Facturae **existen los 19** en la lista europea queriendo decir otra
+    # cosa, así que el que copie el dígito no se lleva un error, se lleva una
+    # factura que dice que se paga de otra manera.
+    Correspondencia(
+        "forma de pago", "Installment", "BG-16", OTRO_CORTE,
+        "Facturae admite **varios vencimientos** -`Installment` es "
+        "`maxOccurs=\"unbounded\"`- y el anexo tiene un solo grupo de "
+        "instrucciones de pago, `BG-16` con cardinalidad 0..1, y una sola "
+        "fecha en `BT-9`. Con un vencimiento la copia lo recoge entero; con "
+        "dos hay que elegir cuál viaja. Medido el 21-09-2026: ninguna de las "
+        "14 facturas de aquí trae más de uno, así que **el corte existe y no "
+        "se ha visto**",
+    ),
+    Correspondencia(
+        "fecha de vencimiento", "InstallmentDueDate", "BT-9", IGUAL,
+        "la fecha de vencimiento del pago, igual en los dos. Medido: 12 de 14",
+    ),
+    Correspondencia(
+        "importe del vencimiento", "InstallmentAmount", "", SIN_SITIO,
+        "la norma no tiene importe por vencimiento: lo más parecido es "
+        "`BT-115`, el importe a pagar, que es uno para toda la factura. Con un "
+        "solo vencimiento son el mismo número y no se pierde nada; con dos, el "
+        "reparto se queda en el original",
+    ),
+    Correspondencia(
+        "medio de pago", "PaymentMeans", "BT-81", OTRA_LISTA,
+        "y es el caso más peligroso de la tabla. Facturae tiene 19 códigos "
+        "propios y la norma pide UNCL4461. Medido el 21-09-2026 contra la "
+        "lista que el esquematrón oficial trae: los **19 existen también en "
+        "UNCL4461** -diez tal cual, y los nueve que empiezan por cero en "
+        "cuanto se les quita-, así que copiar el dígito no da un error: da un "
+        "código válido que dice otra cosa. El 19 de Facturae es «pago "
+        "mediante tarjeta» y el 19 europeo es un adeudo de cámara de "
+        "compensación; el 04 es «transferencia» y el 4 europeo es la reversión "
+        "de un adeudo. Ninguna etiqueta del esquema trae el código europeo, "
+        "así que la tabla se escribe a mano: aquí van las cinco que se pueden "
+        "sostener por nombre",
+    ),
+    Correspondencia(
+        "cuenta de abono", "AccountToBeCredited", "BG-17 (BT-84)", IGUAL,
+        "la cuenta donde se cobra. El IBAN pasa a `BT-84` sin discusión. "
+        "Medido: 9 de 14",
+    ),
+    Correspondencia(
+        "cuenta de cargo", "AccountToBeDebited", "BT-91", NO_LO_PIDEN,
+        "la norma tiene la cuenta que se adeuda y el anexo no la recoge. "
+        "Medido: 8 de 14 la traen, que son más de las que traen la de abono",
+    ),
+    Correspondencia(
+        "referencia de la remesa", "PaymentReconciliationReference", "BT-83",
+        NO_LO_PIDEN,
+        "la norma tiene la información de remesa -lo que el pagador escribe en "
+        "el concepto para que el cobro se reconozca- y el anexo no la recoge. "
+        "Medido: 5 de 14",
+    ),
+    Correspondencia(
+        "dirección de la sucursal", "BranchInSpainAddress", "", SIN_SITIO,
+        "el domicilio de la oficina bancaria. La norma no tiene nada parecido: "
+        "de la cuenta se queda con el identificador y, como mucho, con el BIC. "
+        "Medido: 5 de 14",
+    ),
+    Correspondencia(
+        "dirección de la sucursal de fuera", "OverseasBranchAddress", "",
+        SIN_SITIO,
+        "la misma dirección cuando el banco no es español, y con el mismo "
+        "destino: ninguno. Medido: 3 de 14",
+    ),
+    Correspondencia(
+        "información adicional del cobro", "CollectionAdditionalInformation",
+        "", SIN_SITIO,
+        "texto libre sobre el cobro, que en la copia no tiene dónde ir. "
+        "Medido: ninguna de las 14 lo trae, y se escribe igual porque la tabla "
+        "describe el formato y no esta carpeta",
+    ),
 )
 
 # Lo que la tabla tiene que cubrir para que las reglas de abajo no hablen de
@@ -563,6 +647,9 @@ _LO_QUE_SE_MIRA = (
     "TeleFax", "WebAddress", "CnoCnae", "AdditionalContactDetails",
     "UnitOfMeasure", "GrossAmount",
     "GeneralDiscounts", "GeneralSurcharges",
+    "Installment", "InstallmentDueDate", "PaymentMeans",
+    "BranchInSpainAddress", "OverseasBranchAddress",
+    "CollectionAdditionalInformation",
 )
 
 
@@ -611,6 +698,28 @@ def _texto(nodo, *nombres: str) -> str:
     return ""
 
 
+# Los cinco medios de pago que se pueden traducir por su nombre, y solo esos.
+#
+# Los 19 de Facturae existen los 19 en UNCL4461 con otro significado, así que
+# no hay ninguna traducción automática posible: hay que ir código a código. Se
+# escriben aquí los cinco en los que el nombre de Facturae y el de la lista
+# europea dicen exactamente lo mismo -comprobados contra la lista publicada de
+# UNCL4461 el 21-09-2026- y **no se inventan los demás**: una letra aceptada o
+# un crédito documentario no tienen un equivalente que se pueda sostener, y
+# ponerle uno «parecido» es justo el fallo del que avisa esta nota.
+#
+# En dos hay una elección que no se puede tomar desde aquí: la transferencia y
+# la domiciliación tienen un código genérico y otro SEPA -30 y 58, 49 y 59-.
+# Va el genérico, que vale siempre; el SEPA lo sabe quien emite, no quien lee.
+_MEDIOS_DE_PAGO = {
+    "01": ("al contado", "10", "in cash"),
+    "02": ("recibo domiciliado", "49", "direct debit"),
+    "04": ("transferencia", "30", "credit transfer"),
+    "11": ("cheque", "20", "cheque"),
+    "19": ("pago mediante tarjeta", "48", "bank card"),
+}
+
+
 # Lo que se queda en el original, y cómo se llama en el informe. Se imprime el
 # concepto y no el elemento: quien lee el informe tiene delante su factura, no
 # el esquema de Facturae. Van en dos listas porque cuelgan de sitios distintos
@@ -620,6 +729,11 @@ def _texto(nodo, *nombres: str) -> str:
 _SIN_SITIO_EN_LA_FACTURA = (
     (("InvoiceIssueData", "LanguageName"), "idioma"),
     (("InvoiceIssueData", "PlaceOfIssue"), "lugar de expedición"),
+)
+_SIN_SITIO_EN_EL_PAGO = (
+    ("BranchInSpainAddress", "dirección de la sucursal del banco"),
+    ("OverseasBranchAddress", "dirección de la sucursal del banco"),
+    ("CollectionAdditionalInformation", "información adicional del cobro"),
 )
 _SIN_SITIO_EN_LAS_PARTES = (
     ("TeleFax", "fax"),
@@ -725,6 +839,90 @@ def _de_las_lineas(factura, etiqueta: str) -> list[Incidencia]:
     return incidencias
 
 
+def _del_pago(factura, etiqueta: str) -> tuple[list[Incidencia], list[str]]:
+    """El medio de pago, los vencimientos, y lo que del banco no viaja.
+
+    Devuelve dos cosas: sus notas y la lista de lo que se queda en el
+    original, que se junta con la de la factura para salir en **una** nota y
+    no en tres.
+    """
+    plazos = _hijos(factura, "PaymentDetails", "Installment")
+    if not plazos:
+        return [], []
+
+    incidencias: list[Incidencia] = []
+    medios: list[str] = []
+    fechas: list[str] = []
+    for plazo in plazos:
+        medio = _texto(plazo, "PaymentMeans")
+        if medio and medio not in medios:
+            medios.append(medio)
+        fecha = _texto(plazo, "InstallmentDueDate")
+        if fecha:
+            fechas.append(fecha)
+
+    se_quedan: list[str] = []
+    for nombre, concepto in _SIN_SITIO_EN_EL_PAGO:
+        hay = any(plazo.xpath(f".//*[local-name()='{nombre}']")
+                  for plazo in plazos)
+        if hay and concepto not in se_quedan:
+            se_quedan.append(concepto)
+
+    if medios:
+        conocidos = [m for m in medios if m in _MEDIOS_DE_PAGO]
+        if conocidos:
+            esperado = ", ".join(
+                f"{_MEDIOS_DE_PAGO[m][1]} en la copia "
+                f"(«{_MEDIOS_DE_PAGO[m][2]}» en UNCL4461)" for m in conocidos
+            )
+        else:
+            esperado = ("un código de UNCL4461 elegido a mano: para éste no "
+                        "hay equivalente que se pueda sostener")
+        encontrado = ", ".join(
+            f"{m} en esta factura"
+            + (f", que aquí es «{_MEDIOS_DE_PAGO[m][0]}»"
+               if m in _MEDIOS_DE_PAGO else "")
+            for m in medios
+        )
+        incidencias.append(
+            Incidencia(
+                "COPIA-PAGO-MEDIO",
+                NOTA,
+                "El medio de pago de esta factura está escrito con la lista de "
+                "Facturae, y la copia lo pide con la europea, UNCL4461. No es "
+                "como la unidad de medida, donde un código malo se ve: los 19 "
+                "códigos de Facturae **existen los 19** en la lista europea "
+                "queriendo decir otra cosa -diez tal cual y los nueve que "
+                "empiezan por cero en cuanto se les quita-, así que copiar el "
+                "dígito no da un error, da una factura válida que dice que se "
+                "paga de otra manera. El 19 de aquí es la tarjeta y el 19 "
+                "europeo es un adeudo de cámara de compensación.",
+                campo=f"{etiqueta}Medio de pago (BT-81 en la copia)",
+                esperado=esperado,
+                encontrado=encontrado,
+            )
+        )
+    if len(plazos) > 1:
+        incidencias.append(
+            Incidencia(
+                "COPIA-VENCIMIENTOS",
+                NOTA,
+                "Esta factura se paga en varios vencimientos y la copia solo "
+                "admite uno. El anexo tiene un grupo de instrucciones de pago, "
+                "BG-16, con cardinalidad 0..1, y una sola fecha de "
+                "vencimiento, BT-9; Facturae deja repetir el vencimiento "
+                "tantas veces como haga falta. Hay que elegir cuál viaja, y el "
+                "reparto de importes se queda en el original: la norma no "
+                "tiene importe por vencimiento.",
+                campo=f"{etiqueta}Vencimientos (BG-16 y BT-9 en la copia)",
+                esperado="un solo vencimiento en la copia",
+                encontrado=f"{len(plazos)} en esta factura"
+                           + (f": {', '.join(fechas)}" if fechas else ""),
+            )
+        )
+    return incidencias, se_quedan
+
+
 def _de_los_cargos(factura, etiqueta: str) -> list[Incidencia]:
     """El IVA que los descuentos generales de Facturae no llevan.
 
@@ -811,6 +1009,8 @@ def _de_una_factura(
 
     incidencias.extend(_de_las_lineas(factura, etiqueta))
     incidencias.extend(_de_los_cargos(factura, etiqueta))
+    del_pago, se_queda_del_pago = _del_pago(factura, etiqueta)
+    incidencias.extend(del_pago)
 
     totales = _hijos(factura, "InvoiceTotals")
     if not totales:
@@ -900,6 +1100,7 @@ def _de_una_factura(
     for ruta, concepto in _SIN_SITIO_EN_LA_FACTURA:
         if _hijos(factura, *ruta):
             se_quedan.append(concepto)
+    se_quedan.extend(se_queda_del_pago)
     se_quedan.extend(del_documento)
     if se_quedan:
         incidencias.append(
