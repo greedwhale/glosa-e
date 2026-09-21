@@ -39,7 +39,12 @@ for flujo in (sys.stdout, sys.stderr):
         pass
 
 REPO = Path(__file__).resolve().parents[1]
-PYTHON = REPO / ".venv" / "Scripts" / "python.exe"
+# El intérprete es **este mismo**: `pre-push` lo busca en la copia principal y
+# lo ejecuta, porque un worktree no tiene `.venv` propio. `REPO` sigue siendo
+# la copia desde la que se empuja —la suite prueba lo que se publica—, y solo
+# el intérprete viene de fuera.
+PYTHON = (Path(sys.executable) if sys.executable
+          else REPO / ".venv" / "Scripts" / "python.exe")
 CEROS = "0" * 40
 
 # Medido el 16-09-2026: la suite tarda 140 s en esta máquina. Diez minutos de

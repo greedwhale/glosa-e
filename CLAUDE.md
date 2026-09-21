@@ -109,8 +109,8 @@ Hay tres. La suite antes de publicar la corre **git**, no Claude Code:
 
 | Gancho | Dispara con | Hace |
 |---|---|---|
-| `.githooks/pre-push` → `.githooks/antes-de-empujar.py`, versionados | **todo** `git push` de esta copia: Claude Code, la consola, un alias, un guion | se niega si lo que se empuja no es HEAD o hay cambios sin commit —lo probado tiene que ser lo publicado—, y si la suite no pasa, se cuelga o no arranca. Git cancela con cualquier código distinto de 0. Corre también con `--dry-run`: git no le dice que es un ensayo |
-| `.claude/hooks/antes-de-empujar.py`, versionado, `PreToolUse` | `Bash`, `PowerShell` | el **portero**: con código 2, no deja que una orden sobre Factura-e se salte a git —`--no-verify`, `git send-pack`, tocar `core.hooksPath`, un alias con `--no-verify`— ni empujar mientras el gancho de git no esté puesto |
+| `.githooks/pre-push` → `.githooks/antes-de-empujar.py`, versionados | **todo** `git push` de esta copia: Claude Code, la consola, un alias, un guion | se niega si lo que se empuja no es HEAD o hay cambios sin commit —lo probado tiene que ser lo publicado—, y si la suite no pasa, se cuelga o no arranca. Git cancela con cualquier código distinto de 0. Corre también con `--dry-run`: git no le dice que es un ensayo. El intérprete lo saca de la **copia principal** —`--git-common-dir`—, porque un worktree no tiene `.venv` propio |
+| `.claude/hooks/antes-de-empujar.py`, versionado, `PreToolUse` | `Bash`, `PowerShell` | el **portero**: con código 2, no deja que una orden sobre Factura-e se salte a git —`--no-verify`, `git send-pack`, tocar `core.hooksPath`, un alias con `--no-verify`— ni empujar mientras el gancho de git no esté puesto. Qué es «sobre Factura-e» lo dice **git** y no la ruta: un worktree vive fuera de la carpeta del repositorio y se colaba como «otro proyecto» |
 | `.claude/hooks/guardian-de-rutas.py` de la **carpeta de trabajo**, fuera del repositorio, `PreToolUse` | `Write`, `Edit`, `NotebookEdit` | se niega a escribir en lo que no se toca, y solo dentro de `C:\Users\PC\Claude\`, para no estorbar en otros proyectos de la máquina. Mira **todas** las rutas que manda la herramienta, no solo `file_path`, y **sin mirar mayúsculas**: `NotebookEdit` manda `notebook_path` y pasaba siempre, y `Sitio/`, `ANCLAS/` y `proyecto 1/` pasaban los tres porque Windows no las distingue. Sus decisiones se prueban en `tests/test_guardian_de_rutas.py`, que se salta donde el gancho no está |
 
 **Por qué la suite pasó a git** (16-09-2026). El gancho de Claude Code la
@@ -139,6 +139,13 @@ se publica con rama y pull request.
 **Nada de esto viaja entero con el repositorio.** Los guiones sí; el cableado
 no:
 
+- **Un worktree hereda la configuración y no el entorno.** `git worktree add`
+  deja una copia de Factura-e donde le digas, compartiendo el mismo `.git`:
+  `core.hooksPath` viaja, `.githooks/` está ahí por versionado, y `.venv` no,
+  porque no se versiona. Medido el 21-09-2026, antes de arreglarlo: desde un
+  worktree el gancho de git se caía con un error de shell —cerrado, pero sin
+  correr la suite— y un `git push --no-verify` pasaba el portero y empujaba.
+  Los dos reconocían por la ruta; ahora preguntan a git.
 - `core.hooksPath` es configuración local de git. En una copia nueva hay que
   ponerlo una vez: `git config core.hooksPath .githooks`. Sin él, un push desde
   la consola publica sin probar; desde Claude Code, el portero se niega.

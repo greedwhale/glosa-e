@@ -30,7 +30,9 @@ import importlib.util
 import io
 import json
 import pathlib
+import shutil
 import subprocess
+import sys
 
 import pytest
 
@@ -306,3 +308,117 @@ def test_el_gancho_de_git_llama_al_guion_que_se_prueba_aqui():
     llamada = (RAIZ / ".githooks" / "pre-push").read_text(encoding="utf-8")
     assert f"{DE_GIT.parent.name}/{DE_GIT.name}" in llamada
     assert llamada.startswith("#!/bin/sh\n")
+
+
+class TestUnWorktreeDeEstaCopiaNoEsOtroProyecto:
+    """Medido el 21-09-2026, y era un camino a producción sin pruebas.
+
+    `git worktree add C:\\Users\\PC\\Claude\\copia-de-prueba` deja una
+    copia de Factura-e **fuera** de `Factura-e/` y colgando de la carpeta de
+    trabajo. El portero la tomaba por otro proyecto y se apartaba: desde ahí,
+    un `git push --no-verify` con un fichero sin commit salió con código 0 y
+    empujó. Contra `origin` eso publica en producción sin correr nada.
+
+    El fallo de fondo es el de siempre en este repositorio: reconocer una
+    cadena de texto en vez de reconocer la cosa. Se le pregunta a git.
+    """
+
+    def test_git_reconoce_un_worktree_viva_donde_viva(self, portero, tmp_path):
+        """Lo que hace que esto tenga arreglo: comparten el mismo `.git`."""
+        fuera = tmp_path / "worktree"
+        subprocess.run(
+            ["git", "-C", str(RAIZ), "worktree", "add", "--detach", "-q",
+             str(fuera), "HEAD"], check=True, capture_output=True)
+        try:
+            assert portero.del_repositorio(fuera)
+        finally:
+            subprocess.run(
+                ["git", "-C", str(RAIZ), "worktree", "remove", "--force",
+                 str(fuera)], capture_output=True)
+
+    def test_la_copia_buena_y_lo_que_cuelga_de_ella(self, portero):
+        assert portero.del_repositorio(RAIZ)
+        assert portero.del_repositorio(RAIZ / "validador")
+
+    def test_lo_que_no_es_un_repositorio_no_lo_es(self, portero, tmp_path):
+        assert not portero.del_repositorio(tmp_path)
+
+    def test_si_git_dice_que_es_de_aqui_el_portero_no_se_aparta(
+            self, portero, monkeypatch):
+        """El cableado, que es lo que estaba roto."""
+        monkeypatch.setattr(portero, "del_repositorio", lambda _c: True)
+        copia = TRABAJO / "copia-de-prueba"
+        assert decide(portero, "git push --no-verify", desde=copia)
+        assert decide(portero, f'cd "{copia}" && git push --no-verify')
+
+    def test_si_git_dice_que_no_sigue_sin_ser_asunto_suyo(
+            self, portero, monkeypatch):
+        """Los demás proyectos de la carpeta de trabajo tienen sus reglas."""
+        monkeypatch.setattr(portero, "del_repositorio", lambda _c: False)
+        monkeypatch.setattr(portero, "ganchos_puestos", lambda: False)
+        assert not decide(portero, "git push --no-verify",
+                          desde=TRABAJO / "Proyecto 1")
+
+
+class TestElGanchoDeGitDesdeUnWorktree:
+    """El otro lado del mismo hueco, y este estaba cerrado por accidente.
+
+    `exec ./.venv/Scripts/python.exe` no existe en un worktree —`.venv` no se
+    versiona—, así que salía «No such file or directory» y git cancelaba con
+    código 1. Se negaba, sí, pero sin correr la suite ni mirar si había cambios
+    sin commit, con un error de shell en vez del mensaje de casa, y se abría en
+    cuanto alguien montase un `.venv` ahí.
+    """
+
+    def test_no_da_por_hecho_un_entorno_al_lado(self):
+        llamada = (RAIZ / ".githooks" / "pre-push").read_text(encoding="utf-8")
+        assert "exec ./.venv/" not in llamada, (
+            "un worktree no tiene `.venv` propio"
+        )
+        assert "--git-common-dir" in llamada, (
+            "cuál es la copia principal se le pregunta a git, no se deduce"
+        )
+
+    def test_sin_interprete_se_niega_con_palabras(self):
+        """Que el motivo se lea, en vez de un «No such file or directory»."""
+        llamada = (RAIZ / ".githooks" / "pre-push").read_text(encoding="utf-8")
+        assert "No se empuja" in llamada
+        assert "exit 1" in llamada
+
+    def test_no_se_busca_el_interprete_por_su_cuenta(self):
+        """`pre-push` ya eligió el bueno; buscarlo otra vez repite el fallo."""
+        fuente = DE_GIT.read_text(encoding="utf-8")
+        assert "sys.executable" in fuente, (
+            "el intérprete es el que corre este guion, no el que haya junto a "
+            "la copia: un worktree no tiene `.venv`"
+        )
+
+    def test_la_suite_corre_con_el_interprete_que_corre_el_guion(self):
+        """Y esto lo mide, en vez de darlo por cierto.
+
+        Aquí `REPO/.venv/Scripts/python.exe` y `sys.executable` son **el mismo
+        fichero**, así que comparar los dos sale verde con la versión buena y
+        con la mala. Lo único que las distingue es cargar el guion con otro
+        intérprete y ver a cuál de los dos sigue.
+        """
+        otro = shutil.which("python")
+        if not otro:
+            pytest.skip("no hay un segundo intérprete con el que distinguirlas")
+        guion = (
+            "import importlib.util, sys;"
+            "e = importlib.util.spec_from_file_location('g', sys.argv[1]);"
+            "m = importlib.util.module_from_spec(e);"
+            "e.loader.exec_module(m);"
+            "print(m.PYTHON);"
+            "print(sys.executable)"
+        )
+        hecho = subprocess.run(
+            [otro, "-c", guion, str(DE_GIT)], capture_output=True, text=True,
+            encoding="utf-8", errors="replace")
+        if hecho.returncode != 0:
+            pytest.skip(f"el segundo intérprete no arranca: {hecho.stderr[:80]}")
+        suyo, suelto = (pathlib.Path(l) for l in hecho.stdout.split())
+        assert suyo == suelto, "el guion no sigue al intérprete que lo corre"
+        assert suyo != RAIZ / ".venv" / "Scripts" / "python.exe", (
+            "sigue cogiendo el entorno de al lado, que en un worktree no está"
+        )

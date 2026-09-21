@@ -14,4 +14,29 @@
 #     git config core.hooksPath .githooks
 #
 # El gancho de Claude Code se niega a empujar Factura-e mientras no esté puesto.
-exec ./.venv/Scripts/python.exe .githooks/antes-de-empujar.py "$@"
+#
+# El intérprete no puede ser `./.venv/...`. `.venv` no se versiona, así que un
+# worktree no tiene el suyo: medido el 21-09-2026, desde un worktree esta línea
+# salía «No such file or directory» y git cancelaba con código 1. Cerrado, sí,
+# pero por un error de shell y sin haber corrido la suite ni haber mirado si
+# había cambios sin commit —y abierto en cuanto alguien monte un `.venv` ahí—.
+# Se le pregunta a git cuál es la copia principal y se coge el intérprete de
+# allí. La suite sigue corriéndose sobre **esta** copia, que es la que se
+# empuja: lo probado tiene que ser lo publicado.
+comun=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+principal=$(dirname "$comun")
+python="$principal/.venv/Scripts/python.exe"
+aqui=$(git rev-parse --show-toplevel 2>/dev/null)
+[ -n "$aqui" ] || aqui=.
+
+if [ ! -x "$python" ]; then
+    echo "No se empuja: no está el entorno que corre las pruebas." >&2
+    echo "" >&2
+    echo "  Buscado en: $python" >&2
+    echo "" >&2
+    echo "  La suite es la puerta de producción, y sin intérprete no hay" >&2
+    echo "  suite. Crea el entorno en la copia principal y vuelve a empujar." >&2
+    exit 1
+fi
+
+exec "$python" "$aqui/.githooks/antes-de-empujar.py" "$@"

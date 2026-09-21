@@ -30,6 +30,8 @@ que toca Factura-e, sale con **2** —lo único que bloquea en Claude Code— si
 5. no se deja leer y parece uno de los anteriores.
 
 Con los demás proyectos de la carpeta de trabajo no se mete: tienen sus reglas.
+Quién es «los demás» lo dice git y no la ruta, porque un worktree de esta
+copia vive fuera de su carpeta y comparte su `.git`.
 """
 from __future__ import annotations
 
@@ -162,6 +164,30 @@ def _llamada_a_git(palabras: list[str], carpeta: Path):
     return carpeta, subordenes, palabras
 
 
+def del_repositorio(carpeta: Path) -> bool:
+    """¿Esa carpeta es de **este** repositorio, lo parezca la ruta o no?
+
+    Se lo pregunta a git en vez de mirar el camino. Un worktree de Factura-e
+    vive donde le pongan —`git worktree add` admite cualquier sitio— y comparte
+    su `.git`, así que `--git-common-dir` resuelve al de la copia principal
+    desde cualquiera de ellos.
+
+    Si git no contesta, no es que sea de otro: es que no se sabe. Y lo que no
+    se sabe no abre la puerta, así que eso lo decide quien llama.
+    """
+    hecho = subprocess.run(
+        ["git", "-C", str(carpeta), "rev-parse", "--path-format=absolute",
+         "--git-common-dir"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+    )
+    if hecho.returncode != 0:
+        return False
+    try:
+        return Path(hecho.stdout.strip()).resolve() == (REPO / ".git").resolve()
+    except OSError:
+        return False
+
+
 def de_factura_e(carpeta: Path) -> bool:
     """Si no se sabe de dónde sale, se da por Factura-e: el sesgo es parar."""
     try:
@@ -173,7 +199,15 @@ def de_factura_e(carpeta: Path) -> bool:
     trabajo = REPO.parent
     if trabajo in carpeta.parents:
         # Otro proyecto de la carpeta de trabajo: tiene sus propias reglas.
-        return False
+        #
+        # Salvo que sea un **worktree de Factura-e**, que no cuelga de
+        # `Factura-e/` sino de al lado. Medido el 21-09-2026: desde
+        # `C:\Users\PC\Claude\copia-de-prueba`, un `git push --no-verify`
+        # con un fichero sin commit pasaba por aquí y publicaba, código 0.
+        # Contra `origin` eso es un despliegue a producción sin probar nada.
+        # Es el mismo fallo que el `file_path` del guardián de rutas: reconocer
+        # una cadena de texto en vez de reconocer la cosa.
+        return del_repositorio(carpeta)
     return True
 
 

@@ -4022,3 +4022,83 @@ virtual con `emfs:`, salió sin excepción y lo di por bueno; el sitio montado s
 quedó sin validador. `loadPackage` no lanza: escribe un aviso en la consola y
 devuelve. Lo cazó la línea que ya estaba puesta detrás por esa razón, y la
 lección es la de siempre aquí: que no falle no es que funcione.
+
+## Los dos ganchos, vistos desde un worktree
+
+No sale de la auditoría sino de una pregunta previa: si se reparte trabajo
+entre varios agentes, cada uno en su propia copia de git, ¿siguen valiendo las
+puertas? La respuesta corta es que **una no valía y la otra valía por
+accidente**, y las dos se ven en cuanto se prueba, porque `git worktree add`
+deja una copia de Factura-e donde le digan.
+
+Lo que sí aguantó, y conviene decirlo primero: los ganchos **llegan** a un
+subagente. Un `Write` pedido por uno salió rechazado con el mismo mensaje que
+si lo pide la sesión. Y el guardián de rutas decide por el **destino**, no por
+dónde esté quien escribe, así que `Proyecto 1`, `anclas/`, `muestras/` y el
+`sitio/` de la copia buena siguen protegidos desde cualquier worktree. Lo único
+que deja pasar son las carpetas construidas del worktree de fuera, que no
+viajan a ningún sitio. El problema estaba en los otros dos.
+
+### El portero tomaba un worktree por otro proyecto
+
+`de_factura_e()` decidía comparando rutas: si la carpeta cuelga de
+`Factura-e/`, es nuestra; si cuelga de la carpeta de trabajo pero no de
+`Factura-e/`, es otro proyecto y tiene sus reglas —`Proyecto 1` no es asunto
+suyo—. Un worktree cae justo en el segundo caso. Medido el 21-09-2026 con uno
+en `C:\Users\PC\Claude\copia-de-prueba`:
+
+```
+git push --no-verify <repositorio> HEAD:refs/heads/saltada
+ * [new branch]      HEAD -> saltada
+codigo 0
+```
+
+Con un fichero sin commit, sin correr la suite y sin que nadie dijera nada.
+Contra `origin` eso es un despliegue a producción sin probar. El fallo de fondo
+es el de siempre en esta casa: **reconocer una cadena de texto en vez de
+reconocer la cosa**, el mismo del `file_path` del guardián que dejaba pasar
+`notebook_path`.
+
+Ahora se le pregunta a git. `rev-parse --path-format=absolute --git-common-dir`
+resuelve al `.git` de la copia principal desde cualquier worktree suyo, porque
+es el que comparten; si no contesta, no es de aquí. Comprobado que `Proyecto 1`
+sigue sin ser asunto del portero.
+
+### El gancho de git estaba cerrado por accidente
+
+`.githooks/pre-push` acababa en una línea con dos rutas relativas:
+
+```
+exec ./.venv/Scripts/python.exe .githooks/antes-de-empujar.py "$@"
+```
+
+`.venv` no se versiona, así que un worktree no tiene el suyo:
+
+```
+.githooks/pre-push: line 17: .../copia-de-prueba/.venv/Scripts/python.exe: No such file or directory
+```
+
+Git cancela con cualquier código distinto de 0, así que el push no salía. Pero
+no salía **ninguno**, tampoco el bueno: nunca corrió la suite, nunca miró si
+había cambios sin commit, y lo que se leía era un error de shell en vez del
+motivo. Un cierre que depende de que un fichero falte se abre el día que
+alguien monte un `.venv` ahí para trabajar más cómodo.
+
+Ahora `pre-push` le pregunta a git cuál es la copia principal y coge el
+intérprete de allí, y si no lo encuentra se niega con palabras. La suite se
+sigue corriendo sobre la copia desde la que se empuja, que es la que se
+publica: lo probado tiene que ser lo publicado. Y el guion que la corre usa
+`sys.executable` —el intérprete que `pre-push` ya eligió— en vez de volver a
+buscarlo al lado.
+
+Provocado donde estaba el fallo: desde el worktree, el push que antes daba un
+error de shell ahora dice qué falta, y el `--no-verify` que publicaba sale
+bloqueado.
+
+### Y una prueba que salió verde por coincidencia
+
+La primera versión de la prueba del intérprete comparaba `PYTHON` con
+`sys.executable`. En la copia principal esos dos son **el mismo fichero**, así
+que salía verde con el arreglo puesto y con el arreglo quitado. Se vio al
+provocarla, que es exactamente para lo que se provoca. Ahora carga el guion con
+un segundo intérprete y mira a cuál de los dos sigue.
