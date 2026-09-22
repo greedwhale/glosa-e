@@ -94,7 +94,29 @@ Referencia medida (30 ago 2026): en frío 23 peticiones y ~9.175 KB; en caliente
 **21-09-2026**: 24 peticiones, 9.681 KB, `ajenos: []` y «Listo en 66,52 s». El
 tiempo no se compara con los 5,31 s, que son de caliente: para el frío no hay
 referencia de tiempo, y por eso lo que se mira aquí son las peticiones, los
-bytes y los ajenos.
+bytes y los ajenos. El **22-09-2026**, con los artefactos grandes ya en caché:
+24 peticiones, 1.782 KB, `ajenos: []` y «Listo en 54,42 s».
+
+**Si el enlace va lento, el arranque se cae solo y no es de producción.** Medido
+el 22-09-2026: la máquina bajaba a ~30 KB/s —28 KB/s desde Vercel y 18 KB/s
+desde GitHub, o sea el enlace y no el sitio—, y la página abortó con su propio
+`SinDescarga`: «lleva 30 segundos sin llegar un solo byte». Leyendo ese mismo
+fichero a mano desde la misma página, los trozos llegaban con un hueco máximo de
+**1,06 s**: la conexión iba lenta, no muerta, así que el vigilante se equivocó.
+Antes de dar nada por roto, mide el enlace:
+
+```bash
+curl -s -o /dev/null -w "%{size_download} bytes | %{time_total} s | %{speed_download} B/s\n" \
+  https://www.glosa-e.com/pyodide/314.0.6/lxml-6.0.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl
+```
+
+Y para poder seguir con el ritual, se calienta la caché a mano —el wheel es
+`immutable`, así que una vez bajado el arranque lo coge de ahí— y se recarga:
+
+```js
+window.__c = fetch("/pyodide/314.0.6/lxml-6.0.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl")
+  .then(r => r.arrayBuffer()).then(b => window.__calentado = b.byteLength);
+```
 
 ## 4. Que el veredicto siga siendo el mismo
 
@@ -108,9 +130,9 @@ const p = window.Glosa.paquete;
   esquemas: p.esquemas, anclas: p.anclas, sellos: p.anclas_de_sellos, publicada: p.publicada})
 ```
 
-**Lo esperado** (medido el 21-09-2026 sobre `www.glosa-e.com`):
+**Lo esperado** (medido el 22-09-2026 sobre `www.glosa-e.com`):
 `conforme: true`, **42 esquemas**, 268 anclas de firma, 121 de sellado, y estas
-**ocho** incidencias:
+**once** incidencias:
 
 ```
 FIRMA-DEBIL · aviso
@@ -119,9 +141,16 @@ BR-01 · nota
 BR-14 · nota
 BR-21 · nota
 COPIA-SERIE · nota
+COPIA-LINEA-UNIDAD · nota
+COPIA-MONEDA-DEL-IVA · nota
+COPIA-PAGO-MEDIO · nota
 COPIA-SIN-SITIO · nota
 SELLO-FALTA · nota
 ```
+
+Eran ocho hasta el 21-09-2026. Las tres que entraron son de la tabla de la
+copia fiel, que se terminó el 22: la unidad de la línea, el medio de pago y la
+moneda del IVA.
 
 La cifra de esquemas sale de `web/PAQUETE.json` y la lista de códigos de
 `tests/test_ejemplos.py`: **si no cuadran, la que manda es la del repositorio**,
@@ -136,7 +165,7 @@ código delante, un cambio se lee de un vistazo. Y sirvió: el 06-09-2026
 aparecieron tres notas nuevas y se supo en el acto que no había desaparecido
 ninguna.
 
-**Ninguna de las seis notas es un defecto de la factura**, y conviene saber
+**Ninguna de las nueve notas es un defecto de la factura**, y conviene saber
 de dónde viene cada una, porque son tres grupos distintos:
 
 - `BR-01`, `BR-14` y `BR-21` son **del binding de Facturae**, que entró el
@@ -144,9 +173,14 @@ de dónde viene cada una, porque son tres grupos distintos:
   norma pide —`BT-24`, el identificador de especificación; el `BT-14`; y
   `BT-126`, el identificador de línea, que no existe, así que la regla no se
   puede comprobar y se dice—.
-- `COPIA-SERIE` y `COPIA-SIN-SITIO` son **de la tabla de la copia fiel**
-  (20 y 21-09-2026): este ejemplo lleva serie —«FE» y «0001», que en la copia
-  son un solo campo— e idioma, que en la copia no tiene dónde ir.
+- Las cinco `COPIA-*` son **de la tabla de la copia fiel** (del 20 al
+  22-09-2026), y son cinco cosas distintas que le pasarían a este ejemplo al
+  copiarse: la **serie** —«FE» y «0001», que en la copia son un solo campo—, el
+  **idioma**, que no tiene dónde ir (`COPIA-SIN-SITIO`), la **unidad** de su
+  línea —el `01` de Facturae, que en la copia es `C62`—, su **medio de pago**
+  —el `04`, que en la lista europea no es una transferencia sino la reversión
+  de un adeudo— y la **moneda del IVA**, que el esquema obliga a escribir y la
+  copia no debería llevar porque repite la de la factura.
 - `SELLO-FALTA` es de siempre.
 
 **`IVA-CATEGORIA-SIN-MAPA` ya no sale**, y no es una nota perdida: desde que la
