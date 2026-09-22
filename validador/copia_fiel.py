@@ -28,8 +28,8 @@ es otro documento y se mide con sus propias reglas —las `SPFE-`—. Y no adivi
 dónde se escriben en Facturae los campos españoles del anexo: el anexo los
 describe en UBL, y el 10-09-2026 la AEAT anunció que cambian.
 
-Lo que sí hace es decir cinco cosas distintas sobre la factura que se está
-mirando, y las tres últimas son las que no dice nadie:
+Lo que sí hace es decir seis cosas distintas sobre la factura que se está
+mirando, y las cuatro últimas son las que no dice nadie:
 
 1. **Lo que llega igual.** La mayor parte.
 2. **Lo que no tiene sitio** y habrá que omitir o meter en una extensión.
@@ -55,6 +55,14 @@ mirando, y las tres últimas son las que no dice nadie:
    cuatro es el medio de pago, porque no se ve: los **19 códigos de Facturae
    existen los 19 en UNCL4461** queriendo decir otra cosa, así que el dígito
    copiado pasa la validación diciendo que se paga de otra manera.
+6. **Lo que no hay que copiar.** Es el último que apareció y el más raro:
+   copiar campo a campo no siempre omite ni cambia, a veces **añade**, y lo
+   añadido rompe la copia. `TaxCurrencyCode` —la moneda en la que se
+   contabiliza el IVA— es obligatorio en Facturae y las 14 facturas de aquí
+   escriben en él la moneda de la propia factura. Llevado a `BT-6`, que en la
+   norma solo tiene sentido cuando son distintas, obliga a escribir `BT-111`
+   —`BR-53`—, que Facturae no tiene. Un campo que no aportaba nada deja la
+   copia sin cumplir la norma.
 
 De dónde sale cada fila
 -----------------------
@@ -116,14 +124,32 @@ en una fuente distinta y alguna todavía no tiene fuente:
    meta ahí el pedido repite el fallo del medio de pago. Medido: 8 de 14 traen
    alguna, y las 8 dentro de la línea.
 
-Quedan **40 de los 104 términos europeos sin fila** —la tabla nombra 64,
-medido el 22-09-2026—, y es importante no confundir lo que falta con lo que
-espera, porque no son lo mismo. Lo que queda **está debajo del anuncio del
-10-09-2026** y por eso se escribe después:
+7. **El desglose del IVA** (22-09-2026): base, cuota y tipo llegan igual, y
+   lo caro es la categoría. `BT-118` es obligatorio y el código de impuesto de
+   Facturae dice qué impuesto es, no de qué categoría; **a tipo positivo la
+   deducción está forzada y al 0 % no**, que aquí pasa en 3 de 14. Y el motivo
+   de la exención, que en la copia deja de ser opcional en cuanto la categoría
+   es `E`, Facturae lo escribe en texto libre dentro de una línea.
 
-7. **El desglose del IVA** —la `L4` gana categorías nuevas—, **la cabecera**
-   —entra el `389` en la `L1`— y **las partes** —el NIF del vendedor podrá ir
-   en `BT-31`, que hoy no está en el anexo, o en `BT-32` con esquema «LOC»—.
+8. **La cabecera** (22-09-2026): la familia con más «lo pone quien copia», y
+   con la única fila de toda la tabla en la que el fallo es copiar **de más**:
+   la moneda del IVA, explicada arriba.
+
+9. **Las partes** (22-09-2026): quién es cada uno. Las direcciones y los
+   contactos ya estaban en la segunda familia; lo que quedaba esconde el
+   nombre de una persona física, que Facturae guarda en tres campos y la copia
+   pide en uno solo y obligatorio. Medido: 7 de 14.
+
+Con eso la tabla queda escrita: **97 filas que nombran 92 de los 104 términos
+europeos** del anexo, medido el 22-09-2026. Los 12 que no se nombran son los
+**grupos** —`BG-4` a `BG-9`, `BG-22`, `BG-25`, `BG-29` a `BG-31`— y `BT-154`,
+que la tercera familia deja vacío a propósito: contenedores, no datos.
+
+Las tres últimas familias **quedan debajo del anuncio del 10-09-2026** y se
+escribieron igual, contra el texto de abril, que es el único publicado y contra
+el que está medida la tabla entera. Lo que el anuncio puede mover va marcado en
+su fila: el NIF del vendedor (`BT-31`/`BT-32` con esquema «LOC»), el `389` en
+la lista de tipos, el recorte de la `L3A` y las categorías nuevas de la `L4`.
 
 Y esperan, éstas sí porque no hay de dónde sacarlas: **los campos españoles del
 anexo**, **los centros administrativos**, **el lote** y las tres filas que
@@ -449,14 +475,24 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "el porcentaje, que es un número y no un código",
     ),
     Correspondencia(
-        "clave de régimen", "SpecialTaxableEventCode", "BG-32 (BT-160 y BT-161)",
-        APARTE,
-        "el anexo le da grupo propio, con el nombre de la propiedad en BT-160 "
-        "y el código en BT-161, y su lista es la española L3A. Ojo al "
-        "copiarla: el 10-09-2026 la AEAT anunció que **L3A se recorta** -fuera "
-        "el régimen simplificado, el recargo de equivalencia y el de "
-        "agricultura, ganadería y pesca-, así que ésta es la única fila de "
-        "esta familia que el texto nuevo puede mover. Medido: 3 de 14",
+        "clave de régimen", "(no lo tiene)", "BG-32 (BT-160 y BT-161)",
+        SE_INVENTA,
+        "y es de las filas más caras de toda la tabla, porque el destino es "
+        "**obligatorio**: el anexo pide una clave de régimen por línea, 1..2, "
+        "como una propiedad del artículo llamada «REGI», con su lista L3A, "
+        "L3B o L3C según el impuesto -`SPFE-CLAVE-DE-REGIMEN` ya lo exige del "
+        "lado de la copia-. Facturae **no tiene ese concepto**. Esta fila dijo "
+        "hasta el 22-09-2026 que lo tenía, y era `SpecialTaxableEventCode`, y "
+        "estaba mal: ése solo distingue dos casos -01 «operación sujeta y "
+        "exenta» y 02 «operación no sujeta»- y en L3A el `01` es «operación "
+        "de régimen general no incluida en otras claves», que es justo lo "
+        "contrario. El mismo dígito diciendo lo otro, como en el medio de "
+        "pago. Medido: las 3 facturas de aquí que traen fiscalidad especial "
+        "traen el `01`. Lo que hay que escribir en la copia lo decide quien "
+        "copia, y en el caso corriente es `01` por régimen general. Ojo "
+        "además a que el 10-09-2026 la AEAT anunció que **L3A se recorta** "
+        "-fuera el régimen simplificado, el recargo de equivalencia y el de "
+        "agricultura, ganadería y pesca-",
     ),
     Correspondencia(
         "nota de la línea", "AdditionalLineItemInformation", "BT-127",
@@ -763,7 +799,8 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "el documento adjunto- y el anexo no recoge ni ése ni BT-124, la "
         "dirección del documento externo. Y el grupo donde irían, BG-24, está "
         "ocupado: el anexo lo usa dos veces y las dos para otra cosa, con "
-        "valores fijos. Además, un adjunto de Facturae no tiene referencia "
+        "valores fijos -y el anuncio del 10-09-2026 le da un tercer uso, las "
+        "rectificativas-. Además, un adjunto de Facturae no tiene referencia "
         "-lleva el fichero- y BT-122 es obligatorio en el grupo, así que "
         "tampoco podría rellenarlo. Medido: 2 de 14",
     ),
@@ -780,6 +817,254 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "vacío, que los dos son opcionales. Se escribe porque un conversor que "
         "solo mire el XML no puede ponerlos, y eso hay que saberlo antes y no "
         "después",
+    ),
+
+    # La séptima familia: el desglose del IVA. Las tres primeras filas son de
+    # las que no dan trabajo -base, cuota y tipo, mismo dato- y están escritas
+    # por las tres que vienen detrás, que son de las caras: la categoría, que
+    # hay que deducir; el motivo de la exención, que Facturae guarda en texto
+    # libre dentro de una línea; y su código, que sale de una lista que el
+    # formato no conoce.
+    #
+    # Medido el 22-09-2026 sobre las 14: 4 traen más de una entrada en el
+    # desglose, los impuestos escritos son 17 veces el `01` -IVA- y una el
+    # `02` -IPSI-, y **3 ficheros traen una entrada al 0 %**. Esos tres son la
+    # misma factura firmada de tres maneras, y se dicen como tres porque la
+    # tabla cuenta ficheros; lo que importa es que el caso existe aquí.
+    Correspondencia(
+        "base por categoría", "TaxableBase", "BG-23 (BT-116)", IGUAL,
+        "la base de cada entrada del desglose, que es el mismo dato en los "
+        "dos. Lo que cambia es **por qué se agrupa**: Facturae abre una "
+        "entrada por impuesto y tipo, y la norma una por categoría y tipo. "
+        "Con un solo impuesto coinciden; con IVA e IPSI en la misma factura "
+        "-que aquí pasa en una- son dos categorías distintas y el reparto ya "
+        "viene hecho",
+    ),
+    Correspondencia(
+        "cuota por categoría", "TaxAmount", "BT-117", IGUAL,
+        "la cuota de esa misma entrada. Ojo con el recargo de equivalencia, "
+        "que Facturae declara dentro de la entrada y la copia se lleva a su "
+        "grupo español: eso está en la primera familia y es la razón de "
+        "`COPIA-CUOTA`",
+    ),
+    Correspondencia(
+        "impuesto del desglose", "TaxTypeCode", "BT-118", OTRA_LISTA,
+        "el mismo hueco que en la línea, y aquí es **obligatorio**: BT-118 es "
+        "1..1 en el anexo. Facturae dice qué impuesto es -01 IVA, 02 IPSI, 03 "
+        "IGIC- y la norma pide de qué categoría es, en UNCL5305. Con tipo "
+        "positivo la deducción está forzada y el validador ya la hace; **al "
+        "0 % no**: un cero puede ser exenta, no sujeta, tipo cero, "
+        "intracomunitaria, exportación o inversión del sujeto pasivo -E, O, "
+        "Z, K, G o AE-, y el código del impuesto no distingue ninguna. Medido: "
+        "3 de 14 traen una entrada al 0 %",
+    ),
+    Correspondencia(
+        "fiscalidad especial", "SpecialTaxableEventCode", "BT-118", OTRA_LISTA,
+        "esto es lo único con lo que Facturae estrecha ese cero, y estrecha a "
+        "dos: su `01` es «operación sujeta y exenta», que en UNCL5305 es la "
+        "**E**, y su `02` es «operación no sujeta», que es la **O**. Vive en "
+        "la línea y no en el impuesto, así que hay que mirarlas todas y que "
+        "coincidan; el validador ya lo hace para poder correr las BR-E-* y "
+        "BR-O-*. Lo que no se puede es confundirlo con la clave de régimen, "
+        "que es otra lista y otra cosa: ver su fila en la familia de las "
+        "líneas",
+    ),
+    Correspondencia(
+        "tipo por categoría", "TaxRate", "BT-119", IGUAL,
+        "el porcentaje, igual que en la línea. Con dos avisos del propio "
+        "esquema de Facturae, que la copia no hereda: admite **ocho "
+        "decimales** donde la norma trabaja con dos, y dice que «no siempre "
+        "son porcentajes» -hay impuestos con tipos por unidad-, mientras que "
+        "BT-119 es un porcentaje y nada más",
+    ),
+    Correspondencia(
+        "motivo de la exención", "SpecialTaxableEventReason", "BT-120",
+        OTRO_CORTE,
+        "y es el corte más incómodo de toda la tabla, porque hay que **leer "
+        "texto libre**. La norma quiere el motivo colgando de la entrada del "
+        "desglose; Facturae lo pone en la línea y en una cadena que empieza "
+        "por el código del impuesto al que se refiere -lo manda su propio "
+        "esquema: «el motivo irá precedido del código del impuesto; por "
+        "ejemplo: 07 exenta por…»-. Quien copie tiene que partir esa cadena "
+        "para saber de qué impuesto habla, y ni eso es fiable: la muestra "
+        "oficial del Ministerio escribe «Concepto exento por el motivo aquí "
+        "definido», sin código delante. Y si no lo hace, el motivo no "
+        "llega por ningún otro sitio: la nota de línea, BT-127, no está en el "
+        "anexo. Importa porque en la copia el motivo deja de ser opcional en "
+        "cuanto la categoría es E: lo exige BR-E-10",
+    ),
+    Correspondencia(
+        "código del motivo de la exención", "(no lo tiene)", "BT-121 y BT-195",
+        SE_INVENTA,
+        "el anexo pide el código de la lista **CEF VATEX** -y dice que solo "
+        "valen los `VATEX-EU` y `VATEX-ES`-, en el desglose y también en la "
+        "línea. Facturae no tiene ese código en ninguna parte: escribe el "
+        "motivo en prosa. Lo elige quien copia, leyendo esa prosa, o deja los "
+        "dos campos vacíos y se queda con el texto",
+    ),
+    Correspondencia(
+        "base del grupo de entidades", "SpecialTaxableBase",
+        "BG-34 (BT-179 y BT-180)", APARTE,
+        "el régimen especial del grupo de entidades obliga a escribir dos "
+        "bases para la misma operación -la del coste de adquisición y la que "
+        "habría sido sin el régimen- y el anexo le da uno de sus cinco grupos "
+        "españoles, el mismo BG-34 que reutiliza para los cargos de terceros, "
+        "las minoraciones, el recargo y las retenciones. Medido: ninguna de "
+        "las 14 lo trae",
+    ),
+
+    # La octava familia: la cabecera. Es la que más filas tiene con «lo pone
+    # quien copia», y no por casualidad: la cabecera es donde la copia se
+    # identifica a sí misma -qué norma sigue, qué proceso es- y eso no está
+    # en el original, que no sabe que va a copiarse.
+    Correspondencia(
+        "fecha de expedición", "IssueDate", "BT-2", IGUAL,
+        "el mismo dato y obligatorio en los dos. La de operación, que es la "
+        "otra fecha de la cabecera, está en la segunda familia",
+    ),
+    Correspondencia(
+        "tipo de factura", "InvoiceDocumentType", "BT-3", OTRA_LISTA,
+        "y hay que mirar en **tres sitios** para escribir un solo código. "
+        "Facturae reparte lo que la norma junta en BT-3: `InvoiceDocumentType` "
+        "dice si es completa, abreviada o rectificativa; `InvoiceClass` si es "
+        "original, rectificativa o recapitulativa; y quién la expide está más "
+        "arriba todavía, en `FileHeader/InvoiceIssuerType` -`EM` emisor, `RE` "
+        "receptor, `TE` tercero-, que es lo que separa la 380 de la **389** y "
+        "la 384 de la **471**. Medido: las 14 de aquí son `FC` y `OO`, o sea "
+        "380. Ojo a que el anuncio del 10-09-2026 mete el 389 en la lista que "
+        "la solución pública admite, y a que `en16931.py` traduce hoy el "
+        "criterio 03 a un **381** que la L1 española no tiene: está en "
+        "HALLAZGOS y sigue pendiente",
+    ),
+    Correspondencia(
+        "moneda de la factura", "InvoiceCurrencyCode", "BT-5", IGUAL,
+        "el código ISO 4217, igual en los dos, y obligatorio en los dos. "
+        "Medido: las 14 son EUR",
+    ),
+    Correspondencia(
+        "moneda del impuesto", "TaxCurrencyCode", "BT-6", IGUAL,
+        "el mismo código, y aun así es de las filas peligrosas: en Facturae "
+        "este campo es **obligatorio** y en la norma BT-6 solo tiene sentido "
+        "cuando la contabilidad del IVA va en otra moneda. Copiarlo siempre "
+        "-que es lo que sale de copiar campo a campo- obliga a escribir "
+        "también BT-111, porque `BR-53` lo exige en cuanto BT-6 está "
+        "presente, y ese número Facturae no lo tiene. Medido: las 14 escriben "
+        "la misma moneda que la factura, así que copiarlo no aporta nada y "
+        "rompe la copia",
+    ),
+    Correspondencia(
+        "cuota en la moneda de contabilización", "(no lo tiene)", "BT-111",
+        SE_INVENTA,
+        "la otra mitad de la fila anterior. El anexo lo pide cuando la moneda "
+        "de la factura no es el euro, y Facturae no lleva la cuota en la "
+        "moneda de contabilización: lleva el tipo de cambio y su fecha "
+        "-`ExchangeRateDetails`-, así que el número hay que **calcularlo**, y "
+        "cómo se redondea lo decide quien copia. Con la misma moneda es el "
+        "mismo importe que BT-110, que es la salida más sencilla si se ha "
+        "escrito BT-6. Medido: ninguna de las 14 trae tipo de cambio",
+    ),
+    Correspondencia(
+        "descripción de la factura", "InvoiceDescription", "BG-1 (BT-22)",
+        OTRO_CORTE,
+        "la norma tiene **un grupo repetible** de notas y Facturae reparte lo "
+        "mismo en tres campos que no se parecen entre sí: la descripción "
+        "general de la cabecera, los `LegalLiterals` -los textos que la ley "
+        "obliga a imprimir, «operación exenta por el artículo…»- y la "
+        "información adicional del bloque de datos adicionales. Quien copie "
+        "decide cuáles van y en qué orden, porque BT-22 es obligatorio dentro "
+        "del grupo y no admite matices. Medido: ninguna de las 14 trae "
+        "ninguno de los tres",
+    ),
+    Correspondencia(
+        "identificador de la especificación", "(no lo tiene)",
+        "BG-2 (BT-23 y BT-24)", SE_INVENTA,
+        "las dos son **obligatorias** y de valor fijo, y son la fila que "
+        "mejor explica por qué la copia no es la factura: BT-24 declara qué "
+        "especificación sigue el documento, "
+        "`urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0`, "
+        "y BT-23 qué proceso es, `urn:aeat:names:specification:ubl:schema:B2B` "
+        "-fijo, así que ni siquiera distingue el B2G-. Una factura no dice "
+        "eso de sí misma; lo dice quien la copia. Y de paso deja escrito que "
+        "la copia se mide con la edición **2026** de la norma, que es la que "
+        "trae los términos que el anexo de abril todavía no coloca",
+    ),
+    Correspondencia(
+        "los huecos que el anexo deja abiertos", "(no lo tiene)",
+        "BT-10, BT-20, BT-21, BT-114 y BT-166", SE_INVENTA,
+        "cinco campos que el anexo recoge, que son opcionales y que en "
+        "Facturae no tienen origen ninguno: la referencia interna del "
+        "comprador -ver la familia de las referencias-, las condiciones de "
+        "pago en texto, el código de la nota de la lista UNTDID 4451 -las "
+        "notas de Facturae no llevan código-, el importe de redondeo -sus "
+        "totales ya vienen redondeados- y la hora de expedición, que el "
+        "formato no guarda en ninguna parte. Lo correcto es dejarlos vacíos. "
+        "Se escriben porque el fallo aquí no es olvidarlos: es rellenarlos "
+        "con lo que más se les parezca",
+    ),
+
+    # La novena familia: las partes. Las direcciones y los contactos ya están
+    # en la segunda -son las filas «evidentes»- y lo que queda aquí es quién
+    # es cada uno. Sale una sola nota, y de la fila que menos se espera: el
+    # nombre.
+    Correspondencia(
+        "razón social", "CorporateName", "BT-27 del vendedor, BT-44 del comprador",
+        IGUAL,
+        "de una persona jurídica, el mismo dato: un nombre en un campo. "
+        "Medido: 10 de 14 el vendedor y 11 el comprador",
+    ),
+    Correspondencia(
+        "nombre de una persona física", "Individual",
+        "BT-27 del vendedor, BT-44 del comprador", OTRO_CORTE,
+        "y aquí Facturae guarda en **tres** campos -`Name`, `FirstSurname` y "
+        "`SecondSurname`- lo que la copia pide en uno solo, que además es "
+        "obligatorio. Nadie dice cómo se juntan: ni el orden -«Juana Mauriño» "
+        "o «Mauriño, Juana»- ni qué hacer con el segundo apellido cuando "
+        "falta, que es la mitad de los casos de aquí. Es el mismo problema de "
+        "la serie y el número, con una diferencia que lo empeora: la serie se "
+        "pega y ya está, y un nombre mal ordenado deja a la copia "
+        "identificando a alguien de otra manera que el original. Ojo a que "
+        "`sintaxis.py` resuelve esto mismo al revés y con razón: para **leer** "
+        "una factura se queda solo con `Name`, porque pegarle los apellidos "
+        "sería inventar un formato que nadie ha fijado. Para **escribir** la "
+        "copia no vale prescindir de ellos: allí se pierden dos apellidos, y "
+        "eso ya no es prudencia. Medido: 4 de "
+        "14 el vendedor y 3 el comprador, y **solo uno de los siete** trae los "
+        "tres campos escritos",
+    ),
+    Correspondencia(
+        "NIF", "TaxIdentificationNumber",
+        "BT-32 del vendedor, BT-48 del comprador", IGUAL,
+        "hoy es el mismo dato en el mismo sitio, y es **la fila que el texto "
+        "nuevo mueve seguro**: el 10-09-2026 la AEAT anunció que el NIF del "
+        "vendedor podrá ir en `BT-31` -que el anexo de abril ni siquiera "
+        "recoge- o en `BT-32` con esquema «LOC» y `@schemeID` «FC», en vez "
+        "del «VAT» de ahora. Escrita hoy contra el texto de abril, y marcada "
+        "para volver a mirarla",
+    ),
+    Correspondencia(
+        "nombre comercial", "TradeName", "BT-28", NO_LO_PIDEN,
+        "la norma tiene el nombre comercial del vendedor y el anexo no lo "
+        "recoge, ni ése ni ninguno de los identificadores de las partes "
+        "-BT-29, BT-30, BT-34 del vendedor; BT-45, BT-46, BT-47, BT-49 del "
+        "comprador-. De los dos, el anexo se queda con el nombre y el NIF. "
+        "Medido: 8 de 14 el vendedor y 4 el comprador",
+    ),
+    Correspondencia(
+        "datos registrales", "RegistrationData", "BT-33", OTRO_CORTE,
+        "el registro mercantil es en Facturae un bloque con **seis** campos "
+        "-libro, registro, hoja, folio, sección y tomo- y BT-33 es una línea "
+        "de texto libre. Hay que redactarla, no copiarla, y cómo se redacta "
+        "no lo dice ningún texto. Medido: 8 de 14 el vendedor y 3 el "
+        "comprador",
+    ),
+    Correspondencia(
+        "tipo de residencia", "ResidenceTypeCode", "", SIN_SITIO,
+        "`R` residente, `E` extranjero, `U` residente en la UE. No hay "
+        "término europeo, y no entra en la lista de lo que se queda en el "
+        "original porque no se pierde nada: el país de la dirección dice lo "
+        "mismo, y es obligatorio en los dos formatos. Se escribe la fila "
+        "igual, porque al copiar campo a campo este es de los que tientan a "
+        "buscarle sitio. Medido: las 14 lo traen, por obligación del esquema",
     ),
 )
 
@@ -802,6 +1087,9 @@ _LO_QUE_SE_MIRA = (
     "ReceiverContractReference", "IssuerContractReference",
     "FileReference", "DeliveryNotesReferences", "SequenceNumber",
     "RelatedInvoice", "Corrective",
+    "TaxTypeCode", "TaxRate", "SpecialTaxableEventCode",
+    "SpecialTaxableEventReason",
+    "InvoiceCurrencyCode", "TaxCurrencyCode", "Individual",
 )
 
 
@@ -905,6 +1193,14 @@ _REFERENCIAS = (
     ("FileReference", "expediente", True, True),
     ("SequenceNumber", "número de línea del pedido", False, False),
 )
+
+# Los dos valores de la fiscalidad especial de Facturae y la categoría
+# europea que significan. No hay más: su esquema solo admite esos dos, y por
+# eso al 0 % estrechan a dos de las seis posibles y no a una.
+_FISCALIDAD_ESPECIAL = {
+    "01": ("operación sujeta y exenta", "E"),
+    "02": ("operación no sujeta", "O"),
+}
 
 _SIN_SITIO_EN_LAS_PARTES = (
     ("TeleFax", "fax"),
@@ -1277,6 +1573,163 @@ def _nota_de_la_previa(
     )
 
 
+def _del_desglose(factura, etiqueta: str) -> list[Incidencia]:
+    """La categoría que al 0 % no se puede deducir, y el motivo en prosa.
+
+    Con tipo positivo no hay nada que decidir —IVA a tipo positivo es la S— y
+    por eso esta regla solo mira los ceros. El resto del desglose llega igual.
+    """
+    a_cero = []
+    for tax in _hijos(factura, "TaxesOutputs", "Tax"):
+        escrito = _texto(tax, "TaxRate")
+        if escrito and a_decimal(escrito) == 0:
+            a_cero.append(_texto(tax, "TaxTypeCode") or "(sin impuesto)")
+    if not a_cero:
+        return []
+
+    # La fiscalidad especial cuelga de la línea y no del impuesto, así que
+    # solo estrecha cuando todas las líneas que la traen dicen lo mismo: dos
+    # claves distintas no deciden la categoría de una entrada del desglose.
+    claves: list[str] = []
+    motivos: list[str] = []
+    for linea in _hijos(factura, "Items", "InvoiceLine"):
+        clave = _texto(linea, "SpecialTaxableEvent", "SpecialTaxableEventCode")
+        if clave and clave not in claves:
+            claves.append(clave)
+        motivo = _texto(linea, "SpecialTaxableEvent",
+                        "SpecialTaxableEventReason")
+        if motivo and motivo not in motivos:
+            motivos.append(motivo)
+
+    unica = claves[0] if len(claves) == 1 else ""
+    dice, categoria = _FISCALIDAD_ESPECIAL.get(unica, ("", ""))
+    if categoria:
+        esperado = (f"{categoria} en la copia, que es la categoría de "
+                    f"UNCL5305 para «{dice}»")
+        encontrado = (f"{', '.join(a_cero)} al 0 % en esta factura, y la "
+                      f"fiscalidad especial {unica} en las líneas")
+    else:
+        esperado = ("una categoría de UNCL5305 elegida a mano: al 0 % caben "
+                    "E, O, Z, K, G y AE, y ninguna se deduce de aquí")
+        encontrado = (f"{', '.join(a_cero)} al 0 % en esta factura, "
+                      f"sin fiscalidad especial que lo estreche")
+    mensaje = (
+        "Esta factura declara algo al 0 % y la copia tiene que decir de qué "
+        "categoría es. BT-118 es obligatorio, y el código de impuesto de "
+        "Facturae no lo dice: un cero puede ser una exenta, una no sujeta, un "
+        "tipo cero, una intracomunitaria, una exportación o una inversión del "
+        "sujeto pasivo. Lo único que estrecha es la fiscalidad especial de "
+        "las líneas, y solo a dos: su 01 es la E y su 02 es la O."
+    )
+    if categoria == "E":
+        mensaje += (
+            " Y al ser exenta, en la copia el motivo deja de ser opcional "
+            "-lo exige BR-E-10-: está en la línea, en texto libre, y el "
+            "esquema manda escribirlo precedido del código del impuesto."
+        )
+    incidencias = [
+        Incidencia(
+            "COPIA-DESGLOSE-CERO",
+            NOTA,
+            mensaje,
+            campo=f"{etiqueta}Categoría del desglose al 0 % "
+                  f"(BT-118 en la copia)",
+            esperado=esperado,
+            encontrado=encontrado + (
+                f", y el motivo escrito «{motivos[0]}»" if motivos else ""
+            ),
+        )
+    ]
+    return incidencias
+
+
+def _de_la_moneda(factura, etiqueta: str) -> list[Incidencia]:
+    """El campo que Facturae obliga a escribir y la copia no debería llevar.
+
+    De todas las filas de la cabecera esta es la única que saca nota, y es
+    porque el fallo va al revés que de costumbre: no se pierde un dato, se
+    copia uno de más, y copiarlo **rompe la copia** —`BR-53` pide entonces
+    `BT-111`, que en Facturae no existe—.
+    """
+    emision = _hijos(factura, "InvoiceIssueData")
+    if not emision:
+        return []
+    del_impuesto = _texto(emision[0], "TaxCurrencyCode")
+    if not del_impuesto:
+        return []
+    de_la_factura = _texto(emision[0], "InvoiceCurrencyCode")
+    if del_impuesto == de_la_factura:
+        esperado = (f"BT-6 vacío en la copia: la contabilidad del IVA va en "
+                    f"{del_impuesto}, la misma moneda de la factura")
+        encontrado = (f"{del_impuesto} en esta factura, escrito porque el "
+                      f"esquema de Facturae lo exige siempre")
+    else:
+        esperado = (f"{del_impuesto} en BT-6 y la cuota en {del_impuesto} en "
+                    f"BT-111, que hay que calcular")
+        encontrado = (f"{del_impuesto} en esta factura, y la factura en "
+                      f"{de_la_factura or '(sin moneda)'}")
+    return [
+        Incidencia(
+            "COPIA-MONEDA-DEL-IVA",
+            NOTA,
+            "La moneda de contabilización del IVA es obligatoria en Facturae "
+            "y en la copia no siempre debe ir. BT-6 solo tiene sentido cuando "
+            "el IVA se contabiliza en otra moneda, y en cuanto se escribe, "
+            "BR-53 exige además BT-111 -la cuota total en esa moneda-, que "
+            "Facturae no lleva: lleva el tipo de cambio, así que ese número "
+            "hay que calcularlo. Copiar el campo por estar escrito deja una "
+            "copia que no cumple la norma por un dato que no aporta nada.",
+            campo=f"{etiqueta}Moneda del IVA (BT-6 y BT-111 en la copia)",
+            esperado=esperado,
+            encontrado=encontrado,
+        )
+    ]
+
+
+def _de_los_nombres(raiz) -> list[Incidencia]:
+    """El nombre de una persona física, que va en tres campos y cabe en uno.
+
+    Es de las partes y no de cada factura, como las direcciones de fuera: las
+    partes son del fichero entero.
+    """
+    incidencias = []
+    for parte, quien, destino in (
+        ("SellerParty", "del vendedor", "BT-27"),
+        ("BuyerParty", "del comprador", "BT-44"),
+    ):
+        for persona in raiz.xpath(
+            f"./*[local-name()='Parties']/*[local-name()='{parte}']"
+            f"/*[local-name()='Individual']"
+        ):
+            trozos = [
+                _texto(persona, campo)
+                for campo in ("Name", "FirstSurname", "SecondSurname")
+            ]
+            if not any(trozos):
+                continue
+            escritos = [t for t in trozos if t]
+            incidencias.append(
+                Incidencia(
+                    "COPIA-NOMBRE",
+                    NOTA,
+                    "El nombre de una persona física va en tres campos en "
+                    "Facturae -nombre, primer apellido y segundo apellido- y "
+                    "en la copia va en uno solo, que además es obligatorio. "
+                    "Hay que juntarlos, y ni el esquema ni el anexo dicen en "
+                    "qué orden ni con qué separador: no es lo mismo «Juana "
+                    "Mauriño» que «Mauriño, Juana» para quien después busque "
+                    "esta factura por su titular. Quedarse solo con el nombre "
+                    "tampoco vale aquí: en la copia se perderían los "
+                    "apellidos.",
+                    campo=f"Nombre {quien} ({destino} en la copia)",
+                    esperado="un solo campo en la copia",
+                    encontrado=f"{len(escritos)} de 3 campos en esta factura: "
+                               + ", ".join(f"«{t}»" for t in escritos),
+                )
+            )
+    return incidencias
+
+
 def _de_una_factura(
     factura, etiqueta: str, del_documento: tuple[str, ...] = ()
 ) -> list[Incidencia]:
@@ -1310,6 +1763,8 @@ def _de_una_factura(
     incidencias.extend(_de_los_cargos(factura, etiqueta))
     incidencias.extend(_de_las_referencias(factura, etiqueta))
     incidencias.extend(_de_la_factura_previa(factura, etiqueta))
+    incidencias.extend(_del_desglose(factura, etiqueta))
+    incidencias.extend(_de_la_moneda(factura, etiqueta))
     del_pago, se_queda_del_pago = _del_pago(factura, etiqueta)
     incidencias.extend(del_pago)
 
@@ -1497,7 +1952,7 @@ def reglas(raiz, deteccion: Deteccion) -> list[Incidencia]:
     # fichero: las partes son las mismas para todas, y la copia de cada una se
     # las lleva igual de incompletas.
     del_documento = _de_las_partes(raiz)
-    incidencias = list(_direcciones_de_fuera(raiz))
+    incidencias = list(_direcciones_de_fuera(raiz)) + _de_los_nombres(raiz)
     for numero, factura in enumerate(facturas, 1):
         etiqueta = f"Factura {numero}: " if len(facturas) > 1 else ""
         incidencias.extend(_de_una_factura(factura, etiqueta, del_documento))

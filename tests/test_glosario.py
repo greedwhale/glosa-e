@@ -68,7 +68,7 @@ def test_un_codigo_sin_explicacion_propia_hereda_la_de_su_familia():
 
 
 def test_todos_los_codigos_del_paquete_tienen_la_suya():
-    """Hoy los 162 la tienen, y eso se dice en vez de darse por supuesto.
+    """Hoy los 165 la tienen, y eso se dice en vez de darse por supuesto.
 
     No es una regla que haya que cumplir siempre: un código nuevo entra sin
     explicación y hereda, que para eso está la herencia. Pero la cuenta se

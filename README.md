@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2361 tests, todos en verde.
+2373 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3896,6 +3896,46 @@ pedido**—, que tampoco está en el anexo. El esquema lo declara `xs:double`, a
 que las tres facturas que lo traen escriben `1.0` y `2.0`: una referencia con
 decimales.
 
+**La séptima familia: el desglose del IVA** (22-09-2026). Base, cuota y tipo
+llegan igual. Lo caro es lo otro:
+
+| Lo que esconde el desglose | De 14 | Qué pasa |
+|---|---:|---|
+| Al **0 %** no se sabe de qué categoría es | 3 | `BT-118` es obligatorio y el código de impuesto de Facturae dice **qué impuesto** es, no de qué categoría. A tipo positivo la deducción está forzada —IVA a tipo positivo es la `S`—; un cero puede ser `E`, `O`, `Z`, `K`, `G` o `AE`. Lo único que lo estrecha es la fiscalidad especial de la línea, y solo a dos: su `01` es la `E` y su `02` es la `O` |
+| El **motivo de la exención** está en prosa | 3 | la norma lo quiere colgando de la entrada del desglose y Facturae lo escribe en texto libre dentro de la línea, precedido del código del impuesto —lo manda su propio esquema: «07 exenta por…»—. Hay que **leer esa cadena**, y ni el prefijo es fiable: la muestra oficial del Ministerio no lo escribe. Y si no se lee, el motivo no llega por ningún otro sitio, porque `BT-127` no está en el anexo. En la copia deja de ser opcional en cuanto la categoría es `E`: lo exige `BR-E-10` |
+| El **código del motivo** no existe en Facturae | 0 | el anexo pide la lista **CEF VATEX** —solo `VATEX-EU` y `VATEX-ES`—, en el desglose y en la línea. Facturae escribe prosa: el código lo elige quien copia |
+
+Y una fila que hasta el 22-09-2026 estaba **mal** y se ha corregido: la **clave
+de régimen**. Decía que era `SpecialTaxableEventCode` y que llegaba a `BG-32`.
+No lo es. La clave de régimen es la lista L3A y el anexo la pide **obligatoria**,
+una o dos por línea; `SpecialTaxableEventCode` solo distingue dos casos —`01`
+«sujeta y exenta» y `02` «no sujeta»— y en L3A el `01` es «operación de régimen
+general», que es lo contrario. El mismo dígito diciendo lo otro, como en el
+medio de pago. Las 3 facturas de aquí que traen fiscalidad especial traen el
+`01`.
+
+**La octava familia: la cabecera** (22-09-2026). Es la que más «lo pone quien
+copia» tiene, y no por casualidad: la cabecera es donde la copia se identifica a
+sí misma, y eso no está en el original.
+
+| Lo que esconde la cabecera | De 14 | Qué pasa |
+|---|---:|---|
+| La **moneda del IVA** no hay que copiarla | 14 | y es el único caso de toda la tabla en el que el fallo es copiar **de más**. `TaxCurrencyCode` es obligatorio en Facturae y repite la moneda de la factura; `BT-6` solo tiene sentido cuando el IVA se contabiliza en otra. En cuanto se escribe, `BR-53` exige `BT-111` —la cuota en esa moneda—, que Facturae no lleva: lleva el tipo de cambio. Copiar el campo por estar escrito deja una copia que **no cumple la norma** por un dato que no aportaba nada |
+| El **tipo de factura** se arma con tres campos | 14 | `BT-3` sale de `InvoiceDocumentType`, de `InvoiceClass` y de `FileHeader/InvoiceIssuerType`, que está fuera de la factura y es lo que separa la 380 de la **389** y la 384 de la **471**. Las 14 de aquí son `FC` + `OO`, o sea 380 |
+| La **especificación** la escribe quien copia | 14 | `BT-23` y `BT-24` son obligatorias y de valor fijo: el proceso (`…:schema:B2B`, fijo, ni siquiera distingue el B2G) y la especificación que sigue el documento (`urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0`). Una factura no dice eso de sí misma |
+| Cinco **huecos** sin origen | — | `BT-10`, `BT-20`, `BT-21`, `BT-114` y `BT-166` son opcionales y Facturae no tiene ninguno: la referencia interna del comprador, las condiciones de pago, el código de la nota, el importe de redondeo y la hora de expedición. Lo correcto es dejarlos vacíos; el fallo no es olvidarlos, es rellenarlos con lo que más se les parezca |
+
+**La novena familia: las partes** (22-09-2026). Las direcciones y los contactos
+ya estaban en la segunda. Lo que quedaba es quién es cada uno, y la nota sale de
+la fila que menos se espera:
+
+| Lo que esconde una parte | De 14 | Qué pasa |
+|---|---:|---|
+| El **nombre de una persona física** va en tres campos | 7 | `Name`, `FirstSurname` y `SecondSurname`, y en la copia va en uno solo y obligatorio. Nadie dice en qué orden ni con qué separador: no es lo mismo «Juana Mauriño» que «Mauriño, Juana» para quien busque la factura por su titular. Y quedarse solo con el nombre —que es lo que hace el validador para **leer** la factura, porque pegarle los apellidos sería inventar un formato— aquí perdería dos apellidos |
+| Los **datos registrales** son seis campos | 8 | libro, registro, hoja, folio, sección y tomo, y `BT-33` es una línea de texto libre. Hay que redactarla, no copiarla |
+| El **NIF** es la fila que el texto nuevo mueve seguro | 14 | hoy es el mismo dato en el mismo sitio; el 10-09-2026 se anunció que el del vendedor podrá ir en `BT-31` —que el anexo de abril ni recoge— o en `BT-32` con esquema «LOC» y `@schemeID` «FC» |
+| El **nombre comercial** no está en el anexo | 8 | ni `BT-28` ni ninguno de los identificadores de las partes. De las dos, el anexo se queda con el nombre y el NIF |
+
 Lo que dice el módulo, con los importes al lado:
 
 | Nota | Cuándo sale | Qué dice |
@@ -3909,6 +3949,9 @@ Lo que dice el módulo, con los importes al lado:
 | `COPIA-CARGO-IVA` | hay descuentos o cargos generales | en la copia van agrupados por categoría de IVA, y aquí no la llevan |
 | `COPIA-LINEA-UNIDAD` | una línea trae unidad de medida | el código es de la lista de Facturae y la copia pide uno de UN/ECE |
 | `COPIA-LINEA-NETO` | `TotalCost` y `GrossAmount` no valen lo mismo | el importe neto de la línea es el segundo, no el primero |
+| `COPIA-MONEDA-DEL-IVA` | hay moneda de contabilización del IVA | en la copia no debe ir si repite la de la factura: pide `BT-111` |
+| `COPIA-DESGLOSE-CERO` | hay una entrada al 0 % | la copia necesita una categoría que el código de impuesto no dice |
+| `COPIA-NOMBRE` | una parte es persona física | su nombre va en tres campos y en la copia va en uno |
 | `COPIA-REFERENCIAS` | hay pedido, contrato, expediente o albarán | ninguna tiene campo en la copia, y el hueco que queda libre no es el suyo |
 | `COPIA-FACTURA-PREVIA` | se refiere a otra factura | el número va con su serie, y la fecha de la referenciada es obligatoria |
 | `COPIA-SUPLIDO` | hay suplidos | son `BT-179` y `BT-180`, de la edición de 2026, y el anexo de abril no les da ruta |
@@ -3917,13 +3960,17 @@ Lo que dice el módulo, con los importes al lado:
 Sobre las 14 facturas de aquí: **las 14 sacan alguna nota**. Eran 11 hasta la
 tercera familia, y las tres que callaban no eran facturas más limpias: eran las
 que no tocaban ningún concepto de los once primeros. Todas tienen líneas. El
-ejemplo publicado `ejemplos/fe-0001.xml` saca cuatro —su serie, su idioma, la
-unidad de su línea y su medio de pago— y sigue saliendo conforme, porque
-ninguna es un error.
+ejemplo publicado `ejemplos/fe-0001.xml` saca cinco —su serie, su idioma, la
+unidad de su línea, su medio de pago y su moneda del IVA— y sigue saliendo
+conforme, porque ninguna es un error.
 
 **La tabla se escribe entera, con el porqué de cada fila**, en
-`CORRESPONDENCIAS`: **75 conceptos**, cada uno con lo que le pasa y de dónde
-sale esa decisión. Los estados son nueve, y los cuatro que fueron añadiéndose
+`CORRESPONDENCIAS`: **97 conceptos** que nombran **92 de los 104 términos
+europeos** del anexo, cada uno con lo que le pasa y de dónde sale esa decisión.
+Los 12 que quedan sin nombrar no son un hueco: son **los grupos** —los
+contenedores, `BG-4` a `BG-9`, `BG-22`, `BG-25`, `BG-29` a `BG-31`— y
+`BT-154`, que la tercera familia deja vacío a propósito. Todo lo que lleva un
+dato tiene su fila. Los estados son nueve, y los cuatro que fueron añadiéndose
 familia a familia son los que no se pueden juntar con ningún otro sin borrar
 justo lo que hay que decidir:
 

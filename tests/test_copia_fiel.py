@@ -39,7 +39,7 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
   <Parties>
     <SellerParty><TaxIdentification>
       <TaxIdentificationNumber>B12345674</TaxIdentificationNumber>
-    </TaxIdentification>{contacto}</SellerParty>
+    </TaxIdentification>{persona}{contacto}</SellerParty>
     <BuyerParty><TaxIdentification>
       <TaxIdentificationNumber>B12345674</TaxIdentificationNumber>
     </TaxIdentification>{fuera}</BuyerParty>
@@ -49,6 +49,7 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
       {rectificada}</InvoiceHeader>
     <InvoiceIssueData>
       <IssueDate>2026-09-20</IssueDate>
+      {monedas}
       {idioma}
       {cabecera}
     </InvoiceIssueData>
@@ -58,7 +59,7 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
       <TaxableBase><TotalAmount>100.00</TotalAmount></TaxableBase>
       <TaxAmount><TotalAmount>21.00</TotalAmount></TaxAmount>
       {recargo}
-    </Tax>{segundo_tipo}</TaxesOutputs>
+    </Tax>{segundo_tipo}{cero}</TaxesOutputs>
     {retenciones}
     {lineas}
     <InvoiceTotals>
@@ -119,6 +120,22 @@ SUCURSAL = """<BranchInSpainAddress>
           <CountryCode>ESP</CountryCode>
         </BranchInSpainAddress>"""
 
+# Una entrada del desglose al 0 %, que es donde la copia se queda sin saber
+# de qué categoría hablar: un cero puede ser seis cosas distintas.
+CERO = """<Tax>
+      <TaxTypeCode>01</TaxTypeCode>
+      <TaxRate>0.00</TaxRate>
+      <TaxableBase><TotalAmount>50.00</TotalAmount></TaxableBase>
+      <TaxAmount><TotalAmount>0.00</TotalAmount></TaxAmount>
+    </Tax>"""
+
+# La fiscalidad especial, que vive en la línea y solo tiene dos valores: 01
+# «sujeta y exenta» y 02 «no sujeta». Su motivo es obligatorio en el esquema.
+FISCALIDAD = """<SpecialTaxableEvent>
+        <SpecialTaxableEventCode>{clave}</SpecialTaxableEventCode>
+        <SpecialTaxableEventReason>{motivo}</SpecialTaxableEventReason>
+      </SpecialTaxableEvent>"""
+
 # Un segundo tipo de IVA, que es lo que convierte el descuento general en una
 # decisión: con una sola categoría la cuenta está forzada.
 SEGUNDO_TIPO = """<Tax>
@@ -152,6 +169,15 @@ FUERA = """<Individual><OverseasAddress>
       <PostCodeAndTown>SW1A 1AA London</PostCodeAndTown>
       <CountryCode>GBR</CountryCode>
     </OverseasAddress></Individual>"""
+# Una persona física como vendedor: su nombre va en tres campos y en la copia
+# va en uno. El segundo apellido se deja fuera cuando no se pide, que es la
+# mitad de los casos de las facturas reales.
+PERSONA = """<Individual>
+      <Name>{nombre}</Name>
+      <FirstSurname>{primero}</FirstSurname>
+      {segundo}
+    </Individual>"""
+
 # La misma dirección de fuera, pero colgada de un centro administrativo, que
 # **no** tiene ese destino en el anexo. Es la mitad de las que hay en las
 # facturas reales, así que la exclusión se prueba y no se comenta.
@@ -171,7 +197,9 @@ def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
             descuento_general=None, cargo_general=None, segundo_tipo=False,
             retencion_detallada=False, medio=None, vencimientos=0,
             sucursal=False, referencias=False, albaranes=(), secuencias=(),
-            cabecera=None, asociada=None, rectificada=None):
+            cabecera=None, asociada=None, rectificada=None,
+            tipo_cero=False, fiscalidad=(), motivo="01 exenta por el 20.Uno",
+            moneda=None, moneda_impuesto=None, persona=None):
     """Una factura de 100 de base y 21 de IVA, con lo que se le encienda."""
     repercutido = "26.20" if recargo else "21.00"
     total = str(round(100 + float(repercutido) - float(retenido), 2))
@@ -192,6 +220,8 @@ def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
         f"</DeliveryNote></DeliveryNotesReferences>" for uno in albaranes
     )
     dentro.extend(f"<SequenceNumber>{uno}</SequenceNumber>" for uno in secuencias)
+    dentro.extend(FISCALIDAD.format(clave=uno, motivo=motivo)
+                  for uno in fiscalidad)
     lineas = ""
     if dentro:
         cuerpos = "".join(
@@ -254,6 +284,18 @@ def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
                    f"</RelatedInvoice></AdditionalData>" if asociada else ""),
         generales=generales,
         segundo_tipo=SEGUNDO_TIPO if segundo_tipo else "",
+        cero=CERO if tipo_cero else "",
+        monedas=(
+            (f"<InvoiceCurrencyCode>{moneda}</InvoiceCurrencyCode>"
+             if moneda else "")
+            + (f"<TaxCurrencyCode>{moneda_impuesto}</TaxCurrencyCode>"
+               if moneda_impuesto else "")
+        ),
+        persona=(PERSONA.format(
+            nombre=persona[0], primero=persona[1],
+            segundo=(f"<SecondSurname>{persona[2]}</SecondSurname>"
+                     if len(persona) > 2 and persona[2] else ""),
+        ) if persona else ""),
         retenciones=RETENCIONES if retencion_detallada else "",
         lineas=lineas,
         recargo=RECARGO if recargo else "",
@@ -630,6 +672,102 @@ def test_una_rectificativa_de_un_periodo_no_señala_a_ninguna_factura():
     Facturae, y aquí tiene que valer igual: sin número, no hay nota.
     """
     assert "COPIA-FACTURA-PREVIA" not in notas(rectificada=("", "", ""))
+
+
+def test_una_entrada_al_cero_no_dice_de_que_categoria_es():
+    """BT-118 es obligatorio y el código de impuesto no lo decide.
+
+    Un cero en Facturae puede ser exenta, no sujeta, tipo cero,
+    intracomunitaria, exportación o inversión del sujeto pasivo.
+    """
+    nota = notas(tipo_cero=True)["COPIA-DESGLOSE-CERO"]
+    assert nota.gravedad == NOTA
+    assert "a mano" in nota.esperado
+    for categoria in ("E", "O", "Z", "K", "G", "AE"):
+        assert categoria in nota.esperado
+    assert "0 %" in nota.encontrado
+
+
+def test_la_fiscalidad_especial_estrecha_el_cero_a_la_E():
+    """El `01` de Facturae es «sujeta y exenta», que en UNCL5305 es la E."""
+    nota = notas(tipo_cero=True, fiscalidad=("01",))["COPIA-DESGLOSE-CERO"]
+    assert nota.esperado.startswith("E en la copia")
+    assert "sujeta y exenta" in nota.esperado
+    # Y al ser exenta, el motivo deja de ser opcional en la copia.
+    assert "BR-E-10" in nota.mensaje
+
+
+def test_el_02_es_la_no_sujeta():
+    nota = notas(tipo_cero=True, fiscalidad=("02",))["COPIA-DESGLOSE-CERO"]
+    assert nota.esperado.startswith("O en la copia")
+    assert "BR-E-10" not in nota.mensaje
+
+
+def test_dos_claves_distintas_no_deciden_la_categoria():
+    """Provocado: la fiscalidad especial es de la línea y el 0 % del impuesto.
+
+    Con una exenta y una no sujeta en la misma factura, no hay manera de
+    saber de cuál es la entrada del desglose, y elegir la más probable es lo
+    que este módulo no hace.
+    """
+    nota = notas(tipo_cero=True, fiscalidad=("01", "02"))["COPIA-DESGLOSE-CERO"]
+    assert "a mano" in nota.esperado
+
+
+def test_el_motivo_escrito_sale_en_la_nota():
+    """Porque hay que leerlo: es texto libre y la copia lo quiere estructurado."""
+    nota = notas(tipo_cero=True, fiscalidad=("01",),
+                 motivo="01 exenta por el 20.Uno")["COPIA-DESGLOSE-CERO"]
+    assert "01 exenta por el 20.Uno" in nota.encontrado
+
+
+def test_con_tipo_positivo_no_se_dice_nada_del_desglose():
+    """A tipo positivo la deducción está forzada: eso es la S y no hay más."""
+    assert "COPIA-DESGLOSE-CERO" not in notas()
+
+
+def test_la_moneda_del_iva_igual_a_la_de_la_factura_no_se_copia():
+    """El caso de las 14: Facturae obliga a escribirla y repite la moneda.
+
+    Copiarla enciende `BR-53` en la copia, que pide `BT-111`, y ese número
+    no está en el original.
+    """
+    nota = notas(moneda="EUR", moneda_impuesto="EUR")["COPIA-MONEDA-DEL-IVA"]
+    assert nota.gravedad == NOTA
+    assert "BT-6 vacío" in nota.esperado
+    assert "BR-53" in nota.mensaje
+
+
+def test_con_otra_moneda_del_iva_hay_que_calcular_la_cuota():
+    """Y entonces sí va, con un BT-111 que hay que sacar del tipo de cambio."""
+    nota = notas(moneda="USD", moneda_impuesto="EUR")["COPIA-MONEDA-DEL-IVA"]
+    assert "BT-111" in nota.esperado and "calcular" in nota.esperado
+    assert "USD" in nota.encontrado
+
+
+def test_sin_moneda_del_impuesto_no_se_dice_nada_de_la_moneda():
+    assert "COPIA-MONEDA-DEL-IVA" not in notas(moneda="EUR")
+
+
+def test_el_nombre_de_una_persona_fisica_va_en_tres_campos():
+    """Y en la copia va en uno, que además es obligatorio."""
+    nota = notas(persona=("Juana", "Mauriño", "Pérez"))["COPIA-NOMBRE"]
+    assert nota.gravedad == NOTA
+    assert "3 de 3 campos" in nota.encontrado
+    assert "«Juana»" in nota.encontrado and "«Mauriño»" in nota.encontrado
+    # No se propone un orden: eso es justo lo que nadie ha fijado.
+    assert nota.esperado == "un solo campo en la copia"
+
+
+def test_un_nombre_sin_segundo_apellido_se_cuenta_como_lo_que_es():
+    """La mitad de las personas de las facturas de aquí no lo traen."""
+    nota = notas(persona=("DORADO", "", ""))["COPIA-NOMBRE"]
+    assert "1 de 3 campos" in nota.encontrado
+
+
+def test_una_persona_juridica_no_saca_esa_nota():
+    """Su razón social ya es un campo, y llega igual."""
+    assert "COPIA-NOMBRE" not in notas()
 
 
 def test_el_destino_de_cada_fila_existe_en_el_anexo():
