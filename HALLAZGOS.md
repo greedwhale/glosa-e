@@ -4621,11 +4621,114 @@ las cuatro que no hubo que provocar.
 
 ### Los seis que quedan
 
+*Superada: la tabla vigente está al final de la sección siguiente.*
+
 | # | Qué pasa | Medido |
 |---|---|---|
 | 31 | Un ejemplo que da 404 se escribe como si fuera la factura | En producción lo para la huella de `rueda.json`, de rebote; sin ella, pasa |
 | 33 | `/entrada` no se vacía nunca | 6 validaciones → 6 ficheros, 480.438 B, todos vivos |
 | 34 | Mensajes de libxml2 en inglés dentro del informe | `Premature end of data in tag FileHeader`, `xmlParseEntityRef: no name`… |
 | 36 | El testigo de red cuenta lo servido de caché | Pinta 17,7 MB de 24 ficheros en local, que es lo que ocupan en disco: usa `encodedBodySize` en vez de `transferSize` |
+| 38 | El 404 y las minúsculas | `/codigo-BR-01` → 200, `/codigo-br-01` → 404. El 404 es el genérico de Vercel, en inglés y sin marca |
+| 39 | Cinco menores | HSTS sin `includeSubDomains` —el `.vercel.app` sí lo lleva—, faltan `Permissions-Policy`, COOP y CORP, `prueba.py` como `octet-stream`, `escapar()` sin comillas —hoy sin impacto: solo recibe `error`, `aviso` o `nota`— y el subdominio de Vercel no redirige |
+
+## El inglés del informe y la cifra del testigo
+
+Los puntos 34 y 36, que cierran la tanda C. Los dos son lo mismo visto de dos
+maneras: **enseñar una cifra o una frase que no es la que se ha medido**. En el
+34 el informe repetía las palabras de libxml2 como si fueran suyas; en el 36 el
+testigo contaba lo que ocupan los ficheros y lo llamaba red.
+
+### 34. El informe hablaba inglés cuando el XML no abría
+
+Un fichero cortado a medias se contestaba así:
+
+```
+No es XML válido y tampoco EDIFACT. Detalle: Premature end of data in tag
+FileHeader line 3, line 4, column 1
+```
+
+Y un `&` suelto en una razón social, así: `xmlParseEntityRef: no name`. Es toda
+la documentación que recibe quien acaba de mandar una factura que no abre.
+
+**Por qué llevaba tanto sin verse.** Medido el 22-09-2026 sobre los 172
+ficheros ajenos de los tres corpus —`muestras`, `MuestrasFE`, `Pfactura3`—:
+**cero**. Ni una sola vez. Un fichero que llega a un corpus es un fichero que
+alguien pudo abrir; esto sólo sale con uno roto, que es justo cuando quien lo
+recibe menos sabe dónde mirar.
+
+**La traducción se cuelga del código y no de la frase.** La frase es texto de
+libxml2 y cambia entre versiones; el código es su enumeración y no. Y no es una
+precaución teórica: aquí corre lxml 6.1.2 y en el navegador 6.0.2, y **el mismo
+fichero cortado da dos códigos distintos** —`ERR_TAG_NOT_FINISHED` aquí,
+`ERR_LTSLASH_REQUIRED` allí—. Eso no se vio leyendo el código ni corriendo la
+suite: se vio soltándole a la página los veintidós ficheros rotos y encontrando
+que uno se colaba por el remate. Sin el remate habría salido una traza.
+
+Son dieciséis códigos, medidos rompiendo un XML de veinticinco maneras. Del
+mensaje se saca además el nombre del elemento cuando lo trae, con una expresión
+por código; si algún día deja de casar se pierde el nombre y queda la
+explicación, que es la degradación correcta. La misma factura de antes ahora
+dice:
+
+```
+No es XML válido y tampoco EDIFACT: una etiqueta «FileHeader» se abre y el
+fichero se acaba sin cerrarla. Suele ser una copia o una descarga a medias.
+Línea 4, columna 1.
+```
+
+La columna se cuenta desde uno, como la cuenta libxml2 y no como la da
+`offset`, que empieza en cero: sin sumar uno el informe mandaba a mirar un
+carácter antes de donde está la cosa.
+
+**Lo que no se traduce se dice de quién es.** Un código fuera de la tabla no se
+inventa: se pasan las palabras del analizador **diciendo que son suyas**, que
+es distinto de colarlas como si fueran de este validador. Lo mismo se ha hecho
+con `XSD-OTRO`, el fallo de esquema cuya forma no se reconoce, que pasaba el
+inglés a pelo. `VALIDADOR-SE-ATRAGANTA` se queda como está a propósito: ahí el
+texto en inglés es la excepción de Python, y esa incidencia ya dice con todas
+las letras que el fallo es del validador y no de la factura.
+
+### 36. El testigo contaba el fichero y decía «red»
+
+El panel que cuenta lo que pide la página apuntaba `encodedBodySize`, que es lo
+que ocupa el cuerpo del fichero **venga de donde venga**. Lo que hace falta ahí
+es `transferSize`, que vale cero cuando algo sale de la caché. Reproducido el
+22-09-2026, segunda visita sobre el sitio montado:
+
+| | |
+|---|---|
+| lo que pintaba el testigo | **17,7 MB** |
+| lo que fue por el cable | **9,64 MB** |
+| ficheros que no pasaron por la red | **21 de 23** |
+
+En producción es peor, porque allí todo lo pesado va con `immutable` a un año:
+la segunda visita no baja casi nada y el testigo habría seguido diciendo lo
+mismo que la primera. Un panel que existe para **contar en lugar de afirmar**
+estaba afirmando.
+
+Ahora se apuntan las dos cifras y se enseña la que toca: «Ver cuáles · 10,2 MB
+por la red y 7,5 MB de tu caché», y cada fichero de la lista dice «de caché» si
+no viajó. Se distinguen tres casos y no dos, porque un dominio ajeno sin
+`Timing-Allow-Origin` deja las dos cifras a cero, y eso no es lo mismo que
+venir de la caché: ese sale con una raya, como antes.
+
+**Ojo con dónde se mide.** Estas cifras son del sitio servido en local, y ahí
+`http.server` no comprime: lo que baja es el tamaño en disco. Es la misma
+trampa del punto 37, y por eso conviene que quede escrita dos veces.
+
+### Seis roturas provocadas, las seis en rojo
+
+Un código caído de la tabla, la columna contada desde cero otra vez, el nombre
+con la coma de libxml2 pegada, un nombre que esta versión no conoce, el remate
+colando el inglés como si fuera nuestro, y el testigo volviendo a contar el
+cuerpo. Las seis en rojo a la primera.
+
+### Los cuatro que quedan
+
+| # | Qué pasa | Medido |
+|---|---|---|
+| 31 | Un ejemplo que da 404 se escribe como si fuera la factura | En producción lo para la huella de `rueda.json`, de rebote; sin ella, pasa |
+| 33 | `/entrada` no se vacía nunca | 6 validaciones → 6 ficheros, 480.438 B, todos vivos |
 | 38 | El 404 y las minúsculas | `/codigo-BR-01` → 200, `/codigo-br-01` → 404. El 404 es el genérico de Vercel, en inglés y sin marca |
 | 39 | Cinco menores | HSTS sin `includeSubDomains` —el `.vercel.app` sí lo lleva—, faltan `Permissions-Policy`, COOP y CORP, `prueba.py` como `octet-stream`, `escapar()` sin comillas —hoy sin impacto: solo recibe `error`, `aviso` o `nota`— y el subdominio de Vercel no redirige |

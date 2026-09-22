@@ -199,6 +199,24 @@ def test_la_portada_no_promete_la_revocacion_a_secas():
             "una respuesta OCSP, y de aquí no se sale a buscarlas.")
 
 
+def test_el_testigo_cuenta_lo_que_ha_ido_por_la_red():
+    """El testigo de la portada dice cuánto se ha pedido, y tiene que ser
+    cuánto ha **viajado**.
+
+    Apuntaba `encodedBodySize`, que es lo que ocupa el cuerpo del fichero
+    venga de donde venga, y lo pintaba como si fuera red. Medido el 22-09-2026
+    en una segunda visita: 21 de 23 ficheros no pasaron por la red y el
+    testigo seguía diciendo 17,7 MB. `transferSize` vale cero cuando algo sale
+    de la caché, que es justo la diferencia que hay que enseñar.
+    """
+    portada = PORTADA.read_text(encoding="utf-8")
+    assert "cable: entrada.transferSize" in portada, (
+        "el testigo ya no apunta `transferSize`: sin él no puede distinguir "
+        "lo que ha viajado de lo que salió de la caché")
+    assert "tamano(porLaRed)" in portada, (
+        "la cifra que enseña el testigo ya no se calcula de lo que viajó")
+
+
 def test_el_catalogo_no_se_puede_publicar_vacio():
     """La plantilla tiene que llevar la marca donde se pega el catálogo.
 

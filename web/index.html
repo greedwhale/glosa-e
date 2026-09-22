@@ -994,9 +994,11 @@ function pintarTestigo() {
     : "La página ha pedido " + plural(vistas.length, "fichero", "ficheros") +
       (vistas.length === 1 ? ", de " : ", todos de ") + location.host + ".";
 
-  const total = vistas.reduce((suma, v) => suma + v.bytes, 0);
+  const porLaRed = vistas.reduce((suma, v) => suma + v.cable, 0);
+  const deCache = vistas.reduce((suma, v) => suma + (v.cable ? 0 : v.cuerpo), 0);
   $("tg-lista-caja").hidden = vistas.length === 0;
-  $("tg-lista-resumen").textContent = "Ver cuáles · " + tamano(total);
+  $("tg-lista-resumen").textContent = "Ver cuáles · " + tamano(porLaRed) +
+    " por la red" + (deCache ? " y " + tamano(deCache) + " de tu caché" : "");
   const lista = $("tg-lista");
   for (const v of vistas.slice(lista.children.length)) {
     const li = document.createElement("li");
@@ -1005,7 +1007,9 @@ function pintarTestigo() {
     ruta.textContent = (esAjena(v) ? v.host : "") + v.ruta;
     ruta.title = ruta.textContent;
     const peso = document.createElement("span");
-    peso.textContent = v.bytes ? tamano(v.bytes) : "—";
+    peso.textContent = v.cable ? tamano(v.cable)
+      : v.cuerpo ? "de caché"
+      : "—";   // ni una cosa ni la otra: un ajeno que no deja mirar su tamaño
     li.append(ruta, peso);
     lista.appendChild(li);
   }
@@ -1046,7 +1050,20 @@ function empezarATestiguar() {
       // documento, y contarlos hizo gritar una vez al banco sin motivo.
       if (!/^https?:/.test(entrada.name)) continue;
       const url = new URL(entrada.name);
-      red.vistas.push({ ruta: url.pathname, host: url.host, bytes: entrada.encodedBodySize || 0 });
+      // Dos cifras y no una, porque no son lo mismo y el testigo habla de la
+      // primera: `transferSize` es lo que ha ido por la red —cero cuando sale
+      // de la cache— y `encodedBodySize` es lo que ocupa el cuerpo, venga de
+      // donde venga. Se apuntaba solo la segunda y se pintaba como si fuera
+      // red. Medido el 22-09-2026 en una segunda visita: 21 de 23 ficheros no
+      // pasaron por la red y el testigo seguia diciendo 17,7 MB.
+      //
+      // Un dominio ajeno sin `Timing-Allow-Origin` deja las dos a cero, que no
+      // es lo mismo que venir de la cache: por eso se distinguen abajo.
+      red.vistas.push({
+        ruta: url.pathname, host: url.host,
+        cable: entrada.transferSize || 0,
+        cuerpo: entrada.encodedBodySize || 0,
+      });
       nuevas += 1;
     }
     if (nuevas) { pintarTestigo(); latir(); }

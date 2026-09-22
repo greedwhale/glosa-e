@@ -497,6 +497,133 @@ def _detectar_edifact_xml(raiz: etree._Element, nombre: str) -> Deteccion:
     )
 
 
+# --- Cuando el XML ni siquiera abre ----------------------------------------
+#
+# libxml2 explica bien por qué no abre, pero lo explica en inglés y con sus
+# palabras —«Premature end of data in tag FileHeader», «xmlParseEntityRef: no
+# name»—, y eso se iba entero al informe. Medido el 22-09-2026 sobre los 172
+# ficheros ajenos de los tres corpus: **cero**. Sólo sale con un fichero roto,
+# que es justo cuando quien lo recibe menos sabe qué mirar, y por eso llevaba
+# tanto sin verse.
+#
+# La traducción se cuelga del **código** del error y no de su frase. El código
+# es la enumeración de libxml2 y no cambia; la frase es texto y cambia entre
+# versiones, y este proyecto fija la suya pero la del navegador es otra —lxml
+# 6.1.2 aquí, 6.0.2 en Pyodide—. Del mensaje sólo se saca el nombre del
+# elemento cuando lo trae, con una expresión por código: si algún día deja de
+# casar, se pierde el nombre y queda la explicación, que es la degradación
+# correcta.
+#
+# Los quince están medidos rompiendo un XML de veinticinco maneras distintas;
+# lo que no salga de ahí cae en el remate, que pasa las palabras de libxml2
+# diciendo que son suyas en vez de hacerlas pasar por nuestras.
+
+_NOMBRE_EN_TAG = re.compile(r"in tag (\S+)")
+_NOMBRE_EN_CIERRE = re.compile(r"mismatch: (\S+)")
+_NOMBRE_EN_INICIO = re.compile(r"end of Start Tag (\S+)")
+_NOMBRE_DE_ATRIBUTO = re.compile(r"Attribute (\S+) redefined")
+_NOMBRE_DE_ENTIDAD = re.compile(r"Entity '([^']+)'")
+_NOMBRE_DE_PREFIJO = re.compile(r"Namespace prefix (\S+)")
+_NOMBRE_DE_CODIFICACION = re.compile(r"Unsupported encoding (\S+)")
+
+# nombre del error en libxml2 -> (qué decir, de dónde sacar el nombre del
+# elemento si el mensaje lo trae)
+_NO_ABRE: dict[str, tuple[str, "re.Pattern[str] | None"]] = {
+    "ERR_DOCUMENT_EMPTY": (
+        "el fichero no empieza por «<», así que donde tenía que ir la primera "
+        "etiqueta hay otra cosa. Un PDF, un ZIP, un correo o un texto suelto "
+        "no son una factura en XML.", None),
+    "ERR_TAG_NOT_FINISHED": (
+        "una etiqueta{nombre} se abre y el fichero se acaba sin cerrarla. Suele "
+        "ser una copia o una descarga a medias.", _NOMBRE_EN_TAG),
+    # Este no salía aquí y sí en el navegador: el mismo fichero cortado a
+    # medias da ERR_TAG_NOT_FINISHED con libxml2 6.1.2 y ERR_LTSLASH_REQUIRED
+    # con el 6.0.2 que lleva Pyodide. Es la razón de que esto se cuelgue del
+    # código y no de la frase, y de que haya remate: se vio soltándole los
+    # veintidós ficheros rotos a la página, no leyendo el código.
+    "ERR_LTSLASH_REQUIRED": (
+        "se esperaba el cierre de una etiqueta —un «</»— y no está. Suele ser "
+        "una copia o una descarga a medias.", None),
+    "ERR_GT_REQUIRED": (
+        "una etiqueta{nombre} se queda sin su «>».", _NOMBRE_EN_INICIO),
+    "ERR_TAG_NAME_MISMATCH": (
+        "una etiqueta{nombre} se cierra con un nombre distinto del que se "
+        "abrió. En XML las dos tienen que decir lo mismo.", _NOMBRE_EN_CIERRE),
+    "ERR_NAME_REQUIRED": (
+        "después de un «&» o de un «<» tiene que venir un nombre, y aquí no lo "
+        "hay. Si forman parte del texto de la factura, van escritos «&amp;» y "
+        "«&lt;».", None),
+    "ERR_ATTRIBUTE_NOT_STARTED": (
+        "el valor de un atributo va entre comillas y aquí no las lleva.", None),
+    "ERR_ATTRIBUTE_REDEFINED": (
+        "el mismo atributo{nombre} está puesto dos veces en la misma etiqueta.",
+        _NOMBRE_DE_ATRIBUTO),
+    "ERR_UNDECLARED_ENTITY": (
+        "el documento usa una entidad{nombre} que no declara en ninguna parte.",
+        _NOMBRE_DE_ENTIDAD),
+    "ERR_DOCUMENT_END": (
+        "hay contenido después de donde el documento tenía que acabar. Un XML "
+        "lleva un solo elemento raíz y todo lo demás va dentro.", None),
+    "NS_ERR_UNDEFINED_NAMESPACE": (
+        "se usa un prefijo de espacio de nombres{nombre} que no se declara en "
+        "ninguna parte.", _NOMBRE_DE_PREFIJO),
+    "ERR_COMMENT_NOT_FINISHED": (
+        "hay un comentario que se abre con «<!--» y no se cierra con «-->».",
+        None),
+    "ERR_CDATA_NOT_FINISHED": (
+        "hay una sección CDATA que se abre y no se cierra con «]]>».", None),
+    "ERR_INVALID_CHAR": (
+        "hay un carácter que XML no admite: o el fichero no está en la "
+        "codificación que declara, o lleva dentro un carácter de control.",
+        None),
+    "ERR_UNSUPPORTED_ENCODING": (
+        "el prólogo declara una codificación{nombre} que no se reconoce.",
+        _NOMBRE_DE_CODIFICACION),
+    "ERR_VERSION_MISSING": (
+        "el prólogo «<?xml …?>» está mal escrito: le falta la versión.", None),
+}
+
+
+# Los nombres se traducen a los números de esta versión de libxml2 una sola
+# vez, y preguntando por el **atributo público** de `ErrorTypes`. La tentación
+# era `ErrorTypes._names`, que da el camino inverso en una línea, pero empieza
+# por guión bajo: aquí corre lxml 6.1.2 y en el navegador 6.0.2, y de lo
+# privado no hay nada que garantice que siga estando. Un nombre que esta
+# versión no conozca se cae de la tabla y su error acaba en el remate, que es
+# lo que tiene que pasar.
+_POR_CODIGO = {
+    codigo: dicho
+    for nombre, dicho in _NO_ABRE.items()
+    if (codigo := getattr(etree.ErrorTypes, nombre, None)) is not None
+}
+
+
+def por_que_no_abre(error: etree.XMLSyntaxError) -> str:
+    """Por qué no abre este XML, dicho en castellano y con dónde mirar."""
+    donde = ""
+    if error.lineno:
+        donde = f" Línea {error.lineno}"
+        # La columna la cuenta libxml2 desde 1 y `offset` desde 0; sin sumar
+        # uno, el informe manda un carácter antes de donde está la cosa.
+        if error.offset is not None:
+            donde += f", columna {error.offset + 1}"
+        donde += "."
+    if error.code not in _POR_CODIGO:
+        # No se inventa una traducción de lo que no se ha medido: se pasan las
+        # palabras de libxml2 **diciendo que son suyas**, que es distinto de
+        # colarlas como si fueran las de este validador.
+        return f"el analizador de XML lo describe así: «{error.msg}».{donde}"
+    plantilla, saca_nombre = _POR_CODIGO[error.code]
+    cual = ""
+    if saca_nombre is not None and (casa := saca_nombre.search(error.msg or "")):
+        # El \S+ de la expresión se lleva por delante la coma con la que
+        # libxml2 separa el nombre de la posición —«Unsupported encoding
+        # PEPE-9, line 1»—, y sin quitarla el informe dice «PEPE-9,».
+        if apodo := casa[1].strip(" ,.:;"):
+            cual = f" «{apodo}»"
+    return plantilla.format(nombre=cual) + donde
+
+
 def detectar(datos: bytes | str) -> Deteccion:
     """Identifica el formato de una factura a partir de su contenido."""
     if isinstance(datos, str):
@@ -512,7 +639,8 @@ def detectar(datos: bytes | str) -> Deteccion:
         raiz = etree.fromstring(datos, parser=_parser())
     except etree.XMLSyntaxError as error:
         return Deteccion(
-            motivo=f"No es XML válido y tampoco EDIFACT. Detalle: {error.msg}"
+            motivo="No es XML válido y tampoco EDIFACT: "
+            + por_que_no_abre(error)
         )
 
     namespace, nombre = _partir_nombre(raiz.tag)

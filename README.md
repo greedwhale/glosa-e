@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2375 tests, todos en verde.
+2383 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4837,7 +4837,8 @@ hecho mientras se leía. Las cifras las da el propio navegador (Resource
 Timing), suben en directo mientras se descarga el validador, y la lista de
 ficheros con su peso está a un clic.
 
-Tres decisiones, y las tres salen de no pintar un cero que nadie ha contado:
+Cuatro decisiones, y las cuatro salen de no pintar una cifra que nadie ha
+contado:
 
 - **Un observador, no el búfer.** `performance.getEntriesByType` deja de
   apuntar a partir de 250 entradas, y el contador se quedaría quieto diciendo
@@ -4849,6 +4850,14 @@ Tres decisiones, y las tres salen de no pintar un cero que nadie ha contado:
 - **Dice lo que no ve.** Las cookies HttpOnly y lo que hagan las extensiones no
   se ven desde la página, y el pie lo dice. Si el navegador no deja contar, el
   testigo dice «sin contar» en vez de ceros.
+- **Cuenta lo que ha viajado, no lo que ocupa.** Apuntaba
+  `encodedBodySize` —el tamaño del cuerpo, venga de donde venga— y lo pintaba
+  como red. Medido en una segunda visita: 21 de 23 ficheros no pasaron por la
+  red y el testigo seguía diciendo 17,7 MB. Ahora se apunta también
+  `transferSize`, que es cero cuando algo sale de la caché, y se enseñan las
+  dos: «10,2 MB por la red y 7,5 MB de tu caché». Son tres casos y no dos,
+  porque un dominio ajeno sin `Timing-Allow-Origin` deja las dos cifras a cero
+  y eso no es venir de la caché: ese sale con una raya.
 
 Provocado en el navegador: una imagen de otro dominio lo pone en rojo con el
 nombre del dominio, una cookie y un dato guardado aparecen a los dos segundos,

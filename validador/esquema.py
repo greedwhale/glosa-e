@@ -569,7 +569,9 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-OTRO",
             ERROR,
-            f"El documento no cumple el esquema. {_limpiar(entrada.message)}",
+            "El documento no cumple el esquema. Esta queja no se ha sabido "
+            "traducir, así que va con las palabras del validador de esquemas, "
+            f"que son las de libxml2 y están en inglés: «{_limpiar(entrada.message)}»",
             campo=f"Línea {entrada.line}",
         )
 

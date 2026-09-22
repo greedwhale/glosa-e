@@ -1,5 +1,7 @@
 """Comprobaciones de la detección de formato."""
 
+import re
+
 from lxml import etree
 
 from validador import formato
@@ -252,6 +254,102 @@ class TestUnUnaConSeparadoresPropios:
         )
         assert d.version == "96A"
         assert d.tipo_documento == "factura"
+
+
+class TestUnXmlQueNoAbre:
+    """Lo que se dice cuando el fichero ni siquiera es XML.
+
+    libxml2 lo explica bien y lo explica en inglés, y eso se iba tal cual al
+    informe: «Premature end of data in tag FileHeader», «xmlParseEntityRef: no
+    name». Medido el 22-09-2026 sobre los 172 ficheros ajenos de los tres
+    corpus: cero veces. Sólo sale con un fichero roto, que es justo cuando
+    quien lo recibe menos sabe qué mirar.
+    """
+
+    # Palabras que no puede haber en un informe de este validador. Se buscan
+    # así, y no comparando el texto entero, porque lo que hay que impedir es
+    # que **algo** de libxml2 se cuele, no que la frase sea la de hoy.
+    INGLES = re.compile(
+        r"\b(expected|found|mismatch|premature|invalid|redefined|Namespace|"
+        r"prefix|Unsupported|encoding|Malformed|Input|terminated|finished|"
+        r"Extra|content|Attribute|Entity|defined|Couldn|Start|Char|line|"
+        r"column)\b")
+
+    ROTOS = {
+        "se corta a medias": b'<?xml version="1.0"?>\n<Facturae>\n  <FileHeader>\n',
+        "cierre que no casa": b'<?xml version="1.0"?>\n<a>1</b>',
+        "un & suelto": b'<?xml version="1.0"?>\n<a>A & B</a>',
+        "dos raices": b'<?xml version="1.0"?><a/><b/>',
+        "atributo repetido": b'<?xml version="1.0"?>\n<a v="1" v="2"/>',
+        "atributo sin comillas": b'<?xml version="1.0"?>\n<a v=1/>',
+        "entidad que no existe": b'<?xml version="1.0"?>\n<a>&pepe;</a>',
+        "prefijo sin declarar": b'<?xml version="1.0"?><pp:a/>',
+        "comentario sin cerrar": b'<?xml version="1.0"?><a><!-- hola </a>',
+        "CDATA sin cerrar": b'<?xml version="1.0"?><a><![CDATA[hola</a>',
+        "codificacion inventada": b"<?xml version='1.0' encoding='PEPE-9'?><a/>",
+        "prologo mal escrito": b"<?xml versio='1.0'?><a/>",
+        "caracter de control": b"<?xml version='1.0'?><a>\x01</a>",
+        "un PDF": b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj\n",
+    }
+
+    def test_ninguna_deja_pasar_una_palabra_de_libxml2(self):
+        cuela = {}
+        for que, datos in self.ROTOS.items():
+            motivo = formato.detectar(datos).motivo or ""
+            if palabras := self.INGLES.findall(motivo):
+                cuela[que] = sorted(set(palabras))
+        assert not cuela, f"se cuela inglés en el informe: {cuela}"
+
+    def test_y_todas_dicen_que_no_es_ni_xml_ni_edifact(self):
+        for que, datos in self.ROTOS.items():
+            motivo = formato.detectar(datos).motivo or ""
+            assert "No es XML válido y tampoco EDIFACT" in motivo, que
+
+    def test_se_dice_donde_mirar(self):
+        motivo = formato.detectar(b'<?xml version="1.0"?>\n<a>1</b>').motivo
+        # La columna de libxml2 empieza en 1 y `offset` en 0. Sin sumar uno, el
+        # informe mandaba un carácter antes de donde está la cosa.
+        assert "Línea 2, columna 9." in motivo, motivo
+
+    def test_se_nombra_la_etiqueta_cuando_libxml2_la_nombra(self):
+        motivo = formato.detectar(
+            b'<?xml version="1.0"?>\n<Facturae>\n  <FileHeader>\n').motivo
+        assert "«FileHeader»" in motivo, motivo
+
+    def test_y_el_nombre_viene_sin_la_puntuacion_de_libxml2(self):
+        """«Unsupported encoding PEPE-9, line 1» -> «PEPE-9», no «PEPE-9,»."""
+        motivo = formato.detectar(
+            b"<?xml version='1.0' encoding='PEPE-9'?><a/>").motivo
+        assert "«PEPE-9»" in motivo, motivo
+
+    def test_un_codigo_que_no_esta_en_la_tabla_dice_de_quien_son_las_palabras(self):
+        """No se inventa una traducción de lo que no se ha medido.
+
+        Lo que no cae en la tabla se pasa tal cual, pero **diciendo que son
+        palabras del analizador**, que es distinto de colarlas como si fueran
+        las de este validador.
+        """
+        class Falso:
+            code = -12345          # ningún libxml2 lo usa
+            msg = "Something nobody translated"
+            lineno = 7
+            offset = 3
+
+        dicho = formato.por_que_no_abre(Falso())
+        assert "el analizador de XML lo describe así" in dicho
+        assert "«Something nobody translated»" in dicho
+        assert "Línea 7, columna 4." in dicho
+
+    def test_la_tabla_se_traduce_a_los_numeros_de_esta_version(self):
+        """Los quince nombres tienen que existir en el lxml que haya montado.
+
+        Se pregunta por el atributo público de `ErrorTypes` y no por `_names`,
+        que es privado: aquí corre lxml 6.1.2 y en el navegador 6.0.2.
+        """
+        perdidos = [n for n in formato._NO_ABRE
+                    if getattr(etree.ErrorTypes, n, None) is None]
+        assert not perdidos, f"esta versión de libxml2 no conoce: {perdidos}"
+        assert len(formato._POR_CODIGO) == len(formato._NO_ABRE)
 
 
 class TestCasosLimite:
