@@ -386,6 +386,14 @@ class Registro:
                 # sitios distintos producen el mismo. No es un duplicado —son
                 # dos facturas— y decirle a quien lo lee que son la misma es
                 # mandarle a buscar una copia que no existe.
+                #
+                # De las tres sintaxis, la única que puede partirlo es
+                # **Facturae**: UBL y CII llevan el número entero en un campo
+                # —`cbc:ID`, `ram:ID`— y de ahí sale siempre `serie=None`, así
+                # que mismo canónico implica mismo número y la rama de abajo
+                # es la correcta. Dos UBL nunca llegan aquí; una Facturae
+                # contra un UBL, sí, y ese es el caso más feo de todos porque
+                # cada formato cree tener su propio número.
                 incidencias.append(
                     Incidencia(
                         "CU-16",

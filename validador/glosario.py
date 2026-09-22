@@ -1242,7 +1242,12 @@ CODIGOS: dict[str, str] = {
         'verá una sola, y la segunda tapará a la primera. La queja enseña las '
         'dos particiones al lado, porque sin verlas no se entiende. Hasta el '
         '22-09-2026 esto salía como CU-10, «es la misma factura dos veces», '
-        'que manda a buscar una copia que no existe.'
+        'que manda a buscar una copia que no existe. Sólo puede salir cuando '
+        'la serie viaja en un campo suyo, y de las tres sintaxis eso sólo '
+        'pasa en Facturae: UBL y CII llevan el número entero en uno solo. Dos '
+        'UBL con el mismo número son un duplicado de verdad y salen como '
+        'CU-10; el caso más feo es el mixto, una Facturae contra un UBL, '
+        'donde cada fichero cree tener su propio número.'
     ),
     "FIRMA-NO-XADES": (
         'La firma es XML-DSig a secas, sin las propiedades XAdES. Es una '

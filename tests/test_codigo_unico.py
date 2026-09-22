@@ -242,6 +242,22 @@ class TestDosFacturasConElMismoCodigo:
         assert "CU-10" in salen
         assert "CU-16" not in salen
 
+    def test_dos_ubl_no_pueden_llegar_aqui(self):
+        """UBL y CII llevan el numero entero en un campo: serie es None.
+
+        Con las dos series vacias, mismo canonico implica mismo numero, asi
+        que la rama de CU-16 es inalcanzable y lo que sale es el duplicado de
+        verdad. Comprobado tambien en el navegador con dos UBL: CU-10.
+
+        Esto no prueba el arreglo: prueba que el arreglo no acusa en falso a
+        quien no puede tener ese problema.
+        """
+        registro = Registro()
+        registro.anotar(cu(numero="A12", serie=None))
+        salen = codigos(registro.anotar(cu(numero="A12", serie=None)))
+        assert "CU-10" in salen
+        assert "CU-16" not in salen
+
 
 class TestRegistro:
     def test_la_primera_vez_no_choca(self):

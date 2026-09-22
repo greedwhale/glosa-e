@@ -4407,6 +4407,16 @@ dos particiones al lado, porque sin verlas la queja no se entiende.
 Un duplicado de verdad sigue siendo `CU-10`; hay prueba de que el arreglo no se
 lo traga, que es la mitad que se rompe sola al arreglar la otra.
 
+**Y sólo puede pasar en Facturae**, que conviene decirlo porque acota el
+hallazgo. De las tres sintaxis es la única que guarda la serie en un campo
+suyo; UBL y CII llevan el número entero en uno solo —`cbc:ID`, `ram:ID`—, así
+que de ahí sale siempre `serie=None` y mismo código canónico implica mismo
+número: dos UBL con el mismo número son un duplicado de verdad y siguen
+saliendo `CU-10`. Comprobado en el navegador con las dos parejas, y hay prueba
+de las dos. El caso más feo es el mixto —una Facturae con serie `A` y número
+`12` contra un UBL cuyo `cbc:ID` es `A12`—, porque ahí cada fichero cree tener
+su propio número y ninguno de los dos está mal escrito.
+
 ### 27. Un céntimo, dos quejas
 
 `iva.py` tiene un guardián con un propósito explícito en su docstring: cuando

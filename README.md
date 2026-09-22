@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2360 tests, todos en verde.
+2361 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -774,6 +774,14 @@ un duplicado —son dos facturas y quien las emitió no ha hecho nada raro— pe
 para cualquier registro que las indexe por su código único son la misma: la
 segunda tapa a la primera. Hasta el 22-09-2026 esto salía como CU-10, «es la
 misma factura dos veces», que manda a buscar una copia que no existe.
+
+Sólo puede salir cuando la serie viaja en un campo suyo, y de las tres
+sintaxis eso sólo pasa en **Facturae**: UBL y CII llevan el número entero en
+uno solo —`cbc:ID`, `ram:ID`—, así que dos UBL con el mismo número son un
+duplicado de verdad y siguen saliendo como CU-10. Comprobado en el navegador
+con las dos parejas. El caso más feo es el mixto —una Facturae con serie `A` y
+número `12` contra un UBL cuyo `cbc:ID` es `A12`—, porque ahí cada fichero cree
+tener su propio número y ninguno de los dos está mal escrito.
 
 **Los NIF que empiezan por K, L o M son de persona física**, y hasta el
 20-09-2026 CU-01 los daba por inválidos todos. Son las claves que asigna la
