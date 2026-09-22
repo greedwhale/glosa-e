@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2373 tests, todos en verde.
+2375 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -1066,6 +1066,14 @@ devuelva eso no informa de nada.
 Por eso sale NOTA y no error. NOTA es la gravedad que existe para decir *qué se
 aceptó y con qué base*, y esto es exactamente eso: no hay nada que arreglar en
 el documento.
+
+Y no es lo mismo que AVISO, aunque las dos digan «no se ha podido comprobar».
+Lo que las separa es **de quién es el hueco**: `REVOCACION-SIN-COMPROBAR` sale
+como aviso porque falta la lista y con otra lista podría salir otra cosa —queda
+algo pendiente—, y `BR-01` sale como nota porque el formato no tiene dónde
+guardar ese dato y no hay nada que esperar. La portada lo decía mal hasta el
+22-09-2026: daba «no se ha podido comprobar» como definición de aviso, que es
+la frase que llevan dentro varias notas. Está en HALLAZGOS, punto 35.
 
 ### Los totales de Facturae son superconjuntos de los europeos
 

@@ -466,7 +466,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             <div>
               <dt>Cookies</dt>
               <dd><b id="tg-cookies">—</b>
-              <span id="tg-guardado">Ni analítica ni nada guardado entre visitas.</span></dd>
+              <span id="tg-guardado">Ni analítica ni rastreo, y nada guardado en el navegador.</span></dd>
             </div>
           </dl>
           <p class="pie">Cifras de tu propio navegador, leídas por esta página,
@@ -475,9 +475,15 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
           de desarrollo; <a href="./legal.html#privacidad">así se midió</a>.</p>
         </aside>
 
+        <!-- «si hay lista» no sobra. De las tres cosas que se miran de una
+             firma, la revocación es la única que puede quedarse sin contestar:
+             hace falta una CRL o una respuesta OCSP, y este validador no sale a
+             la red a buscarlas. La condición estaba escrita, pero 300 líneas
+             más abajo y dentro de una FAQ, mientras aquí arriba se prometía a
+             secas. Lo que se lee primero es esto. -->
         <dl class="ficha">
           <div><dt>De la norma</dt><dd>219 de sus 223 reglas</dd></div>
-          <div><dt>La firma</dt><dd>Cadena, revocación y sello</dd></div>
+          <div><dt>La firma</dt><dd>Cadena, sello y revocación si hay lista</dd></div>
           <div><dt>Contra qué</dt><dd>EN 16931 · RD 238/2026</dd></div>
           <div><dt>Formatos</dt><dd>Facturae · UBL · CII · EDIFACT</dd></div>
         </dl>
@@ -516,7 +522,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
         <div class="arranque" id="arranque">
           <div class="cabeza">
             <strong id="arranque-titulo">Descargando el validador</strong>
-            <span id="arranque-nota">Son unos 10 MB la primera vez. Después se queda en el navegador y no vuelve a bajarse.</span>
+            <span id="arranque-nota">Son unos 10 MB la primera vez. Después queda en la caché del navegador, marcado para un año, y no vuelve a bajarse.</span>
           </div>
           <div class="riel"><i id="riel"></i></div>
           <div class="fases" id="fases"></div>
@@ -652,8 +658,10 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
               autoridades la comprueba ni si mira la revocación. Dos solo miran
               si está.</td>
               <td data-rotulo="Aquí">Hasta la lista de confianza del Estado, con
-              revocación y sello de tiempo, y <a href="#trae">se dice de qué día
-              es la lista</a>.</td>
+              sello de tiempo, y con revocación <b>si el documento trae la prueba
+              o la tienes instalada</b> —no se sale a la red a buscarla, y cuando
+              falta <a href="#no-comprobado">se dice que falta</a>—. Y <a
+              href="#trae">se dice de qué día es la lista</a>.</td>
             </tr>
             <tr>
               <th scope="row">¿Se puede ver cómo comprueba?</th>
@@ -801,10 +809,19 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
           </summary>
           <div class="r">
             <p><b>Error</b>: algo incumple una norma y hay que arreglarlo.
-            <b>Aviso</b>: algo no se ha podido comprobar, o se ha comprobado y
-            depende de un dato del que no hay que fiarse del todo. <b>Nota</b>:
-            no es una queja — dice <b>qué se ha dado por bueno y con qué
-            base</b>.</p>
+            <b>Aviso</b>: queda una duda sobre tu factura — algo no se ha podido
+            comprobar, o se ha comprobado y depende de un dato del que no hay que
+            fiarse del todo. <b>Nota</b>: no es una queja y no deja nada
+            pendiente — dice <b>qué se ha dado por bueno y con qué base</b>.</p>
+            <p>El aviso y la nota se parecen, y lo que los separa es <b>de quién
+            es el hueco</b>. Si falta la lista con la que se miraría si anularon
+            un certificado, la comprobación queda pendiente y con otra lista
+            podría salir otra cosa: eso es un aviso. Si la regla pide un dato que
+            tu formato no tiene dónde guardar —<code>BR-01</code> pide el código
+            del pedido y Facturae no tiene ese elemento—, no hay nada pendiente
+            ni nada que arreglar, y sale como nota. Por eso leerás «no se ha
+            podido comprobar» en las dos: lo que cambia no es si se miró, sino si
+            te queda algo por hacer.</p>
             <p>La nota es la que más se ignora y la que sostiene el resto. «No
             consta anulado ningún certificado» no significa nada si no dice
             según qué lista y de qué día, y eso es lo que va en la nota.</p>

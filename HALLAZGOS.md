@@ -4487,6 +4487,8 @@ tumba cuatro. Son las dos mitades que se rompen sola al arreglar la otra.
 
 ### Los ocho que quedan
 
+*Superada: la tabla vigente está al final de la sección siguiente.*
+
 | # | Qué pasa | Medido |
 |---|---|---|
 | 31 | Un ejemplo que da 404 se escribe como si fuera la factura | En producción lo para la huella de `rueda.json`, de rebote; sin ella, pasa |
@@ -4495,5 +4497,135 @@ tumba cuatro. Son las dos mitades que se rompen sola al arreglar la otra.
 | 35 | Las gravedades no casan con lo que promete la página | `BR-01/14/21` y `SELLO-FALTA` salen NOTA contra la definición de la propia FAQ; y la portada promete «revocación» sin decir bajo qué condición |
 | 36 | El testigo de red cuenta lo servido de caché | Pinta 10,4 MB cuando por el cable fueron 17.769 bytes: usa `encodedBodySize` en vez de `transferSize` |
 | 37 | `legal.html` dice «no se guarda nada» | Y `index.html`, en el mismo sitio, dice «unos 10 MB… se queda en el navegador». Seis ficheros con `immutable` a un año suman ≈15,1 MB |
+| 38 | El 404 y las minúsculas | `/codigo-BR-01` → 200, `/codigo-br-01` → 404. El 404 es el genérico de Vercel, en inglés y sin marca |
+| 39 | Cinco menores | HSTS sin `includeSubDomains` —el `.vercel.app` sí lo lleva—, faltan `Permissions-Policy`, COOP y CORP, `prueba.py` como `octet-stream`, `escapar()` sin comillas —hoy sin impacto: solo recibe `error`, `aviso` o `nota`— y el subdominio de Vercel no redirige |
+
+## Los dos en los que la página iba por su cuenta
+
+La tanda C de la auditoría del 15-09-2026: los puntos 35 y 37. Ninguno de los
+dos es un fallo del validador. En los dos, **el programa hacía lo correcto y la
+página lo contaba mal**, que es peor de lo que suena: lo que se publica es lo
+único que ve quien todavía no se fía.
+
+Los tres textos los decidió el usuario, porque la decisión no era técnica.
+
+### 35. Una definición que dejaba fuera la mitad de sus propias notas
+
+La FAQ de la portada repartía las tres gravedades así:
+
+```
+Error: algo incumple una norma y hay que arreglarlo.
+Aviso: algo no se ha podido comprobar, o se ha comprobado y depende de un
+       dato del que no hay que fiarse del todo.
+Nota:  no es una queja — dice qué se ha dado por bueno y con qué base.
+```
+
+Y el informe, sobre una Facturae cualquiera, contesta esto:
+
+```
+BR-01  nota   Falta el código de referencia del pedido. La sintaxis Facturae
+              no tiene ningún elemento con ese significado, así que no se ha
+              podido comprobar. No es un defecto del documento.
+```
+
+La frase que la FAQ da como **definición de aviso** —«no se ha podido
+comprobar»— sale escrita dentro de una **nota**. No es un caso de laboratorio:
+son `BR-01`, `BR-02`, `BR-03`, `BR-14` y `BR-21` en `en16931.py`, y
+`SELLO-FALTA` en `sellos.py`. De los 390 códigos, 53 pueden salir como nota y
+32 no salen de ninguna otra forma.
+
+**La que estaba mal era la FAQ.** El código lleva su motivo escrito desde que
+se escribió —«NOTA es la gravedad que existe para decir qué se aceptó y con qué
+base, y esto es exactamente eso; no hay nada que arreglar en el documento»— y
+lo que faltaba era el criterio que separa los dos casos, que la definición no
+daba. Están los dos en el propio catálogo, uno al lado del otro:
+
+| Código | Gravedad | Por qué |
+|---|---|---|
+| `REVOCACION-SIN-COMPROBAR` | **aviso** | falta la lista con la que se miraría; con otra lista podría salir otra cosa |
+| `BR-01` en Facturae | **nota** | el formato no tiene dónde guardar ese dato; no hay nada pendiente |
+
+Las dos dicen «no se ha podido comprobar» y no son lo mismo: lo que cambia no
+es si se miró, sino **si al lector le queda algo por hacer**. Eso es lo que
+ahora dice la FAQ, con `BR-01` de ejemplo.
+
+Un ejemplo metido en un texto es un hecho del código que se puede mover, así
+que hay guardián: si `BR-01` deja de tener rama de nota, o si la FAQ deja de
+nombrarlo, la suite se para.
+
+**Y la revocación, prometida arriba y matizada abajo.** El mismo punto traía
+otra cosa, que es de orden de lectura y no de exactitud. Nada era falso:
+
+| Dónde | Qué decía |
+|---|---|
+| la ficha, en lo primero que se ve | «Cadena, revocación y sello» |
+| la tabla comparativa | «Hasta la lista de confianza del Estado, con revocación y sello de tiempo» |
+| una FAQ, 300 líneas más abajo | «si el documento no la trae y no la tienes instalada, no hay forma de saberlo sin salir a preguntar. Aquí no se pregunta» |
+
+De las tres cosas que se miran de una firma, la revocación es la única que
+puede quedarse sin contestar, y era la única cuya condición había que ir a
+buscar. Ahora la ficha dice «Cadena, sello y revocación **si hay lista**» y la
+tabla dice de qué depende, en la misma celda donde lo promete. También hay
+guardián, porque una celda de cuatro palabras es justo lo que alguien acorta
+para que quepa mejor.
+
+### 37. «No se guarda nada» contra «se queda en el navegador»
+
+Dos frases del mismo sitio, contradiciéndose palabra por palabra:
+
+```
+legal.html   …no hay identificadores, y no se guarda nada en tu navegador
+             entre visitas.
+index.html   Son unos 10 MB la primera vez. Después se queda en el navegador
+             y no vuelve a bajarse.
+```
+
+Las dos eran ciertas y hablaban de cosas distintas —**datos tuyos** contra
+**ficheros públicos en la caché**—, pero eso no estaba escrito en ninguna de
+las dos, así que quien leía las dos tenía que elegir cuál se creía. Ahora el
+aviso legal dice «no se guarda ningún dato tuyo» y lleva al lado un párrafo que
+explica qué sí se queda, cuánto ocupa y cuánto dura; y la portada dice
+«marcado para un año» en vez de dejarlo en «se queda».
+
+**Y la cifra estaba bien, aunque la auditoría dijera que no.** El punto 35 del
+barrido apuntó «seis ficheros con `immutable` a un año suman ≈15,1 MB» contra
+los «unos 10 MB» de la portada. Vuelto a medir el 22-09-2026, las dos cosas son
+verdad y no se estaban comparando con la misma vara:
+
+| Qué se mide | Bytes | |
+|---|---|---|
+| lo que ocupa en disco, sin comprimir | 17.133.045 | 17,13 MB |
+| **lo que baja por el cable**, con Brotli, contra `www.glosa-e.com` | **9.966.246** | **9,97 MB** |
+
+Son 24 peticiones, la página incluida. El `.wasm` pesa 9.598.218 en disco y
+3.577.499 por el cable; `pyodide.asm.mjs`, 1.250.344 y 265.085. Lo que no baja
+nada es lo que ya viene comprimido: `paquete.zip`, `python_stdlib.zip` y la
+letra viajan igual que están. «Unos 10 MB» es exacto y no se toca.
+
+Lo que merece quedar escrito es **cómo se equivocó la auditoría**, porque el
+fallo ya estaba catalogado en este repositorio: el 15-09-2026 la portada decía
+«unos 15 MB» y se corrigió a 9,86 por el cable, con su fila en la tabla de «lo
+publicado, repasado contra lo hecho». El barrido volvió a medir contra el
+servidor local —que no comprime— y sacó otra vez la cifra de disco. Es el fallo
+de siempre de este proyecto con un disfraz nuevo: **no era una caché sirviendo
+lo de ayer, era un servidor de pruebas contestando lo que producción no
+contesta**. Cualquier cifra de red medida en `localhost:8322` es de disco,
+diga lo que diga el testigo.
+
+### Cuatro roturas provocadas, las cuatro en rojo
+
+Las de siempre, y una que saltó sola: al tocar el párrafo de las cookies, el
+guardián que ata la fecha de la política a la huella de su texto paró la suite
+y pidió la fecha de hoy. Es exactamente para lo que existe, y es la única de
+las cuatro que no hubo que provocar.
+
+### Los seis que quedan
+
+| # | Qué pasa | Medido |
+|---|---|---|
+| 31 | Un ejemplo que da 404 se escribe como si fuera la factura | En producción lo para la huella de `rueda.json`, de rebote; sin ella, pasa |
+| 33 | `/entrada` no se vacía nunca | 6 validaciones → 6 ficheros, 480.438 B, todos vivos |
+| 34 | Mensajes de libxml2 en inglés dentro del informe | `Premature end of data in tag FileHeader`, `xmlParseEntityRef: no name`… |
+| 36 | El testigo de red cuenta lo servido de caché | Pinta 17,7 MB de 24 ficheros en local, que es lo que ocupan en disco: usa `encodedBodySize` en vez de `transferSize` |
 | 38 | El 404 y las minúsculas | `/codigo-BR-01` → 200, `/codigo-br-01` → 404. El 404 es el genérico de Vercel, en inglés y sin marca |
 | 39 | Cinco menores | HSTS sin `includeSubDomains` —el `.vercel.app` sí lo lleva—, faltan `Permissions-Policy`, COOP y CORP, `prueba.py` como `octet-stream`, `escapar()` sin comillas —hoy sin impacto: solo recibe `error`, `aviso` o `nota`— y el subdominio de Vercel no redirige |

@@ -259,6 +259,16 @@ WebAssembly, sin que el fichero salga del ordenador.
   cable es exactamente lo que crece en disco: 0,25 MB. El 15-09-2026 eran
   9,86, y de esa medida sale el «unos 10 MB» de la portada.
 
+  Vuelto a medir el 22-09-2026 contra `www.glosa-e.com`, pidiendo con Brotli
+  las 24 direcciones que carga una primera visita: **9.966.246 bytes, 9,97 MB**.
+  En disco, sin comprimir, esas mismas 24 suman 17.133.045 —el `.wasm` baja de
+  9.598.218 a 3.577.499 y `pyodide.asm.mjs` de 1.250.344 a 265.085; lo que ya
+  viene comprimido, `paquete.zip` y `python_stdlib.zip`, viaja igual que está—.
+  La diferencia entre las dos cifras es la trampa que ya nos costó una
+  corrección el 15-09: **medir la red en `localhost:8322` da el tamaño de
+  disco**, porque `http.server` no comprime. Ahí el testigo pinta 17,7 MB y no
+  es lo que le cuesta a nadie.
+
   Lo que sí se arregló es **la segunda visita**, que estaba rota de una forma
   que no se veía. Cada fichero se pedía con `?v=` y la hora dentro, para que el
   navegador no sirviera de su caché un wheel de ayer —pasó de verdad, y más de

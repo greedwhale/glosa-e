@@ -152,6 +152,53 @@ def test_la_portada_dice_cuantos_codigos_hay_explicados():
         f"la portada dice {dice} códigos explicados y hay {hay}. Cámbiala a {hay}.")
 
 
+def test_el_ejemplo_de_nota_de_la_portada_sale_de_verdad_como_nota():
+    """La FAQ de las gravedades explica la diferencia entre aviso y nota con un
+    caso concreto: `BR-01` pide el código del pedido, Facturae no tiene ese
+    elemento, y por eso sale como nota y no como aviso.
+
+    Es un hecho del código metido en un texto, y los hechos del código se
+    mueven. El día que `BR-01` pase a aviso —o deje de tener rama de nota— la
+    FAQ estaría enseñando de ejemplo justo lo contrario de lo que hace el
+    programa, que es el fallo que este punto de la auditoría venía a cerrar.
+    """
+    from validador.codigos import codigos_del_paquete
+
+    texto = " ".join(PORTADA.read_text(encoding="utf-8").split())
+    assert "<code>BR-01</code> pide el código del pedido" in texto, (
+        "la FAQ de las gravedades ya no pone BR-01 de ejemplo: o se ha "
+        "reescrito con otro código —y hay que cambiarlo aquí— o este guardián "
+        "se ha quedado ciego")
+    suyo = {c.codigo: c for c in codigos_del_paquete()}["BR-01"]
+    assert "nota" in suyo.gravedades, (
+        f"la portada usa BR-01 de ejemplo de nota y sale como "
+        f"{'/'.join(suyo.gravedades)}")
+
+
+def test_la_portada_no_promete_la_revocacion_a_secas():
+    """De las tres cosas que se miran de una firma, la revocación es la única
+    que puede quedarse sin contestar: hace falta una CRL o una respuesta OCSP,
+    y este validador no sale a la red a buscarlas.
+
+    La condición estaba escrita —en una FAQ, 300 líneas más abajo— y arriba, en
+    la ficha, se prometía a secas. Quien lee de arriba abajo se lleva la
+    promesa y puede no llegar nunca a la letra pequeña, así que la condición
+    subió. Esto vigila que no vuelva a bajar: si la ficha nombra la revocación,
+    tiene que nombrar también de qué depende.
+    """
+    texto = " ".join(PORTADA.read_text(encoding="utf-8").split())
+    celdas = re.findall(r"<dt>La firma</dt><dd>(.*?)</dd>", texto)
+    assert len(celdas) == 1, (
+        f"«La firma» sale {len(celdas)} veces en la ficha y tiene que salir "
+        "una: si se ha reescrito, este guardián está ciego")
+    dice = celdas[0]
+    if "revocación" in dice:
+        assert "si hay lista" in dice, (
+            f"la ficha promete «{dice}» sin decir de qué depende la "
+            "revocación. No siempre se puede comprobar: hace falta una CRL o "
+            "una respuesta OCSP, y de aquí no se sale a buscarlas.")
+
+
 def test_el_catalogo_no_se_puede_publicar_vacio():
     """La plantilla tiene que llevar la marca donde se pega el catálogo.
 
@@ -434,8 +481,8 @@ def test_el_aviso_legal_dice_bajo_que_licencia_se_publica():
 # texto. Cambiar una palabra de la página, o de la ficha que la página pinta,
 # sin cambiar esto deja la suite en rojo.
 
-FECHA_DE_LA_POLITICA = "15 de septiembre de 2026"
-HUELLA_DE_LA_POLITICA = "e2c28843407f19b768351e3d80b96bbc38dfd284cb6f2303014ff5b5888d3a54"
+FECHA_DE_LA_POLITICA = "22 de septiembre de 2026"
+HUELLA_DE_LA_POLITICA = "a4e71b49195feb1c5addd899e6734dfbb9560db5a48b575bdbe128b556c2d8ae"
 
 
 def _texto_de_la_politica() -> str:
