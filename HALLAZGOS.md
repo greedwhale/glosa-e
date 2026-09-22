@@ -4732,3 +4732,115 @@ cuerpo. Las seis en rojo a la primera.
 | 33 | `/entrada` no se vacía nunca | 6 validaciones → 6 ficheros, 480.438 B, todos vivos |
 | 38 | El 404 y las minúsculas | `/codigo-BR-01` → 200, `/codigo-br-01` → 404. El 404 es el genérico de Vercel, en inglés y sin marca |
 | 39 | Cinco menores | HSTS sin `includeSubDomains` —el `.vercel.app` sí lo lleva—, faltan `Permissions-Policy`, COOP y CORP, `prueba.py` como `octet-stream`, `escapar()` sin comillas —hoy sin impacto: solo recibe `error`, `aviso` o `nota`— y el subdominio de Vercel no redirige |
+
+
+## El vigilante dormido: condenó a una conexión que estaba entregando el 96 %
+
+El 22-09-2026, comprobando producción después de cerrar la tabla de la copia
+fiel, el arranque de `www.glosa-e.com` se cayó solo con su propio `SinDescarga`:
+«lleva 30 segundos sin llegar un solo byte». El sitio servía bien —`200`,
+1.637.748 bytes, `X-Vercel-Cache: HIT`— y la máquina bajaba a ~30 KB/s, así que
+lo primero que pareció es que el vigilante se había equivocado con un enlace
+lento. Leyendo ese mismo wheel a mano desde la misma página, los trozos llegaban
+con un hueco máximo de 1,06 s.
+
+Pero eso no lo demostraba: aquella era **otra** petición, posterior y en
+condiciones distintas. Que una lectura nueva fuera bien no dice nada de si la
+que se abortó estaba viva. Quedó apuntado como medido y sin arreglar, que es lo
+honesto cuando lo que se tiene es un indicio.
+
+### Reproducido, con el cable bajo control
+
+Un servidor de usar y tirar sirviendo el sitio entero por un **cubo de fichas
+compartido de 30 KB/s** —un enlace lento es eso, y no un límite por respuesta—,
+más un instrumento inyectado delante de la página que apunta, petición a
+petición, cuándo llegó su cabecera y cuándo su último byte. **Se cayó las dos
+veces**, en el mismo sitio y con la misma cara:
+
+| | Primera | Segunda |
+|---|---:|---:|
+| Cuándo se cayó | 495 s | 494 s |
+| Lo que el servidor llevaba escrito del wheel de lxml | 1.001.782 de 1.637.748 | **1.566.927 de 1.637.748** |
+| Lo que la página había contado de esa petición | 0 bytes, ni la cabecera | 0 bytes, ni la cabecera |
+
+El 96 % del fichero estaba escrito en el socket cuando la página dijo que no
+llegaba ni un byte. Así que el vigilante sí se equivocaba —y no por el enlace.
+
+### La sospecha que era falsa
+
+Estaba apuntado que el culpable probable era el `respuesta.clone()` con que se
+cuentan los bytes: la rama clonada podía quedarse sin recibir nada mientras
+Pyodide consume la otra. **Medido y desmentido**: con la original sin leer, la
+rama que cuenta recibió 1.600.000 bytes con un hueco máximo de 0,13 s, y doce
+megas con 0,10 s. El clon no tiene nada que ver.
+
+### Lo que sí era
+
+El registro de tics del instrumento, en la segunda caída:
+
+```
+... 1998  1999  2006  2001  2008  1992  1995  1998  ...   (38 tics, cada 2 s)
+                                          45999  60001    (y entonces)
+```
+
+La pestaña estaba de fondo. Chrome le junta los tics a una página oculta —de
+1 s pasaron a 2 s— y a los cinco minutos la aprieta hasta **uno por minuto**.
+En esas lagunas no corre el contador de bytes ni se entregan las respuestas: la
+petición del wheel llevaba 49,9 s pedida y ni siquiera había llegado su
+cabecera, mientras el servidor escribía sin parar.
+
+Y entonces, en el primer tic después de la laguna, el vigilante mira el reloj,
+ve cincuenta segundos sin bytes y condena. **Lo que se paró fue él, no la
+conexión.** Es el fallo de esta casa con el disfraz más difícil: el que mide se
+apaga, y al volver no distingue entre «no ha pasado nada» y «no estaba yo».
+
+Le tocaba, además, justo a quien más tarda en cargar la página, que es a quien
+el comentario del propio vigilante dice que no hay que romper. El precio no era
+solo el susto: al saltar, abandona de verdad —eso se arregló el 20-09— y se
+llevó por delante 1,5 MB ya descargados.
+
+### El arreglo
+
+**El vigilante solo puede jurar por el tiempo en que estuvo mirando.** Cada tic
+mide ahora su propio retraso; si llega más tarde de `DORMIDO` —3 s, que deja
+pasar los 2 s medidos de una página oculta pero viva—, eso no es una noticia,
+es una laguna: se le perdona al reloj el rato que no vio y no se juzga en ese
+tic, para que las respuestas que estaban esperando entren antes del siguiente.
+El perdón está topado en el instante actual, porque si un byte entra justo al
+despertar, sumarle la laguna entera dejaría al vigilante ciego un minuto más.
+
+No hace falta preguntar por `document.hidden`: lo que importa no es si la
+pestaña se ve, sino si el vigilante pudo mirar, y el retraso del tic mide
+exactamente eso.
+
+### Probado rompiéndolo
+
+Aquí no hay Node, así que otra vez en el navegador. Lo de antes y lo de ahora,
+con el mismo servidor estrecho y las mismas facturas:
+
+| Caso | Antes | Después |
+|---|---|---|
+| El sitio entero a 30 KB/s, pestaña de fondo | `SinDescarga` a los 494 s, con el 96 % del wheel escrito | **«Listo en 575,41 s»**, las 19 peticiones completas |
+| Conexión muerta: 200, un pellizco y silencio | salta a los 30,4 s | salta a los **30,2 s** |
+| Muerta después de 20 s con el hilo atascado | salta a los 50,8 s | salta a los **52,0 s** |
+| Lenta pero viva: 1,2 MB a 25 KB/s | no salta, 47,2 s | no salta, 47,1 s |
+| Se pide algo y el hilo se atasca 35 s | no salta, 53,8 s | no salta, 53,7 s |
+
+Las dos primeras filas son el arreglo; las tres siguientes son la prueba de que
+no lo he apagado, que es lo que de verdad hay que demostrar cuando lo que se
+toca es una negativa. En la carrera buena, el registro de tics enseña las
+lagunas perdonadas: 17 s, y luego cuatro de 60 s seguidas.
+
+`tests/test_vigilante.py` fija las tres piezas, y las tres se provocaron
+quitándolas del código una a una:
+
+| Lo que se le quitó | Quién se queja |
+|---|---|
+| El perdón entero | las tres: `test_una_laguna_no_cuenta_como_silencio`, `test_el_perdon_esta_topado` y `test_no_se_juzga_en_el_tic_de_la_laguna` |
+| Solo el tope del perdón | `test_el_perdon_esta_topado` |
+| Solo el salirse del tic | `test_no_se_juzga_en_el_tic_de_la_laguna` |
+| La medida del retraso (`tardanza` a cero) | `test_una_laguna_no_cuenta_como_silencio` |
+
+La última es la que más importa de las cuatro: deja el perdón escrito y
+aparentemente sano, pero midiendo cero, que es la forma en que esto volvería a
+romperse sin que se notara en la lectura.

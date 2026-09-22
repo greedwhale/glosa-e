@@ -97,21 +97,28 @@ referencia de tiempo, y por eso lo que se mira aquí son las peticiones, los
 bytes y los ajenos. El **22-09-2026**, con los artefactos grandes ya en caché:
 24 peticiones, 1.782 KB, `ajenos: []` y «Listo en 54,42 s».
 
-**Si el enlace va lento, el arranque se cae solo y no es de producción.** Medido
-el 22-09-2026: la máquina bajaba a ~30 KB/s —28 KB/s desde Vercel y 18 KB/s
-desde GitHub, o sea el enlace y no el sitio—, y la página abortó con su propio
-`SinDescarga`: «lleva 30 segundos sin llegar un solo byte». Leyendo ese mismo
-fichero a mano desde la misma página, los trozos llegaban con un hueco máximo de
-**1,06 s**: la conexión iba lenta, no muerta, así que el vigilante se equivocó.
-Antes de dar nada por roto, mide el enlace:
+**Si el arranque se cae con `SinDescarga`, no es de producción: mide el enlace
+antes de tocar nada.**
 
 ```bash
 curl -s -o /dev/null -w "%{size_download} bytes | %{time_total} s | %{speed_download} B/s\n" \
   https://www.glosa-e.com/pyodide/314.0.6/lxml-6.0.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl
 ```
 
-Y para poder seguir con el ritual, se calienta la caché a mano —el wheel es
-`immutable`, así que una vez bajado el arranque lo coge de ahí— y se recarga:
+Pasó el 22-09-2026 con la máquina a ~30 KB/s —28 desde Vercel y 18 desde
+GitHub—, y **era del vigilante, no del enlace**: con la pestaña de fondo, Chrome
+le aprieta los tics hasta uno por minuto, y al despertar veía cincuenta segundos
+sin bytes donde el servidor llevaba escrito el 96 % del wheel. Está reproducido
+y arreglado —el vigilante perdona ahora el tiempo que no estuvo mirando—, y el
+porqué entero está en `HALLAZGOS.md`, en «El vigilante dormido».
+
+Si vuelve a saltar con el enlace vivo, eso es un fallo nuevo y se reproduce
+antes de arreglarlo: el banco está descrito ahí, y son veinte líneas de servidor
+con un cubo de fichas compartido.
+
+Y si lo que hace falta es seguir con el ritual sin esperar diez minutos, se
+calienta la caché a mano —el wheel es `immutable`, así que una vez bajado el
+arranque lo coge de ahí— y se recarga:
 
 ```js
 window.__c = fetch("/pyodide/314.0.6/lxml-6.0.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl")

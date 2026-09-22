@@ -392,6 +392,23 @@ function cargarElArranque() {
 // abierta y ni un byte en treinta segundos, la conexion esta muerta y no
 // lenta. Y sin ninguna peticion abierta no se cuenta nada, porque ahi no se
 // descarga sino que se compila, y eso puede tardar lo que quiera.
+//
+// Y aun asi se equivocaba, porque «si llega algo» lo mira el hilo de la propia
+// pagina, y ese hilo se para. Reproducido el 22-09-2026 con el sitio servido
+// por un tubo de 30 KB/s, dos veces seguidas: el arranque se cayo solo
+// diciendo «lleva 30 segundos sin llegar un solo byte» cuando el servidor
+// llevaba escritos **1.566.927 de los 1.637.748 bytes** del wheel de lxml —el
+// 96 %—, y de la peticion no habia llegado ni la cabecera. La pestana estaba
+// de fondo: los tics del vigilante, que venian cada 2 s, se espaciaron 46 s y
+// luego 60 s, que es lo que hace Chrome con una pagina oculta a los cinco
+// minutos. No es que no llegaran bytes; es que no habia nadie contandolos.
+//
+// De ahi la tercera regla, y la que faltaba: **el vigilante solo puede jurar
+// por el tiempo en que estuvo mirando**. Cada tic mide su propio retraso, y lo
+// que se durmio no lo cuenta como silencio. Lo que se para tambien es lo que
+// mira, asi que un vigilante que no se entera de sus lagunas acaba condenando
+// justo a quien mas tarda en cargar, que es a quien dice que no hay que
+// romper.
 class SinDescarga extends Error {
   constructor(mensaje) {
     super(mensaje);
@@ -401,6 +418,21 @@ class SinDescarga extends Error {
 
 // Treinta segundos **sin un solo byte**, no treinta segundos de descarga.
 const SIN_BYTES = 30000;
+
+// Cada cuanto mira, y a partir de que retraso se da por dormido.
+//
+// Un `setInterval` no es un reloj: es una cita a la que el navegador lleva a
+// quien puede. Con la pagina de fondo, Chrome junta los tics —medido: de 1 s
+// pasan a 2 s, y a los cinco minutos ocultos, a uno cada 46 y 60 s—, y con el
+// hilo ocupado instanciando quince megas de wasm no hay tic ninguno. En esas
+// lagunas tampoco se entregan las respuestas, asi que los bytes que si estan
+// llegando no los cuenta nadie.
+//
+// DORMIDO es el listo para distinguir las dos cosas. Tres segundos deja pasar
+// el tic tarde de una pagina oculta que sigue viva —los 2 s medidos— y caza la
+// laguna de verdad, que se mide en decenas de segundos.
+const CADA = 1000;
+const DORMIDO = 3000;
 
 // Envuelve `fetch` mientras dura `faena()` para contar lo que entra.
 //
@@ -427,6 +459,10 @@ async function conVigilante(faena) {
   const mando = new AbortController();
   let abiertas = 0;
   let ultimoByte = Date.now();
+  // Cuando mire por ultima vez, que no es lo mismo que cuando entro el ultimo
+  // byte: aquello dice si la conexion da senales, y esto si el vigilante
+  // estaba en condiciones de verlas.
+  let ultimoTic = Date.now();
   let reloj = null;
 
   // Se lee la copia hasta el final solo para saber que sigue llegando. Lo que
@@ -502,13 +538,33 @@ async function conVigilante(faena) {
       enMarcha,
       new Promise((_, mal) => {
         reloj = setInterval(() => {
-          if (abiertas > 0 && Date.now() - ultimoByte > SIN_BYTES) {
+          const ahora = Date.now();
+          const tardanza = ahora - ultimoTic;
+          ultimoTic = ahora;
+
+          // Un tic que llega tarde no trae noticias: trae una laguna. Durante
+          // ella no corrio el contador de bytes, asi que una descarga que iba
+          // bien se ve exactamente igual que una cortada, y lo que hay que
+          // hacer con lo que no se ha visto es no jurar sobre ello.
+          //
+          // Se le perdona al reloj el rato que no miro, tope hasta ahora mismo
+          // —sin ese tope, una laguna larga saldria regalando inmunidad para
+          // despues—, y no se juzga en este tic, para que las respuestas que
+          // estaban esperando entren antes del siguiente. Si la conexion
+          // estaba muerta de verdad, el silencio vuelve a contar desde ya y el
+          // vigilante salta treinta segundos mas tarde.
+          if (tardanza > DORMIDO) {
+            ultimoByte = Math.min(ahora, ultimoByte + tardanza - CADA);
+            return;
+          }
+
+          if (abiertas > 0 && ahora - ultimoByte > SIN_BYTES) {
             mal(new SinDescarga(
               "La descarga se ha cortado. No es que vaya lenta: lleva " +
               Math.round(SIN_BYTES / 1000) + " segundos sin llegar un solo " +
               "byte. Recarga la página para volver a intentarlo."));
           }
-        }, 1000);
+        }, CADA);
       }),
     ]);
   } catch (error) {
