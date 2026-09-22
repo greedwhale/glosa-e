@@ -4339,6 +4339,9 @@ entera.
 
 ### Los once que quedan
 
+**Tres de ellos —26, 27 y 30— se cerraron al día siguiente**; la lista al día
+está al final de la entrada que viene después.
+
 | # | Qué pasa | Medido |
 |---|---|---|
 | 26 | Series que se tocan comparten código único | `A`+`12` y `A1`+`2` dan `B12345674\|A12\|…` las dos: `CU-10` a dos facturas distintas. Y también la misma `huella()` |
@@ -4356,3 +4359,131 @@ entera.
 El 34 es hermano del 24 y se queda para su tanda: son los mensajes de libxml2
 que sí llegan al informe cuando el documento está mal formado, y ahí no hay una
 caída que evitar sino una traducción que escribir.
+
+## Los tres en los que el programa se contradecía
+
+La tanda B de la auditoría del 15-09-2026: los puntos 26, 27 y 30. Ninguno de
+los tres es un fallo leyendo una factura. Los tres son **dos partes de este
+programa que habían dejado de decir lo mismo**, y en los tres casos la que
+hablaba de cara al informe era la equivocada:
+
+| Quién dice una cosa | Quién dice la contraria |
+|---|---|
+| el docstring de `huella()`: «dos facturas distintas no comparten huella» | `huella()`, que las hacía compartirla |
+| `iva.py`, que se calla «porque ya lo dice BR-CO-12» | `en16931.py`, que con un céntimo sí lo dice, y entonces salen los dos |
+| `formato.py`: «Mensaje EDIFACT, pero sin cabecera UNH» | `edifact.py`, que encuentra esa cabecera dos líneas después |
+
+### 26. Dos facturas distintas con el mismo código único
+
+El código único pega la serie y el número sin nada en medio —así los trata
+Verifactu, y si la serie necesita un guion ya lo lleva dentro—. La consecuencia
+es aritmética: la serie `A` con el número `12` y la serie `A1` con el número
+`2` dan las dos `A12`.
+
+```
+serie 'A'  + número '12' -> B12345674|A12|2026-09-07
+serie 'A1' + número '2'  -> B12345674|A12|2026-09-07
+```
+
+Son dos cosas distintas y hay que separarlas.
+
+**La huella prometía no colisionar, y colisionaba.** Su docstring lo dice con
+todas las letras: las partes se cifran con su longitud por delante para que
+`("AB", "C")` y `("A", "BC")` no den lo mismo. Pero la longitud se le ponía a
+`numero_completo`, que ya ha pegado serie y número: **la defensa estaba un
+nivel por encima de donde ocurre el choque**. Y había prueba —
+`test_la_huella_no_colisiona_al_partir_distinto`—, en verde, porque probaba el
+otro borde, el de NIF contra número. Un guardián mirando la puerta de al lado.
+Ahora las cuatro partes van por separado y hay prueba del borde que faltaba.
+
+**Y el código canónico sí choca, porque así se forma.** Eso no se arregla: es
+la definición. Lo que se arregla es lo que se decía de ello. Salía `CU-10`,
+«esta factura ya estaba registrada… es la misma factura dos veces», que es
+**falso** y además manda a buscar una copia que no existe. Ahora sale `CU-16`,
+que dice lo que de verdad pasa —son dos facturas, y para cualquier registro que
+las indexe por su código son una: la segunda tapa a la primera— y enseña las
+dos particiones al lado, porque sin verlas la queja no se entiende.
+
+Un duplicado de verdad sigue siendo `CU-10`; hay prueba de que el arreglo no se
+lo traga, que es la mitad que se rompe sola al arreglar la otra.
+
+### 27. Un céntimo, dos quejas
+
+`iva.py` tiene un guardián con un propósito explícito en su docstring: cuando
+los ajustes declarados no cuadran con los detallados, no comprobar la base por
+tipo, **porque de eso ya se quejan BR-CO-11 y BR-CO-12 señalando el campo que
+está mal**, y hacerlo sacaría una segunda queja apuntando al desglose, que es
+donde no está el problema.
+
+El 13-09-2026, al medir contra el esquematrón oficial, BR-CO-11 y BR-CO-12
+pasaron a comparar **sin margen**. El guardián se quedó con el de un céntimo de
+antes. El hueco entre los dos márgenes valía exactamente un céntimo, y ahí el
+guardián decía que todo cuadraba mientras la regla se quejaba:
+
+```
+cargo detallado 10,00 · total declarado 10,01
+
+BR-CO-12           error   Total de cargos de documento
+                           esperado 10.00 · encontrado 10.01
+IVA-BASE-TOLERADA  aviso   Base imponible de S (tipo general) al 21%
+                           esperado 110.00 · encontrado 110.01
+```
+
+Dos quejas por el mismo céntimo, y la segunda manda a mirar el desglose, que es
+justo lo que el guardián existe para evitar. Ahora compara igual que la regla a
+la que cede el paso: una queja, en el campo que está mal.
+
+### 30. Un UNA con separadores propios
+
+El UNA es el segmento que existe **para** declarar separadores distintos de los
+de siempre. La detección los llevaba escritos a pelo —`+` entre elementos, `:`
+entre componentes, `'` al final del segmento— así que con un UNA propio no
+casaba nada y contestaba:
+
+```
+Mensaje EDIFACT, pero sin cabecera UNH: no se ve de qué tipo es.
+```
+
+Es falso. `edifact.py` la encuentra sin despeinarse, porque él sí lee el UNA. Y
+no era un caso de laboratorio: **la factura de W.S. Hein del corpus declara
+`UNA^<.? >`**, y es el único de los 64 ficheros ajenos con separadores propios
+—por eso esto aguantó tanto sin verse—. Medido sobre ella:
+
+| | familia | versión | tipo de documento |
+|---|---|---|---|
+| antes | EDIFACT | — | — |
+| ahora | EDIFACT | 96A | factura |
+
+**Lo que no cambia es el veredicto**, y conviene decirlo: las 22 incidencias de
+esa factura son las mismas antes y después. Lo que cambiaba era la frase que
+describe el documento, y esa frase era mentira. También se arreglan de paso dos
+cosas que colgaban de lo mismo: el BGM se buscaba igual de mal —de ahí el tipo
+en blanco— y un mensaje que no fuera un INVOIC salía como «sin cabecera UNH» en
+vez de «de tipo ORDERS, que no es una factura».
+
+Ahora quien sabe leer un UNA sigue siendo `edifact.py`, y la detección se lo
+pregunta a él en vez de escribirlo otra vez. Las dos expresiones se montan con
+los separadores del fichero y se cachean por juego de caracteres. Hay prueba de
+que la misma factura escrita de las dos maneras se describe igual, palabra por
+palabra.
+
+### Ocho roturas provocadas, las ocho en rojo
+
+Las ocho a la primera, que es lo que cabía esperar de tres arreglos pequeños
+con prueba escrita antes. Dos merecen mención porque no prueban el arreglo sino
+que no se ha llevado nada por delante: «ahora un duplicado de verdad sale como
+CU-16» tumba once pruebas, y «solo se arregla el UNH y el BGM se queda atrás»
+tumba cuatro. Son las dos mitades que se rompen sola al arreglar la otra.
+
+### Los ocho que quedan
+
+| # | Qué pasa | Medido |
+|---|---|---|
+| 31 | Un ejemplo que da 404 se escribe como si fuera la factura | En producción lo para la huella de `rueda.json`, de rebote; sin ella, pasa |
+| 33 | `/entrada` no se vacía nunca | 6 validaciones → 6 ficheros, 480.438 B, todos vivos |
+| 34 | Mensajes de libxml2 en inglés dentro del informe | `Premature end of data in tag FileHeader`, `xmlParseEntityRef: no name`… |
+| 35 | Las gravedades no casan con lo que promete la página | `BR-01/14/21` y `SELLO-FALTA` salen NOTA contra la definición de la propia FAQ; y la portada promete «revocación» sin decir bajo qué condición |
+| 36 | El testigo de red cuenta lo servido de caché | Pinta 10,4 MB cuando por el cable fueron 17.769 bytes: usa `encodedBodySize` en vez de `transferSize` |
+| 37 | `legal.html` dice «no se guarda nada» | Y `index.html`, en el mismo sitio, dice «unos 10 MB… se queda en el navegador». Seis ficheros con `immutable` a un año suman ≈15,1 MB |
+| 38 | El 404 y las minúsculas | `/codigo-BR-01` → 200, `/codigo-br-01` → 404. El 404 es el genérico de Vercel, en inglés y sin marca |
+| 39 | Cinco menores | HSTS sin `includeSubDomains` —el `.vercel.app` sí lo lleva—, faltan `Permissions-Policy`, COOP y CORP, `prueba.py` como `octet-stream`, `escapar()` sin comillas —hoy sin impacto: solo recibe `error`, `aviso` o `nota`— y el subdominio de Vercel no redirige |

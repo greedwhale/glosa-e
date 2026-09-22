@@ -1231,6 +1231,19 @@ CODIGOS: dict[str, str] = {
         'dos números se diferencian además en eso, el problema es otro y ya '
         'lo canta CU-12. Aquí interesa sólo el relleno.'
     ),
+    "CU-16": (
+        'Dos facturas distintas que producen el mismo código único. El código '
+        'pega la serie y el número sin nada en medio —así los trata '
+        'Verifactu, y si la serie necesita un guion ya lo lleva dentro—, así '
+        'que la serie «A» con el número «12» y la serie «A1» con el número '
+        '«2» dan los dos «A12». No es un duplicado: son dos facturas, con dos '
+        'números distintos, y quien las emitió no ha hecho nada raro. Lo que '
+        'pasa es que cualquier registro que las indexe por su código unico '
+        'verá una sola, y la segunda tapará a la primera. La queja enseña las '
+        'dos particiones al lado, porque sin verlas no se entiende. Hasta el '
+        '22-09-2026 esto salía como CU-10, «es la misma factura dos veces», '
+        'que manda a buscar una copia que no existe.'
+    ),
     "FIRMA-NO-XADES": (
         'La firma es XML-DSig a secas, sin las propiedades XAdES. Es una '
         'firma de verdad —cubre el documento y se puede verificar—, pero le '

@@ -136,8 +136,21 @@ class CodigoUnico:
         Las partes se cifran con su longitud por delante. Sin eso, concatenar
         ("AB", "C") y ("A", "BC") daría la misma cadena y dos facturas
         distintas compartirían huella.
+
+        **Y la serie va aparte del número**, que es lo que faltaba hasta el
+        22-09-2026. La defensa estaba puesta un nivel por encima de donde
+        ocurre el choque: se le daba `numero_completo`, que ya ha pegado serie
+        y número sin separador, así que la serie «A» con el número «12» y la
+        serie «A1» con el número «2» llegaban aquí como la misma cadena —y
+        salían con la misma huella—. La prueba que guardaba esto probaba el
+        otro borde, el de NIF contra número, y por eso estaba en verde.
         """
-        partes = (self.nif_emisor, self.numero_completo, self.fecha.isoformat())
+        partes = (
+            self.nif_emisor,
+            self.serie or "",
+            self.numero,
+            self.fecha.isoformat(),
+        )
         crudo = "".join(f"{len(parte)}:{parte}" for parte in partes)
         return hashlib.sha256(crudo.encode("utf-8")).hexdigest()
 
@@ -363,19 +376,48 @@ class Registro:
         por_numero = (clave[0], clave[1])
 
         if canonico in self._canonicos:
-            # CU-10: la misma factura otra vez. Reenvío o duplicado real.
-            incidencias.append(
-                Incidencia(
-                    "CU-10",
-                    ERROR,
-                    "Esta factura ya estaba registrada: mismo emisor, mismo "
-                    "número y misma fecha. Es la misma factura dos veces."
-                    + _de_donde(self._canonicos[canonico][1], procedencia),
-                    campo="Código único",
-                    encontrado=canonico,
-                    ficheros=_implicados(self._canonicos[canonico][1], procedencia),
+            anterior, de_antes = self._canonicos[canonico]
+            if (anterior.serie or "", anterior.numero) != (
+                codigo.serie or "",
+                codigo.numero,
+            ):
+                # CU-16: el código único se forma pegando serie y número sin
+                # separador, así que dos facturas que parten ese texto por
+                # sitios distintos producen el mismo. No es un duplicado —son
+                # dos facturas— y decirle a quien lo lee que son la misma es
+                # mandarle a buscar una copia que no existe.
+                incidencias.append(
+                    Incidencia(
+                        "CU-16",
+                        ERROR,
+                        "Dos facturas distintas producen el mismo código "
+                        "único. El código pega la serie y el número sin nada "
+                        "en medio, y estas dos parten ese mismo texto por "
+                        "sitios diferentes. No son la misma factura, pero "
+                        "para cualquier registro que las indexe por su código "
+                        "lo son: una tapa a la otra."
+                        + _de_donde(de_antes, procedencia),
+                        campo="Código único",
+                        esperado=f"la anterior: {_como_se_parte(anterior)}",
+                        encontrado=f"{_como_se_parte(codigo)} "
+                        f"— las dos dan {canonico}",
+                        ficheros=_implicados(de_antes, procedencia),
+                    )
                 )
-            )
+            else:
+                # CU-10: la misma factura otra vez. Reenvío o duplicado real.
+                incidencias.append(
+                    Incidencia(
+                        "CU-10",
+                        ERROR,
+                        "Esta factura ya estaba registrada: mismo emisor, "
+                        "mismo número y misma fecha. Es la misma factura dos "
+                        "veces." + _de_donde(de_antes, procedencia),
+                        campo="Código único",
+                        encontrado=canonico,
+                        ficheros=_implicados(de_antes, procedencia),
+                    )
+                )
         elif clave in self._claves:
             # CU-12: es la misma, pero escrita distinto. Peor que un duplicado,
             # porque cada sistema cree tener una factura diferente.
@@ -437,6 +479,13 @@ def _describir_huecos(huecos: list[tuple[int, int]], ancho: int) -> str:
     if len(huecos) > 5:
         trozos.append(f"y {len(huecos) - 5} tramo(s) mas")
     return ", ".join(trozos)
+
+
+def _como_se_parte(codigo: CodigoUnico) -> str:
+    """«serie "A" + número "12"», para poder enseñar las dos particiones."""
+    if not codigo.serie:
+        return f"sin serie, número {codigo.numero!r}"
+    return f"serie {codigo.serie!r} + número {codigo.numero!r}"
 
 
 def _reglas_de_serie(codigos: list[CodigoUnico]) -> list[Incidencia]:

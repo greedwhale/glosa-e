@@ -63,6 +63,21 @@ class TestCodigoUnico:
         b = CodigoUnico("B12345674", "X", FECHA)
         assert a.huella() != b.huella()
 
+    def test_y_tampoco_al_partir_la_serie(self):
+        """El borde que la de arriba no miraba, y por el que se colaba.
+
+        La de arriba prueba el borde entre el NIF y el numero, y estaba en
+        verde. La longitud por delante se le ponia a `numero_completo`, que ya
+        ha pegado serie y numero sin separador, asi que dentro de esa pieza no
+        habia defensa ninguna: serie "A" con numero "12" y serie "A1" con
+        numero "2" llegaban como la misma cadena. Medido el 22-09-2026: la
+        misma huella.
+        """
+        a = CodigoUnico(NIF_EMISOR, "12", FECHA, serie="A")
+        b = CodigoUnico(NIF_EMISOR, "2", FECHA, serie="A1")
+        assert a.numero_completo == b.numero_completo, "el choque es este"
+        assert a.huella() != b.huella()
+
     def test_la_clave_ignora_mayusculas_y_espacios(self):
         assert cu(numero="f-2026-001").clave() == cu(numero="  F-2026-001 ").clave()
 
@@ -170,6 +185,62 @@ class TestCodigoSuelto:
 
 
 # --- Duplicados ------------------------------------------------------------
+
+
+class TestDosFacturasConElMismoCodigo:
+    """CU-16: el codigo unico pega serie y numero sin nada en medio.
+
+    Asi lo trata Verifactu, y por eso se hace asi: si la serie necesita un
+    guion, ya lo lleva dentro. La consecuencia es que dos facturas que parten
+    ese mismo texto por sitios distintos producen el mismo codigo, y hasta el
+    22-09-2026 salian como CU-10 —«es la misma factura dos veces»—, que es
+    falso: son dos, y mandaba a buscar una copia que no existe.
+
+    Lo que si es cierto, y es lo que ahora se dice, es que para cualquier
+    registro que las indexe por su codigo unico son la misma: una tapa a la
+    otra.
+    """
+
+    def _las_dos(self):
+        return (
+            cu(numero="12", serie="A"),
+            cu(numero="2", serie="A1"),
+        )
+
+    def test_sale_cu_16_y_no_cu_10(self):
+        una, otra = self._las_dos()
+        assert una.canonico() == otra.canonico(), "el choque es este"
+        registro = Registro()
+        registro.anotar(una, procedencia="a.xml")
+        salen = codigos(registro.anotar(otra, procedencia="b.xml"))
+        assert "CU-16" in salen
+        assert "CU-10" not in salen, "no son la misma factura dos veces"
+
+    def test_y_ensena_las_dos_particiones(self):
+        """Sin ver como parte cada una, la queja no se puede entender."""
+        una, otra = self._las_dos()
+        registro = Registro()
+        registro.anotar(una)
+        problema = next(i for i in registro.anotar(otra) if i.codigo == "CU-16")
+        assert problema.gravedad == ERROR
+        assert "'A'" in problema.esperado and "'12'" in problema.esperado
+        assert "'A1'" in problema.encontrado and "'2'" in problema.encontrado
+        assert una.canonico() in problema.encontrado
+
+    def test_una_sin_serie_tambien_choca(self):
+        """El numero solo tambien parte el texto por un sitio."""
+        registro = Registro()
+        registro.anotar(cu(numero="A12", serie=None))
+        salen = codigos(registro.anotar(cu(numero="12", serie="A")))
+        assert "CU-16" in salen
+
+    def test_pero_la_misma_factura_dos_veces_sigue_siendo_cu_10(self):
+        """Lo que no puede pasar es que el arreglo se trague el duplicado."""
+        registro = Registro()
+        registro.anotar(cu(numero="12", serie="A"))
+        salen = codigos(registro.anotar(cu(numero="12", serie="A")))
+        assert "CU-10" in salen
+        assert "CU-16" not in salen
 
 
 class TestRegistro:

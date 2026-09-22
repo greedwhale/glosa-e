@@ -498,6 +498,16 @@ def _ajustes_no_cuadran(raiz, sintaxis: Sintaxis, apuntes: list[Apunte]) -> bool
     BR-CO-11 y BR-CO-12 desde `en16931`, y lo dicen señalando el campo que está
     mal. Comprobar además la base por tipo sacaría una segunda queja apuntando
     al desglose, que es donde no está el problema.
+
+    **Se compara igual que la regla a la que cede el paso**, con
+    `cuadra_exacto`. Es lo que hace `en16931._reglas_ajustes` desde el
+    13-09-2026, y este guardián se quedó con el margen de un céntimo de antes.
+    El hueco entre los dos márgenes era justo de un céntimo, y ahí volvía a
+    pasar lo que esto existe para evitar: medido el 22-09-2026 con un cargo de
+    10,00 declarado como 10,01, salían `BR-CO-12` señalando el total de cargos
+    —correcto— y además `IVA-BASE-TOLERADA` señalando el desglose, que es
+    donde no está el problema. Dos quejas por el mismo céntimo, y la segunda
+    manda a mirar donde no hay nada que arreglar.
     """
     detallados = [a for a in apuntes if a.es_ajuste and a.importe is not None]
     if not detallados:
@@ -508,8 +518,11 @@ def _ajustes_no_cuadran(raiz, sintaxis: Sintaxis, apuntes: list[Apunte]) -> bool
     declarado_cargos = importe(raiz, sintaxis.cargos_total, sintaxis)
     return (
         declarado_descuentos is not None
-        and not cuadra(descuentos, declarado_descuentos)
-    ) or (declarado_cargos is not None and not cuadra(cargos, declarado_cargos))
+        and not cuadra_exacto(descuentos, declarado_descuentos)
+    ) or (
+        declarado_cargos is not None
+        and not cuadra_exacto(cargos, declarado_cargos)
+    )
 
 
 def _regla_base_por_grupo(

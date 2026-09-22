@@ -625,6 +625,30 @@ class TestTotalesDeAjustes:
         assert "BR-CO-11" in codigos_vistos
         assert "BR-S-08" not in codigos_vistos
 
+    def test_y_un_solo_centimo_tambien_calla_el_desglose(self):
+        """El hueco entre dos margenes, que valia justo un centimo.
+
+        BR-CO-12 compara sin margen desde el 13-09-2026, porque es lo que hace
+        el esquematron oficial. El guardian que decide si el desglose se calla
+        se quedo con el margen de un centimo de antes, asi que con exactamente
+        un centimo de diferencia la regla se quejaba y el guardian decia que
+        todo cuadraba: salian las dos quejas, y la segunda —IVA-BASE-TOLERADA—
+        senala el desglose, que es donde no esta el problema.
+        """
+        xml = ubl(
+            lineas=[Linea("1", "100.00")],
+            ajustes=[Ajuste("10.00", es_cargo=True)],
+            grupos=[Grupo("110.01", "23.10")],
+            total_iva="23.10",
+            cargos_total="10.01",  # detalla 10,00 y declara 10,01
+        )
+        vistos = codigos(en16931.validar(xml).incidencias)
+        assert "BR-CO-12" in vistos, "el centimo del total de cargos si se dice"
+        assert "IVA-BASE-TOLERADA" not in vistos, (
+            "dos quejas por el mismo centimo, y la segunda manda a mirar el "
+            "desglose, que es justo donde no hay nada que arreglar"
+        )
+
     def test_si_cuadran_no_se_dice_nada(self):
         xml = ubl(
             lineas=[Linea("1", "100.00")],

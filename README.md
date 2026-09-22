@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2341 tests, todos en verde.
+2360 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -761,10 +761,19 @@ entre trescientas facturas no se ve a ojo:
 | CU-13 | Huecos en la numeración de una serie | Aviso |
 | CU-14 | La fecha retrocede al avanzar el número | Aviso |
 | CU-15 | El mismo ordinal con distinto relleno de ceros | Aviso |
+| CU-16 | Dos facturas distintas que dan el mismo código único | Error |
 
 Los huecos y los retrocesos van como aviso a propósito: un hueco puede ser una
 factura anulada, y un lote parcial no tiene por qué estar completo. Marcarlos
 como error daría falsos positivos constantes.
+
+**CU-16 es la consecuencia de cómo se forma el código.** Serie y número se
+pegan sin nada en medio, que es como los trata Verifactu, así que la serie «A»
+con el número «12» y la serie «A1» con el número «2» dan las dos `A12`. No es
+un duplicado —son dos facturas y quien las emitió no ha hecho nada raro— pero
+para cualquier registro que las indexe por su código único son la misma: la
+segunda tapa a la primera. Hasta el 22-09-2026 esto salía como CU-10, «es la
+misma factura dos veces», que manda a buscar una copia que no existe.
 
 **Los NIF que empiezan por K, L o M son de persona física**, y hasta el
 20-09-2026 CU-01 los daba por inválidos todos. Son las claves que asigna la

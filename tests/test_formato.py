@@ -188,6 +188,72 @@ class TestEdifact:
         assert "ORDERS" in d.motivo and "no es una factura" in d.motivo
 
 
+class TestUnUnaConSeparadoresPropios:
+    """El UNA existe para declarar separadores distintos de los de siempre.
+
+    La deteccion los llevaba escritos a pelo —`+`, `:`, `'`— asi que con un
+    UNA propio no casaba nada y contestaba «Mensaje EDIFACT, pero sin cabecera
+    UNH: no se ve de que tipo es». Es falso: el partidor de `edifact.py` la
+    encuentra, porque el si lee el UNA. Medido el 22-09-2026 sobre la factura
+    de W.S. Hein del corpus, que declara `UNA^<.? >`: version None, tipo None.
+    Es el unico de los 64 ficheros ajenos que trae separadores propios, y por
+    eso esto aguanto tanto sin verse.
+    """
+
+    # La misma factura escrita dos veces. `^` componente, `*` elemento, `~`
+    # terminador; y los de por defecto.
+    PROPIOS = (
+        b"UNA^*,! ~"
+        b"UNB*UNOC^3*EMISOR*RECEPTOR*260819^1200*1~"
+        b"UNH*1*INVOIC^D^96A^UN~"
+        b"BGM*380*F-1~"
+    )
+    DE_SIEMPRE = (
+        b"UNB+UNOC:3+EMISOR+RECEPTOR+260819:1200+1'"
+        b"UNH+1+INVOIC:D:96A:UN'"
+        b"BGM+380+F-1'"
+    )
+
+    def test_se_reconoce_igual(self):
+        d = formato.detectar(self.PROPIOS)
+        assert d.familia == EDIFACT
+        assert d.version == "96A"
+        assert d.tipo_documento == "factura"
+        assert "sin cabecera UNH" not in d.motivo
+
+    def test_y_dice_lo_mismo_que_con_los_de_siempre(self):
+        """Dos ficheros que dicen lo mismo no pueden describirse distinto."""
+        propios = formato.detectar(self.PROPIOS)
+        siempre = formato.detectar(self.DE_SIEMPRE)
+        assert (propios.familia, propios.version, propios.tipo_documento,
+                propios.motivo) == (
+            siempre.familia, siempre.version, siempre.tipo_documento,
+            siempre.motivo)
+
+    def test_un_abono_con_separadores_propios(self):
+        """El BGM tambien se buscaba con el `+` de siempre."""
+        d = formato.detectar(self.PROPIOS.replace(b"BGM*380", b"BGM*381"))
+        assert d.tipo_documento == "abono"
+
+    def test_y_lo_que_no_es_factura_se_dice_como_tal(self):
+        """Antes salia «sin cabecera UNH» en vez de «no es una factura»."""
+        d = formato.detectar(self.PROPIOS.replace(b"INVOIC", b"ORDERS"))
+        assert "ORDERS" in d.motivo and "no es una factura" in d.motivo
+
+    def test_un_una_de_cinco_caracteres_tambien(self):
+        """Los 23 de los 64 que se saltan el hueco reservado.
+
+        Ahi el terminador es el quinto y no el sexto, y `cuantos_de_servicio`
+        lo resuelve mirando si detras queda un UNB.
+        """
+        d = formato.detectar(
+            b"UNA^*,!~UNB*UNOC^3*A*B*260819^1200*1~UNH*1*INVOIC^D^96A^UN~"
+            b"BGM*380*F-1~"
+        )
+        assert d.version == "96A"
+        assert d.tipo_documento == "factura"
+
+
 class TestCasosLimite:
     def test_vacio(self):
         d = formato.detectar(b"")
