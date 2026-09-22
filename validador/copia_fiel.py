@@ -28,8 +28,8 @@ es otro documento y se mide con sus propias reglas —las `SPFE-`—. Y no adivi
 dónde se escriben en Facturae los campos españoles del anexo: el anexo los
 describe en UBL, y el 10-09-2026 la AEAT anunció que cambian.
 
-Lo que sí hace es decir cuatro cosas distintas sobre la factura que se está
-mirando, y las dos últimas son las que no dice nadie:
+Lo que sí hace es decir cinco cosas distintas sobre la factura que se está
+mirando, y las tres últimas son las que no dice nadie:
 
 1. **Lo que llega igual.** La mayor parte.
 2. **Lo que no tiene sitio** y habrá que omitir o meter en una extensión.
@@ -107,17 +107,19 @@ en una fuente distinta y alguna todavía no tiene fuente:
    da un error, da una factura que dice que se paga de otra manera. Medido: 12
    de 14 traen medio de pago.
 
-Quedan **46 de los 104 términos europeos sin fila** —la tabla nombra 58,
-medido el 21-09-2026—, y es importante no confundir lo que falta con lo que
-espera, porque no son lo mismo:
+6. **Las referencias** (22-09-2026): el pedido, el contrato, el expediente,
+   el albarán y la factura anterior. Es la única familia que se escribe
+   sabiendo que casi nada llega: de las siete referencias que Facturae sabe
+   llevar, el anexo **no recoge ninguna** —de `BT-11` a `BT-19` no hay ni una
+   en sus 104 términos—. Y aun así saca nota, por el hueco que queda libre:
+   `BT-10` es la referencia del comprador, la de sus rutas internas, y quien
+   meta ahí el pedido repite el fallo del medio de pago. Medido: 8 de 14 traen
+   alguna, y las 8 dentro de la línea.
 
-6. **Las referencias** (`BT-10`, `BG-3`, `BG-24`): el albarán en 11 y el pedido
-   del comprador en 8 de 14, y el anexo **no recoge ninguna** de `BT-11` a
-   `BT-19`. Se escribe sin la parte de rectificativas, que espera.
-
-La mitad de la primera **el anuncio del 10-09-2026 no la toca**, que es la
-razón de que vaya delante: escrita hoy no hay que reescribirla. Las tres que
-quedan sí quedan debajo de él y se escriben después:
+Quedan **40 de los 104 términos europeos sin fila** —la tabla nombra 64,
+medido el 22-09-2026—, y es importante no confundir lo que falta con lo que
+espera, porque no son lo mismo. Lo que queda **está debajo del anuncio del
+10-09-2026** y por eso se escribe después:
 
 7. **El desglose del IVA** —la `L4` gana categorías nuevas—, **la cabecera**
    —entra el `389` en la `L1`— y **las partes** —el NIF del vendedor podrá ir
@@ -143,7 +145,7 @@ from validador.formato import FACTURAE, Deteccion
 from validador.incidencias import NOTA, Incidencia
 from validador.sintaxis import a_decimal
 
-# Qué le pasa a un concepto al copiarse. Son siete estados y ninguno sobra: la
+# Qué le pasa a un concepto al copiarse. Son nueve estados y ninguno sobra: la
 # tentación es juntarlos en «llega» y «no llega», y eso borra justo lo que hay
 # que decidir.
 #
@@ -633,6 +635,152 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "Medido: ninguna de las 14 lo trae, y se escribe igual porque la tabla "
         "describe el formato y no esta carpeta",
     ),
+
+    # La sexta familia: las referencias. Se escribe sabiendo que casi nada
+    # llega, y por eso hay que escribirla. Facturae sabe llevar siete
+    # referencias -el pedido y el contrato, cada uno del emisor y del
+    # receptor, el expediente, el albarán y el número de línea del pedido- y
+    # el anexo **no recoge ninguna**: en sus 104 términos no está ni uno de
+    # `BT-11` a `BT-19`, ni `BT-132`. Medido el 22-09-2026 sobre las 14: 8
+    # traen alguna referencia escrita y **ninguna de las 14 la trae en la
+    # cabecera**, que es el otro hallazgo de aquí.
+    #
+    # Porque Facturae las escribe **dentro de cada línea** y la norma las pone
+    # en el documento. Una factura puede traer dos albaranes distintos donde
+    # la copia tiene un campo: 3 de las 11 que traen albarán traen más de uno.
+    #
+    # Y queda libre un hueco de referencia, `BT-10`, que no es para esto. El
+    # anexo lo define como «un identificador asignado por el comprador para
+    # especificar rutas internas de la factura», y lo que en Facturae hace eso
+    # -los centros administrativos- tiene sus propios campos españoles,
+    # `BT-ES-9`, `BT-ES-10` y `BT-ES-11`. Poner ahí el pedido es el fallo del
+    # medio de pago otra vez: la copia vale y dice otra cosa. Por eso esta
+    # familia saca nota siendo toda «el anexo no lo pide», que es la primera
+    # vez que pasa: lo que se avisa no es la falta, es el hueco.
+    Correspondencia(
+        "referencia del pedido del comprador", "ReceiverTransactionReference",
+        "BT-13", NO_LO_PIDEN,
+        "«Referencia de pedido», dice el esquema, y el pedido lo hace el "
+        "comprador: es BT-13. La norma lo tiene y el anexo no lo recoge, así "
+        "que llega a la copia si quien copia lo escribe y no lo mira nadie. Lo "
+        "que no se puede es ponerlo en BT-10 para que no se pierda. Medido el "
+        "22-09-2026: 5 de 14, las 5 dentro de la línea y ninguna en la "
+        "cabecera, que es donde Facturae también lo admite",
+    ),
+    Correspondencia(
+        "referencia del pedido del vendedor", "IssuerTransactionReference",
+        "BT-14", NO_LO_PIDEN,
+        "el mismo dato por el otro lado -el número que el vendedor le da a la "
+        "operación-, que en la norma es otro término, BT-14. Tampoco está en "
+        "el anexo. Medido: 5 de 14, y siempre junto al del comprador",
+    ),
+    Correspondencia(
+        "referencia del contrato del comprador", "ReceiverContractReference",
+        "BT-12", NO_LO_PIDEN,
+        "aquí los dos formatos ni siquiera cuentan igual: Facturae guarda el "
+        "contrato del emisor y el del receptor en dos elementos y la norma "
+        "tiene **un solo** BT-12. Si hubiera que escribirlo habría que elegir "
+        "cuál de los dos es el contrato de la factura; como el anexo no lo "
+        "recoge, la elección no llega a hacerse. Medido: 5 de 14",
+    ),
+    Correspondencia(
+        "referencia del contrato del vendedor", "IssuerContractReference",
+        "BT-12", NO_LO_PIDEN,
+        "el otro de los dos, con el mismo destino y el mismo final. Medido: 5 "
+        "de 14",
+    ),
+    Correspondencia(
+        "expediente de contratación", "FileReference", "BT-17", NO_LO_PIDEN,
+        "el código del expediente, que en la norma es la referencia de la "
+        "licitación o el lote, BT-17. El anexo no lo recoge, y es el que más "
+        "raro resulta que no esté: una factura a una administración lo lleva "
+        "casi siempre, y en FACe es parte de lo que la encamina. Medido: 3 de "
+        "14",
+    ),
+    Correspondencia(
+        "albarán", "DeliveryNotesReferences", "BT-16", NO_LO_PIDEN,
+        "el aviso de entrega, BT-16. Además de no estar en el anexo, es donde "
+        "se ve el corte: Facturae pone los albaranes **dentro de cada línea** "
+        "y `DeliveryNote` es `maxOccurs=\"unbounded\"`, mientras que la norma "
+        "tiene una referencia por documento. Medido: 11 de las 14 traen el "
+        "bloque, 8 escriben algo dentro -en 3 el número es un espacio en "
+        "blanco- y **3 traen más de un albarán distinto**, así que este corte "
+        "sí se ha visto, al revés que el de los vencimientos",
+    ),
+    Correspondencia(
+        "número de línea del pedido", "SequenceNumber", "BT-132", NO_LO_PIDEN,
+        "éste es el que la familia de las líneas se negó a usar como "
+        "identificador de línea, y aquí se ve por qué: significa la línea "
+        "**del pedido**, que en la norma es BT-132, y el anexo no lo recoge. "
+        "De propina, el esquema lo declara `xs:double`, así que las tres "
+        "facturas que lo traen escriben `1.0` y `2.0`: una referencia con "
+        "decimales. Medido: 3 de 14",
+    ),
+    Correspondencia(
+        "las fechas de las referencias",
+        "IssuerTransactionDate, ReceiverTransactionDate, IssuerContractDate, "
+        "ReceiverContractDate, FileDate y DeliveryNoteDate", "", SIN_SITIO,
+        "seis fechas que no tienen adónde ir **aunque sus referencias sí lo "
+        "tuvieran**: para la norma una referencia es un identificador suelto y "
+        "ninguna de BT-12 a BT-17 lleva fecha al lado. Se quedan en el "
+        "original y no entran en la lista de lo que se queda, porque su "
+        "referencia tampoco viaja y decirlo dos veces no ayuda a nadie. "
+        "Medido: 3 de 14 traen las cinco de la línea y 3 la del albarán",
+    ),
+    Correspondencia(
+        "factura asociada", "RelatedInvoice", "BG-3 (BT-25)", IGUAL,
+        "«Número y Serie de acuerdo Emisor/Receptor», y ya viene **junto**: es "
+        "el único sitio de Facturae donde la serie y el número van en un solo "
+        "campo, justo como los quiere BT-25. Da la vuelta a lo de BT-1, donde "
+        "hay que pegarlos. Lo que se complica es lo de al lado, dos filas más "
+        "abajo. Medido: ninguna de las 14 la trae",
+    ),
+    Correspondencia(
+        "factura rectificada", "Corrective", "BG-3 (BT-25)", OTRO_CORTE,
+        "el bloque de la rectificativa guarda el número y la serie de la "
+        "rectificada en dos elementos, y BT-25 los pide juntos: se pegan como "
+        "en BT-1 y por la misma razón. Que esta fila exista no contradice a "
+        "`sintaxis.py`, que deja `facturas_previas` sin mapa en Facturae: allí "
+        "se decide **qué se puede validar** -y con el criterio 03 se rectifica "
+        "un periodo entero, sin número, así que leer el bloque como BG-3 "
+        "acusaría a esas de no llevar referencia- y aquí se dice **qué se "
+        "escribe** cuando sí lo hay. Son dos preguntas distintas sobre el "
+        "mismo elemento, como con la unidad de medida. Lo que espera al texto "
+        "nuevo es la extensión de rectificativas, `BG-ES-1`: el tipo y la "
+        "modalidad los mueve el anuncio del 10-09-2026",
+    ),
+    Correspondencia(
+        "fecha de la factura rectificada", "InvoiceIssueDate", "BT-26", IGUAL,
+        "el mismo dato, y aun así hay que mirarlo: el anexo pone BT-26 en "
+        "**1..1** dentro de BG-3 y Facturae solo obliga a escribir esta fecha "
+        "cuando el criterio de rectificación es 01 o 02. Sin ella no se monta "
+        "el grupo, y no hay de dónde sacarla: la factura asociada de la fila "
+        "de arriba no trae ninguna",
+    ),
+    Correspondencia(
+        "documento adjunto", "Attachment", "BT-125", NO_LO_PIDEN,
+        "el fichero pegado a la factura, en base64. La norma lo tiene -BT-125, "
+        "el documento adjunto- y el anexo no recoge ni ése ni BT-124, la "
+        "dirección del documento externo. Y el grupo donde irían, BG-24, está "
+        "ocupado: el anexo lo usa dos veces y las dos para otra cosa, con "
+        "valores fijos. Además, un adjunto de Facturae no tiene referencia "
+        "-lleva el fichero- y BT-122 es obligatorio en el grupo, así que "
+        "tampoco podría rellenarlo. Medido: 2 de 14",
+    ),
+    Correspondencia(
+        "el QR y la autorización", "(no lo tiene)", "BG-24 (BT-122 y BT-123)",
+        SE_INVENTA,
+        "las dos veces que el anexo usa el grupo de documentos justificativos "
+        "son contenido que la factura no tiene: el **QR fiscal** del artículo "
+        "6.5 del RD 1619/2012 -BT-122 con el valor fijo "
+        "`urn:aeat:names:specification:ubl:schema:QR`, BT-123 con «VERIFACTU» "
+        "y la dirección en `BT-ES-47`- y el **número de la autorización** del "
+        "Departamento de Gestión Tributaria. Ninguno de los dos está en "
+        "Facturae, así que quien copia los saca de su sistema o deja el grupo "
+        "vacío, que los dos son opcionales. Se escribe porque un conversor que "
+        "solo mire el XML no puede ponerlos, y eso hay que saberlo antes y no "
+        "después",
+    ),
 )
 
 # Lo que la tabla tiene que cubrir para que las reglas de abajo no hablen de
@@ -650,6 +798,10 @@ _LO_QUE_SE_MIRA = (
     "Installment", "InstallmentDueDate", "PaymentMeans",
     "BranchInSpainAddress", "OverseasBranchAddress",
     "CollectionAdditionalInformation",
+    "ReceiverTransactionReference", "IssuerTransactionReference",
+    "ReceiverContractReference", "IssuerContractReference",
+    "FileReference", "DeliveryNotesReferences", "SequenceNumber",
+    "RelatedInvoice", "Corrective",
 )
 
 
@@ -735,6 +887,25 @@ _SIN_SITIO_EN_EL_PAGO = (
     ("OverseasBranchAddress", "dirección de la sucursal del banco"),
     ("CollectionAdditionalInformation", "información adicional del cobro"),
 )
+# Las referencias que Facturae sabe llevar, con el nombre que se imprime. El
+# orden es el del informe y no el del esquema: primero lo que más se usa.
+#
+# Las dos banderas dicen dónde se busca y qué se cuenta. `en_cabecera`: las
+# tres primeras las admite también `InvoiceIssueData`, y las otras tres solo
+# existen dentro de la línea. `del_documento`: si el término europeo es de
+# documento, que varias líneas traigan valores distintos es algo que hay que
+# elegir y se dice cuántos hay. El número de línea del pedido no lo es
+# —BT-132 es de línea en los dos formatos—, así que ahí uno por línea es lo
+# correcto y contarlos sería inventar un problema.
+_REFERENCIAS = (
+    ("ReceiverTransactionReference", "pedido del comprador", True, True),
+    ("IssuerTransactionReference", "pedido del vendedor", False, True),
+    ("ReceiverContractReference", "contrato del comprador", True, True),
+    ("IssuerContractReference", "contrato del vendedor", False, True),
+    ("FileReference", "expediente", True, True),
+    ("SequenceNumber", "número de línea del pedido", False, False),
+)
+
 _SIN_SITIO_EN_LAS_PARTES = (
     ("TeleFax", "fax"),
     ("WebAddress", "página web"),
@@ -978,6 +1149,134 @@ def _de_los_cargos(factura, etiqueta: str) -> list[Incidencia]:
     ]
 
 
+def _de_las_referencias(factura, etiqueta: str) -> list[Incidencia]:
+    """Las referencias del original, que en la copia no tienen campo.
+
+    Ésta es la primera nota que sale de filas que son todas «el anexo no lo
+    pide», y hace falta decir por qué, porque la regla de este módulo es que
+    eso no se cuenta: lo que llega y no mira nadie no es noticia.
+
+    Aquí sí, por el hueco. El anexo se queda con **una** referencia de
+    documento, `BT-10`, y no es ninguna de éstas: es el identificador que el
+    comprador usa para encaminar la factura por dentro. Quien copie y no
+    quiera perder el pedido lo va a poner ahí, porque es el único sitio que
+    queda libre, y entonces la copia vale y dice otra cosa —el mismo fallo
+    que copiar el dígito del medio de pago—. Avisar de eso sí es noticia.
+    """
+    lineas = _hijos(factura, "Items", "InvoiceLine")
+    emision = _hijos(factura, "InvoiceIssueData")
+
+    encontradas: list[str] = []
+    for elemento, concepto, en_cabecera, del_documento in _REFERENCIAS:
+        valores = []
+        for linea in lineas:
+            escrito = _texto(linea, elemento)
+            if escrito and escrito not in valores:
+                valores.append(escrito)
+        if en_cabecera and emision:
+            escrito = _texto(emision[0], elemento)
+            if escrito and escrito not in valores:
+                valores.append(escrito)
+        if valores:
+            encontradas.append(
+                f"{concepto} ({len(valores)} distintos)"
+                if del_documento and len(valores) > 1 else concepto
+            )
+
+    # El albarán cuelga de dos niveles más y se repite sin límite, así que se
+    # cuenta aparte: es el que enseña el corte.
+    albaranes: list[str] = []
+    for linea in lineas:
+        for uno in _hijos(linea, "DeliveryNotesReferences", "DeliveryNote"):
+            escrito = _texto(uno, "DeliveryNoteNumber")
+            if escrito and escrito not in albaranes:
+                albaranes.append(escrito)
+    if albaranes:
+        encontradas.insert(
+            0,
+            "albarán" if len(albaranes) == 1
+            else f"albarán ({len(albaranes)} distintos)",
+        )
+
+    if not encontradas:
+        return []
+    return [
+        Incidencia(
+            "COPIA-REFERENCIAS",
+            NOTA,
+            "Las referencias de esta factura no tienen campo en la copia. El "
+            "anexo no recoge ninguno de los términos de referencia de la "
+            "norma -de BT-11 a BT-19: pedido, contrato, albarán, "
+            "expediente-, ni las fechas que Facturae les pone al lado, así "
+            "que se omiten o van en una extensión y no las mira nadie. Ojo "
+            "con el hueco que queda libre: BT-10 es la referencia del "
+            "comprador, un identificador para sus rutas internas, y no el "
+            "número del pedido. Y ojo con el sitio: aquí van dentro de cada "
+            "línea y en la copia irían en el documento, así que si las líneas "
+            "no traen la misma hay que elegir cuál viaja.",
+            campo=f"{etiqueta}Referencias de la factura "
+                  f"(BT-11 a BT-19, que el anexo no recoge)",
+            encontrado=", ".join(encontradas),
+        )
+    ]
+
+
+def _de_la_factura_previa(factura, etiqueta: str) -> list[Incidencia]:
+    """La referencia a otra factura: lo que hay que pegar y lo que falta.
+
+    De las dos maneras que tiene Facturae de señalar otra factura sale la
+    misma nota, porque el problema es el mismo grupo: `BG-3` pide el número
+    **con** su serie y una fecha de expedición que el anexo hace obligatoria.
+    """
+    incidencias = []
+    asociada = _texto(factura, "AdditionalData", "RelatedInvoice")
+    if asociada:
+        incidencias.append(_nota_de_la_previa(
+            etiqueta, "la factura asociada", asociada, "", junto=True))
+    for corr in _hijos(factura, "InvoiceHeader", "Corrective"):
+        numero = _texto(corr, "InvoiceNumber")
+        # Sin número no hay a qué referirse: con el criterio 03 se rectifica
+        # un periodo entero, y esa factura no señala a ninguna.
+        if not numero:
+            continue
+        serie = _texto(corr, "InvoiceSeriesCode")
+        incidencias.append(_nota_de_la_previa(
+            etiqueta, "la factura rectificada", f"{serie}{numero}",
+            _texto(corr, "InvoiceIssueDate"), junto=not serie))
+    return incidencias
+
+
+def _nota_de_la_previa(
+    etiqueta: str, cual: str, referencia: str, fecha: str, junto: bool
+) -> Incidencia:
+    """La misma nota para los dos caminos, con lo que cambia entre ellos.
+
+    `junto` no es un detalle de escritura: dice si el número ya viene pegado
+    a su serie -la factura asociada- o hay que pegarlo -la rectificada-, que
+    es justo lo que quien copia tiene que hacer y por eso se imprime.
+    """
+    if fecha:
+        esperado = f"{referencia} y {fecha} en la copia"
+    else:
+        esperado = (f"{referencia} en la copia, y una fecha de expedición "
+                    f"que esta factura no trae")
+    encontrado = referencia if junto else f"{referencia}, en dos campos"
+    return Incidencia(
+        "COPIA-FACTURA-PREVIA",
+        NOTA,
+        "Esta factura se refiere a otra, y el grupo de la copia pide dos "
+        "cosas que hay que mirar. El número va **con su serie** en un solo "
+        "campo, BT-25, igual que el de la propia factura. Y la fecha de "
+        "expedición de la referenciada, BT-26, el anexo la pone obligatoria "
+        "dentro del grupo -en la norma europea no lo es-, así que sin ella no "
+        "se puede montar: o se saca de donde no está, o la referencia entera "
+        "se queda fuera.",
+        campo=f"{etiqueta}Referencia a {cual} (BG-3 en la copia)",
+        esperado=esperado,
+        encontrado=encontrado,
+    )
+
+
 def _de_una_factura(
     factura, etiqueta: str, del_documento: tuple[str, ...] = ()
 ) -> list[Incidencia]:
@@ -1009,6 +1308,8 @@ def _de_una_factura(
 
     incidencias.extend(_de_las_lineas(factura, etiqueta))
     incidencias.extend(_de_los_cargos(factura, etiqueta))
+    incidencias.extend(_de_las_referencias(factura, etiqueta))
+    incidencias.extend(_de_la_factura_previa(factura, etiqueta))
     del_pago, se_queda_del_pago = _del_pago(factura, etiqueta)
     incidencias.extend(del_pago)
 

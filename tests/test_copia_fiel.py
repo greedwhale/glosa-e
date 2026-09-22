@@ -45,10 +45,12 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
     </TaxIdentification>{fuera}</BuyerParty>
   </Parties>
   <Invoices><Invoice>
-    <InvoiceHeader>{serie}<InvoiceNumber>0001</InvoiceNumber></InvoiceHeader>
+    <InvoiceHeader>{serie}<InvoiceNumber>0001</InvoiceNumber>
+      {rectificada}</InvoiceHeader>
     <InvoiceIssueData>
       <IssueDate>2026-09-20</IssueDate>
       {idioma}
+      {cabecera}
     </InvoiceIssueData>
     <TaxesOutputs><Tax>
       <TaxTypeCode>01</TaxTypeCode>
@@ -70,21 +72,32 @@ PLANTILLA = """<?xml version="1.0" encoding="UTF-8"?>
       {subvenciones}
     </InvoiceTotals>
     {pago}
+    {adicional}
   </Invoice></Invoices>
 </fe:Facturae>
 """
 
 # Una línea suelta, con lo justo para encender una nota cada vez. Por defecto
 # la factura no lleva ninguna: así `test_una_factura_sin_nada_de_eso_no_dice_nada`
-# sigue diciendo lo que dice.
-LINEA = """<Items><InvoiceLine>
+# sigue diciendo lo que dice. `{extra}` es lo que Facturae mete dentro de la
+# línea y la copia querría en el documento: las referencias.
+LINEA = """<InvoiceLine>
+      {extra}
       <ItemDescription>Una cosa</ItemDescription>
       <Quantity>1.00</Quantity>
       {unidad}
       <UnitPriceWithoutTax>100.00</UnitPriceWithoutTax>
       {coste}
       {bruto}
-    </InvoiceLine></Items>"""
+    </InvoiceLine>"""
+
+# Las cinco referencias que Facturae guarda dentro de la línea, juntas, que es
+# como llegan: las facturas que traen una traen las cuatro primeras.
+REFERENCIAS = """<IssuerContractReference>C-EM-1</IssuerContractReference>
+      <IssuerTransactionReference>P-EM-1</IssuerTransactionReference>
+      <ReceiverContractReference>C-RE-1</ReceiverContractReference>
+      <ReceiverTransactionReference>P-RE-1</ReceiverTransactionReference>
+      <FileReference>EXP-2026-1</FileReference>"""
 
 # Un vencimiento, con lo justo. La dirección de la sucursal es lo que no
 # viaja: de la cuenta, la norma se queda con el identificador.
@@ -157,19 +170,41 @@ def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
             unidad=None, coste=None, neto=None,
             descuento_general=None, cargo_general=None, segundo_tipo=False,
             retencion_detallada=False, medio=None, vencimientos=0,
-            sucursal=False):
+            sucursal=False, referencias=False, albaranes=(), secuencias=(),
+            cabecera=None, asociada=None, rectificada=None):
     """Una factura de 100 de base y 21 de IVA, con lo que se le encienda."""
     repercutido = "26.20" if recargo else "21.00"
     total = str(round(100 + float(repercutido) - float(retenido), 2))
     # La línea se arma si se pide alguna de sus tres piezas. `unidad=""` pide
     # una línea **sin** unidad, que es un caso distinto de no pedir línea.
-    lineas = ""
+    #
+    # Y cada albarán o cada número de secuencia pide **su** línea, que es como
+    # llegan en las facturas de verdad: la referencia vive dentro de la línea
+    # y por eso dos líneas pueden traer dos distintas.
+    dentro = []
     if unidad is not None or coste is not None or neto is not None:
-        lineas = LINEA.format(
-            unidad=f"<UnitOfMeasure>{unidad}</UnitOfMeasure>" if unidad else "",
-            coste=f"<TotalCost>{coste}</TotalCost>" if coste else "",
-            bruto=f"<GrossAmount>{neto}</GrossAmount>" if neto else "",
+        dentro.append("")
+    if referencias:
+        dentro.append(REFERENCIAS)
+    dentro.extend(
+        f"<DeliveryNotesReferences><DeliveryNote>"
+        f"<DeliveryNoteNumber>{uno}</DeliveryNoteNumber>"
+        f"</DeliveryNote></DeliveryNotesReferences>" for uno in albaranes
+    )
+    dentro.extend(f"<SequenceNumber>{uno}</SequenceNumber>" for uno in secuencias)
+    lineas = ""
+    if dentro:
+        cuerpos = "".join(
+            LINEA.format(
+                extra=extra,
+                unidad=f"<UnitOfMeasure>{unidad}</UnitOfMeasure>" if unidad else "",
+                coste=f"<TotalCost>{coste}</TotalCost>" if coste else "",
+                bruto=f"<GrossAmount>{neto}</GrossAmount>" if neto else "",
+            )
+            for extra in dentro
         )
+        lineas = "<Items>" + cuerpos + "</Items>"
+
     generales = ""
     if descuento_general:
         generales += (f"<GeneralDiscounts><Discount>"
@@ -196,8 +231,27 @@ def factura(recargo=False, retenido="0.00", suplidos=None, financieros=None,
             for i in range(cuantos)
         )
         pago = f"<PaymentDetails>{dentro}</PaymentDetails>"
+    # La rectificada lleva el número y la serie en dos campos; la asociada,
+    # los dos en uno. Son los dos caminos a BG-3 y se prueban los dos.
+    rectificada_xml = ""
+    if rectificada:
+        numero, serie_previa, fecha = rectificada
+        rectificada_xml = (
+            "<Corrective>"
+            + (f"<InvoiceNumber>{numero}</InvoiceNumber>" if numero else "")
+            + (f"<InvoiceSeriesCode>{serie_previa}</InvoiceSeriesCode>"
+               if serie_previa else "")
+            + "<ReasonCode>01</ReasonCode><CorrectionMethod>03</CorrectionMethod>"
+            + (f"<InvoiceIssueDate>{fecha}</InvoiceIssueDate>" if fecha else "")
+            + "</Corrective>"
+        )
     documento = PLANTILLA.format(
         pago=pago,
+        rectificada=rectificada_xml,
+        cabecera=(f"<ReceiverTransactionReference>{cabecera}"
+                  f"</ReceiverTransactionReference>" if cabecera else ""),
+        adicional=(f"<AdditionalData><RelatedInvoice>{asociada}"
+                   f"</RelatedInvoice></AdditionalData>" if asociada else ""),
         generales=generales,
         segundo_tipo=SEGUNDO_TIPO if segundo_tipo else "",
         retenciones=RETENCIONES if retencion_detallada else "",
@@ -498,6 +552,84 @@ def test_sin_bloque_de_pago_no_se_dice_nada_del_pago():
     salidas = notas()
     assert "COPIA-PAGO-MEDIO" not in salidas
     assert "COPIA-VENCIMIENTOS" not in salidas
+
+
+def test_las_referencias_de_la_linea_salen_todas_en_una_nota():
+    """Cinco referencias, una nota: cinco notas seguidas no las lee nadie."""
+    nota = notas(referencias=True)["COPIA-REFERENCIAS"]
+    assert nota.gravedad == NOTA
+    for concepto in ("pedido del comprador", "pedido del vendedor",
+                     "contrato del comprador", "contrato del vendedor",
+                     "expediente"):
+        assert concepto in nota.encontrado
+    # Y el aviso de lo que hay que hacer con el hueco que queda libre.
+    assert "BT-10" in nota.mensaje
+
+
+def test_dos_albaranes_distintos_son_algo_que_elegir():
+    """El corte que sí se ha visto: 3 de las 14 traen más de uno.
+
+    Facturae los pone dentro de cada línea y la norma tiene una referencia
+    por documento, así que con dos hay que elegir cuál viaja.
+    """
+    nota = notas(albaranes=("ALB-1", "ALB-2"))["COPIA-REFERENCIAS"]
+    assert "albarán (2 distintos)" in nota.encontrado
+
+
+def test_el_mismo_albaran_en_dos_lineas_no_es_una_eleccion():
+    """Repetido no es distinto: no hay nada que elegir y no se cuenta."""
+    nota = notas(albaranes=("ALB-1", "ALB-1"))["COPIA-REFERENCIAS"]
+    assert "albarán" in nota.encontrado and "distintos" not in nota.encontrado
+
+
+def test_el_numero_de_linea_del_pedido_no_se_cuenta_por_lineas():
+    """BT-132 es de línea en los dos formatos: uno por línea es lo correcto.
+
+    Contarlos diría que hay algo que elegir, y el corte no le afecta.
+    """
+    nota = notas(secuencias=("1.0", "2.0"))["COPIA-REFERENCIAS"]
+    assert "número de línea del pedido" in nota.encontrado
+    assert "distintos" not in nota.encontrado
+
+
+def test_la_referencia_de_la_cabecera_tambien_cuenta():
+    """Provocado: ninguna de las 14 la escribe en la cabecera.
+
+    Facturae admite el pedido en `InvoiceIssueData` y en la línea, y las 14
+    facturas de aquí lo ponen siempre en la línea. Si solo se mirase ahí,
+    una factura que lo ponga arriba no diría nada.
+    """
+    nota = notas(cabecera="P-RE-9")["COPIA-REFERENCIAS"]
+    assert "pedido del comprador" in nota.encontrado
+
+
+def test_la_factura_asociada_llega_junta_y_sin_fecha():
+    """`RelatedInvoice` es el único campo de Facturae que ya viene junto.
+
+    Y aun así hace falta la nota, por lo de al lado: BT-26 es obligatorio
+    dentro del grupo y este campo no trae ninguna fecha.
+    """
+    nota = notas(asociada="FA0001")["COPIA-FACTURA-PREVIA"]
+    assert nota.gravedad == NOTA
+    assert "FA0001" in nota.esperado
+    assert "fecha de expedición" in nota.esperado
+    assert nota.encontrado == "FA0001"
+
+
+def test_la_rectificada_va_en_dos_campos_y_se_pega():
+    """El mismo pegado que BT-1, y por la misma razón."""
+    nota = notas(rectificada=("0001", "FE", "2026-08-01"))["COPIA-FACTURA-PREVIA"]
+    assert "FE0001" in nota.esperado and "2026-08-01" in nota.esperado
+    assert "en dos campos" in nota.encontrado
+
+
+def test_una_rectificativa_de_un_periodo_no_señala_a_ninguna_factura():
+    """Con el criterio 03 se rectifica un periodo y no hay número que copiar.
+
+    Es la razón por la que `sintaxis.py` deja `facturas_previas` sin mapa en
+    Facturae, y aquí tiene que valer igual: sin número, no hay nota.
+    """
+    assert "COPIA-FACTURA-PREVIA" not in notas(rectificada=("", "", ""))
 
 
 def test_el_destino_de_cada_fila_existe_en_el_anexo():

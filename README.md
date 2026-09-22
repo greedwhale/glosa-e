@@ -3849,7 +3849,8 @@ regla de siempre: lo que llega no se cuenta, aunque no lo mire nadie.
 **Las referencias que Facturae mete dentro de la línea** —pedido, contrato,
 expediente, albarán— no son de esta familia a propósito: son las mismas que las
 del documento, el anexo tampoco las recoge, y partir esa historia en dos sería
-contarla dos veces a medias. Van con la familia de las referencias.
+contarla dos veces a medias. Van con la sexta, dos apartados más abajo, donde
+se ve que lo de «dentro de la línea» es justamente el problema.
 
 **La cuarta familia: los cargos y las minoraciones** (21-09-2026). Facturae los
 pone en dos sitios —dentro de la línea y sobre el total— y la norma también, así
@@ -3876,6 +3877,25 @@ toda la tabla, y no se ve sin abrir las dos listas a la vez:
 | La **cuenta de cargo** no está en el anexo | 8 | `BT-91` es término de la norma y el anexo no lo recoge —y la traen más facturas que la de abono, que sí viaja— |
 | La **dirección de la sucursal** no viaja | 8 | de la cuenta, la norma se queda con el identificador y, como mucho, el BIC. Sale en la nota de lo que se queda en el original |
 
+**La sexta familia: las referencias** (22-09-2026). Es la única que se
+escribe sabiendo de antemano que casi nada llega, y aun así es de las que más
+falta hacían, porque lo que se pierde no lo avisa ninguna regla:
+
+| Lo que pasa con una referencia | De 14 | Qué pasa |
+|---|---:|---|
+| **Ninguna tiene campo** en la copia | 8 | Facturae sabe llevar siete referencias —el pedido y el contrato, cada uno del emisor y del receptor, el expediente, el albarán y el número de línea del pedido— y el anexo **no recoge ni una**: de `BT-11` a `BT-19` no hay ninguna en sus 104 términos, ni tampoco `BT-132`. Se omiten o van en una extensión, y no las valida nadie |
+| Queda **un hueco libre**, y no es para ellas | — | el anexo sí conserva una referencia de documento: `BT-10`, «un identificador asignado por el comprador para especificar rutas internas de la factura». Es el único sitio donde cabría algo, y meter ahí el pedido deja una copia válida que dice otra cosa: el mismo fallo que copiar el dígito del medio de pago. Lo que en Facturae sí encamina —los centros administrativos— tiene sus propios campos españoles, `BT-ES-9`, `BT-ES-10` y `BT-ES-11` |
+| Viven **dentro de la línea** | 8 | y la norma las pone en el documento. Ninguna de las 14 escribe una referencia en la cabecera, aunque el esquema lo permita: las 8 que traen alguna la traen en la línea, y **3 traen más de un albarán distinto**, así que este corte, al revés que el de los vencimientos, sí se ha visto |
+| Las **fechas** no existen para la norma | 3 | Facturae le pone fecha a cada referencia —seis en total, contando la del albarán— y para la norma una referencia es un identificador suelto: ninguna de `BT-12` a `BT-17` lleva fecha al lado |
+| La **factura anterior** pide una fecha que no hay | 0 | `BG-3` es el único grupo de referencia que sí viaja, y el anexo pone `BT-26` —la fecha de expedición de la referenciada— en **1..1**, donde la norma europea no obliga. La factura asociada de Facturae no lleva ninguna, y la rectificativa solo está obligada a escribir la suya con los criterios 01 y 02: sin fecha no se monta el grupo. Ninguna de las 14 se refiere a otra factura, así que se prueba provocado |
+| El **adjunto** no cabe, y el grupo está ocupado | 2 | `BT-125` no está en el anexo, y el grupo donde iría, `BG-24`, lo usa dos veces para otra cosa: el **QR fiscal** —con valores fijos y la dirección en `BT-ES-47`— y el número de la **autorización** del Departamento de Gestión Tributaria. Las dos son contenido que la factura no tiene: las pone quien copia, sacándolas de su sistema |
+
+De propina, el que cierra el cabo de la tercera familia: `SequenceNumber`, el
+que no servía como identificador de línea, es `BT-132` —la línea **del
+pedido**—, que tampoco está en el anexo. El esquema lo declara `xs:double`, así
+que las tres facturas que lo traen escriben `1.0` y `2.0`: una referencia con
+decimales.
+
 Lo que dice el módulo, con los importes al lado:
 
 | Nota | Cuándo sale | Qué dice |
@@ -3889,19 +3909,23 @@ Lo que dice el módulo, con los importes al lado:
 | `COPIA-CARGO-IVA` | hay descuentos o cargos generales | en la copia van agrupados por categoría de IVA, y aquí no la llevan |
 | `COPIA-LINEA-UNIDAD` | una línea trae unidad de medida | el código es de la lista de Facturae y la copia pide uno de UN/ECE |
 | `COPIA-LINEA-NETO` | `TotalCost` y `GrossAmount` no valen lo mismo | el importe neto de la línea es el segundo, no el primero |
+| `COPIA-REFERENCIAS` | hay pedido, contrato, expediente o albarán | ninguna tiene campo en la copia, y el hueco que queda libre no es el suyo |
+| `COPIA-FACTURA-PREVIA` | se refiere a otra factura | el número va con su serie, y la fecha de la referenciada es obligatoria |
 | `COPIA-SUPLIDO` | hay suplidos | son `BT-179` y `BT-180`, de la edición de 2026, y el anexo de abril no les da ruta |
 | `COPIA-SIN-SITIO` | hay algo que no viaja | la lista de lo que se queda en el original |
 
 Sobre las 14 facturas de aquí: **las 14 sacan alguna nota**. Eran 11 hasta la
 tercera familia, y las tres que callaban no eran facturas más limpias: eran las
 que no tocaban ningún concepto de los once primeros. Todas tienen líneas. El
-ejemplo publicado `ejemplos/fe-0001.xml` saca tres —su serie, su idioma y la
-unidad de su línea— y sigue saliendo conforme, porque ninguna es un error.
+ejemplo publicado `ejemplos/fe-0001.xml` saca cuatro —su serie, su idioma, la
+unidad de su línea y su medio de pago— y sigue saliendo conforme, porque
+ninguna es un error.
 
 **La tabla se escribe entera, con el porqué de cada fila**, en
-`CORRESPONDENCIAS`: **62 conceptos**, cada uno con lo que le pasa y de dónde
-sale esa decisión. Los estados son siete, y los dos que se añadieron con la
-segunda y la tercera familia son los cuatro que no se pueden juntar con nada:
+`CORRESPONDENCIAS`: **75 conceptos**, cada uno con lo que le pasa y de dónde
+sale esa decisión. Los estados son nueve, y los cuatro que fueron añadiéndose
+familia a familia son los que no se pueden juntar con ningún otro sin borrar
+justo lo que hay que decidir:
 
 | Estado | Qué significa | Ejemplo |
 |---|---|---|
