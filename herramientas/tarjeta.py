@@ -43,7 +43,7 @@ from PIL import Image, ImageDraw, ImageFont
 PAPEL = "#fbfaf7"
 TINTA = "#16181c"
 TINTA_2 = "#454b54"
-TENUE = "#6e747e"
+TENUE = "#676c76"
 BORDE = "#e3e0d7"
 ACENTO = "#1c4e80"
 BLOQUE = "#949494"

@@ -33,6 +33,14 @@
   display: grid; grid-template-columns: 11rem 1fr; gap: 0 1.25rem;
   padding: 1.15rem 0; border-top: 1px dashed var(--borde);
   scroll-margin-top: 5rem;
+  /* Una rejilla no encoge por debajo de lo más ancho que no se puede partir,
+     y aquí hay dos cosas así: la línea del fuente en mono
+     —validador/solucion_publica.py:651— y la URN del anexo escrita en la
+     prosa, 64 caracteres sin un espacio. A 320 px la página se salía 109 px
+     por la derecha y asomaban 285 de las 390 fichas, porque todas comparten
+     columna. `anywhere` y no `break-word`: sólo el primero cuenta cuando la
+     rejilla mide lo que no se puede partir. */
+  overflow-wrap: anywhere;
 }
 .codigo-ficha:first-child { border-top: 0; }
 .codigo-ficha:target { background: var(--acento-flojo); border-radius: 10px; padding-left: 1rem; padding-right: 1rem; }
@@ -58,13 +66,16 @@
    el asunto de la pagina y no una fila de una lista: quien llega ha buscado
    ese codigo y nada mas. Por eso sube a titular, en la misma mono con que se
    lo ha encontrado escrito en el informe que le rechazaron. */
-.ficha-codigo { padding: 2.5rem 0 1rem; }
+/* Lo mismo que en la ficha del catálogo, y por lo mismo: la línea del fuente
+   de «Lo escribe» sacaba de su ancho 40 de las 390 páginas a 320 px. Antes
+   sólo lo llevaba el titular, que es donde se vio primero. */
+.ficha-codigo { padding: 2.5rem 0 1rem; overflow-wrap: anywhere; }
 .ficha-codigo .migas { font-size: var(--t1); color: var(--tenue); margin-bottom: 1.2rem; }
 .ficha-codigo .migas a { color: var(--tenue); }
 .ficha-codigo .migas a:hover { color: var(--acento); }
 .ficha-codigo h1 {
   font: 700 var(--t5)/1.1 var(--mono); letter-spacing: -.01em;
-  overflow-wrap: anywhere; margin-bottom: .7rem;
+  margin-bottom: .7rem;
 }
 .ficha-codigo .gravedades { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.4rem; }
 .ficha-codigo .cuenta {

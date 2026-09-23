@@ -48,7 +48,14 @@
   --borde-fuerte: #948b78;
   --tinta: #16181c;
   --tinta-2: #454b54;
-  --tenue: #6e747e;
+  /* El gris de los rótulos y los pies era el único color de texto al filo:
+     #6e747e daba 4,51:1 sobre el papel y 4,10:1 sobre los fondos flojos —el
+     pie del veredicto, la ficha señalada, la zona al arrastrar encima—, y AA
+     pide 4,5 para texto normal. Medido el 23-09-2026. Se oscureció lo justo,
+     con el mismo tono y la misma saturación, hasta pasar en los ocho fondos.
+     Lo vigila tests/test_contraste.py, que prueba todas las parejas y no sólo
+     las que hoy existen: la que falte hoy la pone mañana alguien sin mirar. */
+  --tenue: #676c76;
   --acento: #1c4e80;
   --acento-flojo: #eaf0f7;
   --error: #a3231c;
@@ -86,7 +93,7 @@
     --borde-fuerte: #646d7e;
     --tinta: #e8eaee;
     --tinta-2: #b3bac4;
-    --tenue: #868d99;
+    --tenue: #89909b;   /* 4,37 -> 4,54 sobre --acento-flojo; lo mismo que arriba */
     --acento: #8ab4e0;
     --acento-flojo: #1b2a3a;
     --error: #f0938c;

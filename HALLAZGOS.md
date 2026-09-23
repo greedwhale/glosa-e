@@ -5253,3 +5253,93 @@ Provocado:
 Y de punta a punta, que es lo que vale: desde el worktree, `git push
 --no-verify` a un repositorio desnudo de usar y tirar sale **bloqueado por el
 portero**, y la suite entera allí da 2360 en verde.
+
+## En un móvil: lo que no se puede partir, y un gris que no llegaba a AA
+
+Salió de un repaso del sitio en móvil y en los dos temas, el 23-09-2026, antes
+de tocar nada del diseño. Dos fallos de los que no se ven en un escritorio.
+
+### Las páginas que se salían de lado
+
+Medidas las 399 páginas del sitio montado a 320 px, que es el ancho con que
+WCAG mide el reflujo:
+
+| Página | Se salía | Por |
+|---|---|---|
+| `incidencias.html` | 109 px, y asomaban 285 de las 390 fichas | la línea del fuente en mono y la URN del anexo en la prosa |
+| `codigo-*.html` | 40 de las 390 | la línea del fuente, en «Lo escribe» |
+| la entrada de la copia fiel | 7 px | `TotalGrossAmountBeforeTaxes`, en negrita |
+
+Las otras siete, en 0. Siempre lo mismo: **algo que no se puede partir por un
+espacio**. La URN es `urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0`,
+64 caracteres seguidos; `validador/solucion_publica.py:651` son 33.
+
+La primera hipótesis estaba mal a medias. El repaso había señalado la línea
+del fuente, y ponerle `overflow-wrap: anywhere` a ella sola **no movió ni un
+píxel**: las fichas comparten columna en `.fichas`, y la URN de una sola ficha
+bastaba para ensanchar las 390. Se encontró quitando culpables de uno en uno
+en el navegador hasta que el que quedaba era la prosa.
+
+### Las dos maneras de dejar partir, que no son la misma
+
+| | Qué hace | Dónde |
+|---|---|---|
+| `overflow-wrap: anywhere` | la rejilla cuenta la palabra como partible **al medir** su columna | las fichas y la página de un código, que son rejillas |
+| `overflow-wrap: break-word` | sólo parte **al pintar** | la bitácora, que es texto corrido |
+
+Las dos cosas, medidas: con `break-word` en las fichas la página seguía
+saliéndose los mismos 109 px; con `anywhere` en la bitácora, sus tablas —que
+se desplazan dentro de `.cuadro`— encogían partiendo palabras en dos celdas.
+
+En escritorio no cambia nada: a 1280 px, la altura de las 390 fichas con la
+regla y sin ella es la misma, píxel a píxel, y la de la bitácora también.
+
+### El gris
+
+`--tenue` es el color de los rótulos y los pies, y en claro daba 4,51:1 sobre
+el papel, 4,20:1 sobre `--panel-2` y 4,10:1 sobre los fondos flojos del
+veredicto. AA pide 4,5 para texto normal. En la página pintada fallaban cuatro
+textos: el pie del testigo, el aviso del arranque y dos rótulos del informe.
+
+El repaso dijo que en oscuro no fallaba ninguno, y **era verdad de la página
+medida y no del tema**: cuando se arrastra un fichero encima, la zona se tiñe
+de `--acento-flojo` y su pie queda a 4,37:1. La página medida no tenía a nadie
+arrastrando nada. Por eso la prueba no mira las parejas que hoy se pintan,
+sino todas: ocho colores de texto contra ocho fondos, en los dos temas.
+
+| Tema | Antes | Después | Peor fondo |
+|---|---|---|---|
+| claro | `#6e747e` | `#676c76` | 4,10 → 4,59 sobre `--error-flojo` |
+| oscuro | `#868d99` | `#89909b` | 4,37 → 4,54 sobre `--acento-flojo` |
+
+Mismo tono y misma saturación; sólo se movió la luminosidad, de medio en medio
+punto, hasta pasar en los ocho fondos. En la página pintada, con el informe
+abierto: 364 textos, ninguno por debajo, en claro, en oscuro y en oscuro con la
+zona en «arrastrando encima».
+
+`herramientas/tarjeta.py` copia los colores del tema claro a mano y se había
+quedado con el gris viejo. Ya no puede: una prueba compara. **La tarjeta PNG no
+se ha regenerado** —hace falta bajar Literata— y lleva el gris de antes, que
+sobre su papel da 4,51 y pasa.
+
+### Lo que lo guarda
+
+`tests/test_en_un_movil.py` vigila que cada plantilla siga dejando partir, y
+con cuál de las dos maneras; `tests/test_contraste.py`, las 128 parejas, que
+ningún tema se quede sin un color y que la tarjeta pinte con los de la hoja.
+Sin navegador en la suite, lo primero vigila la regla y no los píxeles: los
+píxeles se midieron aquí.
+
+Provocado, ocho roturas y ocho rojos: quitar la regla de las fichas, cambiarla
+por `break-word`, meterla sólo en un `@media`, ponerle `anywhere` a la
+bitácora, volver al gris viejo en cada tema, quitarle un fondo al oscuro y
+devolverle el gris viejo a la tarjeta.
+
+### Y la caché, otra vez
+
+Al medir el sitio recién montado, el navegador sirvió el `incidencias.html` de
+antes —con `glosa.css?v=b9c1a4cf`, la hoja vieja—, y la primera medida dio los
+mismos 109 px. En disco estaba `aa4725bb`. La huella protege la hoja, pero
+`python -m http.server` sirve el HTML sin `Cache-Control` y el navegador lo
+guarda por su cuenta. Es el fallo de siempre con otro disfraz; se midió de
+nuevo pidiendo cada página con una consulta de más.

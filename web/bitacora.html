@@ -40,7 +40,12 @@
 
 /* El artículo. Mismo ritmo que la tesis: es un documento largo, así que manda
    la columna de lectura. */
-article.entrada { max-width: 36rem; padding: 1rem 0 0; }
+/* Un nombre de elemento en negrita —TotalGrossAmountBeforeTaxes— sacaba la
+   página 7 px a 320 px. `break-word` y no el `anywhere` de las fichas: aquí
+   hay tablas dentro de `.cuadro`, que se desplazan en su caja, y con
+   `anywhere` encogían partiendo palabras —medido: dos celdas de la segunda
+   tabla del artículo de la copia fiel—. */
+article.entrada { max-width: 36rem; padding: 1rem 0 0; overflow-wrap: break-word; }
 article.entrada > time {
   display: block; font-size: var(--t0); text-transform: uppercase;
   letter-spacing: .1em; color: var(--tenue); font-weight: 600;
