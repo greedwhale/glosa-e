@@ -5084,3 +5084,109 @@ Los 39 puntos están cerrados o dichos. De los cuatro que quedaban ayer, dos se
 arreglaron en el código del navegador y dos aquí; el único que sigue abierto es
 el subdominio de Vercel, y está abierto **a propósito**, con su porqué escrito
 arriba.
+
+
+## L10: seis facturas distintas salían con la misma frase
+
+El 22-09-2026 se dejó de dar por mala la forma nueva de las rectificativas, y
+la NOTA que quedó decía lo único que entonces se podía decir: que había un
+`BG-24` y que no se había leído. El 23-09-2026 la AEAT contestó **qué
+calificadores lleva**, y eso convirtió aquella prudencia en pereza.
+
+### Lo que se midió antes de tocar nada
+
+Seis rectificativas, todas con un `BG-24`, y el mismo veredicto:
+
+| Lo que llevaba el `BG-24` | Salía |
+|---|---|
+| `RECT:TIPO` R4 y `RECT:MODALIDAD` S, completa y bien escrita | `un BG-24 sin leer` |
+| solo el tipo, sin la modalidad | `un BG-24 sin leer` |
+| un tipo inventado, `R9` | `un BG-24 sin leer` |
+| el prefijo del anexo en vez del del correo | `un BG-24 sin leer` |
+| una modalidad `S` sin importes | `un BG-24 sin leer` |
+| **un albarán colgado de la factura** | `un BG-24 sin leer` |
+
+La última fila es la que duele: una rectificativa escrita exactamente como la
+AEAT manda y un albarán que no pinta nada salían iguales.
+
+### Lo único nuevo de aquella respuesta es L10
+
+Conviene decirlo porque parece más de lo que es. Las dos sublistas L2 que
+mandó la AEAT —`R1` a `R4`, y `I` y `S`— son **palabra por palabra** las que
+el anexo de abril ya trae y el validador ya importaba. Lo que cambió no son
+los códigos: es el envase, de la extensión `BG-ES-1` al `BG-24` de la norma.
+
+L10 sí es nueva: el anexo de abril tiene de `L1` a `L8`, y **ni `L9` ni
+`L10`** —medido sobre la tabla importada—. Son cinco calificadores, `QR`,
+`AUT` y los tres de la rectificativa, y son justo lo que hace legible un
+`BG-24`, que es lo que el propio anexo daba por imposible: ahí está escrito
+que el `BG-24` de la autorización «no trae ni ruta ni valor fijo con que
+distinguirlo de cualquier otro documento adjunto».
+
+### Lo que se puede leer, y lo que no, con el porqué
+
+Se puede decir **cuál** es cada calificador. No se puede decir **cuánto
+vale**, y el motivo no es prudencia: es que no está escrito en ninguna parte.
+Los dos `BG-24` que el anexo sí publica ponen el valor en sitios distintos:
+
+| `BG-24` | Qué va en el `cbc:ID` (BT-122) | Qué va en la descripción (BT-123) |
+|---|---|---|
+| el del QR | la URN fija `…:ubl:schema:QR` | «VERIFACTU» |
+| el de la autorización | **el número de la autorización** | un texto libre |
+
+Si el calificador pasa a ocupar el `cbc:ID`, el valor tiene que irse a otro
+campo, y la respuesta no dice a cuál. Lo razonable es la descripción, por
+analogía con el QR —y de paso deja sin sitio al número de la autorización—,
+pero razonable no es publicado: comprobar `R4` contra L2.A leyendo un campo
+adivinado sería prometer una comprobación que no se ha hecho. Está preguntado.
+
+### La contradicción del esquema, que no se resuelve eligiendo
+
+El correo escribe el esquema `urn:aeat:names:specification:schema:`, **sin
+`ubl:`**. El anexo publicado escribe `urn:aeat:names:specification:ubl:schema:QR`
+para el QR, que es la primera entrada de esa misma L10. Los dos textos se
+contradicen en el único valor comprobable, así que uno de los dos está mal.
+
+Elegir el prefijo equivocado **no daría un fallo**: daría un validador que no
+encuentra nada, no se queja de nada y se calla. Es el disfraz de siempre de
+este repositorio. Así que se reconoce por la **cola** del identificador y se
+aceptan los dos, pidiendo las dos mitades —que empiece por el espacio de
+nombres de la AEAT y que el calificador venga detrás de sus dos puntos— para
+que un `MIRECT:TIPO` de cualquiera no cuele por el final.
+
+### Lo que falta, escrito como negativa
+
+Quedan dos reglas sin aplicar, las dos porque dependen de saber dónde va el
+valor: comprobar el tipo contra L2.A y la modalidad contra L2.B, y **exigir
+los importes cuando la modalidad es `S`** —que es más estricto que el anexo de
+abril, el cual solo pide la base *si* se informan los importes—.
+
+No se dejan en un comentario que pida memoria. El día que el anexo traiga
+`L10`, el módulo **se niega a importarse** y dice qué falta. Es el patrón de
+la casa: negarse vale más que acordarse.
+
+### Probado rompiéndolo
+
+Nueve roturas provocadas, cada una con quien se queja:
+
+| Lo que se le quitó | Quién se queja |
+|---|---|
+| Aceptar solo el esquema del anexo | `test_los_dos_esquemas_se_leen_igual` y tres más |
+| No mirar el espacio de nombres | `test_la_cola_sola_no_basta` |
+| La cola sin sus dos puntos | la misma |
+| No decir cuál de los dos falta | `test_dice_cual_de_los_dos_falta` |
+| Leer el valor como si estuviera publicado | `test_no_promete_haber_comprobado_el_valor` |
+| No decir que el valor no se lee | la misma |
+| Dar cualquier `BG-24` por reconocido | `test_un_bg24_ajeno_sigue_sin_leerse` y tres más |
+| Dar por mala la forma nueva | `test_reconoce_el_tipo_y_la_modalidad` |
+| Quitar la negativa de `L10` | `test_si_aparece_l10_se_niega_hasta_terminar_de_leer_el_bg24` |
+
+### Y lo que la misma respuesta confirma sin cambiar nada
+
+El **381 sigue fuera de la L1 y la `K` fuera de la L4**, por escrito: «no se
+aceptan InvoiceType de tipo 381 en L1. Tampoco se aceptará la categoría K en
+L4». Ninguna regla cambia —ya medían eso—, pero el hallazgo pasa de deducción
+a cita: una factura válida según la EN 16931 no pasa el anexo español, y lo
+dice la Agencia. Añade que **eleva la cuestión a gestión para que reevalúen el
+criterio**, así que está confirmado y vivo a la vez, y por eso el `BT-3`/381 y
+la L4 siguen aparcados.

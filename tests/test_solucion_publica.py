@@ -440,6 +440,102 @@ class TestRectificativa:
         assert codigos(cambia(otro, ">R4<", ">R9<")) == {"SPFE-RECTIFICATIVA"}
 
 
+class TestLosCalificadoresDeL10:
+    """Lo que la AEAT dio por escrito el 23-09-2026.
+
+    Antes de esto, seis facturas distintas -una rectificativa completa y bien
+    escrita, otra sin modalidad, otra con un tipo inventado y un albaran
+    colgado de la factura- salian todas con la misma frase: «un BG-24 sin
+    leer». L10 es lo que las separa.
+    """
+
+    ESQUEMA_DEL_CORREO = "urn:aeat:names:specification:schema:"
+    ESQUEMA_DEL_ANEXO = "urn:aeat:names:specification:ubl:schema:"
+
+    @staticmethod
+    def adjunto(calificador, valor="R4"):
+        return (
+            "  <cac:AdditionalDocumentReference>\n"
+            f"    <cbc:ID>{calificador}</cbc:ID>\n"
+            f"    <cbc:DocumentDescription>{valor}</cbc:DocumentDescription>\n"
+            "  </cac:AdditionalDocumentReference>\n"
+        )
+
+    @classmethod
+    def rectificativa_con(cls, *adjuntos):
+        return cambia(
+            cambia(BUENA, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>384<"),
+            "  <cac:AccountingSupplierParty>",
+            "".join(adjuntos) + "  <cac:AccountingSupplierParty>")
+
+    @classmethod
+    def completa(cls, esquema):
+        return cls.rectificativa_con(cls.adjunto(esquema + "RECT:TIPO", "R4"),
+                                     cls.adjunto(esquema + "RECT:MODALIDAD", "S"))
+
+    def test_reconoce_el_tipo_y_la_modalidad(self):
+        queja = la(self.completa(self.ESQUEMA_DEL_CORREO), "SPFE-RECTIFICATIVA")
+        assert queja.gravedad == NOTA
+        assert queja.encontrado == "RECT:MODALIDAD y RECT:TIPO"
+        assert "sin leer" not in queja.encontrado
+
+    def test_los_dos_esquemas_se_leen_igual(self):
+        """Porque los dos textos no dicen lo mismo y uno de ellos se equivoca.
+
+        El anexo publicado escribe el del QR con `ubl:` dentro, y el correo
+        escribe toda L10 sin el. `QR` esta en las dos listas, asi que la
+        contradiccion es comprobable. Elegir uno y fallar no daria un error:
+        daria un validador que no encuentra nada y se calla.
+        """
+        del_correo = la(self.completa(self.ESQUEMA_DEL_CORREO), "SPFE-RECTIFICATIVA")
+        del_anexo = la(self.completa(self.ESQUEMA_DEL_ANEXO), "SPFE-RECTIFICATIVA")
+        assert del_correo.encontrado == del_anexo.encontrado == "RECT:MODALIDAD y RECT:TIPO"
+
+    def test_dice_cual_de_los_dos_falta(self):
+        queja = la(self.rectificativa_con(
+            self.adjunto(self.ESQUEMA_DEL_CORREO + "RECT:TIPO", "R4")),
+            "SPFE-RECTIFICATIVA")
+        assert queja.encontrado == "RECT:TIPO"
+        assert "Falta la modalidad de rectificación" in queja.mensaje
+        assert queja.gravedad == NOTA, "el anexo que lo pide no esta publicado"
+
+    def test_no_promete_haber_comprobado_el_valor(self):
+        """Un R9 que no esta en L2.A tiene que salir igual que un R4.
+
+        No por prudencia: es que no se sabe en que campo del BG-24 va el
+        valor. Los dos BG-24 publicados lo ponen en sitios distintos.
+        """
+        bueno = la(self.completa(self.ESQUEMA_DEL_CORREO), "SPFE-RECTIFICATIVA")
+        malo = la(self.rectificativa_con(
+            self.adjunto(self.ESQUEMA_DEL_CORREO + "RECT:TIPO", "R9"),
+            self.adjunto(self.ESQUEMA_DEL_CORREO + "RECT:MODALIDAD", "S")),
+            "SPFE-RECTIFICATIVA")
+        assert bueno.mensaje == malo.mensaje
+        assert "no dice en qué campo del BG-24 va el valor" in bueno.mensaje
+
+    def test_un_bg24_ajeno_sigue_sin_leerse(self):
+        """Un albaran no es una rectificativa, y ahora se distingue."""
+        queja = la(self.rectificativa_con(
+            "  <cac:AdditionalDocumentReference>\n"
+            "    <cbc:ID>ALB-2026-77</cbc:ID>\n"
+            "    <cbc:DocumentTypeCode>130</cbc:DocumentTypeCode>\n"
+            "  </cac:AdditionalDocumentReference>\n"),
+            "SPFE-RECTIFICATIVA")
+        assert queja.encontrado == "un BG-24 sin leer"
+
+    def test_la_cola_sola_no_basta(self):
+        """Si bastara, cualquiera podria llamar RECT:TIPO a lo suyo.
+
+        Se piden los dos pedazos: el espacio de nombres de la AEAT delante y
+        el calificador detras de sus dos puntos.
+        """
+        for ajeno in ("urn:otra:empresa:cualquiera:RECT:TIPO",
+                      "urn:aeat:names:specification:schema:MIRECT:TIPO"):
+            queja = la(self.rectificativa_con(self.adjunto(ajeno, "R4")),
+                       "SPFE-RECTIFICATIVA")
+            assert queja.encontrado == "un BG-24 sin leer", ajeno
+
+
 class TestPartes:
 
     def test_el_nif_del_vendedor_con_otro_impuesto(self):
@@ -653,6 +749,27 @@ class TestSeNiegaSiElAnexoCambia:
         with pytest.raises(solucion_publica.AnexoCambiado, match="ya no cuelga"):
             solucion_publica._relativa("./cac:WithholdingTaxTotal/cbc:TaxAmount",
                                        "./cac:CollectionInvoiceLine")
+
+    def test_si_aparece_l10_se_niega_hasta_terminar_de_leer_el_bg24(self, monkeypatch):
+        """El anexo de abril tiene de L1 a L8, sin L9 ni L10.
+
+        L10 es lo que la AEAT adelanto por correo el 23-09-2026 y lo que hara
+        legible el valor del BG-24. El dia que llegue quedan dos reglas por
+        aplicar -el tipo contra L2.A y la modalidad contra L2.B, y los
+        importes obligatorios cuando la modalidad es S-, asi que esto no
+        arranca hasta que esten. Es una anotacion que no depende de que nadie
+        se acuerde.
+        """
+        assert "L10" not in cius_es.LISTAS, "ya llego: hay una regla que terminar"
+        monkeypatch.setitem(cius_es.LISTAS, "L10", cius_es.LISTAS["L2.B"])
+        try:
+            with pytest.raises(LookupError) as negativa:
+                importlib.reload(solucion_publica)
+            assert type(negativa.value).__name__ == "AnexoCambiado"
+            assert "L2.A" in str(negativa.value) and "S" in str(negativa.value)
+        finally:
+            monkeypatch.undo()
+            importlib.reload(solucion_publica)
 
     def test_y_despues_de_negarse_vuelve_a_ser_el_de_siempre(self):
         assert codigos(BUENA) == set()

@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2407 tests, todos en verde.
+2414 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3740,7 +3740,16 @@ EN 16931, no los campos españoles del anexo. Lo preguntado sigue sin existir.
 
 Lo que la respuesta no toca, porque no estaba preguntado: a qué edición de la
 EN 16931 apunta el artículo 7.1, y si el anexo mantendrá el 381 fuera de L1 y la
-`K` fuera de L4. Las dos siguen esperando a la orden.
+`K` fuera de L4. **Las dos se preguntaron después, y las dos están contestadas.**
+La edición, el 22-09-2026: son las de 2026, y para todo el sistema. El 381 y la
+`K`, el 23-09-2026, y siguen fuera: «no se aceptan InvoiceType de tipo 381 en
+L1. Tampoco se aceptará la categoría K en L4». Con eso el precio deja de ser
+una deducción de esta casa y pasa a ser una cita: una factura válida según la
+EN 16931 —el 381 es el tipo con el que media Europa emite un abono, y la `K` es
+la categoría de las entregas intracomunitarias— no pasa el anexo español. La
+Agencia añade que **eleva la cuestión a gestión para que reevalúen el
+criterio**, así que está confirmado y vivo a la vez, y el `BT-3`/381 y la L4
+siguen aparcados por eso.
 
 ### El anexo ya cambió, y el texto no está publicado
 
@@ -3760,7 +3769,7 @@ Lo anunciado, y a qué regla le da:
 
 | Novedad del 10-09-2026 | Qué pasa aquí hoy |
 |---|---|
-| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | **Confirmado por escrito el 22-09-2026**, y arreglado: `SPFE-RECTIFICATIVA` ya no la exige si hay un `BG-24` que no es el QR, y lo dice con una NOTA |
+| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | **Confirmado por escrito el 22-09-2026**, y el **23** la AEAT dio L10 entera —`QR`, `AUT`, `RECT:TIPO`, `RECT:MODALIDAD`, `RECT:IMPORTES`—. `SPFE-RECTIFICATIVA` ya no la exige y además **reconoce** los calificadores: dice cuáles hay y cuál falta, en una NOTA. El **valor** sigue sin comprobarse porque nadie ha dicho en qué campo del `BG-24` va |
 | El indicador de copia pasa a `0..1` | `SPFE-COPIA` lo pide obligatorio |
 | Entra el **389** para la factura expedida por el destinatario, junto al 471 | `SPFE-TIPO-DE-FACTURA` mide con la L1 de abril |
 | El NIF del vendedor va en `BT-31` o en `BT-32`, este con esquema «LOC» y `@schemeID` «FC» | `SPFE-NIF` solo admite el esquema «VAT» |

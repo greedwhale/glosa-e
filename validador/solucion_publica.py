@@ -52,11 +52,14 @@ publicado —solo las transparencias—, y la orden se quiere en vigor el
   —«el grupo de extensión nacional BG-ES-1 para datos rectificados (presente en
   el borrador de abril) deja de existir de forma definitiva»—, y dice que las
   rectificativas se estructuran con el grupo `BG-24` de la norma usando los
-  calificadores de las listas L10 y L2. Lo que **no** dice es qué código va en
-  cada sitio, así que la regla nueva no se puede escribir. Lo que sí se ha
-  hecho es dejar de dar por mala la forma nueva: `_rectificativa()` ya no exige
-  la extensión cuando la factura trae un `BG-24` que no es el QR, y lo dice con
-  una NOTA.
+  calificadores de las listas L10 y L2. El **23-09-2026** dio la L10 entera
+  —`QR`, `AUT`, `RECT:TIPO`, `RECT:MODALIDAD`, `RECT:IMPORTES`—, que es lo
+  único nuevo de esa respuesta: las L2 que mandó son palabra por palabra las
+  que el anexo de abril ya trae. Con eso, `_rectificativa()` ni exige la
+  extensión ni se limita a decir que hay algo colgado: **reconoce** los
+  calificadores y dice cuáles hay y cuál falta, en una NOTA. Lo que sigue sin
+  poder comprobarse es **el valor**, porque nadie ha dicho en qué campo del
+  `BG-24` va —los dos `BG-24` publicados lo ponen en sitios distintos—.
 - **El indicador de copia pasa a `0..1`**. `_copia()` lo pide como obligatorio.
 - **Entra el 389** para las facturas expedidas por el destinatario, junto al
   471, en la lista L1 de `_tipo_de_factura()`.
@@ -95,6 +98,20 @@ ninguna regla de hoy pero sí lo que se puede esperar:
   negocio escritas, «sin incluir ficheros ejecutables Schematron». Y en el
   entorno de pruebas habrá un servicio de validación de facturas UBL 2.5
   sueltas, que es lo primero contra lo que se podrá contrastar esto.
+
+Y la del **23-09-2026** contesta dos cosas más, ninguna de las cuales cambia
+una regla de hoy:
+
+- **El 381 y la `K` siguen fuera**, y ahora por escrito: «no se aceptan
+  InvoiceType de tipo 381 en L1. Tampoco se aceptará la categoría K en L4».
+  Eso confirma lo que este módulo ya mide, y confirma también el precio: una
+  factura válida según la EN 16931 —un abono 381, una entrega intracomunitaria
+  con categoría `K`— no pasa el anexo español. La AEAT añade que **eleva la
+  cuestión a gestión para que reevalúen el criterio**, así que está confirmado
+  y vivo a la vez. Por eso el `BT-3`/381 y la L4 siguen aparcados.
+- **PRE y los documentos de validación, en octubre**, «pero dependerá de la
+  publicación de la Orden Ministerial y el texto final con el que se publique».
+  Una ventana, no una fecha, y colgando de lo mismo que todo lo demás.
 
 De dónde sale cada comprobación
 -------------------------------
@@ -387,6 +404,69 @@ _QR_URL = _relativa(_ruta(_obligatorio("BT-ES-47")), SINTAXIS_UBL.adjuntos)
 # que no se puede leer.
 _ADJUNTO_QUE_NO_ES_EL_QR = f"{SINTAXIS_UBL.adjuntos}[not(cbc:ID='{_URN_QR}')]"
 
+# Los calificadores de L10, que la AEAT dio por escrito el 23-09-2026. Son lo
+# que hace legible un BG-24, que es justo lo que el anexo de abril daba por
+# imposible dos parrafos mas arriba. La lista entera son cinco —QR, AUT y
+# estos tres—; aqui solo hacen falta los de la rectificativa.
+#
+# **El anexo de abril no tiene L10.** Tiene de L1 a L8, y ni L9 ni L10: esta
+# lista es lo unico verdaderamente nuevo de aquella respuesta.
+_L10_RECTIFICATIVA = {
+    "RECT:TIPO": "el tipo de rectificativa",
+    "RECT:MODALIDAD": "la modalidad de rectificación",
+    "RECT:IMPORTES": "los importes rectificados",
+}
+
+# Se reconoce por la **cola** del identificador, y no por el identificador
+# entero, porque los dos textos que lo escriben no dicen lo mismo:
+#
+# | Dónde | Esquema |
+# |---|---|
+# | el anexo de abril, para el QR | `urn:aeat:names:specification:ubl:schema:` |
+# | el correo de la AEAT del 23-09-2026, para toda L10 | `urn:aeat:names:specification:schema:` |
+#
+# Y `QR` es la primera entrada de esa misma L10, asi que uno de los dos se
+# equivoca en un valor que si esta publicado. Elegir mal el prefijo no da un
+# fallo: da un validador que no encuentra nada y se calla, que es el disfraz
+# de siempre. Aceptando los dos no hay nada que elegir, y esta preguntado.
+_ESQUEMA_AEAT = "urn:aeat:names:specification:"
+
+# Y lo que falta, escrito como negativa y no como recordatorio, que es el
+# patron de este repositorio. De la respuesta del 23-09-2026 quedan dos reglas
+# sin aplicar, las dos porque su texto no esta publicado:
+#
+# - comprobar el valor del tipo contra L2.A y el de la modalidad contra L2.B,
+#   que es lo que ya se hace con la extension de abril;
+# - exigir los importes rectificados cuando la modalidad es `S`. Eso es **mas
+#   estricto** que el anexo de abril, que solo pide la base *si* se informan
+#   los importes.
+#
+# Las dos necesitan saber en que campo del BG-24 va el valor, y eso lo dira el
+# anexo nuevo. Cuando lo diga traera L10 consigo -el de abril tiene de L1 a
+# L8, sin L9 ni L10-, asi que en cuanto L10 aparezca esto se niega a
+# importarse. No hay que acordarse de nada: no arranca.
+if "L10" in cius_es.LISTAS:
+    raise AnexoCambiado(
+        "el anexo ya trae L10: falta terminar de leer el BG-24 —el tipo "
+        "contra L2.A, la modalidad contra L2.B y los importes obligatorios "
+        "cuando la modalidad es S—, que hasta hoy no se podia por no saber "
+        "en que campo va el valor")
+
+
+def _calificador(identificador: str) -> str:
+    """El calificador de L10 de un BG-24, o «» si no lo lleva.
+
+    Pide los dos pedazos —que empiece por el espacio de nombres de la AEAT y
+    que acabe en el calificador detras de sus dos puntos— para que un
+    `MIRECT:TIPO` de cualquiera no cuele por el final.
+    """
+    if not identificador.startswith(_ESQUEMA_AEAT):
+        return ""
+    for calificador in _L10_RECTIFICATIVA:
+        if identificador.endswith(":" + calificador):
+            return calificador
+    return ""
+
 # El total a pagar, que suma los importes de terceros.
 _dice("BT-115", "junto con los importes correspondientes a los conceptos BT-179")
 
@@ -678,24 +758,9 @@ def _rectificativa(raiz) -> list[Incidencia]:
     if not datos:
         if tipo not in _RECTIFICATIVOS:
             return []
-        if _nodos(raiz, _ADJUNTO_QUE_NO_ES_EL_QR):
-            return [
-                Incidencia(
-                    "SPFE-RECTIFICATIVA",
-                    NOTA,
-                    f"La factura es rectificativa ({tipo}) y no lleva la "
-                    "extensión de rectificativas del anexo de abril, pero sí "
-                    "trae un documento justificativo adicional (BG-24), que es "
-                    "donde van los datos rectificados desde que la AEAT "
-                    "confirmó, el 22-09-2026, que la extensión desaparece. No "
-                    "se comprueba lo que dice: el texto del anexo nuevo no "
-                    "está publicado y no se sabe qué calificador de L10 marca "
-                    "ese uso.",
-                    campo="Datos rectificados (BG-24)",
-                    esperado="el tipo y la modalidad, con L10 y L2",
-                    encontrado="un BG-24 sin leer",
-                )
-            ]
+        adjuntos = _nodos(raiz, _ADJUNTO_QUE_NO_ES_EL_QR)
+        if adjuntos:
+            return _bg24_de_la_forma_nueva(tipo, adjuntos)
         return [
             Incidencia(
                 "SPFE-RECTIFICATIVA",
@@ -768,6 +833,78 @@ def _rectificativa(raiz) -> list[Incidencia]:
             ),
         )
     return incidencias
+
+
+def _bg24_de_la_forma_nueva(tipo: str, adjuntos: list) -> list[Incidencia]:
+    """Lo que se puede decir de un BG-24 con los calificadores de L10.
+
+    Se puede decir **cuál** es cada uno, y eso ya distingue una rectificativa
+    escrita a la forma nueva de un albarán colgado de la factura: hasta hoy
+    las dos salían con la misma frase, «un BG-24 sin leer».
+
+    No se puede decir **cuánto vale**, y no es por prudencia sino porque no
+    está escrito en ninguna parte. Los dos BG-24 que el anexo de abril sí
+    publica ponen el valor en sitios distintos: el del QR lleva la URN fija en
+    el `cbc:ID` y «VERIFACTU» en la descripción, y el de la autorización lleva
+    el número de la autorización **en el propio `cbc:ID`**. Si el calificador
+    pasa a ocupar el `cbc:ID`, el valor tiene que irse a otro campo, y el
+    correo del 23-09-2026 no dice a cuál. Lo razonable es la descripción, por
+    analogía con el QR, pero razonable no es publicado: comprobar R4 contra
+    L2.A leyendo un campo adivinado es prometer una comprobación que no se ha
+    hecho. Está preguntado, y mientras tanto se dice lo que hay.
+
+    Tampoco da ERROR lo que falte. La AEAT escribió que todas llevan tipo y
+    modalidad, pero eso describe el anexo nuevo, que no está en el BOE; aquí
+    se sigue midiendo el de abril. Se dice, y se dice con qué base.
+    """
+    presentes = {}
+    for adjunto in adjuntos:
+        calificador = _calificador(_valor(adjunto, "./cbc:ID"))
+        if calificador:
+            presentes[calificador] = _L10_RECTIFICATIVA[calificador]
+    if not presentes:
+        return [
+            Incidencia(
+                "SPFE-RECTIFICATIVA",
+                NOTA,
+                f"La factura es rectificativa ({tipo}) y no lleva la "
+                "extensión de rectificativas del anexo de abril, pero sí "
+                "trae un documento justificativo adicional (BG-24), que es "
+                "donde van los datos rectificados desde que la AEAT "
+                "confirmó, el 22-09-2026, que la extensión desaparece. No "
+                "se comprueba lo que dice: ninguno de sus identificadores es "
+                "un calificador de L10 de los que la AEAT dio el 23-09-2026, "
+                "y el anexo que los fija no está publicado.",
+                campo="Datos rectificados (BG-24)",
+                esperado="el tipo y la modalidad, con L10 y L2",
+                encontrado="un BG-24 sin leer",
+            )
+        ]
+
+    faltan = [nombre for calificador, nombre in _L10_RECTIFICATIVA.items()
+              if calificador not in presentes and calificador != "RECT:IMPORTES"]
+    aviso = ""
+    if faltan:
+        aviso = (f" Falta {_y(faltan)}: la AEAT escribió que todas llevan el "
+                 "tipo y la modalidad. No se da por mala porque el anexo que "
+                 "lo dice no está publicado.")
+    return [
+        Incidencia(
+            "SPFE-RECTIFICATIVA",
+            NOTA,
+            f"La factura es rectificativa ({tipo}) y lleva los datos "
+            "rectificados en documentos justificativos adicionales (BG-24), "
+            "que es donde van desde que la AEAT confirmó, el 22-09-2026, que "
+            "la extensión del anexo de abril desaparece. Se reconoce "
+            f"{_y(sorted(presentes.values()))}, por los calificadores de L10 "
+            "que la AEAT dio el 23-09-2026. No se comprueba lo que valen: el "
+            "anexo nuevo no está publicado y no dice en qué campo del BG-24 "
+            "va el valor." + aviso,
+            campo="Datos rectificados (BG-24)",
+            esperado="el tipo (RECT:TIPO) y la modalidad (RECT:MODALIDAD), con L10",
+            encontrado=_y(sorted(presentes)),
+        )
+    ]
 
 
 def _moneda_del_iva(raiz) -> list[Incidencia]:
