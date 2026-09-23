@@ -5034,10 +5034,26 @@ dos menús.
 
 **La que se deja: el subdominio de Vercel no redirige.**
 `glosa-dhm7.vercel.app` sigue sirviendo el mismo despliegue en vez de mandar al
-dominio. Se puede cerrar con una redirección, y no se hace hoy porque es una
-decisión y no un descuido: ese subdominio es la única puerta que queda si el
-dominio tiene un problema, y `README.md` lo documenta así desde el principio.
-Queda escrito aquí para que se decida a propósito y no se olvide.
+dominio. Se puede cerrar con una redirección y hoy no se hace, pero la primera
+versión de este párrafo sostenía eso con dos cosas que no eran, y quedan
+corregidas aquí porque el error es más instructivo que el acierto:
+
+- **No lo documenta el `README.md`.** No menciona ese subdominio en ninguna
+  línea. Lo mencionan `CLAUDE.md` y la receta de comprobar producción, y lo
+  que dicen es un hecho —«sigue sirviendo lo mismo»—, no una decisión tomada.
+- **No es «la única puerta si el dominio falla».** Cubre un problema del
+  dominio —una renovación, un registro DNS mal puesto, el certificado del
+  dominio propio— y nada más: `glosa-e.com` está registrado *en* Vercel y su
+  DNS también es de Vercel, así que una caída del alojamiento se lleva las dos
+  direcciones por delante. Es una puerta de repuesto para un fallo del
+  dominio, no para uno del despliegue.
+
+Lo que sí está medido es lo que cuesta dejarlo, y es poco:
+`https://glosa-dhm7.vercel.app/` contesta 200 y sirve
+`<link rel="canonical" href="https://www.glosa-e.com/">`, que lo pone el propio
+montaje. El motivo habitual para cerrar un subdominio así —que dos direcciones
+sirvan lo mismo y un buscador no sepa cuál indexar— ya está cubierto. Queda
+abierto para que se decida a propósito, ahora con la base de verdad debajo.
 
 ### Probado rompiéndolo
 
