@@ -12,7 +12,8 @@
    El testigo va al lado del lema y no debajo de todo porque es la primera
    pregunta de quien llega con una factura ajena en la mano —¿adónde va esto?—
    y la respuesta tiene que estar en la primera pantalla, también en el movil.
-   En estrecho se apila entre el lema y la ficha, por lo mismo.
+   En estrecho va detrás del lema, por lo mismo, y la ficha baja detrás de la
+   herramienta: más abajo está por qué.
 
    La forma es la de la glosa del informe: el rotulo en el margen, contra un
    filete, y lo medido al lado. Sin tics verdes ni sellos: un tic verde es
@@ -78,10 +79,30 @@
 .testigo ol li span:last-child { flex: none; color: var(--tenue); font-variant-numeric: tabular-nums; }
 .testigo ol li.ajeno { color: var(--error); }
 .testigo .pie { font-size: var(--t0); color: var(--tenue); margin: .55rem 0 0; line-height: 1.5; }
+/* En estrecho no caben en una pantalla el testigo y la zona de soltar: a
+   375x812, lo de arriba acaba en 390 px, el testigo mide 508 y la herramienta
+   con su barra de arranque unos 560. Hay que elegir qué va primero, y se eligió
+   el testigo —lo de arriba—. Lo que sí sobraba era la ficha entre los dos:
+   baja detrás de la herramienta, que es lo que describe, y leída después dice
+   lo mismo. Medido el 23-09-2026: la zona empezaba a 1,59 pantallas y
+   ahora a 1,22; a 768 px, que antes asomaba, cabe entera en la primera. En
+   ancho no cambia un píxel.
+
+   Con `display: contents` y `order`, y no moviendo el HTML, porque en ancho
+   la ficha tiene que seguir debajo del lema. Y se puede sin descolocar el
+   teclado porque la ficha no tiene nada que se pueda pulsar: el orden del
+   documento sigue siendo el que se ve. Lo vigila tests/test_en_un_movil.py. */
 @media (max-width: 54rem) {
-  .portada .cuerpo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lema" "testigo" "ficha"; grid-template-rows: auto; }
+  main > .envoltorio { display: flex; flex-direction: column; }
+  .portada, .portada .cuerpo { display: contents; }
+  /* El relleno de .portada, que con `contents` ya no pinta. El de abajo lo
+     pone el de la sección de la herramienta. */
+  .portada h1 { margin-top: 4.5rem; }
   .testigo { margin-top: 1.5rem; }
+  .portada .ficha { order: 1; margin: 0 0 3.5rem; }
+  #herramienta ~ * { order: 2; }
 }
+@media (max-width: 34rem) { .portada h1 { margin-top: 3rem; } }
 /* En el movil el margen se come media pantalla y cada frase se parte en cinco
    renglones: el testigo medía 540 px y empujaba la zona de soltar a la tercera
    pantalla. Como en la glosa del informe, el rotulo sube encima. */

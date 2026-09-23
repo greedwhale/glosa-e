@@ -5343,3 +5343,39 @@ mismos 109 px. En disco estaba `aa4725bb`. La huella protege la hoja, pero
 `python -m http.server` sirve el HTML sin `Cache-Control` y el navegador lo
 guarda por su cuenta. Es el fallo de siempre con otro disfraz; se midió de
 nuevo pidiendo cada página con una consulta de más.
+
+### Y el orden de la portada, que no era un descuido
+
+El mismo repaso encontró que en un móvil la zona de soltar empezaba a **1,59
+pantallas**, detrás del testigo, y propuso subirla. No era un descuido: el
+comentario de arriba de `index.html` dice que el testigo va en la primera
+pantalla «también en el movil», y ya se había encogido de 540 px para eso.
+
+Medido a 375x812, moviendo los bloques en el navegador, las dos cosas no caben:
+lo de arriba acaba en 390 px, el testigo mide 508 y la herramienta con su barra
+de arranque unos 560. Hubo que elegir, y se eligió conservar el testigo delante
+y bajar lo que sobraba entre los dos, la ficha:
+
+| | Zona de soltar, antes | Después |
+|---|---|---|
+| 375x812 | 1.292 px — 1,59 pantallas | 994 px — 1,22 |
+| 768x1024 | 943–1.151 px, asomando | 768–976 px, entera en la primera |
+| 1280x800 | 834 px | 834 px, y todo lo demás igual, píxel a píxel |
+| 320x700 | — | 0 px de desborde |
+
+Con `display: contents` y `order` en la media query de estrecho, y no moviendo
+el HTML, porque en ancho la ficha tiene que seguir debajo del lema. Eso separa
+el orden que se ve del orden del documento, y sólo se puede porque la ficha no
+tiene nada que se pueda pulsar: el tabulador sigue yendo del testigo a la zona,
+que es lo que se ve. Si un día la ficha lleva un enlace, hay que moverla en el
+HTML, y una prueba lo dice.
+
+La prueba calcula el orden como lo haría el navegador —el `order` de cada pieza
+y, a igual `order`, el del documento— y exige titular, lema, testigo,
+herramienta, ficha y el resto. Seis roturas provocadas, seis rojos: sin
+`contents`, sin flex, la ficha delante, la ficha al fondo de la página, el
+testigo detrás de la herramienta y un enlace en la ficha.
+
+Queda una diferencia a sabiendas: con el informe abierto, en estrecho la ficha
+sale detrás del informe y no detrás de la zona, porque el informe vive dentro
+de la misma sección que la herramienta.

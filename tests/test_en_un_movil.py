@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Que ninguna página se salga de lado en un móvil.
+"""Lo que se ve en un móvil: ninguna página de lado, y la portada en su orden.
+
+El orden de la portada va al final, con su propio porqué.
 
 Por qué existe
 --------------
@@ -82,3 +84,89 @@ def test_lo_que_no_cabe_se_deja_partir(plantilla, selector, como):
         f"{selector} en {plantilla} lleva overflow-wrap: {dice[1]} y tiene que "
         f"ser {como}. No son lo mismo: mira el docstring de esta prueba.")
 
+
+# --- El orden de la portada en estrecho ------------------------------------
+#
+# A 375x812 no caben en una pantalla el testigo y la zona de soltar, así que
+# hubo que elegir qué va primero, y el 23-09-2026 se eligió **el testigo** —lo
+# dice el comentario de arriba de `index.html`: la respuesta a «¿adónde va
+# esto?» en la primera pantalla—. Lo que sí se movió es la ficha, que estaba
+# entre los dos: baja detrás de la herramienta. La zona pasó de empezar a 1,59
+# pantallas a 1,22, y a 768 px cabe entera en la primera.
+#
+# Se hace con `display: contents` y `order`, así que el orden que se ve ya no
+# es el del documento. Sin navegador, esta prueba lo calcula como lo haría él:
+# el `order` de cada pieza en la media query de estrecho, y a igual `order`,
+# el orden del documento.
+
+ESTRECHO = "@media (max-width: 54rem)"
+
+# Las piezas, en el orden en que están escritas en index.html.
+PIEZAS = [
+    ("titular", ".portada h1"),
+    ("lema", ".portada .lema"),
+    ("testigo", ".testigo"),
+    ("ficha", ".portada .ficha"),
+    ("herramienta", "#herramienta"),
+    ("resto", "#herramienta ~ *"),
+]
+
+
+def _estrecho() -> dict[str, str]:
+    """Selector -> declaraciones, de la media query de estrecho de la portada."""
+    texto = (WEB / "index.html").read_text(encoding="utf-8")
+    estilo = re.search(r"<style>(.*?)</style>", texto, re.S)[1]
+    estilo = re.sub(r"/\*.*?\*/", "", estilo, flags=re.S)
+    assert estilo.count(ESTRECHO) == 1, (
+        f"index.html tiene {estilo.count(ESTRECHO)} «{ESTRECHO}» y esta prueba "
+        "espera una")
+    desde = estilo.index("{", estilo.index(ESTRECHO)) + 1
+    nivel, hasta = 1, desde
+    while nivel:
+        nivel += {"{": 1, "}": -1}.get(estilo[hasta], 0)
+        hasta += 1
+    reglas = {}
+    for selectores, cuerpo in re.findall(r"([^{}]+)\{([^{}]*)\}", estilo[desde:hasta - 1]):
+        for selector in selectores.split(","):
+            reglas[" ".join(selector.split())] = reglas.get(
+                " ".join(selector.split()), "") + cuerpo
+    return reglas
+
+
+def test_en_estrecho_la_ficha_va_detras_de_la_herramienta_y_el_testigo_delante():
+    reglas = _estrecho()
+    for contenedor in (".portada", ".portada .cuerpo"):
+        assert re.search(r"display:\s*contents", reglas.get(contenedor, "")), (
+            f"{contenedor} ya no es `display: contents` en estrecho, y sin eso "
+            "el `order` de lo que lleva dentro no hace nada")
+    assert re.search(r"display:\s*flex", reglas.get("main > .envoltorio", "")), (
+        "el envoltorio ya no es flex en estrecho: el `order` no hace nada")
+
+    def orden(selector):
+        dice = re.search(r"(?<![\w-])order:\s*(-?\d+)", reglas.get(selector, ""))
+        return int(dice[1]) if dice else 0
+
+    se_ve = [nombre for _, (nombre, selector) in sorted(
+        enumerate(PIEZAS), key=lambda par: (orden(par[1][1]), par[0]))]
+    assert se_ve == ["titular", "lema", "testigo", "herramienta", "ficha", "resto"], (
+        "En estrecho la portada se ve en este orden: " + ", ".join(se_ve) + ". "
+        "El testigo va delante de la herramienta por decisión —el comentario de "
+        "arriba de index.html— y la ficha detrás, antes que las secciones.")
+
+
+def test_la_ficha_no_tiene_nada_que_se_pueda_pulsar():
+    """Lo que hace que moverla con `order` no descoloque el teclado.
+
+    El tabulador sigue el orden del documento, no el que se ve. Mientras la
+    ficha no tenga nada enfocable, da igual dónde se pinte; el día que lleve un
+    enlace, el foco saltaría de la zona de soltar hacia atrás, a la ficha, y
+    habría que moverla en el HTML.
+    """
+    texto = (WEB / "index.html").read_text(encoding="utf-8")
+    fichas = re.findall(r'<dl class="ficha">(.*?)</dl>', texto, re.S)
+    assert len(fichas) == 1, f"index.html tiene {len(fichas)} fichas y esta prueba espera una"
+    enfocable = re.search(r"<(a|button|input|select|textarea|summary)\b|tabindex=", fichas[0])
+    assert not enfocable, (
+        f"La ficha de la portada lleva «{enfocable[0]}». En estrecho se pinta "
+        "detrás de la herramienta sin moverla en el documento, así que el foco "
+        "del teclado ya no seguiría a lo que se ve.")
