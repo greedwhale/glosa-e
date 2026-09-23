@@ -40,6 +40,7 @@ import re
 import shlex
 import subprocess
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 for flujo in (sys.stdout, sys.stderr):
@@ -164,16 +165,13 @@ def _llamada_a_git(palabras: list[str], carpeta: Path):
     return carpeta, subordenes, palabras
 
 
-def del_repositorio(carpeta: Path) -> bool:
-    """¿Esa carpeta es de **este** repositorio, lo parezca la ruta o no?
+@lru_cache(maxsize=32)
+def _git_comun(carpeta: Path) -> Path | None:
+    """El `.git` de verdad de esa carpeta: el de la copia principal.
 
-    Se lo pregunta a git en vez de mirar el camino. Un worktree de Factura-e
-    vive donde le pongan —`git worktree add` admite cualquier sitio— y comparte
-    su `.git`, así que `--git-common-dir` resuelve al de la copia principal
-    desde cualquiera de ellos.
-
-    Si git no contesta, no es que sea de otro: es que no se sabe. Y lo que no
-    se sabe no abre la puerta, así que eso lo decide quien llama.
+    Un worktree no tiene `.git` propio: tiene un **fichero** `.git` que apunta
+    al de la copia principal, y `--git-common-dir` resuelve al de verdad desde
+    cualquiera de las dos. Si git no contesta, no se sabe, y se dice con None.
     """
     hecho = subprocess.run(
         ["git", "-C", str(carpeta), "rev-parse", "--path-format=absolute",
@@ -181,11 +179,36 @@ def del_repositorio(carpeta: Path) -> bool:
         capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     if hecho.returncode != 0:
-        return False
+        return None
     try:
-        return Path(hecho.stdout.strip()).resolve() == (REPO / ".git").resolve()
+        return Path(hecho.stdout.strip()).resolve()
     except OSError:
-        return False
+        return None
+
+
+def del_repositorio(carpeta: Path) -> bool:
+    """¿Esa carpeta es de **este** repositorio, lo parezca la ruta o no?
+
+    Se le pregunta a git en vez de mirar el camino, y se le pregunta **por las
+    dos**: por la carpeta y por la copia en la que vive este gancho. Comparar
+    el `.git` común de una con `REPO / ".git"` era medio arreglo, porque daba
+    por hecho que este fichero está en la copia principal.
+
+    Medido el 23-09-2026 corriendo la suite desde un worktree: el gancho que
+    se carga es el del worktree, allí `REPO / ".git"` es un **fichero** y no el
+    directorio común, y el portero no reconocía ni su propia copia. Dos
+    pruebas en rojo, y con ellas el gancho de git —que corre la suite sobre la
+    copia desde la que se empuja— negándole el push a un worktree, que es
+    justo donde este repositorio recomienda abrir la segunda sesión.
+
+    En la copia principal no cambia nada: su `.git` es el común.
+
+    Si git no contesta, no es que sea de otro: es que no se sabe. Y lo que no
+    se sabe no abre la puerta, así que eso lo decide quien llama.
+    """
+    mio = _git_comun(REPO)
+    suyo = _git_comun(carpeta)
+    return mio is not None and mio == suyo
 
 
 def de_factura_e(carpeta: Path) -> bool:

@@ -5190,3 +5190,66 @@ a cita: una factura válida según la EN 16931 no pasa el anexo español, y lo
 dice la Agencia. Añade que **eleva la cuestión a gestión para que reevalúen el
 criterio**, así que está confirmado y vivo a la vez, y por eso el `BT-3`/381 y
 la L4 siguen aparcados.
+
+## El portero no se reconocía a sí mismo desde un worktree
+
+Salió comprobando el punto 20 de la auditoría —«la suite no es hermética»—, que
+se cierra corriéndola en una copia limpia. La primera copia limpia fue un
+`git worktree`, y allí la suite **no** salía en verde:
+
+```
+2 failed, 2358 passed, 54 skipped
+tests/test_ganchos.py::TestUnWorktreeDeEstaCopiaNoEsOtroProyecto
+    test_git_reconoce_un_worktree_viva_donde_viva
+    test_la_copia_buena_y_lo_que_cuelga_de_ella
+```
+
+En un clon de verdad pasan las 2360, así que **no era falta de hermetismo**:
+era el portero.
+
+### Lo que pasaba
+
+`del_repositorio()` le pregunta a git cuál es el `.git` común de una carpeta
+—eso estaba bien, y es lo que hace que un worktree no se cuele por «otro
+proyecto»— y lo comparaba con `REPO / ".git"`. `REPO` sale de la ruta del
+propio fichero:
+
+```python
+REPO = Path(__file__).resolve().parents[2]
+```
+
+Cuando el gancho que se carga es **el del worktree** —y es el que se carga si
+la suite corre allí—, `REPO` es el worktree, y el `.git` de un worktree es un
+**fichero** que apunta al de la copia principal, no un directorio. Así que la
+comparación fallaba siempre y el portero no reconocía ni su propia copia.
+
+Era medio arreglo: le preguntaba a git por la carpeta de la orden y daba por
+hecha la suya. Ahora le pregunta **por las dos** y compara común con común. En
+la copia principal no cambia nada, porque allí su `.git` es el común.
+
+### Por qué importaba, y no era sólo una prueba en rojo
+
+El gancho de git corre la suite **sobre la copia desde la que se empuja**. Con
+dos pruebas en rojo, un push desde un worktree se niega, y un worktree es justo
+donde este repositorio recomienda abrir la segunda sesión cuando hay dos a la
+vez. La recomendación y el arreglo se contradecían sin que nadie lo hubiera
+notado, porque nadie había corrido la suite desde allí.
+
+### Lo que lo guarda
+
+Las dos pruebas que fallaban no lo cazan desde aquí: cargan el gancho de **esta**
+copia, donde el medio arreglo bastaba. La nueva monta un worktree, le copia el
+gancho de ahora —si no, iría un commit por detrás— y le pregunta por las tres
+carpetas: la suya, la principal y una que no es del repositorio.
+
+Provocado:
+
+| Lo que se le quitó | Qué pasa |
+|---|---|
+| vuelve el medio arreglo, `REPO / ".git"` | rojo |
+| git no contesta nunca | rojo |
+| todo es del repositorio, hasta lo que no | rojo |
+
+Y de punta a punta, que es lo que vale: desde el worktree, `git push
+--no-verify` a un repositorio desnudo de usar y tirar sale **bloqueado por el
+portero**, y la suite entera allí da 2360 en verde.

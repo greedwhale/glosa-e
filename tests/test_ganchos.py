@@ -336,6 +336,44 @@ class TestUnWorktreeDeEstaCopiaNoEsOtroProyecto:
                 ["git", "-C", str(RAIZ), "worktree", "remove", "--force",
                  str(fuera)], capture_output=True)
 
+    def test_el_portero_de_un_worktree_reconoce_las_dos_copias(self, tmp_path):
+        """El gancho que se carga en un worktree es **el del worktree**.
+
+        Y allí `REPO` es el worktree, cuyo `.git` es un fichero y no el
+        directorio común: comparándolo con `REPO / ".git"` el portero no
+        reconocía ni su propia copia ni la principal. Medido el 23-09-2026
+        corriendo la suite desde un worktree: dos pruebas en rojo, y con ellas
+        el gancho de git negándole el push a un worktree —que es donde este
+        repositorio recomienda abrir la segunda sesión—.
+
+        Las otras dos pruebas de esta clase no lo cazan porque cargan el
+        gancho de **esta** copia, donde el medio arreglo bastaba. Ésta carga
+        el de allí, así que vale desde donde se corra.
+        """
+        fuera = tmp_path / "worktree"
+        subprocess.run(
+            ["git", "-C", str(RAIZ), "worktree", "add", "--detach", "-q",
+             str(fuera), "HEAD"], check=True, capture_output=True)
+        try:
+            # El worktree nace en HEAD, y lo que hay que probar es el gancho de
+            # **ahora**: si no se copia, esta prueba va un commit por detrás y
+            # deja pasar el día que se rompa.
+            suyo_en_disco = fuera / ".claude" / "hooks" / "antes-de-empujar.py"
+            suyo_en_disco.write_bytes(PORTERO.read_bytes())
+            suyo = _cargar(suyo_en_disco, "portero_del_worktree")
+            assert suyo.REPO.resolve() == fuera.resolve(), (
+                "esta prueba no está mirando el gancho del worktree")
+            assert suyo.del_repositorio(fuera), (
+                "el portero del worktree no reconoce su propia copia")
+            assert suyo.del_repositorio(RAIZ), (
+                "el portero del worktree no reconoce la copia principal")
+            assert not suyo.del_repositorio(tmp_path), (
+                "y lo que no es del repositorio tiene que seguir sin serlo")
+        finally:
+            subprocess.run(
+                ["git", "-C", str(RAIZ), "worktree", "remove", "--force",
+                 str(fuera)], capture_output=True)
+
     def test_la_copia_buena_y_lo_que_cuelga_de_ella(self, portero):
         assert portero.del_repositorio(RAIZ)
         assert portero.del_repositorio(RAIZ / "validador")
