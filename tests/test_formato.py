@@ -305,22 +305,60 @@ class TestUnXmlQueNoAbre:
             motivo = formato.detectar(datos).motivo or ""
             assert "No es XML válido y tampoco EDIFACT" in motivo, que
 
-    def test_se_dice_donde_mirar(self):
-        motivo = formato.detectar(b'<?xml version="1.0"?>\n<a>1</b>').motivo
+    @staticmethod
+    def _falso(nombre, msg, lineno=1, offset=0):
+        """Un error de libxml2 fabricado, para lo que no depende de libxml2.
+
+        Las palabras de un mensaje cambian con la versión y con el sistema, y
+        una prueba que las exija está comprobando el libxml2 de quien la corre.
+        Lo que aquí hay que comprobar es lo nuestro: que el nombre se saque
+        limpio y que la posición se escriba bien.
+        """
+        return type("ErrorFalso", (), {
+            "code": getattr(etree.ErrorTypes, nombre), "msg": msg,
+            "lineno": lineno, "offset": offset})()
+
+    def test_la_columna_se_cuenta_como_la_cuenta_libxml2(self):
         # La columna de libxml2 empieza en 1 y `offset` en 0. Sin sumar uno, el
         # informe mandaba un carácter antes de donde está la cosa.
-        assert "Línea 2, columna 9." in motivo, motivo
+        dicho = formato.por_que_no_abre(self._falso(
+            "ERR_DOCUMENT_END", "Extra content at the end of the document",
+            lineno=2, offset=8))
+        assert dicho.endswith("Línea 2, columna 9."), dicho
 
-    def test_se_nombra_la_etiqueta_cuando_libxml2_la_nombra(self):
-        motivo = formato.detectar(
-            b'<?xml version="1.0"?>\n<Facturae>\n  <FileHeader>\n').motivo
-        assert "«FileHeader»" in motivo, motivo
+    def test_y_se_dice_siempre_donde_mirar(self):
+        """De punta a punta, sin exigirle a libxml2 unas coordenadas concretas."""
+        motivo = formato.detectar(b'<?xml version="1.0"?>\n<a>1</b>').motivo
+        assert re.search(r"Línea \d+, columna \d+\.$", motivo), motivo
+
+    def test_se_nombra_la_etiqueta_cuando_el_mensaje_la_nombra(self):
+        dicho = formato.por_que_no_abre(self._falso(
+            "ERR_TAG_NOT_FINISHED",
+            "Premature end of data in tag FileHeader line 3", lineno=4))
+        assert "«FileHeader»" in dicho, dicho
 
     def test_y_el_nombre_viene_sin_la_puntuacion_de_libxml2(self):
-        """«Unsupported encoding PEPE-9, line 1» -> «PEPE-9», no «PEPE-9,»."""
-        motivo = formato.detectar(
-            b"<?xml version='1.0' encoding='PEPE-9'?><a/>").motivo
-        assert "«PEPE-9»" in motivo, motivo
+        """«Unsupported encoding PEPE-9, line 1» -> «PEPE-9», no «PEPE-9,».
+
+        El `\\S+` de la expresión se lleva por delante la coma con la que
+        libxml2 separa el nombre de la posición.
+        """
+        dicho = formato.por_que_no_abre(self._falso(
+            "ERR_UNSUPPORTED_ENCODING",
+            "Unsupported encoding PEPE-9, line 1, column 38", offset=37))
+        assert "«PEPE-9»" in dicho, dicho
+
+    def test_y_si_el_mensaje_no_trae_nombre_queda_la_explicacion(self):
+        """La degradación correcta, y no una prueba en rojo en otro sistema.
+
+        Medido el 23-09-2026: `ERR_UNSUPPORTED_ENCODING` nombra la codificación
+        en el Windows de aquí y no en el Linux del flujo de GitHub. Exigir el
+        nombre puso la suite en rojo tres commits seguidos.
+        """
+        dicho = formato.por_que_no_abre(self._falso(
+            "ERR_UNSUPPORTED_ENCODING", "Unsupported encoding"))
+        assert "una codificación que no se reconoce" in dicho, dicho
+        assert "«" not in dicho, dicho
 
     def test_un_codigo_que_no_esta_en_la_tabla_dice_de_quien_son_las_palabras(self):
         """No se inventa una traducción de lo que no se ha medido.
