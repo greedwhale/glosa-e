@@ -246,15 +246,42 @@ async function buscarWheel() {
 // vienen del mismo sitio y valen igual.
 async function instalarElValidador() {
   const { donde, clave, fresco } = await buscarWheel();
-  const respuesta = await fetch(donde, fresco ? { cache: "reload" } : undefined);
-  if (!respuesta.ok) {
-    throw new Error("El validador no ha llegado: " + donde + " da " +
-                    respuesta.status + ".");
-  }
+  const respuesta = await pedir(donde, "El validador",
+                               fresco ? { cache: "reload" } : undefined);
   const crudo = new Uint8Array(await respuesta.arrayBuffer());
   await comprobar(clave, crudo, "El validador (" + donde.split("/").pop() + ")");
   await pyodide.loadPackage(donde);
   return donde;
+}
+
+// Pedir algo que **tiene que estar**.
+//
+// Un `fetch` no falla porque el servidor conteste 404: devuelve la respuesta
+// con el cuerpo del error dentro, y quien no mire el estado se lleva la pagina
+// de error como si fuera lo que pidio.
+//
+// Medido el 22-09-2026, sirviendo el repositorio como en desarrollo y con
+// `ejemplos/f-0001.xml` devolviendo un 404: la pagina arrancaba tan contenta
+// —«Listo en 10,80 s»— y el ejemplo quedaba en el disco virtual como **164
+// bytes de «404 Not Found»**, con su nombre de factura puesto. Al pedir su
+// informe salia un veredicto —«1 fichero(s) · 0 correcto(s) · 0 con errores ·
+// 1 SIN COMPROBAR»— sobre un documento que nunca llego.
+//
+// En el sitio publicado esto lo paraba la huella del manifiesto, pero **de
+// rebote**: no por mirar el estado, sino porque lo que llego no cuadraba con
+// lo publicado. En desarrollo no hay manifiesto y pasaba entero. Mirar el
+// estado es una linea y no depende de que exista otra cosa.
+//
+// Aqui no valen todos los `fetch` de este fichero: el manifiesto y el listado
+// de `dist/` **pueden** faltar y eso esta decidido a proposito, cada uno con
+// su porque escrito al lado.
+async function pedir(direccion, queEs, opciones) {
+  const respuesta = await fetch(direccion, opciones);
+  if (!respuesta.ok) {
+    throw new Error(queEs + " no ha llegado: " + direccion.split("?")[0] +
+                    " contesta " + respuesta.status + ".");
+  }
+  return respuesta;
 }
 
 // El SHA-256 de unos bytes, o `null` cuando el navegador no puede calcularlo.
@@ -637,7 +664,8 @@ async function arrancarDeVerdad(avisar) {
   pyodide.FS.mkdirTree("/ejemplos");
   await Promise.all(EJEMPLOS.map(async (nombre) => {
     const clave = "ejemplos/" + nombre;
-    const respuesta = await fetch(conHuella(EJEMPLOS_EN + nombre, clave));
+    const respuesta = await pedir(conHuella(EJEMPLOS_EN + nombre, clave),
+                                  "El ejemplo «" + nombre + "»");
     const crudo = new Uint8Array(await respuesta.arrayBuffer());
     // Tambien estos. Son las facturas con las que alguien decide si esto le
     // sirve, antes de soltar una suya: un ejemplo servido a medias daria un
@@ -789,7 +817,34 @@ async function _validarAhora(ficheros) {
   }
   pyodide.globals.set("_rutas", rutas);
   pyodide.globals.set("_nombres", nombres);
-  return JSON.parse(await pyodide.runPythonAsync(INFORME));
+  try {
+    return JSON.parse(await pyodide.runPythonAsync(INFORME));
+  } finally {
+    borrarLoSoltado(rutas);
+  }
+}
+
+// Lo que se solto, fuera en cuanto el informe esta hecho.
+//
+// El disco virtual vive en la memoria de la pestaña y **no se vacia solo**.
+// Medido el 22-09-2026: tres validaciones seguidas dejaban las tres facturas
+// en `/entrada/0` —8.343 bytes— vivas despues de entregar el informe, y asi
+// hasta cerrar la pestaña. Con seis eran 480.438 bytes.
+//
+// No es que salgan de aqui: a ningun sitio se suben, y eso que promete la
+// pagina sigue siendo verdad. Es que son de quien las solto y ya no hacen
+// falta. Guardar algo que nadie ha pedido que se guarde es lo contrario de lo
+// que dice la pagina al lado de la zona.
+//
+// Va en un `finally` a proposito: si la validacion revienta, la factura tiene
+// que irse igual, y es justo cuando mas facil es olvidarse. Y cada borrado va
+// por su cuenta porque el fallo que importa es el de la validacion, no el de
+// la limpieza: si esto reventara, taparia aquel.
+function borrarLoSoltado(rutas) {
+  for (const ruta of rutas) {
+    try { pyodide.FS.unlink(ruta); } catch (_) { /* no estaba */ }
+    try { pyodide.FS.rmdir(ruta.slice(0, ruta.lastIndexOf("/"))); } catch (_) { /* ya no */ }
+  }
 }
 
 // La misma maquinaria, sobre una factura que ya viene con la pagina.
@@ -825,7 +880,8 @@ async function _validarEjemploAhora(nombre) {
 // la pagina siguio diciendo «las 33 comprobaciones pasan» tan contenta.
 async function correrBanco() {
   await leerElManifiesto();
-  const respuesta = await fetch(conHuella("./prueba.py", "prueba.py"));
+  const respuesta = await pedir(conHuella("./prueba.py", "prueba.py"),
+                                "El fichero de comprobaciones");
   const crudo = new Uint8Array(await respuesta.arrayBuffer());
   // Y este el que mas: es el fichero que dice si el validador hace lo que
   // promete. Uno servido de una cache vieja corre las comprobaciones de ayer

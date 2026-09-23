@@ -4864,3 +4864,91 @@ quitándolas del código una a una:
 La última es la que más importa de las cuatro: deja el perdón escrito y
 aparentemente sano, pero midiendo cero, que es la forma en que esto volvería a
 romperse sin que se notara en la lectura.
+
+
+## Dos de la auditoría que llevaban abiertos: lo que no llegó, y lo que no se iba
+
+De los cuatro que quedaban de la auditoría, estos dos son de código y no de
+configuración, y los dos se reprodujeron antes de tocar nada. Ninguno da un
+aprobado falso; los dos hacen que la página diga algo que no es.
+
+### 31. Un ejemplo que da 404 se escribe como si fuera la factura
+
+Un `fetch` **no falla** porque el servidor conteste 404: devuelve la respuesta
+con el cuerpo del error dentro. Dos de los siete del fichero no miraban el
+estado, y uno de ellos era el de las facturas de ejemplo.
+
+Reproducido sirviendo el repositorio **como en desarrollo** —que es la
+condición en la que esto pasa: sin `dist/rueda.json` no hay huellas, y
+`comprobar()` devuelve `null` en vez de quejarse— con
+`ejemplos/f-0001.xml` devolviendo un 404 de cuatro líneas:
+
+| | Antes | Después |
+|---|---|---|
+| El arranque | «Listo en 10,80 s» | «No ha arrancado» |
+| Lo que quedaba con nombre de factura | **164 bytes de «404 Not Found»** | nada |
+| Lo que decía la página | nada | «El ejemplo «f-0001.xml» no ha llegado: `../ejemplos/f-0001.xml` contesta 404.» |
+
+Y al pedir el informe de ese ejemplo salía un veredicto entero: «1 fichero(s) ·
+0 correcto(s) · 0 con errores · **1 SIN COMPROBAR**», hablando de un documento
+que nunca llegó. No miente sobre su contenido —dice que no lo pudo
+comprobar— pero le pone el nombre de una factura a una página de error de un
+servidor.
+
+En producción esto lo paraba la huella del manifiesto, y conviene ver **cómo**:
+de rebote. No porque nadie mirara el estado, sino porque lo que llegó no
+cuadraba con lo publicado. Una comprobación que solo funciona mientras exista
+otra cosa no es una comprobación, es una casualidad con suerte.
+
+El arreglo es una función, `pedir(direccion, queEs)`, y la regla que la
+acompaña: **lo que tiene que estar se pide mirando el estado**. Los cuatro
+`fetch` que pueden faltar a propósito —el manifiesto, el listado de `dist/`, el
+resumen del paquete y el zip— lo miraban ya, cada uno con su porqué escrito al
+lado. La prueba no exige que todos pasen por `pedir`: exige que **ninguno** se
+salte el estado, que es la regla de fondo y caza el fallo en un sitio nuevo.
+
+### 33. La factura que se soltaba se quedaba en la pestaña
+
+El disco virtual de Pyodide vive en la memoria de la pestaña y no se vacía
+solo. Cada validación escribe el fichero en `/entrada/<n>/` y ahí se quedaba
+hasta cerrar la pestaña.
+
+| | Antes | Después |
+|---|---|---|
+| Tres validaciones seguidas | tres facturas vivas en `/entrada/0`, **8.343 bytes** | `/entrada` vacío: ni ficheros ni carpetas |
+| Seis validaciones | 480.438 bytes | — |
+| Con el Python roto a propósito | — | el error sale, `/entrada` queda vacío y la siguiente validación funciona |
+
+**No es que salieran de ahí.** A ningún sitio se suben, y eso que promete la
+página al lado de la zona sigue siendo verdad, medido. Es que son de quien las
+soltó y, entregado el informe, ya no hacen falta: quedarse con algo que nadie
+ha pedido que se guarde es lo contrario de lo que dice la página.
+
+El borrado va en un `finally`, y eso es la mitad del arreglo: si la validación
+revienta, la factura tiene que irse igual, y es justo cuando más fácil es
+olvidarse. Se comprobó rompiendo `runPythonAsync` a propósito. La otra mitad es
+que cada borrado va en su propio `try`: si la limpieza fallara, taparía el
+fallo de la validación, que es el que importa.
+
+### Probado rompiéndolo
+
+Cinco roturas provocadas sobre `web/glosa.js`, cada una con su prueba en
+`tests/test_disco_del_navegador.py`:
+
+| Lo que se le quitó | Quién se queja |
+|---|---|
+| El ejemplo, pedido con `fetch` pelado | `test_ningun_fetch_se_salta_el_estado` y `test_los_tres_que_tienen_que_estar_pasan_por_pedir` |
+| `pedir` sin la negativa, solo avisando por consola | `test_hay_una_manera_de_pedir_lo_que_tiene_que_estar` |
+| Sin borrar lo soltado | `test_se_borra_aunque_la_validacion_reviente` |
+| Borrando solo cuando todo va bien (`catch` en vez de `finally`) | `test_se_borra_aunque_la_validacion_reviente` |
+| La limpieza sin proteger pieza a pieza | `test_la_limpieza_no_puede_tapar_el_fallo_de_la_validacion` |
+
+La cuarta es la que más vale: deja el borrado escrito y a la vista, y solo
+quita el caso en el que hace falta acordarse.
+
+### Los dos que quedan
+
+| # | Qué pasa | Medido |
+|---|---|---|
+| 38 | El 404 y las minúsculas | `/codigo-BR-01` → 200, `/codigo-br-01` → 404. El 404 es el genérico de Vercel, en inglés y sin marca |
+| 39 | Cinco menores | HSTS sin `includeSubDomains` —el `.vercel.app` sí lo lleva—, faltan `Permissions-Policy`, COOP y CORP, `prueba.py` como `octet-stream`, `escapar()` sin comillas —hoy sin impacto: solo recibe `error`, `aviso` o `nota`— y el subdominio de Vercel no redirige |
