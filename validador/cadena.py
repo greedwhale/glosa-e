@@ -1026,8 +1026,8 @@ def _anclas_sin_renovar(almacen: Almacen | None, hoy) -> Incidencia | None:
         f"{montada}. La cadena de esta firma llega igual, pero que una "
         "autoridad estuviera cualificada entonces no dice que lo esté hoy: si "
         "el Estado le ha retirado la cualificación después de esa fecha, aquí "
-        "se sigue creyendo. Hay que volver a montarlas: "
-        "`python -m validador --montar-anclas`.",
+        "se sigue creyendo. Hay que volver a montarlas con "
+        "python -m validador --montar-anclas.",
         campo="Anclas de confianza",
         esperado=f"una lista renovada después del {renovacion.siguiente.isoformat()}",
         encontrado=f"la del {renovacion.publicada.isoformat()}"

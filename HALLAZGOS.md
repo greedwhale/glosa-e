@@ -5379,3 +5379,52 @@ testigo detrás de la herramienta y un enlace en la ficha.
 Queda una diferencia a sabiendas: con el informe abierto, en estrecho la ficha
 sale detrás del informe y no detrás de la zona, porque el informe vive dentro
 de la misma sección que la herramienta.
+
+## Las marcas con que se escribe, a la vista de quien lee
+
+Salió del repaso de la portada del 23-09-2026, leyendo el informe de ejemplo:
+«los 19 códigos de Facturae \*\*existen los 19\*\* en la lista europea». Se
+tiró del hilo y no era uno.
+
+| Dónde | Cuántos | Por qué se veían |
+|---|---|---|
+| mensajes del informe | 6: uno en `cadena.py`, cuatro en `copia_fiel.py` y uno en `firma.py` | el mismo texto va a la consola, al JSON y a la página, y ninguno de los tres pinta marcas |
+| la página de códigos | 15 páginas —14 fichas y el catálogo—, cinco también en la descripción del buscador | `pagina_incidencias.py` escapaba las explicaciones de `glosario.py` y nada más |
+
+De los seis mensajes, en los diez ejemplos solo sale uno, `COPIA-PAGO-MEDIO`,
+y lo saca `fe-0001.xml`: justo la factura del botón «Ver un informe de
+ejemplo». Los otros cinco esperaban a una factura que los encendiera.
+
+### Por qué se arreglan distinto
+
+Un mensaje del informe es texto llano que va a tres sitios, así que ahí no
+caben marcas: se quitan, y lo que hay que apartar —el nombre de una etiqueta—
+va entre «», como en el resto de mensajes. `GrossAmount` pasa a
+«GrossAmount», y el `python -m validador --montar-anclas` de
+`ANCLAS-SIN-RENOVAR` se queda sin comillas: es una orden para copiar.
+
+Las explicaciones del glosario solo van a HTML, y allí las marcas dicen algo
+que quien las escribió quería decir. Se traducen a `<strong>` y a `<code>`
+**después** de escapar: al revés, una explicación que nombrara `<Invoice>`
+entre comillas invertidas metería una etiqueta de verdad en la página. En la
+descripción, que el buscador enseña como texto, se quitan.
+
+### Lo que lo guarda
+
+`tests/test_sin_marcas.py`, desde tres lados, porque ninguno ve todo:
+
+- **el fuente**: las 1.376 cadenas escritas dentro de `Incidencia(...)` en 16
+  módulos. No ve un mensaje que se componga fuera de la llamada;
+- **lo que sale**: los diez ejemplos validados, campo a campo. Ve eso, pero
+  solo en lo que los ejemplos encienden;
+- **la página montada**: el catálogo y las 390 fichas, el texto que pinta el
+  navegador y la descripción. Y además que la negrita y la mono lleguen, no
+  solo que las marcas desaparezcan: quitarlas también dejaba la página limpia,
+  perdiendo lo que querían decir.
+
+Provocado, cuatro roturas y cuatro rojos: traducir antes de escapar, pintar la
+ficha sin traducir, la descripción con marcas y un mensaje con asteriscos.
+
+Las cadenas con marcas que quedan en `validador/` no llegan a nadie: la tabla
+de la copia fiel y los arreglos de rutas de `sintaxis.py` no se imprimen, y
+las negativas de `paquete.py` son para quien monta el sitio.

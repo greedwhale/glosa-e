@@ -61,6 +61,16 @@
 .codigo-ficha .cuerpo { border-left: 2px solid var(--borde); padding-left: 1.25rem; margin-left: -1.35rem; }
 .codigo-ficha .cuerpo p { font-size: var(--t2); color: var(--tinta-2); margin-bottom: .5rem; }
 .codigo-ficha .de-familia, .codigo-ficha .sin-explicar { font-size: var(--t1); color: var(--tenue); }
+/* Las dos marcas de `glosario.py`, que pagina_incidencias.py traduce al
+   montar: la mono para el nombre de una etiqueta o de un código, y el peso
+   para lo que pesa. Sin esto `<code>` sale en la mono del navegador y a otro
+   tamaño que la frase en la que va. */
+.codigo-ficha .cuerpo code, .ficha-codigo .dice code, section > .texto code {
+  font-family: var(--mono); font-size: .9em;
+}
+.codigo-ficha .cuerpo strong, .ficha-codigo .dice strong, section > .texto strong {
+  font-weight: 600; color: var(--tinta);
+}
 /* --- La pagina de un codigo suelto ---------------------------------------
    Es la misma informacion que la ficha del catalogo, pero aqui el codigo es
    el asunto de la pagina y no una fila de una lista: quien llega ha buscado

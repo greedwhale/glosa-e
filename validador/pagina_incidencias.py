@@ -79,6 +79,33 @@ def nombre_de(codigo: str) -> str:
     """El fichero que le toca a un código. `BR-CO-10` → `codigo-BR-CO-10.html`."""
     return FICHA.format(codigo)
 
+
+# Las explicaciones de `glosario.py` se escriben como el resto del
+# repositorio: `**así**` para lo que pesa y comillas invertidas para el nombre
+# de una etiqueta o de un código. Aquí solo se escapaban, y la página las
+# enseñaba tal cual —medido el 23-09-2026: 15 páginas publicadas, cinco de
+# ellas también en la descripción del buscador—. En HTML dicen algo que se
+# quiere decir, así que se traducen; en la descripción, que es texto llano, se
+# quitan.
+_NEGRITA = re.compile(r"\*\*(.+?)\*\*", re.S)
+_MONO = re.compile(r"`([^`]+)`")
+
+
+def _con_marcas(texto: str) -> str:
+    """El texto escapado, con las dos marcas vueltas etiquetas.
+
+    Se escapa primero y se traduce después: al revés, una explicación que
+    nombrara `<Invoice>` entre comillas invertidas metería una etiqueta de
+    verdad en la página.
+    """
+    salida = _MONO.sub(r"<code>\1</code>", html.escape(texto))
+    return _NEGRITA.sub(r"<strong>\1</strong>", salida)
+
+
+def _sin_marcas(texto: str) -> str:
+    """El mismo texto sin marcas, para donde no hay HTML que las pinte."""
+    return _NEGRITA.sub(r"\1", _MONO.sub(r"\1", texto))
+
 # La tabla la comparte con el informe y vive en `normas.py`, que no importa
 # nada: aquí tenerla aparte costó que la página dijera «Ley del IVA» de doce
 # códigos que son criterio propio. Ver el porqué entero allí.
@@ -99,7 +126,7 @@ def _fila(uno: Codigo) -> str:
             "y el módulo que lo emite.</p>"
         )
     else:
-        cuerpo = f"<p>{html.escape(texto)}</p>"
+        cuerpo = f"<p>{_con_marcas(texto)}</p>"
         if not propia:
             cuerpo += (
                 '<p class="de-familia">Es la explicación de la familia '
@@ -183,7 +210,7 @@ def _cuerpo(codigos: list[Codigo], sin_leer: list[SinLeer]) -> str:
             f'<h2 class="titulo">{len(suyos)} '
             f"{'código' if len(suyos) == 1 else 'códigos'}</h2>"
             + (f'<p class="texto" style="color:var(--tinta-2)">'
-               f"{html.escape(texto)}</p>" if texto else "")
+               f"{_con_marcas(texto)}</p>" if texto else "")
             + '<div class="fichas">'
             + "".join(_fila(uno) for uno in suyos)
             + "</div></section>"
@@ -253,7 +280,7 @@ def _resumen(uno: Codigo) -> str:
     de las 381, y por eso no se había visto nunca; la que lo destapó fue la
     prueba, no la página.
     """
-    texto, _ = explicar(uno.codigo, uno.familia)
+    texto = _sin_marcas(explicar(uno.codigo, uno.familia)[0])
     etiqueta, _detalle = _norma(uno.codigo)
     # «error o aviso o nota» no lo escribe nadie. Con coma hasta el último.
     gs = list(uno.gravedades)
@@ -302,7 +329,7 @@ def _ficha(uno: Codigo, todos: list[Codigo]) -> str:
     etiqueta, detalle = _norma(uno.codigo)
 
     if texto:
-        dice = f'<p class="dice">{html.escape(texto)}</p>'
+        dice = f'<p class="dice">{_con_marcas(texto)}</p>'
     else:
         dice = (
             '<p class="dice">Todavía no tiene una explicación escrita. Lo que '

@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2426 tests, todos en verde.
+2442 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4979,6 +4979,78 @@ para un asesor.
 La ficha cambia «Dónde corre», que ya lo cuenta el testigo, por **219 de sus 223
 reglas**; el botón del banco dice cuántas corre, y «Qué mira» cuántos códigos
 hay explicados. Las tres con guardián contra lo que se mide.
+
+## La portada, repasada contra las de al lado
+
+El 23-09-2026 se miró la página, en escritorio y en móvil, contra once que
+hacen lo mismo o algo parecido: los cinco validadores españoles que siguen en
+pie, Docuflair, el validador oficial de Baden-Württemberg, el HTTP Observatory
+de Mozilla, Squoosh, FACe y ecosio. En ninguna se soltó una factura. De ahí
+salieron dos direcciones, dibujadas en un lienzo privado
+(<https://claude.ai/artifact/TUWiqfritYmasTkNcdnctm>), y diez propuestas.
+**Se eligió la B, el folio glosado**: la zona de soltar dentro de un informe de
+muestra, con tres glosas de verdad al margen.
+
+Lo que se midió en la nuestra antes de proponer nada:
+
+- **La zona de soltar empieza a 834 px** en cualquier escritorio. A 1366×768 no
+  asoma, a 1440×900 asoman 66 de sus 208 px, y solo a 1920×1080 se ve entera.
+  Los cinco españoles ponen la herramienta en la primera pantalla.
+- **En el informe, el texto del margen pisa el filete**: 2 px en los 33
+  rótulos de un informe medido a 1100 px. El cuerpo se corre 1,35rem a la
+  izquierda y el hueco entre columnas es de 1,25rem.
+- **El informe de ejemplo enseñaba los asteriscos** de «\*\*existen los 19\*\*».
+
+### Las diez, en orden, y la tanda de cada una
+
+Se hacen por tandas, con un commit por tanda y sin publicar ninguna; al final
+se repasa todo junto y entonces se publica y se comprueba en producción.
+
+1. **Las marcas que se ven tal cual.** No era un mensaje: eran seis, y además
+   quince páginas de códigos que imprimían las explicaciones de `glosario.py`
+   con sus `**` y sus comillas invertidas. — *Tanda 1.*
+2. **La herramienta en la primera pantalla, con forma de informe.** A la
+   derecha del titular, un folio con tres glosas de las facturas de muestra
+   —un error, un aviso y una nota, con su texto de verdad— y, en el mismo
+   folio, la zona de soltar: «Y aquí, al margen, las de la tuya». Enseña lo
+   que da la herramienta antes de pedir nada. Sale de los españoles (la
+   herramienta arriba), de Baden-Württemberg (la explicación a un lado, la
+   herramienta al otro) y de Squoosh (la zona es la portada). — *Tanda 3.*
+3. **Cuatro facturas de muestra en vez de una**: Facturae firmada, UBL, CII y
+   EDIFACT. Hoy solo se puede ver cómo es un aviso, nunca un error. Ya viajan
+   con la página, así que no pesan nada. De Squoosh. — *Tanda 3.*
+4. **El informe, pasado a limpio.** El veredicto en Literata con la cuenta
+   dentro de la frase, un «Qué se ha mirado» en tres columnas —la forma, el
+   contenido y la firma— antes del detalle, aire entre el margen y el filete,
+   y un corchete del color de la gravedad en vez de la raya lateral. Lo del
+   resumen antes del detalle sale del Observatory. — *Tanda 2.*
+5. **El testigo, compacto en el móvil**: tres líneas y un enlace a lo que ha
+   pedido la página. Así la zona entra en la primera pantalla sin quitar el
+   testigo de delante; a cambio, las explicaciones quedan a un toque. —
+   *Tanda 4.*
+6. **La cabecera: el signo y el nombre en vez del bloque gris**, que a 40 px de
+   alto parece una imagen que no ha cargado. **Reabre una decisión de
+   [MARCA.md](MARCA.md)** —el bloque plateado es la firma—, así que la decide
+   el titular. — *Sin tanda hasta entonces.*
+7. **Pegar el XML**, además de soltar el fichero, para quien lo tiene copiado
+   de un correo o de su programa de facturación. De Docuflair. — *Tanda 5.*
+8. **«Desconecta la red y suelta la factura»**: una prueba que cualquiera hace
+   por sí mismo. **Sin medir**: antes hay que comprobar que, cargada la
+   página, valida sin conexión. — *Tanda 6, si se sostiene.*
+9. **El HTTP Observatory de Mozilla, con fecha**: A+, 140/100 y 12 de 12
+   pruebas el 23-09-2026. Es un tercero que lo mide. — *Tanda 6.*
+10. **Decir cuál es la herramienta oficial** para la validez legal de una
+    firma, como hace FacturaView con VALIDe. Antes hay que comprobar que la
+    referencia es la buena y sigue viva: el enlace de FACe a su validador ya
+    da «página no encontrada». — *Tanda 6.*
+
+Lo que se vio en los demás y **no** se copia: pastillas del tipo «100 %
+Privado», rejillas de iconos, pasos 01/02/03, degradados, bloques de venta y
+avisos de cookies.
+
+Fuera de la lista, de antes: la tarjeta social (`web/marca/tarjeta.png`) sigue
+pintada con el gris anterior al del 23-09-2026, y regenerarla pide bajar
+Literata.
 
 ## La marca
 

@@ -1414,7 +1414,7 @@ def _regla_referencias(examen: Examen, donde: str) -> list[Incidencia]:
                 "FIRMA-VACIA",
                 ERROR,
                 "La firma no cubre nada: no tiene ni una referencia en su "
-                "bloque `SignedInfo`. Está puesta, pero no garantiza ninguna "
+                "bloque «SignedInfo». Está puesta, pero no garantiza ninguna "
                 "parte del documento.",
                 campo=f"{donde}Firma electrónica",
                 encontrado="0 referencias",

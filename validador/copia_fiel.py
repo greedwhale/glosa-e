@@ -1297,10 +1297,10 @@ def _de_las_lineas(factura, etiqueta: str) -> list[Incidencia]:
             Incidencia(
                 "COPIA-LINEA-NETO",
                 NOTA,
-                "El importe neto de una línea de la copia es `GrossAmount` y "
-                "no `TotalCost`, y en esta factura los dos no valen lo mismo. "
-                "El esquema define `TotalCost` como cantidad por precio y "
-                "`GrossAmount` como «TotalCost - DiscountAmount + "
+                "El importe neto de una línea de la copia es «GrossAmount» y "
+                "no «TotalCost», y en esta factura los dos no valen lo mismo. "
+                "El esquema define «TotalCost» como cantidad por precio y "
+                "«GrossAmount» como «TotalCost - DiscountAmount + "
                 "ChargeAmount»; BT-131 es el importe de la línea después de "
                 "sus descuentos y cargos, que es el que cuadra con la suma de "
                 "líneas. Copiar el otro no deja un hueco: deja un número que "
@@ -1367,7 +1367,7 @@ def _del_pago(factura, etiqueta: str) -> tuple[list[Incidencia], list[str]]:
                 "El medio de pago de esta factura está escrito con la lista de "
                 "Facturae, y la copia lo pide con la europea, UNCL4461. No es "
                 "como la unidad de medida, donde un código malo se ve: los 19 "
-                "códigos de Facturae **existen los 19** en la lista europea "
+                "códigos de Facturae existen los 19 en la lista europea "
                 "queriendo decir otra cosa -diez tal cual y los nueve que "
                 "empiezan por cero en cuanto se les quita-, así que copiar el "
                 "dígito no da un error, da una factura válida que dice que se "
@@ -1439,7 +1439,7 @@ def _de_los_cargos(factura, etiqueta: str) -> list[Incidencia]:
             NOTA,
             "Los descuentos y cargos generales de esta factura no llevan IVA "
             "propio, y en la copia tienen que llevarlo. La norma agrupa las "
-            "minoraciones y los cargos del documento **por categoría de IVA** "
+            "minoraciones y los cargos del documento por categoría de IVA "
             "-BT-95 y BT-96 en las minoraciones, BT-102 y BT-103 en los "
             "cargos-, y Facturae los aplica antes del desglose y sobre la "
             "base entera. Con una sola categoría la cuenta está forzada. Con "
@@ -1570,7 +1570,7 @@ def _nota_de_la_previa(
         "COPIA-FACTURA-PREVIA",
         NOTA,
         "Esta factura se refiere a otra, y el grupo de la copia pide dos "
-        "cosas que hay que mirar. El número va **con su serie** en un solo "
+        "cosas que hay que mirar. El número va con su serie en un solo "
         "campo, BT-25, igual que el de la propia factura. Y la fecha de "
         "expedición de la referenciada, BT-26, el anexo la pone obligatoria "
         "dentro del grupo -en la norma europea no lo es-, así que sin ella no "
