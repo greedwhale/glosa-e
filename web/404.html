@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Esta dirección no existe &middot; Glosa-e</title>
+<meta name="description" content="La dirección que has pedido no está en Glosa-e. Si buscabas la ficha de un código de aviso, aquí se te lleva a ella.">
+<!-- Una página de error no se indexa: no es contenido, es lo que queda cuando
+     el contenido no está. -->
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23949494'/%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M25 17 H15 V47 H25'/%3E%3Cpath d='M34 24 h16'/%3E%3Cpath d='M34 40 h16'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="./glosa.css">
+<style>
+/* Lo propio de esta página. La base sale de glosa.css. */
+.portada { padding: 3rem 0 1rem; }
+.portada h1 { font-size: var(--t5); margin-bottom: .8rem; }
+.portada p { color: var(--tinta-2); max-width: 42rem; }
+
+.donde { max-width: 42rem; margin: 0 0 2.5rem; }
+.donde a {
+  display: block; padding: .9rem 0; border-bottom: 1px solid var(--borde);
+  text-decoration: none;
+}
+.donde a:first-child { border-top: 1px solid var(--borde); }
+.donde b { display: block; color: var(--tinta); font-weight: 600; }
+.donde span { color: var(--tinta-2); font-size: var(--t1); }
+
+/* El rescate: solo se pinta si hay algo que rescatar. */
+#rescate {
+  max-width: 42rem; background: var(--panel-2); border: 1px solid var(--borde);
+  border-radius: 10px; padding: 1.1rem 1.35rem; margin: 0 0 1.75rem;
+}
+#rescate p { margin: 0 0 .6rem; color: var(--tinta-2); }
+#rescate a { font-family: var(--mono); font-size: var(--t2); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="envoltorio barra">
+    <a class="marca" href="./"><span class="nombre">Glosa-e</span></a>
+<!-- MENU: este bloque es el mismo, letra por letra, en las seis
+         páginas. Que lo siga siendo lo comprueba tests/test_documentacion.py:
+         seis copias de un menú se separan solas, y entonces cada página dice
+         que el sitio tiene una cosa distinta. Las entradas de la bitácora no
+         se cuentan aquí: salen de `bitacora.html`, que es su plantilla, así
+         que llevan este mismo bloque por construcción y no por acordarse. -->
+    <details class="menu">
+      <summary>
+        <span>Menú</span>
+        <svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+        <span class="tapa"></span>
+      </summary>
+      <nav>
+        <a href="./"><b>La herramienta</b><span>Validar una factura y leer el informe.</span></a>
+        <a href="./incidencias.html"><b>Qué significa cada aviso</b><span>Cada código que puede salir, con la norma de la que sale.</span></a>
+        <a href="./tesis.html"><b>Por qué se explica en vez de certificar</b><span>La tesis del proyecto, y el caso que la puso a prueba.</span></a>
+        <a href="./banco.html"><b>Banco de pruebas</b><span>Las comprobaciones, corriéndolas tu navegador delante de ti.</span></a>
+        <a href="./bitacora.html"><b>Bitácora</b><span>Lo que se va midiendo, con la fecha y la fuente al lado.</span></a>
+        <a href="./legal.html"><b>Aviso legal y privacidad</b><span>Qué se mide, qué no se guarda y qué no acredita esto.</span></a>
+        <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20"><b>Escríbeme</b><span>Dudas, fallos que veas y propuestas. Se abre tu programa de correo.</span></a>
+      </nav>
+    </details>
+    <!-- FIN MENU -->
+  </div>
+</header>
+
+<main>
+  <div class="envoltorio">
+
+    <div class="portada">
+      <h1>Esta dirección no existe</h1>
+      <p>No hay nada en la dirección que has pedido. Puede ser un enlace viejo,
+      una errata al teclear, o una página que nunca estuvo aquí.</p>
+    </div>
+
+    <div id="rescate" hidden>
+      <p>Las fichas de los códigos llevan el código <b>en mayúsculas</b>, tal
+      como sale en el informe. Esta es la que parece que buscabas:</p>
+      <a id="rescate-enlace" href="./"></a>
+    </div>
+
+    <div class="donde">
+      <a href="./"><b>Validar una factura</b><span>Se lee en tu navegador y no
+      se sube a ningún sitio.</span></a>
+      <a href="./incidencias.html"><b>Qué significa cada aviso</b><span>Todos
+      los códigos que pueden salir, con la norma de la que sale cada uno.</span></a>
+      <a href="./bitacora.html"><b>Bitácora</b><span>Lo que se va midiendo, con
+      la fecha y la fuente al lado.</span></a>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <div class="envoltorio">
+    <p class="aviso-legal"><b>Aviso.</b> Glosa-e es una herramienta privada e
+    independiente. No es un servicio oficial de la Agencia Tributaria, de FACe
+    ni de ninguna administración, y su resultado no acredita nada ante ellas.</p>
+    <nav>
+      <a href="./">La herramienta</a>
+      <a href="./banco.html">Banco de pruebas</a>
+      <a href="./incidencias.html">Los códigos</a>
+      <a href="./legal.html">Aviso legal y privacidad</a>
+    </nav>
+    <p class="firma-pie">© 2026 Glosa-e · Los textos, de su autor.</p>
+  </div>
+</footer>
+
+<script>
+// El rescate de un código mal escrito.
+//
+// Las fichas se sirven con el código tal cual, en mayúsculas, y el servidor
+// distingue mayúsculas de minúsculas: `/codigo-BR-01` es la ficha y
+// `/codigo-br-01` es esto. Medido antes de escribirlo: 200 y 404.
+//
+// No se puede arreglar con una redirección —no hay forma de decirle a Vercel
+// «pon esto en mayúsculas», y escribir 390 reglas a mano es la clase de lista
+// que se queda atrás—, así que se arregla donde se nota: aquí.
+//
+// Se comprueba con un HEAD antes de ofrecer el enlace. Ofrecer uno que vuelva
+// a dar 404 es peor que no ofrecer ninguno: es un cartel.
+(() => {
+  const ruta = decodeURIComponent(location.pathname).replace(/\.html$/, "");
+  const parecido = ruta.match(/^\/codigo-(.+)$/i);
+  if (!parecido) return;
+  const canonica = "/codigo-" + parecido[1].toUpperCase();
+  if (canonica === ruta) return;
+  fetch(canonica, { method: "HEAD" }).then((respuesta) => {
+    if (!respuesta.ok) return;
+    const enlace = document.getElementById("rescate-enlace");
+    enlace.href = canonica;
+    enlace.textContent = parecido[1].toUpperCase();
+    document.getElementById("rescate").hidden = false;
+  }).catch(() => { /* sin red no hay rescate, y la página sigue sirviendo */ });
+})();
+</script>
+</body>
+</html>

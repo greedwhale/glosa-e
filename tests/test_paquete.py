@@ -1655,6 +1655,52 @@ class TestComoSeSirveLoQueSeMonta:
             "no hay nada"
         )
 
+    def test_las_cabeceras_que_no_pone_nadie_por_nosotros(self):
+        """Punto 39 de la auditoría, medido sobre `www.glosa-e.com` el
+        22-09-2026 y vuelto a medir al cerrarlo.
+
+        | Cabecera | Antes | Después |
+        |---|---|---|
+        | `Strict-Transport-Security` | `max-age=63072000`, sin subdominios —el `.vercel.app` sí los llevaba— | con `includeSubDomains` |
+        | `Permissions-Policy` | no estaba | cámara, micrófono, ubicación y cinco más, apagadas |
+        | `Cross-Origin-Opener-Policy` | no estaba | `same-origin` |
+        | `Cross-Origin-Resource-Policy` | no estaba | `same-origin` |
+
+        No se pide `preload` en la HSTS **a propósito**: es una lista de la que
+        cuesta salir, y esto se puede querer deshacer.
+        """
+        dicho = json.loads(self.VERCEL.read_text(encoding="utf-8"))
+        globales = next(b for b in dicho["headers"] if b["source"] == "/(.*)")
+        puestas = {h["key"]: h["value"] for h in globales["headers"]}
+        for clave in ("Strict-Transport-Security", "Permissions-Policy",
+                      "Cross-Origin-Opener-Policy", "Cross-Origin-Resource-Policy",
+                      "X-Content-Type-Options", "Referrer-Policy",
+                      "Content-Security-Policy"):
+            assert clave in puestas, f"el sitio se sirve sin «{clave}»"
+        assert "includeSubDomains" in puestas["Strict-Transport-Security"], (
+            "la HSTS no alcanza a los subdominios, así que uno servido por "
+            "http seguiría siendo una puerta"
+        )
+        assert "preload" not in puestas["Strict-Transport-Security"], (
+            "`preload` es una lista de la que cuesta salir: si se quiere, que "
+            "sea una decisión y no un arrastre"
+        )
+        for apagada in ("camera=()", "microphone=()", "geolocation=()"):
+            assert apagada in puestas["Permissions-Policy"]
+
+    def test_el_fichero_de_comprobaciones_se_puede_leer_de_un_clic(self):
+        """Punto 39. Se servía como `application/octet-stream`, medido, así que
+        abrirlo en el navegador lo descargaba en vez de enseñarlo. Es el
+        fichero que dice si el validador hace lo que promete: si no se puede
+        leer sin bajárselo, media promesa se queda en el aire."""
+        dicho = json.loads(self.VERCEL.read_text(encoding="utf-8"))
+        bloque = next(b for b in dicho["headers"] if b["source"] == "/prueba.py")
+        tipos = [h["value"] for h in bloque["headers"] if h["key"] == "Content-Type"]
+        assert tipos and tipos[0].startswith("text/plain"), (
+            "`prueba.py` vuelve a servirse como una descarga"
+        )
+
+
     def test_los_servidores_de_local_no_salen_a_la_red(self):
         """Punto 23. `http.server` sin `--bind` escucha en `0.0.0.0`.
 
@@ -1674,3 +1720,64 @@ class TestComoSeSirveLoQueSeMonta:
                 f"el servidor «{servidor['name']}» se ata a algo que no es "
                 "esta máquina"
             )
+
+
+class TestLaPaginaDeCuandoNoHayNada:
+    """Punto 38 de la auditoría, medido sobre `www.glosa-e.com`.
+
+    `/codigo-BR-01` contesta 200 y `/codigo-br-01` contestaba **404 con 79
+    bytes que dicen `NOT_FOUND`**: la página genérica de Vercel, en inglés y
+    sin decir de quién es el sitio. Y no hay redirección que lo arregle —no se
+    le puede decir a Vercel «pon esto en mayúsculas», y escribir 390 reglas a
+    mano es la clase de lista que se queda atrás—, así que se arregla donde se
+    nota.
+
+    Probado sirviendo el sitio montado **como lo sirve Vercel** —`cleanUrls` y
+    `404.html` en lo que no encuentra— y distinguiendo mayúsculas a mano,
+    porque Windows no las distingue y sin eso el fallo no se reproduce en esta
+    máquina:
+
+    | Dirección | Antes | Después |
+    |---|---|---|
+    | `/codigo-BR-01` | 200 | 200 |
+    | `/codigo-br-01` | 404 «NOT_FOUND» | 404 con la página propia y un enlace a `/codigo-BR-01` |
+    | `/lo-que-sea` | 404 «NOT_FOUND» | 404 con la página propia, sin rescate |
+    """
+
+    PAGINA = Path(__file__).resolve().parent.parent / "web" / "404.html"
+
+    def test_existe_y_se_monta_con_el_sitio(self):
+        assert self.PAGINA.is_file()
+        assert "404.html" in paquete._DE_LA_PAGINA, (
+            "la página existe y no se copia al sitio, que es como no existir"
+        )
+
+    def test_no_se_indexa(self):
+        """Ni sitemap ni tarjeta social: no es contenido, es lo que queda
+        cuando el contenido no está."""
+        assert 'name="robots" content="noindex"' in self.PAGINA.read_text(encoding="utf-8")
+        assert "404.html" in paquete._FUERA_DEL_INDICE
+
+    def test_rescata_el_codigo_escrito_en_minusculas(self):
+        """Y se mira **la dirección que se arma**, no que la palabra salga.
+
+        La primera versión de esta prueba buscaba `toUpperCase()` en la
+        página, y eso no sujetaba nada: quitándoselo a la dirección seguía
+        pasando, porque la misma palabra está en la línea que pinta el texto
+        del enlace. Provocado, y por eso está escrito.
+        """
+        texto = self.PAGINA.read_text(encoding="utf-8")
+        assert 'const canonica = "/codigo-" + parecido[1].toUpperCase();' in texto, (
+            "la dirección del rescate ya no se arma en mayúsculas, así que "
+            "lleva otra vez a donde no hay nada"
+        )
+        assert 'method: "HEAD"' in texto, (
+            "se ofrece el enlace sin comprobar que existe: uno que vuelva a "
+            "dar 404 es peor que ninguno"
+        )
+
+    def test_dice_de_quien_es_el_sitio(self):
+        """Que es lo que la genérica de Vercel no hacía."""
+        texto = self.PAGINA.read_text(encoding="utf-8")
+        assert "Glosa-e" in texto and 'lang="es"' in texto
+        assert "Agencia Tributaria" in texto, "se ha quedado sin el aviso del pie"

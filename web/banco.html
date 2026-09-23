@@ -110,8 +110,14 @@ tr:last-child td { border-bottom: 0; }
 <script src="./glosa.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
+// Los cinco, y las comillas no son adorno: esto se pega **dentro de un
+// atributo** —`class='glosa " + escapar(...) + "'`— y ahi una comilla cierra
+// el atributo y lo que venga detras se lee como marcado. Hoy no llega nada
+// raro, porque por aqui solo pasan «error», «aviso» y «nota»; el dia que pase
+// otra cosa, el fallo no seria de quien la escribio sino de esta linea.
 const escapar = (s) => String(s)
-  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 function marcar(etiqueta, segundos) {
   const fila = document.createElement("div");

@@ -948,8 +948,14 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 <script src="./glosa.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
+// Los cinco, y las comillas no son adorno: esto se pega **dentro de un
+// atributo** —`class='glosa " + escapar(...) + "'`— y ahi una comilla cierra
+// el atributo y lo que venga detras se lee como marcado. Hoy no llega nada
+// raro, porque por aqui solo pasan «error», «aviso» y «nota»; el dia que pase
+// otra cosa, el fallo no seria de quien la escribio sino de esta linea.
 const escapar = (s) => String(s)
-  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const plural = (n, uno, varios) => n + " " + (n === 1 ? uno : varios);
 
 // --- El testigo ------------------------------------------------------------

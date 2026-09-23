@@ -4952,3 +4952,119 @@ quita el caso en el que hace falta acordarse.
 |---|---|---|
 | 38 | El 404 y las minúsculas | `/codigo-BR-01` → 200, `/codigo-br-01` → 404. El 404 es el genérico de Vercel, en inglés y sin marca |
 | 39 | Cinco menores | HSTS sin `includeSubDomains` —el `.vercel.app` sí lo lleva—, faltan `Permissions-Policy`, COOP y CORP, `prueba.py` como `octet-stream`, `escapar()` sin comillas —hoy sin impacto: solo recibe `error`, `aviso` o `nota`— y el subdominio de Vercel no redirige |
+
+
+## Los dos últimos de la auditoría: el callejón sin salida y las cinco menores
+
+Con estos se cierra la lista. Ninguno hace que el validador diga algo falso de
+una factura; los dos son de cómo llega esto a quien lo abre.
+
+### 38. Un código escrito en minúsculas acababa en la página de Vercel
+
+Las fichas de los códigos se sirven con el código tal cual, en mayúsculas, y el
+servidor distingue. Medido sobre `www.glosa-e.com` antes de tocar nada:
+
+| Dirección | Antes |
+|---|---|
+| `/codigo-BR-01` | 200 |
+| `/codigo-br-01` | **404 con 79 bytes que dicen `NOT_FOUND`** |
+
+Esos 79 bytes son la página genérica de Vercel: en inglés, sin decir de quién
+es el sitio y sin ninguna salida. Quien teclea un código de memoria —que es
+justo como se teclea un código— se queda ahí.
+
+**No se arregla con una redirección**, y conviene decir por qué: a Vercel no se
+le puede pedir «pon esto en mayúsculas», así que habría que escribir una regla
+por código. Ya hay 100 escritas a mano para la familia `BR-AE-1` → `BR-AE-01`,
+y esa lista se sostiene porque es cerrada; 390 más, una por código y por cada
+forma de escribirlo mal, es la clase de lista que se queda atrás el día que
+entra un código nuevo.
+
+Así que se arregla donde se nota: una página de 404 propia, que además rescata.
+Si la dirección se parece a la ficha de un código, la pone en mayúsculas,
+**comprueba con un HEAD que esa ficha existe** y solo entonces ofrece el
+enlace. Ofrecer uno que vuelva a dar 404 sería un cartel, que es lo que este
+repositorio no hace.
+
+Probado sirviendo el sitio montado **como lo sirve Vercel** —`cleanUrls`, y
+`404.html` en lo que no encuentra—, con una vuelta que merece estar escrita:
+la primera versión del servidor de pruebas daba `200` a `/codigo-br-01`, porque
+**Windows no distingue mayúsculas y Linux sí**. Es el disfraz de siempre: sale
+verde en esta máquina y no es lo que pasa en producción. Con el servidor
+distinguiendo a mano:
+
+| Dirección | Después |
+|---|---|
+| `/codigo-BR-01` | 200 |
+| `/codigo-br-01` | 404 con la página propia y un enlace a `/codigo-BR-01` |
+| `/lo-que-sea` | 404 con la página propia, sin rescate |
+
+La página lleva el mismo menú que las demás —letra por letra, y la prueba que
+lo vigila ahora cuenta siete páginas y no seis— y se queda **fuera del
+sitemap** y sin tarjeta social, con su `noindex` puesto: una página de error no
+es contenido, y meterla en el sitemap es decirle a un buscador que indexe el
+sitio por donde no hay nada.
+
+### 39. Las cinco menores
+
+Cuatro se arreglan y una se deja, dicha:
+
+| Qué | Antes | Después |
+|---|---|---|
+| HSTS | `max-age=63072000`, sin subdominios —y el `.vercel.app` sí los llevaba— | con `includeSubDomains` |
+| `Permissions-Policy` | no estaba | cámara, micrófono, ubicación y cinco más, apagadas |
+| COOP y CORP | no estaban | las dos, `same-origin` |
+| `prueba.py` | `application/octet-stream`: abrirlo lo descargaba | `text/plain; charset=utf-8` |
+| `escapar()` | escapaba `&`, `<` y `>` | los cinco |
+
+De la HSTS **no se pide `preload`**, y es una decisión: esa lista es fácil de
+entrar y difícil de dejar, y esto se puede querer deshacer.
+
+Lo de `prueba.py` no es cosmético: es el fichero que dice si el validador hace
+lo que promete, y la página invita a leerlo. Si al abrirlo el navegador lo
+descarga en vez de enseñarlo, media promesa se queda en el aire.
+
+Y `escapar()` estaba copiada en dos páginas y escapaba tres caracteres de los
+cinco, con su resultado pegándose **dentro de un atributo** —`class='glosa " +
+escapar(...) + "'`—, donde una comilla cierra el atributo. Hoy por ahí solo
+pasan «error», «aviso» y «nota», así que no tenía impacto; el día que pase otra
+cosa, el fallo sería de esa línea. Van las dos copias, y hay prueba de que
+sigan siendo la misma: dos copias de una función se separan solas, igual que
+dos menús.
+
+**La que se deja: el subdominio de Vercel no redirige.**
+`glosa-dhm7.vercel.app` sigue sirviendo el mismo despliegue en vez de mandar al
+dominio. Se puede cerrar con una redirección, y no se hace hoy porque es una
+decisión y no un descuido: ese subdominio es la única puerta que queda si el
+dominio tiene un problema, y `README.md` lo documenta así desde el principio.
+Queda escrito aquí para que se decida a propósito y no se olvide.
+
+### Probado rompiéndolo
+
+Diez roturas provocadas, cada una en su prueba:
+
+| Lo que se le quitó | Quién se queja |
+|---|---|
+| La HSTS sin `includeSubDomains` | `test_las_cabeceras_que_no_pone_nadie_por_nosotros` |
+| La HSTS **con** `preload` | la misma |
+| Sin COOP | la misma |
+| `prueba.py` otra vez como descarga | `test_el_fichero_de_comprobaciones_se_puede_leer_de_un_clic` |
+| El rescate sin mayúsculas | `test_rescata_el_codigo_escrito_en_minusculas` |
+| El rescate sin comprobar con HEAD | la misma |
+| La 404 sin decir de quién es el sitio | `test_dice_de_quien_es_el_sitio` |
+| La 404 sin montarse con el sitio | `test_existe_y_se_monta_con_el_sitio` |
+| La 404 dentro del índice | `test_no_se_indexa` |
+| `escapar()` sin las comillas | `test_escapar_escapa_las_cinco` y `test_escapar_es_la_misma_en_las_dos_paginas` |
+
+La quinta salió mal la primera vez y por eso está escrita: la prueba buscaba
+`toUpperCase()` en la página, y quitándoselo a la dirección seguía pasando,
+porque la misma palabra está en la línea que pinta el texto del enlace. Una
+prueba que busca una palabra suelta no sujeta nada; ahora mira la dirección que
+se arma.
+
+### La lista de la auditoría se cierra
+
+Los 39 puntos están cerrados o dichos. De los cuatro que quedaban ayer, dos se
+arreglaron en el código del navegador y dos aquí; el único que sigue abierto es
+el subdominio de Vercel, y está abierto **a propósito**, con su porqué escrito
+arriba.

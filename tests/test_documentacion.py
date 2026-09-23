@@ -232,7 +232,7 @@ def test_el_catalogo_no_se_puede_publicar_vacio():
 
 
 # --- El menú -----------------------------------------------------------------
-# Las cinco páginas llevan el mismo menú copiado, porque no hay plantilla que
+# Todas las páginas llevan el mismo menú copiado, porque no hay plantilla que
 # lo monte: se sirven tal cual están en `web/`, y en desarrollo se abren desde
 # el repositorio sin construir nada. Copiado no es problema; copiado y
 # **divergiendo**, sí: se toca una página, se olvida otra, y el sitio empieza a
@@ -243,7 +243,7 @@ def test_el_catalogo_no_se_puede_publicar_vacio():
 # pasar un texto cambiado en una sola, que es justo la forma en que esto se
 # rompe de verdad.
 PAGINAS = ("index.html", "banco.html", "legal.html", "incidencias.html",
-           "tesis.html", "bitacora.html")
+           "tesis.html", "bitacora.html", "404.html")
 PRINCIPIO, FIN = "<!-- MENU", "<!-- FIN MENU -->"
 
 
@@ -255,7 +255,7 @@ def _menu_de(pagina: Path) -> str:
     return texto[texto.index(PRINCIPIO):texto.index(FIN) + len(FIN)]
 
 
-def test_el_menu_es_el_mismo_en_las_seis_paginas():
+def test_el_menu_es_el_mismo_en_todas_las_paginas():
     menus = {p: _menu_de(RAIZ / "web" / p) for p in PAGINAS}
     referencia = menus["index.html"]
     distintas = [p for p, m in menus.items() if m != referencia]
@@ -265,6 +265,45 @@ def test_el_menu_es_el_mismo_en_las_seis_paginas():
         + " ya no son el mismo. Se copia entero, no se retoca en una sola: "
         "quien entre por esa página verá un sitio distinto del que ve quien "
         "entre por otra.")
+
+
+# Lo mismo que el menú, con una función: `escapar()` está copiada en la portada
+# y en el banco, y las dos pegan su resultado dentro del HTML del informe.
+_CON_ESCAPAR = ("index.html", "banco.html")
+
+
+def _escapar_de(pagina: str) -> str:
+    """La declaración entera. Se corta en el `;` **de final de línea**: los
+    otros están dentro de las entidades, `&amp;` el primero."""
+    texto = (RAIZ / "web" / pagina).read_text(encoding="utf-8")
+    trozo = texto[texto.index("const escapar ="):]
+    return trozo[:trozo.index(";" + chr(10)) + 1]
+
+
+def test_escapar_escapa_las_cinco():
+    """Punto 39 de la auditoría: escapaba tres y se usa dentro de un atributo.
+
+    En la portada el resultado se pega en `class='glosa " + escapar(...) + "'`,
+    y ahí una comilla cierra el atributo: lo que venga detrás se lee como
+    marcado. Hoy por ahí solo pasan «error», «aviso» y «nota», así que no tiene
+    impacto; el día que pase otra cosa, el fallo sería de esta línea y no de
+    quien la escribió.
+    """
+    for pagina in _CON_ESCAPAR:
+        trozo = _escapar_de(pagina)
+        for que, como in (("&", "&amp;"), ("<", "&lt;"), (">", "&gt;"),
+                          ('"', "&quot;"), ("'", "&#39;")):
+            assert como in trozo, (
+                f"«{pagina}» no escapa {que!r}, y eso acaba dentro de un "
+                "atributo del informe")
+
+
+def test_escapar_es_la_misma_en_las_dos_paginas():
+    """Dos copias de una función se separan solas, igual que dos menús."""
+    primera, segunda = (_escapar_de(p) for p in _CON_ESCAPAR)
+    assert primera == segunda, (
+        "la `escapar()` de la portada y la del banco ya no son la misma: una "
+        "de las dos escapa menos, y el informe que pinte saldrá distinto")
 
 
 def test_el_menu_no_apunta_a_paginas_que_no_existen():

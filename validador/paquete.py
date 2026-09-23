@@ -629,6 +629,11 @@ _RUTAS_DEL_SITIO = (
 # porque explica qué prueba cada comprobación.
 _DE_LA_PAGINA = (
     "index.html", "banco.html", "legal.html", "prueba.py", "LEEME.md",
+    # Vercel sirve `404.html` en todo lo que no encuentra, y con eso se dejan
+    # de servir dos cosas que no eran nuestras: su pagina generica, en ingles y
+    # sin decir de quien es el sitio, y un callejon sin salida para quien
+    # teclea el codigo en minusculas.
+    "404.html",
     # `incidencias.html` y `bitacora.html` no van aquí sino por su propio
     # camino: son plantillas y hay que generarlas, no copiarlas. La primera
     # rellena el catálogo de códigos; la segunda pone el armazón a cada
@@ -884,6 +889,15 @@ def _revisar_el_paquete(pagina: Path) -> None:
 # montado, y no página a página. Así no puede pasar lo de siempre —que una
 # página nueva salga sin ellas y nadie se entere—: si está en la carpeta, se
 # le pone.
+
+# La unica que no se indexa ni lleva tarjeta. Arriba esta escrito que esto se
+# hace de una vez sobre lo que haya quedado montado, y **por que**: para que una
+# pagina nueva no salga sin canonica sin que nadie se entere. La excepcion va
+# aqui, con nombre y en una sola linea, porque una pagina de error no es
+# contenido: en el sitemap seria decirle a un buscador que indexe el sitio por
+# donde no hay nada, y una tarjeta social suya seria una vista previa de un
+# callejon. Lleva su `noindex` escrito dentro.
+_FUERA_DEL_INDICE = ("404.html",)
 
 _FIN_DE_LA_CABECERA = "</head>"
 _RE_TITULO = re.compile(r"<title>(.*?)</title>", re.S)
@@ -1158,7 +1172,8 @@ def _para_investigadores(destino: Path, correo: str, hoy: date) -> Path:
 def _para_buscadores(destino: Path) -> int:
     """Canónica, tarjeta y enlaces de salida en cada página, y los ficheros
     de rigor."""
-    paginas = sorted(p.name for p in destino.glob("*.html"))
+    paginas = sorted(p.name for p in destino.glob("*.html")
+                     if p.name not in _FUERA_DEL_INDICE)
     if not paginas:
         raise SinPagina(
             "No ha quedado ni una página HTML que indexar, así que algo se ha "
