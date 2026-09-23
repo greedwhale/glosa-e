@@ -47,10 +47,16 @@ AEAT presentó las «principales novedades» del anexo I. El texto nuevo no est�
 publicado —solo las transparencias—, y la orden se quiere en vigor el
 01-10-2026. Lo que se anunció toca a este módulo por lo menos aquí:
 
-- **La extensión de rectificativas desaparece**: se usará el grupo `BG-24` de
-  la norma, con la lista L10 para el uso y las L2 para tipo, modalidad e
-  importe rectificado. `_rectificativa()` exige hoy la extensión en toda 384 o
-  471, y con el anexo nuevo eso es dar por mala una factura bien hecha.
+- **La extensión de rectificativas desaparece**, y esto ya no lo dice una
+  transparencia: el **22-09-2026** la AEAT lo confirmó por escrito en el buzón
+  —«el grupo de extensión nacional BG-ES-1 para datos rectificados (presente en
+  el borrador de abril) deja de existir de forma definitiva»—, y dice que las
+  rectificativas se estructuran con el grupo `BG-24` de la norma usando los
+  calificadores de las listas L10 y L2. Lo que **no** dice es qué código va en
+  cada sitio, así que la regla nueva no se puede escribir. Lo que sí se ha
+  hecho es dejar de dar por mala la forma nueva: `_rectificativa()` ya no exige
+  la extensión cuando la factura trae un `BG-24` que no es el QR, y lo dice con
+  una NOTA.
 - **El indicador de copia pasa a `0..1`**. `_copia()` lo pide como obligatorio.
 - **Entra el 389** para las facturas expedidas por el destinatario, junto al
   471, en la lista L1 de `_tipo_de_factura()`.
@@ -65,11 +71,30 @@ publicado —solo las transparencias—, y la orden se quiere en vigor el
 - Se incorpora un **mensaje de anulación** —un `ApplicationResponse` de UBL—,
   que es un documento nuevo y no una regla sobre la factura.
 
-Nada de esto se ha tocado: **unas transparencias no son una fuente con la que
-reescribir reglas**, y el anexo de abril sigue siendo el único texto publicado.
-Lo que sí se hace es decirlo donde se ve, en la NOTA `SPFE-BORRADOR` de cada
-factura medida. El día que salga el texto, esta sección es la lista de lo que
-hay que revisar.
+De todo eso se ha tocado **una sola cosa**, la de las rectificativas, y no por
+las transparencias: por una respuesta escrita del buzón de la AEAT del
+22-09-2026. La diferencia importa —**unas transparencias no son una fuente con
+la que reescribir reglas**— y lo que se hizo tampoco es reescribir la regla: es
+dejar de dar por mala la forma nueva, que no es lo mismo que saber medirla. El
+anexo de abril sigue siendo el único texto publicado, y el resto de las reglas
+lo miden a él. Lo que sí se hace es decirlo donde se ve, en la NOTA
+`SPFE-BORRADOR` de cada factura medida. El día que salga el texto, esta sección
+es la lista de lo que hay que revisar.
+
+Esa misma respuesta del 22-09-2026 contesta otras tres cosas que no cambian
+ninguna regla de hoy pero sí lo que se puede esperar:
+
+- **No habrá texto del anexo antes del BOE**: «a priori, no está prevista la
+  publicación de una nueva versión borrador o texto actualizado». Lo que
+  espera al texto, espera al boletín.
+- **La edición de la norma es la de 2026 para todo el sistema**, y no solo para
+  la solución pública: `UNE-EN 16931-1:2026` y `UNE-CEN/TS 16931-3-2:2026`
+  —UBL 2.5— valen también para las copias fieles y para el intercambio privado
+  del artículo 7.1.
+- **Los documentos de validación no traerán esquematrón**: serán las reglas de
+  negocio escritas, «sin incluir ficheros ejecutables Schematron». Y en el
+  entorno de pruebas habrá un servicio de validación de facturas UBL 2.5
+  sueltas, que es lo primero contra lo que se podrá contrastar esto.
 
 De dónde sale cada comprobación
 -------------------------------
@@ -351,6 +376,17 @@ if [c.cardinalidad for c in cius_es.CAMPOS if c.id == "BT-123" and c.ruta] != ["
     raise AnexoCambiado("la descripción del QR ya no es una sola fila obligatoria")
 _QR_URL = _relativa(_ruta(_obligatorio("BT-ES-47")), SINTAXIS_UBL.adjuntos)
 
+# Un documento adjunto que no es el QR. No se puede afinar mas, y el propio
+# anexo es la razon: el `BG-24` de la autorizacion «no trae ni ruta ni valor
+# fijo con que distinguirlo de cualquier otro documento adjunto» —esta escrito
+# ahi abajo, en NO_SE_COMPRUEBA—, y desde el 22-09-2026 hay un tercer uso, el
+# de las rectificativas, del que solo se sabe que va aqui con L10 y L2.
+#
+# Asi que esto no identifica nada: solo dice que hay algo colgado de BG-24 que
+# no es el QR. Es justo lo que hace falta para no condenar una factura por lo
+# que no se puede leer.
+_ADJUNTO_QUE_NO_ES_EL_QR = f"{SINTAXIS_UBL.adjuntos}[not(cbc:ID='{_URN_QR}')]"
+
 # El total a pagar, que suma los importes de terceros.
 _dice("BT-115", "junto con los importes correspondientes a los conceptos BT-179")
 
@@ -622,22 +658,57 @@ def _tipo_de_factura(raiz) -> list[Incidencia]:
 
 
 def _rectificativa(raiz) -> list[Incidencia]:
-    """BG-ES-1: la extensión de rectificativas, y lo que lleva dentro."""
+    """BG-ES-1: la extensión de rectificativas, y lo que lleva dentro.
+
+    Y desde el 22-09-2026, también lo que pasa cuando no está. Ese día la AEAT
+    contestó por escrito que `BG-ES-1` «deja de existir de forma definitiva» y
+    que las rectificativas se estructuran con el grupo `BG-24` de la norma, con
+    los calificadores de L10 y L2. El anexo de abril sigue siendo el único
+    texto publicado, así que aquí se sigue midiendo con él; lo que no se puede
+    es dar **por mala** una factura escrita a la forma nueva, que es lo que
+    hacía esta regla.
+
+    Tampoco se puede comprobar la forma nueva, y no por falta de ganas: no se
+    sabe qué código de L10 marca ese uso, y el anexo ya dice que un `BG-24` no
+    se puede distinguir de otro. Lo que se hace es lo único honesto entre
+    condenar y callar: decir que está ahí y que no se ha leído.
+    """
     tipo = _valor(raiz, "./cbc:InvoiceTypeCode")
     datos = _nodos(raiz, _RECTIFICATIVA)
     if not datos:
         if tipo not in _RECTIFICATIVOS:
             return []
+        if _nodos(raiz, _ADJUNTO_QUE_NO_ES_EL_QR):
+            return [
+                Incidencia(
+                    "SPFE-RECTIFICATIVA",
+                    NOTA,
+                    f"La factura es rectificativa ({tipo}) y no lleva la "
+                    "extensión de rectificativas del anexo de abril, pero sí "
+                    "trae un documento justificativo adicional (BG-24), que es "
+                    "donde van los datos rectificados desde que la AEAT "
+                    "confirmó, el 22-09-2026, que la extensión desaparece. No "
+                    "se comprueba lo que dice: el texto del anexo nuevo no "
+                    "está publicado y no se sabe qué calificador de L10 marca "
+                    "ese uso.",
+                    campo="Datos rectificados (BG-24)",
+                    esperado="el tipo y la modalidad, con L10 y L2",
+                    encontrado="un BG-24 sin leer",
+                )
+            ]
         return [
             Incidencia(
                 "SPFE-RECTIFICATIVA",
                 ERROR,
-                f"La factura es rectificativa ({tipo}) y no lleva la extensión "
-                "de rectificativas. El anexo la exige en toda factura 384 o "
-                "471: es donde se dice qué se rectifica (R1 a R4) y cómo, por "
-                "diferencias (I) o por sustitución (S).",
+                f"La factura es rectificativa ({tipo}) y no dice qué "
+                "rectifica: ni la extensión de rectificativas que exige el "
+                "anexo de abril, ni un documento justificativo adicional "
+                "(BG-24), que es donde van los datos rectificados en el anexo "
+                "nuevo. Hace falta una de las dos: es donde se dice qué se "
+                "rectifica (R1 a R4) y cómo, por diferencias (I) o por "
+                "sustitución (S).",
                 campo="Datos rectificados (BG-ES-1)",
-                esperado="la extensión de rectificativas con el tipo y la modalidad",
+                esperado="la extensión de rectificativas, o un BG-24",
                 encontrado="(falta)",
             )
         ]

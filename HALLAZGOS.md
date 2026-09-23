@@ -2568,6 +2568,26 @@ midiendo, porque es de derecho: **a qué edición de EN 16931 apunta el artícul
 es la que pide UBL 2.5, CII D.25A y EDIFACT D.24A S4. Si apunta a la de 2017,
 es otra. Hasta saberlo, aquí no se afirma ninguna de las dos.
 
+**Contestada el 22-09-2026**, y por escrito. Se preguntó al buzón de la AEAT si
+la edición de junio de 2026 vale también fuera de la solución pública, y la
+respuesta nombra las dos partes y dice a qué alcanzan: `UNE-EN 16931-1:2026`
+—junio, el modelo semántico— y `UNE-CEN/TS 16931-3-2:2026` —septiembre, la
+correspondencia sintáctica UBL 2.5 / ISO/IEC 19845— son las versiones
+ratificadas aplicables «al sistema español de facturación electrónica en su
+conjunto», y enumera los tres casos: la emisión e interconexión en la SPFE, el
+**envío de copias fieles** y el **intercambio privado entre plataformas
+regulado en el artículo 7.1**.
+
+Con la cautela que este mismo apartado exige, porque es la que lo trajo aquí:
+**esto no es el boletín**. Que la Agencia diga a qué edición valida no es lo
+mismo que una referencia en el Diario Oficial, y la de 2017 sigue viva hasta el
+31-03-2029. Lo que cambia es que ya no hay que elegir a ciegas entre dos
+ediciones: hay una respuesta de la administración que lo aplica, por escrito y
+citable, y es la que se sigue aquí mientras no salga la orden. Las dos
+consecuencias que tiene dentro: la copia fiel es **UBL 2.5** y no «UBL» a
+secas, y `BT-179` y `BT-180` dejan de estar fuera de la edición aplicable —lo
+que les sigue faltando es la ruta del anexo, que es otra cosa—.
+
 ### La regla
 
 La de siempre, aplicada a un sitio donde no la había aplicado: **se mide, no se

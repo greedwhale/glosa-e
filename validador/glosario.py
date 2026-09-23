@@ -3228,11 +3228,15 @@ CODIGOS: dict[str, str] = {
         "documento es un CreditNote."
     ),
     "SPFE-RECTIFICATIVA": (
-        "Una factura rectificativa (384 o 471) no lleva la extensión de "
-        "rectificativas, o le falta algo dentro: el tipo de rectificativa, de "
-        "R1 a R4; la modalidad, I por diferencias o S por sustitución; o el "
-        "identificador de la extensión, "
-        "urn:aeat:names:specification:ubl:schema:ext:id:RECT."
+        "Una factura rectificativa (384 o 471) no dice qué rectifica, o lo "
+        "dice mal: le falta el tipo de rectificativa, de R1 a R4; la "
+        "modalidad, I por diferencias o S por sustitución; o el identificador "
+        "de la extensión, urn:aeat:names:specification:ubl:schema:ext:id:RECT. "
+        "Sale como NOTA, y no como error, cuando la factura no lleva esa "
+        "extensión pero sí un documento justificativo adicional (BG-24): ahí "
+        "es donde van los datos rectificados desde que la AEAT confirmó, el "
+        "22-09-2026, que la extensión desaparece, y lo que diga ese grupo no "
+        "se comprueba mientras el texto del anexo nuevo no esté publicado."
     ),
     "SPFE-MONEDA-DEL-IVA": (
         "La moneda de contabilización del IVA (cbc:TaxCurrencyCode) no es el "

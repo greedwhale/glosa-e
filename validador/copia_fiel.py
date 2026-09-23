@@ -8,6 +8,15 @@ cada factura, en UBL, a la vez que la emite (RD 238/2026, y el artículo 4 del
 proyecto de orden). La factura original sigue siendo la que es —Facturae, CII,
 EDIFACT—; lo que viaja a la AEAT es una copia escrita en otra sintaxis.
 
+En **UBL 2.5**, desde el 22-09-2026 y por escrito: preguntada si la edición de
+junio de 2026 de la norma vale también fuera de la solución pública, la AEAT
+contestó que `UNE-EN 16931-1:2026` y `UNE-CEN/TS 16931-3-2:2026` —la
+correspondencia sintáctica UBL 2.5 / ISO/IEC 19845— son las aplicables «al
+sistema español de facturación electrónica en su conjunto», y nombró entre los
+casos el envío de copias fieles. Aquí eso no cambia ninguna fila: esta tabla
+dice a qué **término** del anexo va cada cosa, no en qué elemento se escribe.
+Lo que cambia es que ya no hay que decir «UBL» a secas.
+
 Esa traducción no la publica nadie. Preguntada por escrito si pensaba publicar
 la correspondencia entre las sintaxis del artículo 7.1 y los campos del anexo I,
 la AEAT contestó el **17-09-2026** que no: «cae en la responsabilidad de las

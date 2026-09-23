@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2387 tests, todos en verde.
+2390 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3760,7 +3760,7 @@ Lo anunciado, y a qué regla le da:
 
 | Novedad del 10-09-2026 | Qué pasa aquí hoy |
 |---|---|
-| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | `SPFE-RECTIFICATIVA` la exige en toda 384 o 471: daría por mala una factura bien hecha |
+| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | **Confirmado por escrito el 22-09-2026**, y arreglado: `SPFE-RECTIFICATIVA` ya no la exige si hay un `BG-24` que no es el QR, y lo dice con una NOTA |
 | El indicador de copia pasa a `0..1` | `SPFE-COPIA` lo pide obligatorio |
 | Entra el **389** para la factura expedida por el destinatario, junto al 471 | `SPFE-TIPO-DE-FACTURA` mide con la L1 de abril |
 | El NIF del vendedor va en `BT-31` o en `BT-32`, este con esquema «LOC» y `@schemeID` «FC» | `SPFE-NIF` solo admite el esquema «VAT» |
@@ -3782,9 +3782,14 @@ donde se va a mirar el día que salga el texto.
 Departamento de Informática Tributaria, dice contra qué valida la solución
 pública: `UNE-EN 16931-1:2026`, la de junio, y `UNE-CEN/TS 16931-3-2:2026`, la
 de septiembre. Es la **edición de 2026**, la misma pregunta que quedó abierta
-en `HALLAZGOS.md` al discutir a qué edición apunta el artículo 7.1 —allí sigue
-abierta, porque esto vale para la solución pública y lo dice una transparencia,
-no el boletín—. La misma presentación dice que los documentos de validación, el
+en `HALLAZGOS.md` al discutir a qué edición apunta el artículo 7.1. **Desde el
+22-09-2026 ya no está abierta**: preguntado el buzón, contesta que esas dos son
+las versiones ratificadas aplicables «al sistema español de facturación
+electrónica en su conjunto», y nombra los tres casos —la SPFE, el envío de
+copias fieles y el intercambio privado del artículo 7.1—. Sigue sin ser el
+boletín, que es la cautela que hay escrita allí, pero ya no es una
+transparencia de la solución pública: es la Agencia contestando por escrito por
+el sistema entero. La misma presentación dice que los documentos de validación, el
 catálogo de servicios y los WSDL se publicarán en ese portal antes de que haya
 entorno de pruebas, con octubre de 2026 como referencia. Por eso el portal
 entra ahora en la vigilancia mensual.

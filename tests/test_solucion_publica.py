@@ -353,6 +353,18 @@ class TestCabecera:
         assert "SPFE-IMPORTE-PAGADO" not in codigos(raro)
 
 
+# Un documento justificativo adicional que no es el QR. Es lo unico que se
+# puede escribir de la forma nueva: la AEAT dijo el 22-09-2026 que las
+# rectificativas van en BG-24 con L10 y L2, y no dijo que codigo marca ese uso.
+OTRO_ADJUNTO = (
+    "  <cac:AdditionalDocumentReference>\n"
+    "    <cbc:ID>RECT-2026-0001</cbc:ID>\n"
+    "    <cbc:DocumentTypeCode>130</cbc:DocumentTypeCode>\n"
+    "    <cbc:DocumentDescription>R4 S</cbc:DocumentDescription>\n"
+    "  </cac:AdditionalDocumentReference>\n"
+)
+
+
 class TestRectificativa:
 
     def test_una_384_sin_extension(self):
@@ -363,6 +375,41 @@ class TestRectificativa:
 
     def test_una_380_sin_extension_no_la_necesita(self):
         assert "SPFE-RECTIFICATIVA" not in codigos(BUENA)
+
+    def test_con_un_bg24_que_no_es_el_qr_es_nota_y_no_error(self):
+        """La forma que confirmo la AEAT el 22-09-2026 no puede dar ERROR.
+
+        «El grupo de extension nacional BG-ES-1 para datos rectificados
+        (presente en el borrador de abril) deja de existir de forma
+        definitiva», y las rectificativas se estructuran con BG-24. Quien la
+        escriba asi esta haciendo lo que le dicen, y hasta el 22-09-2026 esta
+        regla le devolvia un ERROR.
+        """
+        nueva = cambia(cambia(BUENA, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>384<"),
+                       "  <cac:AccountingSupplierParty>", OTRO_ADJUNTO + "  <cac:AccountingSupplierParty>")
+        queja = la(nueva, "SPFE-RECTIFICATIVA")
+        assert queja.gravedad == NOTA, "una factura escrita al anexo nuevo sale mala"
+        assert "SPFE-RECTIFICATIVA" not in codigos(nueva)
+        assert queja.campo == "Datos rectificados (BG-24)"
+        assert "22-09-2026" in queja.mensaje and "L10" in queja.mensaje
+
+    def test_la_nota_no_promete_haber_leido_el_bg24(self):
+        """Porque no se puede: el anexo dice que un BG-24 no se distingue de
+        otro, y del calificador de la forma nueva no se sabe el codigo."""
+        nueva = cambia(cambia(BUENA, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>384<"),
+                       "  <cac:AccountingSupplierParty>", OTRO_ADJUNTO + "  <cac:AccountingSupplierParty>")
+        queja = la(nueva, "SPFE-RECTIFICATIVA")
+        assert queja.encontrado == "un BG-24 sin leer"
+        assert "No se comprueba lo que dice" in queja.mensaje
+
+    def test_el_qr_solo_no_vale_de_bg24_de_rectificativa(self):
+        """La BUENA ya trae un BG-24, el del QR. Si contara, una 384 pelada
+        dejaria de dar error por tener QR, que es justo lo contrario."""
+        pelada = cambia(BUENA, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>384<")
+        assert "urn:aeat:names:specification:ubl:schema:QR" in pelada
+        queja = la(pelada, "SPFE-RECTIFICATIVA")
+        assert queja.gravedad == ERROR
+        assert queja.esperado == "la extensión de rectificativas, o un BG-24"
 
     def test_le_falta_la_modalidad(self):
         queja = la(cambia(RECTIFICATIVA, "<aeat:Method>S</aeat:Method>", ""), "SPFE-RECTIFICATIVA")
