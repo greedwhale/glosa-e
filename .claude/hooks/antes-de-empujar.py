@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 import re
+import os
 import shlex
 import subprocess
 import sys
@@ -173,10 +174,18 @@ def _git_comun(carpeta: Path) -> Path | None:
     al de la copia principal, y `--git-common-dir` resuelve al de verdad desde
     cualquiera de las dos. Si git no contesta, no se sabe, y se dice con None.
     """
+    # Sin el entorno de git, y esto no es cosmética. Un gancho de git corre con
+    # `GIT_DIR` puesto, así que `git -C <donde sea>` contesta por **su**
+    # repositorio y no por la carpeta que se le pregunta. Medido el 23-09-2026
+    # empujando de verdad desde un worktree: una carpeta de `Temp` que no es
+    # de ningún repositorio salía como propia. No abría ninguna puerta —el
+    # sesgo del portero es parar— pero la respuesta era de otra pregunta.
+    limpio = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     hecho = subprocess.run(
         ["git", "-C", str(carpeta), "rev-parse", "--path-format=absolute",
          "--git-common-dir"],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
+        env=limpio,
     )
     if hecho.returncode != 0:
         return None
