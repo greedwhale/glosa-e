@@ -2,9 +2,14 @@
 """Genera `glosa-e.svg`: el bloque de la marca, con la palabra trazada.
 
 Este script no hace falta para nada del día a día. El SVG que produce está
-versionado al lado, y la página lo lleva incrustado en `glosa.css`. Está aquí
-por lo contrario: porque sin él la marca sería un blob de 5 KB dentro de una
-hoja de estilo, imposible de retocar sin volver a dibujarla entera.
+versionado al lado. Está aquí por lo contrario: porque sin él la marca sería un
+dibujo de 5 KB imposible de retocar sin volver a hacerlo entero.
+
+Hasta el 23-09-2026 la página lo llevaba además incrustado en `glosa.css`, como
+fondo de la cabecera, y este script escribía las dos copias a la vez. Ya no: la
+cabecera lleva el signo y el nombre en la letra de la página, y el bloque queda
+para donde va suelto —el favicon, la tarjeta social y este SVG—. El porqué, en
+`MARCA.md`.
 
 ## Por qué la palabra va trazada y no como `<text>`
 
@@ -38,23 +43,16 @@ miraron, están en `MARCA.md`.
       "https://raw.githubusercontent.com/google/fonts/main/ofl/literata/Literata%5Bopsz,wght%5D.ttf"
     python web/marca/trazar.py Literata.ttf
 
-Escribe `web/marca/glosa-e.svg` **y de paso lo incrusta en `web/glosa.css`**,
-que es donde la página lo lee. Las dos cosas a la vez y no una, porque dejar
-el segundo paso a mano es pedirle a alguien que se acuerde.
-
-Y para cuando alguien no se acuerde igualmente —editando una de las dos copias
-a mano— está `tests/test_marca.py`, que se pone rojo en cuanto el SVG de aquí
-y la url de la hoja de estilo dejan de ser el mismo dibujo. Es el patrón de
-este repositorio: que no se pueda desviar en silencio.
+Escribe `web/marca/glosa-e.svg`. Y `tests/test_marca.py` se pone rojo si el
+bloque vuelve a aparecer en la hoja de estilo, donde ya no se regenera: una
+copia que nadie reescribe es una copia que se desvía en silencio.
 """
-import re
 import sys
 
 from pathlib import Path
 
 AQUI = Path(__file__).resolve().parent
 SALIDA = AQUI / "glosa-e.svg"
-HOJA = AQUI.parent / "glosa.css"
 
 PALABRA = "Glosa-e"
 PESO = 400
@@ -124,24 +122,6 @@ def trazar(ruta_fuente: Path):
     return pluma.getCommands(), limites.bounds
 
 
-def url_de_css(svg: str) -> str:
-    """El SVG metido en una `url()` de CSS.
-
-    Solo se escapa lo que rompe: las almohadillas —que en CSS abren un
-    fragmento— y los ángulos. Las comillas dobles pasan a simples para poder
-    envolver la url en dobles. Codificarlo entero con `quote()` lo hincharía un
-    40 % sin ganar nada, y esto viaja en cada carga de la página.
-
-    Vive aquí, y no copiada en la prueba, por lo de siempre: dos copias de una
-    regla de escape se separan, y el día que se separen la prueba diría que
-    todo cuadra comparando su propia idea de la url contra sí misma.
-    """
-    svg = re.sub(r"\s+", " ", svg).strip().replace('"', "'")
-    return ("data:image/svg+xml,"
-            + svg.replace("%", "%25").replace("#", "%23")
-                 .replace("<", "%3C").replace(">", "%3E"))
-
-
 def armar(camino: str, caja):
     """Devuelve (svg, ancho de la palabra, holgura que sobra en el bloque)."""
     x0, y0, x1, y1 = caja
@@ -209,22 +189,6 @@ def main(argv) -> int:
         print("  **ha cambiado**. Si no era la intención, mira qué fuente le "
               "has dado.")
 
-    # Y la hoja de estilo, en la misma pasada.
-    hoja = HOJA.read_text(encoding="utf-8")
-    patron = (r'background: url\("data:image/svg\+xml,[^"]+"\)'
-              r' center / contain no-repeat;')
-    hallados = re.findall(patron, hoja)
-    if len(hallados) != 1:
-        raise SystemExit(
-            f"En «{HOJA.name}» hay {len(hallados)} fondos de marca y esperaba "
-            "uno. Parar y mirar: la marca vive ahí una sola vez a propósito.")
-    nuevo = f'background: url("{url_de_css(svg)}") center / contain no-repeat;'
-    if hallados[0] == nuevo:
-        print(f"{HOJA.name}: ya llevaba este mismo dibujo")
-    else:
-        HOJA.write_text(hoja.replace(hallados[0], nuevo), encoding="utf-8")
-        print(f"{HOJA.name}: url incrustada, {len(nuevo)} caracteres "
-              f"({len(nuevo) - len(hallados[0]):+d})")
     return 0
 
 

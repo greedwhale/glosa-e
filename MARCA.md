@@ -100,7 +100,7 @@ el pasaje que se comenta. Abarca el texto entero y no toca una sola línea.
 | Signo | blanco `#ffffff` |
 | Nombre | negro `#000000` |
 | Proporción | 2,85:1 |
-| En la cabecera | 114 × 40 px |
+| En la cabecera | ya no va: signo y nombre desde el 23-09-2026 (abajo) |
 
 **Por qué esa plata y no la plata.** Se pidió `#C0C0C0`. Con ella el signo
 blanco queda en **1,82:1** sobre su propio fondo, y el mínimo para que una
@@ -140,12 +140,11 @@ ancha y con aire de libro inglés. La geometría no se tocó en ninguna prueba
 —bloque 2,85:1, signo al 62 %, mismo hueco, misma altura de tinta— para que lo
 único que se estuviera comparando fuera la letra.
 
-**La pila `--serif` de la página no se ha tocado**, así que los titulares
-siguen componiéndose con la serif que cada máquina tenga a mano y ya no son la
-misma letra que la marca. Es lo correcto: una marca es un dibujo y no tiene por
-qué ser el mismo tipo que el texto. Si algún día se sirve Literata como fuente
-web —cabe, y el sitio ya se sirve entero a sí mismo—, entonces coincidirían;
-hoy no, y no hace falta.
+**Y la página ya se compone en la misma letra.** Esto decía que los titulares
+salían con la serif que cada máquina tuviera a mano, y que coincidirían con la
+marca el día que se sirviera Literata. Ese día llegó: `glosa.css` la sirve
+desde el propio sitio, con el mismo `opsz` que la marca —el porqué, arriba de
+la hoja—, y los titulares y la marca son hoy la misma letra.
 
 **El favicon es un segundo dibujo.** A 16 px el nombre no cabe de ninguna
 manera, así que la pestaña lleva el cuadro con el signo solo, en la reducción
@@ -156,20 +155,42 @@ de haber metido la palabra dentro.
 lengua de la marca; el bloque plateado es la firma, y una firma puesta de
 adorno dentro de la propia herramienta sobra.
 
-**Dónde vive.** El original en `web/marca/glosa-e.svg`, y el mismo dibujo
-incrustado una sola vez en `web/glosa.css` como imagen de fondo de `.marca`;
-las tres páginas solo llevan el enlace. Tres copias de un dibujo de 5 KB se
-acaban separando, y una marca que dice una cosa en la portada y otra en el
-aviso legal no se nota hasta que ya está publicada.
+**Y en la cabecera, desde el 23-09-2026, el signo y el nombre.** Hasta ese día
+la cabecera llevaba el bloque entero, a 114 × 40 px, y a ese tamaño un
+rectángulo gris en la esquina se lee como una imagen que no ha cargado: era lo
+primero que se veía de la página. Salió del repaso de la portada contra las de
+al lado —el porqué entero, en el README— y la decisión fue del titular,
+porque cambiaba lo que este documento había fijado.
 
-**Y se regenera, no se redibuja.** `web/marca/trazar.py` la vuelve a trazar de
-la fuente y escribe las dos copias en la misma pasada —el SVG y la url del
-CSS—, porque dejar la segunda a mano es pedirle a alguien que se acuerde. Y
-para cuando alguien no se acuerde igualmente, `tests/test_marca.py` se pone
-rojo en cuanto las dos dejan de ser el mismo dibujo, o en cuanto los tres
-favicons dejan de ser el mismo, o en cuanto la plata cambia y estas cifras de
-contraste pasan a ser falsas. Las cuatro comprobaciones se han provocado una a
-una: sin verlas rojas no valdrían nada.
+Lo que cambia es dónde va el bloque, no la marca. El bloque sigue siendo la
+firma donde va suelto —el favicon, `web/marca/glosa-e.svg` y la tarjeta
+social—, y en la cabecera la llevan el signo, pintado con `--acento`, y el
+nombre en Literata 600, como texto. Como texto porque ya se puede: la razón
+de trazarlo era que cada máquina lo compondría con la serif que tuviera, y
+desde que la página sirve Literata eso ya no pasa. Y con los colores de la
+hoja la cabecera cambia con el tema sin traerse un fondo propio, que es lo
+que el bloque tuvo que hacer para leerse de noche.
+
+| En la cabecera | Claro | Oscuro |
+|---|---|---|
+| Signo, `--acento` sobre `--papel` | `#1c4e80`, 8,21:1 | `#8ab4e0`, 8,35:1 |
+| Nombre, `--tinta` sobre `--papel` | `#16181c`, 17,03:1 | `#e8eaee`, 15,04:1 |
+
+**Dónde vive.** El bloque, en `web/marca/glosa-e.svg`. El signo de la
+cabecera, una sola vez en `web/glosa.css` como máscara de `.marca::before`,
+y es el mismo dibujo que el de la zona de soltar; las siete páginas solo
+llevan el enlace, con el nombre dentro. Dos copias de un dibujo se acaban
+separando, y una marca que dice una cosa en la portada y otra en el aviso
+legal no se nota hasta que ya está publicada.
+
+**Y se regenera, no se redibuja.** `web/marca/trazar.py` vuelve a trazar el
+bloque de la fuente. Hasta el 23-09-2026 escribía además su copia en la hoja
+de estilo; ya no hay copia que escribir. Y `tests/test_marca.py` se pone rojo
+si el bloque vuelve a la hoja —sería una copia que nadie regenera—, si el
+signo de la cabecera deja de ser el de la zona o de pintarse con `--acento`,
+si los tres favicons dejan de ser el mismo, o si la plata cambia y estas
+cifras de contraste pasan a ser falsas. Cada una se ha provocado: sin verlas
+rojas no valdrían nada.
 
 ## El tono, que ya estaba escrito
 

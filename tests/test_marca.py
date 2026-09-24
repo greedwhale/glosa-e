@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
 """La marca no se puede desviar en silencio de lo que sirve la página.
 
-El dibujo vive en tres sitios y ninguno se lee desde otro:
+El dibujo vive en varios sitios y ninguno se lee desde otro:
 
-  `web/marca/glosa-e.svg`   el original, que genera `web/marca/trazar.py`
-  `web/glosa.css`           el mismo dibujo, incrustado como `data:` URI
+  `web/marca/glosa-e.svg`   el bloque, que genera `web/marca/trazar.py`
   los tres `.html`          el favicon, que es **otro** dibujo: a 16 px el
                             nombre no cabe y la pestaña lleva el signo solo
+  `web/glosa.css`           el signo de la cabecera, como máscara, que tiene
+                            que ser el mismo que el de la zona de soltar
+
+Hasta el 23-09-2026 la hoja llevaba además el bloque entero, que era la
+cabecera. Ya no: la cabecera es el signo y el nombre en la letra de la página,
+y el porqué está en `MARCA.md`.
 
 Tres copias de algo de 5 KB se acaban separando. Y la forma en que se separan
 es la peor de todas: no rompen nada. La página sigue cargando, sale todo verde,
@@ -17,7 +22,6 @@ Estas pruebas no comprueban que la marca sea bonita. Comprueban que sea **la
 misma**, que es lo único que una prueba puede saber de un dibujo.
 """
 
-import importlib.util
 import re
 
 from pathlib import Path
@@ -41,24 +45,8 @@ PLATA = "#949494"
 SIGNO = "#FFFFFF"
 NOMBRE = "#000000"
 
-PATRON_FONDO = (r'background: url\("(data:image/svg\+xml,[^"]+)"\)'
-                r' center / contain no-repeat;')
+INDEX = RAIZ / "web" / "index.html"
 PATRON_FAVICON = r'<link rel="icon" href="(data:image/svg\+xml,[^"]+)">'
-
-
-def _trazar():
-    """Carga `web/marca/trazar.py` sin que sea un módulo instalable.
-
-    Se carga por ruta, y no se copia aquí su función de escapado, porque dos
-    copias de una regla de escape se separan igual que se separan dos copias de
-    un dibujo. Si la prueba tuviera la suya, compararía su idea de la url
-    contra sí misma y diría que todo cuadra pasara lo que pasara.
-    """
-    ruta = RAIZ / "web" / "marca" / "trazar.py"
-    spec = importlib.util.spec_from_file_location("trazar_marca", ruta)
-    modulo = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(modulo)
-    return modulo
 
 
 def test_el_svg_original_esta_donde_dice_estar():
@@ -67,20 +55,44 @@ def test_el_svg_original_esta_donde_dice_estar():
         "dentro de una hoja de estilo y no hay forma de retocarla.")
 
 
-def test_la_hoja_de_estilo_lleva_el_mismo_dibujo_que_el_original():
-    """El fondo de `.marca` tiene que ser exactamente el SVG de al lado."""
-    hoja = HOJA.read_text(encoding="utf-8")
-    fondos = re.findall(PATRON_FONDO, hoja)
-    assert len(fondos) == 1, (
-        f"Hay {len(fondos)} fondos de marca en glosa.css y tiene que haber "
-        "uno: la marca vive ahí una sola vez a propósito, para que las tres "
-        "páginas no puedan llevar dibujos distintos.")
+def _trazos(svg: str) -> list[str]:
+    """Los caminos de un dibujo, que es lo que lo hace el mismo."""
+    return re.findall(r"""<path d=['"]([^'"]+)['"]""", svg)
 
-    esperada = _trazar().url_de_css(SVG.read_text(encoding="utf-8"))
-    assert fondos[0] == esperada, (
-        "El dibujo de glosa.css y el de web/marca/glosa-e.svg ya no son el "
-        "mismo. Vuelve a correr `python web/marca/trazar.py Literata.ttf`, "
-        "que escribe los dos.")
+
+def test_la_hoja_ya_no_lleva_el_bloque():
+    """El bloque salió de la cabecera el 23-09-2026 y no puede volver solo.
+
+    `trazar.py` ya no escribe en la hoja. Un bloque que volviera a ella, pegado
+    a mano, sería una copia que nadie regenera: la primera vez que se retocara
+    la marca, la cabecera se quedaría con la vieja.
+    """
+    hoja = HOJA.read_text(encoding="utf-8")
+    assert PLATA[1:].lower() not in hoja.lower(), (
+        "glosa.css vuelve a llevar la plata del bloque. La cabecera lleva el "
+        "signo y el nombre; si se quiere el bloque otra vez, antes hay que "
+        "cambiar MARCA.md y volver a hacer que trazar.py escriba aquí.")
+
+
+def test_el_signo_de_la_cabecera_es_el_de_la_zona():
+    """Dos copias del signo —la máscara de la cabecera y el icono de la zona de
+    soltar— y un solo dibujo. El de la zona es el que dice MARCA.md."""
+    hoja = HOJA.read_text(encoding="utf-8")
+    regla = re.search(r"\.marca::before \{(.*?)\}", hoja, re.S)
+    assert regla, "glosa.css ya no pinta el signo en `.marca::before`"
+    mascaras = set(re.findall(r'mask: url\("([^"]+)"\)', regla[1]))
+    assert len(mascaras) == 1, (
+        f"`.marca::before` lleva {len(mascaras)} dibujos distintos entre "
+        "`mask` y `-webkit-mask`, y tiene que ser uno")
+    assert "background: var(--acento)" in regla[1], (
+        "el signo tiene que pintarse con --acento, que cambia con el tema")
+    cabecera = _trazos(mascaras.pop().replace("%3C", "<").replace("%3E", ">"))
+    zona = re.search(r'<div id="zona".*?<svg(.*?)</svg>', INDEX.read_text(
+        encoding="utf-8"), re.S)
+    assert zona, "la zona de soltar ya no lleva el signo"
+    assert cabecera == _trazos(zona[1]), (
+        f"el signo de la cabecera {cabecera} no es el de la zona "
+        f"{_trazos(zona[1])}")
 
 
 def test_los_colores_son_los_que_publica_marca_md():
@@ -123,11 +135,12 @@ def test_el_favicon_es_el_mismo_en_las_tres_paginas():
 
 @pytest.mark.parametrize("pagina", PAGINAS)
 def test_cada_pagina_lleva_el_nombre_para_quien_no_ve_el_dibujo(pagina):
-    """El nombre está dibujado; esto es lo que queda para un lector de pantalla.
+    """El nombre de la cabecera es texto, y es el que lee un lector de pantalla.
 
-    La cabecera es `<a class="marca"><span class="nombre">Glosa-e</span></a>`
-    con el span escondido visualmente. Si alguien quita el span porque «no se
-    ve», la marca deja de tener nombre para quien no ve el dibujo.
+    La cabecera es `<a class="marca"><span class="nombre">Glosa-e</span></a>`:
+    el signo lo pone la hoja de estilo y el nombre, este span. Estuvo escondido
+    mientras el nombre iba dibujado dentro del bloque; si alguien lo quita, el
+    enlace se queda sin nombre para quien ve y para quien no.
     """
     texto = (RAIZ / "web" / pagina).read_text(encoding="utf-8")
     assert '<span class="nombre">Glosa-e</span>' in texto, (

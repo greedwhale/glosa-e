@@ -153,32 +153,44 @@ header::before {
    derecha. Con un icono de rayitas no se notaba; con la marca en un bloque
    plateado, salta a la vista. */
 .barra { display: flex; align-items: center; gap: 1.5rem; padding: .9rem 1.5rem; }
-/* La marca ya no hereda el color del sitio: desde que el nombre vive dentro
-   del bloque plateado se trae su propio fondo y se ve igual sobre los dos
-   papeles. Por eso es una imagen y no un icono con `currentColor`.
+/* La marca en la cabecera: el signo y el nombre, sin el bloque plateado.
 
-   Va una sola vez, aqui, y las tres paginas solo llevan el enlace. Tres
-   copias de un dibujo de 5 KB se acaban separando, y una marca que dice una
-   cosa en la portada y otra en el aviso legal no se nota hasta que ya esta
-   publicada.
+   Hasta el 23-09-2026 la cabecera llevaba el bloque entero, 114 x 40 px de
+   plata con la palabra trazada dentro. A ese tamaño, un rectángulo gris en la
+   esquina se lee como una imagen que no ha cargado, y era lo primero que se
+   veía de la página. El bloque sigue siendo la firma donde va suelto —el
+   favicon, `web/marca/glosa-e.svg`, la tarjeta social—; aquí, al lado de la
+   herramienta, habla la letra de la página.
 
-   La palabra va **trazada**, no como texto: si viajara como <text>, cada
-   maquina la compondria con la serif que tuviera a mano y la marca cambiaria
-   de forma sin que nadie la tocara.
+   El nombre va como texto y no trazado porque ya puede: Literata se sirve
+   desde este mismo sitio —arriba, el @font-face—, así que se compone igual en
+   todas las máquinas, que era lo único que justificaba trazarlo. Y el signo
+   es una máscara pintada con `--acento`, no una imagen con su color dentro:
+   así cambia con el tema, que es lo que el bloque no podía hacer sin su
+   fondo. Va una sola vez, aquí, y las siete páginas solo llevan el enlace. Es
+   el mismo dibujo que el de la zona de soltar; tests/test_marca.py lo vigila.
 
-   `print-color-adjust` va por adelantado. Hoy no hay hoja de impresion; el
-   dia que la haya, los navegadores quitan los fondos por su cuenta y la marca
-   desapareceria del papel sin avisar a nadie. */
+   La altura se queda en 40 px para que la cabecera no cambie de alto: todo lo
+   medido debajo —la zona de soltar a tantos píxeles— sigue valiendo. */
 .marca {
-  display: block; width: 114px; height: 40px; text-decoration: none;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 285 100' width='285' height='100' role='img' aria-label='Glosa-e'%3E %3Crect width='285' height='100' fill='%23949494'/%3E %3Cg transform='translate(40.09 24.17) scale(1.29167)' fill='none' stroke='%23FFFFFF' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E %3Cpath d='M16 7 H8 V33 H16'/%3E %3Cpath d='M25 12 h21'/%3E %3Cpath d='M25 20 h21'/%3E %3Cpath d='M25 28 h13'/%3E %3C/g%3E %3Cpath transform='translate(116.28 63.59) scale(0.036154 -0.036154)' fill='%23000000' d='M371.0 -14.0Q275.0 -14.0 203.0 30.5Q131.0 75.0 90.5 154.5Q50.0 234.0 50.0 340.0Q50.0 425.0 72.5 493.5Q95.0 562.0 137.0 611.5Q179.0 661.0 237.5 687.5Q296.0 714.0 368.0 714.0Q420.0 714.0 464.0 698.0Q508.0 682.0 537.0 653.0L547.0 716.0H596.0L642.0 483.0L587.0 471.0Q567.0 533.0 537.5 573.0Q508.0 613.0 468.0 632.0Q428.0 651.0 374.0 651.0Q321.0 651.0 280.5 631.5Q240.0 612.0 212.5 573.5Q185.0 535.0 171.0 479.0Q157.0 423.0 157.0 349.0Q157.0 282.0 172.5 227.5Q188.0 173.0 217.5 133.5Q247.0 94.0 287.5 73.0Q328.0 52.0 378.0 52.0Q413.0 52.0 444.0 60.0Q475.0 68.0 499.5 83.5Q524.0 99.0 540.0 120.0V230.0Q540.0 256.0 533.5 265.0Q527.0 274.0 507.0 277.0L447.0 286.0V334.0H718.0V286.0L665.0 277.0Q646.0 274.0 640.5 263.0Q635.0 252.0 635.0 226.0V-3.0H592.0L566.0 44.0Q540.0 25.0 509.0 12.0Q478.0 -1.0 443.5 -7.5Q409.0 -14.0 371.0 -14.0ZM803.0 0.0V49.0L860.0 58.0Q880.0 61.0 885.5 71.0Q891.0 81.0 891.0 109.0V643.0Q891.0 678.0 883.5 688.5Q876.0 699.0 848.0 703.0L804.0 710.0L810.0 761.0L973.0 766.0L984.0 755.0V105.0Q984.0 86.0 989.0 74.0Q994.0 62.0 1016.0 58.0L1072.0 48.0V0.0ZM1395.0 -14.0Q1321.0 -14.0 1266.0 17.5Q1211.0 49.0 1181.5 106.5Q1152.0 164.0 1152.0 242.0Q1152.0 328.0 1183.0 390.5Q1214.0 453.0 1272.0 487.0Q1330.0 521.0 1409.0 521.0Q1482.0 521.0 1535.0 490.0Q1588.0 459.0 1617.0 402.0Q1646.0 345.0 1646.0 267.0Q1646.0 182.0 1615.0 118.5Q1584.0 55.0 1528.0 20.5Q1472.0 -14.0 1395.0 -14.0ZM1409.0 48.0Q1453.0 48.0 1483.0 70.5Q1513.0 93.0 1528.5 137.0Q1544.0 181.0 1544.0 243.0Q1544.0 294.0 1533.5 334.5Q1523.0 375.0 1503.5 403.5Q1484.0 432.0 1456.0 447.0Q1428.0 462.0 1393.0 462.0Q1348.0 462.0 1317.0 440.0Q1286.0 418.0 1269.5 376.0Q1253.0 334.0 1253.0 272.0Q1253.0 202.0 1272.0 152.0Q1291.0 102.0 1326.0 75.0Q1361.0 48.0 1409.0 48.0ZM1767.0 -14.0 1751.0 158.0 1807.0 162.0Q1821.0 124.0 1841.0 98.0Q1861.0 72.0 1888.0 59.0Q1915.0 46.0 1947.0 46.0Q1991.0 46.0 2016.0 68.5Q2041.0 91.0 2041.0 130.0Q2041.0 152.0 2030.5 167.0Q2020.0 182.0 1994.5 194.5Q1969.0 207.0 1924.0 219.0Q1880.0 231.0 1849.0 245.5Q1818.0 260.0 1799.0 278.0Q1780.0 296.0 1771.5 318.5Q1763.0 341.0 1763.0 371.0Q1763.0 417.0 1784.0 450.5Q1805.0 484.0 1844.0 502.5Q1883.0 521.0 1935.0 521.0Q1966.0 521.0 1996.5 511.5Q2027.0 502.0 2045.0 487.0L2053.0 521.0H2097.0L2110.0 358.0L2053.0 363.0Q2043.0 410.0 2011.0 438.5Q1979.0 467.0 1937.0 467.0Q1894.0 467.0 1870.5 448.0Q1847.0 429.0 1847.0 394.0Q1847.0 373.0 1857.0 358.0Q1867.0 343.0 1892.5 331.0Q1918.0 319.0 1962.0 306.0Q2007.0 293.0 2038.0 278.5Q2069.0 264.0 2088.0 246.0Q2107.0 228.0 2115.5 205.0Q2124.0 182.0 2124.0 152.0Q2124.0 103.0 2101.0 65.5Q2078.0 28.0 2038.0 7.0Q1998.0 -14.0 1945.0 -14.0Q1906.0 -14.0 1873.5 -5.0Q1841.0 4.0 1820.0 20.0L1809.0 -14.0ZM2356.0 -14.0Q2293.0 -14.0 2254.5 23.0Q2216.0 60.0 2216.0 121.0Q2216.0 176.0 2243.5 210.0Q2271.0 244.0 2334.0 261.5Q2397.0 279.0 2503.0 284.0V352.0Q2503.0 393.0 2491.5 419.0Q2480.0 445.0 2456.5 457.5Q2433.0 470.0 2395.0 470.0Q2368.0 470.0 2341.5 461.5Q2315.0 453.0 2303.0 440.0Q2312.0 425.0 2318.0 414.0Q2324.0 403.0 2326.5 396.0Q2329.0 389.0 2329.0 384.0Q2329.0 365.0 2313.5 352.0Q2298.0 339.0 2275.0 339.0Q2248.0 339.0 2233.0 352.5Q2218.0 366.0 2218.0 391.0Q2218.0 426.0 2244.5 455.5Q2271.0 485.0 2314.5 503.0Q2358.0 521.0 2409.0 521.0Q2472.0 521.0 2513.5 501.5Q2555.0 482.0 2575.5 442.0Q2596.0 402.0 2596.0 341.0V100.0Q2596.0 78.0 2607.5 67.0Q2619.0 56.0 2641.0 56.0Q2652.0 56.0 2663.0 58.0Q2674.0 60.0 2688.0 64.0L2698.0 26.0Q2680.0 9.0 2654.0 -2.5Q2628.0 -14.0 2606.0 -14.0Q2563.0 -14.0 2539.5 8.5Q2516.0 31.0 2511.0 75.0Q2492.0 45.0 2469.0 25.5Q2446.0 6.0 2418.0 -4.0Q2390.0 -14.0 2356.0 -14.0ZM2394.0 55.0Q2425.0 55.0 2449.5 69.0Q2474.0 83.0 2488.5 107.0Q2503.0 131.0 2503.0 161.0V232.0Q2439.0 232.0 2396.5 221.0Q2354.0 210.0 2333.5 188.0Q2313.0 166.0 2313.0 132.0Q2313.0 96.0 2335.0 75.5Q2357.0 55.0 2394.0 55.0ZM2757.0 247.0V329.0H3024.0V247.0ZM3362.0 -14.0Q3289.0 -14.0 3235.5 18.0Q3182.0 50.0 3152.5 109.0Q3123.0 168.0 3123.0 247.0Q3123.0 330.0 3153.5 391.5Q3184.0 453.0 3239.0 487.0Q3294.0 521.0 3367.0 521.0Q3422.0 521.0 3463.5 499.0Q3505.0 477.0 3528.0 437.0Q3551.0 397.0 3551.0 344.0Q3551.0 323.0 3547.5 298.0Q3544.0 273.0 3537.0 246.0H3224.0Q3226.0 188.0 3246.0 146.0Q3266.0 104.0 3301.5 82.0Q3337.0 60.0 3385.0 60.0Q3423.0 60.0 3459.0 76.0Q3495.0 92.0 3523.0 120.0L3558.0 85.0Q3524.0 39.0 3471.0 12.5Q3418.0 -14.0 3362.0 -14.0ZM3224.0 302.0H3454.0Q3456.0 312.0 3456.5 323.5Q3457.0 335.0 3457.0 348.0Q3457.0 407.0 3431.5 437.5Q3406.0 468.0 3356.0 468.0Q3318.0 468.0 3290.5 449.0Q3263.0 430.0 3246.0 393.0Q3229.0 356.0 3224.0 302.0Z'/%3E %3C/svg%3E") center / contain no-repeat;
+  display: inline-flex; align-items: center; gap: .6rem; min-height: 40px;
+  color: var(--tinta); text-decoration: none;
+}
+.marca::before {
+  content: ""; flex: none; width: 1.85rem; height: 1.55rem;
+  background: var(--acento);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 40' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 7 H8 V33 H16'/%3E%3Cpath d='M25 12 h21'/%3E%3Cpath d='M25 20 h21'/%3E%3Cpath d='M25 28 h13'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 40' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 7 H8 V33 H16'/%3E%3Cpath d='M25 12 h21'/%3E%3Cpath d='M25 20 h21'/%3E%3Cpath d='M25 28 h13'/%3E%3C/svg%3E") center / contain no-repeat;
   print-color-adjust: exact; -webkit-print-color-adjust: exact;
 }
-/* El nombre esta dibujado; esto es para quien no ve el dibujo. */
-.marca .nombre {
-  position: absolute; width: 1px; height: 1px; margin: -1px;
-  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+/* En alto contraste el sistema pinta los fondos a su manera y el signo, que
+   es un fondo, desaparecería. Se le da el color del texto del sistema. */
+@media (forced-colors: active) {
+  .marca::before { background: CanvasText; forced-color-adjust: none; }
 }
+.marca .nombre { font: 600 1.3rem/1 var(--serif); letter-spacing: -.01em; }
+.marca:hover .nombre { color: var(--acento); }
+.marca:focus-visible { outline: 2px solid var(--acento); outline-offset: 4px; border-radius: 4px; }
 
 /* --- La pestaña ----------------------------------------------------------
    La barra llevaba cuatro enlaces y el pie seis, y cada página nueva alargaba
