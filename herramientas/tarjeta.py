@@ -52,10 +52,39 @@ TINTA_2 = "#454b54"
 TENUE = "#676c76"
 BORDE = "#e3e0d7"
 ACENTO = "#1c4e80"
-BLOQUE = "#949494"
 
 ANCHO, ALTO = 1200, 630
 MARGEN = 84
+
+# La marca es la de la cabecera de la página, `.marca` en `web/glosa.css`, y
+# no otra. Hasta el 24-09-2026 la tarjeta pintaba la del favicon —el bloque
+# gris con dos líneas blancas— y el nombre en Literata 400; la página lleva el
+# signo en el azul del acento, sin caja y con tres líneas, y el nombre en 600.
+# Quien pegaba el enlace veía una marca que la página no usa.
+# `tests/test_tarjeta.py` lee estas cifras y las compara con las de la hoja.
+#
+# El signo, en la caja de su máscara (el `viewBox` de `.marca::before`).
+SIGNO_CAJA = (48, 40)
+SIGNO_TRAZOS = (
+    ((16, 7), (8, 7), (8, 33), (16, 33)),
+    ((25, 12), (46, 12)),
+    ((25, 20), (46, 20)),
+    ((25, 28), (38, 28)),
+)
+SIGNO_GROSOR = 3.5
+# Las medidas de la cabecera, en rem: el nombre, 1.3; la caja del signo,
+# 1.85 × 1.55; el hueco entre los dos, .6. Van tal cual y se escalan al tamaño
+# que lleve el nombre en la tarjeta.
+NOMBRE_REM, SIGNO_REM, HUECO_REM = 1.3, (1.85, 1.55), 0.6
+NOMBRE_PESO, NOMBRE_ESPACIADO = 600, -0.01
+# Dónde cae la línea de base del nombre bajo el centro del signo, en em.
+# Medido en el navegador el 24-09-2026: 0,4408. CSS centra la caja de línea y
+# no la letra, y Pillow no tiene cajas de línea, así que se copia la medida en
+# vez de rehacer el cálculo con métricas que no son las del navegador.
+BASE_BAJO_EL_CENTRO = 0.4408
+# El signo se pinta a este múltiplo y se reduce: Pillow no suaviza los trazos,
+# y a tamaño real salía dentado, que se veía en la tarjeta vieja.
+SOBREMUESTREO = 4
 
 DESTINO = pathlib.Path("web/marca/tarjeta.png")
 LETRA = pathlib.Path("web/letra/literata.woff2")
@@ -87,29 +116,50 @@ def _letra(ruta: str, tamano: int, peso: int) -> ImageFont.FreeTypeFont:
     return fuente
 
 
-def _marca(dibujo: ImageDraw.ImageDraw, x: int, y: int, lado: int) -> None:
-    """El bloque de la marca: el corchete y las dos líneas, en blanco.
+def _marca(lienzo: Image.Image, x: float, centro: float, tamano: float,
+           ruta_letra: str, signo: str = ACENTO, nombre: str = TINTA) -> float:
+    """La marca de la cabecera: el signo y «Glosa-e», con el nombre a `tamano` px.
 
-    Son las mismas coordenadas del icono de la página, sobre una caja de 64,
-    escaladas. Se redibujan en vez de traerse el SVG porque aquí hay que
-    rasterizar de todas formas y son seis trazos.
+    `x` es donde empieza el signo y `centro`, su centro vertical, que es la
+    línea sobre la que la cabecera alinea los dos. Devuelve dónde acaba el
+    nombre.
     """
-    dibujo.rectangle([x, y, x + lado, y + lado], fill=BLOQUE)
-    k = lado / 64
-    grosor = max(2, round(6 * k))
+    rem = tamano / NOMBRE_REM
+    ancho, alto = SIGNO_REM[0] * rem, SIGNO_REM[1] * rem
+    # `contain`: la máscara entra entera en su caja, escalada y centrada.
+    escala = min(ancho / SIGNO_CAJA[0], alto / SIGNO_CAJA[1])
+    izq = x + (ancho - SIGNO_CAJA[0] * escala) / 2
+    arriba = centro - SIGNO_CAJA[1] * escala / 2
 
-    def linea(puntos):
-        escalados = [(x + px * k, y + py * k) for px, py in puntos]
-        dibujo.line(escalados, fill="#ffffff", width=grosor, joint="curve")
-        # Pillow no tiene extremos redondeados, y el icono los lleva. Con los
-        # trazos cortados en recto la marca se ve distinta de la de la página.
+    k = SOBREMUESTREO
+    x0, y0 = int(izq) - 2, int(arriba) - 2
+    capa = Image.new("RGBA", ((int(ancho) + 5) * k, (int(alto) + 5) * k), (0, 0, 0, 0))
+    trazo = ImageDraw.Draw(capa)
+    grosor = SIGNO_GROSOR * escala * k
+    for puntos in SIGNO_TRAZOS:
+        escalados = [((izq - x0 + px * escala) * k, (arriba - y0 + py * escala) * k)
+                     for px, py in puntos]
+        trazo.line(escalados, fill=signo, width=round(grosor), joint="curve")
+        # Pillow no tiene extremos redondeados, y la máscara los lleva.
         for px, py in (escalados[0], escalados[-1]):
             r = grosor / 2
-            dibujo.ellipse([px - r, py - r, px + r, py + r], fill="#ffffff")
+            trazo.ellipse([px - r, py - r, px + r, py + r], fill=signo)
+    capa = capa.resize((capa.width // k, capa.height // k), Image.LANCZOS)
+    lienzo.paste(capa, (x0, y0), capa)
 
-    linea([(25, 17), (15, 17), (15, 47), (25, 47)])
-    linea([(34, 24), (50, 24)])
-    linea([(34, 40), (50, 40)])
+    # El nombre, letra a letra para poder apretarlo lo que la cabecera: cada
+    # letra va donde la deja la anterior, con su espaciado de par, menos el
+    # `letter-spacing`.
+    fuente = _letra(ruta_letra, round(tamano), NOMBRE_PESO)
+    dibujo = ImageDraw.Draw(lienzo)
+    empieza = x + ancho + HUECO_REM * rem
+    base = centro + BASE_BAJO_EL_CENTRO * tamano
+    palabra = "Glosa-e"
+    for i, letra in enumerate(palabra):
+        dx = fuente.getlength(palabra[:i + 1]) - fuente.getlength(letra)
+        dibujo.text((empieza + dx + i * NOMBRE_ESPACIADO * tamano, base), letra,
+                    font=fuente, fill=nombre, anchor="ls")
+    return empieza + fuente.getlength(palabra) + (len(palabra) - 1) * NOMBRE_ESPACIADO * tamano
 
 
 def dibujar(ruta_letra: str) -> Image.Image:
@@ -120,15 +170,7 @@ def dibujar(ruta_letra: str) -> Image.Image:
     # de la tarjeta: el resto es papel y tinta, como la página.
     dibujo.rectangle([0, 0, 10, ALTO], fill=ACENTO)
 
-    lado = 84
-    _marca(dibujo, MARGEN, MARGEN, lado)
-    dibujo.text(
-        (MARGEN + lado + 26, MARGEN + lado / 2),
-        "Glosa-e",
-        font=_letra(ruta_letra, 50, 400),
-        fill=TINTA,
-        anchor="lm",
-    )
+    _marca(lienzo, MARGEN, MARGEN + 42, 50, ruta_letra)
 
     # El titular. Es el de la portada, palabra por palabra: la tarjeta promete
     # lo que la página cumple, y si dijera otra cosa sería un anzuelo.

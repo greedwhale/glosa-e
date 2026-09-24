@@ -5834,3 +5834,41 @@ la de la página cambia, y la misma lógica se corre en Python contra las 390
 fichas de verdad. Provocado, cuatro roturas y cuatro rojos: que vuelva a
 mandar el texto, sin quitar tildes, el resumen quieto y los títulos sin
 contar.
+
+## La tarjeta social llevaba otra marca
+
+Lo vio el titular: la marca de la tarjeta no era la de la página. Medido en el
+código el 24-09-2026:
+
+| | Cabecera (`.marca`) | Tarjeta |
+|---|---|---|
+| Signo | corchete y **tres** líneas, la última más corta | corchete y **dos** líneas: el dibujo del favicon |
+| Color | trazo en `--acento`, sin caja | trazo blanco sobre el **bloque plata** |
+| Nombre | Literata **600**, `letter-spacing: -.01em` | Literata **400** |
+
+Es el mismo disfraz de siempre, en pequeño: el 23-09-2026 el bloque salió de la
+cabecera, `MARCA.md` dejó escrito que seguía en «el favicon, `glosa-e.svg` y
+la tarjeta social», y la tarjeta ni siquiera llevaba ese bloque, sino el del
+favicon, que es otro dibujo. Nada lo comparaba con nada.
+
+`herramientas/tarjeta.py` pinta ahora la marca de la cabecera con sus mismas
+cifras —la máscara de 48 × 40 con trazo de 3,5, la caja de 1,85 × 1,55 rem por
+cada 1,3 rem de nombre, el hueco de ,6 rem— y la línea de base del nombre donde
+la pone el navegador, que se midió allí: 0,4408 em bajo el centro del signo. El
+signo se pinta a cuatro veces y se reduce, porque Pillow no suaviza trazos y el
+viejo salía dentado. Con el nombre a 50 px, la marca entera mide 272,6 px en el
+navegador y 274,2 en la tarjeta: Pillow no tiene aquí `raqm` y no aplica el
+espaciado de pares de la letra, que es la diferencia.
+
+`test_la_marca_de_la_tarjeta_es_la_de_la_cabecera` lee esas cifras de
+`glosa.css` y del guion —sin importarlo, así que corre donde no hay Pillow— y
+las compara. `test_contraste.py` perdonaba el gris del bloque en la tarjeta, y
+ya no. Provocado, cinco roturas y cinco rojos: el signo con dos líneas, el
+nombre en 400, el bloque de vuelta, el signo en tinta y la tarjeta vieja
+publicada.
+
+Y una cosa de proceso, que no es de la tarjeta: el push anterior —el del
+filtro— se negó porque, mientras el gancho pasaba la suite, se estaba editando
+este guion en el mismo árbol, y la prueba de la tarjeta vio un dibujo que ya no
+era el publicado. El gancho hizo lo que tenía que hacer. Mientras corre, el
+árbol no se toca.

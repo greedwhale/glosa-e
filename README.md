@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2608 tests, todos en verde.
+2609 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4237,6 +4237,12 @@ Ahora pinta con `web/letra/literata.woff2`, que ya viene con el eje óptico en
 12 y los pesos de 400 a 600, y `tests/test_tarjeta.py` pinta la tarjeta y la
 compara con la publicada: 0 píxeles distintos con la de hoy, 5475 con la del
 gris viejo.
+
+La marca de la tarjeta es la de la cabecera —el signo en `--acento`, con sus
+tres líneas, y el nombre en Literata 600— y no el bloque del favicon, que es
+lo que pintaba hasta el 24-09-2026: la cabecera lo dejó el 23-09-2026 y la
+tarjeta se quedó atrás. El guion copia las cifras de `.marca` y la prueba las
+lee de la hoja y las compara, sin Pillow, así que corre también en GitHub.
 
 Y va con negativa, por lo mismo que la letra: un `og:image` que apunta a una
 dirección que da 404 no rompe nada y no da error **aquí**. Da error en la casa

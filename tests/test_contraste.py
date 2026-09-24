@@ -105,8 +105,9 @@ def test_la_tarjeta_pinta_con_los_colores_de_la_hoja():
     guion = TARJETA.read_text(encoding="utf-8")
     suyos = dict(re.findall(r'^([A-Z_0-9]+) = "(#[0-9a-fA-F]{6})"', guion, re.M))
     assert len(suyos) >= 5, "la prueba ya no encuentra los colores de la tarjeta"
-    # El bloque gris es el de la marca, no de la hoja: lo vigila test_marca.py.
-    suyos.pop("BLOQUE", None)
+    # Hasta el 24-09-2026 aquí se perdonaba `BLOQUE`, el gris del bloque de la
+    # marca. La cabecera lo dejó el 23-09-2026 y la tarjeta el 24: si vuelve,
+    # es la marca vieja, y tiene que salir aquí.
     ajenos = {k: v for k, v in suyos.items() if v.lower() not in claro}
     assert not ajenos, (
         "La tarjeta pinta con colores que glosa.css ya no tiene: "

@@ -163,8 +163,7 @@ al lado —el porqué entero, en el README— y la decisión fue del titular,
 porque cambiaba lo que este documento había fijado.
 
 Lo que cambia es dónde va el bloque, no la marca. El bloque sigue siendo la
-firma donde va suelto —el favicon, `web/marca/glosa-e.svg` y la tarjeta
-social—, y en la cabecera la llevan el signo, pintado con `--acento`, y el
+firma donde va suelto —el favicon y `web/marca/glosa-e.svg`—, y en la cabecera la llevan el signo, pintado con `--acento`, y el
 nombre en Literata 600, como texto. Como texto porque ya se puede: la razón
 de trazarlo era que cada máquina lo compondría con la serif que tuviera, y
 desde que la página sirve Literata eso ya no pasa. Y con los colores de la
@@ -182,6 +181,13 @@ y es el mismo dibujo que el de la zona de soltar; las siete páginas solo
 llevan el enlace, con el nombre dentro. Dos copias de un dibujo se acaban
 separando, y una marca que dice una cosa en la portada y otra en el aviso
 legal no se nota hasta que ya está publicada.
+
+**La tarjeta social, desde el 24-09-2026, lleva la marca de la cabecera**, por
+decisión del titular: es lo primero que se ve de la página antes de abrirla,
+y tiene que ser la página. La que llevaba ni siquiera era el bloque: era el
+dibujo del favicon —dos líneas y no tres, en blanco sobre la plata— con el
+nombre fuera y en 400. `herramientas/tarjeta.py` copia las cifras de
+`.marca` y `tests/test_tarjeta.py` las compara con la hoja.
 
 **Y se regenera, no se redibuja.** `web/marca/trazar.py` vuelve a trazar el
 bloque de la fuente. Hasta el 23-09-2026 escribía además su copia en la hoja
