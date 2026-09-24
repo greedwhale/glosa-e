@@ -5780,3 +5780,30 @@ Provocado, cuatro roturas y cuatro rojos: la tarjeta vieja de vuelta, otro gris
 en el guion sin repintar, otro titular, y el pie de las páginas con texto de
 más —que es la otra cosa de ese día: la línea de autoría pasó a ser
 «© 2026 Glosa-e» a secas, por decisión del titular, y una prueba lo exige—.
+
+## El filtro del catálogo contaba bien y no escondía nada
+
+En «Qué significa cada aviso», escribir en «Filtrar por código o por texto» no
+cambiaba la lista. Lo encontró el titular y se reprodujo en producción el
+24-09-2026: con `BR-01`, el contador decía «2 códigos de 390», las familias sin
+coincidencias desaparecían, y se seguían viendo las 390 fichas.
+
+El guion no fallaba: marcaba 388 fichas con `hidden`. Lo que fallaba era
+`hidden`. El navegador lo cumple con un `display: none` de su propia hoja, que
+es la que menos manda, y `.codigo-ficha` dice `display: grid`. Cualquier regla
+nuestra con `display` le gana. Las secciones sí se escondían porque nadie les
+había puesto `display`.
+
+El arreglo va en `glosa.css`, la hoja de todas las páginas, y no en el
+catálogo: `[hidden] { display: none !important; }`. El `!important` hace falta
+y se midió: sin él las dos reglas pesan lo mismo, gana la última, y la de cada
+página va detrás de la hoja compartida; con `BR-01` se veían 220 fichas en vez
+de 2. Antes de ponerla se miró que no cambiara nada más: en la portada, el
+aviso legal, el banco, la tesis, la bitácora, la 404 y una ficha de código,
+ningún elemento con `hidden` se estaba viendo.
+
+`TestElFiltro`, en `tests/test_pagina_incidencias.py`, exige la regla fuera de
+cualquier `@media` y con `!important`, y que el filtro siga escondiendo con
+`hidden`, que es lo que la hace necesaria. Provocado, cuatro roturas y cuatro
+rojos: sin la regla, sin `!important`, dentro de un `@media`, y el filtro
+cambiado a una clase.

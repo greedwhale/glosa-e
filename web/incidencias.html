@@ -214,6 +214,8 @@ function filtrar() {
   let vistos = 0;
   for (const f of fichas) {
     const cabe = !q || f.textContent.toLowerCase().includes(q);
+    // Esconde porque glosa.css obliga a `[hidden]`: sin esa regla, el
+    // `display: grid` de `.codigo-ficha` le ganaba y no se escondía ninguna.
     f.hidden = !cabe;
     if (cabe) vistos += 1;
   }

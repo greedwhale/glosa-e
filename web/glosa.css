@@ -109,6 +109,14 @@
 }
 
 * { box-sizing: border-box; }
+/* `hidden` esconde siempre. El navegador lo cumple con un `display: none` de
+   su propia hoja, que es la que menos manda: cualquier regla nuestra que diga
+   `display` le gana. Así estuvo el filtro del catálogo: marcaba 388 de las 390
+   fichas como escondidas, el contador decía «2 códigos de 390» y se seguían
+   viendo las 390, porque `.codigo-ficha` es una rejilla —medido en producción
+   el 24-09-2026—. Con `!important` y aquí, en la hoja de todas, un `display`
+   nuevo en cualquier página no puede volver a apagarlo sin que nadie lo vea. */
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;

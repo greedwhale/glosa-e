@@ -282,3 +282,62 @@ class TestLasDireccionesViejas:
             assert origen not in hay, f"{origen} es una ficha y se redirige"
             assert r["destination"] in hay, (
                 f"{origen} lleva a {r['destination']}, que no existe")
+
+
+class TestElFiltro:
+    """El buscador de arriba, «Filtrar por código o por texto».
+
+    Estuvo roto sin que nada lo dijera. El guion marcaba bien —el contador
+    decía «2 códigos de 390»— y se seguían viendo las 390 fichas: el
+    `display: grid` de `.codigo-ficha` le ganaba al `display: none` con el que
+    el navegador cumple `hidden`, que es la regla que menos manda. Medido en
+    producción el 24-09-2026. Lo arregla una regla de `glosa.css`, y esto
+    vigila que siga ahí, que siga mandando y que el filtro siga contando con
+    ella.
+    """
+
+    ESTILO = RAIZ / "web" / "glosa.css"
+
+    def _reglas_de_primer_nivel(self) -> list[tuple[str, str]]:
+        """(selector, cuerpo) de cada regla que no va dentro de otra.
+
+        Dentro de un `@media` no vale: esconder tiene que funcionar en todas
+        las pantallas, no en las que cumplan una condición.
+        """
+        css = re.sub(r"/\*.*?\*/", "", self.ESTILO.read_text(encoding="utf-8"),
+                     flags=re.S)
+        reglas, nivel, inicio, cuerpo, selector = [], 0, 0, 0, ""
+        for i, letra in enumerate(css):
+            if letra == "{":
+                if nivel == 0:
+                    selector, cuerpo = css[inicio:i].strip(), i + 1
+                nivel += 1
+            elif letra == "}":
+                nivel -= 1
+                if nivel == 0:
+                    reglas.append((selector, css[cuerpo:i].strip()))
+                    inicio = i + 1
+        return reglas
+
+    def test_hidden_esconde_aunque_la_pagina_diga_otro_display(self):
+        """`!important`, porque sin él manda el orden y `glosa.css` va antes.
+
+        Las dos reglas pesan lo mismo —una clase contra un atributo—, así que
+        gana la última, y la de cada página va en su `<style>`, detrás de la
+        hoja compartida. Sin `!important`, `.codigo-ficha` volvía a ganar.
+        """
+        cuerpos = [c for s, c in self._reglas_de_primer_nivel() if s == "[hidden]"]
+        assert any(re.fullmatch(r"display:\s*none\s*!important;?", c)
+                   for c in cuerpos), (
+            "glosa.css tiene que decir `[hidden] { display: none !important; }` "
+            "fuera de cualquier @media. Sin eso, el filtro del catálogo marca "
+            "las fichas como escondidas y se siguen viendo todas. Tiene: "
+            f"{cuerpos or 'ninguna regla [hidden] de primer nivel'}")
+
+    def test_el_catalogo_esconde_con_hidden_y_carga_esa_hoja(self, pagina):
+        """Si el filtro deja de usar `hidden`, la prueba de arriba no vigila nada."""
+        assert '<link rel="stylesheet" href="./glosa.css">' in pagina
+        assert "f.hidden = !cabe;" in pagina, (
+            "El filtro ya no esconde las fichas con `hidden`. Comprueba en el "
+            "navegador que las esconde de verdad y cambia esta prueba para que "
+            "vigile lo que use ahora.")
