@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2599 tests, todos en verde.
+2601 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4225,11 +4225,18 @@ es lo que la gente no pulsa.
 
 Ninguna red social admite SVG ahí —ni X, ni LinkedIn, ni WhatsApp, ni
 Facebook—, así que tiene que ser un PNG de 1200×630. Lo genera
-`herramientas/tarjeta.py` con la misma Literata 400 y los mismos colores de
-`glosa.css`, y va versionado ya hecho: armarlo al montar obligaría a instalar
-Pillow y a bajar un megabyte de tipografía **en cada despliegue**, para
-producir un fichero que cambia una vez cada seis meses. Es lo mismo que ya
-hacía `web/marca/trazar.py` con el logotipo.
+`herramientas/tarjeta.py` con la Literata que sirve la página y los mismos
+colores de `glosa.css`, y va versionado ya hecho: armarlo al montar obligaría
+a instalar Pillow **en cada despliegue**, para producir un fichero que cambia
+una vez cada seis meses. Es lo mismo que ya hacía `web/marca/trazar.py` con el
+logotipo.
+
+Hasta el 24-09-2026 el guion pedía bajar Literata de Google Fonts, y por eso,
+cuando la hoja cambió de gris el 23-09-2026, la tarjeta se quedó con el viejo.
+Ahora pinta con `web/letra/literata.woff2`, que ya viene con el eje óptico en
+12 y los pesos de 400 a 600, y `tests/test_tarjeta.py` pinta la tarjeta y la
+compara con la publicada: 0 píxeles distintos con la de hoy, 5475 con la del
+gris viejo.
 
 Y va con negativa, por lo mismo que la letra: un `og:image` que apunta a una
 dirección que da 404 no rompe nada y no da error **aquí**. Da error en la casa
@@ -4275,7 +4282,9 @@ regalarles posición.
 
 ### La línea de autoría, y lo que no dice
 
-En el pie de las seis páginas: **© 2026 Glosa-e · Los textos, de su autor.**
+En el pie de las siete páginas: **© 2026 Glosa-e**. Hasta el 24-09-2026
+seguía «· Los textos, de su autor.», y el titular la dejó en eso: de quién es
+cada cosa ya lo dice el aviso legal, con la licencia del código al lado.
 
 No dice «todos los derechos reservados», que es lo que se estila, por dos
 razones. La primera es que esa fórmula viene de un tratado americano de 1910 y
@@ -5057,9 +5066,9 @@ Lo que se vio en los demás y **no** se copia: pastillas del tipo «100 %
 Privado», rejillas de iconos, pasos 01/02/03, degradados, bloques de venta y
 avisos de cookies.
 
-Fuera de la lista, de antes: la tarjeta social (`web/marca/tarjeta.png`) sigue
-pintada con el gris anterior al del 23-09-2026, y regenerarla pide bajar
-Literata.
+Fuera de la lista, de antes: la tarjeta social (`web/marca/tarjeta.png`)
+seguía pintada con el gris anterior al del 23-09-2026. Regenerada el
+24-09-2026, con la Literata que sirve la página y sin bajar nada.
 
 ## La marca
 

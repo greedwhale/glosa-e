@@ -621,8 +621,8 @@ def test_lo_que_la_portada_dice_de_otros_lleva_fecha_y_donde_mirarlo():
     assert "mailto:" in nota, (
         "la nota de procedencia no deja avisar de que algo de esto ya no vale")
 
-def test_la_linea_de_autoria_es_la_misma_en_las_seis_paginas():
-    """Copiada en seis sitios, y por lo mismo que el menú: sin plantilla.
+def test_la_linea_de_autoria_es_la_misma_en_todas_las_paginas():
+    """Copiada en siete sitios, y por lo mismo que el menú: sin plantilla.
 
     Una línea de autoría que dice una cosa en la portada y otra en el aviso
     legal es peor que no tenerla — dice que nadie mira. Se compara letra por
@@ -643,8 +643,12 @@ def test_la_linea_de_autoria_es_la_misma_en_las_seis_paginas():
         + " ya no dicen lo mismo")
 
     # «Todos los derechos reservados» sería falso aquí: el validador se publica
-    # bajo AGPL y cualquiera puede usarlo y modificarlo. La línea habla de los
-    # textos, que es lo que sí está reservado.
+    # bajo AGPL y cualquiera puede usarlo y modificarlo. Desde el 24-09-2026 la
+    # línea es «© 2026 Glosa-e» a secas; de quién es cada cosa lo dice el aviso
+    # legal.
     assert "derechos reservados" not in dicen["index.html"].lower(), (
         "el código es AGPL-3.0-only: decir que todos los derechos están "
         "reservados contradice la licencia que el propio sitio publica")
+    assert re.fullmatch(r"© \d{4} Glosa-e", dicen["index.html"]), (
+        f"la línea de autoría dice «{dicen['index.html']}», y desde el "
+        "24-09-2026 es «© año Glosa-e» y nada más: lo decidió el titular")

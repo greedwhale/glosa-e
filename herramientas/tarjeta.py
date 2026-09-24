@@ -14,21 +14,27 @@ Facebook—, así que tiene que ser un PNG de verdad, de 1200x630.
 Por qué se genera aquí y no al montar el sitio
 ----------------------------------------------
 Igual que `web/marca/trazar.py`: la imagen se versiona ya hecha y este guion
-está para poder rehacerla. Generarla al montar obligaría a instalar Pillow y a
-bajar un megabyte de tipografía **en cada despliegue**, para producir un
-fichero que cambia una vez cada seis meses.
-
-Y por lo mismo que allí, la letra no se versiona: lo que se reparte es el PNG.
+está para poder rehacerla. Generarla al montar obligaría a instalar Pillow
+**en cada despliegue**, para producir un fichero que cambia una vez cada seis
+meses.
 
 Cómo se ejecuta
 ---------------
     pip install pillow                           # no es dependencia del proyecto
-    curl -L -o Literata.ttf \\
-      "https://raw.githubusercontent.com/google/fonts/main/ofl/literata/Literata%5Bopsz,wght%5D.ttf"
+    python -m herramientas.tarjeta
+
+Pinta con `web/letra/literata.woff2`, **la Literata que sirve la página**, y no
+hay que bajar nada. Hasta el 24-09-2026 pedía la de Google Fonts, y por eso,
+cuando la hoja cambió de gris el 23-09-2026, la tarjeta se quedó con el
+viejo: regenerarla exigía una descarga. La de la página vale igual: viene con el eje óptico ya
+fijado en 12, que es el que usa la marca, y con los pesos de 400 a 600, que son
+los dos que usa la tarjeta; y trae todas las letras que la tarjeta escribe. Se
+le puede pasar otra, como la de Google Fonts con sus dos ejes:
+
     python -m herramientas.tarjeta Literata.ttf
 
-La tipografía es **Literata 400**, bajo SIL Open Font License 1.1, la misma que
-la marca y la misma que sirve la página. Usar la del sistema aquí haría que la
+La tipografía es **Literata**, bajo SIL Open Font License 1.1, la misma que la
+marca y la misma que sirve la página. Usar la del sistema aquí haría que la
 tarjeta saliera distinta en cada máquina que la regenerase, que es justo lo que
 `trazar.py` documentó y resolvió para el logotipo.
 """
@@ -52,6 +58,7 @@ ANCHO, ALTO = 1200, 630
 MARGEN = 84
 
 DESTINO = pathlib.Path("web/marca/tarjeta.png")
+LETRA = pathlib.Path("web/letra/literata.woff2")
 
 
 def _letra(ruta: str, tamano: int, peso: int) -> ImageFont.FreeTypeFont:
@@ -59,7 +66,24 @@ def _letra(ruta: str, tamano: int, peso: int) -> ImageFont.FreeTypeFont:
     # El eje óptico fijo en 12, el mismo que usa `trazar.py` para la marca y
     # `letra.py` para la que sirve la página. Así el titular de la tarjeta y el
     # logotipo salen de la misma forma de letra.
-    fuente.set_variation_by_axes([12, peso])
+    #
+    # Los ejes se ponen por su nombre y no por su sitio: la Literata de Google
+    # trae dos, el óptico y el peso, y la que sirve la página solo el peso,
+    # porque el óptico ya viene fijado en 12. Por posición, un [12, peso]
+    # sobre la de la página pedía un peso de 12.
+    valores = []
+    for eje in fuente.get_variation_axes():
+        nombre = eje["name"].decode() if isinstance(eje["name"], bytes) else eje["name"]
+        if "weight" in nombre.lower():
+            if not eje["minimum"] <= peso <= eje["maximum"]:
+                raise SystemExit(f"{ruta} no llega al peso {peso}: va de "
+                                 f"{eje['minimum']} a {eje['maximum']}")
+            valores.append(peso)
+        elif "optical" in nombre.lower():
+            valores.append(12)
+        else:
+            valores.append(eje["default"])
+    fuente.set_variation_by_axes(valores)
     return fuente
 
 
@@ -136,12 +160,11 @@ def dibujar(ruta_letra: str) -> Image.Image:
 
 
 if __name__ == "__main__":
-    letra = sys.argv[1] if len(sys.argv) > 1 else "Literata.ttf"
+    letra = sys.argv[1] if len(sys.argv) > 1 else str(LETRA)
     if not pathlib.Path(letra).is_file():
         raise SystemExit(
-            f"no está «{letra}». Bájala con:\n"
-            '  curl -L -o Literata.ttf "https://raw.githubusercontent.com/'
-            'google/fonts/main/ofl/literata/Literata%5Bopsz,wght%5D.ttf"'
+            f"no está «{letra}». Se corre desde la raíz del repositorio, donde "
+            f"está {LETRA}, o se le pasa la letra como argumento."
         )
     DESTINO.parent.mkdir(parents=True, exist_ok=True)
     dibujar(letra).save(DESTINO, "PNG", optimize=True)

@@ -5754,3 +5754,29 @@ Los números de las tres partes del informe —«1 · La forma»— se miraron p
 si eran los pasos 01/02/03 que la lista dice que no se copian, y no lo son:
 repiten los de «Qué mira», que ya estaban, y dicen algo cierto, que son las
 mismas tres comprobaciones.
+
+## La tarjeta social, con el gris de la hoja
+
+El 23-09-2026 la hoja cambió de gris y `herramientas/tarjeta.py` se puso al
+día, pero **la tarjeta PNG no se regeneró**: hacía falta bajar Literata. La
+que ve quien pega el enlace en otro sitio llevaba el pie en `#6e747e`, y la
+hoja, `#676c76`.
+
+Regenerada el 24-09-2026, y sin bajar nada: el guion pinta ahora con
+`web/letra/literata.woff2`, la Literata que sirve la página. Vale igual que la
+de Google Fonts —el eje óptico ya viene en 12, el de la marca, y los pesos
+llegan de 400 a 600, los dos de la tarjeta; y trae todas sus letras—, y se
+midió: el titular sale con los mismos 22 459 píxeles de tinta que con la de
+Google. Los ejes se ponen ahora por nombre, porque esta trae uno y la otra dos,
+y por posición un «[12, peso]» pedía un peso de 12.
+
+`tests/test_tarjeta.py` pinta la tarjeta y la compara con la publicada: 0
+píxeles distintos con la de hoy, 5475 con la del gris viejo. Donde no hay
+Pillow —GitHub— se salta, porque no es dependencia del proyecto. Y comprueba
+que el titular y el lema son los de la portada, que el guion prometía y nadie
+miraba.
+
+Provocado, cuatro roturas y cuatro rojos: la tarjeta vieja de vuelta, otro gris
+en el guion sin repintar, otro titular, y el pie de las páginas con texto de
+más —que es la otra cosa de ese día: la línea de autoría pasó a ser
+«© 2026 Glosa-e» a secas, por decisión del titular, y una prueba lo exige—.
