@@ -5573,3 +5573,59 @@ un `order` en la herramienta.
 **En el móvil, esta tanda deja la zona peor**: a 375×812 empieza en 2,05
 pantallas, porque las tres glosas de muestra van delante de ella. Se arregla
 en la tanda siguiente, antes de publicar nada.
+
+## La zona de soltar, en la primera pantalla del móvil
+
+Tanda 4 del rediseño, el 24-09-2026, y la deuda que dejó la 3: la portada B
+subió la zona de soltar a 503 px en cualquier escritorio y **la bajó en el
+móvil**. En una columna el folio enseñaba primero sus tres glosas de muestra,
+que a 375 de ancho ocupaban 765 px, y la zona iba detrás.
+
+| Ancho | Zona de soltar, antes de la B | Con la B | Ahora |
+|---|---|---|---|
+| 375×812 | 1,22 pantallas | 1661 px, 2,05 pantallas | 610–809 px, entera |
+| 768×1024 | — | 962 px, asomaban 62 de 159 | 613–751 px, entera |
+| 1366×768 | 834 px | 503–662 px | 503–662 px, sin tocar |
+
+A 375×812 está entera también mientras carga, que es cuando el texto de la
+zona es más largo; a 320×640 empieza a 1,04 pantallas, sin nada que se salga
+de lado.
+
+### El folio, en estrecho, con la zona delante
+
+Por debajo de 54rem el folio pone la zona y las muestras primero, el arranque
+después y, debajo, «Así sale el informe» con las tres glosas. «Y aquí, al
+margen, las de la tuya» se va, porque ya no tiene glosas encima.
+
+Es la única excepción a que nada reordene la portada, y se puede hacer porque
+**lo que se mueve no se enfoca**: ni las glosas, ni su barra, ni el arranque
+tienen un enlace, un botón o un `tabindex`, así que el tabulador sigue
+recorriendo lo que se ve en el orden en que se ve.
+`tests/test_en_un_movil.py` lee los hijos del folio, los ordena como los
+pinta la hoja en estrecho y exige las dos cosas; y que no haya un `order`
+fuera del folio.
+
+### El testigo, en tres filas y un toque
+
+Era la propuesta 5: tres filas y un enlace a lo que ha pedido la página, para
+que la zona entre sin quitar el testigo de delante. En el móvil el testigo
+apilaba cada rótulo encima de su cifra, y eso ya no hacía falta: en escritorio
+va en una columna de 19rem, más estrecha que un móvil, y cabe en filas. Y su
+pie —lo pedido, la lista y la nota de lo que no alcanza a ver— es ahora un
+`<details>`: plegado en el móvil, «Qué ha pedido la página, y cómo se mide»,
+y abierto en ancho, sin rótulo que pulsar. El testigo pasa de 392 a 208 px.
+
+**Lo abre la hoja y no JavaScript**, con `::details-content`. El script corre
+después de pintar: abierto de salida, el móvil lo pintaba y lo recogía, y la
+zona saltaba; cerrado de salida, saltaba el escritorio. Medido en este
+Chromium que la regla lo abre. Un navegador sin `::details-content` —Firefox
+antes de la 143, Safari antes de la 18.4— lo deja plegado también en ancho:
+la nota queda a un toque, como en el móvil, y no se esconde. En esos dos no se
+ha probado.
+
+Provocado, seis roturas y seis rojos: las glosas sin su `order`, el folio
+sin `display: flex` —y entonces el `order` no hace nada—, un botón dentro de
+una glosa de muestra, el pie abierto de salida, la regla que lo abre sin
+`content-visibility` y un `order` fuera del folio. Quitarle el
+`order` a la zona no rompe nada, y la prueba lo deja pasar con razón: con 0
+sigue delante de 2, 3 y 4.

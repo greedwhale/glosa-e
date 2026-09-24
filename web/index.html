@@ -82,6 +82,25 @@
   font-size: var(--t1); color: var(--tinta-2); line-height: 1.5;
 }
 .testigo .pie p { margin: 0; }
+.testigo .pie > summary { margin-bottom: .1rem; }
+/* El pie del testigo. En el móvil se pliega, que es lo que prometía la
+   propuesta 5 del README: tres filas y un enlace a lo que ha pedido la página,
+   y así la zona de soltar entra en la primera pantalla sin quitar el testigo
+   de delante. En ancho va siempre abierto y sin rótulo que pulsar, porque la
+   nota es la que dice lo que el testigo no alcanza a ver.
+
+   Lo abre la hoja y no JavaScript, porque el script corre después de pintar:
+   abierto de salida, el móvil lo pintaba y lo recogía, y la zona saltaba; y
+   cerrado de salida, era el escritorio el que saltaba. Un navegador sin
+   `::details-content` —Firefox antes de la 143, Safari antes de la 18.4— lo
+   deja plegado también en ancho: la nota queda a un toque, como en el móvil,
+   y no se esconde. */
+@supports selector(::details-content) {
+  @media (width > 34rem) {
+    .testigo .pie::details-content { display: block; content-visibility: visible; }
+    .testigo .pie > summary { display: none; }
+  }
+}
 .testigo .pie .nota { margin-top: .35rem; font-size: var(--t0); color: var(--tenue); }
 .testigo details { margin-top: .25rem; }
 .testigo summary { cursor: pointer; color: var(--acento); font-size: var(--t1); font-variant-numeric: tabular-nums; }
@@ -203,20 +222,31 @@ main > .envoltorio > .ficha {
 }
 #informe:empty { display: none; }
 
-/* En estrecho, una columna: primero lo de la izquierda y después el folio. */
+/* En estrecho, una columna: primero lo de la izquierda y después el folio.
+
+   Y dentro del folio, la zona delante de las glosas. En una columna las tres
+   glosas de muestra ocupaban 765 px a 375 de ancho, y la zona empezaba a 2,05
+   pantallas; a 768×1024 asomaban 62 de sus 159 px. Se mueven solo bloques en
+   los que no hay nada que enfocar —las glosas, su barra y el arranque—, así
+   que el tabulador sigue recorriendo lo que se ve en el orden en que se ve:
+   tests/test_en_un_movil.py lo comprueba. «Al margen» deja de tener glosas
+   encima y se va. */
 @media (max-width: 54rem) {
   .portada { grid-template-columns: minmax(0, 1fr); gap: 1.75rem; }
   .portada .lema { max-width: 34rem; }
   main > .envoltorio > .ficha { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-/* En el movil el margen se come media pantalla y cada frase se parte en cinco
-   renglones. Como en la glosa del informe, el rotulo sube encima. */
-@media (max-width: 34rem) {
-  .portada { padding-top: 2rem; }
-  .testigo dl > div { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
-  .testigo dt { text-align: left; }
-  .suelta { grid-template-columns: minmax(0, 1fr); }
+  .folio { display: flex; flex-direction: column; }
+  .folio .suelta { order: 1; border-top: 0; grid-template-columns: minmax(0, 1fr); }
+  .folio .arranque { order: 2; }
+  .folio .folio-barra { order: 3; border-top: 1px solid var(--borde); }
+  .folio .muestra { order: 4; }
   .suelta .al-margen { display: none; }
+}
+/* En el móvil la glosa del informe sube el rótulo encima, porque el margen se
+   come media pantalla. El testigo no: cabe en su fila igual que en ancho, que
+   allí va en una columna de 19rem, más estrecha que un móvil. */
+@media (max-width: 34rem) {
+  .portada { padding-top: 1.5rem; gap: 1.25rem; }
   .suelta .mesa { padding: 1rem; }
 }
 
@@ -622,13 +652,18 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
               <span id="tg-guardado" hidden></span></dd>
             </div>
           </dl>
-          <div class="pie">
+          <!-- El pie, plegado en el móvil y abierto en ancho, y sin
+               JavaScript en ninguno de los dos: lo abre la hoja de estilo
+               (mira «El pie del testigo» en ella). Cerrado de salida, para que
+               el móvil no pinte el pie y lo recoja después. -->
+          <details class="pie" id="tg-pie">
+            <summary>Qué ha pedido la página, y cómo se mide</summary>
             <p id="tg-propias">Contando lo que pide la página…</p>
             <details id="tg-lista-caja" hidden><summary id="tg-lista-resumen">Ver cuáles</summary><ol id="tg-lista"></ol></details>
             <p class="nota">Cifras de tu propio navegador, y la página le prohíbe
             pedir nada a otro dominio. No ve tus extensiones ni las cookies
             HttpOnly: <a href="./legal.html#privacidad">así se mide</a>.</p>
-          </div>
+          </details>
         </aside>
       </div>
 

@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2551 tests, todos en verde.
+2555 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4863,8 +4863,8 @@ contado:
   petición se apunta cuando termina, y cerrar antes la dejaría fuera. Si cae
   algo de más, se cuenta de más.
 - **Dice lo que no ve.** Las cookies HttpOnly y lo que hagan las extensiones no
-  se ven desde la página, y el pie lo dice. Si el navegador no deja contar, el
-  testigo dice «sin contar» en vez de ceros.
+  se ven desde la página, y el pie lo dice —en el móvil, a un toque—. Si el
+  navegador no deja contar, el testigo dice «sin contar» en vez de ceros.
 - **Cuenta lo que ha viajado, no lo que ocupa.** Apuntaba
   `encodedBodySize` —el tamaño del cuerpo, venga de donde venga— y lo pintaba
   como red. Medido en una segunda visita: 21 de 23 ficheros no pasaron por la
@@ -5028,8 +5028,9 @@ se repasa todo junto y entonces se publica y se comprueba en producción.
 5. **El testigo, compacto en el móvil**: tres líneas y un enlace a lo que ha
    pedido la página. Así la zona entra en la primera pantalla sin quitar el
    testigo de delante; a cambio, las explicaciones quedan a un toque. —
-   *El testigo compacto entró en la tanda 3, en todos los anchos; la zona en
-   la primera pantalla del móvil, en la 4.*
+   *Tanda 3 y 4, hecha*: a 375×812 la zona está entera en la primera
+   pantalla, de 610 a 809 px, y el folio pone la zona delante de sus glosas
+   por debajo de 54rem.
 6. **La cabecera: el signo y el nombre en vez del bloque gris**, que a 40 px de
    alto parece una imagen que no ha cargado. **Reabre una decisión de
    [MARCA.md](MARCA.md)** —el bloque plateado es la firma—, así que la decidía
