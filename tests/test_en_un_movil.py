@@ -85,88 +85,60 @@ def test_lo_que_no_cabe_se_deja_partir(plantilla, selector, como):
         f"ser {como}. No son lo mismo: mira el docstring de esta prueba.")
 
 
-# --- El orden de la portada en estrecho ------------------------------------
+# --- El orden de la portada ------------------------------------------------
 #
 # A 375x812 no caben en una pantalla el testigo y la zona de soltar, así que
 # hubo que elegir qué va primero, y el 23-09-2026 se eligió **el testigo** —lo
 # dice el comentario de arriba de `index.html`: la respuesta a «¿adónde va
-# esto?» en la primera pantalla—. Lo que sí se movió es la ficha, que estaba
-# entre los dos: baja detrás de la herramienta. La zona pasó de empezar a 1,59
-# pantallas a 1,22, y a 768 px cabe entera en la primera.
+# esto?» en la primera pantalla—. La ficha, que estaba entre los dos, bajó
+# detrás de la herramienta.
 #
-# Se hace con `display: contents` y `order`, así que el orden que se ve ya no
-# es el del documento. Sin navegador, esta prueba lo calcula como lo haría él:
-# el `order` de cada pieza en la media query de estrecho, y a igual `order`,
-# el orden del documento.
+# Primero se hizo con `display: contents` y `order`, y el orden que se veía ya
+# no era el del documento. Desde la portada B, ese mismo día, el documento ya
+# está en ese orden: la ficha va debajo de la herramienta también en ancho. Así
+# que esto mira el documento, y que nada lo reordene por encima.
 
-ESTRECHO = "@media (max-width: 54rem)"
-
-# Las piezas, en el orden en que están escritas en index.html.
+# Las piezas, con lo que las marca en index.html, en el orden en que se leen.
 PIEZAS = [
-    ("titular", ".portada h1"),
-    ("lema", ".portada .lema"),
-    ("testigo", ".testigo"),
-    ("ficha", ".portada .ficha"),
-    ("herramienta", "#herramienta"),
-    ("resto", "#herramienta ~ *"),
+    ("titular", "<h1>"),
+    ("lema", '<p class="lema">'),
+    ("testigo", '<aside class="testigo"'),
+    ("herramienta", '<section id="herramienta"'),
+    ("ficha", '<dl class="ficha">'),
+    ("resto", '<section id="que-mira">'),
 ]
 
 
-def _estrecho() -> dict[str, str]:
-    """Selector -> declaraciones, de la media query de estrecho de la portada."""
+def _reglas_de_index() -> list[tuple[str, str]]:
+    """(selector, declaraciones) de cada regla de la hoja de index.html."""
     texto = (WEB / "index.html").read_text(encoding="utf-8")
-    estilo = re.search(r"<style>(.*?)</style>", texto, re.S)[1]
-    estilo = re.sub(r"/\*.*?\*/", "", estilo, flags=re.S)
-    assert estilo.count(ESTRECHO) == 1, (
-        f"index.html tiene {estilo.count(ESTRECHO)} «{ESTRECHO}» y esta prueba "
-        "espera una")
-    desde = estilo.index("{", estilo.index(ESTRECHO)) + 1
-    nivel, hasta = 1, desde
-    while nivel:
-        nivel += {"{": 1, "}": -1}.get(estilo[hasta], 0)
-        hasta += 1
-    reglas = {}
-    for selectores, cuerpo in re.findall(r"([^{}]+)\{([^{}]*)\}", estilo[desde:hasta - 1]):
-        for selector in selectores.split(","):
-            reglas[" ".join(selector.split())] = reglas.get(
-                " ".join(selector.split()), "") + cuerpo
-    return reglas
+    estilo = re.sub(r"/\*.*?\*/", "", re.search(r"<style>(.*?)</style>", texto, re.S)[1],
+                    flags=re.S)
+    return [(" ".join(s.split()), c) for s, c in re.findall(r"([^{}]+)\{([^{}]*)\}", estilo)]
 
 
-def test_en_estrecho_la_ficha_va_detras_de_la_herramienta_y_el_testigo_delante():
-    reglas = _estrecho()
-    for contenedor in (".portada", ".portada .cuerpo"):
-        assert re.search(r"display:\s*contents", reglas.get(contenedor, "")), (
-            f"{contenedor} ya no es `display: contents` en estrecho, y sin eso "
-            "el `order` de lo que lleva dentro no hace nada")
-    assert re.search(r"display:\s*flex", reglas.get("main > .envoltorio", "")), (
-        "el envoltorio ya no es flex en estrecho: el `order` no hace nada")
-
-    def orden(selector):
-        dice = re.search(r"(?<![\w-])order:\s*(-?\d+)", reglas.get(selector, ""))
-        return int(dice[1]) if dice else 0
-
-    se_ve = [nombre for _, (nombre, selector) in sorted(
-        enumerate(PIEZAS), key=lambda par: (orden(par[1][1]), par[0]))]
-    assert se_ve == ["titular", "lema", "testigo", "herramienta", "ficha", "resto"], (
-        "En estrecho la portada se ve en este orden: " + ", ".join(se_ve) + ". "
+def test_la_portada_se_lee_en_el_orden_del_documento():
+    texto = (WEB / "index.html").read_text(encoding="utf-8")
+    donde = {}
+    for nombre, marca in PIEZAS:
+        assert texto.count(marca) == 1, f"index.html lleva {texto.count(marca)} «{marca}»"
+        donde[nombre] = texto.index(marca)
+    se_lee = sorted(donde, key=donde.get)
+    assert se_lee == [nombre for nombre, _ in PIEZAS], (
+        "La portada está escrita en este orden: " + ", ".join(se_lee) + ". "
         "El testigo va delante de la herramienta por decisión —el comentario de "
         "arriba de index.html— y la ficha detrás, antes que las secciones.")
 
 
-def test_la_ficha_no_tiene_nada_que_se_pueda_pulsar():
-    """Lo que hace que moverla con `order` no descoloque el teclado.
+def test_nada_reordena_la_portada_por_encima_del_documento():
+    """El tabulador sigue el documento; la vista tiene que seguirlo también.
 
-    El tabulador sigue el orden del documento, no el que se ve. Mientras la
-    ficha no tenga nada enfocable, da igual dónde se pinte; el día que lleve un
-    enlace, el foco saltaría de la zona de soltar hacia atrás, a la ficha, y
-    habría que moverla en el HTML.
+    `display: contents` era lo que dejaba a `order` mover la ficha por encima
+    de su sitio. Si vuelve alguno de los dos sobre las piezas de la portada, lo
+    que se ve y lo que recorre el teclado dejan de ser lo mismo.
     """
-    texto = (WEB / "index.html").read_text(encoding="utf-8")
-    fichas = re.findall(r'<dl class="ficha">(.*?)</dl>', texto, re.S)
-    assert len(fichas) == 1, f"index.html tiene {len(fichas)} fichas y esta prueba espera una"
-    enfocable = re.search(r"<(a|button|input|select|textarea|summary)\b|tabindex=", fichas[0])
-    assert not enfocable, (
-        f"La ficha de la portada lleva «{enfocable[0]}». En estrecho se pinta "
-        "detrás de la herramienta sin moverla en el documento, así que el foco "
-        "del teclado ya no seguiría a lo que se ve.")
+    piezas = (".portada", ".presenta", ".testigo", "#herramienta", ".ficha", ".lema", "h1")
+    malas = [selector for selector, cuerpo in _reglas_de_index()
+             if any(p in selector for p in piezas)
+             and re.search(r"(?<![\w-])order:|display:\s*contents", cuerpo)]
+    assert not malas, f"estas reglas reordenan la portada: {malas}"

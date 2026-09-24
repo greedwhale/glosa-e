@@ -8,31 +8,41 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23949494'/%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M25 17 H15 V47 H25'/%3E%3Cpath d='M34 24 h16'/%3E%3Cpath d='M34 40 h16'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="./glosa.css">
 <style>
-/* --- La portada: el lema, el testigo y la ficha --------------------------
-   El testigo va al lado del lema y no debajo de todo porque es la primera
-   pregunta de quien llega con una factura ajena en la mano —¿adónde va esto?—
-   y la respuesta tiene que estar en la primera pantalla, también en el movil.
-   En estrecho va detrás del lema, por lo mismo, y la ficha baja detrás de la
-   herramienta: más abajo está por qué.
+/* --- La portada: el titular a un lado, la herramienta al otro -----------
+   Rehecha el 23-09-2026, tras mirarla contra las que hacen lo mismo. La zona
+   de soltar empezaba a 834 px en cualquier escritorio: a 1366x768 no asomaba,
+   y los cinco validadores españoles que siguen en pie ponen la herramienta en
+   la primera pantalla. Ahora va arriba a la derecha, dentro de un folio que
+   enseña antes lo que devuelve: tres glosas de las facturas de muestra. Es la
+   dirección B del repaso, «el folio glosado», y la eligió el titular.
 
-   La forma es la de la glosa del informe: el rotulo en el margen, contra un
-   filete, y lo medido al lado. Sin tics verdes ni sellos: un tic verde es
-   justo lo que esta pagina se dedica a no pintar sin decir contra que. */
-.portada .cuerpo {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 23rem);
-  grid-template-areas: "lema testigo" "ficha testigo";
-  grid-template-rows: auto 1fr; gap: 0 3rem; align-items: start;
+   A la izquierda, el titular, el lema y el testigo. El testigo va en la
+   primera pantalla porque es la primera pregunta de quien llega con una
+   factura ajena en la mano —¿adónde va esto?—, también en el móvil.
+
+   El orden del documento es el que se ve, en todos los anchos: titular, lema,
+   testigo, herramienta y, debajo, la ficha. Hasta ahora la ficha iba entre el
+   lema y la herramienta y en estrecho se reordenaba con `display: contents` y
+   `order`; ya no hace falta, y el tabulador va por donde va la vista. */
+.portada {
+  display: grid; grid-template-columns: minmax(0, 19rem) minmax(0, 1fr);
+  gap: 0 2.5rem; align-items: start; padding: 2.5rem 0 2.5rem;
 }
-.portada .lema { grid-area: lema; }
-.portada .ficha { grid-area: ficha; }
+.portada h1 { font-size: clamp(2.1rem, 3.6vw, 2.6rem); line-height: 1.08; }
+.portada .lema { font-size: var(--t2); line-height: 1.55; margin-bottom: 1.4rem; }
+
+/* El testigo. La forma es la de la glosa del informe: el rótulo en el margen,
+   contra un filete, y lo medido al lado. Sin tics verdes ni sellos: un tic
+   verde es justo lo que esta página se dedica a no pintar sin decir contra
+   qué. */
 .testigo {
-  grid-area: testigo; background: var(--panel); border: 1px solid var(--borde);
-  border-radius: 12px; box-shadow: var(--sombra); padding: .95rem 1.15rem 1rem;
+  background: var(--panel); border: 1px solid var(--borde);
+  border-radius: 12px; padding: .85rem 1.1rem .9rem;
 }
-.testigo .cabeza { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; margin-bottom: .35rem; }
+.testigo .cabeza { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; margin-bottom: .3rem; }
 .testigo h2 {
   font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em;
-  color: var(--tenue); font-weight: 600;
+  color: var(--tinta-2); font-weight: 600;
 }
 .testigo .vivo { font-size: var(--t0); color: var(--tenue); white-space: nowrap; }
 .testigo .vivo::before {
@@ -49,25 +59,32 @@
 .testigo .vivo.sin::before { background: var(--aviso); }
 .testigo dl { margin: 0; }
 .testigo dl > div {
-  display: grid; grid-template-columns: 5.25rem minmax(0, 1fr); gap: 0 1rem;
-  padding: .7rem 0; border-top: 1px dashed var(--borde);
+  display: grid; grid-template-columns: 5.25rem minmax(0, 1fr); gap: 0 .9rem;
+  align-items: baseline; padding: .5rem 0; border-top: 1px dashed var(--borde);
 }
 .testigo dt {
   font-size: var(--t0); text-transform: uppercase; letter-spacing: .09em;
-  font-weight: 700; color: var(--tinta-2); text-align: right; padding-top: .2rem;
+  font-weight: 700; color: var(--tinta-2); text-align: right;
 }
 .testigo dd {
-  margin: 0; padding-left: .9rem; border-left: 2px solid var(--borde);
-  font-size: var(--t1); color: var(--tinta-2); line-height: 1.5;
+  margin: 0; padding-left: .8rem; border-left: 2px solid var(--borde);
+  font-size: var(--t1); color: var(--tinta-2); line-height: 1.45;
 }
 .testigo dd b {
   display: block; color: var(--tinta); font-weight: 600; font-size: var(--t2);
-  font-variant-numeric: tabular-nums; margin-bottom: .1rem;
+  font-variant-numeric: tabular-nums;
 }
 .testigo dd b.mal { color: var(--error); }
-.testigo dd span { display: block; }
-.testigo details { margin-top: .3rem; }
-.testigo summary { cursor: pointer; color: var(--acento); font-size: var(--t0); font-variant-numeric: tabular-nums; }
+.testigo dd span { display: block; margin-top: .15rem; }
+.testigo dd span[hidden] { display: none; }
+.testigo .pie {
+  border-top: 1px dashed var(--borde); padding-top: .55rem;
+  font-size: var(--t1); color: var(--tinta-2); line-height: 1.5;
+}
+.testigo .pie p { margin: 0; }
+.testigo .pie .nota { margin-top: .35rem; font-size: var(--t0); color: var(--tenue); }
+.testigo details { margin-top: .25rem; }
+.testigo summary { cursor: pointer; color: var(--acento); font-size: var(--t1); font-variant-numeric: tabular-nums; }
 .testigo summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 3px; }
 .testigo ol {
   list-style: none; margin: .45rem 0 0; padding: .45rem .6rem; max-height: 11rem;
@@ -78,39 +95,6 @@
 .testigo ol li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .testigo ol li span:last-child { flex: none; color: var(--tenue); font-variant-numeric: tabular-nums; }
 .testigo ol li.ajeno { color: var(--error); }
-.testigo .pie { font-size: var(--t0); color: var(--tenue); margin: .55rem 0 0; line-height: 1.5; }
-/* En estrecho no caben en una pantalla el testigo y la zona de soltar: a
-   375x812, lo de arriba acaba en 390 px, el testigo mide 508 y la herramienta
-   con su barra de arranque unos 560. Hay que elegir qué va primero, y se eligió
-   el testigo —lo de arriba—. Lo que sí sobraba era la ficha entre los dos:
-   baja detrás de la herramienta, que es lo que describe, y leída después dice
-   lo mismo. Medido el 23-09-2026: la zona empezaba a 1,59 pantallas y
-   ahora a 1,22; a 768 px, que antes asomaba, cabe entera en la primera. En
-   ancho no cambia un píxel.
-
-   Con `display: contents` y `order`, y no moviendo el HTML, porque en ancho
-   la ficha tiene que seguir debajo del lema. Y se puede sin descolocar el
-   teclado porque la ficha no tiene nada que se pueda pulsar: el orden del
-   documento sigue siendo el que se ve. Lo vigila tests/test_en_un_movil.py. */
-@media (max-width: 54rem) {
-  main > .envoltorio { display: flex; flex-direction: column; }
-  .portada, .portada .cuerpo { display: contents; }
-  /* El relleno de .portada, que con `contents` ya no pinta. El de abajo lo
-     pone el de la sección de la herramienta. */
-  .portada h1 { margin-top: 4.5rem; }
-  .testigo { margin-top: 1.5rem; }
-  .portada .ficha { order: 1; margin: 0 0 3.5rem; }
-  #herramienta ~ * { order: 2; }
-}
-@media (max-width: 34rem) { .portada h1 { margin-top: 3rem; } }
-/* En el movil el margen se come media pantalla y cada frase se parte en cinco
-   renglones: el testigo medía 540 px y empujaba la zona de soltar a la tercera
-   pantalla. Como en la glosa del informe, el rotulo sube encima. */
-@media (max-width: 34rem) {
-  .testigo dl > div { grid-template-columns: minmax(0, 1fr); gap: .2rem; padding: .6rem 0; }
-  .testigo dt { text-align: left; padding-top: 0; }
-  .testigo dd { padding-left: .75rem; }
-}
 @media (prefers-reduced-motion: reduce) { .testigo .vivo.late::before { animation: none; } }
 
 /* La linea del informe que dice lo que se pidio mientras se leia. Pequena y
@@ -118,31 +102,124 @@
 .veredicto p.red { margin-top: .6rem; font-size: var(--t0); color: var(--tenue); }
 .veredicto p.red.mal { color: var(--error); font-weight: 600; }
 
-/* --- La herramienta ------------------------------------------------------ */
-#herramienta { scroll-margin-top: 5rem; }
-.caja-suelta { box-shadow: var(--sombra); padding: 0; overflow: hidden; }
-#zona {
-  padding: 3rem 1.5rem; text-align: center; cursor: pointer;
-  border: 2px dashed var(--borde-fuerte); border-radius: 12px; margin: -1px;
-  background: var(--panel); transition: background .15s, border-color .15s;
+/* --- La herramienta: el folio ---------------------------------------------
+   Un informe de muestra con la zona de soltar dentro, en el sitio de la
+   glosa siguiente: «y aquí, al margen, las de la tuya». Enseña lo que da esto
+   antes de pedir nada, que es lo que hace Squoosh con sus imágenes de prueba;
+   y lo hace con la forma exacta del informe, porque es la forma de la marca.
+   Las glosas son las del informe, `.glosa`, con el margen más estrecho: el
+   folio mide la mitad. */
+#herramienta { padding: 0; scroll-margin-top: 5rem; }
+.folio {
+  background: var(--panel); border: 1px solid var(--borde);
+  border-radius: 8px; box-shadow: var(--sombra); overflow: hidden;
 }
+.folio-barra {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: .15rem 1rem; padding: .6rem 1.25rem; background: var(--panel-2);
+  border-bottom: 1px solid var(--borde); font-size: var(--t1); color: var(--tenue);
+}
+.folio-barra .rotulo { margin: 0; color: var(--tinta-2); }
+.folio .glosa { grid-template-columns: 8.75rem minmax(0, 1fr); }
+.folio .muestra .glosa:first-child { border-top: 0; }
+.folio .glosa .margen { padding: .75rem 1rem .75rem .75rem; }
+.folio .glosa .cuerpo { padding: .75rem 1.25rem .8rem 1.4rem; }
+.folio .glosa .cuerpo::before { top: .7rem; bottom: .7rem; }
+/* El dato en una línea con puntos hasta la cifra, como en un libro de
+   cuentas: el campo a la izquierda y lo que tiene, a la derecha. Si no cabe,
+   la cifra baja entera a la línea siguiente y no se parte. */
+.folio .dato {
+  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .5rem;
+  margin: 0 0 .2rem; font: var(--t1)/1.45 var(--mono);
+}
+.folio .dato i { flex: 1 1 1.5rem; border-bottom: 1px dotted var(--borde-fuerte); }
+.folio .dato b { margin-left: auto; font-weight: 600; }
+.folio .mensaje { margin: 0; font-size: var(--t1); line-height: 1.5; color: var(--tinta-2); }
+
+.suelta { display: grid; grid-template-columns: 8.75rem minmax(0, 1fr); border-top: 1px solid var(--borde); }
+.suelta .al-margen {
+  margin: 0; padding: 1.1rem 1rem 1rem .75rem; text-align: right;
+  border-right: 1px solid var(--borde); font-size: var(--t1); line-height: 1.45; color: var(--tenue);
+}
+.suelta .mesa { padding: 1rem 1.25rem 1.1rem; }
+/* El signo a la izquierda y, a su lado, lo que dice con el botón debajo. En
+   una fila de tres, al folio le quedaban 180 px para el texto y el titular se
+   partía en dos renglones. */
+#zona {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start;
+  gap: .6rem 1rem; padding: 1rem 1.15rem 1.1rem;
+  border: 2px dashed var(--borde-fuerte); border-radius: 10px; cursor: pointer;
+  background: var(--papel); transition: background .15s, border-color .15s;
+}
+#zona:focus-visible { outline: 2px solid var(--acento); outline-offset: 3px; }
 #zona[aria-disabled="true"] { cursor: progress; opacity: .65; }
 #zona.encima { border-color: var(--acento); background: var(--acento-flojo); }
-#zona .icono { color: var(--acento); }
-#zona .icono svg { width: 2.5rem; height: auto; }
-#zona .grande { font-size: var(--t3); font-weight: 600; margin: .8rem 0 .3rem; }
-#zona .chica { color: var(--tenue); font-size: var(--t1); }
+#zona .icono { color: var(--acento); padding-top: .15rem; }
+#zona .icono svg { display: block; width: 2.4rem; height: auto; }
+#zona .dice { min-width: 0; }
+#zona .grande { font-size: var(--t3); font-weight: 600; margin: 0 0 .15rem; }
+#zona .chica { font-size: var(--t1); line-height: 1.45; color: var(--tenue); margin: 0; }
+#zona .como-boton {
+  grid-column: 2; justify-self: start; padding: .55rem 1rem; border-radius: 8px; background: var(--acento);
+  color: #fff; font-size: var(--t1); font-weight: 600; white-space: nowrap;
+}
+@media (prefers-color-scheme: dark) { #zona .como-boton { color: #10161d; } }
 
-.arranque { padding: 1.15rem 1.5rem; border-top: 1px solid var(--borde); background: var(--panel-2); }
+/* Las cuatro muestras: el nombre del fichero, que es lo que se pulsa, y el
+   formato al lado, cada una entera y una detrás de otra. En dos columnas el
+   nombre se partía por el guion, «fe-» en un renglón y «0001.xml» en otro. El formato se comprueba contra lo que
+   detecta el validador: tests/test_portada.py. */
+.muestras { margin-top: .75rem; font-size: var(--t1); color: var(--tinta-2); }
+.muestras p { margin: 0 0 .2rem; }
+.muestras ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0 1.1rem; }
+.muestras li { display: flex; align-items: baseline; gap: .45rem; white-space: nowrap; }
+.muestras button {
+  font: var(--t1)/1.3 var(--mono); color: var(--acento); background: none; border: 0;
+  padding: .3rem 0; cursor: pointer; text-decoration: underline;
+  text-decoration-thickness: 1px; text-underline-offset: .18em;
+}
+.muestras button:hover:not(:disabled) { color: var(--tinta); }
+.muestras button:disabled { color: var(--tenue); cursor: default; text-decoration: none; }
+.muestras button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 3px; }
+.muestras li span { color: var(--tenue); }
+
+.arranque { padding: .8rem 1.25rem .85rem; border-top: 1px solid var(--borde); background: var(--panel-2); }
 .arranque .cabeza { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
 .arranque .cabeza strong { font-size: var(--t1); }
 .arranque .cabeza span { color: var(--tenue); font-size: var(--t1); }
-.riel { height: 3px; background: var(--borde); border-radius: 2px; margin: .8rem 0 .7rem; overflow: hidden; }
+.riel { height: 3px; background: var(--borde); border-radius: 2px; margin: .7rem 0 .6rem; overflow: hidden; }
 .riel i { display: block; height: 100%; width: 0; background: var(--acento); transition: width .4s ease; }
 .fases { display: flex; flex-wrap: wrap; gap: .35rem .9rem; font-size: var(--t1); color: var(--tenue); }
 .fases span { font-variant-numeric: tabular-nums; }
 .fases span.hecha::before { content: "✓ "; color: var(--bien); }
 .arranque.listo .riel { display: none; }
+
+/* La ficha, debajo de la portada y de la herramienta que describe: una fila
+   de campo y valor entre dos filetes, como el «Qué se ha mirado» del informe. */
+main > .envoltorio > .ficha {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem 1.5rem;
+  margin: 0; padding: 1.1rem 0 1.2rem;
+  border-top: 1px solid var(--borde-fuerte); border-bottom: 1px solid var(--borde);
+}
+#informe:empty { display: none; }
+
+/* En estrecho, una columna: primero lo de la izquierda y después el folio. */
+@media (max-width: 54rem) {
+  .portada { grid-template-columns: minmax(0, 1fr); gap: 1.75rem; }
+  .portada .lema { max-width: 34rem; }
+  main > .envoltorio > .ficha { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* En el movil el margen se come media pantalla y cada frase se parte en cinco
+   renglones. Como en la glosa del informe, el rotulo sube encima. */
+@media (max-width: 34rem) {
+  .portada { padding-top: 2rem; }
+  .testigo dl > div { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
+  .testigo dt { text-align: left; }
+  .suelta { grid-template-columns: minmax(0, 1fr); }
+  .suelta .al-margen { display: none; }
+  .suelta .mesa { padding: 1rem; }
+}
+
 
 /* --- El informe ----------------------------------------------------------
    Pasado a limpio el 23-09-2026. El veredicto era una tarjeta con una raya de
@@ -490,9 +567,16 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 <main>
   <div class="envoltorio">
 
+    <!-- La portada B, «el folio glosado».
+
+         A la izquierda, qué es esto y adónde va tu factura; a la derecha, la
+         herramienta, dentro de un folio que enseña antes lo que devuelve. Es
+         el orden en que se lee y el del teclado, en todos los anchos: en
+         estrecho, lo de la derecha baja detrás de lo de la izquierda, y la
+         ficha detrás de las dos. -->
     <div class="portada">
-      <h1>La factura electrónica,<br>en castellano.</h1>
-      <div class="cuerpo">
+      <div class="presenta">
+        <h1>La factura electrónica,<br>en castellano.</h1>
         <p class="lema"><b>Lo que dice tu factura, y lo que no se ha podido mirar.</b>
         Suelta un fichero y el informe dice qué pone, contra qué norma se ha
         comprobado y qué se ha quedado fuera. Gratis y sin registro.</p>
@@ -507,6 +591,12 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
              directo, mientras el validador se descarga; y la lista de ficheros
              está a un clic.
 
+             Compacto desde el 23-09-2026: la cifra de cada fila, y debajo lo
+             que ha pedido la página. Las dos explicaciones que iban en las
+             filas —la de la factura y la de lo guardado— solo aparecen cuando
+             tienen algo que contar: cuando se ha leído una factura, o cuando
+             hay algo guardado en el navegador.
+
              Dice lo que no alcanza a ver, porque es verdad: lo que hagan las
              extensiones del navegador y las cookies HttpOnly no se ven desde
              la página. Y si el navegador no deja contar, lo dice en vez de
@@ -520,83 +610,140 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             <div>
               <dt>Tu factura</dt>
               <dd><b id="tg-factura">No sale de aquí</b>
-              <span id="tg-factura-pie">Se lee en este navegador. Al soltarla,
-              aquí se cuenta lo que pide la página mientras tanto.</span></dd>
+              <span id="tg-factura-pie" hidden></span></dd>
             </div>
             <div>
               <dt>Terceros</dt>
-              <dd><b id="tg-ajenos">—</b>
-              <span id="tg-propias">Contando lo que pide la página…</span>
-              <details id="tg-lista-caja" hidden><summary id="tg-lista-resumen">Ver cuáles</summary><ol id="tg-lista"></ol></details></dd>
+              <dd><b id="tg-ajenos">—</b></dd>
             </div>
             <div>
               <dt>Cookies</dt>
               <dd><b id="tg-cookies">—</b>
-              <span id="tg-guardado">Ni analítica ni rastreo, y nada guardado en el navegador.</span></dd>
+              <span id="tg-guardado" hidden></span></dd>
             </div>
           </dl>
-          <p class="pie">Cifras de tu propio navegador, leídas por esta página,
-          que además le prohíbe pedir nada a otro dominio. Lo que no alcanza a
-          ver —tus extensiones, las cookies HttpOnly— está en sus herramientas
-          de desarrollo; <a href="./legal.html#privacidad">así se midió</a>.</p>
+          <div class="pie">
+            <p id="tg-propias">Contando lo que pide la página…</p>
+            <details id="tg-lista-caja" hidden><summary id="tg-lista-resumen">Ver cuáles</summary><ol id="tg-lista"></ol></details>
+            <p class="nota">Cifras de tu propio navegador, y la página le prohíbe
+            pedir nada a otro dominio. No ve tus extensiones ni las cookies
+            HttpOnly: <a href="./legal.html#privacidad">así se mide</a>.</p>
+          </div>
         </aside>
-
-        <!-- «si hay lista» no sobra. De las tres cosas que se miran de una
-             firma, la revocación es la única que puede quedarse sin contestar:
-             hace falta una CRL o una respuesta OCSP, y este validador no sale a
-             la red a buscarlas. La condición estaba escrita, pero 300 líneas
-             más abajo y dentro de una FAQ, mientras aquí arriba se prometía a
-             secas. Lo que se lee primero es esto. -->
-        <dl class="ficha">
-          <div><dt>De la norma</dt><dd>219 de sus 223 reglas</dd></div>
-          <div><dt>La firma</dt><dd>Cadena, sello y revocación si hay lista</dd></div>
-          <div><dt>Contra qué</dt><dd>EN 16931 · RD 238/2026</dd></div>
-          <div><dt>Formatos</dt><dd>Facturae · UBL · CII · EDIFACT</dd></div>
-        </dl>
       </div>
+
+      <section id="herramienta" aria-label="Validar una factura">
+        <div class="folio">
+          <div class="folio-barra">
+            <span class="rotulo">Así sale el informe</span>
+            <span>Tres glosas de las facturas de muestra, resumidas</span>
+          </div>
+
+          <!-- Tres glosas de verdad, escritas a mano pero no inventadas: el
+               código, la gravedad, la norma, el campo, lo que tiene y cada
+               frase salen tal cual de validar la muestra que dice
+               `data-ejemplo`, y tests/test_portada.py lo comprueba contra el
+               validador. Un error, un aviso y una nota, porque las tres
+               gravedades son lo que hay que ver para saber qué da esto. -->
+          <div class="muestra" role="group" aria-label="Tres glosas de las facturas de muestra">
+            <div class="glosa error" data-ejemplo="f-0006.xml">
+              <div class="margen"><span class="grave">error</span><span class="codigo">BR-CO-10</span><span class="norma">EN 16931</span></div>
+              <div class="cuerpo">
+                <p class="dato"><span>Suma de importes de línea</span><i></i><b>100.00</b></p>
+                <p class="mensaje">La suma de importes de línea que declara la factura no coincide con la suma real de sus líneas.</p>
+              </div>
+            </div>
+            <div class="glosa aviso" data-ejemplo="fe-0001.xml">
+              <div class="margen"><span class="grave">aviso</span><span class="codigo">FIRMA-DEBIL</span><span class="norma">Firma electrónica</span></div>
+              <div class="cuerpo">
+                <p class="dato"><span>Clave del certificado</span><i></i><b>512 bits</b></p>
+                <p class="mensaje">La clave RSA del certificado es de 512 bits. Para firma electrónica se piden 2048 como mínimo.</p>
+              </div>
+            </div>
+            <div class="glosa nota" data-ejemplo="fe-0001.xml">
+              <div class="margen"><span class="grave">nota</span><span class="codigo">BR-01</span><span class="norma">EN 16931</span></div>
+              <div class="cuerpo">
+                <p class="dato"><span>Identificador de especificación</span><i></i><b>(sin correspondencia en esta sintaxis)</b></p>
+                <p class="mensaje">La sintaxis Facturae no tiene ningún elemento con ese significado, así que no se ha podido comprobar. No es un defecto del documento.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="suelta">
+            <p class="al-margen">Y aquí, al margen, las de la tuya.</p>
+            <div class="mesa">
+              <div id="zona" role="button" tabindex="0" aria-disabled="false">
+                <div class="icono">
+                  <svg viewBox="0 0 48 40" xmlns="http://www.w3.org/2000/svg" fill="none"
+                       stroke="currentColor" stroke-width="3" stroke-linecap="round"
+                       stroke-linejoin="round" aria-hidden="true">
+                    <path d="M16 7 H8 V33 H16"/>
+                    <path d="M25 12 h21"/><path d="M25 20 h21"/><path d="M25 28 h13"/>
+                  </svg>
+                </div>
+                <div class="dice">
+                  <p class="grande" id="zona-titulo">Suelta ya tu factura</p>
+                  <p class="chica" id="zona-pie">Se está preparando el validador; la tuya se valida en cuanto acabe. <b>No se sube a ningún sitio.</b></p>
+                </div>
+                <!-- Parece un botón y no lo es: la zona entera ya lo es, y un
+                     botón dentro de otro no se puede pulsar con el teclado sin
+                     liar a quien usa un lector de pantalla. Está para quien no
+                     tiene dónde arrastrar, que en un portátil es casi todo el
+                     mundo. -->
+                <span class="como-boton" aria-hidden="true">Elegir fichero</span>
+              </div>
+              <input type="file" id="fichero" accept=".xml,.xsig,.edi,.edifact,.txt" hidden multiple>
+
+              <!-- Ver el informe antes de soltar nada.
+
+                   Es lo único que esta herramienta tiene que enseñar, y hasta
+                   el 23-09-2026 había una sola factura con la que verlo, y sin
+                   ningún error: se podía ver cómo es un aviso y nunca cómo es un
+                   error. Ahora son cuatro, una de cada formato, y entre las
+                   cuatro salen las tres gravedades. Viajan con la página: no hay
+                   nada que subir ni que elegir. -->
+              <div class="muestras">
+                <p>O ábrela con una de muestra:</p>
+                <ul>
+                  <li><button type="button" data-ejemplo="fe-0001.xml" disabled>fe-0001.xml</button> <span>Facturae firmada</span></li>
+                  <li><button type="button" data-ejemplo="f-0006.xml" disabled>f-0006.xml</button> <span>UBL</span></li>
+                  <li><button type="button" data-ejemplo="cii-A-0001.xml" disabled>cii-A-0001.xml</button> <span>CII</span></li>
+                  <li><button type="button" data-ejemplo="edi-0001.edi" disabled>edi-0001.edi</button> <span>EDIFACT</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="arranque" id="arranque">
+            <div class="cabeza">
+              <strong id="arranque-titulo">Descargando el validador</strong>
+              <span id="arranque-nota">Son unos 10 MB la primera vez. Después queda en la caché del navegador, marcado para un año, y no vuelve a bajarse.</span>
+            </div>
+            <div class="riel"><i id="riel"></i></div>
+            <div class="fases" id="fases"></div>
+          </div>
+        </div>
+      </section>
     </div>
 
-    <section id="herramienta">
-      <div class="panel caja-suelta">
-        <div id="zona" role="button" tabindex="0" aria-disabled="false">
-          <div class="icono">
-            <svg viewBox="0 0 48 40" xmlns="http://www.w3.org/2000/svg" fill="none"
-                 stroke="currentColor" stroke-width="3" stroke-linecap="round"
-                 stroke-linejoin="round" aria-hidden="true">
-              <path d="M16 7 H8 V33 H16"/>
-              <path d="M25 12 h21"/><path d="M25 20 h21"/><path d="M25 28 h13"/>
-            </svg>
-          </div>
-          <p class="grande" id="zona-titulo">Suelta ya tu factura</p>
-          <p class="chica" id="zona-pie">Se está preparando el validador; la tuya se valida en cuanto acabe. <b>No se sube a ningún sitio.</b></p>
-        </div>
-        <input type="file" id="fichero" accept=".xml,.xsig,.edi,.edifact,.txt" hidden multiple>
+    <div id="informe"></div>
 
-        <!-- Ver el informe antes de soltar nada.
+    <!-- «si hay lista» no sobra. De las tres cosas que se miran de una
+         firma, la revocación es la única que puede quedarse sin contestar:
+         hace falta una CRL o una respuesta OCSP, y este validador no sale a
+         la red a buscarlas. La condición estaba escrita, pero 300 líneas
+         más abajo y dentro de una FAQ, mientras aquí arriba se prometía a
+         secas. Lo que se lee primero es esto.
 
-             Es lo único que esta herramienta tiene que enseñar, y hasta ahora
-             había que darle una factura para verlo. Quien llega por primera
-             vez no sabe si esto le sirve, y pedirle el documento por delante
-             es pedirle confianza antes de haberla dado. La factura es de
-             ejemplo y viaja con la página: no hay nada que subir ni que
-             elegir. -->
-        <p class="probar">
-          <button type="button" id="ver-ejemplo" disabled>Ver un informe de ejemplo</button>
-          <span>Sobre una factura de muestra que ya viene con la página. Sin soltar nada.</span>
-        </p>
-
-        <div class="arranque" id="arranque">
-          <div class="cabeza">
-            <strong id="arranque-titulo">Descargando el validador</strong>
-            <span id="arranque-nota">Son unos 10 MB la primera vez. Después queda en la caché del navegador, marcado para un año, y no vuelve a bajarse.</span>
-          </div>
-          <div class="riel"><i id="riel"></i></div>
-          <div class="fases" id="fases"></div>
-        </div>
-      </div>
-
-      <div id="informe"></div>
-    </section>
+         Desde la portada B va debajo de la herramienta y no del lema, en
+         todos los anchos: describe la herramienta, y leída después dice lo
+         mismo. -->
+    <dl class="ficha">
+      <div><dt>De la norma</dt><dd>219 de sus 223 reglas</dd></div>
+      <div><dt>La firma</dt><dd>Cadena, sello y revocación si hay lista</dd></div>
+      <div><dt>Contra qué</dt><dd>EN 16931 · RD 238/2026</dd></div>
+      <div><dt>Formatos</dt><dd>Facturae · UBL · CII · EDIFACT</dd></div>
+    </dl>
 
     <section id="que-mira">
       <p class="rotulo">Qué mira</p>
@@ -1097,6 +1244,9 @@ function pintarTestigo() {
     guardado === null ? "Lo guardado en el navegador no se deja mirar desde aquí."
     : cookies || guardado ? "Y " + plural(guardado, "dato guardado", "datos guardados") + " en el navegador."
     : "Ni analítica ni rastreo, y nada guardado en el navegador.";
+  // Solo se enseña cuando dice algo que la cifra de arriba no dice: que hay
+  // algo guardado, o que no se deja mirar. «Nada guardado» ya lo dice el cero.
+  $("tg-guardado").hidden = !(guardado === null || cookies || guardado);
 
   pintarLectura();
 }
@@ -1178,6 +1328,7 @@ function pintarLectura() {
   $("tg-factura-pie").textContent = lectura.nombre + ". " + (pedidas.length === 0
     ? "Se ha leído dentro de este navegador, sin pedirle nada a nadie."
     : "Pedidas: " + pedidas.map((v) => (esAjena(v) ? v.host : "") + v.ruta).join(", ") + ".");
+  $("tg-factura-pie").hidden = false;
   if (linea) {
     linea.textContent = pedidas.length === 0
       ? "Mientras se leía, tu navegador no ha hecho ninguna petición: la factura no ha salido de aquí."
@@ -1400,10 +1551,10 @@ async function empezar() {
     pintarLoQueTrae(paquete);
     $("zona-titulo").textContent = "Suelta aquí tu factura";
     $("zona-pie").innerHTML =
-      "XML, XSIG o EDIFACT. O haz clic para elegirla. " +
-      "<b>No se sube a ningún sitio.</b>";
+      "XML, XSIG o EDIFACT. Se lee en este navegador: " +
+      "<b>no se sube a ningún sitio.</b>";
     $("arranque").classList.add("listo");
-    $("ver-ejemplo").disabled = false;
+    muestras.forEach((b) => { b.disabled = false; });
     $("correr-banco").disabled = false;
     $("arranque-titulo").textContent = "Listo en " + total + " s";
     $("arranque-nota").textContent = paquete
@@ -1424,25 +1575,27 @@ async function empezar() {
   }
 }
 
-// La factura de ejemplo. Es la firmada a propósito: enseña las tres gravedades
-// —lo que falla, lo que no se ha podido comprobar y con qué base se aceptó el
-// resto—, que es lo que hay que ver para entender qué da esta herramienta. Una
-// factura limpia enseñaría un tic verde y ninguna de las tres.
-const FACTURA_DE_EJEMPLO = "fe-0001.xml";
+// Las facturas de muestra, cuatro: una de cada formato, y entre todas las tres
+// gravedades —lo que falla, lo que no se ha podido comprobar y con qué base se
+// aceptó el resto—, que es lo que hay que ver para entender qué da esto. Hasta
+// el 23-09-2026 había una sola, la firmada, y con ella se podía ver cómo es un
+// aviso y nunca cómo es un error.
+const muestras = [...document.querySelectorAll(".muestras button")];
 
-async function verElEjemplo() {
-  const boton = $("ver-ejemplo");
-  boton.disabled = true;
-  const antes = boton.textContent;
-  boton.textContent = "Validando…";
+async function verElEjemplo(boton) {
+  const nombre = boton.dataset.ejemplo;
+  muestras.forEach((b) => { b.disabled = true; });
+  $("informe").innerHTML =
+    "<div class='veredicto'><h3>Leyendo…</h3><p>" + escapar(nombre) +
+    ", una de las facturas de muestra.</p></div>";
   try {
-    empezarLectura(FACTURA_DE_EJEMPLO);
-    const datos = await Glosa.validarEjemplo(FACTURA_DE_EJEMPLO);
+    empezarLectura(nombre);
+    const datos = await Glosa.validarEjemplo(nombre);
     pintarInforme(datos);
-    // Encima del informe y no debajo: quien llega desde el botón tiene que
+    // Encima del informe y no debajo: quien llega desde una muestra tiene que
     // saber de quién es esta factura antes de leer lo que dice de ella.
     $("informe").insertAdjacentHTML("afterbegin",
-      "<p class='es-ejemplo'>Este informe es de <b>" + FACTURA_DE_EJEMPLO +
+      "<p class='es-ejemplo'>Este informe es de <b>" + escapar(nombre) +
       "</b>, una factura de muestra que viene con la página. La tuya se " +
       "valida igual, y tampoco sale de tu ordenador.</p>");
   } catch (error) {
@@ -1454,8 +1607,7 @@ async function verElEjemplo() {
       escapar(String(error)) + "</p></div>";
     console.error(error);
   } finally {
-    boton.textContent = antes;
-    boton.disabled = false;
+    muestras.forEach((b) => { b.disabled = false; });
   }
 }
 
@@ -1562,7 +1714,7 @@ zona.addEventListener("keydown", (e) => {
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); zona.click(); }
 });
 $("fichero").addEventListener("change", (e) => soltar([...e.target.files]));
-$("ver-ejemplo").addEventListener("click", verElEjemplo);
+muestras.forEach((b) => b.addEventListener("click", () => verElEjemplo(b)));
 $("correr-banco").addEventListener("click", correrElBanco);
 ["dragenter", "dragover"].forEach((ev) =>
   zona.addEventListener(ev, (e) => { e.preventDefault(); if (!fallo) zona.classList.add("encima"); }));

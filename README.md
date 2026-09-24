@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2541 tests, todos en verde.
+2551 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4844,7 +4844,8 @@ en la primera pantalla.
 
 ### El testigo
 
-Al lado del lema, un panel que **cuenta** en lugar de afirmar: cuántos ficheros
+Debajo del lema, a la izquierda de la herramienta, un panel que **cuenta**
+en lugar de afirmar: cuántos ficheros
 ha pedido la página y a qué dominios, cuántas cookies hay, si hay algo guardado
 en el navegador, y —en cuanto se suelta una factura— cuántas peticiones se han
 hecho mientras se leía. Las cifras las da el propio navegador (Resource
@@ -5015,10 +5016,10 @@ se repasa todo junto y entonces se publica y se comprueba en producción.
    folio, la zona de soltar: «Y aquí, al margen, las de la tuya». Enseña lo
    que da la herramienta antes de pedir nada. Sale de los españoles (la
    herramienta arriba), de Baden-Württemberg (la explicación a un lado, la
-   herramienta al otro) y de Squoosh (la zona es la portada). — *Tanda 3.*
+   herramienta al otro) y de Squoosh (la zona es la portada). — *Tanda 3, hecha.*
 3. **Cuatro facturas de muestra en vez de una**: Facturae firmada, UBL, CII y
    EDIFACT. Hoy solo se puede ver cómo es un aviso, nunca un error. Ya viajan
-   con la página, así que no pesan nada. De Squoosh. — *Tanda 3.*
+   con la página, así que no pesan nada. De Squoosh. — *Tanda 3, hecha.*
 4. **El informe, pasado a limpio.** El veredicto en Literata con la cuenta
    dentro de la frase, un «Qué se ha mirado» en tres columnas —la forma, el
    contenido y la firma— antes del detalle, aire entre el margen y el filete,
@@ -5027,11 +5028,12 @@ se repasa todo junto y entonces se publica y se comprueba en producción.
 5. **El testigo, compacto en el móvil**: tres líneas y un enlace a lo que ha
    pedido la página. Así la zona entra en la primera pantalla sin quitar el
    testigo de delante; a cambio, las explicaciones quedan a un toque. —
-   *Tanda 4.*
+   *El testigo compacto entró en la tanda 3, en todos los anchos; la zona en
+   la primera pantalla del móvil, en la 4.*
 6. **La cabecera: el signo y el nombre en vez del bloque gris**, que a 40 px de
    alto parece una imagen que no ha cargado. **Reabre una decisión de
    [MARCA.md](MARCA.md)** —el bloque plateado es la firma—, así que la decidía
-   el titular: la aprobó el 23-09-2026. — *Tanda 3.*
+   el titular: la aprobó el 23-09-2026. — *Tanda 3, hecha.*
 7. **Pegar el XML**, además de soltar el fichero, para quien lo tiene copiado
    de un correo o de su programa de facturación. De Docuflair. — *Tanda 5.*
 8. **«Desconecta la red y suelta la factura»**: una prueba que cualquiera hace

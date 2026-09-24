@@ -5506,3 +5506,70 @@ vuelva a correrse hacia el margen.
 Provocado, cinco roturas y cinco rojos: una familia sin parte, la forma sin
 mirar diciendo «Sin errores», el cuerpo corrido otra vez, las partes pedidas
 con otras banderas que la frase, y la firma contada como contenido.
+
+## La portada B: la herramienta en la primera pantalla
+
+Tanda 3 del rediseño, el 23-09-2026. El repaso contra las de al lado midió que
+**la zona de soltar empezaba a 834 px en cualquier escritorio**: a 1366×768
+no asomaba, a 1440×900 asomaban 66 de sus 208 px, y solo a 1920×1080 se veía
+entera. Los cinco validadores españoles que siguen en pie ponen la
+herramienta en la primera pantalla. De las dos direcciones que se dibujaron,
+el titular eligió la B, «el folio glosado».
+
+### Qué es
+
+A la izquierda, el titular, el lema y el testigo. A la derecha, un folio con
+la forma exacta del informe: tres glosas de las facturas de muestra —un
+error, un aviso y una nota— y, en el sitio de la glosa siguiente, la zona de
+soltar, con «Y aquí, al margen, las de la tuya». Enseña lo que devuelve esto
+antes de pedir nada, que es lo que hace Squoosh con sus imágenes de prueba.
+
+| Escritorio | Zona de soltar, antes | Ahora |
+|---|---|---|
+| 1280×800 | 834 px, fuera | 503–662 px, entera |
+| 1366×768 | 834 px, fuera | 503–662 px, entera |
+| 1920×1080 | 834–1042 px | 503–662 px, entera |
+
+Y debajo, en la misma primera pantalla, las muestras: acaban a 755 px.
+
+### Las glosas del folio no se pueden desviar
+
+Están escritas a mano, porque tienen que verse antes de que el validador
+termine de bajar. Resumidas —el campo con lo que tiene la factura, y una o dos
+frases del mensaje—, y la barra del folio lo dice. Todo lo escrito a mano se
+desvía, así que `tests/test_portada.py` valida cada muestra y exige que el
+código, la gravedad, la norma, el campo y lo que tiene sean los del validador,
+y que cada frase sea frase entera del mensaje de verdad.
+
+### Cuatro muestras en vez de una
+
+Había una sola, `fe-0001.xml`, y con ella se veía cómo es un aviso y nunca
+cómo es un error. Ahora son cuatro, una por formato: Facturae firmada, UBL,
+CII y EDIFACT, y entre las cuatro salen las tres gravedades. Ya viajaban con la
+página, así que no pesan nada. La etiqueta de cada una se comprueba contra lo
+que detecta el validador.
+
+### El testigo, compacto
+
+Cada fila enseña su cifra, y debajo va lo que ha pedido la página con la lista
+a un clic. Las dos explicaciones que iban en las filas —la de la factura y la
+de lo guardado— solo aparecen cuando dicen algo que la cifra no dice: después
+de leer una factura, o cuando hay algo guardado en el navegador. Provocado:
+una cookie y un dato guardado salen a los dos segundos, la cookie en rojo, y
+al borrarlos el testigo vuelve a como estaba.
+
+### Y el orden, sin trucos
+
+La ficha, que iba entre el lema y la herramienta, pasa debajo de la portada en
+todos los anchos. Con eso el documento queda en el orden en que se ve, y el
+`display: contents` con `order` de la media query de estrecho ya no hace
+falta: la prueba de `tests/test_en_un_movil.py` mira ahora el documento, y que
+nada lo reordene por encima.
+
+Provocado, cuatro roturas y cuatro rojos: otra cifra en una glosa del folio,
+una frase que el validador no escribe, una muestra con el formato cambiado y
+un `order` en la herramienta.
+
+**En el móvil, esta tanda deja la zona peor**: a 375×812 empieza en 2,05
+pantallas, porque las tres glosas de muestra van delante de ella. Se arregla
+en la tanda siguiente, antes de publicar nada.
