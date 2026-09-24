@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2574 tests, todos en verde.
+2592 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5040,14 +5040,18 @@ se repasa todo junto y entonces se publica y se comprueba en producción.
    de un correo o de su programa de facturación. De Docuflair. — *Tanda 5,
    hecha.*
 8. **«Desconecta la red y suelta la factura»**: una prueba que cualquiera hace
-   por sí mismo. **Sin medir**: antes hay que comprobar que, cargada la
-   página, valida sin conexión. — *Tanda 6, si se sostiene.*
+   por sí mismo. Medido antes de escribirlo: con la página cargada y el
+   servidor apagado, las cuatro muestras dan el mismo informe y ninguna
+   petición. Va con su condición, «Listo». — *Tanda 6, hecha.*
 9. **El HTTP Observatory de Mozilla, con fecha**: A+, 140/100 y 12 de 12
-   pruebas el 23-09-2026. Es un tercero que lo mide. — *Tanda 6.*
+   pruebas el 23-09-2026. Es un tercero que lo mide. En la política, con su
+   fecha y su enlace. — *Tanda 6, hecha.*
 10. **Decir cuál es la herramienta oficial** para la validez legal de una
     firma, como hace FacturaView con VALIDe. Antes hay que comprobar que la
     referencia es la buena y sigue viva: el enlace de FACe a su validador ya
-    da «página no encontrada». — *Tanda 6.*
+    da «página no encontrada». VALIDe contestaba el 24-09-2026; va en la
+    pregunta de la Agencia Tributaria, diciendo que allí la factura se envía.
+    — *Tanda 6, hecha.*
 
 Lo que se vio en los demás y **no** se copia: pastillas del tipo «100 %
 Privado», rejillas de iconos, pasos 01/02/03, degradados, bloques de venta y

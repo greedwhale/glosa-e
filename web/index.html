@@ -1043,6 +1043,16 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             el borrador del anexo I de la orden que lo desarrollará— es
             público, y aquí se dice regla por regla cuál ha fallado, con su
             código. Eso se puede llevar a quien corresponda.</p>
+            <!-- VALIDe, visto vivo el 24-09-2026. Lo que se dice de él sale de
+                 sus propias páginas: el nombre, de su pregunta «¿Qué significa
+                 VALIDe?»; que la factura se le envía, de su aviso de datos. -->
+            <p>Para la firma sí hay un servicio oficial: <a
+            href="https://valide.redsara.es/valide/" rel="noopener">VALIDe</a>,
+            la aplicación de validación de firmas y certificados de la
+            plataforma @firma. Comprueba en línea la validez de la firma y del
+            certificado, que es lo que aquí se queda a medias por no salir a la
+            red. A cambio, allí <b>la factura se envía</b>: su aviso de datos
+            dice que se borra al terminar.</p>
           </div>
         </details>
 
@@ -1062,6 +1072,9 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             y de dominios de terceros. Al arrancar la página sí se descargan
             ficheros —el intérprete, los esquemas, las anclas—, todos desde este
             mismo sitio y ninguno de un tercero.</p>
+            <p>Y se comprueba sin herramientas: cuando la página diga «Listo»,
+            <b>desconecta la red</b> —el wifi, o el modo avión— y suelta la
+            factura. El informe sale igual, porque no tiene a dónde ir.</p>
           </div>
         </details>
 
@@ -1628,7 +1641,12 @@ async function empezar() {
     $("correr-banco").disabled = false;
     $("arranque-titulo").textContent = "Listo en " + total + " s";
     $("arranque-nota").textContent = paquete
-      ? "Ya no hace falta conexión: el validador, los esquemas y las anclas están en tu navegador."
+      // La invitación a desconectar se midió antes de escribirla: el 24-09-2026,
+      // con el servidor apagado, las cuatro muestras dieron el mismo informe y
+      // ninguna petición. Solo aquí, con el validador ya cargado: antes de
+      // «Listo», sin red no arranca.
+      ? "Ya no hace falta conexión: el validador, los esquemas y las anclas están en tu navegador. " +
+        "Desconecta la red y suelta tu factura: sale igual."
       : "Sin el paquete de esquemas y anclas: aquí solo se comprueba el contenido.";
   } catch (error) {
     // El fallo se marca además de pintarse: quien haya soltado una factura

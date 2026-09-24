@@ -5685,3 +5685,54 @@ Provocado, siete roturas y siete rojos: una ruta aparte en vez de `soltar()`,
 la declaración solo con comillas dobles, sin reescribir, «utf8» sin guion
 tomado por otra codificación, sin quitar los blancos, la advertencia de la
 firma siempre y el cuadro sin su letra de teléfono.
+
+## Tres cosas que se dicen de fuera: sin red, el Observatory y VALIDe
+
+Tanda 6 del rediseño, el 24-09-2026: las propuestas 8, 9 y 10. Las tres
+afirman algo que la página no comprueba sola, así que cada una se midió o se
+vio viva antes de escribirla, y cada una va con la condición que la hace
+cierta.
+
+### «Desconecta la red y suelta tu factura»
+
+Estaba en la lista como **sin medir**, y se midió: con la página cargada y
+«Listo», se apagó el servidor —`curl` ya no conectaba— y se validaron las
+cuatro facturas de muestra, pegadas y abiertas con su botón. Las ocho dieron
+el mismo veredicto que con el servidor encendido, `performance` no apuntó ni
+una petición y la consola no dio un error. Ahora lo dicen la nota de «Listo»,
+la pregunta de si la factura se sube y la política de privacidad, que es una
+prueba que cualquiera hace sin herramientas de desarrollo.
+
+La condición es «Listo»: antes, sin red el validador no arranca. Por eso la
+invitación solo sale en la rama en que ha arrancado, y quien invite a
+desconectar en la portada o en la política tiene que decir «Listo»:
+`tests/test_lo_que_se_cita.py`.
+
+### El HTTP Observatory de Mozilla, con su fecha
+
+En la política, detrás del párrafo de la política de contenido, que es una de
+las cabeceras que mira: A+, 140 sobre 100 y 12 pruebas de 12, el 23-09-2026, con enlace a
+su medición de `www.glosa-e.com` y la advertencia de que el enlace lleva a la
+última, que puede ser de otro día. Una nota de un tercero cambia, y sin fecha
+acabaría diciendo lo que el Observatory ya no dice: hay prueba de que ninguna
+página cite su nota sin fecha.
+
+### VALIDe, la herramienta oficial para la firma
+
+La lista pedía comprobar antes que la referencia era la buena y seguía viva,
+porque el enlace de FACe a su validador ya daba «página no encontrada». VALIDe
+contestaba el 24-09-2026, y lo que se dice de él sale de sus propias páginas:
+que es la «aplicación de validación de firma y certificados online» de
+@firma, que valida en línea firmas y certificados —facturas electrónicas
+incluidas—, y que los documentos **se le envían** y su aviso de datos dice que
+se borran al terminar.
+
+Va en la pregunta de si esto vale ante la Agencia Tributaria o FACe, y dice
+las dos cosas: que allí se mira en línea lo que aquí se queda a medias por no
+salir a la red, y que a cambio la factura se envía. Recomendarlo sin lo
+segundo sería mandar a alguien a subir su factura sin avisarle, desde la
+página que presume de no hacerlo; hay prueba de que no pase.
+
+Provocado, cinco roturas y cinco rojos: la invitación también en la rama sin
+paquete, la pregunta sin «Listo», el Observatory sin fecha o enlazando otro
+sitio, y VALIDe sin decir que allí se envía.
