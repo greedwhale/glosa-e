@@ -337,7 +337,112 @@ class TestElFiltro:
     def test_el_catalogo_esconde_con_hidden_y_carga_esa_hoja(self, pagina):
         """Si el filtro deja de usar `hidden`, la prueba de arriba no vigila nada."""
         assert '<link rel="stylesheet" href="./glosa.css">' in pagina
-        assert "f.hidden = !cabe;" in pagina, (
+        assert 'd.ficha.hidden = q !== "" && !vistas.has(d);' in pagina, (
             "El filtro ya no esconde las fichas con `hidden`. Comprueba en el "
             "navegador que las esconde de verdad y cambia esta prueba para que "
             "vigile lo que use ahora.")
+
+
+@pytest.fixture(scope="module")
+def datos(pagina):
+    """Cada ficha como la ve el guion del filtro: su id y su texto, sin tildes."""
+    from lxml import html as lhtml
+
+    arbol = lhtml.fromstring(pagina)
+    fichas = arbol.xpath('//*[contains(concat(" ", @class, " "), " codigo-ficha ")]')
+    assert len(fichas) == len(codigos_del_paquete())
+    return [{"id": f.get("id"),
+             "codigo": TestLoQueEnseniaElFiltro._compacto(f.get("id")),
+             "texto": TestLoQueEnseniaElFiltro._plano(f.text_content())}
+            for f in fichas]
+
+
+class TestLoQueEnseniaElFiltro:
+    """Qué fichas salen al filtrar, y en qué orden se le dicen a quien busca.
+
+    Arreglado el `hidden`, el titular probó «sello» y seguía sin filtrar bien:
+    salían 19 fichas, y las tres primeras eran CADENA-CADUCADA, FIRMA-CADUCADA
+    y REVOCACION-POSTERIOR, que solo nombran el sello de tiempo en su
+    explicación y van antes en la página. La familia SELLO empezaba 2300 px
+    más abajo, debajo de un resumen que no se movía y de títulos que seguían
+    diciendo «6 códigos» encima de una sola ficha. Medido el 24-09-2026.
+
+    Aquí no hay navegador que ejecute el guion, así que se hace lo de
+    `test_pegar.py`: la función que elige va copiada tal cual, y si la de la
+    página cambia, esta prueba se niega hasta que se copie la nueva. Con eso,
+    lo que se comprueba abajo contra los 390 códigos de verdad es lo que hace
+    la página y no una imitación suya.
+    """
+
+    PLANO = r"""function plano(texto) {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}"""
+    COMPACTO = """function compacto(texto) {
+  return plano(texto).replace(/[^a-z0-9]/g, "");
+}"""
+    QUE_ENSENIAR = """function elegir(q, datos, conTexto) {
+  const qc = compacto(q);
+  const porCodigo = datos.filter((d) => qc !== "" && d.codigo.includes(qc));
+  const yaEstan = new Set(porCodigo);
+  const porTexto = datos.filter((d) => !yaEstan.has(d) && d.texto.includes(q));
+  const vistas = porCodigo.length && !conTexto ? porCodigo : porCodigo.concat(porTexto);
+  return { porCodigo, porTexto, vistas: new Set(vistas) };
+}"""
+
+    @staticmethod
+    def _plano(texto: str) -> str:
+        import unicodedata
+
+        sin = unicodedata.normalize("NFD", texto)
+        return re.sub("[\u0300-\u036f]", "", sin).lower()
+
+    @classmethod
+    def _compacto(cls, texto: str) -> str:
+        return re.sub(r"[^a-z0-9]", "", cls._plano(texto))
+
+    def _elegir(self, q, datos, con_texto=False):
+        """El mismo algoritmo que `elegir()` de la página, línea a línea."""
+        q = self._plano(q.strip())
+        qc = self._compacto(q)
+        por_codigo = [d for d in datos if qc != "" and qc in d["codigo"]]
+        ya = {d["id"] for d in por_codigo}
+        por_texto = [d for d in datos if d["id"] not in ya and q in d["texto"]]
+        vistas = por_codigo if por_codigo and not con_texto else por_codigo + por_texto
+        return ([d["id"] for d in por_codigo], [d["id"] for d in por_texto],
+                [d["id"] for d in vistas])
+
+    def test_la_pagina_elige_como_esta_prueba(self, pagina):
+        for trozo in (self.PLANO, self.COMPACTO, self.QUE_ENSENIAR):
+            assert trozo in pagina, (
+                "La página ya no elige como la copia de esta prueba. Si el "
+                "cambio es a propósito, cópialo aquí y en `_elegir`, y mira en "
+                "el navegador lo que enseña con «sello». Falta:\n" + trozo)
+
+    def test_sello_trae_la_familia_sello_y_nada_mas(self, datos):
+        por_codigo, por_texto, vistas = self._elegir("sello", datos)
+        sello = sorted(c.codigo for c in codigos_del_paquete() if c.familia == "SELLO")
+        assert sorted(vistas) == sello, (
+            f"Con «sello» se ven {len(vistas)} fichas y la familia SELLO tiene "
+            f"{len(sello)}: {sorted(set(vistas) ^ set(sello))[:6]}")
+        # Las que solo lo nombran siguen ahí, contadas, para quien las pida.
+        assert por_texto and not any(i.startswith("SELLO-") for i in por_texto)
+        _, _, todas = self._elegir("sello", datos, con_texto=True)
+        assert sorted(todas) == sorted(por_codigo + por_texto)
+
+    def test_sin_tildes_ni_guiones(self, datos):
+        assert self._elegir("revocacion", datos) == self._elegir("revocación", datos)
+        assert self._elegir("revocacion", datos)[0], "REVOCACION-* no sale sin tilde"
+        assert self._elegir("sello tiempo", datos)[2] == ["SELLO-TIEMPO"]
+        assert self._elegir("br01", datos)[2] == ["BR-01"]
+
+    def test_lo_que_no_es_nombre_de_nada_se_busca_en_el_texto(self, datos):
+        por_codigo, por_texto, vistas = self._elegir("fecha", datos)
+        assert not por_codigo and por_texto and vistas == por_texto
+
+    def test_mientras_se_filtra_el_resumen_se_aparta_y_los_titulos_cuentan(self, pagina):
+        assert 'resumen.hidden = q !== "";' in pagina, (
+            "El resumen del catálogo vuelve a quedarse entre el buscador y el "
+            "primer resultado.")
+        assert 'q ? aqui + " de " + titulos.get(s) : titulos.get(s);' in pagina, (
+            "Los títulos de familia vuelven a decir el total con una sola "
+            "ficha a la vista.")

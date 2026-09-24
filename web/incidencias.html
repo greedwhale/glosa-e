@@ -24,6 +24,14 @@
 }
 .buscador input:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
 .buscador .cuantos { font-size: var(--t1); color: var(--tenue); }
+/* Un enlace de texto y no un botón con caja: es una aclaración del contador,
+   no una acción principal que compita con el buscador. */
+.buscador .ampliar {
+  font: inherit; font-size: var(--t1); color: var(--acento);
+  background: none; border: 0; padding: .35rem 0; cursor: pointer;
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .18em;
+}
+.buscador .ampliar:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 2px; }
 
 /* La ficha de un código: el mismo gesto que la glosa del informe —el código
    fuera, a la izquierda, contra un filete— para que quien llega aquí desde un
@@ -178,7 +186,8 @@
       <p class="buscador">
         <input type="search" id="filtro" placeholder="Filtrar por código o por texto"
                aria-label="Filtrar los códigos">
-        <span class="cuantos" id="cuantos"></span>
+        <span class="cuantos" id="cuantos" aria-live="polite"></span>
+        <button type="button" class="ampliar" id="ampliar" hidden></button>
       </p>
     </div>
 <!-- /SOLO EL CATALOGO -->
@@ -206,32 +215,87 @@
 // El filtro. Sin dependencias y sin red: las fichas ya están en la página.
 const filtro = document.getElementById("filtro");
 const cuantos = document.getElementById("cuantos");
+const ampliar = document.getElementById("ampliar");
+const resumen = document.getElementById("resumen");
 const fichas = [...document.querySelectorAll(".codigo-ficha")];
-const secciones = [...document.querySelectorAll("main section")];
+const secciones = [...document.querySelectorAll("main section")].filter((s) => s !== resumen);
+// Lo que dice el título de cada familia sin filtrar, para devolvérselo.
+const titulos = new Map(secciones.map((s) => [s, s.querySelector(".titulo").textContent]));
+
+// Sin tildes y en minúsculas: quien busca «revocacion» tiene que encontrar
+// «revocación», y los códigos se escriben sin tilde —REVOCACION-SUSPENDIDO—.
+function plano(texto) {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+// El nombre del código, además, sin separadores: «sello tiempo» y
+// «SELLO-TIEMPO» son el mismo, y «br01» es BR-01.
+function compacto(texto) {
+  return plano(texto).replace(/[^a-z0-9]/g, "");
+}
+
+// Qué fichas enseñar. Si lo buscado está en el nombre de algún código, salen
+// esos y solo esos: quien escribe «sello» busca la familia SELLO, no las tres
+// fichas de otras familias que nombran el sello de tiempo en su explicación,
+// que además van antes en la página y eran lo primero que se veía. Esas se
+// cuentan y se ofrecen, no se esconden sin decirlo. Si no está en ningún
+// nombre, se busca en el texto.
+function elegir(q, datos, conTexto) {
+  const qc = compacto(q);
+  const porCodigo = datos.filter((d) => qc !== "" && d.codigo.includes(qc));
+  const yaEstan = new Set(porCodigo);
+  const porTexto = datos.filter((d) => !yaEstan.has(d) && d.texto.includes(q));
+  const vistas = porCodigo.length && !conTexto ? porCodigo : porCodigo.concat(porTexto);
+  return { porCodigo, porTexto, vistas: new Set(vistas) };
+}
+
+const datos = fichas.map((f) => ({ ficha: f, codigo: compacto(f.id), texto: plano(f.textContent) }));
+let conTexto = false;
+let anterior = "";
 
 function filtrar() {
-  const q = filtro.value.trim().toLowerCase();
-  let vistos = 0;
-  for (const f of fichas) {
-    const cabe = !q || f.textContent.toLowerCase().includes(q);
+  const q = plano(filtro.value.trim());
+  // Cada búsqueda nueva empieza por los nombres.
+  if (q !== anterior) { conTexto = false; anterior = q; }
+  const { porCodigo, porTexto, vistas } = elegir(q, datos, conTexto);
+  for (const d of datos) {
     // Esconde porque glosa.css obliga a `[hidden]`: sin esa regla, el
     // `display: grid` de `.codigo-ficha` le ganaba y no se escondía ninguna.
-    f.hidden = !cabe;
-    if (cabe) vistos += 1;
+    d.ficha.hidden = q !== "" && !vistas.has(d);
   }
+  // Mientras se filtra, el resumen sobra: sus cifras son las del catálogo
+  // entero, y ocupaba la pantalla entre el buscador y el primer resultado.
+  resumen.hidden = q !== "";
   // Una sección cuyas fichas se han escondido todas se esconde también: dejar
   // el título de una familia vacía hace parecer que no hay nada donde sí lo
-  // hay, solo que filtrado.
+  // hay, solo que filtrado. Y la que queda dice cuántas enseña: con «6
+  // códigos» encima de una sola ficha, parecía que el filtro no hacía nada.
   for (const s of secciones) {
-    if (s.id === "resumen") continue;
-    s.hidden = ![...s.querySelectorAll(".codigo-ficha")].some((f) => !f.hidden);
+    const aqui = [...s.querySelectorAll(".codigo-ficha")].filter((f) => !f.hidden).length;
+    s.hidden = aqui === 0;
+    s.querySelector(".titulo").textContent = q ? aqui + " de " + titulos.get(s) : titulos.get(s);
   }
-  cuantos.textContent = q
-    ? vistos + (vistos === 1 ? " código" : " códigos") + " de " + fichas.length
-    : fichas.length + " códigos";
+  const total = fichas.length;
+  const n = porTexto.length;
+  if (!q) {
+    cuantos.textContent = total + " códigos";
+  } else if (porCodigo.length && !conTexto) {
+    cuantos.textContent = porCodigo.length + " de " + total + " por su nombre";
+  } else if (porCodigo.length) {
+    cuantos.textContent = vistas.size + " de " + total + ": " + porCodigo.length
+      + " por su nombre y " + n + " por la explicación";
+  } else {
+    cuantos.textContent = n + " de " + total + (n ? ", por la explicación" : "");
+  }
+  // Solo cuando hay de las dos clases; si no, no hay nada que añadir ni quitar.
+  ampliar.hidden = !(q && porCodigo.length && n);
+  ampliar.textContent = conTexto
+    ? (n === 1 ? "Quitar el de la explicación" : "Quitar los " + n + " de la explicación")
+    : (n === 1 ? "Ver 1 más que lo menciona en la explicación"
+               : "Ver " + n + " más que lo mencionan en la explicación");
 }
 
 filtro.addEventListener("input", filtrar);
+ampliar.addEventListener("click", () => { conTexto = !conTexto; filtrar(); });
 filtrar();
 </script>
 <!-- /SOLO EL CATALOGO -->

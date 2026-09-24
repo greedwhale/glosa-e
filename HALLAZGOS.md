@@ -5807,3 +5807,30 @@ cualquier `@media` y con `!important`, y que el filtro siga escondiendo con
 `hidden`, que es lo que la hace necesaria. Provocado, cuatro roturas y cuatro
 rojos: sin la regla, sin `!important`, dentro de un `@media`, y el filtro
 cambiado a una clase.
+
+### Y después, lo que enseñaba
+
+Arreglado el `hidden`, el titular probó «sello» y seguía sin filtrar bien. Se
+midió: salían 19 fichas, las 16 de la familia SELLO y tres de otras familias
+—CADENA-CADUCADA, FIRMA-CADUCADA, REVOCACION-POSTERIOR— que solo nombran «el
+sello de tiempo» en su explicación. Esas tres van antes en la página, así que
+eran lo primero que se veía; la familia SELLO empezaba 2300 px más abajo, por
+debajo de un resumen del catálogo que no se movía, y cada familia seguía
+titulada «6 códigos» o «12 códigos» encima de una sola ficha. El filtro
+acertaba y parecía roto.
+
+Ahora el nombre manda: si lo buscado está en el nombre de algún código, salen
+esos. Las que solo lo mencionan en la explicación se cuentan y se ofrecen
+—«Ver 3 más que lo mencionan en la explicación»—, no se esconden sin decirlo; y
+si no está en ningún nombre, se busca en el texto, como antes. Se busca sin
+tildes y, en el nombre, sin separadores: «revocacion» encuentra REVOCACION-*,
+«sello tiempo» encuentra SELLO-TIEMPO y «br01», BR-01. Mientras se filtra, el
+resumen se aparta y cada familia dice cuántas enseña: «1 de 6 códigos».
+
+Comprobado en el navegador con nueve búsquedas, también a 375 px. En las
+pruebas no hay navegador, así que se hizo lo de `test_pegar.py`: la función
+que elige va copiada tal cual en `TestLoQueEnseniaElFiltro`, que se niega si
+la de la página cambia, y la misma lógica se corre en Python contra las 390
+fichas de verdad. Provocado, cuatro roturas y cuatro rojos: que vuelva a
+mandar el texto, sin quitar tildes, el resumen quieto y los títulos sin
+contar.
