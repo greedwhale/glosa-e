@@ -5736,3 +5736,21 @@ página que presume de no hacerlo; hay prueba de que no pase.
 Provocado, cinco roturas y cinco rojos: la invitación también en la rama sin
 paquete, la pregunta sin «Listo», el Observatory sin fecha o enlazando otro
 sitio, y VALIDe sin decir que allí se envía.
+
+## El repaso de las seis tandas, antes de publicarlas
+
+El 24-09-2026, con las seis tandas del rediseño en `main` y sin publicar, se
+repasó todo junto: lo que se va, contra producción, en claro y en oscuro, en
+escritorio y en móvil, con un informe abierto y la política montada.
+
+Salió una frase vieja. La tanda 2 subió lo mirado al principio del informe y
+cambió «Qué mira» y la política, pero la pregunta «¿Esto certifica que mi
+factura es válida?» seguía diciendo que el informe «termina siempre con una
+línea que dice qué se ha mirado». Ahora dice que empieza por ello, y
+`tests/test_informe_por_partes.py` no deja que ninguna página vuelva a decir
+que el informe acaba con lo mirado: con la frase de antes, rojo.
+
+Los números de las tres partes del informe —«1 · La forma»— se miraron por
+si eran los pasos 01/02/03 que la lista dice que no se copian, y no lo son:
+repiten los de «Qué mira», que ya estaban, y dicen algo cierto, que son las
+mismas tres comprobaciones.

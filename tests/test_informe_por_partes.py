@@ -192,3 +192,21 @@ def test_el_margen_no_pisa_el_filete():
     assert "border-right: 1px solid" in margen, "el filete tiene que ser el borde del margen"
     relleno = re.search(r"padding:\s*([^;]+);", margen)[1].split()
     assert relleno[1] == "1.25rem", f"el aire antes del filete es {relleno[1]}, no 1.25rem"
+
+
+@pytest.mark.parametrize("pagina", sorted(p.name for p in (RAIZ / "web").glob("*.html")))
+def test_ninguna_pagina_dice_que_lo_mirado_va_al_final(pagina):
+    """Lo mirado se movió al principio del informe el 23-09-2026.
+
+    La sección «Qué mira» y la política se cambiaron ese día; la pregunta de si
+    esto certifica siguió diciendo que el informe «termina siempre con una
+    línea que dice qué se ha mirado» hasta el repaso del 24-09-2026.
+    """
+    texto = " ".join(re.sub(r"<!--.*?-->|<[^>]+>", " ",
+                            (RAIZ / "web" / pagina).read_text(encoding="utf-8"),
+                            flags=re.S).split())
+    viejas = re.findall(r"[^.]*informe (?:termina|acaba)[^.]*\.", texto)
+    assert not viejas, (
+        f"{pagina} dice que el informe acaba con lo mirado, y desde el "
+        f"23-09-2026 empieza por ello: {viejas}")
+
