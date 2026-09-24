@@ -5589,7 +5589,9 @@ que a 375 de ancho ocupaban 765 px, y la zona iba detrás.
 
 A 375×812 está entera también mientras carga, que es cuando el texto de la
 zona es más largo; a 320×640 empieza a 1,04 pantallas, sin nada que se salga
-de lado.
+de lado. Son ventanas: en el teléfono el navegador se queda parte de la
+pantalla para sus barras, y a 375×667 entra el rótulo de la zona (631–660 px)
+y no el botón (733 px).
 
 ### El folio, en estrecho, con la zona delante
 
@@ -5629,3 +5631,57 @@ una glosa de muestra, el pie abierto de salida, la regla que lo abre sin
 `content-visibility` y un `order` fuera del folio. Quitarle el
 `order` a la zona no rompe nada, y la prueba lo deja pasar con razón: con 0
 sigue delante de 2, 3 y 4.
+
+## Pegar la factura como texto
+
+Tanda 5 del rediseño, el 24-09-2026: la propuesta 7, que sale de Docuflair.
+Hay quien tiene la factura copiada de un correo o de su programa de
+facturación y no guardada en un fichero. Debajo de las muestras, plegado —es
+el camino de unos pocos, y la zona es el de todos—, «O pégala como texto, si
+la tienes copiada»: un cuadro y «Validar lo pegado».
+
+**Lo pegado se hace fichero y entra por `soltar()`**, el mismo camino que uno
+soltado. Una ruta aparte podría portarse distinto, y lo pegado y el fichero
+dejarían de dar el mismo informe. Medido en el navegador: `f-0006.xml` pegada
+—con blancos delante, como llega de un correo— y abierta con su botón de
+muestra dan el mismo veredicto, las mismas tres partes y los mismos códigos;
+y lo mismo `fe-0001.xml`, firmada, con la firma intacta. Y pegar tampoco
+pide nada: con `fe-0001.xml` pegada, 0 peticiones mientras se leía —lo cuenta
+el propio testigo, y `performance` dice lo mismo—, ni cookies ni nada guardado
+en el navegador.
+
+### Lo que cambia al pegar
+
+- **El portapapeles da letras, no bytes.** Reproducido con lxml: «España»
+  escrita en UTF-8 bajo una declaración ISO-8859-1 se lee
+  `Espa\xc3\xb1a`, y sin un error. En la página, una moneda «EUÑ» salía en
+  el informe como «EUÃ». Ahora la declaración se reescribe a UTF-8 y encima
+  del informe se dice: «Su declaración decía «ISO-8859-1», pero el
+  portapapeles da letras y no bytes: se ha leído en UTF-8». Con el arreglo,
+  «EUÑ».
+- **Lo que se pierda al copiar cambia lo que cubre la firma.** Provocado: un
+  salto de línea detrás de `<FileHeader>` en `fe-0001.xml` da FIRMA-ALTERADA.
+  Así que, cuando lo pegado lleva firma, el informe avisa de que para
+  comprobarla mejor el fichero. Sin firma no se dice, porque no hay nada que
+  pueda dejar de cuadrar.
+- **Los blancos de delante se quitan.** Son del correo, no de la factura, y
+  delante de la declaración XML hacen que no abra: «XML declaration allowed
+  only at the start of the document».
+
+Y en un teléfono el cuadro lleva letra de 16 px: con menos, Safari amplía la
+página al tocarlo.
+
+### Cómo se prueba sin navegador
+
+`tests/test_pegar.py` saca de la página las expresiones regulares de
+`comoFichero`, que valen igual en Python, y las prueba contra las muestras de
+verdad —que declaran UTF-8 con comillas dobles y con simples— y contra
+declaraciones ISO-8859-1, windows-1252 e iso-8859-15. La reescritura la repite
+en Python, y una prueba exige que la página diga exactamente lo que repite,
+porque la primera versión de estas pruebas **no cazaba que se quitara**: la
+copia en Python seguía reescribiendo por su cuenta.
+
+Provocado, siete roturas y siete rojos: una ruta aparte en vez de `soltar()`,
+la declaración solo con comillas dobles, sin reescribir, «utf8» sin guion
+tomado por otra codificación, sin quitar los blancos, la advertencia de la
+firma siempre y el cuadro sin su letra de teléfono.

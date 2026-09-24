@@ -202,6 +202,24 @@
 .muestras button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 3px; }
 .muestras li span { color: var(--tenue); }
 
+/* Pegar el texto: debajo de las muestras y con su misma letra. El cuadro, en
+   la de las glosas, porque lo que se pega es eso: el XML o el EDIFACT tal cual. */
+.pegar { margin-top: .5rem; font-size: var(--t1); }
+.pegar summary { width: fit-content; cursor: pointer; color: var(--acento); padding: .2rem 0; }
+.pegar summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 3px; }
+.pegar textarea {
+  display: block; width: 100%; min-height: 8.5rem; margin-top: .5rem; resize: vertical;
+  padding: .6rem .75rem; border: 1px solid var(--borde-fuerte); border-radius: 8px;
+  background: var(--papel); color: var(--tinta); font: var(--t0)/1.5 var(--mono);
+}
+.pegar textarea::placeholder { color: var(--tenue); }
+.pegar textarea:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
+/* En un teléfono, un campo con letra de menos de 16 px hace que Safari amplíe
+   la página al tocarlo, y hay que deshacerlo con dos dedos antes de pegar. */
+@media (pointer: coarse) { .pegar textarea { font-size: 1rem; } }
+.pegar .acciones { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin-top: .6rem; }
+.pegar .acciones span { color: var(--tenue); }
+
 .arranque { padding: .8rem 1.25rem .85rem; border-top: 1px solid var(--borde); background: var(--panel-2); }
 .arranque .cabeza { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
 .arranque .cabeza strong { font-size: var(--t1); }
@@ -362,22 +380,22 @@ main > .envoltorio > .ficha {
 /* --- Ver un informe sin soltar nada -------------------------------------- */
 .probar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; margin: 1rem 0 0; }
 .probar span { font-size: var(--t1); color: var(--tenue); }
-.probar button {
+.probar button, .pegar button {
   font: 600 var(--t1)/1 var(--sans); color: var(--acento);
   background: var(--acento-flojo); border: 1px solid var(--acento);
   border-radius: 8px; padding: .55rem .95rem; cursor: pointer;
 }
-.probar button:hover:not(:disabled) { background: var(--panel); }
-.probar button:disabled { color: var(--tenue); border-color: var(--borde); background: var(--panel-2); cursor: default; }
-.probar button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.probar button:hover:not(:disabled), .pegar button:hover:not(:disabled) { background: var(--panel); }
+.probar button:disabled, .pegar button:disabled { color: var(--tenue); border-color: var(--borde); background: var(--panel-2); cursor: default; }
+.probar button:focus-visible, .pegar button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
 /* La aclaración va con el mismo gesto que una NOTA del informe: el
    corchete a la izquierda y texto sobrio. No es una queja, es contexto —de
    quién es esta factura—, y en este producto eso tiene una forma concreta. */
-.es-ejemplo {
+.es-ejemplo, .es-pegado {
   position: relative; padding: .15rem 0 .15rem 1.1rem; margin-bottom: 1.25rem;
   font-size: var(--t1); color: var(--tinta-2);
 }
-.es-ejemplo::before {
+.es-ejemplo::before, .es-pegado::before {
   content: ""; position: absolute; left: 0; top: .15rem; bottom: .15rem;
   width: .45rem; border: 2px solid var(--nota); border-right: 0;
 }
@@ -746,6 +764,23 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
                   <li><button type="button" data-ejemplo="edi-0001.edi" disabled>edi-0001.edi</button> <span>EDIFACT</span></li>
                 </ul>
               </div>
+
+              <!-- Pegar el texto, para quien tiene la factura copiada de un
+                   correo o de su programa de facturación y no guardada en un
+                   fichero. Plegado, porque es el camino de unos pocos y la
+                   zona es el de todos. Lo pegado se hace fichero y entra por
+                   el mismo sitio que uno soltado: mira «Pegar el texto» en el
+                   script. -->
+              <details class="pegar" id="pegar">
+                <summary>O pégala como texto, si la tienes copiada</summary>
+                <textarea id="pegado" rows="7" spellcheck="false" autocomplete="off"
+                          autocapitalize="off" aria-label="El texto de la factura"
+                          placeholder="La factura entera: el XML desde «&lt;?xml», o el EDIFACT desde «UNA» o «UNB»."></textarea>
+                <div class="acciones">
+                  <button type="button" id="validar-pegado" disabled>Validar lo pegado</button>
+                  <span>Se lee aquí, como el fichero: no se sube.</span>
+                </div>
+              </details>
             </div>
           </div>
 
@@ -1646,7 +1681,9 @@ async function verElEjemplo(boton) {
   }
 }
 
-async function soltar(ficheros) {
+// `aclaracion` va encima del informe, como la de las muestras: de dónde sale
+// lo que se ha leído, cuando no es un fichero sin más.
+async function soltar(ficheros, aclaracion = "") {
   if (fallo || !ficheros.length) return;
 
   if (!listo) {
@@ -1676,6 +1713,7 @@ async function soltar(ficheros) {
     ficheros.length + " fichero(s).</p></div>";
   try {
     pintarInforme(await Glosa.validar(ficheros));
+    if (aclaracion) $("informe").insertAdjacentHTML("afterbegin", aclaracion);
   } catch (error) {
     $("informe").innerHTML =
       "<div class='veredicto no'><h3>No se ha podido leer</h3><p>" +
@@ -1756,6 +1794,49 @@ $("correr-banco").addEventListener("click", correrElBanco);
 ["dragleave", "drop"].forEach((ev) =>
   zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.remove("encima"); }));
 zona.addEventListener("drop", (e) => soltar([...e.dataTransfer.files]));
+
+// --- Pegar el texto ----------------------------------------------------------
+//
+// Lo pegado se hace fichero y va por soltar(), el camino de uno soltado. Una
+// ruta aparte podría portarse distinto, y entonces lo pegado y el fichero no
+// darían el mismo informe.
+//
+// Dos cosas cambian al pegar, y las dos se dicen encima del informe:
+//
+// - El portapapeles da letras, no bytes. Si la declaración dice ISO-8859-1 y
+//   las letras se escriben en UTF-8, lxml lee «EspaÃ±a» donde ponía «España»,
+//   y sin un error. Se escriben en UTF-8 y la declaración pasa a decirlo.
+// - Lo que se pierda al copiar —un salto de línea, un espacio— cambia lo que
+//   cubre la firma, y la firma deja de cuadrar aunque el fichero esté bien.
+//
+// Los blancos de delante se quitan: son del correo, no de la factura, y una
+// declaración XML que no va la primera hace que no abra.
+function comoFichero(pegado) {
+  let texto = pegado.replace(/^\s+/, "");
+  const declarada = texto.match(/^<\?xml[^>]*?\sencoding\s*=\s*(["'])([^"']*)\1/);
+  const otra = declarada && !/^utf-?8$/i.test(declarada[2]) ? declarada[2] : "";
+  if (otra) {
+    const principio = declarada[0].slice(0, -(otra.length + 1));
+    texto = principio + "UTF-8" + declarada[1] + texto.slice(declarada[0].length);
+  }
+  const firmada = /<([\w.-]+:)?Signature[\s>]/.test(texto);
+  const aclaracion = "<p class='es-pegado'>Este informe es del <b>texto pegado</b>, " +
+    "no de un fichero." +
+    (otra ? " Su declaración decía «" + escapar(otra) + "», pero el " +
+            "portapapeles da letras y no bytes: se ha leído en UTF-8." : "") +
+    (firmada ? " Si algo cambió al copiarlo —un salto de línea, un espacio—, " +
+               "la firma no cuadrará aunque el fichero esté bien: para " +
+               "comprobarla, mejor el fichero." : "") + "</p>";
+  return { fichero: new File([texto], "texto pegado", { type: "text/plain" }), aclaracion };
+}
+
+const pegado = $("pegado");
+const validarPegado = $("validar-pegado");
+pegado.addEventListener("input", () => { validarPegado.disabled = !pegado.value.trim(); });
+validarPegado.addEventListener("click", () => {
+  const { fichero, aclaracion } = comoFichero(pegado.value);
+  soltar([fichero], aclaracion);
+});
 
 // La seccion comercial solo aparece si hay titular completo en glosa.js. No es
 // prudencia: ofrecer un servicio de pago obliga a decir quien lo ofrece —NIF y

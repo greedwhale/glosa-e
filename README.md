@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2555 tests, todos en verde.
+2574 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5028,15 +5028,17 @@ se repasa todo junto y entonces se publica y se comprueba en producción.
 5. **El testigo, compacto en el móvil**: tres líneas y un enlace a lo que ha
    pedido la página. Así la zona entra en la primera pantalla sin quitar el
    testigo de delante; a cambio, las explicaciones quedan a un toque. —
-   *Tanda 3 y 4, hecha*: a 375×812 la zona está entera en la primera
-   pantalla, de 610 a 809 px, y el folio pone la zona delante de sus glosas
-   por debajo de 54rem.
+   *Tanda 3 y 4, hecha*: en una ventana de 375×812 la zona está entera en
+   la primera pantalla, de 610 a 809 px, y el folio pone la zona delante de
+   sus glosas por debajo de 54rem. En el teléfono el navegador se queda parte
+   de la pantalla para sus barras: a 375×667 entra el rótulo y no el botón.
 6. **La cabecera: el signo y el nombre en vez del bloque gris**, que a 40 px de
    alto parece una imagen que no ha cargado. **Reabre una decisión de
    [MARCA.md](MARCA.md)** —el bloque plateado es la firma—, así que la decidía
    el titular: la aprobó el 23-09-2026. — *Tanda 3, hecha.*
 7. **Pegar el XML**, además de soltar el fichero, para quien lo tiene copiado
-   de un correo o de su programa de facturación. De Docuflair. — *Tanda 5.*
+   de un correo o de su programa de facturación. De Docuflair. — *Tanda 5,
+   hecha.*
 8. **«Desconecta la red y suelta la factura»**: una prueba que cualquiera hace
    por sí mismo. **Sin medir**: antes hay que comprobar que, cargada la
    página, valida sin conexión. — *Tanda 6, si se sostiene.*
