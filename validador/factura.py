@@ -57,7 +57,14 @@ from validador.formato import (
 from validador.cadena import Almacen
 from validador.revocacion import AlmacenDeListas
 from validador.esquema import Catalogo
-from validador.incidencias import ERROR, Incidencia, Informe
+from validador.incidencias import (
+    AVISO,
+    ERROR,
+    NOTA,
+    Incidencia,
+    Informe,
+    familia_de,
+)
 
 # Familias que vienen escritas en XML y se parsean tal cual.
 _FAMILIAS_XML = (UBL, FACTURAE, CII)
@@ -343,6 +350,58 @@ def _no_se_puede_leer(camino: Path, error: OSError) -> Deteccion:
 
 # --- Un lote de ficheros ---------------------------------------------------
 
+# Las tres partes de lo que se mira, con los nombres y en el orden de «Qué
+# mira» en la portada, donde van numeradas: el informe las numera igual para
+# que se reconozcan. Y es el orden en que se miran: sin forma no hay contenido
+# que leer.
+PARTE_FORMA = "La forma"
+PARTE_CONTENIDO = "El contenido"
+PARTE_FIRMA = "La firma"
+PARTES = (PARTE_FORMA, PARTE_CONTENIDO, PARTE_FIRMA)
+
+# De qué parte es cada familia de códigos. Cerrada a propósito, y en los dos
+# sentidos: una familia nueva que no esté aquí, o una de aquí que ya no exista,
+# pone en rojo `tests/test_informe_por_partes.py` antes de publicarse, en vez
+# de contarse en la columna que caiga. `VALIDADOR` no es de ninguna: dice que
+# el fichero no se ha llegado a mirar.
+PARTE_DE_LA_FAMILIA: dict[str, str | None] = {
+    "XSD": PARTE_FORMA, "XML": PARTE_FORMA,
+    "BR": PARTE_CONTENIDO, "COPIA": PARTE_CONTENIDO, "CU": PARTE_CONTENIDO,
+    "EDI": PARTE_CONTENIDO, "FE": PARTE_CONTENIDO, "IVA": PARTE_CONTENIDO,
+    "NIF": PARTE_CONTENIDO, "PERFIL": PARTE_CONTENIDO, "SIN": PARTE_CONTENIDO,
+    "SPFE": PARTE_CONTENIDO,
+    "ANCLAS": PARTE_FIRMA, "CADENA": PARTE_FIRMA, "CONFIANZA": PARTE_FIRMA,
+    "FIRMA": PARTE_FIRMA, "REVOCACION": PARTE_FIRMA, "REVOCADO": PARTE_FIRMA,
+    "SELLO": PARTE_FIRMA,
+    "VALIDADOR": None,
+}
+
+# Lo que no se mira en ninguna de las tres.
+EN_NINGUNA = "si lo que dice la factura es cierto"
+
+
+@dataclass(frozen=True)
+class Parte:
+    """Una de las tres, como la pinta la página."""
+
+    nombre: str
+    resultado: str          # «Sin errores», «2 avisos», «No aplica», «Sin firma»…
+    gravedad: str | None    # la peor que ha salido en ella, para el color
+    mirado: str             # lo que se ha comprobado, en una frase; o vacía
+    sin_mirar: str          # «No se comprueba…»; o vacía
+
+
+def _cuantas(n: int, uno: str, varios: str) -> str:
+    return f"{n} {uno if n == 1 else varios}" if n else ""
+
+
+def _frase(trozos: list[str]) -> str:
+    """Los trozos de `alcance`, en una frase que empieza en mayúscula."""
+    if not trozos:
+        return ""
+    texto = ", ".join(trozos)
+    return texto[0].upper() + texto[1:] + "."
+
 
 @dataclass
 class InformeLote:
@@ -513,6 +572,143 @@ class InformeLote:
         """Documentos con alguna firma verificada que no llega a ningún ancla."""
         return sum(1 for _, informe in self.informes if self._llegan(informe) is False)
 
+    def _familias(self) -> set[str]:
+        return {
+            informe.deteccion.familia
+            for _, informe in self.informes
+            if informe.deteccion is not None and informe.deteccion.familia
+        }
+
+    def _alcance_por_partes(
+        self, forma: bool, anclas: bool, listas: bool
+    ) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+        """Lo que se ha mirado y lo que no, repartido entre las tres partes.
+
+        Es la cuenta que `alcance` escribía de corrido, y la leen dos: la frase
+        del final y las tres columnas con que empieza el informe en la página.
+        Se hace aquí una sola vez porque hecha dos veces, un día una de las dos
+        diría que se ha comprobado lo que la otra dice que no.
+        """
+        mirado: dict[str, list[str]] = {parte: [] for parte in PARTES}
+        sin_mirar: dict[str, list[str]] = {parte: [] for parte in PARTES}
+        familias = self._familias()
+        # El esquema solo se le puede pasar a lo que es XML. Un lote de puro
+        # EDIFACT no ha visto ningún XSD, y decir que sí sería apuntarse una
+        # comprobación que no se ha hecho, que es el peor error que puede
+        # tener esta frase: lo que promete es de lo que se fiará quien la lee.
+        con_esquema = familias - {EDIFACT}
+        if forma and con_esquema:
+            mirado[PARTE_FORMA].append("la forma contra el esquema XSD")
+        contenido = mirado[PARTE_CONTENIDO]
+        if EDIFACT in familias:
+            contenido.append(
+                "las cuentas que EDIFACT obliga a llevar en el sobre (que el "
+                "mensaje traiga los segmentos que dice traer)"
+            )
+        if familias & {UBL, CII, EDIFACT}:
+            contenido.append(
+                "las reglas EN 16931 (campos obligatorios, cuadre de totales y "
+                "desglose de IVA)"
+            )
+        if FACTURAE in familias:
+            contenido.append(
+                "la aritmética del formato Facturae (líneas, totales, impuestos "
+                "y cabecera de lote)"
+            )
+        # Solo donde se mira. Iba siempre, y se prometía sobre un lote de
+        # EDIFACT —dos copias idénticas salían «2 correctos», sin el duplicado:
+        # de un EDIFACT no se saca el código único— y hasta sobre un lote de
+        # ficheros que no se habían podido leer.
+        if familias & {UBL, FACTURAE, CII}:
+            contenido.append("el código único del RD 238/2026")
+        if any(
+            informe.deteccion is not None
+            and informe.deteccion.familia == UBL
+            and solucion_publica.declara_el_cius(informe.deteccion)
+            for _, informe in self.informes
+        ):
+            # Solo si alguna factura lo declara: a las demás no se les mide, y
+            # decirlo en un lote sin ninguna sería apuntarse lo que no se ha
+            # hecho. Y «lo que se puede comprobar», porque hay campos del
+            # anexo sin ruta que no se miran (`NO_SE_COMPRUEBA`). Sin comas
+            # dentro: la frase entera se une con comas, y «…del RD 238/2026, en
+            # las facturas que…, lo que…» se leía como dos cosas distintas.
+            contenido.append(
+                "lo que el borrador del anexo I pide a las facturas que declaran "
+                "el CIUS de la solución pública y se puede comprobar en UBL"
+            )
+        de_la_firma = mirado[PARTE_FIRMA]
+        sin_la_firma = sin_mirar[PARTE_FIRMA]
+        if self.firmados:
+            # Todo lo que esta frase promete de la firma cuelga de haber podido
+            # comprobar alguna. Con una firma que no se ha sabido mirar —basta
+            # un método de firma inventado—, decía «se ha comprobado que las
+            # firmas no estén rotas» sobre la única firma del lote, que nadie
+            # había mirado. El documento lo decía en su aviso y en su línea de
+            # estado; la frase que resume el informe entero se lo callaba, y es
+            # la que se lee para saber qué vale el «sin errores».
+            if self.con_firma_comprobada:
+                de_la_firma.append(
+                    "que las firmas no estén rotas: que nadie haya tocado el "
+                    "documento desde que se firmó, y que la firma cuadre con el "
+                    "certificado que trae dentro"
+                )
+                if anclas:
+                    # Lo mismo que con la firma. «Se ha comprobado que ese
+                    # certificado lleve a una autoridad de confianza» salía
+                    # también con `CADENA-DESCONOCIDA` en el informe, que es un
+                    # aviso y deja el veredicto en «sin errores»: la frase
+                    # prometía justo lo que el aviso de encima negaba.
+                    if self.con_cadena_que_llega:
+                        de_la_firma.append(
+                            "que ese certificado lleve a una autoridad de "
+                            "confianza instalada"
+                        )
+                        if listas:
+                            de_la_firma.append(
+                                "que no lo hayan anulado, según las listas de "
+                                "revocación instaladas"
+                            )
+                            # Lo que queda no es un defecto del validador:
+                            # ninguna lista sabe lo que pasó después de
+                            # publicarse.
+                            sin_la_firma.append(
+                                "si lo anularon después de la última lista que "
+                                "tengas"
+                            )
+                        else:
+                            sin_la_firma.append(
+                                "si el certificado está anulado —hace falta la "
+                                "lista de revocación de su autoridad—"
+                            )
+                    sin_la_firma.extend(
+                        self._de_cuantos(
+                            self.con_cadena_que_no_llega,
+                            "de quién es el certificado",
+                        )
+                    )
+                else:
+                    # Decir «firma comprobada» a secas dejaría creer que también
+                    # se sabe de quién es, que es la mitad que más importa.
+                    sin_la_firma.append(
+                        "de quién es el certificado ni si está revocado —lo "
+                        "primero necesita anclas de confianza instaladas, lo "
+                        "segundo salir a la red—"
+                    )
+            # El porqué no se repite aquí: son cuatro motivos distintos y cada
+            # documento lleva el suyo escrito en su aviso. Esta frase solo
+            # tiene que dejar de apuntarse la comprobación.
+            sin_la_firma.extend(
+                self._de_cuantos(self.con_firma_sin_comprobar, "la firma")
+            )
+        else:
+            sin_la_firma.append("la validez de las firmas electrónicas")
+        if EDIFACT in familias:
+            sin_mirar[PARTE_CONTENIDO].append(
+                "el código único de las facturas EDIFACT"
+            )
+        return mirado, sin_mirar
+
     def alcance(
         self, forma: bool = True, anclas: bool = False, listas: bool = False
     ) -> str:
@@ -536,123 +732,9 @@ class InformeLote:
         que el recordatorio de los esquemas: en un lote de doscientos, cien
         repeticiones de la misma advertencia son ruido y se dejan de leer.
         """
-        familias = {
-            informe.deteccion.familia
-            for _, informe in self.informes
-            if informe.deteccion is not None and informe.deteccion.familia
-        }
-        # El esquema solo se le puede pasar a lo que es XML. Un lote de puro
-        # EDIFACT no ha visto ningún XSD, y decir que sí sería apuntarse una
-        # comprobación que no se ha hecho, que es el peor error que puede
-        # tener esta frase: lo que promete es de lo que se fiará quien la lee.
-        con_esquema = familias - {EDIFACT}
-        mirado = ["la forma contra el esquema XSD"] if forma and con_esquema else []
-        if EDIFACT in familias:
-            mirado.append(
-                "las cuentas que EDIFACT obliga a llevar en el sobre (que el "
-                "mensaje traiga los segmentos que dice traer)"
-            )
-        if familias & {UBL, CII, EDIFACT}:
-            mirado.append(
-                "las reglas EN 16931 (campos obligatorios, cuadre de totales y "
-                "desglose de IVA)"
-            )
-        if FACTURAE in familias:
-            mirado.append(
-                "la aritmética del formato Facturae (líneas, totales, impuestos "
-                "y cabecera de lote)"
-            )
-        # Solo donde se mira. Iba siempre, y se prometía sobre un lote de
-        # EDIFACT —dos copias idénticas salían «2 correctos», sin el duplicado:
-        # de un EDIFACT no se saca el código único— y hasta sobre un lote de
-        # ficheros que no se habían podido leer.
-        if familias & {UBL, FACTURAE, CII}:
-            mirado.append("el código único del RD 238/2026")
-        if any(
-            informe.deteccion is not None
-            and informe.deteccion.familia == UBL
-            and solucion_publica.declara_el_cius(informe.deteccion)
-            for _, informe in self.informes
-        ):
-            # Solo si alguna factura lo declara: a las demás no se les mide, y
-            # decirlo en un lote sin ninguna sería apuntarse lo que no se ha
-            # hecho. Y «lo que se puede comprobar», porque hay campos del
-            # anexo sin ruta que no se miran (`NO_SE_COMPRUEBA`). Sin comas
-            # dentro: la frase entera se une con comas, y «…del RD 238/2026, en
-            # las facturas que…, lo que…» se leía como dos cosas distintas.
-            mirado.append(
-                "lo que el borrador del anexo I pide a las facturas que declaran "
-                "el CIUS de la solución pública y se puede comprobar en UBL"
-            )
-        sin_mirar = []
-        if self.firmados:
-            # Todo lo que esta frase promete de la firma cuelga de haber podido
-            # comprobar alguna. Con una firma que no se ha sabido mirar —basta
-            # un método de firma inventado—, decía «se ha comprobado que las
-            # firmas no estén rotas» sobre la única firma del lote, que nadie
-            # había mirado. El documento lo decía en su aviso y en su línea de
-            # estado; la frase que resume el informe entero se lo callaba, y es
-            # la que se lee para saber qué vale el «sin errores».
-            if self.con_firma_comprobada:
-                mirado.append(
-                    "que las firmas no estén rotas: que nadie haya tocado el "
-                    "documento desde que se firmó, y que la firma cuadre con el "
-                    "certificado que trae dentro"
-                )
-                if anclas:
-                    # Lo mismo que con la firma. «Se ha comprobado que ese
-                    # certificado lleve a una autoridad de confianza» salía
-                    # también con `CADENA-DESCONOCIDA` en el informe, que es un
-                    # aviso y deja el veredicto en «sin errores»: la frase
-                    # prometía justo lo que el aviso de encima negaba.
-                    if self.con_cadena_que_llega:
-                        mirado.append(
-                            "que ese certificado lleve a una autoridad de "
-                            "confianza instalada"
-                        )
-                        if listas:
-                            mirado.append(
-                                "que no lo hayan anulado, según las listas de "
-                                "revocación instaladas"
-                            )
-                            # Lo que queda no es un defecto del validador:
-                            # ninguna lista sabe lo que pasó después de
-                            # publicarse.
-                            sin_mirar.append(
-                                "si lo anularon después de la última lista que "
-                                "tengas"
-                            )
-                        else:
-                            sin_mirar.append(
-                                "si el certificado está anulado —hace falta la "
-                                "lista de revocación de su autoridad—"
-                            )
-                    sin_mirar.extend(
-                        self._de_cuantos(
-                            self.con_cadena_que_no_llega,
-                            "de quién es el certificado",
-                        )
-                    )
-                else:
-                    # Decir «firma comprobada» a secas dejaría creer que también
-                    # se sabe de quién es, que es la mitad que más importa.
-                    sin_mirar.append(
-                        "de quién es el certificado ni si está revocado —lo "
-                        "primero necesita anclas de confianza instaladas, lo "
-                        "segundo salir a la red—"
-                    )
-            # El porqué no se repite aquí: son cuatro motivos distintos y cada
-            # documento lleva el suyo escrito en su aviso. Esta frase solo
-            # tiene que dejar de apuntarse la comprobación.
-            sin_mirar.extend(
-                self._de_cuantos(self.con_firma_sin_comprobar, "la firma")
-            )
-        else:
-            sin_mirar.append("la validez de las firmas electrónicas")
-        if EDIFACT in familias:
-            sin_mirar.append("el código único de las facturas EDIFACT")
-        sin_mirar.append("si lo que dice la factura es cierto")
-        if not mirado:
+        mirado, sin_mirar = self._alcance_por_partes(forma, anclas, listas)
+        dicho = [m for parte in PARTES for m in mirado[parte]]
+        if not dicho:
             # Solo pasa si no se ha podido leer ningún fichero: cualquiera que
             # se lea como factura aporta al menos sus reglas. Antes esto no
             # podía pasar, porque el código único se prometía siempre —hasta
@@ -661,13 +743,74 @@ class InformeLote:
                 "No se ha comprobado nada: ninguno de los ficheros se ha podido "
                 "leer como factura."
             )
+        # Lo que no se mira de la firma va delante del código único de EDIFACT,
+        # que es el orden en que se escribió la frase y en el que se lee.
+        callado = sin_mirar[PARTE_FIRMA] + sin_mirar[PARTE_CONTENIDO] + [EN_NINGUNA]
         return (
             "«Sin errores» quiere decir que se ha comprobado "
-            + ", ".join(mirado)
+            + ", ".join(dicho)
             + ".\nNo se comprueba "
-            + ", ni ".join(sin_mirar)
+            + ", ni ".join(callado)
             + "."
         )
+
+    def partes(
+        self, forma: bool = True, anclas: bool = False, listas: bool = False
+    ) -> list[Parte]:
+        """La forma, el contenido y la firma, cada una con lo que ha salido.
+
+        Es `alcance` repartido en tres, con la cuenta de cada parte al lado,
+        para que la página lo enseñe **antes** del detalle y no al final: quien
+        lee «sin errores» tiene que saber en ese momento contra qué, no
+        después de treinta glosas. La idea es la del resumen del HTTP
+        Observatory de Mozilla, que pone lo comprobado encima de las pruebas.
+
+        La cuenta se hace por familia de código —`PARTE_DE_LA_FAMILIA`— y lo
+        mirado sale de la misma cuenta que la frase, así que las dos no pueden
+        prometer cosas distintas. Vacía si no se ha podido leer ningún
+        fichero: no hay partes que enseñar, y eso ya lo dice `alcance`.
+        """
+        mirado, sin_mirar = self._alcance_por_partes(forma, anclas, listas)
+        if not any(mirado.values()):
+            return []
+        cuentas = {parte: {ERROR: 0, AVISO: 0, NOTA: 0} for parte in PARTES}
+        todas = [i for _, informe in self.informes for i in informe.incidencias]
+        for incidencia in todas + self.cruzadas:
+            parte = PARTE_DE_LA_FAMILIA[familia_de(incidencia.codigo)]
+            if parte is not None:
+                cuentas[parte][incidencia.gravedad] += 1
+
+        salida = []
+        for parte in PARTES:
+            errores, avisos = cuentas[parte][ERROR], cuentas[parte][AVISO]
+            no = list(sin_mirar[parte])
+            if errores or avisos:
+                resultado = " y ".join(
+                    c for c in (_cuantas(errores, "error", "errores"),
+                                _cuantas(avisos, "aviso", "avisos")) if c
+                )
+            elif mirado[parte]:
+                resultado = "Sin errores"
+            elif parte == PARTE_FORMA and not (self._familias() - {EDIFACT}):
+                resultado = "No aplica"
+                no.append("la forma: EDIFACT no tiene esquema XSD")
+            elif parte == PARTE_FORMA:
+                # «Sin errores» aquí sería el peor fallo posible: la forma sin
+                # mirar, y el titular de la columna diciendo que está bien.
+                resultado = "Sin mirar"
+                no.append("la forma: no hay esquemas XSD con que mirarla")
+            elif parte == PARTE_FIRMA and not self.firmados:
+                resultado = "Sin firma"
+            else:
+                resultado = "Sin mirar"
+            salida.append(Parte(
+                nombre=parte,
+                resultado=resultado,
+                gravedad=ERROR if errores else AVISO if avisos else None,
+                mirado=_frase(mirado[parte]),
+                sin_mirar="No se comprueba " + ", ni ".join(no) + "." if no else "",
+            ))
+        return salida
 
     def _de_cuantos(self, cuantos: int, que: str) -> list[str]:
         """«la firma de este documento —su aviso dice por qué—», y sus plurales.

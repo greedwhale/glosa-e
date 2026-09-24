@@ -5428,3 +5428,81 @@ ficha sin traducir, la descripción con marcas y un mensaje con asteriscos.
 Las cadenas con marcas que quedan en `validador/` no llegan a nadie: la tabla
 de la copia fiel y los arreglos de rutas de `sintaxis.py` no se imprimen, y
 las negativas de `paquete.py` son para quien monta el sitio.
+
+## El informe, pasado a limpio
+
+Tanda 2 del rediseño de la portada, el 23-09-2026. Un defecto medido y dos
+cambios de forma que salieron del repaso contra las de al lado.
+
+### El margen pisaba el filete
+
+En el informe de la página, el texto del margen —la gravedad, el código y la
+norma— tocaba la raya de color de la glosa: medido a 1100 px, **2 px de
+solape en los 33 rótulos** del informe de ejemplo. Salía de dos medidas que
+tenían que casar y no casaban: el cuerpo se corría 1,35rem a la izquierda
+sobre un hueco entre columnas de 1,25rem.
+
+Ahora el filete es el borde derecho del margen y el aire es su relleno, así
+que no queda nada que casar. Medido igual, en claro y en oscuro: **19,6 px**
+de aire en los 34 renglones, y 0 px de desborde a 320.
+
+La raya de color se fue con él. Era el recurso de tarjeta más visto de la web
+y aquí no decía nada que no dijera ya el rótulo; en su sitio va un corchete
+del color de la gravedad, que es el signo de la marca. En el móvil, con el
+margen encima, el corchete abraza la glosa entera. Y `word-break: break-all`
+pasó a `overflow-wrap: anywhere` en el código y en los datos: el primero
+parte cualquier palabra al final del renglón, también las de «Debería ser»,
+que son prosa.
+
+### Lo que se ha mirado, antes del detalle
+
+El informe decía qué se había comprobado **al final**, en una frase de
+corrido debajo de todas las glosas. Quien leía «Sin errores» arriba no sabía
+contra qué hasta haber bajado entero. Ahora lo dice antes de ninguna queja,
+en tres columnas —la forma, el contenido y la firma— numeradas como en «Qué
+mira» de la portada, cada una con su cuenta. Es la idea del resumen del HTTP
+Observatory de Mozilla, que pone lo comprobado encima de las pruebas.
+
+El peligro de decirlo en dos sitios es que un día digan cosas distintas, y
+aquí lo distinto sería una columna con «Sin errores» de algo que no se ha
+mirado. Por eso no hay dos cuentas: `InformeLote._alcance_por_partes` reparte
+lo mirado entre las tres partes, y de ahí salen la frase de siempre, que sigue
+en la consola letra por letra —pasan sin tocarlas las 627 pruebas que la
+vigilan—, y `InformeLote.partes()`, que es lo que pinta la página. La cuenta
+de cada columna se hace por familia de código, con una tabla cerrada:
+`PARTE_DE_LA_FAMILIA`. Y `familia_de` pasó a `incidencias.py` para que el
+catálogo y el informe agrupen con la misma regla.
+
+Lo que no estaba en la frase y la columna necesita: por qué no se ha mirado la
+forma. Con EDIFACT, «No aplica»; sin esquemas, «Sin mirar». Nunca «Sin
+errores».
+
+Así sale `fe-0001.xml` en el sitio montado:
+
+| Parte | Cuenta | Lo que dice |
+|---|---|---|
+| 1 · La forma | Sin errores | la forma contra el esquema XSD |
+| 2 · El contenido | Sin errores | la aritmética de Facturae y el código único |
+| 3 · La firma | 2 avisos | que no esté rota; y no se comprueba de quién es el certificado |
+
+### El veredicto
+
+Era una tarjeta con una raya de color y la cuenta en pastillas; ahora es una
+frase en Literata con la cuenta dentro —«Sin errores, con 2 avisos.»— y las
+notas nombradas debajo. Las pastillas se miran como un semáforo, que es
+justo lo que esto no es. El banco de la portada usa el mismo veredicto y cambia
+con él: también sin caja.
+
+### Lo que lo guarda
+
+`tests/test_informe_por_partes.py`, 98 pruebas. Que la tabla de familias esté
+cerrada en los dos sentidos; que, con los diez ejemplos y las ocho
+combinaciones de esquemas, anclas y listas, ninguna columna diga «Sin
+errores» sin haber mirado nada y todo lo que diga esté, tal cual, en la
+frase; que las cuentas de las tres sumen las quejas que hay; y en la página,
+que las columnas salgan de lo que manda Python y que el cuerpo de la glosa no
+vuelva a correrse hacia el margen.
+
+Provocado, cinco roturas y cinco rojos: una familia sin parte, la forma sin
+mirar diciendo «Sin errores», el cuerpo corrido otra vez, las partes pedidas
+con otras banderas que la frase, y la firma contada como contenido.

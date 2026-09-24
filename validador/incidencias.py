@@ -29,6 +29,20 @@ AVISO = "aviso"
 NOTA = "nota"
 
 
+def familia_de(codigo: str) -> str:
+    """El prefijo que agrupa: BR, CU, XSD, FIRMA…
+
+    Los que no llevan guion son su propia familia: `REVOCADO` no es de
+    `REVOCACION-` aunque lo parezca, y meterlo ahí sería decir que es un
+    problema de la lista cuando es el resultado de haberla leído.
+
+    Vive aquí y no en `codigos.py` porque ahora la usan dos: la página de
+    códigos, que ordena por familia, y el informe, que cuenta por familia
+    cuánto ha salido de la forma, del contenido y de la firma.
+    """
+    return codigo.split("-")[0] if "-" in codigo else codigo
+
+
 @dataclass(frozen=True)
 class Incidencia:
     """Un incumplimiento concreto, explicado para quien tiene que arreglarlo."""

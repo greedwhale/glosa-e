@@ -144,66 +144,113 @@
 .fases span.hecha::before { content: "✓ "; color: var(--bien); }
 .arranque.listo .riel { display: none; }
 
-/* --- El informe ---------------------------------------------------------- */
-#informe { margin-top: 1.5rem; }
-.veredicto {
-  border: 1px solid var(--borde); border-left: 4px solid var(--tenue);
-  border-radius: 10px; padding: 1.15rem 1.35rem; background: var(--panel);
-  margin-bottom: 1.25rem;
+/* --- El informe ----------------------------------------------------------
+   Pasado a limpio el 23-09-2026. El veredicto era una tarjeta con una raya de
+   color a un lado y la cuenta en pastillas; ahora es una frase, en la letra de
+   los titulares, con la cuenta dentro. Y debajo, antes de ninguna glosa, lo
+   que se ha mirado en cada una de las tres partes, que antes iba al final. */
+#informe { margin-top: 2rem; scroll-margin-top: 5rem; }
+.veredicto { margin-bottom: 1.5rem; }
+.veredicto .cabeza {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .75rem;
+  font-size: var(--t1); color: var(--tenue); margin-bottom: .5rem;
 }
-.veredicto.si { border-left-color: var(--bien); background: var(--bien-flojo); }
-.veredicto.no { border-left-color: var(--error); background: var(--error-flojo); }
-.veredicto.ojo { border-left-color: var(--aviso); background: var(--aviso-flojo); }
-.veredicto h3 { font-size: var(--t3); margin-bottom: .35rem; }
-.veredicto.si h3 { color: var(--bien); }
+.veredicto .cabeza .rotulo { margin: 0; color: var(--tinta-2); }
+.veredicto .cabeza .de { font-family: var(--mono); color: var(--tinta); overflow-wrap: anywhere; }
+.veredicto h3 {
+  font: 400 var(--t4)/1.2 var(--serif); letter-spacing: -.012em;
+  margin-bottom: .45rem;
+}
 .veredicto.no h3 { color: var(--error); }
-.veredicto.ojo h3 { color: var(--aviso); }
-.veredicto p { font-size: var(--t1); color: var(--tinta-2); }
-/* El recuento. Va en fichas y no en una frase porque se mira, no se lee: lo
-   que se busca aquí es «¿cuánto hay de lo malo?» antes de bajar a leerlo. */
-.veredicto .cuentas { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .75rem; }
-.veredicto .cuenta {
-  font-size: var(--t0); text-transform: uppercase; letter-spacing: .07em;
-  font-weight: 700; padding: .2rem .55rem; border-radius: 999px;
-  border: 1px solid currentColor;
+.veredicto h3 .error { color: var(--error); }
+.veredicto h3 .aviso { color: var(--aviso); }
+.veredicto p { font-size: var(--t2); color: var(--tinta-2); max-width: 40rem; }
+
+/* Las tres partes, con los números de «Qué mira»: quien ha leído arriba qué
+   mira esto lo reconoce aquí sin buscarlo. La cuenta en la letra de la
+   gravedad y lo mirado debajo, en una frase: es un resumen, se mira de un
+   vistazo. El filete de arriba es el fuerte porque abre el informe. */
+.partes { margin: 0 0 2rem; }
+.partes > .rotulo { margin-bottom: .55rem; }
+.partes ol {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--borde-fuerte); border-bottom: 1px solid var(--borde);
 }
-.veredicto .cuenta.error { color: var(--error); }
-.veredicto .cuenta.aviso { color: var(--aviso); }
-.veredicto .cuenta.nota  { color: var(--nota); }
+.partes li { padding: .9rem 1.25rem 1.05rem; border-left: 1px solid var(--borde); }
+.partes li:first-child { padding-left: 0; border-left: 0; }
+.partes li:last-child { padding-right: 0; }
+.partes .que {
+  display: block; font-size: var(--t0); text-transform: uppercase;
+  letter-spacing: .1em; font-weight: 600; color: var(--tenue);
+}
+.partes b { display: block; font-size: var(--t3); font-weight: 600; color: var(--tinta); margin: .3rem 0 .3rem; }
+.partes .error b { color: var(--error); }
+.partes .aviso b { color: var(--aviso); }
+.partes p { font-size: var(--t1); line-height: 1.5; color: var(--tinta-2); margin: 0 0 .4rem; }
+.partes p.no { color: var(--tenue); }
+.partes .ninguna { margin-top: .65rem; color: var(--tenue); }
+@media (max-width: 40rem) {
+  .partes ol { grid-template-columns: minmax(0, 1fr); }
+  .partes li, .partes li:first-child, .partes li:last-child {
+    padding: .8rem 0; border-left: 0; border-top: 1px dashed var(--borde);
+  }
+  .partes li:first-child { border-top: 0; }
+}
 
 .documento { border: 1px solid var(--borde); border-radius: 10px; background: var(--panel); margin-bottom: 1rem; overflow: hidden; }
 .documento > header {
   position: static; background: var(--panel-2); border: 0; border-bottom: 1px solid var(--borde);
   padding: .8rem 1.15rem; backdrop-filter: none;
 }
-.documento > header .nombre { font-family: var(--mono); font-size: var(--t1); color: var(--tinta); word-break: break-all; }
+.documento > header .nombre { font-family: var(--mono); font-size: var(--t1); color: var(--tinta); overflow-wrap: anywhere; }
 .documento > header .estado { font-size: var(--t1); color: var(--tinta-2); margin-top: .15rem; }
 
-/* La glosa: la nota al margen. El codigo va fuera del bloque, a su izquierda,
-   igual que el punto de la marca. Es el dibujo de la marca hecho maqueta. */
-.glosa { display: grid; grid-template-columns: 9.5rem 1fr; gap: 0 1.25rem; padding: 1.05rem 1.15rem; border-top: 1px dashed var(--borde); }
-.documento .glosa:first-of-type { border-top: 0; }
-.glosa .margen { text-align: right; padding-top: .1rem; }
-.glosa .grave { font-size: var(--t0); text-transform: uppercase; letter-spacing: .09em; font-weight: 700; display: block; margin-bottom: .15rem; }
-.glosa .codigo { font-family: var(--mono); font-size: var(--t1); font-weight: 600; display: block; word-break: break-all; }
-.glosa .norma { font-size: var(--t0); color: var(--tenue); display: block; margin-top: .1rem; }
-.glosa .cuerpo { border-left: 2px solid var(--borde); padding-left: 1.25rem; margin-left: -1.35rem; }
-.glosa .mensaje { font-size: var(--t2); }
-.glosa dl { display: grid; grid-template-columns: auto 1fr; gap: .15rem .7rem; margin: .55rem 0 0; font-size: var(--t1); }
-.glosa dt { color: var(--tenue); }
-.glosa dd { margin: 0; font-family: var(--mono); font-size: var(--t1); word-break: break-all; }
-.glosa.error .codigo, .glosa.error .grave { color: var(--error); }
-.glosa.error .cuerpo { border-left-color: var(--error); }
-.glosa.aviso .codigo, .glosa.aviso .grave { color: var(--aviso); }
-.glosa.aviso .cuerpo { border-left-color: var(--aviso); }
-.glosa.nota .codigo, .glosa.nota .grave { color: var(--nota); }
-.glosa.nota .cuerpo { border-left-color: var(--nota); }
+/* La glosa: la nota al margen. En el margen, la gravedad, el código y la
+   norma, contra un filete neutro; y el cuerpo abre con un corchete del color
+   de la gravedad, que es el signo de la marca hecho maqueta.
 
-.alcance {
-  border: 1px solid var(--borde); border-radius: 10px; padding: 1.15rem 1.35rem;
-  background: var(--panel-2); font-size: var(--t1); color: var(--tinta-2);
+   Era una raya lateral de color, y el texto del margen la pisaba: medido el
+   23-09-2026 a 1100 px, 2 px en los 33 rótulos de un informe, porque el
+   cuerpo se corría 1,35rem a la izquierda sobre un hueco de 1,25rem. Ahora el
+   filete es el borde del margen y el aire es su relleno, así que no hay dos
+   medidas que puedan dejar de casar. */
+.glosa {
+  position: relative; display: grid; grid-template-columns: 11.75rem minmax(0, 1fr);
+  border-top: 1px dashed var(--borde);
 }
-.alcance .rotulo { margin-bottom: .5rem; }
+.documento .glosa:first-of-type { border-top: 0; }
+.glosa .margen { text-align: right; padding: 1.1rem 1.25rem 1.1rem 1rem; border-right: 1px solid var(--borde); }
+.glosa .grave { font-size: var(--t0); text-transform: uppercase; letter-spacing: .09em; font-weight: 700; display: block; margin-bottom: .15rem; }
+.glosa .codigo { font-family: var(--mono); font-size: var(--t1); font-weight: 600; display: block; overflow-wrap: anywhere; }
+.glosa .norma { font-size: var(--t0); color: var(--tenue); display: block; margin-top: .1rem; }
+.glosa .cuerpo { position: relative; padding: 1.1rem 1.5rem 1.1rem 1.6rem; }
+.glosa .cuerpo::before, .glosa::before {
+  content: ""; position: absolute; top: 1rem; bottom: 1rem; width: .5rem;
+  border: 2px solid var(--tenue); border-right: 0;
+}
+.glosa .cuerpo::before { left: -1px; }
+.glosa::before { display: none; }
+.glosa .mensaje { font-size: var(--t2); }
+.glosa dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .15rem .8rem; margin: .6rem 0 0; font-size: var(--t1); }
+.glosa dt { color: var(--tenue); }
+.glosa dd { margin: 0; font-family: var(--mono); font-size: var(--t1); overflow-wrap: anywhere; }
+.glosa dd.tiene { font-weight: 600; color: var(--tinta); }
+.glosa.error .codigo, .glosa.error .grave { color: var(--error); }
+.glosa.aviso .codigo, .glosa.aviso .grave { color: var(--aviso); }
+.glosa.nota .codigo, .glosa.nota .grave { color: var(--nota); }
+.glosa.error .cuerpo::before, .glosa.error::before { border-color: var(--error); }
+.glosa.aviso .cuerpo::before, .glosa.aviso::before { border-color: var(--aviso); }
+.glosa.nota .cuerpo::before, .glosa.nota::before { border-color: var(--nota); }
+/* En el móvil el margen sube encima, y el corchete pasa a abrazar la glosa
+   entera: rótulo y cuerpo son una sola nota. */
+@media (max-width: 34rem) {
+  .glosa { grid-template-columns: minmax(0, 1fr); }
+  .glosa .margen { text-align: left; border-right: 0; padding: .95rem 1rem 0 1.6rem; }
+  .glosa .cuerpo { padding: .45rem 1rem 1rem 1.6rem; }
+  .glosa .cuerpo::before { display: none; }
+  .glosa::before { display: block; left: .6rem; top: .95rem; bottom: 1rem; }
+}
 
 /* --- Ver un informe sin soltar nada -------------------------------------- */
 .probar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; margin: 1rem 0 0; }
@@ -216,13 +263,16 @@
 .probar button:hover:not(:disabled) { background: var(--panel); }
 .probar button:disabled { color: var(--tenue); border-color: var(--borde); background: var(--panel-2); cursor: default; }
 .probar button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
-/* La aclaración va con el mismo gesto que una NOTA del informe: filete a la
-   izquierda y texto sobrio. No es una queja, es contexto —de quién es esta
-   factura—, y en este producto eso tiene una forma concreta. */
+/* La aclaración va con el mismo gesto que una NOTA del informe: el
+   corchete a la izquierda y texto sobrio. No es una queja, es contexto —de
+   quién es esta factura—, y en este producto eso tiene una forma concreta. */
 .es-ejemplo {
-  border-left: 3px solid var(--nota); background: var(--nota-flojo);
-  padding: .7rem 1rem; border-radius: 0 8px 8px 0; margin-bottom: 1.25rem;
+  position: relative; padding: .15rem 0 .15rem 1.1rem; margin-bottom: 1.25rem;
   font-size: var(--t1); color: var(--tinta-2);
+}
+.es-ejemplo::before {
+  content: ""; position: absolute; left: 0; top: .15rem; bottom: .15rem;
+  width: .45rem; border: 2px solid var(--nota); border-right: 0;
 }
 
 /* --- Por que este -------------------------------------------------------- */
@@ -329,11 +379,6 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 @media (prefers-color-scheme: dark) { .boton { color: #10161d; } }
 .boton:hover { filter: brightness(1.08); }
 
-@media (max-width: 34rem) {
-  .glosa { grid-template-columns: 1fr; gap: .5rem; }
-  .glosa .margen { text-align: left; }
-  .glosa .cuerpo { border-left: 2px solid var(--borde); padding-left: 1rem; margin-left: 0; }
-}
 
 /* --- Las preguntas -------------------------------------------------------
    Vienen de `preguntas.html`, que era una página aparte y ahora vive al
@@ -558,8 +603,8 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       <h2 class="titulo">Tres comprobaciones, y se dice cuáles se han hecho.</h2>
       <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Un
       «válida» a secas no significa nada si no dice contra qué. Cada informe
-      termina diciendo qué se ha mirado y con qué, para que no haya que
-      suponerlo. Cada aviso lleva su código, y los 390 están <a
+      empieza diciendo qué se ha mirado de estas tres partes y qué no, antes
+      de ninguna queja, para que no haya que suponerlo. Cada aviso lleva su código, y los 390 están <a
       href="./incidencias.html">explicados uno a uno</a>, con la norma de la
       que salen.</p>
       <div class="tres">
@@ -1216,7 +1261,10 @@ function pintarGlosa(inc) {
         "<div class='mensaje'>" + escapar(inc.mensaje) + "</div>" +
         (detalles.length
           ? "<dl>" + detalles.map(([k, v]) =>
-              "<dt>" + k + "</dt><dd>" + escapar(v) + "</dd>").join("") + "</dl>"
+              // Lo que tiene la factura, un punto más fuerte: es lo que se
+              // viene a buscar, y va debajo de lo que debería tener.
+              "<dt>" + k + "</dt><dd" + (k === "Tiene" ? " class='tiene'" : "") +
+              ">" + escapar(v) + "</dd>").join("") + "</dl>"
           : "") +
       "</div>" +
     "</div>"
@@ -1226,47 +1274,78 @@ function pintarGlosa(inc) {
 function pintarInforme(datos) {
   const partes = [];
 
+  const todas = datos.documentos
+    .reduce((acc, d) => acc.concat(d.incidencias), [])
+    .concat(datos.cruzadas);
+  const cuenta = (g) => todas.filter((i) => i.gravedad === g).length;
+  const errores = cuenta("error");
+  const avisos = cuenta("aviso");
+  const notas = cuenta("nota");
+  const sinMirar = datos.documentos.filter((d) => !d.validado).length;
+  const cifra = (n, uno, varios, g) =>
+    "<span class='" + g + "'>" + plural(n, uno, varios) + "</span>";
+
+  // La cuenta va dentro de la frase y no en pastillas al lado: «hay dos
+  // errores» se lee de una vez, y cuatro pastillas de colores se miran como
+  // un semáforo, que es justo lo que esto no es.
+  //
   // «Sin errores» es el mensaje más peligroso que da esto, y un titular que
   // diga «no ha fallado nada» encima de tres avisos —uno de ellos, que la
   // firma no lleva a ninguna autoridad conocida— es exactamente la falsa
   // tranquilidad que el resto de la página se dedica a evitar.
-  const todas = datos.documentos
-    .reduce((acc, d) => acc.concat(d.incidencias), [])
-    .concat(datos.cruzadas);
-  const avisos = todas.filter((i) => i.gravedad === "aviso").length;
-  const sinMirar = datos.documentos.filter((d) => !d.validado).length;
-
   let clase = "si";
-  let titulo = "No ha fallado ninguna comprobación";
-  if (!datos.conforme) {
+  let titulo = "No ha fallado ninguna comprobación.";
+  if (!datos.conforme && sinMirar) {
     clase = "no";
-    titulo = sinMirar ? "Hay ficheros que no se han podido mirar"
-                      : "Hay algo que arreglar";
+    titulo = "Hay ficheros que no se han podido mirar.";
+  } else if (errores) {
+    clase = "no";
+    titulo = "Hay " + cifra(errores, "error", "errores", "error") + " que arreglar" +
+      (avisos ? ", y " + cifra(avisos, "aviso", "avisos", "aviso") : "") + ".";
   } else if (avisos) {
     clase = "ojo";
-    titulo = "Sin errores, con " + avisos + " aviso" + (avisos > 1 ? "s" : "");
+    titulo = "Sin errores, con " + cifra(avisos, "aviso", "avisos", "aviso") + ".";
   }
 
-  // El recuento por gravedad, al lado del titular. Antes había que contar las
-  // glosas a ojo para saber si los tres avisos eran tres avisos o uno repetido
-  // en tres ficheros. Y la NOTA aparece aquí aunque no sea una queja: es la
-  // que dice qué se ha dado por bueno y con qué base, y si no se nombra,
-  // quien lee no sabe que existe.
-  const cuenta = (g) => todas.filter((i) => i.gravedad === g).length;
-  const marcadores = [["error", "error", "errores"],
-                      ["aviso", "aviso", "avisos"],
-                      ["nota", "nota", "notas"]]
-    .filter(([g]) => cuenta(g))
-    .map(([g, uno, varios]) =>
-      "<span class='cuenta " + g + "'>" + plural(cuenta(g), uno, varios) + "</span>")
-    .join("");
-
+  // De qué es el informe, en una línea encima. Con un fichero, su nombre; con
+  // varios, el recuento que escribe Python, que es donde se decide qué cuenta
+  // como correcto.
+  const uno = datos.documentos.length === 1;
   partes.push(
     "<div class='veredicto " + clase + "'>" +
+      "<p class='cabeza'><span class='rotulo'>Informe</span>" +
+        (uno ? "<span class='de'>" + escapar(datos.documentos[0].nombre) + "</span>"
+             : "<span>" + escapar(datos.resumen) + "</span>") +
+      "</p>" +
       "<h3>" + titulo + "</h3>" +
-      "<p>" + escapar(datos.resumen) + "</p>" +
-      (marcadores ? "<div class='cuentas'>" + marcadores + "</div>" : "") +
+      // La NOTA se nombra aunque no sea una queja: dice qué se ha dado por
+      // bueno y con qué base, y si no se nombra, quien lee no sabe que existe.
+      (notas ? "<p>Y " + plural(notas, "nota", "notas") +
+               ": lo que se ha dado por bueno, y con qué base.</p>" : "") +
       "<p class='red' id='red-informe'></p>" +
+    "</div>"
+  );
+
+  // Qué se ha mirado, antes del detalle y no al final: quien lee «sin
+  // errores» tiene que saber en ese momento contra qué. Las tres partes, lo
+  // mirado en cada una y su cuenta salen de Python, de la misma cuenta que la
+  // frase que iba aquí abajo, así que no pueden prometer más que ella. Sin
+  // partes —no se ha podido leer ningún fichero— va la frase, que lo dice.
+  partes.push(
+    // Un div y no una sección: `section` trae de glosa.css el relleno y el
+    // filete de las secciones de la portada, y aquí abría un hueco de 110 px.
+    "<div class='partes' role='group' aria-label='Qué se ha mirado'>" +
+      "<p class='rotulo'>Qué se ha mirado</p>" +
+      (datos.partes.length
+        ? "<ol>" + datos.partes.map((p, n) =>
+            "<li" + (p.gravedad ? " class='" + escapar(p.gravedad) + "'" : "") + ">" +
+              "<span class='que'>" + (n + 1) + " · " + escapar(p.nombre) + "</span>" +
+              "<b>" + escapar(p.resultado) + "</b>" +
+              (p.mirado ? "<p>" + escapar(p.mirado) + "</p>" : "") +
+              (p.sin_mirar ? "<p class='no'>" + escapar(p.sin_mirar) + "</p>" : "") +
+            "</li>").join("") + "</ol>" +
+          "<p class='ninguna'>" + escapar(datos.en_ninguna) + "</p>"
+        : "<p>" + escapar(datos.alcance) + "</p>") +
     "</div>"
   );
 
@@ -1291,13 +1370,6 @@ function pintarInforme(datos) {
       "</div>"
     );
   }
-
-  // La frase del final: de qué se ha fiado quien lee. Va tal cual sale de
-  // Python, que es donde está escrita.
-  partes.push(
-    "<div class='alcance'><p class='rotulo'>Qué se ha mirado</p>" +
-    escapar(datos.alcance) + "</div>"
-  );
 
   $("informe").innerHTML = partes.join("");
   pintarLectura();

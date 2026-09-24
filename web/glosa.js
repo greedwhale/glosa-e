@@ -690,6 +690,7 @@ async function arrancarDeVerdad(avisar) {
 // suficiente: lo que quien valida aqui no puede saber es que **no las ha
 // elegido el**. Esa frase acaba en el informe, al lado de la huella.
 const INFORME = `
+import dataclasses
 import json
 from validador import factura
 from validador.cadena import Almacen
@@ -751,6 +752,14 @@ json.dumps({
     # comprobado la forma en una pagina sin esquemas y se callaba las anclas
     # justo cuando las trae puestas.
     "alcance": _lote.alcance(forma=not _c.vacio, anclas=not _a.vacio),
+    # Lo mismo, repartido entre la forma, el contenido y la firma y con la
+    # cuenta de cada una: es lo que el informe enseña antes del detalle. Sale
+    # de la misma cuenta que la frase de arriba y con las mismas banderas, y
+    # por eso no pueden decir cosas distintas. La frase queda para cuando no
+    # hay partes: ningun fichero se ha podido leer.
+    "partes": [dataclasses.asdict(_p) for _p in
+               _lote.partes(forma=not _c.vacio, anclas=not _a.vacio)],
+    "en_ninguna": "En ninguna de las tres se comprueba " + factura.EN_NINGUNA + ".",
     "cruzadas": [_inc(i) for i in _lote.cruzadas],
     "documentos": _docs,
 }, ensure_ascii=False)

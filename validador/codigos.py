@@ -70,6 +70,8 @@ import importlib
 from dataclasses import dataclass
 from pathlib import Path
 
+from validador.incidencias import familia_de
+
 __all__ = ["Codigo", "SinLeer", "codigos_del_paquete", "sin_leer_del_paquete"]
 
 # Las gravedades tal como se escriben en el código: `Incidencia("X", ERROR, …)`.
@@ -95,11 +97,10 @@ class Codigo:
     def familia(self) -> str:
         """El prefijo que agrupa: BR, CU, XSD, FIRMA… Para ordenar la página.
 
-        Los que no llevan guion son su propia familia: `REVOCADO` no es de
-        `REVOCACION-` aunque lo parezca, y meterlo ahí sería decir que es un
-        problema de la lista cuando es el resultado de haberla leído.
+        La regla está en `incidencias.familia_de`, que la comparte con el
+        informe: allí se explica por qué `REVOCADO` va solo.
         """
-        return self.codigo.split("-")[0] if "-" in self.codigo else self.codigo
+        return familia_de(self.codigo)
 
 
 @dataclass(frozen=True)
