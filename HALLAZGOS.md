@@ -5872,3 +5872,21 @@ filtro— se negó porque, mientras el gancho pasaba la suite, se estaba editand
 este guion en el mismo árbol, y la prueba de la tarjeta vio un dibujo que ya no
 era el publicado. El gancho hizo lo que tenía que hacer. Mientras corre, el
 árbol no se toca.
+
+## La tarjeta presumía de algo que no era verdad
+
+La tarjeta vieja decía abajo «forma, contenido y firma», y el README lo
+justificaba: la firma iba primero porque **ningún otro validador gratuito la
+comprueba**. El estudio de mercado del 24-09-2026 lo desmiente: B2Brouter tiene
+un validador gratuito que mira XSD, esquematrón y firma, y FacturaView verifica
+la firma XAdES en el navegador. Era una afirmación sin medir, puesta en lo
+primero que ve quien recibe el enlace.
+
+La tarjeta nueva, elegida por el titular el 25-09-2026, no dice qué hace:
+lo enseña. Un trozo de factura de muestra —rotulada así, «factura de muestra»—
+con un total que no cuadra y su glosa, BR-CO-15, con la primera frase que
+escribe el glosario. `test_la_glosa_de_la_tarjeta_es_la_del_glosario` exige que
+el código exista, que salga como error, que la frase sea la del glosario y que
+el total de muestra no cuadre. Provocado: otra frase, un código que sale como
+nota, un código que no existe y un total que cuadra, cuatro rojos; y la tarjeta
+anterior publicada, rojo en la comparación de píxeles.

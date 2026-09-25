@@ -144,3 +144,27 @@ def test_la_marca_de_la_tarjeta_es_la_de_la_cabecera():
     assert (int(peso), float(tamano)) == (guion["NOMBRE_PESO"], guion["NOMBRE_REM"])
     espaciado = float(re.search(r"letter-spacing:\s*(-?[\d.]+)em", nombre)[1])
     assert espaciado == guion["NOMBRE_ESPACIADO"]
+
+
+def test_la_glosa_de_la_tarjeta_es_la_del_glosario():
+    """La tarjeta enseña una glosa, y tiene que ser una que la página escribe.
+
+    Desde el 25-09-2026 la tarjeta es un trozo de factura con su glosa al
+    margen. Una tarjeta que explicara un código de otra manera que la página,
+    o con otra gravedad, sería la peor forma de presentarse: lo primero que se
+    ve de Glosa-e diciendo algo que Glosa-e no dice.
+    """
+    from validador import glosario
+    from validador.codigos import codigos_del_paquete
+
+    guion = _constantes_del_guion()
+    codigo, frase = guion["GLOSA_CODIGO"], guion["GLOSA_FRASE"]
+    suyo = {c.codigo: c for c in codigos_del_paquete()}.get(codigo)
+    assert suyo, f"la tarjeta glosa {codigo}, que el validador no emite"
+    assert suyo.gravedades == ("error",), (
+        f"la tarjeta dice ERROR y {codigo} sale como {suyo.gravedades}")
+    assert glosario.CODIGOS.get(codigo, "").startswith(frase), (
+        f"la tarjeta explica {codigo} con «{frase}», y el glosario no empieza así")
+    # Y la cuenta: el total declarado no puede ser el bueno, o no hay glosa.
+    base, tipo, total = guion["BASE"], guion["TIPO"], guion["TOTAL_DECLARADO"]
+    assert base * (100 + tipo) / 100 != total, "el total de muestra cuadra: no hay error que glosar"

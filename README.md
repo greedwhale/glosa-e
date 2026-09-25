@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2609 tests, todos en verde.
+2610 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4248,11 +4248,23 @@ Y va con negativa, por lo mismo que la letra: un `og:image` que apunta a una
 dirección que da 404 no rompe nada y no da error **aquí**. Da error en la casa
 de otro, ya publicado.
 
-Abajo, la tarjeta dice tres cosas y en este orden: *forma, contenido y firma* ·
-*Facturae · UBL · CII · EDIFACT* · *gratis, en tu navegador*. Las tres
-comprobaciones van primero porque **la firma es la que no hace ningún otro
-validador gratuito**, y en una tarjeta que se mira dos segundos eso es lo único
-que hay que conseguir que se lea.
+Desde el 25-09-2026 la tarjeta es **la glosa al margen**: el titular de la
+portada a la izquierda y, a la derecha, un trozo de factura de muestra con la
+glosa que le pondría la página —BR-CO-15, un total que no es la base más el
+IVA—. La eligió el titular entre tres propuestas porque es la única que enseña
+lo que hace la herramienta en vez de decirlo. La frase sale del glosario y la
+cuenta la hace el guion, y `tests/test_tarjeta.py` comprueba las dos cosas:
+una tarjeta que explicara un código de otra manera que la página sería la peor
+forma de presentarse. Todo va en Literata, también las cifras y el código,
+aunque la página los ponga en su mono: la mono de la página es la del sistema,
+y una tarjeta pintada con la letra de la máquina que la regenera sale distinta
+en cada una.
+
+Hasta ese día, abajo decía *forma, contenido y firma* y el porqué escrito aquí
+era que **la firma es la que no hace ningún otro validador gratuito**. No era
+verdad: el estudio de mercado del 24-09-2026 encontró a B2Brouter y a
+FacturaView verificándola gratis. La tarjeta nueva no presume de nada que no
+enseñe.
 
 ### El buzón para quien encuentre un fallo
 

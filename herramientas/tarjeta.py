@@ -42,16 +42,19 @@ tarjeta saliera distinta en cada máquina que la regenerase, que es justo lo que
 import pathlib
 import sys
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 # Los colores son los de `web/glosa.css`, tema claro. No se inventa ninguno:
 # la tarjeta es lo primero que se ve de la página y tiene que ser la página.
 PAPEL = "#fbfaf7"
+PANEL = "#ffffff"
 TINTA = "#16181c"
 TINTA_2 = "#454b54"
 TENUE = "#676c76"
 BORDE = "#e3e0d7"
 ACENTO = "#1c4e80"
+ERROR = "#a3231c"
+ERROR_FLOJO = "#fbeceb"
 
 ANCHO, ALTO = 1200, 630
 MARGEN = 84
@@ -85,6 +88,14 @@ BASE_BAJO_EL_CENTRO = 0.4408
 # El signo se pinta a este múltiplo y se reduce: Pillow no suaviza los trazos,
 # y a tamaño real salía dentado, que se veía en la tarjeta vieja.
 SOBREMUESTREO = 4
+
+# La glosa del folio. Es un código de verdad y su explicación de verdad: la
+# primera frase sale de `validador/glosario.py` tal cual, y
+# `tests/test_tarjeta.py` lo comprueba. Los importes son de muestra, y la
+# cuenta se hace aquí para que la tarjeta no pueda sumar mal.
+GLOSA_CODIGO = "BR-CO-15"
+GLOSA_FRASE = "El total con impuestos no es la base imponible más el importe de impuestos"
+BASE, TIPO, TOTAL_DECLARADO = 1000, 21, 1200
 
 DESTINO = pathlib.Path("web/marca/tarjeta.png")
 LETRA = pathlib.Path("web/letra/literata.woff2")
@@ -162,43 +173,104 @@ def _marca(lienzo: Image.Image, x: float, centro: float, tamano: float,
     return empieza + fuente.getlength(palabra) + (len(palabra) - 1) * NOMBRE_ESPACIADO * tamano
 
 
+def _importe(n: float) -> str:
+    """Como se escribe un importe en una factura española: 1.210,00."""
+    return f"{n:,.2f}".replace(",", " ").replace(".", ",").replace(" ", ".")
+
+
+def _partir(texto: str, fuente: ImageFont.FreeTypeFont, ancho: float) -> list[str]:
+    lineas, actual = [], ""
+    for palabra in texto.split():
+        prueba = f"{actual} {palabra}".strip()
+        if fuente.getlength(prueba) <= ancho:
+            actual = prueba
+        else:
+            lineas.append(actual)
+            actual = palabra
+    return lineas + [actual]
+
+
+def _versalitas(dibujo, x, y, texto, fuente, color, aire) -> float:
+    """Letra a letra, con `aire` px entre cada una; devuelve dónde acaba."""
+    for letra in texto:
+        dibujo.text((x, y), letra, font=fuente, fill=color, anchor="ls")
+        x += fuente.getlength(letra) + aire
+    return x
+
+
 def dibujar(ruta_letra: str) -> Image.Image:
-    lienzo = Image.new("RGB", (ANCHO, ALTO), PAPEL)
+    """La glosa al margen: el titular a un lado, y al otro un trozo de factura
+    con la glosa que le pondría la página. Elegida por el titular el
+    25-09-2026 entre tres propuestas: es la única que enseña lo que hace la
+    herramienta en vez de decirlo.
+
+    Todo va en Literata, también las cifras y el código, aunque la página los
+    pone en su mono: la mono de la página es la del sistema, y una tarjeta
+    pintada con la letra de la máquina que la regenera sale distinta en cada
+    una, que es lo que este guion evita desde el principio.
+    """
+    lienzo = Image.new("RGBA", (ANCHO, ALTO), PAPEL)
+    _marca(lienzo, MARGEN, 104, 38, ruta_letra)
     dibujo = ImageDraw.Draw(lienzo)
 
-    # La franja del acento, a la izquierda y estrecha. Es el único color fuerte
-    # de la tarjeta: el resto es papel y tinta, como la página.
-    dibujo.rectangle([0, 0, 10, ALTO], fill=ACENTO)
-
-    _marca(lienzo, MARGEN, MARGEN + 42, 50, ruta_letra)
-
     # El titular. Es el de la portada, palabra por palabra: la tarjeta promete
-    # lo que la página cumple, y si dijera otra cosa sería un anzuelo.
-    titular = _letra(ruta_letra, 74, 600)
-    dibujo.text((MARGEN, 248), "La factura electrónica,", font=titular, fill=TINTA)
-    dibujo.text((MARGEN, 336), "en castellano.", font=titular, fill=TINTA)
+    # lo que la página cumple, y si dijera otra cosa sería un anzuelo. En tres
+    # líneas, como en la portada a lo estrecho.
+    titular = _letra(ruta_letra, 64, 600)
+    dibujo.text((MARGEN, 236), "La factura", font=titular, fill=TINTA, anchor="ls")
+    dibujo.text((MARGEN, 310), "electrónica,", font=titular, fill=TINTA, anchor="ls")
+    dibujo.text((MARGEN, 384), "en castellano.", font=titular, fill=TINTA, anchor="ls")
+    lema = _letra(ruta_letra, 27, 400)
+    lineas = _partir("Lo que dice tu factura, y lo que no se ha podido mirar.", lema, 440)
+    for i, linea in enumerate(lineas):
+        dibujo.text((MARGEN, 440 + i * 38), linea, font=lema, fill=TINTA_2, anchor="ls")
+    dibujo.text((MARGEN, ALTO - 72), "Facturae · UBL · CII · EDIFACT",
+                font=_letra(ruta_letra, 21, 400), fill=TENUE, anchor="ls")
 
-    dibujo.text(
-        (MARGEN, 446),
-        "Lo que dice tu factura, y lo que no se ha podido mirar.",
-        font=_letra(ruta_letra, 30, 400),
-        fill=TINTA_2,
-    )
+    # El folio, con la sombra de `--sombra`: poca, y hacia abajo.
+    x0, y0, x1, y1 = 620, 70, ANCHO - MARGEN + 20, ALTO - 70
+    sombra = Image.new("RGBA", lienzo.size, (0, 0, 0, 0))
+    ImageDraw.Draw(sombra).rounded_rectangle([x0 + 6, y0 + 10, x1 - 6, y1 + 10], 14,
+                                             fill=(20, 24, 28, 40))
+    lienzo.alpha_composite(sombra.filter(ImageFilter.GaussianBlur(18)))
+    dibujo = ImageDraw.Draw(lienzo)
+    dibujo.rounded_rectangle([x0, y0, x1, y1], 14, fill=PANEL, outline=BORDE, width=2)
+    pad = 40
+    _versalitas(dibujo, x0 + pad, y0 + 58, "FACTURA DE MUESTRA",
+                _letra(ruta_letra, 17, 600), TENUE, 2)
 
-    dibujo.line([(MARGEN, 516), (ANCHO - MARGEN, 516)], fill=BORDE, width=2)
+    cifras = _letra(ruta_letra, 25, 400)
+    iva = BASE * TIPO / 100
+    y = y0 + 118
+    for concepto, importe in (("Base imponible", BASE), (f"IVA {TIPO} %", iva)):
+        dibujo.text((x0 + pad, y), concepto, font=cifras, fill=TINTA_2, anchor="ls")
+        dibujo.text((x1 - pad, y), _importe(importe), font=cifras, fill=TINTA, anchor="rs")
+        y += 44
+    dibujo.line([(x0 + pad, y - 22), (x1 - pad, y - 22)], fill=BORDE, width=2)
+    y += 14
+    # El total que no cuadra, marcado como lo marca el informe.
+    total = _letra(ruta_letra, 27, 600)
+    declarado = _importe(TOTAL_DECLARADO)
+    ancho = total.getlength(declarado)
+    dibujo.rounded_rectangle([x1 - pad - ancho - 12, y - 30, x1 - pad + 12, y + 12], 6,
+                             fill=ERROR_FLOJO)
+    dibujo.text((x0 + pad, y), "Total", font=total, fill=TINTA, anchor="ls")
+    dibujo.text((x1 - pad, y), declarado, font=total, fill=ERROR, anchor="rs")
+    dibujo.line([(x1 - pad - ancho, y + 6), (x1 - pad, y + 6)], fill=ERROR, width=2)
 
-    # Abajo, lo que nos separa y no una lista de virtudes. Las tres
-    # comprobaciones van primero **porque la firma es la que no hace ningún
-    # otro validador gratuito**, y en una tarjeta que se ve dos segundos eso
-    # es lo único que hay que conseguir que se lea.
-    dibujo.text(
-        (MARGEN, 552),
-        "Forma, contenido y firma      Facturae · UBL · CII · EDIFACT"
-        "      Gratis, en tu navegador",
-        font=_letra(ruta_letra, 25, 400),
-        fill=TENUE,
-    )
-    return lienzo
+    # La glosa: el código fuera, contra un filete, como en la página.
+    gy, gx = y + 62, x0 + pad + 22
+    fin = _versalitas(dibujo, gx, gy, GLOSA_CODIGO, _letra(ruta_letra, 22, 600), ERROR, 0.5)
+    _versalitas(dibujo, fin + 14, gy - 1, "ERROR", _letra(ruta_letra, 14, 600), ERROR, 2)
+    cuerpo = _letra(ruta_letra, 22, 400)
+    frase = (f"{GLOSA_FRASE}: {_importe(BASE)} y {_importe(iva)} "
+             f"suman {_importe(BASE + iva)}.")
+    lineas = _partir(frase, cuerpo, x1 - pad - gx)
+    for i, linea in enumerate(lineas):
+        dibujo.text((gx, gy + 40 + i * 31), linea, font=cuerpo, fill=TINTA_2, anchor="ls")
+    dibujo.line([(x0 + pad, gy - 22), (x0 + pad, gy + 40 + (len(lineas) - 1) * 31 + 8)],
+                fill=ERROR, width=3)
+    return lienzo.convert("RGB")
 
 
 if __name__ == "__main__":
