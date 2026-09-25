@@ -92,9 +92,10 @@ base*.
 
 ## El fallo que se repite
 
-Cuatro veces ha pasado lo mismo con distinto disfraz: **algo servido de una
+Cinco veces ha pasado lo mismo con distinto disfraz: **algo servido de una
 caché haciéndose pasar por lo de hoy**. Un wheel viejo, un `prueba.py` viejo,
-una comprobación incapaz de detectar el wheel viejo, un `index.html` viejo.
+una comprobación incapaz de detectar el wheel viejo, un `index.html` viejo, y
+la tarjeta social vieja en la vista previa de Telegram.
 Nunca se rompe nada: sale todo verde y no es lo que crees que has probado.
 
 Ante cualquier cosa que se sirva al navegador, la pregunta es *cómo se entera

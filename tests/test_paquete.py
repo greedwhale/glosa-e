@@ -1370,6 +1370,34 @@ class TestParaQueSeLlegueDesdeFuera:
         sitio = _montar(repositorio).carpeta
         assert (sitio / "marca" / "tarjeta.png").is_file()
 
+    def test_la_tarjeta_lleva_la_huella_de_la_que_se_publica(self, repositorio):
+        """Telegram enseñó el 25-09-2026 la tarjeta de antes, con la nueva ya
+        publicada: quien pinta la vista previa guarda la imagen por dirección,
+        y `tarjeta.png` a secas era la misma dirección para siempre."""
+        sitio = _montar(repositorio).carpeta
+        huella = hashlib.sha256(
+            (sitio / "marca" / "tarjeta.png").read_bytes()).hexdigest()[:8]
+        esperada = f"{paquete.DOMINIO}/marca/tarjeta.png?v={huella}"
+        vistas = 0
+        for pagina in sorted(sitio.glob("*.html")):
+            imagen = re.search(r'property="og:image" content="([^"]*)"',
+                               pagina.read_text(encoding="utf-8"))
+            if imagen:
+                vistas += 1
+                assert imagen[1] == esperada, (pagina.name, imagen[1])
+        assert vistas, "ninguna página lleva og:image"
+
+    def test_otra_tarjeta_es_otra_direccion(self, repositorio):
+        """Lo que importa de la huella: que cambie cuando cambia la imagen."""
+        def direccion(sitio):
+            texto = (sitio / "index.html").read_text(encoding="utf-8")
+            return re.search(r'property="og:image" content="([^"]*)"', texto)[1]
+
+        antes = direccion(_montar(repositorio).carpeta)
+        (repositorio / "web" / "marca" / "tarjeta.png").write_bytes(b"otra tarjeta")
+        despues = direccion(_montar(repositorio, destino="otro").carpeta)
+        assert antes != despues
+
     def test_los_guiones_de_la_marca_no_se_publican(self, repositorio):
         """En `web/marca/` viven también los que generan la marca y la letra.
 

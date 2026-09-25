@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2610 tests, todos en verde.
+2615 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4247,6 +4247,16 @@ lee de la hoja y las compara, sin Pillow, así que corre también en GitHub.
 Y va con negativa, por lo mismo que la letra: un `og:image` que apunta a una
 dirección que da 404 no rompe nada y no da error **aquí**. Da error en la casa
 de otro, ya publicado.
+
+**Y la dirección lleva la huella de la imagen** desde el 25-09-2026: `og:image`
+dice `tarjeta.png?v=` con los ocho primeros del SHA-256 de la tarjeta que se
+publica, como el estilo y el cargador. Hasta ese día decía `tarjeta.png` a
+secas, y Telegram enseñó la tarjeta de antes dos horas después de publicar la
+nueva: quien pinta la vista previa de un enlace la guarda por dirección, y una
+dirección que no cambia no tiene por qué volver a pedirse. Lo que la huella no
+arregla, y no se puede arreglar desde aquí: Telegram guarda también la vista
+previa **de la página**, y hasta que vuelva a leerla enseña la que tiene. Para
+eso está su @WebpageBot, que la vuelve a leer cuando se le manda el enlace.
 
 Desde el 25-09-2026 la tarjeta es **la glosa al margen**: el titular de la
 portada a la izquierda y, a la derecha, un trozo de factura de muestra con la

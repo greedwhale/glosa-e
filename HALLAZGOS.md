@@ -2588,6 +2588,35 @@ consecuencias que tiene dentro: la copia fiel es **UBL 2.5** y no «UBL» a
 secas, y `BT-179` y `BT-180` dejan de estar fuera de la edición aplicable —lo
 que les sigue faltando es la ruta del anexo, que es otra cosa—.
 
+### Y el propio repositorio lo puso por escrito, el 25-09-2026
+
+Oriol Bausa, colaborador del repositorio, escribió en el hilo el
+[comentario 16](https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/518#issuecomment-5829018081)
+y cerró con «We forward it to TC434»: la consulta pasa al comité. Lo que dice
+del artefacto, resumido:
+
+- los artefactos EDIFACT se hicieron contra la edición de 2017 de
+  `CEN/TS 16931-3-4` y salieron como v1.0.0 en febrero de 2018, y no se han
+  puesto al día ni para la modificación de 2020 ni para la revisión de 2026;
+- la v1.0.0 hay que leerla como una foto del binding de 2017;
+- hasta que salgan los nuevos, quien implemente no debe tomar el esquematrón
+  EDIFACT de hoy como representativo de la 3-4:2020 ni de la :2026.
+
+Es la confirmación, de quien publica los artefactos, de lo que aquí se había
+medido del **envoltorio**: que el artefacto está parado. Y no dice nada del
+**contenido** de la norma, que es justo la distinción de esta entrada.
+
+**Él mismo avisa de que el texto está escrito con IA**, así que se comprobó
+antes de citarlo, contra las notas de versión y la historia de la carpeta:
+
+| Lo que dice | Lo que hay |
+|---|---|
+| sin actualizaciones desde la v1.0.0 | sin **versión** desde la v1.0.0 (08-02-2018). La carpeta `edifact/` sí recibió cambios hasta el 16-11-2020 —entre ellos «Updated Schematrons for #86», el 13-12-2018—, y ninguno salió en una versión |
+| todas las notas desde la v1.1.0 dicen que EDIFACT está en pausa | todas las versiones desde la v1.1.0 son «UBL and CII only»; la **pausa** la escriben dos, la v1.1.0 y la v1.2.0: «its development is currently paused/stalled» |
+
+Lo esencial se sostiene. Los dos matices son de los que un resumen redondea, y
+por eso aquí se cita lo comprobado y no la frase.
+
 ### La regla
 
 La de siempre, aplicada a un sitio donde no la había aplicado: **se mide, no se
@@ -5890,3 +5919,53 @@ el código exista, que salga como error, que la frase sea la del glosario y que
 el total de muestra no cuadre. Provocado: otra frase, un código que sale como
 nota, un código que no existe y un total que cuadra, cuatro rojos; y la tarjeta
 anterior publicada, rojo en la comparación de píxeles.
+
+## La tarjeta de Telegram era la de antes, y la pestaña llevaba otra marca
+
+Lo vio el titular el 25-09-2026, con dos capturas. En la primera, el enlace a
+la portada pegado en Telegram enseñaba **la tarjeta de antes** —el bloque gris
+y «Forma, contenido y firma»—, dos horas después de publicar la nueva. En la
+segunda, la pestaña del navegador llevaba el cuadro gris con el signo en
+blanco, que tampoco es la marca de la cabecera.
+
+**La tarjeta.** Producción servía la nueva: 73.265 bytes y la misma huella que
+el fichero del repositorio. Lo que no cambiaba era la dirección: `og:image`
+decía `https://www.glosa-e.com/marca/tarjeta.png` desde el primer día, y quien
+pinta la vista previa de un enlace la guarda por dirección. Es el fallo de
+siempre, la quinta vez: **algo servido de una caché haciéndose pasar por lo de
+hoy**, y todo verde por dentro. La prueba de píxeles comparaba bien el
+fichero; el fichero no era lo que se veía fuera.
+
+Ahora `og:image` lleva `?v=` con los ocho primeros del SHA-256 de la tarjeta
+que se publica, como el estilo y el cargador: cambia cuando la imagen cambia, y
+no cuando no. `test_la_tarjeta_lleva_la_huella_de_la_que_se_publica` y
+`test_otra_tarjeta_es_otra_direccion` lo guardan. Queda una parte que no se
+arregla desde aquí y **no está medida**: Telegram guarda también la vista
+previa de la página, y hasta que la vuelva a leer enseña la que tiene. Se
+fuerza mandándole el enlace a @WebpageBot, y eso lo hace quien tiene la
+cuenta.
+
+**La pestaña.** `MARCA.md` decía que el favicon era «un segundo dibujo»: el
+cuadro plata con el signo en blanco y dos líneas. Cuando la cabecera pasó al
+signo en `--acento` el 23-09-2026 y la tarjeta la siguió el 24, la pestaña se
+quedó sola con la marca vieja. Es la misma desviación que la de la tarjeta, un
+día después, y por lo mismo: nada comparaba el favicon con la cabecera, solo
+las copias del favicon entre sí, y solo tres de las siete páginas.
+
+Ahora el favicon es el signo de la cabecera —los cuatro trazos, el grosor de
+3,5, los remates redondos— en `#1c4e80` de día y `#8ab4e0` de noche, que son los
+dos `--acento` de la hoja, con `prefers-color-scheme` dentro del propio SVG:
+una imagen no ve la hoja, y con un color solo el azul de día se pierde en una
+barra de pestañas oscura. Recortado a su tinta en un cuadrado de 42 unidades,
+para que a 16 px sea todo lo grande que puede. Mirado en el navegador a 16 y a
+32 px, sobre barra clara y oscura, en los dos temas.
+
+`tests/test_marca.py` lo compara ahora con la máscara de `.marca::before`
+—trazos, grosor, remates— y con los dos acentos de la hoja, en las siete
+páginas, y se niega si el recorte corta el dibujo. Provocado, ocho roturas y
+ocho rojos: el cuadro viejo en una página, en las siete, dos líneas en vez de
+tres, sin color de noche, otro azul de día, un recorte que se come el remate,
+otro grosor y la tarjeta sin huella.
+
+Con esto, el bloque plata ya no sale en ninguna página publicada. Vive en
+`web/marca/glosa-e.svg`, que no se publica.

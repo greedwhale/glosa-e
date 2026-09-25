@@ -916,7 +916,7 @@ def _direccion(nombre: str) -> str:
     return DOMINIO + "/" + nombre.removesuffix(".html")
 
 
-def _con_tarjeta(texto: str, url: str, nombre: str) -> str:
+def _con_tarjeta(texto: str, url: str, nombre: str, huella_de_la_tarjeta: str) -> str:
     """Le pone a una página su canónica y su tarjeta social.
 
     Se saca de lo que la propia página ya dice —su `<title>` y su
@@ -942,7 +942,13 @@ def _con_tarjeta(texto: str, url: str, nombre: str) -> str:
     limpio = titulo.group(1).replace("&middot;", "·").strip()
     limpio = " ".join(limpio.split()).replace('"', "&quot;")
     resumen = descripcion.group(1).replace('"', "&quot;")
-    tarjeta = DOMINIO + "/" + _MARCA + "/" + _TARJETA
+    # Con la huella de la imagen detrás, como el estilo y el cargador. Sin
+    # ella la dirección de la tarjeta era la misma para siempre, y quien pinta
+    # la vista previa de un enlace —Telegram, WhatsApp, LinkedIn— la guarda por
+    # dirección: el 25-09-2026 Telegram enseñaba la tarjeta de antes con la
+    # nueva publicada hacía dos horas. Una dirección que no cambia no tiene por
+    # qué volver a pedirse, y nadie de fuera nos va a avisar de que no lo hizo.
+    tarjeta = f"{DOMINIO}/{_MARCA}/{_TARJETA}?v={huella_de_la_tarjeta}"
     bloque = (
         f'<link rel="canonical" href="{url}">\n'
         f'<meta property="og:type" content="website">\n'
@@ -1179,11 +1185,14 @@ def _para_buscadores(destino: Path) -> int:
             "No ha quedado ni una página HTML que indexar, así que algo se ha "
             "montado mal antes de llegar aquí."
         )
+    # La huella es de la tarjeta que se publica y no de la del repositorio:
+    # es la que va a pedir quien pegue el enlace.
+    huella = hashlib.sha256((destino / _MARCA / _TARJETA).read_bytes()).hexdigest()[:8]
     for nombre in paginas:
         ruta = destino / nombre
         texto, _ = _hacia_fuera(ruta.read_text(encoding="utf-8"))
         ruta.write_text(
-            _con_tarjeta(texto, _direccion(nombre), nombre), encoding="utf-8")
+            _con_tarjeta(texto, _direccion(nombre), nombre, huella), encoding="utf-8")
     (destino / "robots.txt").write_text(
         "User-agent: *\n"
         "Allow: /\n"

@@ -146,10 +146,16 @@ marca el día que se sirviera Literata. Ese día llegó: `glosa.css` la sirve
 desde el propio sitio, con el mismo `opsz` que la marca —el porqué, arriba de
 la hoja—, y los titulares y la marca son hoy la misma letra.
 
-**El favicon es un segundo dibujo.** A 16 px el nombre no cabe de ninguna
-manera, así que la pestaña lleva el cuadro con el signo solo, en la reducción
-de dos líneas. Son dos dibujos que hay que mantener iguales, y ese es el precio
-de haber metido la palabra dentro.
+**El favicon es el signo de la cabecera, desde el 25-09-2026.** A 16 px el
+nombre no cabe de ninguna manera, así que la pestaña lleva el signo solo: los
+mismos cuatro trazos, el mismo grosor y los mismos remates que `.marca::before`,
+recortado a su tinta en un cuadrado para que a ese tamaño sea todo lo grande
+que puede. Hasta ese día llevaba el cuadro plata con el signo en blanco y dos
+líneas, y la cabecera y la pestaña eran dos marcas: lo vio el titular en una
+captura de la pestaña. Y como una imagen no ve la hoja de estilo, lleva
+escritos los dos `--acento`, cada uno con su `prefers-color-scheme` dentro del
+propio dibujo: con uno solo, el azul de día se perdería en una barra de
+pestañas de noche.
 
 **En la zona de soltar va el signo solo**, heredando `--acento`. El signo es
 lengua de la marca; el bloque plateado es la firma, y una firma puesta de
@@ -163,7 +169,7 @@ al lado —el porqué entero, en el README— y la decisión fue del titular,
 porque cambiaba lo que este documento había fijado.
 
 Lo que cambia es dónde va el bloque, no la marca. El bloque sigue siendo la
-firma donde va suelto —el favicon y `web/marca/glosa-e.svg`—, y en la cabecera la llevan el signo, pintado con `--acento`, y el
+firma donde va suelto —`web/marca/glosa-e.svg`; el favicon también lo fue, hasta el 25-09-2026—, y en la cabecera la llevan el signo, pintado con `--acento`, y el
 nombre en Literata 600, como texto. Como texto porque ya se puede: la razón
 de trazarlo era que cada máquina lo compondría con la serif que tuviera, y
 desde que la página sirve Literata eso ya no pasa. Y con los colores de la
@@ -178,7 +184,8 @@ que el bloque tuvo que hacer para leerse de noche.
 **Dónde vive.** El bloque, en `web/marca/glosa-e.svg`. El signo de la
 cabecera, una sola vez en `web/glosa.css` como máscara de `.marca::before`,
 y es el mismo dibujo que el de la zona de soltar; las siete páginas solo
-llevan el enlace, con el nombre dentro. Dos copias de un dibujo se acaban
+llevan el enlace, con el nombre dentro, y el favicon, que es una copia del
+signo en cada una. Dos copias de un dibujo se acaban
 separando, y una marca que dice una cosa en la portada y otra en el aviso
 legal no se nota hasta que ya está publicada.
 
@@ -194,7 +201,8 @@ bloque de la fuente. Hasta el 23-09-2026 escribía además su copia en la hoja
 de estilo; ya no hay copia que escribir. Y `tests/test_marca.py` se pone rojo
 si el bloque vuelve a la hoja —sería una copia que nadie regenera—, si el
 signo de la cabecera deja de ser el de la zona o de pintarse con `--acento`,
-si los tres favicons dejan de ser el mismo, o si la plata cambia y estas
+si los siete favicons dejan de ser el mismo o de ser el signo de la cabecera
+con sus dos acentos, o si la plata cambia y estas
 cifras de contraste pasan a ser falsas. Cada una se ha provocado: sin verlas
 rojas no valdrían nada.
 
