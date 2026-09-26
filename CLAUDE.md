@@ -23,6 +23,10 @@ El detalle está en cuatro documentos y este fichero no los repite:
   (material de confianza: caduca, y repartir una foto vieja es peor que no
   repartir nada) ni `muestras/`, `MuestrasFE/`, `Pfactura3/` (facturas de
   terceros). Tampoco `vendor/` ni `sitio/`, que se construyen.
+- **`informes/` tampoco se versiona**: guarda los informes y planes para el
+  titular, y no son para publicar. **Léelo antes de proponer nada
+  comercial.** El plan en curso y la N de Search Console están en
+  `informes/LEEME.md`.
 - **La excepción, decidida a propósito:** `web/paquete.zip` y
   `web/PAQUETE.json` **sí** se versionan, con su SHA-256 publicado al lado.
   Es lo que hace que el sitio se pueda construir sin tener las carpetas fuente.

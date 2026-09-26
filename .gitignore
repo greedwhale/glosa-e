@@ -74,3 +74,10 @@ vendor/
 #
 #   https://www.hacienda.gob.es/sgt/normativadoctrina/proyectos/16042026-anexo-i-pom-factura-electronica.pdf
 anexos/
+
+# Los informes para el titular: el estudio de mercado, los planes y lo que
+# dicen los buscadores. Viven aqui para que una sesion nueva los encuentre, y
+# no se versionan porque llevan su situacion personal —desde donde trabaja,
+# como factura y como cobra—. Si el repositorio se hace publico, lo que este
+# en la historia ya no se puede retirar. Que hay y por que, en informes/LEEME.md.
+informes/
