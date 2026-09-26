@@ -1,7 +1,7 @@
 <article class="entrada"
   data-fecha="2026-09-21"
   data-titulo="Habrá que mandar a la AEAT una copia de cada factura en otro formato, y nadie publica cómo se traduce"
-  data-entradilla="Quien no emita a través de la solución pública tendrá que mandarle una copia fiel de cada factura, escrita en la sintaxis que ella define. Se preguntó por escrito quién publica la correspondencia entre formatos: la Agencia contestó el 17 de septiembre que no es ella. Y mientras tanto, dos importes del formato español significan otra cosa en la copia: en 6 de cada 14 facturas reales analizadas, copiarlos tal cual pondría un total que no es el suyo.">
+  data-entradilla="Quien no emita a través de la solución pública tendrá que mandarle una copia fiel de cada factura, escrita en la sintaxis que ella define. Se preguntó por escrito quién publica la correspondencia entre formatos: la Agencia contestó el 17 de septiembre que no es ella. Y mientras tanto, dos importes del formato español significan otra cosa en la copia: en 6 de cada 14 facturas reales analizadas, copiarlos tal cual pondría un total que no es el suyo. Corregida el 26 de septiembre: ese total mal copiado no pasa las validaciones de la copia, como decía; lo que pasa sin error es el medio de pago.">
 
   <time datetime="2026-09-21">21 de septiembre de 2026</time>
   <h1>Habrá que mandar a la AEAT una copia de cada factura en otro formato, y
@@ -11,6 +11,20 @@
   lo mismo. Quién decide qué campo va en qué campo es una pregunta con
   respuesta, y la respuesta llegó el 17 de septiembre: <b>no lo publica la
   Agencia</b>.</p>
+
+  <aside class="correccion">
+    <b>Corregida el 26 de septiembre de 2026.</b> La primera versión decía
+    que una copia con el total de Facturae «cuadra consigo mismo, pasa las
+    validaciones de la copia». No es cierto, y se ve con las cifras del propio
+    ejemplo de abajo. Con 262 de cuota y 1.112 de total, la copia rompe dos
+    reglas de la norma europea: <code>BR-CO-14</code>, porque la cuota no es
+    la suma del desglose del IVA, que son 210, y <code>BR-CO-15</code>, porque
+    el total no es la base más la cuota, que serían 1.262. Se comprobó pasando
+    las dos copias por Glosa-e: la bien traducida sale limpia y la copiada,
+    con esos dos errores. Lo que sí pasa sin error es otra fila de la misma
+    tabla, el medio de pago, y está explicado abajo. Queda escrito porque
+    cambiar la frase y callarse es justo lo que no se le acepta a nadie.
+  </aside>
 
   <h2>La copia fiel, en dos párrafos</h2>
 
@@ -130,10 +144,18 @@
   copia llevando cada campo a su homónimo —que es lo que hará cualquiera sin
   una tabla delante— pondrá esos dos números, y serán otros.</p>
 
-  <p>Y esta es la parte incómoda: <b>un hueco se ve y un número equivocado
-  no</b>. Si a la copia le falta un dato, se nota. Si lleva un total distinto,
-  cuadra consigo mismo, pasa las validaciones de la copia y no se parece al
-  original en lo único que un inspector mira primero.</p>
+  <p>Eso, al menos, se ve. Con 262 de cuota y 1.112 de total <b>la copia
+  deja de cuadrar consigo misma</b>, y las reglas de la norma la rechazan:
+  <code>BR-CO-14</code>, porque la cuota no es la suma del desglose del IVA,
+  y <code>BR-CO-15</code>, porque el total no es la base más la cuota. Esas
+  reglas dicen que no cuadra, no qué cifra va, y quien convierta así se
+  encuentra con ello en la primera factura con retención o recargo.</p>
+
+  <p>Lo que no se ve está en otra fila de la misma tabla: <b>el medio de
+  pago</b>. Los códigos de Facturae existen en la lista europea queriendo
+  decir otra cosa —el 19 de Facturae es el pago con tarjeta y el 19 europeo
+  es un adeudo de cámara de compensación—, así que el dígito copiado pasa las
+  validaciones y la copia dice que se paga de otra manera.</p>
 
   <p>Falta una tercera cifra, y es de las que no se pueden dar por sabidas:
   <b>lo que el cliente paga de verdad</b>. Va en otro campo del anexo, y qué

@@ -92,8 +92,13 @@ La tabla se escribe por familias y no de una vez, porque cada una se sostiene
 en una fuente distinta y alguna todavía no tiene fuente:
 
 1. **Los importes** (20-09-2026). Se empezó por ahí porque copiar campo a campo
-   no omite un dato: **cambia una cifra**, y un hueco se ve mientras que un
-   número equivocado no.
+   no omite un dato: **cambia una cifra**, y es lo primero con lo que tropieza
+   quien copie así en cuanto la factura lleve retención o recargo. Tropieza
+   porque se ve: la copia deja de cuadrar consigo misma y la rechazan
+   `BR-CO-14` y `BR-CO-15`. Hasta el 26-09-2026 aquí se decía lo contrario
+   —«un número equivocado no se ve»— y no era cierto; lo fija
+   `test_el_total_copiado_tal_cual_no_pasa_las_reglas_de_la_copia`. Lo que
+   pasa en silencio de verdad es el medio de pago, en la quinta familia.
 2. **Lo evidente** (20-09-2026): la dirección postal, el contacto, la serie y
    las fechas. Se llama evidente porque casi todas sus filas son «llega igual»,
    y se escribe entera justamente por las que no lo son y quedan escondidas
@@ -224,8 +229,10 @@ class Correspondencia:
 
 
 # La primera familia: los importes. Se empieza por aquí porque es donde copiar
-# campo a campo no omite un dato, sino que **cambia una cifra**, que es peor:
-# un hueco se ve y un número equivocado no.
+# campo a campo no omite un dato, sino que **cambia una cifra**. Esa cifra se
+# ve —la copia deja de cuadrar y la rechazan `BR-CO-14` y `BR-CO-15`—, pero
+# esas reglas dicen que no cuadra, no por qué ni qué cifra va. Eso es lo que
+# ponen las notas de esta familia.
 CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     Correspondencia(
         "base antes de impuestos", "TotalGrossAmountBeforeTaxes", "BT-109", IGUAL,

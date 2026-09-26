@@ -6034,3 +6034,44 @@ Provocado, ocho roturas y ocho rojos:
 Una de las ocho salió verde la primera vez, y el fallo era de la rotura: rompía
 una línea a la que no se llega, porque las mayúsculas se comprueban antes.
 Rota donde toca, rojo.
+
+## La bitácora decía que un total mal copiado no se ve
+
+La entrada del 21-09-2026, «Copia fiel: lo que nadie traduce», decía que una
+copia con el total de Facturae llevado a su homónimo «cuadra consigo mismo,
+pasa las validaciones de la copia». La cabecera de `copia_fiel.py` lo decía
+con otras palabras: «un hueco se ve mientras que un número equivocado no».
+Lo encontró el 26-09-2026 una revisión independiente, y **no era cierto**.
+
+**Reproducido** con las cifras del propio artículo, pasando dos copias por el
+validador: 1.000 de base, 210 de IVA en el desglose, y la cuota y el total a
+elegir.
+
+| Copia | Cuota (BT-110) | Total (BT-112) | Qué sale |
+|---|---|---|---|
+| Bien traducida | 210 | 1.210 | nada |
+| Con los importes de Facturae | 262 | 1.112 | `BR-CO-14` y `BR-CO-15` |
+| Con los 262 también en el desglose | 262 | 1.112 | `BR-CO-15`, `BR-CO-17` y `BR-S-09` |
+
+La copia deja de cuadrar consigo misma, y las reglas de coherencia de la norma
+lo cazan. Lo que de verdad pasa sin error es otra fila de la tabla: el medio
+de pago, porque los códigos de Facturae existen en UNCL4461 queriendo decir
+otra cosa.
+
+**Por qué se escribió.** La frase venía del razonamiento con que se empezó la
+tabla —«no falta un dato, cambia una cifra»— y se dio por buena sin pasar una
+copia por el propio validador. Se midió la diferencia entre los dos
+documentos, pero no qué pasaba al validar la copia.
+
+**El arreglo.**
+
+- La entrada lleva un aviso de corrección arriba y el párrafo reescrito. La
+  entradilla lo dice, como en la corrección del 07-09.
+- La cabecera y el comentario de `copia_fiel.py` dicen ahora que la cifra se
+  ve, y que lo que aportan las notas es el porqué y la cifra que va.
+- `test_el_total_copiado_tal_cual_no_pasa_las_reglas_de_la_copia` fija las
+  dos mitades: la copia bien traducida sale limpia y la copiada da
+  exactamente `BR-CO-14` y `BR-CO-15`.
+
+**Provocado:** con la comprobación exacta de `BR-CO-15` apagada en
+`en16931.py`, la prueba sale en rojo con `{'BR-CO-14'}`. Restaurada, verde.

@@ -355,6 +355,85 @@ def test_con_las_dos_cosas_los_dos_numeros_cambian():
     assert "121.00" in salidas["COPIA-TOTAL"].esperado
 
 
+# La copia en UBL de la factura de prueba, con la cuota y el total a elegir.
+# El total a pagar (BT-115) va igual que el total porque qué entra en él está
+# `POR_DECIDIR` en la tabla, y así la prueba de abajo solo mueve lo que mide.
+COPIA_UBL = """<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2">
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017</cbc:CustomizationID>
+  <cbc:ID>FE-0001</cbc:ID>
+  <cbc:IssueDate>2026-09-20</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+  <cac:AccountingSupplierParty><cac:Party>
+    <cac:PostalAddress><cac:Country><cbc:IdentificationCode>ES</cbc:IdentificationCode></cac:Country></cac:PostalAddress>
+    <cac:PartyTaxScheme><cbc:CompanyID>ESB12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
+    <cac:PartyLegalEntity><cbc:RegistrationName>Vendedor</cbc:RegistrationName></cac:PartyLegalEntity>
+  </cac:Party></cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty><cac:Party>
+    <cac:PostalAddress><cac:Country><cbc:IdentificationCode>ES</cbc:IdentificationCode></cac:Country></cac:PostalAddress>
+    <cac:PartyLegalEntity><cbc:RegistrationName>Comprador</cbc:RegistrationName></cac:PartyLegalEntity>
+  </cac:Party></cac:AccountingCustomerParty>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="EUR">{cuota}</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="EUR">100.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="EUR">100.00</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="EUR">{total}</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="EUR">{total}</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Name>Una cosa</cbc:Name>
+      <cac:ClassifiedTaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="EUR">100.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>
+"""
+
+
+def test_el_total_copiado_tal_cual_no_pasa_las_reglas_de_la_copia():
+    """Un total mal copiado se ve: la copia deja de cuadrar consigo misma.
+
+    Hasta el 26-09-2026 la cabecera del módulo y la bitácora del 21-09 decían
+    lo contrario —que un número equivocado «cuadra consigo mismo, pasa las
+    validaciones de la copia»— y no era cierto. Con la cuota de Facturae
+    (26,20, con el recargo dentro) y su total (111,20, con la retención
+    restada) llevados a BT-110 y BT-112, la copia rompe `BR-CO-14` —la cuota
+    no es la suma del desglose, que son 21— y `BR-CO-15` —el total no es la
+    base más la cuota, que serían 126,20—.
+
+    Lo que sí pasa en silencio es el medio de pago, y eso lo fija
+    `test_el_medio_de_pago_pasa_la_validacion_diciendo_otra_cosa`.
+
+    La copia bien traducida, con 21 y 121, sale limpia, y eso es lo que hace
+    que la prueba mida algo: un validador que rechazara todo pasaría la
+    segunda comprobación sin pasar la primera.
+    """
+    from validador import factura
+
+    def de_cuentas(cuota: str, total: str) -> set[str]:
+        informe = factura.validar(COPIA_UBL.format(cuota=cuota, total=total))
+        assert informe.validado
+        return {i.codigo for i in informe.incidencias
+                if i.codigo.startswith("BR-CO-")}
+
+    assert de_cuentas("21.00", "121.00") == set()
+    assert de_cuentas("26.20", "111.20") == {"BR-CO-14", "BR-CO-15"}
+
+
 def test_los_suplidos_no_se_sabe_donde_se_escriben():
     salidas = notas(suplidos="7.00")
     assert set(salidas) == {"COPIA-SUPLIDO"}
