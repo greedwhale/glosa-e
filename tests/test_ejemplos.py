@@ -27,8 +27,9 @@ Sin esquemas ni anclas, como toda la suite
 `conftest.py` apunta el catálogo de esquemas y el almacén de anclas a carpetas
 que no existen, y por buenas razones que están escritas allí. Eso vale también
 aquí, y tiene dos consecuencias que conviene saber leyendo la tabla. **Los
-códigos `XSD-*` no salen**: sobre el sitio publicado, que sí lleva los 24
-esquemas, los tres ficheros EDIFACT añaden un `XSD-NO-APLICA` que aquí no está.
+códigos `XSD-*` no salen**: sobre el sitio publicado, que sí lleva los
+esquemas del paquete, los tres ficheros EDIFACT añaden un `XSD-NO-APLICA` que
+aquí no está.
 Y **`fe-0001.xml` dice `CADENA-SIN-ANCLAS`**: con las anclas del paquete dice
 `CADENA-DESCONOCIDA`, porque su certificado es de juguete. Eso lo fija
 `test_cadena.py` con un almacén propio, que no depende de lo que tenga
