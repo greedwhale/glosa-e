@@ -58,10 +58,8 @@ byte a byte **y también por su licencia**, porque `--sitio` no lo construye—,
 versiones distintas de Pyodide. Es el patrón de este proyecto; úsalo antes que
 un comentario que pida memoria.
 
-Todas cuelgan de **`paquete.NoSeMonta`**, y eso también sale de un fallo: la
-lista que `__main__` cazaba estaba escrita a mano y `SinPolitica` se añadió sin
-tocarla, así que una página con un `onclick=` salía con traza de Python y
-código 1 —no 2— dejando 409 ficheros montados y ningún `rueda.json`. Una
+Todas cuelgan de **`paquete.NoSeMonta`**, y `__main__` caza esa clase, no una
+lista escrita a mano: la lista ya se quedó atrás una vez (en HALLAZGOS). Una
 negativa nueva hereda de `NoSeMonta` y ya está cazada; hay prueba que recorre
 el módulo y no deja ninguna suelta.
 
@@ -116,22 +114,20 @@ Hay tres. La suite antes de publicar la corre **git**, no Claude Code:
 |---|---|---|
 | `.githooks/pre-push` → `.githooks/antes-de-empujar.py`, versionados | **todo** `git push` de esta copia: Claude Code, la consola, un alias, un guion | se niega si lo que se empuja no es HEAD o hay cambios sin commit —lo probado tiene que ser lo publicado—, y si la suite no pasa, se cuelga o no arranca. Git cancela con cualquier código distinto de 0. Corre también con `--dry-run`: git no le dice que es un ensayo. El intérprete lo saca de la **copia principal** —`--git-common-dir`—, porque un worktree no tiene `.venv` propio |
 | `.claude/hooks/antes-de-empujar.py`, versionado, `PreToolUse` | `Bash`, `PowerShell` | el **portero**: con código 2, no deja que una orden sobre Factura-e se salte a git —`--no-verify`, `git send-pack`, tocar `core.hooksPath`, un alias con `--no-verify`— ni empujar mientras el gancho de git no esté puesto. Qué es «sobre Factura-e» lo dice **git** y no la ruta: un worktree vive fuera de la carpeta del repositorio y se colaba como «otro proyecto» |
-| `.claude/hooks/guardian-de-rutas.py` de la **carpeta de trabajo**, fuera del repositorio, `PreToolUse` | `Write`, `Edit`, `NotebookEdit` | se niega a escribir en lo que no se toca, y solo dentro de `C:\Users\PC\Claude\`, para no estorbar en otros proyectos de la máquina. Mira **todas** las rutas que manda la herramienta, no solo `file_path`, y **sin mirar mayúsculas**: `NotebookEdit` manda `notebook_path` y pasaba siempre, y `Sitio/`, `ANCLAS/` y `proyecto 1/` pasaban los tres porque Windows no las distingue. Sus decisiones se prueban en `tests/test_guardian_de_rutas.py`, que se salta donde el gancho no está |
+| `.claude/hooks/guardian-de-rutas.py` de la **carpeta de trabajo**, fuera del repositorio, `PreToolUse` | `Write`, `Edit`, `NotebookEdit` | se niega a escribir en lo que no se toca, y solo dentro de `C:\Users\PC\Claude\`, para no estorbar en otros proyectos de la máquina. Mira **todas** las rutas que manda la herramienta —`NotebookEdit` manda `notebook_path`, no `file_path`— y **sin mirar mayúsculas**, porque Windows no las distingue: `Sitio/` es `sitio/`. Sus decisiones se prueban en `tests/test_guardian_de_rutas.py`, que se salta donde el gancho no está |
 
-**Por qué la suite pasó a git** (16-09-2026). El gancho de Claude Code la
-corría él mismo y decidía leyendo la orden escrita con una expresión regular.
-La auditoría del 15-09-2026 le encontró nueve maneras de pasar —`git -C .
-push`, `git.exe push`, un `--dry-run` en un comentario, solo el primer `cd`—,
-que probaba la carpeta y no lo empujado, y que un push desde la consola no
-pasaba por él. Git llama a su gancho en todo push, se escriba como se escriba.
+**Por qué la suite la corre git.** Git llama a su gancho en todo push, se
+escriba como se escriba. Un gancho de Claude Code que decide leyendo la orden
+con una expresión regular se salta —la auditoría del 15-09-2026 le encontró
+nueve maneras, en HALLAZGOS—, prueba la carpeta y no lo empujado, y no ve un
+push desde la consola.
 
-**Y además, dentro de GitHub** (16-09-2026). `.github/workflows/pruebas.yml`
-corre la suite en cada push y cada pull request, sobre una copia recién sacada,
-se empuje desde donde se empuje. Es la única de estas puertas que no depende de
-la copia, y montarla destapó que la suite solo pasaba *aquí*: en una copia
-limpia fallaban 6 pruebas que leían `esquemas/`, `anclas/` o `muestras/`, y en
-Linux 2 más —el banco escribía en la raíz del disco y la huella de la copia
-oficial dependía de cómo ordena rutas el sistema—.
+**Y además, dentro de GitHub.** `.github/workflows/pruebas.yml` corre la suite
+en cada push y cada pull request, sobre una copia recién sacada y en Linux, se
+empuje desde donde se empuje. Es la única de estas puertas que no depende de la
+copia: una prueba que lea `esquemas/`, `anclas/` o `muestras/`, que escriba
+fuera de su carpeta temporal o que dependa de cómo ordena rutas el sistema pasa
+aquí y falla allí (lo que destapó al montarla está en HALLAZGOS).
 `tests/test_pruebas_en_github.py` vigila que allí corra la suite entera, con el
 Python del flujo, las versiones de `requisitos-pruebas.txt` y la comprobación
 llamada `suite`. **No está enganchado a Vercel, a propósito**, así que por sí
@@ -147,10 +143,9 @@ no:
 - **Un worktree hereda la configuración y no el entorno.** `git worktree add`
   deja una copia de Factura-e donde le digas, compartiendo el mismo `.git`:
   `core.hooksPath` viaja, `.githooks/` está ahí por versionado, y `.venv` no,
-  porque no se versiona. Medido el 21-09-2026, antes de arreglarlo: desde un
-  worktree el gancho de git se caía con un error de shell —cerrado, pero sin
-  correr la suite— y un `git push --no-verify` pasaba el portero y empujaba.
-  Los dos reconocían por la ruta; ahora preguntan a git.
+  porque no se versiona. Por eso los dos ganchos reconocen el repositorio
+  preguntando a git y no por la ruta, y el de git saca el intérprete de la
+  copia principal (la tabla de arriba).
 - `core.hooksPath` es configuración local de git. En una copia nueva hay que
   ponerlo una vez: `git config core.hooksPath .githooks`. Sin él, un push desde
   la consola publica sin probar; desde Claude Code, el portero se niega.

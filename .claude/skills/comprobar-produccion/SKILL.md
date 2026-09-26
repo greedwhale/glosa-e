@@ -33,11 +33,12 @@ byte—, así que sirve para saber si el despliegue es el nuevo.
 
 ## 2. Las cabeceras de caché
 
-Nueve reglas en `vercel.json`. Lo que se guarda un año y lo que no:
+Una ruta por cada regla de caché de `vercel.json`, menos la del `.whl`, que
+cambia de carpeta en cada construcción. Lo que se guarda un año y lo que no:
 
 ```bash
 u=https://www.glosa-e.com
-for f in /pyodide/314.0.6/pyodide.asm.wasm /paquete.zip /ejemplos/fe-0001.xml /glosa.js /glosa.css /prueba.py /PAQUETE.json /dist/rueda.json /; do
+for f in /pyodide/314.0.6/pyodide.asm.wasm /paquete.zip /ejemplos/fe-0001.xml /glosa.js /glosa.css /letra/literata.woff2 /prueba.py /PAQUETE.json /dist/rueda.json /; do
   printf "  %-42s %s\n" "$f" "$(curl -sI "$u$f" | grep -i '^cache-control' | tr -d '\r' | sed 's/[Cc]ache-[Cc]ontrol: //')"
 done
 ```
@@ -75,16 +76,13 @@ publica una tabla medida que dice «0 dominios de terceros», y `pyodide.js`
 lleva dentro la dirección del CDN como respaldo. Es exactamente lo que hay que
 mirar y no suponer.
 
-Desde el 06-09-2026 esto **ya no depende de que alguien se acuerde**: el banco
-trae «esta página no le pide nada a nadie», que mide lo mismo desde dentro y
-en cada visita, y la suite trae `tests/test_sin_terceros.py`, que lo mira
-antes de publicar. Lo de aquí sigue valiendo igual, porque es la única medida
-que se hace sobre la página real con un navegador de verdad y con la caché en
-el estado en que esté.
+El banco trae «esta página no le pide nada a nadie», que mide lo mismo desde
+dentro y en cada visita, y la suite trae `tests/test_sin_terceros.py`, que lo
+mira antes de publicar. Lo de aquí sigue haciendo falta, porque es la única
+medida que se hace sobre la página real con un navegador de verdad y con la
+caché en el estado en que esté.
 
-El filtro del `"null"` se añadió el 06-09-2026, y hace falta: en frío salía
-`[]` y en caliente salía `["null"]`, que es un `data:image/svg+xml` en línea
-del CSS —cero bytes, ninguna red—. Una comprobación de privacidad que da la
+El filtro del `"null"` hace falta: una comprobación de privacidad que da la
 alarma cuando no pasa nada se deja de leer, y entonces no avisa el día que
 pase. Si alguna vez sale algo aquí, mira `r.filter(...)` con la URL entera
 antes de dar nada por bueno **o por malo**.
@@ -105,12 +103,10 @@ curl -s -o /dev/null -w "%{size_download} bytes | %{time_total} s | %{speed_down
   https://www.glosa-e.com/pyodide/314.0.6/lxml-6.0.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl
 ```
 
-Pasó el 22-09-2026 con la máquina a ~30 KB/s —28 desde Vercel y 18 desde
-GitHub—, y **era del vigilante, no del enlace**: con la pestaña de fondo, Chrome
-le aprieta los tics hasta uno por minuto, y al despertar veía cincuenta segundos
-sin bytes donde el servidor llevaba escrito el 96 % del wheel. Está reproducido
-y arreglado —el vigilante perdona ahora el tiempo que no estuvo mirando—, y el
-porqué entero está en `HALLAZGOS.md`, en «El vigilante dormido».
+Con un enlace lento pero vivo ya saltó una vez, y **era del vigilante, no del
+enlace**: con la pestaña de fondo, Chrome le aprieta los tics hasta uno por
+minuto. Está arreglado, y el porqué entero está en `HALLAZGOS.md`, en «El
+vigilante dormido».
 
 Si vuelve a saltar con el enlace vivo, eso es un fallo nuevo y se reproduce
 antes de arreglarlo: el banco está descrito ahí, y son veinte líneas de servidor
@@ -155,22 +151,15 @@ COPIA-SIN-SITIO · nota
 SELLO-FALTA · nota
 ```
 
-Eran ocho hasta el 21-09-2026. Las tres que entraron son de la tabla de la
-copia fiel, que se terminó el 22: la unidad de la línea, el medio de pago y la
-moneda del IVA.
-
 La cifra de esquemas sale de `web/PAQUETE.json` y la lista de códigos de
-`tests/test_ejemplos.py`: **si no cuadran, la que manda es la del repositorio**,
-y lo que hay que mirar es cuál de las dos se quedó atrás.
+`tests/test_ejemplos.py`, con una diferencia que es a propósito: allí, sin las
+anclas del paquete, la cadena sale `CADENA-SIN-ANCLAS`, y aquí
+`CADENA-DESCONOCIDA`. Fuera de esa, **si no cuadran, la que manda es la del
+repositorio**, y lo que hay que mirar es cuál de las dos se quedó atrás.
 
-El código va al lado de la gravedad **a propósito**. Antes aquí ponía
-`["nota","aviso","aviso"]` a secas y se quedó atrás: las tres incidencias
-seguían siendo exactamente las mismas y lo único que cambió fue el orden, pero
-con tres palabras sueltas eso no se distingue de una incidencia que ha
-desaparecido —y quien corre esto se queda sin saber si mirar o seguir—. Con el
-código delante, un cambio se lee de un vistazo. Y sirvió: el 06-09-2026
-aparecieron tres notas nuevas y se supo en el acto que no había desaparecido
-ninguna.
+El código va al lado de la gravedad **a propósito**: con la gravedad sola, un
+cambio de orden no se distingue de una incidencia que ha desaparecido. Con el
+código delante, un cambio se lee de un vistazo.
 
 **Ninguna de las nueve notas es un defecto de la factura**, y conviene saber
 de dónde viene cada una, porque son tres grupos distintos:
@@ -189,11 +178,6 @@ de dónde viene cada una, porque son tres grupos distintos:
   de un adeudo— y la **moneda del IVA**, que el esquema obliga a escribir y la
   copia no debería llevar porque repite la de la factura.
 - `SELLO-FALTA` es de siempre.
-
-**`IVA-CATEGORIA-SIN-MAPA` ya no sale**, y no es una nota perdida: desde que la
-categoría se deduce del `TaxTypeCode` y del tipo, esta factura va a `S` al 21 %
-y las `BR-S-*` corren de verdad sobre ella. Un código que desaparece porque
-ahora se sabe la respuesta es lo contrario de un hueco.
 
 Salen como NOTA porque NOTA es la gravedad que existe aquí para decir qué se
 aceptó y con qué base.
@@ -235,24 +219,18 @@ Esa cifra sube cada vez que entra una comprobación al banco, así que **la que
 manda es la de `web/prueba.py`**: si no cuadra con la de aquí, mira primero cuál
 de las dos se ha quedado atrás antes de dar nada por roto.
 
-`detalle` va en la consulta desde el 06-09-2026 y no es adorno. Ese día
-salieron tres críticas en rojo y sin el detalle no se sabía por qué; con él, la
-primera línea ya decía `[BR-22] Cada línea debe decir cuántas unidades se
-facturan`, que es el diagnóstico entero.
+`detalle` no es adorno: sin él se sabe que una crítica falla, pero no por qué,
+y con él la primera línea suele ser ya el diagnóstico entero.
 
-**Desde el 06-09-2026 el banco corre también en la suite**, en
-`tests/test_banco.py`, con CPython y los ejemplos del repositorio. Eso no
-sustituye a esto: allí el lxml es el del sistema y aquí es una compilación de
-libxml2 para WebAssembly, y medio banco existe justo para comprobar que esa
-compilación trae lo que hace falta. Lo que cambia es que **un ejemplo roto ya
-no llega hasta aquí**: se cae en `pytest`, en tres segundos, en vez de en
-producción. Que hiciera falta lo demostró ese mismo día —se desplegó dos veces
-con tres críticas en rojo y la suite en verde—.
+**El banco corre también en la suite**, en `tests/test_banco.py`, con CPython
+y los ejemplos del repositorio, así que un ejemplo roto se cae en `pytest` y no
+llega hasta aquí. Eso no sustituye a esto: allí el lxml es el del sistema y
+aquí es una compilación de libxml2 para WebAssembly, y medio banco existe justo
+para comprobar que esa compilación trae lo que hace falta.
 
 ## 6. La ficha dice quién está detrás, y la tienda sigue apagada
 
-Desde el 31-08-2026 son **dos puertas y no una**, así que aquí se miran dos
-cosas distintas:
+Son **dos puertas distintas**, y aquí se miran las dos:
 
 ```js
 ({identificacion: window.Glosa.hayIdentificacion(),

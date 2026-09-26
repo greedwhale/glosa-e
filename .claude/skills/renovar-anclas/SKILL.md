@@ -17,14 +17,15 @@ Por eso el informe saca `ANCLAS-SIN-RENOVAR` como AVISO en cuanto se pasa la
 fecha, y por eso ese aviso no se apaga solo. Esta orden es lo único que lo
 apaga, y hay que ejecutarla de verdad: no se edita el manifiesto a mano.
 
-Estado del paquete que se publica ahora mismo (`web/PAQUETE.json`):
+Antes de tocar nada, apunta el estado del paquete que se publica ahora mismo.
+Se lee de `web/PAQUETE.json`, que es el que manda:
 
-| | |
-|---|---|
-| Lista de | ES, publicada el **2026-08-06** |
-| Habría que renovar en | **2027-02-02** |
-| Armado el | 2026-08-28 |
-| Trae | 24 esquemas · 268 anclas de firma · 121 de sellado |
+```bash
+./.venv/Scripts/python.exe -c "import json; d = json.load(open('web/PAQUETE.json', encoding='utf-8')); print({k: d[k] for k in ('publicada', 'siguiente', 'armado', 'esquemas', 'anclas', 'anclas_de_sellos')})"
+```
+
+`publicada` es la fecha de la lista; `siguiente`, cuándo habría que renovarla;
+y `armado`, cuándo se montó el paquete.
 
 ## Lo que hace falta bajar
 
@@ -69,7 +70,7 @@ una recomendación.
 ./.venv/Scripts/python.exe -m validador --ver-anclas
 ```
 
-**Compara los números con los de la tabla de arriba (268 / 121) y di la
+**Compara los números con los que apuntaste al principio y di la
 diferencia en voz alta.** Un salto grande sin explicación es motivo para parar
 y mirar, no para seguir. De las de agosto de 2026, dos caducaban el 31 de
 diciembre.

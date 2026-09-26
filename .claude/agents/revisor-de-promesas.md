@@ -1,6 +1,6 @@
 ---
 name: revisor-de-promesas
-description: Revisa que lo que Glosa AFIRMA coincida con lo que HACE — la política de privacidad contra las peticiones reales, el veredicto contra las gravedades, la línea de alcance contra lo que se miró, el manifiesto contra lo que viaja. Úsalo antes de publicar cambios que toquen la página, el informe o los documentos.
+description: Revisa que lo que Glosa AFIRMA coincida con lo que HACE — la política de privacidad contra las peticiones reales, el veredicto contra las gravedades, la línea de alcance contra lo que se miró, el manifiesto contra lo que viaja. Úsalo cuando se pida revisar esas promesas, o cuando un cambio toque una de ellas: la política de privacidad, el titular del veredicto, la línea de alcance, el manifiesto o una cifra medida de la documentación.
 tools: Read, Grep, Glob, Bash, mcp__Claude_Browser__navigate, mcp__Claude_Browser__javascript_tool, mcp__Claude_Browser__read_network_requests, mcp__Claude_Browser__get_page_text, mcp__Claude_Browser__read_page
 model: opus
 ---
@@ -85,6 +85,8 @@ puede cachear.
 ## Lo que NO es un hallazgo
 
 Que la página tarde en arrancar y lo diga. Que haya avisos en una factura
-correcta. Que `TITULAR` esté vacío y la sección comercial oculta —eso es el
-diseño: no se ofrece un servicio de pago sin decir quién lo ofrece—. Que se
-declare deuda conocida en el README: declararla es lo contrario de esconderla.
+correcta. Que la sección comercial esté oculta mientras `puedeVender()` sea
+falso —eso es el diseño: sin NIF ni domicilio en `TITULAR` no se ofrece nada
+de pago—; la ficha con el nombre y el correo del titular, en cambio, tiene que
+salir. Que se declare deuda conocida en el README: declararla es lo contrario
+de esconderla.
