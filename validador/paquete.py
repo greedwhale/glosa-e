@@ -1025,6 +1025,57 @@ def _hacia_fuera(texto: str) -> tuple[str, int]:
     return _RE_ANCLA.sub(_una, texto), cuantos
 
 
+# --- Los enlaces de casa, a su dirección limpia ------------------------------
+#
+# `cleanUrls` sirve `/legal` y contesta `/legal.html` con un 308. La canónica y
+# el sitemap decían la limpia desde el principio, pero los enlaces de una
+# página a otra seguían diciendo la que redirige. Medido en producción el
+# 25-09-2026: 225 por ficha de código, 396 en el catálogo y 9 en la bitácora.
+# Search Console lo enseñaba así: 19 páginas «con redirección», y las dos
+# formas de la misma página —`codigo-BR-47` y `codigo-BR-47.html`, y lo mismo
+# con BR-51— recibiendo impresiones por separado. Con 295 páginas que Google
+# conocía y no había visitado, cada enlace le costaba dos peticiones en vez de
+# una.
+#
+# Se arregla al montar y no en las plantillas, por lo mismo que la canónica:
+# las plantillas de `web/` se sirven en local con `http.server`, que no sabe
+# nada de `cleanUrls`, y ahí `./legal` es un 404. Lo que se publica sí lo sabe.
+# Para ver en local el sitio montado como lo sirve Vercel está
+# `herramientas/servir_sitio.py`.
+#
+# Y **se niega** en vez de dejarlo pasar. Un enlace de casa escrito de otra
+# manera —sin el `./`, o desde la raíz— no lo toca la expresión, y sin la
+# negativa volvería a publicarse la redirección sin que nadie se enterara, que
+# es exactamente como estuvo desde el primer día.
+_RE_DE_CASA = re.compile(r'href="\./([A-Za-z0-9._-]+)\.html((?:#[^"]*)?)"')
+_NO_SON_PAGINAS = ("mailto:", "data:", "tel:", "javascript:", "#")
+
+
+def _a_la_limpia(texto: str) -> tuple[str, int]:
+    """`./legal.html#aviso` pasa a `./legal#aviso`, y `./index.html` a `./`."""
+    cuantos = 0
+
+    def _una(encaje: re.Match[str]) -> str:
+        nonlocal cuantos
+        cuantos += 1
+        nombre, ancla = encaje.group(1), encaje.group(2)
+        return f'href="./{"" if nombre == "index" else nombre}{ancla}"'
+
+    return _RE_DE_CASA.sub(_una, texto), cuantos
+
+
+def _de_casa_con_html(texto: str) -> list[str]:
+    """Los enlaces de casa que siguen acabando en `.html`: los que no se han
+    sabido limpiar."""
+    quedan = []
+    for url in _RE_HREF.findall(texto):
+        if url.startswith(_NO_SON_PAGINAS) or _es_de_fuera(url):
+            continue
+        if url.split("#", 1)[0].split("?", 1)[0].endswith(".html"):
+            quedan.append(url)
+    return quedan
+
+
 # --- La política de contenido ------------------------------------------------
 #
 # La página promete que no le pide nada a nadie, y hasta aquí eso lo sostenían
@@ -1176,8 +1227,8 @@ def _para_investigadores(destino: Path, correo: str, hoy: date) -> Path:
 
 
 def _para_buscadores(destino: Path) -> int:
-    """Canónica, tarjeta y enlaces de salida en cada página, y los ficheros
-    de rigor."""
+    """Canónica, tarjeta, enlaces de salida y enlaces de casa en su forma
+    limpia en cada página, y los ficheros de rigor."""
     paginas = sorted(p.name for p in destino.glob("*.html")
                      if p.name not in _FUERA_DEL_INDICE)
     if not paginas:
@@ -1191,8 +1242,27 @@ def _para_buscadores(destino: Path) -> int:
     for nombre in paginas:
         ruta = destino / nombre
         texto, _ = _hacia_fuera(ruta.read_text(encoding="utf-8"))
+        texto, _ = _a_la_limpia(texto)
         ruta.write_text(
             _con_tarjeta(texto, _direccion(nombre), nombre, huella), encoding="utf-8")
+    # La de error no se indexa, pero se lee, y sus enlaces llevan a páginas
+    # que sí: también a la limpia.
+    for nombre in _FUERA_DEL_INDICE:
+        ruta = destino / nombre
+        if ruta.is_file():
+            ruta.write_text(_a_la_limpia(ruta.read_text(encoding="utf-8"))[0],
+                            encoding="utf-8")
+    sueltos = {
+        p.name: quedan for p in sorted(destino.glob("*.html"))
+        if (quedan := _de_casa_con_html(p.read_text(encoding="utf-8")))
+    }
+    if sueltos:
+        muestra = "; ".join(f"{n}: {', '.join(q[:3])}" for n, q in list(sueltos.items())[:5])
+        raise SinPagina(
+            f"{len(sueltos)} página(s) enlazan a otra de casa por su forma con "
+            f"`.html`, que en producción es una redirección: {muestra}. Solo se "
+            "limpia la forma `./nombre.html`; escribe el enlace así."
+        )
     (destino / "robots.txt").write_text(
         "User-agent: *\n"
         "Allow: /\n"

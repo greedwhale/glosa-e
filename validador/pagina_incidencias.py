@@ -310,17 +310,66 @@ def _resumen(uno: Codigo) -> str:
     return f"{cabeza} {recorte[: corte + 1].strip().rstrip(',;:')}…"
 
 
+# Cuántos hermanos se enlazan, como mucho, desde una ficha.
+#
+# Hasta el 25-09-2026 se enlazaban todos los de la familia. En casi todas son
+# pocos —la mayor después de la europea tiene 25—, pero la europea tiene 219, y
+# cada una de sus fichas llevaba 218 enlaces. Medido en BR-47: de sus 532
+# palabras visibles, 223 eran esa lista, un 42 %. Con 12 vecinos se quedan en
+# 331, y la lista en 22. (La primera medida dio 304 y estaba mal: juntaba los
+# enlaces seguidos sin espacio y la lista entera contaba casi como una
+# palabra.) Así, 219 páginas eran en buena parte la misma lista, y ese día Search
+# Console tenía 295 páginas «descubiertas» sin visitar y 13 «rastreadas» sin
+# indexar, todas fichas BR-. **Que la causa sea la lista es una hipótesis**:
+# Google no dice por qué no indexa una página. Se comprueba a las cuatro
+# semanas, en `informes/2026-09-25-buscadores.md`.
+#
+# Por encima del tope se enlazan los vecinos de la misma serie —la de BR-CO-10
+# es BR-CO, la de BR-47 es BR—, que son los que se buscan juntos, y la familia
+# entera queda a un clic, en el catálogo.
+_TOPE_DE_HERMANOS = 24
+_VECINOS = 12
+_RE_NUMERO_FINAL = re.compile(r"-\d+$")
+
+
+def _serie(codigo: str) -> str:
+    """`BR-CO-10` → `BR-CO`; `BR-47` → `BR`; un código sin número, él mismo."""
+    return _RE_NUMERO_FINAL.sub("", codigo)
+
+
+def _cercanos(uno: Codigo, todos: list[Codigo]) -> list[Codigo]:
+    """Los `_VECINOS` más cercanos a `uno` en su serie, en el orden del catálogo."""
+    familia = [c for c in todos if c.familia == uno.familia]
+    serie = [c for c in familia if _serie(c.codigo) == _serie(uno.codigo)]
+    if len(serie) < 2:
+        serie = familia
+    donde = next(i for i, c in enumerate(serie) if c.codigo == uno.codigo)
+    inicio = max(0, min(donde - _VECINOS // 2, len(serie) - _VECINOS - 1))
+    return [c for c in serie[inicio:inicio + _VECINOS + 1] if c.codigo != uno.codigo]
+
+
 def _hermanos(uno: Codigo, todos: list[Codigo]) -> str:
     otros = [c for c in todos if c.familia == uno.familia and c.codigo != uno.codigo]
     if not otros:
         return ""
+    familia = html.escape(uno.familia)
+    if len(otros) <= _TOPE_DE_HERMANOS:
+        titulo = f"Los otros {len(otros)} de {familia}"
+        elegidos, al_catalogo = otros, ""
+    else:
+        titulo = f"Cerca de {html.escape(uno.codigo)}"
+        elegidos = _cercanos(uno, todos)
+        al_catalogo = (
+            f'<p class="todos"><a href="./{NOMBRE}#familia-{familia}">Los '
+            f"{len(otros) + 1} de {familia}, en el catálogo</a></p>"
+        )
     enlaces = "".join(
         f'<li><a href="./{nombre_de(o.codigo)}">{html.escape(o.codigo)}</a></li>'
-        for o in otros
+        for o in elegidos
     )
     return (
-        f'<section class="hermanos"><h2>Los otros {len(otros)} de '
-        f"{html.escape(uno.familia)}</h2><ul>{enlaces}</ul></section>"
+        f'<section class="hermanos"><h2>{titulo}</h2><ul>{enlaces}</ul>'
+        f"{al_catalogo}</section>"
     )
 
 

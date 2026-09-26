@@ -1455,7 +1455,8 @@ class TestLosEnlacesQueSeVanDelSitio:
 
     def test_el_de_casa_se_queda_en_casa(self, repositorio):
         texto = self._enlaces(_montar(repositorio).carpeta)
-        casa = re.search(r'<a href="\./legal\.html"[^>]*>', texto)
+        # Ya en su forma limpia: ver `TestLosEnlacesDeCasa`.
+        casa = re.search(r'<a href="\./legal"[^>]*>', texto)
         assert casa and "target=" not in casa.group(0), (
             "un enlace del propio sitio abriendo pestaña nueva es ruido: se "
             "va llenando el navegador de copias de la misma página")
@@ -1479,6 +1480,128 @@ class TestLosEnlacesQueSeVanDelSitio:
                 if not url or not paquete._es_de_fuera(url.group(1)):
                     continue
                 assert 'target="_blank"' in etiqueta, f"{pagina.name}: {etiqueta}"
+
+
+class TestLosEnlacesDeCasa:
+    """Los enlaces de una página a otra, en la dirección que se sirve.
+
+    Search Console, el 25-09-2026: 19 páginas «con redirección» y las dos
+    formas de BR-47 y de BR-51 recibiendo impresiones por separado. La
+    canónica y el sitemap ya decían la limpia; los enlaces, no —225 por ficha,
+    396 en el catálogo, medido en producción—, y cada uno era un 308.
+    """
+
+    def _con(self, repositorio, *enlaces):
+        cuerpo = "".join(f'<a href="{e}">x</a>' for e in enlaces)
+        (repositorio / "web" / "legal.html").write_text(
+            PAGINA.replace("</body>", cuerpo + "</body>"), encoding="utf-8")
+
+    def test_ninguna_pagina_montada_enlaza_a_una_redireccion(self, repositorio):
+        sitio = _montar(repositorio).carpeta
+        for pagina in sorted(sitio.glob("*.html")):
+            texto = pagina.read_text(encoding="utf-8")
+            assert paquete._de_casa_con_html(texto) == [], pagina.name
+        assert 'href="./legal"' in (sitio / "index.html").read_text(encoding="utf-8")
+
+    def test_el_ancla_no_se_pierde_y_la_portada_es_la_raiz(self, repositorio):
+        self._con(repositorio, "./legal.html#aviso", "./index.html#zona",
+                  "./index.html")
+        texto = (_montar(repositorio).carpeta / "legal.html").read_text(encoding="utf-8")
+        assert 'href="./legal#aviso"' in texto
+        assert 'href="./#zona"' in texto
+        assert 'href="./"' in texto
+        assert "index" not in re.findall(r'href="(\./[^"]*)"', texto)
+
+    def test_lo_que_no_es_una_pagina_de_casa_no_se_toca(self, repositorio):
+        """Un `.html` de otro sitio es de otro sitio, y un fichero no es una
+        página: `cleanUrls` solo quita el `.html`."""
+        self._con(repositorio, "https://www.boe.es/buscar/act.html",
+                  "./letra/OFL.txt", "mailto:a@b.es")
+        texto = (_montar(repositorio).carpeta / "legal.html").read_text(encoding="utf-8")
+        assert 'href="https://www.boe.es/buscar/act.html"' in texto
+        assert 'href="./letra/OFL.txt"' in texto
+
+    def test_uno_que_no_se_sabe_limpiar_no_se_monta(self, repositorio):
+        """Sin el `./` la expresión no lo toca, y sin la negativa volvería a
+        publicarse la redirección sin que nadie se enterara."""
+        self._con(repositorio, "legal.html#privacidad")
+        with pytest.raises(paquete.SinPagina) as motivo:
+            _montar(repositorio)
+        assert "legal.html#privacidad" in str(motivo.value)
+
+    def test_las_plantillas_y_las_fichas_de_verdad_se_saben_limpiar(self, tmp_path):
+        """El montaje de arriba es de mentira. Esto pasa la limpieza por lo que
+        se publica de verdad —las plantillas de `web/`, los artículos, el
+        catálogo y las 390 fichas— para que un enlace mal escrito se vea aquí y
+        no en el despliegue."""
+        from validador import pagina_incidencias
+        web = Path(__file__).resolve().parent.parent / "web"
+        textos = {p.name: p.read_text(encoding="utf-8")
+                  for p in [*web.glob("*.html"), *(web / "bitacora").glob("*.html")]}
+        pagina_incidencias.montar_pagina(web / "incidencias.html", tmp_path / "catalogo.html")
+        textos["catalogo"] = (tmp_path / "catalogo.html").read_text(encoding="utf-8")
+        for ficha in pagina_incidencias.montar_fichas(web / "incidencias.html", tmp_path):
+            textos[ficha] = (tmp_path / ficha).read_text(encoding="utf-8")
+        sueltos = {n: q for n, t in textos.items()
+                   if (q := paquete._de_casa_con_html(paquete._a_la_limpia(t)[0]))}
+        assert not sueltos, sueltos
+
+
+class TestElServidorDeLocal:
+    """`herramientas/servir_sitio.py`: el sitio montado, como lo sirve Vercel.
+
+    Sin él, la vista previa local se rompía con el arreglo de arriba:
+    `http.server` no sabe de `cleanUrls` y `./legal` le da 404.
+    """
+
+    @pytest.fixture
+    def servidor(self, tmp_path):
+        import http.client
+        import threading
+        from functools import partial
+        from http.server import ThreadingHTTPServer
+        from herramientas.servir_sitio import ComoVercel
+
+        for nombre, texto in (("index.html", "portada"), ("legal.html", "legal"),
+                              ("404.html", "no hay nada"),
+                              ("codigo-BR-01.html", "br-01"), ("glosa.css", "css")):
+            (tmp_path / nombre).write_text(texto, encoding="utf-8")
+        manejador = partial(ComoVercel, directory=str(tmp_path))
+        servidor = ThreadingHTTPServer(("127.0.0.1", 0), manejador)
+        ComoVercel.log_message = lambda *a: None
+        hilo = threading.Thread(target=servidor.serve_forever, daemon=True)
+        hilo.start()
+
+        def pedir(ruta):
+            conexion = http.client.HTTPConnection("127.0.0.1", servidor.server_address[1])
+            conexion.request("GET", ruta)
+            respuesta = conexion.getresponse()
+            cuerpo = respuesta.read().decode("utf-8")
+            conexion.close()
+            return respuesta.status, respuesta.getheader("Location"), cuerpo
+
+        yield pedir
+        servidor.shutdown()
+        servidor.server_close()
+
+    def test_la_direccion_limpia_sirve_la_pagina(self, servidor):
+        assert servidor("/legal") == (200, None, "legal")
+        assert servidor("/") == (200, None, "portada")
+        assert servidor("/glosa.css?v=1a2b3c4d")[0] == 200
+
+    def test_la_forma_con_html_redirige_como_en_produccion(self, servidor):
+        assert servidor("/legal.html")[:2] == (308, "/legal")
+        assert servidor("/index.html")[:2] == (308, "/")
+        assert servidor("/legal/")[:2] == (308, "/legal")
+
+    def test_lo_que_no_esta_da_la_pagina_de_error(self, servidor):
+        assert servidor("/nada") == (404, None, "no hay nada")
+
+    def test_distingue_mayusculas_aunque_windows_no(self, servidor):
+        """Vercel da 404 a `/codigo-br-01`. Un servidor local que no lo diera
+        enseñaría como buena una dirección que en producción no existe."""
+        assert servidor("/codigo-BR-01")[0] == 200
+        assert servidor("/codigo-br-01")[0] == 404
 
 
 class TestElBuzonDeSeguridad:

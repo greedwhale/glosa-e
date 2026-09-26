@@ -169,6 +169,58 @@ class TestLasQueSalen:
         assert texto.count('href="./codigo-REVOCACION-SOLO-OCSP.html"') == 0
 
 
+class TestLosHermanos:
+    """La lista de otros códigos al pie de cada ficha.
+
+    Hasta el 25-09-2026 enlazaba la familia entera, y la europea tiene 219:
+    cada una de sus fichas llevaba 218 enlaces, que eran 223 de sus 532
+    palabras visibles —medido en BR-47—. Ahora, por encima del tope, los
+    vecinos de la serie y la familia entera a un clic, en el catálogo.
+    """
+
+    RE_LISTA = re.compile(r'<section class="hermanos">.*?</section>', re.S)
+
+    def _hermanos(self, montadas, codigo):
+        destino, _ = montadas
+        texto = (destino / pagina_incidencias.nombre_de(codigo)).read_text(encoding="utf-8")
+        lista = self.RE_LISTA.search(texto).group(0)
+        return lista, re.findall(r'href="\./codigo-([^"]+)\.html"', lista)
+
+    def test_ninguna_ficha_pasa_del_tope(self, montadas):
+        destino, escritas = montadas
+        for nombre in escritas:
+            texto = (destino / nombre).read_text(encoding="utf-8")
+            lista = self.RE_LISTA.search(texto)
+            if lista:
+                enlaces = re.findall(r'href="\./codigo-', lista.group(0))
+                assert len(enlaces) <= pagina_incidencias._TOPE_DE_HERMANOS, nombre
+
+    def test_en_la_familia_grande_van_los_vecinos_de_la_serie(self, montadas):
+        lista, enlazados = self._hermanos(montadas, "BR-47")
+        assert "Cerca de BR-47" in lista
+        assert len(enlazados) == pagina_incidencias._VECINOS
+        assert {"BR-46", "BR-48"} <= set(enlazados)
+        assert all(re.fullmatch(r"BR-\d+", c) for c in enlazados), enlazados
+        assert "BR-47" not in enlazados
+
+    def test_y_la_familia_entera_queda_a_un_clic(self, montadas):
+        lista, _ = self._hermanos(montadas, "BR-CO-10")
+        total = sum(1 for c in codigos_del_paquete() if c.familia == "BR")
+        assert f'href="./{pagina_incidencias.NOMBRE}#familia-BR"' in lista
+        assert f"Los {total} de BR, en el catálogo" in lista
+
+    def test_en_los_bordes_de_la_serie_no_se_queda_corta(self, montadas):
+        """El primero no tiene a nadie delante: los doce van detrás."""
+        _, enlazados = self._hermanos(montadas, "BR-01")
+        assert len(enlazados) == pagina_incidencias._VECINOS
+
+    def test_las_familias_pequenas_siguen_enteras(self, montadas):
+        _, enlazados = self._hermanos(montadas, "REVOCACION-SOLO-OCSP")
+        otros = [c.codigo for c in codigos_del_paquete()
+                 if c.familia == "REVOCACION" and c.codigo != "REVOCACION-SOLO-OCSP"]
+        assert sorted(enlazados) == sorted(otros)
+
+
 class TestLasNegativas:
     """Las tres fallan calladas, que es por lo que hay que provocarlas."""
 

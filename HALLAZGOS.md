@@ -5969,3 +5969,68 @@ otro grosor y la tarjeta sin huella.
 
 Con esto, el bloque plata ya no sale en ninguna página publicada. Vive en
 `web/marca/glosa-e.svg`, que no se publica.
+
+## Los enlaces de casa pasaban por una redirección
+
+Salió al abrir Search Console por primera vez, el 25-09-2026, con 13 días de
+datos. Google tenía 110 páginas indexadas de 398, y 327 sin indexar: 295
+«descubiertas» y todavía sin visitar, 13 «rastreadas» y sin indexar —todas
+fichas BR-— y 19 «página con redirección». Y dos páginas recibían impresiones
+por partida doble: `codigo-BR-47` y `codigo-BR-47.html`, y lo mismo con
+BR-51.
+
+La canónica y el sitemap decían la dirección limpia desde el principio, y hay
+prueba para eso. Lo que nadie miraba eran los enlaces de una página a otra.
+Medido en producción: 225 por ficha de código, 396 en el catálogo y 9 en la
+bitácora, todos a `./nombre.html`, que con `cleanUrls` contesta 308. A un
+dominio nuevo, con 295 páginas en cola, cada enlace le costaba al buscador dos
+peticiones en lugar de una.
+
+**Por qué no se había visto.** Las pruebas miraban lo que se le dice al
+buscador —el sitemap y la canónica—, no el camino que sigue para llegar. Y en
+local no se nota nada, porque `http.server` sirve `legal.html` tal cual y no
+hay redirección que ver.
+
+**El arreglo.**
+
+- Al montar, los enlaces `./nombre.html` pasan a `./nombre`, y `./index.html`
+  pasa a `./`. Las plantillas no se tocan: en local las sirve `http.server`,
+  que no sabe de `cleanUrls`.
+- El montaje **se niega** si queda un enlace de casa con `.html` que no ha
+  sabido limpiar.
+- La vista previa del sitio montado pasa a `herramientas/servir_sitio.py`, que
+  sirve como Vercel: direcciones limpias, 308, `404.html` y **mayúsculas
+  distinguidas**, porque Windows no las distingue y Vercel sí.
+- Las pruebas pasan la limpieza por las plantillas de verdad, los artículos,
+  el catálogo y las 390 fichas.
+- Montado de verdad: 399 páginas, 9.965 enlaces de casa limpios y ninguno con
+  `.html`.
+
+**Y la lista de hermanos.** Cada ficha de la familia europea enlazaba a los
+otros 218 códigos. Bien medido, en BR-47 eran 223 de sus 532 palabras
+visibles, un 42 %. Ahora van los 12 vecinos de la serie y un enlace a la
+familia en el catálogo: la ficha queda en 331 palabras. **Que esto sea lo que
+frenaba la indexación no está demostrado**: Google no dice por qué no indexa.
+Se comprueba el 23-10-2026, comparando con estas cifras.
+
+**Una medida mal hecha por el camino.** La primera cuenta de BR-47 dio 304
+palabras con 218 de lista, y así se le contó al titular. Estaba mal:
+`text_content()` de lxml junta los enlaces seguidos sin espacio, y la lista
+entera contaba casi como una palabra. Se vio al medir la página ya arreglada:
+con 206 enlaces menos tenía **más** palabras que antes, lo que no podía ser.
+Rehecha con `itertext()`, las cifras buenas son las de arriba.
+
+Provocado, ocho roturas y ocho rojos:
+
+- sin limpiar;
+- sin la negativa;
+- la portada como `./index`;
+- la familia entera otra vez;
+- sin el enlace al catálogo;
+- la ventana pegada al principio;
+- el servidor sin distinguir mayúsculas;
+- el servidor sin la redirección.
+
+Una de las ocho salió verde la primera vez, y el fallo era de la rotura: rompía
+una línea a la que no se llega, porque las mayúsculas se comprueban antes.
+Rota donde toca, rojo.

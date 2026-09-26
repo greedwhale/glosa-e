@@ -42,6 +42,12 @@ python -m build --wheel --outdir dist
 python -m http.server 8765
 ```
 
+Eso sirve las plantillas de `web/`. El **sitio montado** (`--sitio`) no se
+mira así: enlaza por la dirección limpia —`./legal`, no `./legal.html`—, igual
+que en producción, y `http.server` le da 404. Para ese está
+`python herramientas/servir_sitio.py 8322 --bind 127.0.0.1 --directory sitio`,
+que sirve como Vercel.
+
 Lo primero solo hace falta una vez: baja el intérprete de Python para
 WebAssembly —unos 15 MB— a `vendor/pyodide/`, que no se versiona. Se sirve
 desde aquí en vez de pedírselo a un CDN, porque cada visita a un CDN ajeno

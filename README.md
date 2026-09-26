@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2615 tests, todos en verde.
+2629 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4211,6 +4211,24 @@ está: el texto del esquematrón, escrito en la prueba.
 `/incidencias` y `/incidencias.html` contesta con un 308. El sitemap y la
 canónica dicen **la de destino**, no la que redirige: mandar a un buscador a
 una mudanza es hacerle perder el viaje.
+
+**Y los enlaces de una página a otra también**, desde el 25-09-2026. Hasta
+entonces seguían diciendo `./legal.html`: 225 por ficha de código y 396 en el
+catálogo, cada uno un 308. Search Console contaba las dos formas de la misma
+página por separado. Las plantillas de `web/` siguen escribiendo `.html`,
+porque se sirven en local con `http.server`, que no sabe de `cleanUrls`. Es el
+montaje el que los pasa a la forma limpia, y **se niega** si queda un enlace
+de casa con `.html` que no ha sabido limpiar. Para ver en local el sitio
+montado como lo sirve Vercel —direcciones limpias, 308, `404.html` y
+mayúsculas distinguidas— está `herramientas/servir_sitio.py`, que es el
+servidor `sitio` de `.claude/launch.json`.
+
+**Y al pie de cada ficha, los vecinos y no la familia entera.** La familia
+europea tiene 219 códigos y cada ficha suya enlazaba a los otros 218: en BR-47
+eran 223 de sus 532 palabras visibles. Por encima de 24 hermanos se enlazan los
+12 más cercanos de la misma serie, y la familia entera queda a un clic, en el
+catálogo. Que eso sea lo que frenaba la indexación es una hipótesis: se mira a
+las cuatro semanas.
 
 El sitemap va **sin `lastmod` a propósito**. Lo único que se podría poner es la
 fecha en que se montó el sitio, que es la misma para las 167 páginas y no dice

@@ -17,8 +17,7 @@
       "name": "sitio",
       "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": [
-        "-m",
-        "http.server",
+        "herramientas/servir_sitio.py",
         "8322",
         "--bind",
         "127.0.0.1",
