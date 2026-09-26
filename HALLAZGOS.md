@@ -2105,7 +2105,7 @@ rompían pruebas**. Los otros ocho no rompían ninguna, así que no se miraron.
 Ahí estaba el aviso, y lo que faltaba era quien lo diera.
 
 Que ninguno cambiara lo que demuestra se comprobó, no se supuso: se validó el
-árbol de `ejemplos/` de `9601360` con el validador de hoy y se comparó queja a
+árbol de `ejemplos/` de `9e17465` con el validador de hoy y se comparó queja a
 queja con el de ahora. Descontando las tres nuevas, **cero diferencias en los
 diez**. Los que están rotos a propósito —`cii-A-0001`, `edi-0002-cortado`,
 `f-0006`— siguen rotos por lo mismo.
@@ -2412,7 +2412,7 @@ Primero, lo barato: los mismos diez ficheros con CPython, con los esquemas
 puestos, comparando el código de antes y el de ahora en dos árboles distintos.
 
 ```
-antes (ea91466)   192,5 ms        ahora   179,4 ms
+antes (a83564b)   192,5 ms        ahora   179,4 ms
 ```
 
 Más rápido, no más lento. Pero eso solo no bastaba y por eso no se paró ahí:
