@@ -48,6 +48,7 @@ from validador.formato import (
     FACTURAE,
     FIRMA_EN_PIE,
     FIRMA_ROTA,
+    RESPUESTA,
     UBL,
     Deteccion,
     detectar,
@@ -67,7 +68,15 @@ from validador.incidencias import (
 )
 
 # Familias que vienen escritas en XML y se parsean tal cual.
-_FAMILIAS_XML = (UBL, FACTURAE, CII)
+#
+# **Una familia de XML que falte aquí no falla: absuelve.** `_arbol` devuelve
+# entonces `raiz=None`, y sin árbol no se pasa ni el esquema ni la firma. Medido
+# con una respuesta a la que le sobraba un elemento, y con otra firmada y
+# tocada después de firmar: las dos salían «1 correcto(s)», sin errores y con
+# código de salida 0, con la columna de la forma diciendo «Sin errores». Por eso
+# `test_respuesta.py` recorre las familias de `formato.py` y no deja ninguna
+# fuera de esta lista ni de EDIFACT.
+_FAMILIAS_XML = (UBL, FACTURAE, CII, RESPUESTA)
 
 # EDIFACT también acaba en un árbol, pero por dos caminos: si viene en XML
 # —la forma de ISO 20625, que es la que publica la Comisión— se parsea como
@@ -279,11 +288,32 @@ def validar(
     if isinstance(datos, str):
         datos = datos.encode("utf-8")
     raiz, sintacticas = _arbol(datos, deteccion)
+    # Uno solo para las reglas y para `_mirado`: `Catalogo.por_defecto()` en cada
+    # sitio compilaba dos veces el esquema de una respuesta.
+    catalogo = catalogo or Catalogo.por_defecto()
     incidencias, informe.firma, informe.firmas_verificadas = _reglas(
         raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
     )
     informe.incidencias.extend(incidencias)
+    informe.mirado = _mirado(deteccion, catalogo)
     return informe
+
+
+def _mirado(deteccion: Deteccion, catalogo: Catalogo | None) -> bool:
+    """¿Se le ha podido pasar a este documento su comprobación principal?
+
+    Con una factura, siempre: aunque no haya esquemas se le miden las cuentas y
+    el código único. Con una respuesta, no: **su comprobación principal es la
+    forma**, y sin un esquema que se pueda usar no queda más que la firma, si la
+    trae, y que el XML no traiga entidades. Darla
+    por correcta —«1 correcto(s)», código de salida 0— sería lo que
+    `Informe.validado` existe para evitar: aparecer entre los buenos un fichero
+    que nadie ha abierto. Medido antes de escribir esto: con `esquemas/` vacío,
+    una respuesta con la forma rota salía correcta.
+    """
+    if deteccion.familia != RESPUESTA:
+        return True
+    return esquema.se_puede_comprobar(deteccion, catalogo)
 
 
 def validar_archivo(
@@ -463,7 +493,9 @@ class InformeLote:
     def sin_comprobar(self) -> list[tuple[Path, Informe]]:
         """Ficheros que no se han podido mirar.
 
-        No existen, no se pueden leer, o no se reconoce su formato. Van
+        No existen, no se pueden leer, no se reconoce su formato, o se reconoce
+        y no hay con qué pasarle su comprobación principal (una respuesta sin
+        su esquema, y sin ningún error encontrado por otro lado). Van
         aparte de los correctos y de los que tienen errores porque son un
         tercer estado, y confundirlos con los buenos es justo el fallo que
         deja a alguien creyendo que ha revisado un lote entero cuando se
@@ -596,7 +628,14 @@ class InformeLote:
         # EDIFACT no ha visto ningún XSD, y decir que sí sería apuntarse una
         # comprobación que no se ha hecho, que es el peor error que puede
         # tener esta frase: lo que promete es de lo que se fiará quien la lee.
-        con_esquema = familias - {EDIFACT}
+        #
+        # Y una respuesta cuenta solo si se le pudo pasar el suyo: con un
+        # lote de respuestas y el esquema de `ApplicationResponse` sin
+        # instalar, decir «la forma contra el esquema XSD» sería apuntarse una
+        # comprobación que no se ha hecho.
+        con_esquema = (familias - {EDIFACT, RESPUESTA}) | (
+            {RESPUESTA} if self._alguna_respuesta_mirada() else set()
+        )
         if forma and con_esquema:
             mirado[PARTE_FORMA].append("la forma contra el esquema XSD")
         contenido = mirado[PARTE_CONTENIDO]
@@ -707,7 +746,35 @@ class InformeLote:
             sin_mirar[PARTE_CONTENIDO].append(
                 "el código único de las facturas EDIFACT"
             )
+        if RESPUESTA in familias:
+            # De una respuesta solo se mira la forma y, si la trae, la firma.
+            # Sin esta línea, la columna del contenido salía «Sin mirar» sin
+            # decir de qué, y la frase de arriba solo hablaba de facturas.
+            #
+            # Sin comas dentro, como el trozo del anexo I, y sin decir aquí qué
+            # sí se mira: llevaba «de las que solo se mira la forma y la firma»,
+            # que se leía como dos cosas, y lo prometía también sobre una
+            # respuesta sin esquema y sin firma. Lo que sí se ha mirado ya lo
+            # dicen las otras dos columnas, y lo dicen de este lote.
+            sin_mirar[PARTE_CONTENIDO].append(
+                "el contenido de las respuestas (ApplicationResponse)"
+            )
         return mirado, sin_mirar
+
+    def _alguna_respuesta_mirada(self) -> bool:
+        """¿Se le pudo pasar su esquema a alguna de las respuestas del lote?
+
+        Alguna y no todas, con el mismo criterio que las facturas: a una
+        factura cuyo esquema falta tampoco se le quita la frase de la forma al
+        resto del lote. La que no se miró lleva su aviso y sale SIN COMPROBAR,
+        así que el lote no puede salir «sin errores».
+        """
+        return any(
+            informe.mirado
+            for _, informe in self.informes
+            if informe.deteccion is not None
+            and informe.deteccion.familia == RESPUESTA
+        )
 
     def alcance(
         self, forma: bool = True, anclas: bool = False, listas: bool = False
@@ -735,13 +802,17 @@ class InformeLote:
         mirado, sin_mirar = self._alcance_por_partes(forma, anclas, listas)
         dicho = [m for parte in PARTES for m in mirado[parte]]
         if not dicho:
-            # Solo pasa si no se ha podido leer ningún fichero: cualquiera que
-            # se lea como factura aporta al menos sus reglas. Antes esto no
-            # podía pasar, porque el código único se prometía siempre —hasta
-            # sobre un lote de ficheros que no existían—.
+            # Solo pasa si no se ha podido comprobar ningún fichero: cualquiera
+            # que se lea como factura aporta al menos sus reglas, y una
+            # respuesta, su forma o su firma. Llega aquí un lote de ficheros
+            # que no se han podido leer o reconocer, y uno de respuestas sin su
+            # esquema y sin firma; por eso dice «comprobar» y no «leer como
+            # factura», que de una respuesta sería falso. Antes esto no podía
+            # pasar, porque el código único se prometía siempre —hasta sobre un
+            # lote de ficheros que no existían—.
             return (
                 "No se ha comprobado nada: ninguno de los ficheros se ha podido "
-                "leer como factura."
+                "comprobar."
             )
         # Lo que no se mira de la firma va delante del código único de EDIFACT,
         # que es el orden en que se escribió la frase y en el que se lee.
@@ -956,6 +1027,7 @@ def validar_lote(
                     raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
                 )
                 informe.incidencias.extend(incidencias)
+                informe.mirado = _mirado(deteccion, catalogo)
         except Exception as error:  # noqa: BLE001 - ver `_se_atraganta`
             lote.informes.append((camino, _se_atraganta(camino, error)))
             continue

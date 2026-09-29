@@ -1137,6 +1137,12 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             no hay que decirle cuál es.</p>
             <p>Si el fichero no es ninguno de los cuatro, lo dice y no lo
             valida, que es distinto de decir que está mal.</p>
+            <p>Con una excepción: las respuestas de UBL
+            (<code>ApplicationResponse</code>), que no son facturas. Se
+            reconocen y se les mira la forma, y la firma si la traen; lo que
+            dicen, no. La forma se mira con el esquema de UBL 2.5 aunque
+            declaren otra versión, porque es el que viaja con la página: lo que
+            vale en la 2.1 vale en la 2.5, pero no al revés.</p>
           </div>
         </details>
 
@@ -1649,7 +1655,7 @@ async function empezar() {
       // «Listo», sin red no arranca.
       ? "Ya no hace falta conexión: el validador, los esquemas y las anclas están en tu navegador. " +
         "Desconecta la red y suelta tu factura: sale igual."
-      : "Sin el paquete de esquemas y anclas: aquí solo se comprueba el contenido.";
+      : "Sin el paquete de esquemas y anclas: aquí solo se comprueba el contenido de las facturas.";
   } catch (error) {
     // El fallo se marca además de pintarse: quien haya soltado una factura
     // mientras cargaba está esperando una respuesta, y hay que dársela en vez

@@ -6166,3 +6166,157 @@ circulan **no está medido**.
 `test_de_la_2_0_no_se_sube` y `test_sin_el_esquema_de_la_2_0_se_dice_cual_falta`.
 El caso de la tabla no puede ir en una prueba porque el esquema 2.0 no está en
 el repositorio; lo que se fija es lo que hace el código con él.
+
+## Un `ApplicationResponse` salía «sin comprobar», y había dos maneras de arreglarlo mal
+
+El 29-09-2026 el titular pidió que `esquema.py` validara también
+`UBL-ApplicationResponse-2.5.xsd`, que ya viajaba en `web/paquete.zip` sin que
+nada lo pidiera. El esquema era la parte fácil: el documento ni siquiera se
+reconocía.
+
+**Reproducido.** Una respuesta que valida contra su esquema, y la misma con un
+`IssueDate` repetido, salían igual, `No se ha podido validar. XML válido, pero su
+elemento raíz «ApplicationResponse» no corresponde a Facturae, UBL, CII ni
+EDIFACT`, con código de salida 1. Una respuesta rota y una buena no se
+distinguían.
+
+**Las dos maneras de arreglarlo mal**, medidas antes de escribir nada, en el
+orden en que se le ocurren a uno:
+
+| Cómo se reconoce | Respuesta buena | Respuesta con la forma rota |
+|---|---|---|
+| Como `UBL` (factura) | **16 errores** que no le tocan: `XSD-RAIZ`, 13 reglas `BR-*` y dos `CU-*`; con el CIUS declarado, `SPFE-TIPO-DE-FACTURA` («es un abono») | los mismos |
+| Familia nueva, sin más | sin quejas | **`conforme`, sin errores**: sin árbol no se pasa esquema ni firma |
+| Familia nueva en `_FAMILIAS_XML`, con guardias | sin quejas | `XSD-ORDEN` |
+
+La primera es el «acusar en falso» de siempre: hay nueve sitios que deciden por
+`familia == UBL` —`codigo_unico.py` cuatro, `esquema.py`, `factura.py` tres y
+`solucion_publica.py`—, todos suponen una factura, y cada uno habría que
+enseñarlo a excluir la respuesta; el olvido se paga con una acusación. La
+segunda es **peor porque no se ve**: una respuesta tocada después de firmar
+tampoco se enteraba. Absolver en silencio es lo que este repositorio existe
+para no hacer.
+
+**El arreglo.** `RESPUESTA = "ApplicationResponse"` es una familia propia en
+`formato.py`, sin `tipo_documento` y con `conforme_en16931` siempre falso
+—declarar el perfil de una factura no la hace factura—. Con
+ella, todo `if familia == X` y todo `SINTAXIS.get(familia)` contestan «no me
+toca» por su cuenta, y solo hay que enseñar lo que sí le toca:
+
+- `factura._FAMILIAS_XML` la lleva, para que se parsee y pase por el esquema, el
+  DOCTYPE y la firma. Sin ella, lo de la tabla.
+- `esquema._nombres_esperados` pide `UBL-ApplicationResponse-{versión}.xsd`.
+- Tres guardias que se leen mal si faltan: `en16931.reglas` (sin ella,
+  `SIN-SOPORTE` diciendo «solo se ha identificado, no validado» junto a la
+  columna de la forma diciendo «Sin errores»), `solucion_publica.reglas` (sin
+  ella, `SPFE-SINTAXIS` diciendo que el anexo «solo define» el CIUS sobre UBL,
+  y la respuesta es UBL) y `codigo_unico.validar` (sin ella, `CU-00`).
+- **`Informe.mirado`.** La forma es lo que se le comprueba a una respuesta, así
+  que sin esquema no queda más que la firma. Medido con `esquemas/` vacío —el
+  caso por defecto del CLI—: una respuesta rota salía «1 correcto(s)», código
+  de salida 0 y «No se ha comprobado nada» escrito justo debajo. Ahora es `SIN
+  COMPROBAR` y sale con 1, como un fichero que no se pudo abrir. Una factura sin
+  esquemas sigue siendo correcta: todavía se le miden las cuentas.
+- La frase del final y las columnas dicen «el contenido de las respuestas
+  (ApplicationResponse)», y ya no prometen la forma en un lote de respuestas
+  sin su esquema.
+
+**Se subió de versión con medida.** Los esquemas 2.1, 2.2, 2.3 y 2.4 de
+`ApplicationResponse` son copias de `phax/ph-ubl`, rama `master` bajada el
+29-09-2026 (docs.oasis-open.org no contesta desde donde se midió; el 2.1 es la
+CS1, no la OS), y se compararon con el 2.5 del paquete. Sus sha256, para saber
+qué se midió aunque `master` se mueva:
+
+| Versión | sha256 de `UBL-ApplicationResponse-2.x.xsd` |
+|---|---|
+| 2.0 | `ce9084f683184ecf37d418c63ee69585beb89f5b80ca4a0c9bf83ab1551dabac` |
+| 2.1 | `9420edfe126e86eb3aa051a872940935a4badef12e56322c1a76d2cbcb07ad18` |
+| 2.2 | `cc25bb23861c8b56e2c2131fa7d50eaa9dba5d429b86266249da5d44deba2ea9` |
+| 2.3 | `82b0bb8858b8e024398e552d33e9cdf87ca449a76734b986e022d207e22cccef` |
+| 2.4 | `aaff6aadc5da3450deea777bc581ce703a035292df656c0f74b9f3532bdb19da` |
+
+Los de `common/` no van aquí; el generador de los 400 documentos tampoco se
+versionó, así que esa cifra **no se puede repetir** desde el repositorio. Sobre todos los
+tipos alcanzables desde el elemento —38, 41, 45 y 45—: cada uno es subsecuencia
+ordenada del 2.5, ningún `minOccurs` sube ni `maxOccurs` baja, los elementos
+nuevos son todos opcionales y los elementos hoja (158 a 180) tienen un tipo
+idéntico.
+400 documentos generados desde cada esquema viejo pasan los 400 contra el 2.5.
+Con la 2.0 no: la entrada anterior.
+
+**Lo que no está medido:** el navegador; ninguna respuesta real de terceros ni
+el mensaje de anulación de la solución pública, cuyo texto no está publicado;
+los patrones de las restricciones se compararon como texto, no como lenguajes;
+y los esquemas viejos frente al oficial.
+
+**Lo que cambia para quien ya usaba esto:** una respuesta que valida pasa de
+salir con 1 a salir con 0. Ningún test lo fijaba. Y hay frases que dicen «la
+factura» o «Facturae» sobre una respuesta: las de firma (`FIRMA-ALTERADA`, las
+de la revocación, y `FIRMA-NO-XADES`, que dice que Facturae pide XAdES, y ya lo
+decía de una factura UBL), y la última línea del alcance, «ni si lo que dice
+la factura es cierto», que sale también en un lote de solo respuestas. Son
+ciertas de fondo y se dejan anotadas aquí, sin arreglar: la última viaja a la
+página como constante, y cambiarla es tocar `glosa.js`.
+
+**Lo que encontró la revisión, y se cerró antes del commit.** Una revisión
+independiente —regresión contra el commit anterior sobre los ejemplos, el
+corpus oficial y cientos de mutantes suyos; respuestas hostiles escritas con lo
+esperado apuntado antes; fuzz contra lxml a secas; y mutación del código
+nuevo— no encontró ninguna acusación en falso ni ninguna absolución. Sus
+cifras son suyas y no se repiten aquí. Encontró esto:
+
+- **Un error encontrado se contaba SIN COMPROBAR.** Reproducido con una
+  respuesta 2.0 firmada y tocada después de firmar: el lote decía «0 con errores
+  · 1 SIN COMPROBAR» encima del propio `FIRMA-ALTERADA`, la línea del fichero
+  decía «no se ha podido comprobar» sin nombrarlo, y la página ponía de
+  titular «Hay ficheros que no se han podido mirar». El veredicto y el código
+  de salida eran buenos; el desglose no. Ahora `validado` es también cierto
+  con un error encontrado, y la línea dice los errores y que la forma no se
+  miró. Un error no hace correcto a nadie, así que por ahí no se absuelve.
+- **«No hay esquema» con el esquema instalado y roto.** La línea de estado lo
+  decía encima del `XSD-ESQUEMA-ROTO` que dice que está. Ahora dice «no hay un
+  esquema que se pueda usar».
+- **`esquema.validar`**, la función pública de solo la forma, daba por validada
+  una respuesta sin esquema. Solo la usan las pruebas; ahora dice lo mismo que
+  `factura.validar`. `en16931.validar` y `codigo_unico.validar`, que tampoco usa
+  nadie más, siguen dándola por buena: no le miden nada, y su «sin errores» es
+  de sus reglas.
+- **El trozo del contenido llevaba una coma** —«…(ApplicationResponse), de las
+  que solo se mira la forma y la firma»— en una lista que se une con comas, y
+  prometía la firma también sin firma. Ahora es solo lo que no se mira.
+- **El mensaje de un documento que no se reconoce** decía que un `Order` de UBL
+  «no corresponde a Facturae, UBL, CII ni EDIFACT», y es UBL. Ahora da la lista
+  entera de lo que se valida, y si la raíz se llama como uno de ellos con otro
+  namespace, dice el namespace que tendría que llevar.
+- **La portada** decía que lo que no es de los cuatro formatos no se valida.
+  La pregunta de los formatos dice ahora lo de las respuestas, y que la forma
+  se mide con el esquema de la 2.5.
+- **Pruebas que no podían fallar**: una del ID de una respuesta igual al de una
+  factura (la clave del código único lleva el NIF del emisor, y una respuesta no
+  lo trae; se ha quitado), y la que recorre `formato.py`, que no veía una familia
+  escrita como cadena (medido: `familia="Order"` pasaba). Ahora exige constantes
+  con nombre y ningún `Deteccion` por posición.
+- **Más huecos de la red**, cerrados con su prueba: el esquema que está
+  y no compila, el recuento de «0 correcto(s)», la firma en pie sin esquema, el
+  anexo que no se promete, el lote con una respuesta mirada y otra no, la
+  consola sin esquemas, la columna de la forma, el reconocimiento por nombre y
+  namespace a la vez, la versión con otro perfil, la subida sin depender del
+  zip, una sola compilación del esquema, y las frases enteras.
+
+**Provocado otra vez.** Veintiuna guardias, una a una, en una copia: cada una
+pone en rojo la prueba que le toca.
+
+**Lo que se dejó sin hacer, y por qué:** que el informe diga con qué versión
+de esquema se midió cuando no es la declarada (ver el README, «Subir no vale al
+revés»); haría falta un código nuevo en el catálogo publicado, y eso lo decide
+el titular.
+
+**Provocado.** `tests/test_respuesta.py` corre en GitHub porque saca los esquemas
+del zip versionado. Quitando cada guardia, una a una, se ponen en rojo las
+pruebas que le tocan: la familia fuera de `_FAMILIAS_XML` (las de forma, las de
+firma y la que recorre `formato.py`), los nombres de esquema, las tres guardias
+de reglas, la frase del contenido, `mirado` (entre otras, la de la consola con
+1), la frase que promete la forma sin esquema, la respuesta que «dice seguir la
+EN 16931», la que entra como `UBL`, la versión por el CIUS, `Informe.validado` y
+la 2.0 que sube. Una prueba lee `formato.py` y no deja que una familia nueva
+salga de él sin estar en `_FAMILIAS_XML` o ser EDIFACT.

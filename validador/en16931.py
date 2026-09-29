@@ -33,7 +33,7 @@ from decimal import Decimal
 from lxml import etree
 
 from validador import decimales, edifact, iva, listas_de_codigos, modelo
-from validador.formato import FACTURAE, detectar, parser
+from validador.formato import FACTURAE, RESPUESTA, detectar, parser
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia, Informe
 from validador.sintaxis import (
     NS_CII,
@@ -857,6 +857,14 @@ def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
     cuenta. `raiz` puede ser None cuando el documento no es XML (EDIFACT), y
     entonces ni se mira.
     """
+    if deteccion.familia == RESPUESTA:
+        # Una respuesta no es una factura: la EN 16931 no dice nada de ella, y
+        # el aviso de abajo —«solo se ha identificado, no validado»— sería
+        # falso, porque su forma sí se mira (en `esquema.reglas`) y la columna
+        # de la forma diría «Sin errores» al lado de un «no validado». Va
+        # antes del mapa a propósito: si algún día `SINTAXIS` gana una clave
+        # que la nombre, esto tiene que seguir contestando «no me toca».
+        return []
     sintaxis = SINTAXIS.get(deteccion.familia or "")
     if sintaxis is None:
         # La lista sale del mapa y no de la memoria. Escrita a mano decía «UBL

@@ -36,7 +36,15 @@ from lxml import etree
 
 from validador import edifact, nif
 from validador import paises
-from validador.formato import CII, EDIFACT, FACTURAE, UBL, detectar, parser
+from validador.formato import (
+    CII,
+    EDIFACT,
+    FACTURAE,
+    RESPUESTA,
+    UBL,
+    detectar,
+    parser,
+)
 from validador.incidencias import AVISO, ERROR, Incidencia, Informe
 
 # Tope de longitud del número de factura, serie incluida. Tomado de Verifactu.
@@ -1043,6 +1051,11 @@ def validar(datos: bytes | str, hoy: date | None = None) -> Informe:
     deteccion = detectar(datos)
     informe = Informe(deteccion=deteccion)
     if not deteccion:
+        return informe
+    if deteccion.familia == RESPUESTA:
+        # Una respuesta no lleva código único: no es una factura. Sin esta
+        # línea, `extraer` no encontraba nada y salía CU-00, «falta el número
+        # de factura», sobre un documento que no tiene por qué llevarlo.
         return informe
 
     codigos = extraer(datos)

@@ -34,6 +34,7 @@ NS_FACTURAE: dict[str, str] = {
 
 NS_UBL_FACTURA = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
 NS_UBL_ABONO = "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2"
+NS_UBL_RESPUESTA = "urn:oasis:names:specification:ubl:schema:xsd:ApplicationResponse-2"
 NS_UBL_CBC = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
 
 NS_CII = "urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
@@ -75,6 +76,21 @@ FACTURAE = "Facturae"
 UBL = "UBL"
 CII = "CII"
 EDIFACT = "EDIFACT"
+
+# El `ApplicationResponse` de UBL: una respuesta a otro documento (aceptada,
+# rechazada, en trámite). **Es UBL pero no es una factura**, y por eso no lleva
+# `UBL` como familia: hay nueve sitios que deciden por `familia == UBL` y todos
+# suponen una factura, así que una respuesta con esa familia recibía, medido
+# con una que valida contra su esquema, 16 errores que no le tocan: `XSD-RAIZ`,
+# 13 reglas `BR-*` y dos `CU-*`. Con una familia propia, todo `if familia == X`
+# y todo `SINTAXIS.get(familia)` contestan «no me toca», que es lo que hay que
+# contestar; y lo único que hay que enseñar a mirarla es el esquema y la firma.
+#
+# El nombre es el del elemento raíz y no «respuesta a factura»: el mismo
+# documento sirve para lo que Peppol llama respuesta de mensaje o de factura, y
+# para el mensaje de anulación de la solución pública, cuyo texto no está
+# publicado. Reconocerlo no es saber de cuál es.
+RESPUESTA = "ApplicationResponse"
 
 # La cabecera de mensaje: UNH+referencia+TIPO:D:96A:UN. De ahí sale el tipo
 # de mensaje y la versión del directorio. Y el BGM, de donde sale si es una
@@ -186,7 +202,7 @@ class Deteccion:
 
     familia: str | None = None
     version: str | None = None
-    tipo_documento: str | None = None  # "factura" o "abono"
+    tipo_documento: str | None = None  # "factura" o "abono"; ninguno en una respuesta
     perfil: str | None = None
     conforme_en16931: bool = False
     firmado: bool = False
@@ -378,6 +394,48 @@ def _detectar_ubl(raiz: etree._Element, namespace: str, nombre: str) -> Deteccio
         tipo_documento="abono" if nombre == "CreditNote" else "factura",
         perfil=perfil,
         conforme_en16931=bool(perfil and perfil.startswith(MARCADORES_EN16931)),
+        firmado=_tiene_firma(raiz),
+        namespace=namespace,
+        motivo=motivo,
+    )
+
+
+def _detectar_respuesta(raiz: etree._Element, namespace: str) -> Deteccion:
+    """Un `ApplicationResponse`: se reconoce, y se dice hasta dónde.
+
+    Sin `tipo_documento`, porque no es ni factura ni abono, y sin
+    `conforme_en16931`, que no puede ser cierto de un documento al que esa
+    norma no se aplica. Declarar el `CustomizationID` de una factura no la hace
+    factura: sigue sin traer nada de lo que esa norma pide.
+
+    La versión se deduce igual que en `_detectar_ubl`, a propósito: una sola
+    regla para todo lo que es UBL. Sin `UBLVersionID`, la 2.1, salvo que
+    declare el CIUS de la solución pública, que solo existe sobre UBL 2.5. Que
+    una respuesta de verdad lo declare es una suposición: el texto del mensaje
+    de anulación no está publicado. Con el paquete de hoy da igual, porque de
+    la 2.1 se sube a la 2.5 (ver `esquema._VERSIONES_UBL`); cambia la versión
+    que dice el informe y el nombre del esquema que pide si falta.
+    """
+    espacios = {"cbc": NS_UBL_CBC}
+    perfil = _texto(raiz, "./cbc:CustomizationID", espacios)
+    version = _texto(raiz, "./cbc:UBLVersionID", espacios)
+    if version:
+        motivo = "Formato reconocido."
+    elif perfil and MARCADOR_CIUS_ES in perfil:
+        version = "2.5"
+        motivo = (
+            "Sin UBLVersionID, pero declara el CIUS de la solución pública, "
+            "que solo existe sobre UBL 2.5."
+        )
+    else:
+        version = "2.1"
+        motivo = "Sin UBLVersionID; se asume UBL 2.1, que es lo habitual."
+    return Deteccion(
+        familia=RESPUESTA,
+        version=version,
+        tipo_documento=None,
+        perfil=perfil,
+        conforme_en16931=False,
         firmado=_tiene_firma(raiz),
         namespace=namespace,
         motivo=motivo,
@@ -661,18 +719,49 @@ def detectar(datos: bytes | str) -> Deteccion:
         return _detectar_ubl(raiz, namespace, nombre)
     if namespace == NS_UBL_ABONO and nombre == "CreditNote":
         return _detectar_ubl(raiz, namespace, nombre)
+    if namespace == NS_UBL_RESPUESTA and nombre == "ApplicationResponse":
+        return _detectar_respuesta(raiz, namespace)
     if namespace == NS_CII and nombre == "CrossIndustryInvoice":
         return _detectar_cii(raiz, namespace)
     if namespace is None and nombre.startswith("M_"):
         return _detectar_edifact_xml(raiz, nombre)
 
+    # Con el nombre de uno de ellos y otro namespace, lo que está mal es el
+    # namespace, y decir que la raíz no es de nada que se valide mandaría a
+    # buscar a otro sitio.
+    esperado = _NAMESPACE_DE_LA_RAIZ.get(nombre)
+    if esperado is not None and namespace != esperado:
+        return Deteccion(
+            namespace=namespace,
+            motivo=(
+                f"XML válido, y su elemento raíz se llama «{nombre}», pero su "
+                f"namespace es «{namespace or 'ninguno'}» y tendría que ser "
+                f"«{esperado}». Sin ese namespace no es el documento de UBL o "
+                "de CII que parece, y no se valida."
+            ),
+        )
+    # La lista de lo que sí se valida, entera: decía «no corresponde a
+    # Facturae, UBL, CII ni EDIFACT», y un `Order` de UBL es UBL. Lo que no se
+    # valida de UBL no es el formato, es el documento.
     return Deteccion(
         namespace=namespace,
         motivo=(
-            f"XML válido, pero su elemento raíz «{nombre}» no corresponde a "
-            "Facturae, UBL, CII ni EDIFACT."
+            f"XML válido, pero su elemento raíz «{nombre}» no es de ningún "
+            "documento que se valide aquí: facturas Facturae, UBL, CII o "
+            "EDIFACT, y respuestas ApplicationResponse de UBL."
         ),
     )
+
+
+# El namespace que tiene que llevar cada raíz que se reconoce por su nombre y su
+# namespace a la vez. Facturae no está: se reconoce por el nombre, en cualquiera
+# de sus versiones, y EDIFACT en XML no lleva.
+_NAMESPACE_DE_LA_RAIZ = {
+    "Invoice": NS_UBL_FACTURA,
+    "CreditNote": NS_UBL_ABONO,
+    "ApplicationResponse": NS_UBL_RESPUESTA,
+    "CrossIndustryInvoice": NS_CII,
+}
 
 
 def detectar_archivo(ruta: str | Path) -> Deteccion:

@@ -38,6 +38,7 @@ from validador.formato import (
     CII,
     EDIFACT,
     FACTURAE,
+    RESPUESTA,
     UBL,
     detectar,
     entidades_sin_resolver,
@@ -90,6 +91,13 @@ TOPE_INCIDENCIAS = 20
 # tiene. Con contenido de otro namespace y nada raro dentro pasan igual, así que
 # el caso es estrecho, pero la regla es «se sube solo si no puede fallar» y de
 # la 2.0 no se puede asegurar. De la 2.1 en adelante sí: es lo medido arriba.
+#
+# **Lo mismo vale para `ApplicationResponse`**, medido aparte porque es otro
+# documento con otra secuencia: de la 2.1, la 2.2, la 2.3 y la 2.4 a la 2.5 hay 0
+# violaciones sobre todos los tipos alcanzables (38, 41, 45 y 45), y 400
+# documentos generados desde cada esquema viejo pasan los 400 en el 2.5. Los XSD
+# viejos son copias de `phax/ph-ubl` y no se han cotejado con OASIS; el de la 2.1
+# es el CS1, no el OS.
 _VERSIONES_UBL = ("2.0", "2.1", "2.2", "2.3", "2.4", "2.5")
 
 # Las versiones que no se dejan subir: un documento que las declara se mide con
@@ -132,6 +140,13 @@ def _nombres_esperados(deteccion) -> tuple[str, ...]:
         clase = "CreditNote" if deteccion.tipo_documento == "abono" else "Invoice"
         return tuple(
             f"UBL-{clase}-{version}.xsd"
+            for version in _versiones_ubl(deteccion.version)
+        )
+    if deteccion.familia == RESPUESTA:
+        # Las mismas versiones y la misma regla que las facturas: el namespace
+        # es `ApplicationResponse-2` en todas. Ver `_VERSIONES_UBL`.
+        return tuple(
+            f"UBL-ApplicationResponse-{version}.xsd"
             for version in _versiones_ubl(deteccion.version)
         )
     if deteccion.familia == CII:
@@ -326,6 +341,19 @@ class Catalogo:
         if ruta is None or ruta not in self._rotos:
             return None
         return (ruta, self._rotos[ruta])
+
+
+def se_puede_comprobar(deteccion, catalogo: Catalogo | None = None) -> bool:
+    """¿Hay un esquema instalado, y que compile, con el que mirar este documento?
+
+    Lo pregunta quien orquesta para los documentos **cuya única comprobación es
+    la forma**, como una respuesta: a una factura sin esquema todavía se le
+    miden las cuentas, y decir que no se ha podido comprobar sería mentir por el
+    otro lado. A una respuesta sin esquema no se le mide nada, y darla por
+    correcta es dar por bueno lo que nadie ha abierto.
+    """
+    catalogo = catalogo or Catalogo.por_defecto()
+    return not catalogo.vacio and catalogo.esquema_para(deteccion) is not None
 
 
 def _como_se_llama(deteccion) -> str:
@@ -903,4 +931,9 @@ def validar(datos: bytes | str, catalogo: Catalogo | None = None) -> Informe:
     except etree.XMLSyntaxError:
         return informe  # no es XML; EDIFACT no tiene esquema que valga
     informe.incidencias.extend(reglas(raiz, deteccion, catalogo))
+    if deteccion.familia == RESPUESTA:
+        # Lo mismo que `factura.validar`: sin esto, esta función, que es la de
+        # solo la forma, daba por validada una respuesta con la forma rota y
+        # ningún esquema instalado. Solo lo usan las pruebas, pero es pública.
+        informe.mirado = se_puede_comprobar(deteccion, catalogo)
     return informe

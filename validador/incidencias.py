@@ -98,6 +98,11 @@ class Informe:
     # mira, así que la frase del final necesita el número para saber si todas
     # las que se miraron llegaron a un ancla.
     firmas_verificadas: int = 0
+    # Si se le ha podido pasar su comprobación principal. Casi siempre sí; no,
+    # en un documento cuya comprobación principal es la forma —una respuesta— y
+    # no había un esquema que se pudiera usar. La firma y las entidades sí se le
+    # miran, así que no es «no se ha mirado nada». Ver `validado`.
+    mirado: bool = True
 
     @property
     def errores(self) -> list[Incidencia]:
@@ -129,8 +134,22 @@ class Informe:
         buenos. Dar por bueno lo que no se ha visto es lo peor que puede hacer
         un validador: quien se equivoca al escribir una ruta se queda tan
         tranquilo creyendo que ha revisado un lote que nadie ha abierto.
+
+        Lo mismo con un documento que se ha reconocido pero al que no se le ha
+        podido pasar su comprobación principal (`mirado`): una respuesta a la
+        que le falta su esquema. Reconocerla no es comprobarla.
+
+        **Salvo que se le haya encontrado un error por otro lado**, como la
+        firma tocada después de firmar: entonces sí hay veredicto, y es que
+        está mal. Sin esa salvedad, medido con una respuesta 2.0 firmada y
+        tocada, el lote decía «0 con errores · 1 SIN COMPROBAR» encima del
+        propio `FIRMA-ALTERADA`, y la página ponía de titular «no se han podido
+        mirar» en vez del error. Un error no puede hacer correcto a nadie, así
+        que por aquí no se absuelve nada.
         """
-        return self.deteccion is not None and bool(self.deteccion)
+        if self.deteccion is None or not self.deteccion:
+            return False
+        return self.mirado or bool(self.errores)
 
     def __bool__(self) -> bool:
         return self.conforme
@@ -144,6 +163,18 @@ class Informe:
         cabecera = (
             self.deteccion.resumen(self.firma) if self.deteccion else "Documento"
         )
+        # «Un esquema que se pueda usar» y no «no hay esquema»: también se llega
+        # aquí con el esquema instalado y roto, y la línea de estado no puede
+        # decir que no está justo encima del `XSD-ESQUEMA-ROTO` que dice que sí.
+        sin_forma = "no hay un esquema que se pueda usar para mirar su forma"
+        if not self.mirado and not self.errores:
+            return f"{cabecera}: no se ha podido comprobar, porque {sin_forma}."
+        if not self.mirado:
+            return (
+                f"{cabecera}: {len(self.errores)} error(es)"
+                f"{f', {len(self.avisos)} aviso(s)' if self.avisos else ''}; "
+                f"la forma no se ha podido comprobar, porque {sin_forma}."
+            )
         if self.conforme:
             cola = "sin errores"
             if self.avisos:

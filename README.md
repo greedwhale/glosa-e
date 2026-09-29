@@ -9,7 +9,7 @@ según el RD 238/2026.
 |---|---|---|
 | `validador/nif.py` | Valida NIF, NIE y CIF con sus dígitos de control | Terminado |
 | `validador/calendario.py` | Días hábiles españoles y plazo de 4 días de los estados | Terminado |
-| `validador/formato.py` | Detección de formato y versión (Facturae, UBL, CII, EDIFACT) | Terminado |
+| `validador/formato.py` | Detección de formato y versión (Facturae, UBL, CII, EDIFACT, y las respuestas `ApplicationResponse` de UBL) | Terminado |
 | `validador/sintaxis.py` | El mapa: dónde vive cada campo de EN 16931 en UBL, CII y EDIFACT | Terminado |
 | `validador/en16931.py` | Campos obligatorios y cuadre aritmético, sobre UBL, CII y EDIFACT | Terminado |
 | `validador/iva.py` | El desglose de IVA: bases, cuotas, categorías y exenciones | Terminado |
@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2650 tests, todos en verde.
+2707 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -77,8 +77,9 @@ instalado y no validan nada.
 
 **Cada fichero cae en uno de tres estados, no de dos:** correcto, con errores,
 o **sin comprobar**. Lo tercero es el fichero que no existe, no se puede leer o
-cuyo formato no se reconoce. No es correcto ni incorrecto: es que no se ha
-mirado, y también devuelve 1.
+cuyo formato no se reconoce, y la respuesta de UBL a la que no se le ha podido
+pasar su esquema (ver «Las respuestas: `ApplicationResponse`»). No es correcto
+ni incorrecto: es que no se ha mirado, y también devuelve 1.
 
 ```
 1 fichero(s) · 0 correcto(s) · 0 con errores · 1 SIN COMPROBAR.
@@ -432,7 +433,7 @@ en una carpeta:
 
 | Formato | Fichero que se busca | De dónde sale |
 |---|---|---|
-| UBL 2.5 | `UBL-Invoice-2.5.xsd`, `UBL-CreditNote-2.5.xsd` | `docs.oasis-open.org/ubl/os-UBL-2.5/` |
+| UBL 2.5 | `UBL-Invoice-2.5.xsd`, `UBL-CreditNote-2.5.xsd`, `UBL-ApplicationResponse-2.5.xsd` | `docs.oasis-open.org/ubl/os-UBL-2.5/` |
 | UBL 2.1 | `UBL-Invoice-2.1.xsd`, `UBL-CreditNote-2.1.xsd` | paquete UBL 2.1 de OASIS |
 | CII | `CrossIndustryInvoice_100pD16B.xsd` | paquete D16B de UN/CEFACT |
 | Facturae | `Facturaev3_2_2.xsd` y equivalentes | sede de facturae.gob.es |
@@ -457,7 +458,8 @@ la 2.1 y la 2.5. Un documento que declara la 2.0 se mide con
 que las facturas 2.0 se quedan sin comprobar la forma mientras ese esquema no
 esté instalado; cuántas circulan no está medido.
 
-Las dos mitades están medidas, porque de otro modo serían una suposición:
+Las dos mitades están medidas, porque de otro modo serían una suposición
+—para las facturas, aquí; para las respuestas, en el apartado siguiente—:
 
 - **Subir vale.** UBL no cambia de namespace entre versiones menores
   —`...:xsd:Invoice-2` es el mismo en la 2.0 y en la 2.5— y cada versión añade
@@ -478,6 +480,64 @@ que declare el CIUS de la solución pública en su `CustomizationID` solo puede
 ser UBL 2.5, porque media docena de sus campos cuelgan de
 `cac:CollectionInvoiceLine`, que en UBL 2.1 no existe. Suponerle 2.1 no era
 redondear: era mandar a medirla con un esquema que la rechaza entera.
+
+### Las respuestas: `ApplicationResponse`
+
+Un `ApplicationResponse` de UBL es una respuesta a otro documento —aceptada,
+rechazada, en trámite—, y lo es el **mensaje de anulación** que la solución
+pública incorporará. Hasta el 29-09-2026 salía «No se ha podido validar»: igual
+roto que bueno. Ahora se **reconoce, se le mide la forma contra
+`UBL-ApplicationResponse-2.5.xsd` y, si la trae, la firma**. Nada más, y el
+informe lo dice: la columna del contenido pone «Sin mirar» y la frase final
+«No se comprueba [...] el contenido de las respuestas (ApplicationResponse)».
+
+Lo que no se hace es tan importante como lo que sí:
+
+- **No pasa por las reglas de factura.** Tiene familia propia en `formato.py`,
+  no `UBL`. Medido con una respuesta que valida contra su esquema: como `UBL`
+  recibía 16 errores que no le tocan —`XSD-RAIZ`, 13 reglas `BR-*` y dos
+  `CU-*`—, y con el CIUS declarado, `SPFE-TIPO-DE-FACTURA` («es un abono») en
+  lugar de `BR-01`. Con una familia propia, todo `if familia == X` contesta
+  «no me toca».
+- **El mensaje de anulación no se mide con el anexo I.** El texto de ese
+  mensaje no está publicado (ver «El anexo ya cambió, y el texto no está publicado»); reconocerlo
+  como respuesta no es saber si un documento concreto es el mensaje de
+  anulación, ni qué exige.
+- **Sin esquema, no es «correcta».** La forma es lo que se le comprueba a una
+  respuesta, así que sin un `UBL-ApplicationResponse-*.xsd` que compile sale
+  **SIN COMPROBAR** con código de salida 1, no «correcto» con 0, aunque traiga
+  una firma en pie: que nadie la haya tocado no dice que esté bien escrita.
+  **Salvo que se le haya encontrado un error por otro lado** —la firma tocada,
+  una entidad en el XML—: entonces sale «con errores», porque eso ya es un
+  veredicto. Con una factura sin esquemas todavía se le miden las cuentas, y
+  eso no cambia.
+- **De la 2.0 no se sube**, como con las facturas (ver arriba), y de la 2.1 a la
+  2.4 sí. Medido sobre todos los tipos alcanzables desde `ApplicationResponse`
+  —38, 41, 45 y 45—: 0 violaciones al subir a la 2.5, y 400 documentos
+  generados desde cada esquema viejo pasan los 400 en el 2.5. Los esquemas
+  viejos son copias de `phax/ph-ubl`, no de OASIS, y el de la 2.1 es la CS1: es
+  lo que había al alcance. Está en `HALLAZGOS.md`.
+- **Subir no vale al revés, y el informe no lo dice.** Lo que es válido en la
+  2.1 lo es en la 2.5; lo que es válido en la 2.5 no tiene por qué serlo en la
+  2.1. Como solo viaja el esquema de la 2.5, una respuesta que declara la 2.1
+  —lo corriente en Peppol— y trae algo que solo existe desde después, como un
+  `ext:UBLExtensions` dentro de `cac:DocumentResponse`, sale aquí «sin
+  errores», y un receptor que la mire con la 2.1 la rechaza (medido con los dos
+  esquemas). La línea del informe dice «v2.1» y no dice con qué esquema se
+  midió. Con las facturas pasa lo mismo de la 2.2 a la 2.4; con las respuestas
+  es el caso de todos los días.
+- **Aunque declare el CIUS de la solución pública**, no recibe `SPFE-BORRADOR`
+  ni ninguna otra nota: el anexo I no se le pasa, y lo dice la columna del
+  contenido. A una factura que lo declara sí se le pone, porque a ella sí se le
+  mide.
+- **Un cambio visible.** Antes, una respuesta salía siempre «sin comprobar» y el
+  código de salida era 1; una respuesta que valida sale ahora con 0. Quien
+  encadene el validador en un guion con una carpeta de respuestas lo notará.
+
+Lo que **no está medido**: el navegador (Pyodide trae libxml2 2.9.10 y el
+esquema de `ApplicationResponse` no se ha compilado allí; el banco de
+`web/prueba.py` tampoco lleva ninguna respuesta), y ninguna respuesta real de
+terceros —no hay ninguna en el repositorio; las de las pruebas son nuestras—.
 
 El catálogo **busca por nombre de fichero en toda la carpeta**, no por una ruta
 fija. Cada paquete oficial se descomprime con su propio arbolito y no tiene
@@ -3785,7 +3845,7 @@ Lo anunciado, y a qué regla le da:
 | L4 gana las categorías de la EN 16931:2026, entre ellas la `N`; y se han pedido códigos VATEX propios de España | `SPFE-CATEGORIA` mide con la L4 de abril |
 | L3A se recorta: fuera el simplificado, el recargo de equivalencia y el de agricultura, ganadería y pesca | `SPFE-CLAVE-DE-REGIMEN` los sigue admitiendo |
 | `BG-34` (`BT-179`, `BT-180`) se usa para el IEDMT | Están en `NO_SE_COMPRUEBA` por no tener ruta en el anexo de abril |
-| Mensaje de anulación de factura, un `ApplicationResponse` de UBL | Documento nuevo: aquí no se valida ninguno |
+| Mensaje de anulación de factura, un `ApplicationResponse` de UBL | Documento nuevo. Desde el 29-09-2026 **se reconoce y se le mide la forma y la firma**; su contenido no, porque el texto no está publicado (ver «Las respuestas: `ApplicationResponse`») |
 
 **No se ha tocado ni una regla, y es a propósito.** Unas transparencias no son
 un texto normativo: dicen qué va a cambiar, no cómo queda redactado. Reescribir

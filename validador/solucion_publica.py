@@ -72,7 +72,10 @@ publicado —solo las transparencias—, y la orden se quiere en vigor el
 - **`BG-34` (`BT-179` y `BT-180`) se usa para el IEDMT**, y esos términos están
   en la edición de 2026. Aquí están en `NO_SE_COMPRUEBA` por no tener ruta.
 - Se incorpora un **mensaje de anulación** —un `ApplicationResponse` de UBL—,
-  que es un documento nuevo y no una regla sobre la factura.
+  que es un documento nuevo y no una regla sobre la factura. Desde el
+  29-09-2026 se reconoce (`formato.RESPUESTA`) y se le mide la forma y la firma;
+  `reglas()` no lo toca: el texto de ese mensaje no está publicado, y medirlo
+  con el anexo de las facturas sería inventar una regla.
 
 De todo eso se ha tocado **una sola cosa**, la de las rectificativas, y no por
 las transparencias: por una respuesta escrita del buzón de la AEAT del
@@ -147,7 +150,7 @@ import re
 
 from validador import cius_es
 from validador.en16931 import _UNCL1001
-from validador.formato import MARCADOR_CIUS_ES, UBL
+from validador.formato import MARCADOR_CIUS_ES, RESPUESTA, UBL
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 from validador.listas_de_codigos import lista
 from validador.modelo import grupos
@@ -569,6 +572,15 @@ def declara_el_cius(deteccion) -> bool:
 def reglas(raiz, deteccion) -> list[Incidencia]:
     """Las reglas del anexo I, sobre un documento que declara el CIUS."""
     if not declara_el_cius(deteccion):
+        return []
+    if deteccion.familia == RESPUESTA:
+        # El anexo I mide facturas. Una respuesta puede llevar el mismo
+        # `CustomizationID` (si el mensaje de anulación lo lleva no se sabe), y
+        # sin esta línea recibía SPFE-SINTAXIS diciendo que el anexo «solo
+        # define» el CIUS sobre UBL, que es falso: la respuesta es UBL. El
+        # mensaje de anulación de la solución pública es una respuesta, y su
+        # texto no está publicado: medirlo con el anexo de las facturas sería
+        # inventar una regla. Cuando salga, tendrá las suyas.
         return []
     if deteccion.familia != UBL:
         return [
