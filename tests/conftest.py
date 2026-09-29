@@ -32,7 +32,34 @@ Las revocaciones no se aíslan porque no se ha visto que hagan falta: con
 `FACTURAE_REVOCACIONES` apuntando a una lista ilegible, la suite sale igual.
 """
 
+import zipfile
+from pathlib import Path
+
 import pytest
+
+RAIZ = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture(scope="session")
+def esquemas_del_paquete(tmp_path_factory):
+    """Los esquemas de verdad, sacados de `web/paquete.zip`.
+
+    Ese zip **sí** se versiona, y lleva los XSD de UBL 2.1 y 2.5, de CII y de
+    Facturae. Las pruebas que necesitan un esquema real —y no uno de doce
+    líneas— los sacan de ahí y no de `esquemas/`: esa carpeta no se versiona,
+    así que en una copia recién clonada y en GitHub no existe, y una prueba que
+    dependa de ella se salta justo donde más falta hace. Es lo mismo que hace
+    `test_paises.py` con su lista.
+
+    Sesión y no función: son 42 ficheros y se sacan una vez. El `Catalogo` que
+    se construya encima sí es de cada prueba, porque compila lo suyo.
+    """
+    destino = tmp_path_factory.mktemp("esquemas-del-paquete")
+    with zipfile.ZipFile(RAIZ / "web" / "paquete.zip") as paquete:
+        for nombre in paquete.namelist():
+            if nombre.startswith("esquemas/") and nombre.endswith(".xsd"):
+                paquete.extract(nombre, destino)
+    return destino / "esquemas"
 
 
 @pytest.fixture(autouse=True)

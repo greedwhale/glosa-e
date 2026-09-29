@@ -6075,3 +6075,52 @@ documentos, pero no qué pasaba al validar la copia.
 
 **Provocado:** con la comprobación exacta de `BR-CO-15` apagada en
 `en16931.py`, la prueba sale en rojo con `{'BR-CO-14'}`. Restaurada, verde.
+
+## Una coma decimal salía en inglés, y en UBL 2.5 también las fechas
+
+Lo encontró el 29-09-2026, buscando qué pasaba con las respuestas de UBL, y no
+es de las respuestas: es de todo UBL. Con el esquema de verdad, no con los de
+doce líneas de `test_esquema.py`, el fallo más corriente de una factura hecha a
+mano, una coma decimal, no se traducía.
+
+**Reproducido** con `ejemplos/f-0001.xml`, pasado por `esquema.validar` con los
+XSD que viajan en `web/paquete.zip`:
+
+| Se cambia | UBL 2.1 | UBL 2.5 |
+|---|---|---|
+| `PayableAmount` a `1.234,56` | `XSD-OTRO` | `XSD-OTRO` |
+| `Percent` a `veinte` | `XSD-TIPO` | `XSD-OTRO` |
+| `IssueDate` a `2026-02-31`, `ayer` o `2026-13-01` | `XSD-TIPO` | `XSD-OTRO` |
+
+Y el `XSD-OTRO` decía «esta queja no se ha sabido traducir» y una frase de
+libxml2: `'1.234,56' is not a valid value of the local atomic type.` Lo que se
+había escrito para este caso —«un importe lleva punto decimal, sin separador de
+miles: 1234.56, no 1.234,56 EUR»— no se enseñaba nunca sobre un importe de UBL.
+
+**Por qué.** `_RE_TIPO` solo conocía la frase con nombre de tipo, «of the atomic
+type 'xs:decimal'». En UBL los importes son un tipo complejo que extiende el
+primitivo —desde la 2.1—, y en la 2.5 también las fechas y las horas: el valor
+se juzga contra un tipo anónimo y libxml2 dice «local». Las pruebas usaban
+`xs:decimal` a secas y nunca vieron esa frase. La 2.5 es lo único que admite la
+solución pública, así que el fallo caía justo donde iba a haber más facturas.
+
+**El arreglo.** Una segunda frase, `_RE_TIPO_LOCAL`, que da `XSD-TIPO`. Como la
+frase no trae el tipo, se deduce del nombre del elemento (`_tipo_por_nombre`), y
+eso es una apuesta que se midió antes de escribirla: sobre los **873 elementos
+`cbc:` de UBL 2.1 y los 1.202 de UBL 2.5**, resolviendo cada uno hasta su
+primitivo, todo lo que acaba en `Date` es fecha y en `Time` es hora, y los 196
+(2.1) y 260 (2.5) decimales acaban todos en `Amount`, `Quantity`, `Measure`,
+`Percent`, `Rate`, `Numeric` o `Factor`. Una excepción, `TimeAmount`, que es un
+texto y no puede dar este error. Un nombre sin sufijo conocido recibe una pista
+genérica y no se inventa un tipo.
+
+**Provocado.** `tests/test_ubl_de_verdad.py` corre en GitHub porque saca los
+esquemas del zip versionado. Sin la rama de `_RE_TIPO_LOCAL`, fallan 6 pruebas;
+quitando `Percent` del sufijo, 2; con `Date` sin fecha, 4; con `Time` sin hora,
+2; y con un sufijo de más (`Name`), 3. El sufijo se vuelve a medir en cada
+corrida: una versión de UBL que declare una fecha con otro nombre lo dice ahí y
+no en un informe.
+
+**Sin medir:** el navegador. Pyodide trae libxml2 2.9.10 y estas frases se han
+visto con 2.14.6; si cambian, el caso vuelve a `XSD-OTRO`, que es lo de antes y
+no algo peor.

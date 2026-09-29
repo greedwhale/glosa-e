@@ -365,6 +365,17 @@ _RE_TIPO = re.compile(
     r"^'(?P<valor>.*)' is not a valid value of the atomic type "
     r"'(?P<tipo>[^']+)'\.$"
 )
+# El mismo error cuando el tipo no tiene nombre. libxml2 lo dice así con los
+# tipos de UBL que **extienden** un primitivo: los importes, desde la 2.1, y
+# también las fechas y las horas en la 2.5. El valor se juzga contra un tipo
+# anónimo, sin nombre que dar. Es donde cae, sobre el esquema de verdad, el
+# fallo más corriente de una factura hecha a mano, una coma decimal (`1.234,56`):
+# sin esto salía `XSD-OTRO`, «esta queja no se ha sabido traducir», con la frase
+# en inglés. Medido el 29-09-2026 con `PayableAmount` en la 2.1 y en la 2.5, e
+# `IssueDate` en la 2.5, que es la versión que pide la solución pública.
+_RE_TIPO_LOCAL = re.compile(
+    r"^'(?P<valor>.*)' is not a valid value of the local atomic type\.$"
+)
 _RE_MAXIMO = re.compile(
     r"^\[facet 'maxLength'\] The value has a length of '(?P<largo>\d+)'; "
     r"this exceeds the allowed maximum length of '(?P<tope>\d+)'\.$"
@@ -408,7 +419,34 @@ _PISTAS: dict[str, str] = {
     "xs:integer": "Tiene que ser un número entero, sin decimales.",
     "xs:boolean": "Solo admite true o false.",
     "xs:anyURI": "Tiene que ser una dirección, del estilo https://...",
+    "xs:time": "Una hora se escribe hh:mm:ss: 14:30:00.",
 }
+
+# Los nombres de UBL dicen de qué tipo son, y aquí hace falta porque el mensaje
+# de `_RE_TIPO_LOCAL` no lo dice. Medido el 29-09-2026 sobre los 873 elementos
+# `cbc:` de UBL 2.1 y los 1.202 de UBL 2.5, resolviendo cada uno hasta su tipo
+# primitivo: todo lo que acaba en `Date` es `xsd:date`, en `Time` es `xsd:time`,
+# y todo lo decimal —196 de 873 y 260 de 1.202— acaba en uno de los sufijos de
+# abajo. Una sola excepción, `TimeAmount`, que es un texto y no puede dar este
+# error. `test_ubl_de_verdad.py` repite la medida con los esquemas que viajan en
+# `web/paquete.zip`, así que una versión que cambie un tipo lo dice ahí y no en
+# un informe.
+_SUFIJOS_DECIMALES = re.compile(
+    r"(Amount|Quantity|Measure|Percent|Rate|Numeric|Factor)$"
+)
+
+
+def _tipo_por_nombre(elemento: str) -> str | None:
+    """El tipo de un elemento `cbc:` de UBL, deducido de cómo acaba su nombre."""
+    if elemento.endswith("DateTime"):
+        return "xs:dateTime"
+    if elemento.endswith("Date"):
+        return "xs:date"
+    if elemento.endswith("Time"):
+        return "xs:time"
+    if _SUFIJOS_DECIMALES.search(elemento):
+        return "xs:decimal"
+    return None
 
 
 def _pista(tipo: str, valor: str) -> str:
@@ -622,6 +660,21 @@ def traducir(entrada, arbol=None) -> Incidencia:
 
     if (m := _RE_TIPO.match(resto)) is not None:
         pista = _pista(m["tipo"], m["valor"])
+        return Incidencia(
+            "XSD-TIPO",
+            ERROR,
+            f"«{m['valor']}» no vale como contenido de «{elemento}». {pista}",
+            campo=donde,
+            encontrado=m["valor"],
+        )
+
+    if (m := _RE_TIPO_LOCAL.match(resto)) is not None:
+        tipo = _tipo_por_nombre(elemento)
+        pista = (
+            _pista(tipo, m["valor"])
+            if tipo is not None
+            else "No tiene la forma que el esquema espera para este elemento."
+        )
         return Incidencia(
             "XSD-TIPO",
             ERROR,
