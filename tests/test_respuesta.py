@@ -723,3 +723,24 @@ def test_la_respuesta_sube_de_version_como_las_facturas():
     )
     assert nombres("2.0") == ("UBL-ApplicationResponse-2.0.xsd",)
     assert nombres("2.9") == ("UBL-ApplicationResponse-2.9.xsd",)
+
+
+def test_la_portada_no_promete_la_forma_de_la_2_0():
+    """La pregunta de los formatos, contra lo que hace `esquema.py`.
+
+    Publicada el 29-09-2026 decía que la forma se mira con el esquema 2.5
+    «aunque declaren otra versión», y una respuesta 2.0 sale sin comprobar
+    (`_NO_SUBEN`). Medido en producción. La frase tiene que nombrar cada versión
+    que no sube, y así, si la lista cambia, la frase no se queda atrás en
+    silencio.
+    """
+    import re
+
+    portada = (RAIZ / "web" / "index.html").read_text(encoding="utf-8")
+    bloque = re.search(r'<details id="formatos">(.*?)</details>', portada, re.S)
+    assert bloque, "la pregunta de los formatos ya no está en la portada"
+    texto = " ".join(bloque.group(1).split())
+    assert "ApplicationResponse" in texto
+    assert "otra versión" not in texto
+    for version in esquema._NO_SUBEN:
+        assert f"la {version} sale sin comprobar" in texto, version

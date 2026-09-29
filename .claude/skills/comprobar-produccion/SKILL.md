@@ -24,8 +24,12 @@ El manifiesto es lo único que se sirve siempre fresco, así que es lo que dice
 si ya está lo de ahora:
 
 ```bash
-curl -s https://www.glosa-e.com/dist/rueda.json | head -5
+curl -s https://www.glosa-e.com/dist/rueda.json | grep '"rueda":'
 ```
+
+Con `grep` y no con `head`: el manifiesto se escribe con las claves ordenadas y
+`huellas`, con más de cuatrocientas entradas, va antes que `rueda`. Medido el
+29-09-2026: `head -5` ya no enseñaba la rueda.
 
 El wheel viaja bajo una carpeta con su huella (`c628aa92/factura_e-…whl`) y esa
 huella **cambia en cada construcción** —los wheels no son reproducibles byte a

@@ -1141,8 +1141,12 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             (<code>ApplicationResponse</code>), que no son facturas. Se
             reconocen y se les mira la forma, y la firma si la traen; lo que
             dicen, no. La forma se mira con el esquema de UBL 2.5 aunque
-            declaren otra versión, porque es el que viaja con la página: lo que
-            vale en la 2.1 vale en la 2.5, pero no al revés.</p>
+            declaren de la 2.1 a la 2.4, porque es el que viaja con la página:
+            lo que vale en esas vale en la 2.5, pero no al revés. Una que
+            declare la 2.0 sale sin comprobar: entre la 2.0 y la 2.1 el esquema
+            cambió de manera que medirla con uno posterior podría acusarla de lo
+            que no tiene. Sin versión se le supone la 2.1, como a las
+            facturas.</p>
           </div>
         </details>
 

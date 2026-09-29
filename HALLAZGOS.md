@@ -6331,6 +6331,16 @@ EN 16931», la que entra como `UBL`, la versión por el CIUS, `Informe.validado`
 la 2.0 que sube. Una prueba lee `formato.py` y no deja que una familia nueva
 salga de él sin estar en `_FAMILIAS_XML` o ser EDIFACT.
 
+**Y la portada prometía de más.** Comprobado en producción el mismo día, con las
+respuestas pasadas por el navegador de verdad: la buena salió correcta, la de
+un `IssueDate` repetido `XSD-ORDEN`, la del 31 de febrero `XSD-TIPO` con «febrero
+de 2026 tiene 28 días», y la 2.0 `XSD-SIN-ESQUEMA` y sin comprobar. Pero la
+pregunta de los formatos, publicada con el cambio, decía que la forma se mira
+con el esquema 2.5 «aunque declaren otra versión», y con la 2.0 no es así. Ahora
+dice de la 2.1 a la 2.4, que la 2.0 sale sin comprobar y que sin versión se le
+supone la 2.1. Una prueba compara la frase con `_NO_SUBEN`; provocada con la
+frase de antes, rojo.
+
 ## La página enseñaba su disco por dentro, y los segundos con punto
 
 Visto en producción el 29-09-2026, al comprobar las respuestas de UBL con el
