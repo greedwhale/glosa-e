@@ -478,15 +478,16 @@ _PISTAS: dict[str, str] = {
 # error. `test_ubl_de_verdad.py` repite la medida con los esquemas que viajan en
 # `web/paquete.zip`, así que una versión que cambie un tipo lo dice ahí y no en
 # un informe.
-_SUFIJOS_DECIMALES = re.compile(
-    r"(Amount|Quantity|Measure|Percent|Rate|Numeric|Factor)$"
-)
+#
+# Solo los sufijos que tienen elementos detrás. Había `Factor` y una rama para
+# `DateTime`, puestos por si acaso: ningún elemento `cbc:` acaba así ni en la
+# 2.1 ni en la 2.5, contado, y nada los probaba. Si una versión los trae, la
+# prueba de arriba se pone en rojo y dice cuál.
+_SUFIJOS_DECIMALES = re.compile(r"(Amount|Quantity|Measure|Percent|Rate|Numeric)$")
 
 
 def _tipo_por_nombre(elemento: str) -> str | None:
     """El tipo de un elemento `cbc:` de UBL, deducido de cómo acaba su nombre."""
-    if elemento.endswith("DateTime"):
-        return "xs:dateTime"
     if elemento.endswith("Date"):
         return "xs:date"
     if elemento.endswith("Time"):

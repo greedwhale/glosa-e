@@ -6110,7 +6110,7 @@ eso es una apuesta que se midió antes de escribirla: sobre los **873 elementos
 `cbc:` de UBL 2.1 y los 1.202 de UBL 2.5**, resolviendo cada uno hasta su
 primitivo, todo lo que acaba en `Date` es fecha y en `Time` es hora, y los 196
 (2.1) y 260 (2.5) decimales acaban todos en `Amount`, `Quantity`, `Measure`,
-`Percent`, `Rate`, `Numeric` o `Factor`. Una excepción, `TimeAmount`, que es un
+`Percent`, `Rate` o `Numeric`. Una excepción, `TimeAmount`, que es un
 texto y no puede dar este error. Un nombre sin sufijo conocido recibe una pista
 genérica y no se inventa un tipo.
 
@@ -6124,6 +6124,16 @@ no en un informe.
 **Sin medir:** el navegador. Pyodide trae libxml2 2.9.10 y estas frases se han
 visto con 2.14.6; si cambian, el caso vuelve a `XSD-OTRO`, que es lo de antes y
 no algo peor.
+
+**Después, en la revisión del 29-09-2026.** El sufijo llevaba `Factor` y una
+rama para `DateTime` puestos por si acaso: contado, ningún elemento `cbc:` acaba
+así ni en la 2.1 ni en la 2.5, y nada los probaba. Fuera; si una versión los
+trae, la prueba del sufijo se pone en rojo. Y tres ramas de la traducción que
+ninguna prueba ejecutaba, ahora con la suya: el valor vacío (una plantilla sin
+rellenar; con `.+` en vez de `.*` caen tres de cuatro, la cuarta es la fecha de
+la 2.1, que tiene tipo con nombre y va por la otra frase), la pista de la hora
+con `IssueTime` y la pista genérica con un adjunto en base64 roto, que es lo
+que la alcanza con datos de verdad. Provocadas las cuatro: rojo.
 
 ## De la 2.0 de UBL no se puede subir
 

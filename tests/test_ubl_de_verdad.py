@@ -11,7 +11,6 @@ estas pruebas corren en GitHub y en una copia recién clonada, no solo donde
 alguien se bajó los XSD. Ver la fixture `esquemas_del_paquete`.
 """
 
-import re
 from pathlib import Path
 
 import pytest
@@ -98,6 +97,61 @@ class TestUnErrorDeTipoSeTraduceConElEsquemaDeVerdad:
         )
         informe = esquema.validar(texto, catalogo)
         assert _codigos(informe) == ["XSD-TIPO"], informe.detalle()
+
+    @pytest.mark.parametrize(
+        "viejo, nuevo",
+        [
+            (
+                "<cbc:IssueDate>2026-03-02</cbc:IssueDate>",
+                "<cbc:IssueDate></cbc:IssueDate>",
+            ),
+            (
+                '<cbc:PayableAmount currencyID="EUR">121.00</cbc:PayableAmount>',
+                '<cbc:PayableAmount currencyID="EUR"></cbc:PayableAmount>',
+            ),
+        ],
+        ids=["fecha", "importe"],
+    )
+    def test_un_valor_vacio(self, catalogo, version, viejo, nuevo):
+        """Una plantilla con el hueco sin rellenar: el valor vacío también se
+        traduce, y no vuelve a `XSD-OTRO` en inglés."""
+        informe = esquema.validar(_cambiando(version, viejo, nuevo), catalogo)
+        assert _codigos(informe) == ["XSD-TIPO"], informe.detalle()
+
+    def test_una_hora_que_no_existe(self, catalogo, version):
+        """La pista de la hora: en la 2.5 se deduce del nombre, `IssueTime`."""
+        texto = _cambiando(
+            version,
+            "<cbc:IssueDate>2026-03-02</cbc:IssueDate>",
+            "<cbc:IssueDate>2026-03-02</cbc:IssueDate>"
+            "<cbc:IssueTime>25:99:00</cbc:IssueTime>",
+        )
+        informe = esquema.validar(texto, catalogo)
+        assert _codigos(informe) == ["XSD-TIPO"], informe.detalle()
+        assert "Una hora se escribe hh:mm:ss: 14:30:00." in informe.incidencias[0].mensaje
+
+    def test_lo_que_no_dice_su_tipo_recibe_la_pista_de_siempre(self, catalogo, version):
+        """Un adjunto con base64 roto: el nombre no dice el tipo, y no se inventa.
+
+        Es el PDF que acompaña a muchas facturas, así que la rama se alcanza con
+        datos de verdad; sin esta prueba nadie la ejecutaba.
+        """
+        adjunto = (
+            "<cac:AdditionalDocumentReference><cbc:ID>1</cbc:ID><cac:Attachment>"
+            '<cbc:EmbeddedDocumentBinaryObject mimeCode="application/pdf" '
+            'filename="f.pdf">esto no es base64!</cbc:EmbeddedDocumentBinaryObject>'
+            "</cac:Attachment></cac:AdditionalDocumentReference>"
+        )
+        texto = _cambiando(
+            version,
+            "<cac:AccountingSupplierParty>",
+            adjunto + "<cac:AccountingSupplierParty>",
+        )
+        informe = esquema.validar(texto, catalogo)
+        assert _codigos(informe) == ["XSD-TIPO"], informe.detalle()
+        mensaje = informe.incidencias[0].mensaje
+        assert "esquema espera" in mensaje
+        assert "atomic" not in mensaje
 
     def test_nada_sale_en_ingles(self, catalogo, version):
         texto = _cambiando(
@@ -210,4 +264,8 @@ def test_lo_que_no_se_reconoce_no_se_inventa():
     """Un nombre sin sufijo conocido no tiene tipo deducido: pista genérica."""
     assert esquema._tipo_por_nombre("Note") is None
     assert esquema._tipo_por_nombre("CompanyID") is None
-    assert not re.search(r"atomic", esquema._pista("xs:time", "25:99:00"))
+    # Los dos que se quitaron por no tener ningún elemento detrás.
+    assert esquema._tipo_por_nombre("ExchangeFactor") is None
+    assert esquema._pista("xs:time", "25:99:00") == (
+        "Una hora se escribe hh:mm:ss: 14:30:00."
+    )
