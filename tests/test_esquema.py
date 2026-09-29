@@ -763,7 +763,33 @@ class TestQueVersionDeUblSePide:
             ofrecidas = tuple(
                 n.removeprefix("UBL-Invoice-").removesuffix(".xsd") for n in nombres
             )
+            if version in esquema._NO_SUBEN:
+                continue  # su prueba está justo debajo
             assert ofrecidas == conocidas[i:], f"con {version} se ofrece {ofrecidas}"
+
+    def test_de_la_2_0_no_se_sube(self):
+        """Un documento 2.0 se mide con el esquema 2.0 o con ninguno.
+
+        Medido el 29-09-2026: un `ext:ExtensionContent` vacío es válido en la
+        2.0 y lo rechazan la 2.1 y la 2.5. Ofrecerle la 2.1 a una factura 2.0
+        sería acusarla de un fallo que no tiene. La medida está en
+        HALLAZGOS.md; aquí solo se fija lo que hace el código con ella.
+        """
+        for tipo, clase in (("factura", "Invoice"), ("abono", "CreditNote")):
+            nombres = esquema._nombres_esperados(self._ubl("2.0", tipo))
+            assert nombres == (f"UBL-{clase}-2.0.xsd",)
+
+    def test_sin_el_esquema_de_la_2_0_se_dice_cual_falta(self, catalogo):
+        """Y no se cae en el de al lado: con solo la 2.1 instalada, se avisa."""
+        xml = factura_xml(
+            """  <cbc:UBLVersionID>2.0</cbc:UBLVersionID>
+  <cbc:ID>F-2026-0001</cbc:ID>
+  <cbc:IssueDate>2026-03-02</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>"""
+        )
+        incidencias = revisar(xml, catalogo)
+        assert codigos(incidencias) == {"XSD-SIN-ESQUEMA"}
+        assert "UBL-Invoice-2.0.xsd" in una(incidencias, "XSD-SIN-ESQUEMA").mensaje
 
     def test_el_primero_es_siempre_el_de_la_version_declarada(self):
         assert esquema._nombres_esperados(self._ubl("2.5"))[0] == "UBL-Invoice-2.5.xsd"
@@ -805,10 +831,14 @@ class TestQueVersionDeUblSePide:
         assert "UBL-Invoice-2.5.xsd" in aviso.mensaje
 
     def test_el_aviso_nombra_uno_y_no_seis(self):
-        """Seis nombres en una frase no son una instrucción, son un ladrillo."""
-        frase = esquema._como_se_llama(self._ubl("2.0"))
+        """Cinco nombres en una frase no son una instrucción, son un ladrillo.
+
+        Con la 2.1, que es la que más candidatos tiene desde que de la 2.0 no
+        se sube.
+        """
+        frase = esquema._como_se_llama(self._ubl("2.1"))
         assert frase.count("UBL-Invoice") == 2  # el que toca y hasta dónde vale
-        assert "UBL-Invoice-2.0.xsd" in frase
+        assert "UBL-Invoice-2.1.xsd" in frase
         assert "UBL-Invoice-2.5.xsd" in frase
 
     def test_la_copia_local_de_xmldsig_cuenta_con_la_de_2_5(self):

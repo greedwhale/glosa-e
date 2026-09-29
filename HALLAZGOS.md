@@ -6124,3 +6124,45 @@ no en un informe.
 **Sin medir:** el navegador. Pyodide trae libxml2 2.9.10 y estas frases se han
 visto con 2.14.6; si cambian, el caso vuelve a `XSD-OTRO`, que es lo de antes y
 no algo peor.
+
+## De la 2.0 de UBL no se puede subir
+
+Salió midiendo si a un `ApplicationResponse` se le puede aplicar la regla de
+«se sube de versión y nunca se baja» (la siguiente entrada). La regla estaba
+medida entre la 2.1 y la 2.5, y `_VERSIONES_UBL` la aplicaba también a la 2.0
+sin que nadie hubiera abierto un esquema 2.0.
+
+**Reproducido** el 29-09-2026 con `UBL-Invoice-2.0.xsd`, una copia de
+`phax/ph-ubl` (sha256 `4b2fd813…7791`; docs.oasis-open.org no contesta desde
+donde se midió, así que no se ha cotejado con la distribución de OASIS), contra
+el 2.1 y el 2.5 del paquete. La factura es `ejemplos/f-0001.xml` con
+`UBLVersionID` 2.0:
+
+| Factura | 2.0 | 2.1 | 2.5 |
+|---|---|---|---|
+| sin extensiones | válida | válida | válida |
+| `ext:ExtensionContent` vacío | válida | **inválida** | **inválida** |
+| contenido de extensión sin namespace | válida | **inválida** | **inválida** |
+
+Con `ApplicationResponse`, que comparte la extensión: 400 documentos generados
+desde el esquema 2.0, 400 válidos en 2.0 y **227 en 2.5**; los 173 que fallan lo
+hacen todos por `ExtensionContent`. Con el contenido de extensión siempre de
+otro namespace, 400 de 400.
+
+**La causa** es un solo tipo, `ExtensionContentType`: en la 2.0, `xsd:any
+namespace="##any" processContents="skip" minOccurs="0"`; desde la 2.1,
+`##other`, `lax` y `minOccurs="1"`. Todo lo demás cuadra: los otros 28 tipos
+alcanzables desde `ApplicationResponse` son subsecuencia ordenada del 2.5 y
+ninguno pide más.
+
+**El arreglo.** `_NO_SUBEN = ("2.0",)`: un documento que declara la 2.0 se
+mide con el esquema 2.0 o con ninguno, y `XSD-SIN-ESQUEMA` dice cuál falta. Es
+lo mismo que se hace con una versión que no se conoce. El coste es real y se
+dice: el paquete no trae la 2.0, así que las facturas 2.0 se quedan sin
+comprobar la forma hasta que alguien instale ese esquema. Cuántas facturas 2.0
+circulan **no está medido**.
+
+**Provocado:** sin la línea de `_versiones_ubl` que corta la subida, fallan
+`test_de_la_2_0_no_se_sube` y `test_sin_el_esquema_de_la_2_0_se_dice_cual_falta`.
+El caso de la tabla no puede ir en una prueba porque el esquema 2.0 no está en
+el repositorio; lo que se fija es lo que hace el código con él.

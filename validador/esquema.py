@@ -78,7 +78,23 @@ TOPE_INCIDENCIAS = 20
 # dejara caer a la versión de al lado, el informe se llenaría de XSD-ORDEN
 # inventados y quien lo leyera se pondría a arreglar una factura correcta.
 # Vale mil veces más decir que falta el esquema.
+#
+# **Y de la 2.0 no se sube.** Medido el 29-09-2026 con el XSD de `Invoice` de la
+# 2.0 (una copia de `phax/ph-ubl`, porque docs.oasis-open.org no contesta desde
+# donde se midió) contra el de la 2.1 y el de la 2.5: `ExtensionContent`, el
+# hueco donde UBL deja meter lo que se quiera, era `xsd:any ##any
+# processContents="skip" minOccurs="0"` en la 2.0 y desde la 2.1 es `##other`,
+# `lax` y `minOccurs="1"`. Una factura 2.0 con un `ext:ExtensionContent` vacío,
+# o con contenido sin namespace, es válida en la 2.0 y la rechazan la 2.1 y la
+# 2.5 con `Missing child element(s)`: acusar de un fallo que el documento no
+# tiene. Con contenido de otro namespace y nada raro dentro pasan igual, así que
+# el caso es estrecho, pero la regla es «se sube solo si no puede fallar» y de
+# la 2.0 no se puede asegurar. De la 2.1 en adelante sí: es lo medido arriba.
 _VERSIONES_UBL = ("2.0", "2.1", "2.2", "2.3", "2.4", "2.5")
+
+# Las versiones que no se dejan subir: un documento que las declara se mide con
+# su esquema o con ninguno. Ver arriba.
+_NO_SUBEN = ("2.0",)
 
 # La que se supone cuando no se puede saber. Es la de `formato.py` cuando el
 # documento no trae `UBLVersionID`, y aquí sirve para lo mismo: no dejar sin
@@ -92,9 +108,12 @@ def _versiones_ubl(declarada: str | None) -> tuple[str, ...]:
     """Qué esquemas de UBL valen para un documento, en orden de preferencia.
 
     El primero es siempre el de la versión que el documento declara, que es
-    contra el que lo escribieron. Detrás van **solo las posteriores**.
+    contra el que lo escribieron. Detrás van **solo las posteriores**, y ninguna
+    si la declarada es de las que no se dejan subir (`_NO_SUBEN`).
     """
     declarada = (declarada or "").strip()
+    if declarada in _NO_SUBEN:
+        return (declarada,)
     if declarada in _VERSIONES_UBL:
         return _VERSIONES_UBL[_VERSIONES_UBL.index(declarada):]
     if _RE_VERSION_UBL.match(declarada):

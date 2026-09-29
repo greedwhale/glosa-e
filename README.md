@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2648 tests, todos en verde.
+2650 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -447,6 +447,15 @@ La regla es que **se puede subir de versión y nunca bajar**. Primero se busca
 el esquema de la versión que el documento declara en su `UBLVersionID`, que es
 contra el que lo escribieron; si no está, valen los posteriores y ninguno
 anterior.
+
+**De la 2.0 no se sube.** Medido el 29-09-2026: `ExtensionContent`, el hueco de
+UBL para lo que cada uno quiera meter, era opcional y admitía cualquier cosa en
+la 2.0, y desde la 2.1 es obligatorio y solo admite contenido de otro
+namespace. Una factura 2.0 con uno vacío es válida en su versión y la rechazan
+la 2.1 y la 2.5. Un documento que declara la 2.0 se mide con
+`UBL-Invoice-2.0.xsd` o con ninguno, y el aviso dice cuál falta. El coste es
+que las facturas 2.0 se quedan sin comprobar la forma mientras ese esquema no
+esté instalado; cuántas circulan no está medido.
 
 Las dos mitades están medidas, porque de otro modo serían una suposición:
 
