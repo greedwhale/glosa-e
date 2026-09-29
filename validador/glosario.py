@@ -3224,8 +3224,9 @@ CODIGOS: dict[str, str] = {
         "El tipo de factura no está en la lista L1 del anexo: 380, 384, 388, "
         "389 o 471. El caso típico es el 381, el abono de la norma europea, "
         "que en la solución pública no existe: una rectificativa es un Invoice "
-        "de tipo 384, o 471 si la expide el destinatario. También sale si el "
-        "documento es un CreditNote."
+        "de tipo 384, o 471 si la expide el destinatario. La AEAT lo confirmó "
+        "por escrito el 23-09-2026: «No se aceptan InvoiceType de tipo 381 en "
+        "L1». También sale si el documento es un CreditNote."
     ),
     "SPFE-RECTIFICATIVA": (
         "Una factura rectificativa (384 o 471) no dice qué rectifica, o lo "

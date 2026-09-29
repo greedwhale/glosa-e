@@ -318,6 +318,10 @@ class TestCabecera:
         abono = cambia(BUENA, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>381<")
         queja = la(abono, "SPFE-TIPO-DE-FACTURA")
         assert "384" in queja.mensaje and queja.encontrado == "381"
+        # Desde el 22-09-2026 la extensión de rectificativas desaparece y los
+        # datos rectificados van en BG-24: un mensaje que solo mande a la
+        # extensión manda a un sitio que ya no va a existir.
+        assert "BG-24" in queja.mensaje
         assert codigos(cambia(BUENA, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>386<")) == {"SPFE-TIPO-DE-FACTURA"}
 
     def test_un_tipo_que_ni_la_norma_admite_se_lo_deja_a_br_cl_01(self):

@@ -1,0 +1,239 @@
+<article class="entrada"
+  data-fecha="2026-09-28"
+  data-titulo="Las rectificativas ya no van en BG-ES-1: lo que ha contestado la AEAT sobre el anexo nuevo"
+  data-entradilla="El borrador de abril metía los datos de una factura rectificativa en una extensión española, BG-ES-1. La AEAT contestó por escrito el 22 de septiembre que esa extensión desaparece, y el 23 dio la lista nueva con la que se escriben: cinco calificadores que el anexo publicado no trae. Hay una regla más estricta que la de abril, el abono 381 sigue fuera, y dos detalles que deciden cómo se programa siguen sin estar escritos en ninguna parte.">
+
+  <time datetime="2026-09-28">28 de septiembre de 2026</time>
+  <h1>Las rectificativas ya no van en BG-ES-1: lo que ha contestado la AEAT
+  sobre el anexo nuevo</h1>
+  <p class="lema">Quien esté programando las facturas rectificativas para la
+  solución pública con el anexo de abril delante está escribiendo contra un
+  grupo que <b>ya se sabe que no va a existir</b>. Lo dijo la Agencia por
+  escrito, y dijo también cómo se van a escribir. No lo dijo todo.</p>
+
+  <aside class="correccion">
+    <b>Esto no es el BOE.</b> Lo que sigue son respuestas escritas del buzón
+    técnico de la AEAT, del 22 y del 23 de septiembre de 2026, sobre un anexo
+    que todavía no se ha publicado. El único texto publicado es el borrador de
+    abril. Cuando salga la orden en el boletín, esta entrada se contrastará con
+    él y se dirá aquí mismo lo que haya cambiado.
+  </aside>
+
+  <h2>Cómo era en el borrador de abril</h2>
+
+  <p>En la Solución Pública de Facturación Electrónica (SPFE), una
+  rectificativa es una factura de tipo <b>384</b>, o <b>471</b> si la expide
+  el destinatario. Lo que rectifica no va en ningún campo de la norma europea:
+  el <a href="https://www.hacienda.gob.es/sgt/normativadoctrina/proyectos/16042026-anexo-i-pom-factura-electronica.pdf">anexo I
+  del proyecto de orden</a>, de 16 de abril, lo metía en una extensión
+  española, el grupo <code>BG-ES-1</code>, con tres datos:</p>
+
+  <ul>
+    <li><b>el tipo</b>, de la lista <code>L2.A</code>: <code>R1</code> a
+    <code>R4</code>;</li>
+    <li><b>la modalidad</b>, de la lista <code>L2.B</code>: <code>I</code>,
+    por diferencias, o <code>S</code>, por sustitución;</li>
+    <li>y, si se informaban los importes rectificados, <b>la base
+    rectificada</b>.</li>
+  </ul>
+
+  <p>Una extensión nacional es justo lo que un programa de otro país no sabe
+  leer. Ese es el problema que la respuesta de septiembre dice querer
+  resolver.</p>
+
+  <h2>El 22 de septiembre: la extensión desaparece</h2>
+
+  <p>Se preguntó por escrito si <code>BG-ES-1</code> desaparecía al pasar los
+  datos rectificados a un grupo de la norma. La respuesta llegó el <b>22 de
+  septiembre de 2026</b>:</p>
+
+  <blockquote><p>«el grupo de extensión nacional BG-ES-1 para datos
+  rectificados (presente en el borrador de abril) <b>deja de existir de forma
+  definitiva</b>»</p></blockquote>
+
+  <p>Las rectificativas se estructuran, dice, con el grupo estándar
+  <code>BG-24</code> de la EN 16931, el de los documentos justificativos
+  adicionales, «haciendo uso de los calificadores de las listas <b>L10</b>
+  (Documentos justificativos adicionales) y <b>L2</b>». La finalidad que
+  declara es quitar extensiones nacionales para que las facturas sean
+  interoperables.</p>
+
+  <p>El detalle que importa: <b>el anexo de abril tiene las listas de
+  <code>L1</code> a <code>L8</code></b>. Ni <code>L9</code> ni
+  <code>L10</code>. La lista con la que se escriben ahora las rectificativas
+  no está en ningún texto publicado.</p>
+
+  <h2>El 23 de septiembre: la lista L10</h2>
+
+  <p>Así que se preguntó qué lleva esa lista. Contestaron al día siguiente. Son
+  cinco calificadores, bajo el esquema
+  <code>urn:aeat:names:specification:schema:</code>:</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Lista L10, según la respuesta del 23-09-2026</caption>
+    <thead><tr><th>Valor</th><th>Qué es</th></tr></thead>
+    <tbody>
+      <tr><td><code>QR</code></td><td>QR fiscal</td></tr>
+      <tr><td><code>AUT</code></td><td>Autorización de facturación</td></tr>
+      <tr><td><code>RECT:TIPO</code></td><td>Tipo de factura rectificativa</td></tr>
+      <tr><td><code>RECT:MODALIDAD</code></td><td>Modalidad de factura rectificativa</td></tr>
+      <tr><td><code>RECT:IMPORTES</code></td><td>Importes rectificados</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Los códigos del tipo y de la modalidad no cambian: son <b>palabra por
+  palabra</b> los de <code>L2.A</code> y <code>L2.B</code> del borrador de
+  abril. Lo que cambia es el envase, de una extensión española a un grupo de
+  la norma europea.</p>
+
+  <p>Y viene con una regla que <b>es más estricta que la de abril</b>:</p>
+
+  <blockquote><p>«Todas deben llevar tipo y modalidad, y las rectificativas por
+  sustitución (S) deben llevar importe rectificados»</p></blockquote>
+
+  <p>En abril, los importes eran opcionales y solo obligaban a la base
+  <i>si</i> se informaban. Con esta respuesta, en una rectificativa por
+  sustitución dejan de ser opcionales.</p>
+
+  <h2>Lo que sigue sin estar escrito</h2>
+
+  <p>Con la lista en la mano parece que ya se puede programar. Falta decidir
+  dos cosas, y ninguna de las dos se puede deducir.</p>
+
+  <p><b>El esquema del identificador.</b> La respuesta escribe
+  <code>urn:aeat:names:specification:schema:</code>, sin <code>ubl:</code>.
+  El anexo publicado escribe
+  <code>urn:aeat:names:specification:ubl:schema:QR</code> para el QR, que es
+  la primera entrada de esa misma lista. Los dos textos se contradicen en el
+  único valor que se puede comprobar, así que uno de los dos está mal, y no se
+  sabe cuál.</p>
+
+  <p><b>En qué campo va el valor.</b> Un <code>BG-24</code> tiene un
+  identificador (<code>BT-122</code>) y una descripción
+  (<code>BT-123</code>). Los dos <code>BG-24</code> que el anexo de abril sí
+  describe los usan de forma distinta:</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Los dos BG-24 que el anexo de abril publica</caption>
+    <thead><tr><th>BG-24</th><th>En el identificador</th><th>En la descripción</th></tr></thead>
+    <tbody>
+      <tr><td>El del QR</td><td>la URN fija, terminada en <code>QR</code></td><td>«VERIFACTU»</td></tr>
+      <tr><td>El de la autorización</td><td><b>el número de la autorización</b></td><td>un texto libre</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Un ejemplo: una rectificativa de tipo <code>R4</code>. Si el
+  calificador, <code>RECT:TIPO</code>, ocupa el identificador, el
+  <code>R4</code> tiene que ir a otro campo, y la respuesta no dice a
+  cuál. Lo razonable sería la descripción, como en el QR.
+  Pero entonces el número de la autorización, que hoy va en el identificador,
+  se queda sin sitio. <b>Razonable no es publicado.</b> Las dos preguntas se
+  hicieron por escrito el 23 de septiembre y, al escribir esto, siguen sin
+  respuesta de fondo.</p>
+
+  <h2>El abono 381 y la categoría K, fuera por escrito</h2>
+
+  <p>La misma respuesta del 23 confirmó algo que ya se leía en el borrador y
+  que conviene tener delante al programar rectificativas:</p>
+
+  <blockquote><p>«No se aceptan InvoiceType de tipo 381 en L1. Tampoco se
+  aceptará la categoría K en L4.»</p></blockquote>
+
+  <p>El 381 es el <b>abono</b> de la norma europea. Quien venga de Peppol, o de
+  un programa pensado para Europa, está acostumbrado a corregir una factura
+  con un abono 381. En la solución pública eso no existe: la corrección es una
+  factura 384 con sus datos rectificados. Y la <code>K</code> es la categoría
+  de IVA de la entrega intracomunitaria. Una factura que cumple la EN 16931
+  puede, por tanto, <b>no pasar el anexo español</b>, y ahora lo dice la
+  Agencia y no una deducción.</p>
+
+  <p>La respuesta añade que la cuestión se ha elevado a los departamentos de
+  gestión para que reevalúen el criterio. Así que está confirmado y, a la vez,
+  puede cambiar.</p>
+
+  <h2>Qué documentos de validación vendrán, y cuándo</h2>
+
+  <p>Dos respuestas más que ayudan a planificar:</p>
+
+  <ul>
+    <li>Los documentos de validación del portal de desarrolladores describirán
+    las reglas «de forma escrita y simplificada (con un formato similar al de
+    la norma EN 16931), <b>sin incluir ficheros ejecutables
+    Schematron</b>». No va a haber un fichero oficial que ejecutar: cada uno
+    tendrá que convertir la prosa en reglas.</li>
+    <li>A cambio, en el entorno de pruebas habrá «un servicio específico de
+    validación de facturas individuales». En cuanto a cuándo, la respuesta
+    dice que «será durante el mes de Octubre pero dependerá de la publicación
+    de la Orden Ministerial y el texto final con el que se publique».</li>
+  </ul>
+
+  <h2>Qué hacer hoy, si estás programando rectificativas</h2>
+
+  <ul>
+    <li><b>No construyas sobre <code>BG-ES-1</code>.</b> Está en el único
+    texto publicado, pero la Agencia ha dicho por escrito que desaparece.</li>
+    <li><b>Prepara la rectificativa como <code>BG-24</code> con calificadores
+    de <code>L10</code></b>, y deja configurables las dos cosas que faltan: el
+    esquema del identificador, con <code>ubl:</code> o sin él, y el campo donde
+    va el valor.</li>
+    <li><b>Tipo y modalidad siempre, e importes en las de sustitución.</b> Si la
+    regla se relaja en el texto final, no habrá sobrado nada.</li>
+    <li><b>Corrige con 384, no con 381</b>, aunque tu programa lo haga así para
+    el resto de Europa.</li>
+    <li><b>El día del BOE, contrasta.</b> Estas respuestas describen un anexo
+    que no se ha publicado.</li>
+  </ul>
+
+  <h2>Qué hace Glosa-e con esto, hoy</h2>
+
+  <p>Si una rectificativa llega con la extensión de abril, se mide contra el
+  anexo de abril, que es el publicado. Si llega a la forma nueva, con un
+  <code>BG-24</code>, Glosa-e <b>no la da por mala</b>. Reconoce qué
+  calificadores de <code>L10</code> trae, admite los dos esquemas del
+  identificador y dice cuál falta, el tipo o la modalidad. Todo eso sale como
+  <code>NOTA</code>, y dice por qué: <b>no comprueba lo que vale cada uno</b>,
+  porque no está escrito en qué campo va. Leer un <code>R4</code> de un campo
+  adivinado sería prometer una comprobación que no se ha hecho. La ficha
+  <a href="./codigo-SPFE-RECTIFICATIVA.html"><code>SPFE-RECTIFICATIVA</code></a>
+  lo explica, y la del
+  <a href="./codigo-SPFE-TIPO-DE-FACTURA.html">tipo de factura</a> explica por
+  qué el 381 no pasa.</p>
+
+  <p>Es gratis, es código abierto (AGPL-3.0-only) y <b>corre entero en tu
+  navegador</b>: el motor se descarga a tu ordenador y la factura no sale de
+  él.</p>
+
+  <p>Está <b>en desarrollo y en pruebas</b>. Si encuentras algo mal, o si ya
+  sabes en qué campo va el valor,
+  <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20">escríbeme</a>.</p>
+
+  <footer class="fuentes">
+    <h2>De dónde sale</h2>
+    <ul>
+      <li><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-7295">Real
+      Decreto 238/2026</a>, BOE-A-2026-7295, de 25 de marzo: el reglamento del
+      que cuelga la orden.</li>
+      <li><a href="https://www.hacienda.gob.es/sgt/normativadoctrina/proyectos/16042026-anexo-i-pom-factura-electronica.pdf">Anexo I
+      del proyecto de orden ministerial</a> (PDF, Ministerio de Hacienda,
+      16-04-2026): el grupo <code>BG-ES-1</code>, las listas <code>L1</code> a
+      <code>L8</code> y los dos <code>BG-24</code> del QR y de la
+      autorización.</li>
+      <li><a href="https://www.agenciatributaria.es/AEAT.desarrolladores/Desarrolladores/_menu_/Reuniones/Ejercicio_2026/Seminario_actualizacion_sobre_la_Solucion_Publica_de_Facturacion_Electronica__SPFE____10_09_2026/Seminario_actualizacion_sobre_la_Solucion_Publica_de_Facturacion_Electronica__SPFE____10_09_2026.html">Seminario
+      de la AEAT del 10-09-2026</a>, en el Portal de Entidades Desarrolladoras:
+      donde se anunciaron los cambios del anexo I.</li>
+      <li>Respuestas del buzón técnico de la AEAT de 22-09-2026 y de
+      23-09-2026, a consultas escritas el 20 y el 22 de septiembre. No tienen
+      dirección pública: son correo, y se cita textual lo que contestaron.</li>
+    </ul>
+    <p class="metodo"><b>Cómo se comprobó.</b> Que el anexo de abril trae las
+    listas de <code>L1</code> a <code>L8</code> se midió sobre la tabla del
+    anexo importada al validador. Que los códigos de <code>L2</code> de la
+    respuesta son los de abril se comparó entrada a entrada. Las citas de la
+    AEAT son literales, incluida su gramática.</p>
+  </footer>
+
+</article>

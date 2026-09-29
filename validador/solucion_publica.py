@@ -723,8 +723,11 @@ def _tipo_de_factura(raiz) -> list[Incidencia]:
     if codigo == "381":
         mensaje += (" El 381 es el abono de la EN 16931 y en la solución pública "
                     "no existe: una rectificativa es 384, o 471 si la expide el "
-                    "destinatario, y si rectifica por diferencias o por "
-                    "sustitución se dice en la extensión de rectificativas.")
+                    "destinatario. Si rectifica por diferencias o por "
+                    "sustitución se dice en la extensión de rectificativas del "
+                    "anexo de abril, o en un documento justificativo adicional "
+                    "(BG-24), que es donde van los datos rectificados en el "
+                    "anexo nuevo.")
     return [
         Incidencia(
             "SPFE-TIPO-DE-FACTURA",
