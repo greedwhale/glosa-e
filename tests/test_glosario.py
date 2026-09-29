@@ -34,6 +34,20 @@ def test_toda_familia_del_catalogo_tiene_explicacion():
     )
 
 
+def test_ninguna_explicacion_lleva_rayas():
+    """La raya (—) hace que un texto suene escrito por una máquina.
+
+    Lo decidió el titular el 28-09-2026. Estas explicaciones son el cuerpo de
+    cada ficha de código de la web, y se escriben a mano: los incisos van
+    entre comas o entre paréntesis.
+    """
+    con = sorted(clave for clave, texto in [*FAMILIAS.items(), *CODIGOS.items()]
+                 if "—" in texto)
+    assert not con, (
+        f"estas explicaciones llevan raya: {', '.join(con)}. Los incisos, "
+        "entre comas o entre paréntesis.")
+
+
 def test_ninguna_explicacion_escrita_sobra():
     """Una explicación de un código que ya no existe manda a buscar a un sitio vacío."""
     hay = {c.codigo for c in codigos_del_paquete()}

@@ -665,7 +665,7 @@ def _reglas_del_sobre(
                 "EDI-NO-ES-FACTURA",
                 ERROR,
                 f"El mensaje es de tipo «{tipo}», no INVOIC. EDIFACT sirve "
-                "para muchas cosas —pedidos, albaranes, avisos de pago— y "
+                "para muchas cosas (pedidos, albaranes, avisos de pago) y "
                 "solo el INVOIC es una factura.",
                 campo="UNH, tipo de mensaje",
                 esperado="INVOIC",
@@ -924,7 +924,7 @@ def iva_fuera_del_desglose(raiz, deteccion) -> list[Incidencia]:
         Incidencia(
             "EDI-IVA-FUERA-DEL-DESGLOSE",
             AVISO,
-            f"La factura trae grupos de impuesto —{_y(donde)}—, pero ninguno "
+            f"La factura trae grupos de impuesto ({_y(donde)}), pero ninguno "
             "donde EN 16931 lee el desglose: después del UNS y marcado como "
             "IVA, TAX+7+VAT. Por eso BR-CO-18 dice que no hay desglose: el "
             "impuesto está escrito, pero donde la norma no lo mira. El de la "

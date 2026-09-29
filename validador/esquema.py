@@ -323,8 +323,8 @@ def _como_se_llama(deteccion) -> str:
     if len(nombres) == 1:
         return f"El que le toca se llama {nombres[0]}"
     return (
-        f"El que le toca se llama {nombres[0]} —o el de cualquier versión "
-        f"posterior, hasta {nombres[-1]}—"
+        f"El que le toca se llama {nombres[0]} (o el de cualquier versión "
+        f"posterior, hasta {nombres[-1]})"
     )
 
 
@@ -341,8 +341,8 @@ def _por_que(sin_red: _SinRed, error: Exception) -> str:
     return (
         f"este esquema importa {sin_red.no_estaban[0]} por dirección web y no "
         "hay ninguna copia instalada. El validador no sale a la red a "
-        "buscarla: instala el paquete de esquemas que la trae —el de UBL 2.1 "
-        "la incluye— o deja el fichero en la carpeta de esquemas. "
+        "buscarla: instala el paquete de esquemas que la trae (el de UBL 2.1 "
+        "la incluye) o deja el fichero en la carpeta de esquemas. "
         f"({error})"
     )
 

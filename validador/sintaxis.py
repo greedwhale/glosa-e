@@ -1697,7 +1697,7 @@ _ARREGLOS: dict[str, tuple[str, str, str]] = {
         "aeat:InvoiceExtension/aeat:Correction",
         "El grupo dice `aeat:Extension` y sus seis hijos dicen "
         "`aeat:InvoiceExtension`. Uno contra seis, y el resto del anexo sigue "
-        "el mismo patrón —`aeat:CollectionInvoiceLineExtension` en BT-ES-30—, "
+        "el mismo patrón (`aeat:CollectionInvoiceLineExtension` en BT-ES-30), "
         "así que el raro es el padre.",
     ),
 }

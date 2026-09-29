@@ -657,8 +657,8 @@ def _regla_cuota_por_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]
                 "IVA-CUOTA-REDONDEO",
                 NOTA,
                 f"La cuota de {grupo} se aparta {distancia:.2f} de aplicar el "
-                "tipo a la base. La norma lo admite —hasta una unidad, por el "
-                "redondeo línea a línea— y se ha dado por buena. Si no hay "
+                "tipo a la base. La norma lo admite (hasta una unidad, por el "
+                "redondeo línea a línea) y se ha dado por buena. Si no hay "
                 "redondeo por líneas que lo explique, conviene revisarla.",
                 campo=f"Cuota de {grupo}",
                 esperado=(
@@ -1542,8 +1542,8 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
                 "IVA-CATEGORIA-SIN-MAPA",
                 NOTA,
                 f"La sintaxis {sintaxis.nombre} no tiene categoría de IVA en "
-                "el sentido de EN 16931 —la lista UNCL5305: general, exento, "
-                "inversión del sujeto pasivo, no sujeto…—, así que las reglas "
+                "el sentido de EN 16931 (la lista UNCL5305: general, exento, "
+                "inversión del sujeto pasivo, no sujeto…), así que las reglas "
                 "que dependen de ella no se han podido comprobar. El resto "
                 "del IVA sí: las bases, las cuotas y que el desglose cuadre.",
                 campo="Categoría de IVA",

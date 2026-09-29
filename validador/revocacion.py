@@ -222,8 +222,8 @@ class Lista:
             return "solo recoge algunos motivos de anulación, no todos"
         if self.indirecta:
             return (
-                "es una lista indirecta —cada línea puede venir de una autoridad "
-                "distinta— y eso no se sabe leer todavía"
+                "es una lista indirecta (cada línea puede venir de una autoridad "
+                "distinta) y eso no se sabe leer todavía"
             )
         return ""
 
@@ -523,7 +523,7 @@ class AlmacenDeListas:
             caduca = lista.hasta.date().isoformat() if lista.hasta else "sin fecha"
             marca = " · INCREMENTAL" if lista.es_delta else ""
             salida.append(
-                f"{lista.emisor_nombre or '(sin nombre común)'} — "
+                f"{lista.emisor_nombre or '(sin nombre común)'}: "
                 f"{len(lista.anulaciones)} anulado(s) · del {cuando} · "
                 f"vale hasta {caduca}{marca}"
             )
@@ -1123,9 +1123,9 @@ def _nota_de_limpieza(
             # Se miró antes de firmar. Se aceptó, y hay que decir sobre qué:
             # sobre la palabra del respondedor, no sobre la nuestra.
             detalle += (
-                f" —mirada {_cuanto(prueba.hueco)} antes de la firma, y el "
+                f" (mirada {_cuanto(prueba.hueco)} antes de la firma, y el "
                 f"propio respondedor la daba por vigente hasta el "
-                f"{prueba.vale_hasta.isoformat(' ', 'seconds')}—"
+                f"{prueba.vale_hasta.isoformat(' ', 'seconds')})"
             )
         pruebas.append(detalle)
     return Incidencia(

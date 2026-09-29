@@ -629,8 +629,8 @@ def _ver_tsl(ruta: Path, hoy: date) -> int:
         if s.emite_cualificados and not s.concedido
     ]
     if retirados:
-        print("Retirados —no se instalan, y las facturas que firmaron antes de")
-        print("retirarse eran buenas—:")
+        print("Retirados (no se instalan, y las facturas que firmaron antes de")
+        print("retirarse eran buenas):")
         for uno in sorted(retirados, key=lambda s: s.desde or _ETERNO):
             cuando = uno.desde.date().isoformat() if uno.desde else "?"
             print(f"  {cuando}  {uno.estado_corto:12} {uno.prestador or uno.nombre}")

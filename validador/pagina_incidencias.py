@@ -146,7 +146,7 @@ def _fila(uno: Codigo) -> str:
         f'<div class="margen"><a class="codigo" href="./{html.escape(nombre_de(uno.codigo))}">'
         f"{html.escape(uno.codigo)}</a>{gravedades}</div>"
         f'<div class="cuerpo">{cuerpo}{varias}'
-        f'<dl><dt>Norma</dt><dd>{html.escape(etiqueta)} — {html.escape(detalle)}</dd>'
+        f'<dl><dt>Norma</dt><dd>{html.escape(etiqueta)}: {html.escape(detalle)}</dd>'
         f"<dt>Se emite en</dt><dd>validador/{html.escape(uno.modulo)}"
         f":{uno.linea}</dd></dl></div></article>"
     )
@@ -409,7 +409,7 @@ def _ficha(uno: Codigo, todos: list[Codigo]) -> str:
         f'<p class="gravedades">{_chips(uno.gravedades)}</p>'
         f"{dice}{matiz}"
         '<dl class="procedencia">'
-        f"<div><dt>De dónde viene</dt><dd>{html.escape(etiqueta)} — "
+        f"<div><dt>De dónde viene</dt><dd>{html.escape(etiqueta)}: "
         f"{html.escape(detalle)}</dd></div>"
         f"<div><dt>Lo escribe</dt><dd><code>validador/{html.escape(uno.modulo)}"
         f":{uno.linea}</code></dd></div>"

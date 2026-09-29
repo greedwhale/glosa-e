@@ -447,9 +447,9 @@ _ESQUEMA_AEAT = "urn:aeat:names:specification:"
 # importarse. No hay que acordarse de nada: no arranca.
 if "L10" in cius_es.LISTAS:
     raise AnexoCambiado(
-        "el anexo ya trae L10: falta terminar de leer el BG-24 —el tipo "
+        "el anexo ya trae L10: falta terminar de leer el BG-24 (el tipo "
         "contra L2.A, la modalidad contra L2.B y los importes obligatorios "
-        "cuando la modalidad es S—, que hasta hoy no se podia por no saber "
+        "cuando la modalidad es S), que hasta hoy no se podia por no saber "
         "en que campo va el valor")
 
 
@@ -475,9 +475,9 @@ _dice("BT-115", "junto con los importes correspondientes a los conceptos BT-179"
 # informe sin quejas sobre esto podría leerse como que se ha comprobado.
 NO_SE_COMPRUEBA: dict[str, str] = {
     "BT-179 y BT-180": (
-        "El importe y la descripción de los cinco grupos de cobros —suplidos, "
+        "El importe y la descripción de los cinco grupos de cobros (suplidos, "
         "minoraciones, recargo de equivalencia, grupo de entidades y "
-        "retenciones—. El anexo no les da ruta: son términos de la EN 16931 "
+        "retenciones). El anexo no les da ruta: son términos de la EN 16931 "
         "de 2026, y su vinculación UBL no está publicada."
     ),
     "BT-115": (
@@ -653,8 +653,8 @@ def _especificacion(raiz) -> list[Incidencia]:
             ERROR,
             "El identificador de especificación nombra el CIUS de la solución "
             "pública, pero no con el valor que fija el anexo. El anexo da el "
-            "valor entero, y cualquier diferencia —otra edición de la norma, "
-            "otra versión del CIUS— es otro identificador.",
+            "valor entero, y cualquier diferencia (otra edición de la norma, "
+            "otra versión del CIUS) es otro identificador.",
             campo="Identificador de especificación (BT-24)",
             esperado=ESPECIFICACION,
             encontrado=declarado,
@@ -1227,7 +1227,7 @@ def _claves_de_regimen(raiz) -> list[Incidencia]:
                 ERROR,
                 "Hay líneas sin clave de régimen. El anexo la pide en cada "
                 "línea, como una propiedad del artículo llamada «REGI»: la "
-                "clave en el valor y el impuesto —IVA, IGIC o IPSI— en el "
+                "clave en el valor y el impuesto (IVA, IGIC o IPSI) en el "
                 "calificador.",
                 campo=_donde("Clave de régimen (BG-32)", sin_clave),
                 esperado="cac:AdditionalItemProperty con cbc:Name «REGI»",
@@ -1493,7 +1493,7 @@ def _qr(raiz) -> list[Incidencia]:
                 "SPFE-QR",
                 ERROR,
                 f"Al documento del QR fiscal le falta {_y(list(dict.fromkeys(faltan)))}. "
-                "El anexo pide la descripción —VERIFACTU o la que corresponda— "
+                "El anexo pide la descripción (VERIFACTU o la que corresponda) "
                 "y la dirección del QR en cbc:UUID.",
                 campo="QR fiscal (BG-24)",
                 esperado="cbc:DocumentDescription y cbc:UUID",
@@ -1516,8 +1516,8 @@ def _total_a_pagar(raiz) -> list[Incidencia]:
         Incidencia(
             "SPFE-TOTAL-A-PAGAR",
             NOTA,
-            "La factura lleva líneas de cobro —suplidos, minoraciones, recargo "
-            "de equivalencia, grupo de entidades o retenciones—, y el anexo "
+            "La factura lleva líneas de cobro (suplidos, minoraciones, recargo "
+            "de equivalencia, grupo de entidades o retenciones), y el anexo "
             "suma sus importes al total a pagar. La norma de 2017 no los conoce "
             "y el anexo no dice dónde se escriben, así que el cuadre del total "
             "a pagar (BR-CO-16) no se ha comprobado.",

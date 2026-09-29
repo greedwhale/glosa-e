@@ -256,8 +256,8 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     ),
     Correspondencia(
         "total a pagar", "TotalExecutableAmount", "BT-115", POR_DECIDIR,
-        "es el que más se le parece —descuenta retenciones y suma suplidos y "
-        "gastos financieros—, pero el anexo manda sumar los importes de "
+        "es el que más se le parece (descuenta retenciones y suma suplidos y "
+        "gastos financieros), pero el anexo manda sumar los importes de "
         "terceros «junto con» el total con IVA y esa cuenta no se puede "
         "comprobar todavía: es la misma duda de SPFE-TOTAL-A-PAGAR",
     ),
@@ -271,7 +271,7 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "importes retenidos", "AmountsWithheld", "anexo I: retención aplicada",
         POR_DECIDIR,
         "Facturae distingue la retención de impuestos de otros importes "
-        "retenidos —la retención de garantía de una obra, por ejemplo— y el "
+        "retenidos (la retención de garantía de una obra, por ejemplo) y el "
         "anexo describe un solo grupo de retención: si el segundo cabe ahí no "
         "lo dice nadie",
     ),
@@ -307,7 +307,7 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "campo** para los dos, que llama «número y serie de la factura»: en la "
         "copia van juntos, y nadie dice cómo se juntan. Aquí se pegan sin "
         "separador, que es como los trata Verifactu y como los junta el código "
-        "único de esta misma herramienta —`CodigoUnico.numero_completo`—. Si "
+        "único de esta misma herramienta (`CodigoUnico.numero_completo`). Si "
         "la copia llevara solo el número, la copia y el original no "
         "identificarían la misma factura. Medido el 20-09-2026: 8 de las 14 "
         "facturas de aquí traen serie con texto",
@@ -315,8 +315,8 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     Correspondencia(
         "fecha de operación", "OperationDate", "BT-7", IGUAL,
         "es el único sitio que hay: el anexo no recoge BT-72, la fecha de "
-        "entrega. Y le cambia el nombre al término —en la norma BT-7 es la "
-        "fecha de devengo del IVA, que no siempre es la de la operación—, pero "
+        "entrega. Y le cambia el nombre al término (en la norma BT-7 es la "
+        "fecha de devengo del IVA, que no siempre es la de la operación), pero "
         "lo define con la misma condición que el esquema de Facturae: la fecha "
         "de la operación cuando no sea la de expedición. Por eso el mapa de "
         "sintaxis deja la de devengo sin ruta en Facturae y aquí sí hay "
@@ -390,7 +390,7 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     Correspondencia(
         "CNAE", "CnoCnae", "", SIN_SITIO,
         "el código de la actividad económica es un dato español de la parte, y "
-        "el anexo —que es español— tampoco lo recoge",
+        "el anexo (que es español) tampoco lo recoge",
     ),
     Correspondencia(
         "otros datos de contacto", "AdditionalContactDetails", "", SIN_SITIO,
@@ -1763,8 +1763,8 @@ def _de_una_factura(
                 NOTA,
                 "En la copia, el número de esta factura no es el que lleva "
                 "aquí. Facturae guarda la serie y el número en dos campos, y "
-                "el anexo tiene uno solo —BT-1, «número y serie de la "
-                "factura»—. Nadie dice cómo se juntan: aquí se pegan sin "
+                "el anexo tiene uno solo (BT-1, «número y serie de la "
+                "factura»). Nadie dice cómo se juntan: aquí se pegan sin "
                 "separador, que es como los trata Verifactu y como los junta "
                 "el código único. Si la copia llevara solo el número, la copia "
                 "y el original no identificarían la misma factura.",

@@ -793,7 +793,7 @@ def _sin_sello(firma, donde: str, llevaba: bool = False) -> list[Incidencia]:
                 "SELLO-SIN-USAR",
                 NOTA,
                 "La firma lleva sello de tiempo, pero ninguno se ha podido "
-                "usar —arriba está el motivo de cada uno—. Así que la fecha "
+                "usar (arriba está el motivo de cada uno). Así que la fecha "
                 "que se ha usado para comprobar la vigencia del certificado y "
                 f"la revocación es {cual}: {aviso}",
                 campo=f"{donde}Sello de tiempo",

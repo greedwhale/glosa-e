@@ -227,6 +227,21 @@ def test_ninguna_entrada_promete_certificar():
             "puede decir que lo haga ni de pasada.")
 
 
+def test_ninguna_entrada_lleva_rayas():
+    """La raya (—) hace que un texto suene escrito por una máquina.
+
+    Lo decidió el titular el 28-09-2026, y es justo lo contrario de lo que
+    quiere un artículo firmado por una persona. Los incisos van entre comas o
+    entre paréntesis. Una entrada nueva se escribe cada lunes, así que es donde
+    más fácil se cuela.
+    """
+    for ruta in sorted(ARTICULOS.glob("*.html")):
+        texto = ruta.read_text(encoding="utf-8")
+        assert "—" not in texto, (
+            f"«{ruta.name}» lleva {texto.count('—')} raya(s). Los incisos, "
+            "entre comas o entre paréntesis.")
+
+
 def test_el_menu_del_sitio_lleva_a_la_bitacora():
     """Publicada y sin enlazar sería una carpeta bonita que no lee nadie."""
     portada = (WEB / "index.html").read_text(encoding="utf-8")

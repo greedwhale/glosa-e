@@ -19,7 +19,7 @@
     <i>empieza a contar</i> el plazo. La obligación cae doce meses después para
     quien facture más de 8 M€ y veinticuatro para el resto. El calendario
     correcto está abajo, con su fuente. Queda escrito porque la alternativa
-    —cambiar la fecha y callarse— es justo la que no se le acepta a
+    (cambiar la fecha y callarse) es justo la que no se le acepta a
     nadie.
   </aside>
 
@@ -55,11 +55,11 @@
   cambiar.</p>
 
   <p>Dicho de otra forma: <b>en octubre de 2026 no tiene que hacer nada nadie</b>
-  —y quien te diga lo contrario, incluida la primera versión de esta entrada,
-  se ha saltado un paso—. Lo que sí es firme es <b>qué</b> hay que hacer cuando
+  (y quien te diga lo contrario, incluida la primera versión de esta entrada,
+  se ha saltado un paso). Lo que sí es firme es <b>qué</b> hay que hacer cuando
   toque, y eso es lo que va debajo.</p>
 
-  <p>Lo que la ley no dice —porque no es su trabajo— es <b>con qué se
+  <p>Lo que la ley no dice (porque no es su trabajo) es <b>con qué se
   comprueba</b> que una factura cumple ese modelo semántico. Para eso existen
   los <i>artefactos de validación</i>: los ficheros que traducen las reglas de
   la norma a algo que un programa puede ejecutar. Se publican en un repositorio
@@ -75,23 +75,23 @@
       <tr><td>UBL</td><td><code>v1.3.16</code></td><td>10-04-2026</td></tr>
       <tr><td>CII</td><td><code>v1.3.16</code></td><td>10-04-2026</td></tr>
       <tr><td><b>EDIFACT</b></td><td><code>v1.0.0</code></td><td><b>08-02-2018</b></td></tr>
-      <tr><td><b>Facturae</b></td><td>—</td><td><b>nunca ha existido</b></td></tr>
+      <tr><td><b>Facturae</b></td><td>ninguna</td><td><b>nunca ha existido</b></td></tr>
     </tbody>
   </table>
   </div>
 
   <p>Ocho años de diferencia entre la primera fila y la tercera. Y la cuarta
-  —el formato español, el que más va a circular aquí— nunca ha tenido reglas
+  (el formato español, el que más va a circular aquí) nunca ha tenido reglas
   europeas publicadas: CEN escribió la correspondencia para UBL, CII y EDIFACT,
   y para Facturae no escribió ninguna.</p>
 
   <p>Conviene decir qué significa y qué no significa esto. <b>No</b> significa
   que las facturas EDIFACT sean inválidas, ni que no exista la norma. La norma
-  existe: se llama <code>CEN/TS 16931-3-4</code>, tiene tres ediciones —2017,
-  2020 y 2026— y la última se publicó el 17 de agosto de este año. Lo que está
+  existe: se llama <code>CEN/TS 16931-3-4</code>, tiene tres ediciones (2017,
+  2020 y 2026) y la última se publicó el 17 de agosto de este año. Lo que está
   parado no es la norma: es <b>la herramienta libre para comprobarla</b>. Son
-  cosas distintas, se publican en sitios distintos —una en GitHub y gratis, la
-  otra a través de los organismos de normalización y de pago— y confundirlas es
+  cosas distintas, se publican en sitios distintos (una en GitHub y gratis, la
+  otra a través de los organismos de normalización y de pago) y confundirlas es
   fácil. Se vuelve a esto al final, porque aquí se confundieron.</p>
 
   <h2>Qué pasa cuando se comprueban facturas de verdad</h2>
@@ -179,7 +179,7 @@
 
   <p><b>La primera:</b> se dijo en público que EDIFACT y Facturae eran «las dos
   sintaxis sin correspondencia CEN». De Facturae es cierto. De EDIFACT es falso
-  —existe desde 2017—. Se había deducido la ausencia de la <i>norma</i> a
+  (existe desde 2017). Se había deducido la ausencia de la <i>norma</i> a
   partir del abandono del <i>artefacto</i>.</p>
 
   <p><b>La segunda,</b> dos días después: al corregir lo anterior, se escribió
@@ -192,7 +192,7 @@
   primera.</p>
 
   <p>Se cuenta porque es exactamente lo que este validador promete no hacer.
-  Glosa-e no certifica nada —una glosa explica, no da fe—. Cada regla dice de
+  Glosa-e no certifica nada (una glosa explica, no da fe). Cada regla dice de
   dónde sale, cada hueco dice que es un hueco, y lo que está mal se corrige
   en el mismo sitio donde se dijo. Un validador que solo publica sus
   aciertos no le está dando a nadie forma de comprobarlo.</p>
@@ -200,7 +200,7 @@
   <h2>Qué hace Glosa-e con esto, hoy</h2>
 
   <p>Comprueba las cuatro sintaxis, EDIFACT incluido, con las reglas EN 16931
-  que hay publicadas —y dice en cada informe cuáles son y de cuándo—. Cuando
+  que hay publicadas (y dice en cada informe cuáles son y de cuándo). Cuando
   una regla no se puede comprobar sobre una sintaxis, <b>lo dice en vez de
   callarse</b>: hay una gravedad, <code>NOTA</code>, que existe solo para
   eso.</p>
@@ -217,19 +217,19 @@
     <h2>De dónde sale</h2>
     <ul>
       <li><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-7295">Real
-      Decreto 238/2026</a> — artículo 7.1 (las cuatro sintaxis) y disposición
+      Decreto 238/2026</a>: artículo 7.1 (las cuatro sintaxis) y disposición
       final cuarta (la aplicación diferida). BOE-A-2026-7295, de 25 de marzo,
       publicado el 31-03-2026.</li>
       <li>Proyecto de orden ministerial de desarrollo, publicado el 16-04-2026
       por el Ministerio de Hacienda, del que sale el 01-10-2026 y con él los
       plazos de doce y veinticuatro meses.</li>
       <li><a href="https://github.com/ConnectingEurope/eInvoicing-EN16931">Artefactos
-      EN 16931 de la Comisión Europea</a> — versiones y fechas de publicación
+      EN 16931 de la Comisión Europea</a>: versiones y fechas de publicación
       de los esquematrones.</li>
       <li><a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/518">Issue
-      #518</a> — la consulta pública entera, con las respuestas citadas.</li>
+      #518</a>: la consulta pública entera, con las respuestas citadas.</li>
       <li><a href="https://www.evs.ee/en/cen-ts-16931-3-4-2026"><code>CEN/TS
-      16931-3-4:2026</code></a> — ficha del catálogo: título, fecha de
+      16931-3-4:2026</code></a>: ficha del catálogo: título, fecha de
       publicación y edición a la que sustituye.</li>
     </ul>
     <p class="metodo"><b>Cómo se midió.</b> Las cifras de facturas reales salen

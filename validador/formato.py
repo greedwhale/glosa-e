@@ -542,7 +542,7 @@ _NO_ABRE: dict[str, tuple[str, "re.Pattern[str] | None"]] = {
     # código y no de la frase, y de que haya remate: se vio soltándole los
     # veintidós ficheros rotos a la página, no leyendo el código.
     "ERR_LTSLASH_REQUIRED": (
-        "se esperaba el cierre de una etiqueta —un «</»— y no está. Suele ser "
+        "se esperaba el cierre de una etiqueta (un «</») y no está. Suele ser "
         "una copia o una descarga a medias.", None),
     "ERR_GT_REQUIRED": (
         "una etiqueta{nombre} se queda sin su «>».", _NOMBRE_EN_INICIO),

@@ -1337,8 +1337,8 @@ def montar_sitio(
     if desfasados:
         raise RuedaVieja(
             "El wheel de «{}» no es el del código que hay ahora: {}. Es el "
-            "fallo de siempre de este proyecto —algo de una caché haciéndose "
-            "pasar por lo de hoy—, y aquí no se nota sin mirar dentro: el "
+            "fallo de siempre de este proyecto (algo de una caché haciéndose "
+            "pasar por lo de hoy), y aquí no se nota sin mirar dentro: el "
             "sitio se monta, la página arranca, se baja catorce megas de "
             "intérprete y revienta al importar. Reconstrúyelo con `python -m "
             "build --wheel --outdir dist`.".format(

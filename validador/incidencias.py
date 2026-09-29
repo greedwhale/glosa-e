@@ -148,9 +148,9 @@ class Informe:
             cola = "sin errores"
             if self.avisos:
                 cola += f", {len(self.avisos)} aviso(s)"
-            return f"{cabecera} — {cola}."
+            return f"{cabecera}: {cola}."
         return (
-            f"{cabecera} — {len(self.errores)} error(es)"
+            f"{cabecera}: {len(self.errores)} error(es)"
             f"{f', {len(self.avisos)} aviso(s)' if self.avisos else ''}."
         )
 

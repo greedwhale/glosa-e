@@ -426,7 +426,7 @@ class TestElAlmacen:
         linea = almacen.inventario()[0]
         assert "Raiz de pruebas" in linea
         esperada = hashlib.sha256(raiz()).hexdigest().upper()
-        assert linea.split("—")[1].strip().replace(":", "") == esperada
+        assert linea.split(" · ")[1].strip().replace(":", "") == esperada
 
     def test_una_carpeta_que_no_existe(self, tmp_path):
         assert Almacen(tmp_path / "no-esta").vacio

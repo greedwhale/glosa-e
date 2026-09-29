@@ -161,8 +161,8 @@ def _entidades(raiz) -> list[Incidencia]:
             "XML-ENTIDADES",
             ERROR,
             "El documento declara entidades XML en su prólogo y las usa en el "
-            "contenido. Aquí no se expanden —un fichero de fuera no debe poder "
-            "leer ficheros del servidor—, así que esos campos se leen vacíos; "
+            "contenido. Aquí no se expanden (un fichero de fuera no debe poder "
+            "leer ficheros del servidor), así que esos campos se leen vacíos; "
             "y quien lo reciba puede expandirlas y leer otra cosa. Escribe los "
             "valores tal cual y quita el DOCTYPE. Mientras esté, la forma no "
             "se ha comprobado contra el esquema.",
@@ -678,8 +678,8 @@ class InformeLote:
                             )
                         else:
                             sin_la_firma.append(
-                                "si el certificado está anulado —hace falta la "
-                                "lista de revocación de su autoridad—"
+                                "si el certificado está anulado (hace falta la "
+                                "lista de revocación de su autoridad)"
                             )
                     sin_la_firma.extend(
                         self._de_cuantos(
@@ -691,9 +691,9 @@ class InformeLote:
                     # Decir «firma comprobada» a secas dejaría creer que también
                     # se sabe de quién es, que es la mitad que más importa.
                     sin_la_firma.append(
-                        "de quién es el certificado ni si está revocado —lo "
+                        "de quién es el certificado ni si está revocado (lo "
                         "primero necesita anclas de confianza instaladas, lo "
-                        "segundo salir a la red—"
+                        "segundo salir a la red)"
                     )
             # El porqué no se repite aquí: son cuatro motivos distintos y cada
             # documento lleva el suyo escrito en su aviso. Esta frase solo
@@ -821,10 +821,10 @@ class InformeLote:
         if not cuantos:
             return []
         if len(self.informes) == 1:
-            return [f"{que} de este documento —su aviso dice por qué—"]
+            return [f"{que} de este documento (su aviso dice por qué)"]
         if cuantos == 1:
-            return [f"{que} de uno de los documentos —su aviso dice por qué—"]
-        return [f"{que} de {cuantos} de los documentos —sus avisos dicen por qué—"]
+            return [f"{que} de uno de los documentos (su aviso dice por qué)"]
+        return [f"{que} de {cuantos} de los documentos (sus avisos dicen por qué)"]
 
     def detalle(
         self, forma: bool = True, anclas: bool = False, listas: bool = False

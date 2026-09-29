@@ -408,7 +408,7 @@ class Registro:
                         campo="Código único",
                         esperado=f"la anterior: {_como_se_parte(anterior)}",
                         encontrado=f"{_como_se_parte(codigo)} "
-                        f"— las dos dan {canonico}",
+                        f"; las dos dan {canonico}",
                         ficheros=_implicados(de_antes, procedencia),
                     )
                 )

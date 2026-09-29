@@ -456,7 +456,7 @@ class Almacen:
     def inventario(self) -> list[str]:
         """Qué anclas hay y con qué huella, para poder contrastarlas."""
         return [
-            f"{cert.sujeto or '(sin nombre común)'} — {cert.huella()}"
+            f"{cert.sujeto or '(sin nombre común)'} · {cert.huella()}"
             for cert in sorted(self.todas(), key=lambda c: c.sujeto or "")
         ]
 
@@ -536,7 +536,7 @@ def _eslabon(
         # una raíz de verdad y el informe decía que la firma llegaba a la AC.
         return (
             f"«{padre.sujeto or 'el emisor'}» no dice ser un certificado de "
-            "autoridad —no trae basicConstraints— y aparece emitiendo a otro"
+            "autoridad (no trae basicConstraints) y aparece emitiendo a otro"
         )
     if not es_ancla:
         sin_entender = sorted(

@@ -1499,8 +1499,8 @@ def _regla_cubre(examen: Examen, donde: str) -> list[Incidencia]:
             "FIRMA-NO-CUBRE",
             ERROR,
             "La firma no cubre la factura: lo que garantiza es otro trozo del "
-            "documento. Puede ser auténtica y estar intacta —y aun así no dice "
-            "nada de esta factura—: una firma de otra cosa, colgada aquí, "
+            "documento. Puede ser auténtica y estar intacta (y aun así no dice "
+            "nada de esta factura): una firma de otra cosa, colgada aquí, "
             "verifica igual. Como documento firmado, esta factura no vale.",
             campo=f"{donde}Qué cubre la firma",
             esperado="una referencia que cubra la factura",
