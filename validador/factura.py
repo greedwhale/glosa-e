@@ -341,7 +341,7 @@ def validar_archivo(
         return _se_atraganta(camino, error)
 
 
-def _se_atraganta(camino: Path, error: Exception) -> Informe:
+def _se_atraganta(camino: Path, error: Exception, nombre: str | None = None) -> Informe:
     """El informe de un fichero que ha hecho fallar al validador mismo.
 
     Esto no es una queja sobre la factura: es una queja sobre este programa.
@@ -355,8 +355,17 @@ def _se_atraganta(camino: Path, error: Exception) -> Informe:
 
     Así que se cuenta como un error del fichero —para que el lote no dé por
     bueno lo que no ha mirado— y se dice de quién es la culpa.
+
+    `nombre` es el del lote, cuando lo hay. En la página la ruta es la del disco
+    virtual, `/entrada/0/factura__.xml`, con el nombre ya limpiado para poder
+    escribirlo; quien lo soltó lo llamaba «factura ñ.xml», y es el que sale en
+    la cabecera del documento. El resumen ya empieza por «No se ha podido
+    validar.»: el motivo no lo repite.
     """
-    informe = Informe(deteccion=Deteccion(motivo=f"No se ha podido validar {camino}."))
+    nombre = nombre or camino.name
+    informe = Informe(
+        deteccion=Deteccion(motivo=f"El validador ha fallado con «{nombre}».")
+    )
     informe.incidencias.append(
         Incidencia(
             "VALIDADOR-SE-ATRAGANTA",
@@ -366,7 +375,7 @@ def _se_atraganta(camino: Path, error: Exception) -> Informe:
             "factura, y hay que arreglarlo aquí. Los demás ficheros del lote "
             "sí se han revisado.",
             campo="Fichero",
-            encontrado=camino.name,
+            encontrado=nombre,
         )
     )
     return informe
@@ -1029,7 +1038,7 @@ def validar_lote(
                 informe.incidencias.extend(incidencias)
                 informe.mirado = _mirado(deteccion, catalogo)
         except Exception as error:  # noqa: BLE001 - ver `_se_atraganta`
-            lote.informes.append((camino, _se_atraganta(camino, error)))
+            lote.informes.append((camino, _se_atraganta(camino, error, nombre)))
             continue
         lote.informes.append((camino, informe))
 

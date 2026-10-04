@@ -251,6 +251,13 @@ class Catalogo:
     """
 
     carpeta: Path
+    # Cómo le llegan los esquemas a quien lee el informe, cuando no es una
+    # carpeta suya: la página dice «que vienen con esta página». Vacío, el
+    # aviso de que falta uno dice la carpeta, que en consola es lo que hace
+    # falta para ponerlo. En la página era «/opt/factura-e/esquemas», el disco
+    # virtual del navegador: una ruta que nadie puede abrir, en un sitio donde
+    # no se puede añadir nada. Es lo mismo que hace `Almacen` con las anclas.
+    procedencia: str = ""
     _compilados: dict[Path, etree.XMLSchema] = field(
         default_factory=dict, repr=False
     )
@@ -265,10 +272,12 @@ class Catalogo:
     _rotos: dict[Path, str] = field(default_factory=dict, repr=False)
 
     @classmethod
-    def por_defecto(cls, carpeta: str | Path | None = None) -> Catalogo:
+    def por_defecto(
+        cls, carpeta: str | Path | None = None, procedencia: str = ""
+    ) -> Catalogo:
         if carpeta is None:
             carpeta = os.environ.get(VARIABLE_ENTORNO) or CARPETA_POR_DEFECTO
-        return cls(Path(carpeta))
+        return cls(Path(carpeta), procedencia)
 
     @property
     def indice(self) -> dict[str, Path]:
@@ -877,13 +886,17 @@ def reglas(raiz, deteccion, catalogo: Catalogo | None = None) -> list[Incidencia
                     encontrado=_limpiar(motivo),
                 )
             ]
+        donde = (
+            f"no está entre los esquemas {catalogo.procedencia}"
+            if catalogo.procedencia
+            else f"se busca dentro de {catalogo.carpeta}"
+        )
         return [
             Incidencia(
                 "XSD-SIN-ESQUEMA",
                 AVISO,
                 "No se ha comprobado la forma: falta el esquema de este "
-                f"formato. {_como_se_llama(deteccion)}, y se busca dentro de "
-                f"{catalogo.carpeta}.",
+                f"formato. {_como_se_llama(deteccion)}, y {donde}.",
                 campo="Esquema",
                 encontrado=f"{deteccion.familia} {deteccion.version or ''}".strip(),
             )

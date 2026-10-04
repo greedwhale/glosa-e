@@ -616,7 +616,10 @@ async function arrancarDeVerdad(avisar) {
   const decir = avisar || function () {};
   const cero = performance.now();
   let t = cero;
-  const seg = (ms) => (ms / 1000).toFixed(2);
+  // Con coma, que es como se escriben los decimales en castellano: salia
+  // «Listo en 46.67 s», visto en produccion el 29-09-2026. `toFixed` no mira el
+  // idioma de nadie, y la portada ya lo hacia asi con el banco.
+  const seg = (ms) => (ms / 1000).toFixed(2).replace(".", ",");
 
   // Lo primero de todo, y antes de los quince megas del interprete: es un
   // pellizco y de el salen las huellas con las que se piden los demas.
@@ -710,9 +713,11 @@ from validador.esquema import Catalogo
 if "_c" not in globals():
     _a = Almacen.por_defecto()
     if _a.declarada:
-        _a = Almacen(_a.carpeta, 'que viene con esta pagina, ' + _a.declarada,
+        _a = Almacen(_a.carpeta, 'que viene con esta página, ' + _a.declarada,
                      _a.sellos_en)
-    _c = Catalogo.por_defecto()
+    # Lo mismo con los esquemas: sin esto, el aviso de que falta uno decia que
+    # se busca «dentro de /opt/factura-e/esquemas», el disco virtual de aqui.
+    _c = Catalogo.por_defecto(procedencia='que vienen con esta página')
 
 _lote = factura.validar_lote(list(_rutas), catalogo=_c, almacen=_a,
                              nombres=list(_nombres))

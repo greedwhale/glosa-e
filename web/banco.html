@@ -171,7 +171,7 @@ function pintar(resultados, paquete) {
       "<td>" + escapar(r.nombre) +
       (r.critica ? " <span class='critica'>crítica</span>" : "") +
       "<div class='det'>" + escapar(r.detalle) + "</div></td>" +
-      "<td class='ms'>" + r.ms + " ms</td>";
+      "<td class='ms'>" + r.ms.toFixed(1).replace(".", ",") + " ms</td>";
     cuerpo.appendChild(tr);
   }
   const fallan = resultados.filter((r) => !r.ok);

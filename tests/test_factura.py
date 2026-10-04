@@ -322,7 +322,7 @@ class TestCadaFicheroPorSuNombre:
         monkeypatch.setattr(Almacen, "por_defecto",
                             classmethod(lambda cls, *a: Almacen(tmp_path / "nada")))
         monkeypatch.setattr(Catalogo, "por_defecto",
-                            classmethod(lambda cls, *a: Catalogo(tmp_path / "nada")))
+                            classmethod(lambda cls, *a, **k: Catalogo(tmp_path / "nada")))
         espacio = {"_rutas": rutas, "_nombres": ["factura ñ.xml", "factura ç.xml"]}
         *cuerpo, ultima = informe.strip().rsplit("\n\njson.dumps", 1)
         exec(cuerpo[0], espacio)

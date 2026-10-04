@@ -6330,3 +6330,110 @@ de reglas, la frase del contenido, `mirado` (entre otras, la de la consola con
 EN 16931», la que entra como `UBL`, la versión por el CIUS, `Informe.validado` y
 la 2.0 que sube. Una prueba lee `formato.py` y no deja que una familia nueva
 salga de él sin estar en `_FAMILIAS_XML` o ser EDIFACT.
+
+## La página enseñaba su disco por dentro, y los segundos con punto
+
+Visto en producción el 29-09-2026, al comprobar las respuestas de UBL con el
+navegador de verdad. Una respuesta que declara la 2.0 salía con este aviso:
+
+> No se ha comprobado la forma: falta el esquema de este formato. El que le
+> toca se llama UBL-ApplicationResponse-2.0.xsd, y se busca dentro de
+> /opt/factura-e/esquemas.
+
+`/opt/factura-e` es donde `glosa.js` descomprime el paquete, en el disco virtual
+del navegador. Nadie puede abrir esa carpeta, y en la página no se puede añadir
+un esquema: la frase servía en consola, donde la carpeta es la de quien valida,
+y se había copiado tal cual a un sitio donde no significa nada. Y el arranque
+decía «Listo en 46.67 s»: `toFixed` escribe el punto en cualquier navegador,
+mire el idioma que mire.
+
+**Reproducido** antes de tocar nada: el bloque `INFORME` de `glosa.js`, corrido
+en CPython con `web/paquete.zip` descomprimido como lo descomprime la página,
+da la frase de arriba con la carpeta de la prueba. Las ocho pruebas nuevas
+salían en rojo, también en una copia de `main` con la prueba encima.
+
+**Lo que se hizo.** `Catalogo` tiene ahora una `procedencia`, como `Almacen` con
+las anclas, y la página la pone: el aviso dice «…y no está entre los esquemas
+que vienen con esta página». En consola no hay procedencia y sigue diciendo la
+carpeta, que es lo que hace falta para poner el esquema. Los segundos del
+arranque y los milisegundos del banco salen con coma, como ya salía el tiempo
+del banco en la portada.
+
+**Buscando dónde más pasaba**, cuatro lectores por separado (rutas en lo que
+devuelve el motor, órdenes de consola, cifras de la web y cifras del motor), y
+un quinto repasando lo que traían, fichero:línea. De la misma familia, y arreglados aquí:
+
+- **El fichero que tumba al validador** salía como «No se ha podido validar. No
+  se ha podido validar /entrada/0/factura__.xml.»: la ruta del disco virtual,
+  el nombre ya limpiado para poder escribirlo («factura ñ.xml» pasa a
+  «factura__.xml») y la frase dos veces. Ahora: «No se ha podido validar. El
+  validador ha fallado con «factura ñ.xml».», con el nombre que tiene en el
+  ordenador de quien lo soltó. Se alcanza de verdad: una Facturae con un
+  `TaxRate` de 400 nueves revienta en `facturae.py` con `InvalidOperation`.
+- **La procedencia de las anclas** decía «que viene con esta pagina», sin tilde,
+  en cada firma que llega a una autoridad de la lista. Era texto del informe
+  escrito dentro de un fichero cuyos comentarios van sin tildes, y se contagió.
+- **La explicación de `XSD-SIN-ESQUEMA`** en la página de códigos decía que el
+  aviso da la carpeta «que es lo que hace falta para arreglarlo». Ahora cuenta
+  las dos: la carpeta en consola, y en la página que no está entre los que trae.
+
+**Una revisión aparte** encontró dos huecos en las pruebas nuevas, y los dos
+se han cerrado:
+
+- **La guardia de la familia entera estaba ciega en Windows.** Buscaba la ruta
+  en el texto de `json.dumps`, que escribe cada barra invertida dos veces: en
+  la máquina donde corre el gancho que no deja empujar, la ruta no salía nunca
+  aunque estuviera. Medido emulando Windows con una carpeta que lleva `\`: con
+  el aviso de antes dentro, la prueba pasaba en verde. Ahora busca en lo que la
+  página lee, ya descodificado, y la carpeta de la prueba lleva una barra
+  invertida también en Linux, para que GitHub la ejercite.
+- **La de la coma solo miraba la definición de `seg`.** Con un
+  `total: Math.round(…) / 1000` al final del arranque, la página volvía a
+  decir «Listo en 46.672 s» con todo en verde; y un `toFixed(CIFRAS)` o un
+  `toFixed( 1 )` no los veía. Ahora exige que cada cifra del arranque pase por
+  `seg`, y la coma detrás de todo `toFixed` que no sea un cero escrito tal
+  cual, también en las subcarpetas de `web/`.
+
+**Provocado.** Catorce roturas, una a una, en una copia: la página sin
+procedencia, el aviso que dice siempre la carpeta, `por_defecto` que se come la
+procedencia, el arranque y el banco con punto, un `toFixed(1)` nuevo sin coma,
+uno con una constante y otro con espacios, el total sin `seg`, el lote que no
+pasa el nombre a la caída, la caída que vuelve a decir la ruta o la lleva en su
+mensaje, la ruta del catálogo en el «tiene» del aviso, y la procedencia sin
+tilde. Las catorce ponen en rojo la prueba que les toca. La que vigila la
+familia entera corre los ejemplos de la portada, una factura 2.0 y una
+respuesta 2.0 por el `INFORME` de la página y mira que ni la carpeta del
+paquete ni la de los ficheros soltados salgan en nada de lo que vuelve:
+mensaje, campo, «tiene», resumen o las partes.
+
+**Lo que se dejó sin hacer, y por qué.** Salió al buscar y no es de este
+arreglo; cada cosa pide una decisión o un cambio aparte:
+
+- **La revocación, en la página.** Toda firma que llega a un ancla y cuyo
+  certificado dice dónde está su lista sale con «bájala y ponla en la carpeta
+  de revocaciones»; la columna de la firma dice que hace falta esa lista, y la
+  tabla de la portada, «o la tienes instalada». En la página no hay dónde
+  ponerla. Arreglarlo es decidir qué promete la página sobre la revocación.
+- **Las cifras del motor van con punto**: unos 45 sitios, en el «debería ser»,
+  en el «tiene» y a veces en el mensaje. Es una decisión: el punto es como va
+  escrito el XML, y la coma es como se lee, y toca `sintaxis.fmt`. Al paso, con importes de tres decimales acabados en 5 el aviso se
+  contradice: una línea de 100.125 con suma declarada 100.12 da BR-CO-10
+  «Debería ser: 100.12 · Tiene: 100.12», porque `:.2f` redondea al par y la
+  regla redondea las mitades hacia arriba. Medido.
+- **Una Facturae con un `TaxRate` de 400 dígitos tumba al validador**
+  (`InvalidOperation` en `facturae.py`), y el aviso de la caída enseña el nombre
+  de la excepción de Python.
+- **Desde el 03-02-2027**, cuando venza la renovación de las anclas del
+  paquete, toda factura firmada sacará en la página «Hay que volver a montarlas
+  con python -m validador --montar-anclas», y dirá que la cadena llega aunque
+  no llegue.
+- Menores: «almacén» e «instalada» en los avisos de una firma que no llega a
+  ningún ancla, que salen hoy con el ejemplo `fe-0001.xml`; los mensajes de
+  error de `glosa.js` y los nombres de las comprobaciones del banco van sin
+  tildes; el banco dice «1247225 bytes» sin punto de miles; y
+  `XSD-ESQUEMA-ROTO` pondría la ruta del disco virtual, aunque con el paquete
+  de hoy no sale.
+
+**Sin medir:** el navegador. Esto se ha medido corriendo en CPython, con lxml
+6.1.2, el mismo bloque de Python que corre la página; en Pyodide va lxml 6.0.2. Se verá en
+producción después de fusionar.
