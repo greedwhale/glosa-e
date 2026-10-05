@@ -288,8 +288,8 @@ class TestElPaqueteDeVerdad:
             almacen=Almacen(suelto / "anclas"),
         ).alcance(forma=True, anclas=True)
         assert "esquema XSD" in con
-        assert "necesita anclas de confianza instaladas" not in con
-        assert "autoridad de confianza instalada" not in con
+        assert "sin anclas de confianza no se sabe" not in con
+        assert "lleve a un ancla de confianza" not in con
         assert "de quién es el certificado de este documento" in con
 
 

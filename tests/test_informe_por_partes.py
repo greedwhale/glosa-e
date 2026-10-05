@@ -36,7 +36,7 @@ from test_en_un_movil import _regla
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 EJEMPLOS = RAIZ / "ejemplos"
 HOY = datetime.date(2026, 9, 20)
-BANDERAS = list(product((True, False), repeat=3))   # forma, anclas, listas
+BANDERAS = list(product((True, False), repeat=2))   # forma, anclas
 
 
 def _lote(*nombres: str) -> factura.InformeLote:
@@ -72,17 +72,19 @@ def test_la_familia_es_la_misma_que_ordena_la_pagina():
 
 
 @pytest.mark.parametrize("nombre", sorted(p.name for p in EJEMPLOS.iterdir()))
-@pytest.mark.parametrize("forma,anclas,listas", BANDERAS)
-def test_ninguna_columna_dice_mas_que_la_frase(nombre, forma, anclas, listas):
+@pytest.mark.parametrize("forma,anclas", BANDERAS)
+def test_ninguna_columna_dice_mas_que_la_frase(nombre, forma, anclas):
     """Lo que dice una columna está dicho, tal cual, en la frase del final.
 
     Y la guarda más importante: «Sin errores» solo en una parte que se ha
-    mirado. Con los diez ejemplos y las ocho combinaciones de lo que puede
-    faltar —esquemas, anclas, listas—.
+    mirado. Con los diez ejemplos y las cuatro combinaciones de lo que
+    puede faltar, esquemas y anclas. Las listas de revocación eran la
+    tercera hasta el 05-10-2026: desde entonces la revocación se cuenta
+    por documento, con lo que pasó en cada uno.
     """
     lote = _lote(nombre)
-    frase = lote.alcance(forma, anclas, listas)
-    partes = lote.partes(forma, anclas, listas)
+    frase = lote.alcance(forma, anclas)
+    partes = lote.partes(forma, anclas)
     assert [p.nombre for p in partes] == list(factura.PARTES)
     for p in partes:
         if p.resultado == "Sin errores":
@@ -104,7 +106,7 @@ def test_las_cuentas_de_las_tres_suman_lo_que_hay(nombre):
         hay = sum(1 for i in todas if i.gravedad == gravedad
                   and factura.PARTE_DE_LA_FAMILIA[familia_de(i.codigo)])
         dicen = sum(
-            int(n) for p in lote.partes(True, True, False)
+            int(n) for p in lote.partes(True, True)
             for n in re.findall(rf"(\d+) {palabra}", p.resultado))
         assert dicen == hay, f"{nombre}: {dicen} {palabra}(es) contados de {hay}"
 

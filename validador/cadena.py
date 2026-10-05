@@ -758,8 +758,8 @@ def _nota_de_confianza(cadena: Cadena, almacen: Almacen, donde: str) -> Incidenc
     if len(cadena.eslabones) == 1:
         cuerpo = (
             f"El certificado que firma, «{quien}», es él mismo un ancla de "
-            "confianza: no se ha encadenado a nadie porque ya estaba en el "
-            "almacén."
+            "confianza: no se ha encadenado a nadie porque ya estaba entre "
+            "las anclas."
         )
     else:
         arriba = ancla.sujeto or "una autoridad sin nombre común"
@@ -790,10 +790,13 @@ def reglas(
     hoy=None,
     respuestas_ocsp: list | None = None,
     sello=None,
+    con_carpeta: bool = True,
 ) -> list[Incidencia]:
     """De quién es el certificado que firma, hasta donde se pueda saber.
 
     `certificados` son los del documento, el primero el que firma.
+    `con_carpeta` dice si hay una carpeta de revocaciones donde poner listas;
+    ver `revocacion.AlmacenDeListas`.
 
     La revocación se mira **después** y solo si la cadena llega: preguntar si
     está anulado un certificado que no lleva a ninguna autoridad conocida sería
@@ -806,14 +809,24 @@ def reglas(
     almacen = almacen if almacen is not None else Almacen.por_defecto()
 
     if almacen.vacio:
+        # Con procedencia, las anclas las trae la propia herramienta y quien
+        # valida no las puede poner: decirle dónde se instalan era darle la
+        # ruta del disco virtual de la página. Ahí solo faltan si el paquete
+        # no ha llegado, y lo que se puede hacer es pedirlo otra vez.
+        donde_van = (
+            "Vienen con esta página: si no han llegado, recargarla las "
+            "vuelve a pedir."
+            if almacen.procedencia
+            else f"Se instalan en «{almacen.carpeta}»."
+        )
         return [
             Incidencia(
                 "CADENA-SIN-ANCLAS",
                 AVISO,
-                "No hay anclas de confianza instaladas, así que no se ha "
-                "comprobado de quién es el certificado que firma: solo que la "
-                "firma cuadra con él. Un certificado que el remitente se haya "
-                f"inventado pasaría igual. Se instalan en «{almacen.carpeta}».",
+                "No hay anclas de confianza, así que no se ha comprobado de "
+                "quién es el certificado que firma: solo que la firma cuadra "
+                "con él. Un certificado que el remitente se haya inventado "
+                f"pasaría igual. {donde_van}",
                 campo=f"{donde}Cadena de confianza",
                 encontrado="(no hay anclas)",
             )
@@ -846,11 +859,11 @@ def reglas(
                 "CADENA-DESCONOCIDA",
                 AVISO,
                 "El certificado que firma no lleva a ninguna autoridad "
-                f"conocida: {cadena.motivo}. Puede ser que falte un certificado "
-                "en el almacén, o que no lo emitiera nadie de fiar. No es lo "
-                "mismo y desde aquí no se distingue.",
+                f"conocida: {cadena.motivo}. Puede ser que su autoridad no "
+                "esté entre las anclas de confianza, o que no lo emitiera "
+                "nadie de fiar. No es lo mismo y desde aquí no se distingue.",
                 campo=f"{donde}Cadena de confianza",
-                esperado="llegar a un ancla instalada",
+                esperado="llegar a un ancla de confianza",
                 encontrado=_describir(cadena),
             )
         )
@@ -881,6 +894,7 @@ def reglas(
             donde=donde,
             respuestas_ocsp=respuestas_ocsp,
             sello=sello,
+            con_carpeta=con_carpeta,
         )
     )
     return incidencias
@@ -925,12 +939,12 @@ def _confianza_del_sello(sello, almacen: Almacen | None, donde: str):
                 "SELLO-SIN-CONTRASTAR",
                 AVISO,
                 f"El sello de tiempo de «{quien}» cuadra, pero no hay anclas "
-                "de sellado instaladas, así que no se ha comprobado que sea "
-                "una autoridad cualificada. Un sello se puede fabricar entero, "
+                "de sellado, así que no se ha comprobado que sea una "
+                "autoridad cualificada. Un sello se puede fabricar entero, "
                 "autoridad incluida, y este pasaría igual: la fecha vale lo "
                 "que valga esa autoridad, y de eso aquí no consta nada.",
                 campo=campo,
-                esperado="una carpeta de anclas de sellado",
+                esperado="anclas de sellado con que contrastarlo",
                 encontrado="(no hay ninguna)",
             )
         ]
@@ -957,11 +971,11 @@ def _confianza_del_sello(sello, almacen: Almacen | None, donde: str):
                 "SELLO-TSA-DESCONOCIDA",
                 AVISO,
                 f"El sello de tiempo de «{quien}» cuadra, pero esa autoridad "
-                f"no llega a ninguna de las de sellado que hay instaladas: "
-                f"{detalle}. El sello es coherente; lo que no consta es que "
-                "quien lo firmó sea una autoridad de sellado cualificada.",
+                f"no llega a ninguna de las anclas de sellado: {detalle}. El "
+                "sello es coherente; lo que no consta es que quien lo firmó "
+                "sea una autoridad de sellado cualificada.",
                 campo=campo,
-                esperado="llegar a un ancla de sellado instalada",
+                esperado="llegar a un ancla de sellado",
                 encontrado=quien,
             )
         ]
@@ -970,7 +984,7 @@ def _confianza_del_sello(sello, almacen: Almacen | None, donde: str):
     como = (
         "está publicada como autoridad de sellado"
         if ancla.der == sello.firmante.der
-        else f"lleva a «{ancla.sujeto or 'un ancla instalada'}»"
+        else f"lleva a «{ancla.sujeto or 'un ancla sin nombre común'}»"
     )
     retirada = ""
     if almacen.retirada(ancla):
@@ -991,13 +1005,22 @@ def _confianza_del_sello(sello, almacen: Almacen | None, donde: str):
         )
     ]
 
-def _anclas_sin_renovar(almacen: Almacen | None, hoy) -> Incidencia | None:
+def _anclas_sin_renovar(
+    almacen: Almacen | None, hoy, llega: bool | None = True
+) -> Incidencia | None:
     """Aviso si el conjunto de anclas se quedó sin renovar.
 
     No es un error: la cadena llega, los certificados están en vigor y la
     firma es la que dice ser. Lo que no se puede afirmar es que la autoridad
     del final **siga** siendo cualificada hoy, porque eso lo dice una lista
     que debía haberse renovado y no consta que se haya renovado.
+
+    `llega` dice si alguna firma del documento ha llegado a un ancla, y `None`
+    si no se ha mirado ninguna cadena (ninguna firma se sostenía). Decía
+    siempre «la cadena de esta firma llega igual», también encima de un
+    `CADENA-DESCONOCIDA`. Cuando no llega el aviso se queda, con otro texto:
+    puede ser justo una autoridad que el Estado añadió a su lista después de
+    montar las anclas, y eso con unas anclas viejas no se distingue.
 
     Va como aviso y no como nota porque cuenta para el resumen: quien vea «2
     avisos» abre y lo lee, y quien no vea nada da por hecho que las anclas
@@ -1018,16 +1041,39 @@ def _anclas_sin_renovar(almacen: Almacen | None, hoy) -> Incidencia | None:
         if renovacion.montada
         else ""
     )
+    if llega is None:
+        cadena = (
+            "Que una autoridad estuviera cualificada entonces no dice que lo "
+            "esté hoy."
+        )
+    elif llega:
+        cadena = (
+            "La cadena de esta firma llega, pero que una autoridad estuviera "
+            "cualificada entonces no dice que lo esté hoy: si el Estado le ha "
+            "retirado la cualificación después de esa fecha, aquí se sigue "
+            "creyendo."
+        )
+    else:
+        cadena = (
+            "La cadena de esta firma no llega a ninguna, y puede ser por eso: "
+            "una autoridad que el Estado haya añadido a su lista después no "
+            "está entre estas anclas."
+        )
+    # La orden solo sirve donde se puede dar. En la página no hay consola, y
+    # el paquete lo vuelve a montar quien la mantiene; ver `CADENA-SIN-ANCLAS`
+    # para lo que quiere decir que el almacén traiga procedencia.
+    arreglo = (
+        "Las vuelve a montar quien mantiene esta página."
+        if almacen.procedencia
+        else "Hay que volver a montarlas con python -m validador --montar-anclas."
+    )
     return Incidencia(
         "ANCLAS-SIN-RENOVAR",
         AVISO,
         "Las anclas de confianza salen de una lista que decía renovarse el "
-        f"{renovacion.siguiente.isoformat()}, y de eso hace {atraso} días"
-        f"{montada}. La cadena de esta firma llega igual, pero que una "
-        "autoridad estuviera cualificada entonces no dice que lo esté hoy: si "
-        "el Estado le ha retirado la cualificación después de esa fecha, aquí "
-        "se sigue creyendo. Hay que volver a montarlas con "
-        "python -m validador --montar-anclas.",
+        f"{renovacion.siguiente.isoformat()}, y de eso hace "
+        f"{'un día' if atraso == 1 else f'{atraso} días'}{montada}. "
+        f"{cadena} {arreglo}",
         campo="Anclas de confianza",
         esperado=f"una lista renovada después del {renovacion.siguiente.isoformat()}",
         encontrado=f"la del {renovacion.publicada.isoformat()}"
@@ -1050,11 +1096,15 @@ def reglas_de_documento(
         return []
     firmas = firma.hay_firma(raiz)
     incidencias: list[Incidencia] = []
-    # Una vez por documento, no una por firma: es una propiedad del almacén,
-    # no de lo que se está mirando con él.
-    sin_renovar = _anclas_sin_renovar(almacen, hoy) if firmas else None
-    if sin_renovar is not None:
-        incidencias.append(sin_renovar)
+    # Sin carpeta, la única prueba de revocación es la que trae el documento.
+    # `None` es quien llama sin almacén de listas, como siempre: se queda con
+    # el texto de consola.
+    con_carpeta = listas is None or listas.carpeta is not None
+    # La fecha de hoy, para saber si una lista de la carpeta está vencida. Sin
+    # `--hoy` no se pasaba ninguna, y una lista vencida el 01-04-2026 daba «no
+    # consta anulado» el 05-10-2026 sin decir nada. Medido. Las listas que
+    # trae el documento no la usan: ver `revocacion.reglas`.
+    dia = hoy or date.today()
     for numero, una in enumerate(firmas, start=1):
         donde = f"Firma {numero} · " if len(firmas) > 1 else ""
         # **La puerta.** De quién es un certificado solo se dice cuando su
@@ -1085,9 +1135,22 @@ def reglas_de_documento(
                 donde=donde,
                 listas=listas.todas() if listas is not None else [],
                 listas_dentro=revocacion.listas_del_documento(una),
-                hoy=hoy,
+                hoy=dia,
                 respuestas_ocsp=ocsp.respuestas_del_documento(una),
                 sello=acreditado[1] if acreditado else None,
+                con_carpeta=con_carpeta,
             )
         )
+    # Una vez por documento, no una por firma: es una propiedad del almacén,
+    # no de lo que se está mirando con él. Va delante, como iba, pero se
+    # decide después de mirar las firmas, porque el texto cambia según llegue
+    # alguna a un ancla o no.
+    if firmas:
+        llega = any(i.codigo == NOTA_DE_CONFIANZA for i in incidencias)
+        no_llega = any(i.codigo.startswith("CADENA-") for i in incidencias)
+        sin_renovar = _anclas_sin_renovar(
+            almacen, hoy, True if llega else False if no_llega else None
+        )
+        if sin_renovar is not None:
+            incidencias.insert(0, sin_renovar)
     return incidencias

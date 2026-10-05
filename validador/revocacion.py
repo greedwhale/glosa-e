@@ -18,9 +18,11 @@ Tres formas de conseguir esa prueba, y la que no se usa
    que una firma se pueda comprobar dentro de veinte años, cuando la autoridad
    que la emitió ya no exista. Cero red, y es la única forma que sigue
    funcionando cuando la lista de entonces ya no está publicada.
-2. **Una lista instalada en una carpeta**, igual que los esquemas XSD y las
+2. **Una lista puesta en una carpeta**, igual que los esquemas XSD y las
    anclas. Se baja una vez y sirve para todas las facturas de esa autoridad
-   hasta que caduque.
+   hasta que caduque. Solo en consola: en la página no hay carpeta ni forma de
+   poner una (`AlmacenDeListas.sin_carpeta`), y lo que vale allí es lo
+   primero.
 3. **Preguntar por internet.** Aquí no se hace: **este paquete no abre ni una
    conexión**, y eso se puede comprobar con un `grep`. Lo que hace es decir qué
    lista le falta y dónde dice el propio certificado que está. Bajarla es un
@@ -117,6 +119,28 @@ __all__ = [
 
 VARIABLE_ENTORNO = "FACTURAE_REVOCACIONES"
 CARPETA_POR_DEFECTO = "revocaciones"
+
+# Los avisos que dicen que del certificado que firma **no se sabe** si está
+# anulado, o que lo que se sabe sale de una lista vencida. La frase del final
+# del informe los busca para no apuntarse la revocación de un documento que
+# los lleva.
+#
+# Hacía falta porque la frase colgaba de un solo interruptor, «¿hay alguna
+# lista en la carpeta?», que no mira lo que pasó con cada documento. Medido el
+# 05-10-2026 con el Python de la página: «No se comprueba si el certificado
+# está anulado (hace falta la lista de revocación de su autoridad)» salía
+# pegado a un REVOCADO sacado de la lista que traía la propia factura, y en
+# consola una lista de otra autoridad bastaba para prometer la revocación de
+# todas.
+#
+# La vieja entra aunque pueda hablar de un certificado de más arriba: es un
+# aviso de que la prueba no vale lo que parece, y ante la duda la frase calla.
+SIN_CONTESTAR = frozenset({
+    "REVOCACION-SIN-COMPROBAR",
+    "REVOCACION-SOLO-OCSP",
+    "REVOCACION-OCSP-NO-VALE",
+    "REVOCACION-LISTA-VIEJA",
+})
 
 _EXTENSIONES = (".crl", ".der", ".pem")
 _PEM = re.compile(rb"-----BEGIN X509 CRL-----(.*?)-----END X509 CRL-----", re.S)
@@ -449,14 +473,22 @@ def donde_esta_el_ocsp(cert: Certificado) -> list[str]:
 
 @dataclass
 class AlmacenDeListas:
-    """Las listas de revocación instaladas, indexadas por quién las firma."""
+    """Las listas de revocación puestas en una carpeta, por quién las firma.
 
-    carpeta: Path
+    `carpeta` es `None` cuando no hay carpeta ninguna: en la página, donde
+    quien valida no puede poner una lista. Es distinto de una carpeta vacía, y
+    cambia lo que dice el aviso: con carpeta se dice dónde está la lista que
+    falta, para que la baje quien quiera; sin ella, mandar a ponerla en una
+    carpeta era pedir algo imposible. Visto en la página el 05-10-2026: «bájala
+    y ponla en la carpeta de revocaciones», en una página que no tiene carpeta.
+    """
+
+    carpeta: Path | None
     _por_emisor: dict[bytes, list[Lista]] | None = field(default=None, repr=False)
     _ilegibles: list[tuple[Path, str]] = field(default_factory=list, repr=False)
 
     def __post_init__(self) -> None:
-        if not isinstance(self.carpeta, Path):
+        if self.carpeta is not None and not isinstance(self.carpeta, Path):
             self.carpeta = Path(self.carpeta)
 
     @classmethod
@@ -465,12 +497,17 @@ class AlmacenDeListas:
             carpeta = os.environ.get(VARIABLE_ENTORNO) or CARPETA_POR_DEFECTO
         return cls(Path(carpeta))
 
+    @classmethod
+    def sin_carpeta(cls) -> AlmacenDeListas:
+        """Ninguna lista y ningún sitio donde ponerla. Ver la clase."""
+        return cls(None)
+
     @property
     def por_emisor(self) -> dict[bytes, list[Lista]]:
         if self._por_emisor is None:
             encontradas: dict[bytes, list[Lista]] = {}
             self._ilegibles = []
-            if self.carpeta.is_dir():
+            if self.carpeta is not None and self.carpeta.is_dir():
                 for ruta in sorted(self.carpeta.rglob("*")):
                     if ruta.suffix.lower() not in _EXTENSIONES or not ruta.is_file():
                         continue
@@ -656,13 +693,17 @@ def comprobar(
                 return Veredicto("anulado", lista=otra, anulacion=anulacion)
         return Veredicto("sin_saber", lista=mejor, motivo=parcial)
     if cuando is not None and mejor.desde is not None and mejor.desde < cuando:
+        # Con el rato y no con las dos fechas: lo corriente es bajar la lista
+        # al firmar, y entonces las dos caen el mismo día. Salía «la lista es
+        # del 2026-03-02 y la firma dice ser del 2026-03-02: se publicó
+        # antes», que se lee como una contradicción.
         return Veredicto(
             "sin_saber",
             lista=mejor,
             motivo=(
-                f"la lista es del {mejor.desde.date().isoformat()} y la firma "
-                f"dice ser del {cuando.date().isoformat()}: se publicó antes, "
-                "así que no pudo enterarse de una anulación posterior"
+                f"la lista se publicó el {mejor.desde.date().isoformat()}, "
+                f"{_cuanto(cuando - mejor.desde)} antes de la fecha de la "
+                "firma, así que no pudo enterarse de una anulación posterior"
             ),
         )
     return Veredicto("vigente", lista=mejor)
@@ -856,9 +897,14 @@ def _quien(cert: Certificado, primero: bool) -> str:
     return f"«{cert.sujeto or 'un certificado de la cadena'}», que está por encima"
 
 
-def _donde_buscarla(cert: Certificado) -> str:
-    """La frase que dice qué hacer, que es la parte accionable del aviso."""
-    listas = donde_esta_la_lista(cert)
+def _donde_buscarla(cert: Certificado, con_carpeta: bool) -> str:
+    """La frase que dice qué hacer, que es la parte accionable del aviso.
+
+    Solo donde hay una carpeta en la que ponerla. Sin carpeta no hay nada que
+    hacer con la dirección, y decirla invitaba a bajar algo que la página no
+    tiene dónde usar.
+    """
+    listas = donde_esta_la_lista(cert) if con_carpeta else []
     if listas:
         return (
             f" El propio certificado dice que su lista está en {listas[0]}; "
@@ -984,6 +1030,7 @@ def reglas(
     donde: str = "",
     respuestas_ocsp: list | None = None,
     sello=None,
+    con_carpeta: bool = True,
 ) -> list[Incidencia]:
     """¿Anularon alguno de los certificados de esta cadena?
 
@@ -998,6 +1045,9 @@ def reglas(
     el documento— y las respuestas OCSP que trae el documento. Se consultan las
     dos siempre, se contrastan en `_juntar`, y lo que decide se dice en el
     informe con su nombre.
+
+    `con_carpeta` dice si quien valida puede poner listas en una carpeta. En la
+    página no puede, y el aviso no le manda a hacerlo. Ver `AlmacenDeListas`.
     """
     if len(eslabones) < 2:
         return []
@@ -1009,6 +1059,7 @@ def reglas(
     # consta anulado» sin decir según qué lista y de qué día no es una
     # respuesta: es un tic verde con más letras.
     limpios = 0
+    firmante_limpio = False
     usadas: list[Lista] = []
     usados: list[PruebaOcsp] = []
 
@@ -1028,6 +1079,7 @@ def reglas(
         if veredicto.estado == "vigente":
             lista = veredicto.lista
             limpios += 1
+            firmante_limpio = firmante_limpio or primero
             if lista is not None and not any(o is lista for o in usadas):
                 usadas.append(lista)
             prueba = veredicto.ocsp
@@ -1040,7 +1092,17 @@ def reglas(
             # que ser posterior a la firma, y lo que prueba de aquel momento no
             # caduca. Que su `nextUpdate` pasara hace años es lo normal en un
             # documento archivado, y decirlo en cada factura vieja sería ruido.
-            if lista and lista.hasta and hoy is not None and lista.hasta.date() < hoy:
+            #
+            # **Y lo mismo una lista que traiga el documento dentro**, por la
+            # misma razón: si sirvió para contestar, es que se publicó después
+            # de la firma, y lo que dice de aquel momento no caduca. Medido el
+            # 05-10-2026 pasando la fecha de hoy: toda factura archivada con su
+            # lista dentro salía con «la lista venció el …» al lado del «no
+            # consta anulado». La fecha de hoy se aplica a las listas de la
+            # carpeta, que son las que alguien bajó un día y pueden quedarse
+            # viejas sin que nadie lo note.
+            de_fuera = lista is not None and not any(lista is una for una in dentro)
+            if de_fuera and lista.hasta and hoy is not None and lista.hasta.date() < hoy:
                 incidencias.append(
                     Incidencia(
                         "REVOCACION-LISTA-VIEJA",
@@ -1064,15 +1126,23 @@ def reglas(
         if ya_dicho or not primero:
             continue
         ya_dicho = True
-        incidencias.append(_no_se_sabe(hijo, veredicto, donde, respuestas))
+        incidencias.append(
+            _no_se_sabe(hijo, veredicto, donde, respuestas, con_carpeta)
+        )
 
     if limpios:
-        incidencias.append(_nota_de_limpieza(limpios, usadas, usados, donde))
+        incidencias.append(
+            _nota_de_limpieza(limpios, usadas, usados, donde, firmante_limpio)
+        )
     return incidencias
 
 
 def _nota_de_limpieza(
-    cuantos: int, usadas: list[Lista], usados: list[PruebaOcsp], donde: str
+    cuantos: int,
+    usadas: list[Lista],
+    usados: list[PruebaOcsp],
+    donde: str,
+    con_el_firmante: bool = True,
 ) -> Incidencia:
     """Declarar contra qué se ha contrastado, cuando no consta anulado.
 
@@ -1085,7 +1155,18 @@ def _nota_de_limpieza(
     publicó, y la respuesta por el estado de un certificado concreto en la hora
     en que se miró. Meter las dos en la misma frase escondería justo el dato
     que hace falta para juzgar el «no consta anulado».
+
+    `con_el_firmante` dice si entre los comprobados está el que firma. Con una
+    lista de la raíz y ninguna de la autoridad que emitió el certificado, la
+    nota decía «no consta anulado ningún certificado de la cadena» al lado del
+    aviso de que el que firma no se había comprobado: prometía justo el que
+    falta. Medido el 05-10-2026.
     """
+    de_cuales = (
+        "ningún certificado de la cadena"
+        if con_el_firmante
+        else "ninguno de los certificados que están por encima del que firma"
+    )
     detalles = []
     for lista in usadas:
         cuando = lista.desde.date().isoformat() if lista.desde else "fecha ilegible"
@@ -1101,7 +1182,7 @@ def _nota_de_limpieza(
         return Incidencia(
             "CONFIANZA-REVOCACION",
             NOTA,
-            f"No consta anulado ningún certificado de la cadena: {contados} "
+            f"No consta anulado {de_cuales}: {contados} "
             f"contra la lista de {cuales}. Una lista solo responde por lo que se "
             "sabía el día que se publicó.",
             campo=f"{donde}Revocación",
@@ -1131,7 +1212,7 @@ def _nota_de_limpieza(
     return Incidencia(
         "CONFIANZA-REVOCACION",
         NOTA,
-        f"No consta anulado ningún certificado de la cadena: {contados} "
+        f"No consta anulado {de_cuales}: {contados} "
         f"contra {'; '.join(pruebas)}. Una respuesta OCSP dice cómo estaba el "
         "certificado el día y la hora en que se miró, no cómo está hoy.",
         campo=f"{donde}Revocación",
@@ -1139,9 +1220,31 @@ def _nota_de_limpieza(
 
 
 def _no_se_sabe(
-    cert: Certificado, veredicto: Veredicto, donde: str, respuestas: list
+    cert: Certificado,
+    veredicto: Veredicto,
+    donde: str,
+    respuestas: list,
+    con_carpeta: bool = True,
 ) -> Incidencia:
+    """El aviso de que no se sabe, con lo que de verdad ha pasado.
+
+    Sin carpeta, la única prueba que puede valer es la que trae el documento,
+    así que el aviso dice qué traía y por qué no ha servido, y no manda a
+    ninguna parte. Son tres casos, y cada uno lleva ya su motivo: que no
+    traía la lista de esa autoridad ni una respuesta OCSP, que la traía pero
+    es anterior a la firma, o que el respondedor contestó «unknown».
+    """
     servicio = donde_esta_el_ocsp(cert)
+    motivo = veredicto.motivo
+    if not con_carpeta and veredicto.lista is None and not respuestas:
+        # «No hay ninguna lista de esa autoridad» es cierto en consola, donde
+        # puede haberla en la carpeta. Aquí solo puede venir dentro, y
+        # decirlo así es lo que deja entender que no hay nada que hacer.
+        motivo = (
+            "el documento no trae dentro la lista de revocación de la "
+            "autoridad que emitió el certificado, ni una respuesta OCSP, y "
+            "aquí no se sale a buscarlas"
+        )
     if respuestas:
         # El documento traía respuestas y ninguna ha servido. Salir con «no
         # tenemos ninguna lista de esa autoridad» sería falso por omisión: sí
@@ -1157,7 +1260,7 @@ def _no_se_sabe(
             AVISO,
             f"El documento trae dentro {cual}, y con {con_ella} no se ha podido "
             f"comprobar si el certificado estaba anulado: "
-            f"{veredicto.motivo}.{_donde_buscarla(cert)}",
+            f"{motivo}.{_donde_buscarla(cert, con_carpeta)}",
             campo=f"{donde}Revocación",
             esperado="una respuesta OCSP verificable, o una lista de revocación (CRL)",
             encontrado=veredicto.motivo,
@@ -1173,15 +1276,20 @@ def _no_se_sabe(
             "está mirando y cuándo. Esa consulta no se hace desde aquí: quien "
             "quiera hacerla, que la haga sabiendo lo que cuenta.",
             campo=f"{donde}Revocación",
-            esperado="una lista de revocación (CRL)",
+            esperado="una lista de revocación (CRL)"
+            if con_carpeta
+            else "una respuesta OCSP dentro del documento, posterior a la firma",
             encontrado="la autoridad solo ofrece OCSP",
         )
     return Incidencia(
         "REVOCACION-SIN-COMPROBAR",
         AVISO,
         f"No se ha comprobado si el certificado está anulado: "
-        f"{veredicto.motivo}.{_donde_buscarla(cert)}",
+        f"{motivo}.{_donde_buscarla(cert, con_carpeta)}",
         campo=f"{donde}Revocación",
-        esperado="una lista de revocación de esa autoridad",
-        encontrado=veredicto.motivo,
+        esperado="una lista de revocación de esa autoridad"
+        if con_carpeta
+        else "la lista de esa autoridad, o una respuesta OCSP, dentro del "
+        "documento y posterior a la firma",
+        encontrado=motivo,
     )

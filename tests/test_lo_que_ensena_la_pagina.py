@@ -81,7 +81,7 @@ def la_pagina(tmp_path, monkeypatch):
             # Como `validar()` de glosa.js: cada uno en su carpeta, con el
             # nombre limpiado para poder escribirlo, y al lado el de verdad.
             carpeta = base / "entrada" / str(orden)
-            carpeta.mkdir(parents=True)
+            carpeta.mkdir(parents=True, exist_ok=True)
             limpio = re.sub(r"[^\w.\-]", "_", nombre, flags=re.ASCII)
             camino = carpeta / limpio
             if isinstance(contenido, str):
@@ -273,6 +273,147 @@ class TestConComa:
         banco = (RAIZ / "web" / "banco.html").read_text(encoding="utf-8")
         assert 'r.ms.toFixed(1).replace(".", ",") + " ms' in banco
         assert "r.ms + " not in banco
+
+
+# --- La revocación, y lo que no se puede hacer en la página -----------------
+#
+# Visto el 05-10-2026 con este mismo Python y una autoridad de prueba de ancla:
+# el aviso de la revocación mandaba a «bájala y ponla en la carpeta de
+# revocaciones», la columna de la firma decía «hace falta la lista de
+# revocación de su autoridad» hasta al lado de un REVOCADO sacado de la lista
+# que traía la factura, y la frase prometía «una autoridad de confianza
+# instalada». En la página no hay carpeta, no se instala nada y no hay consola.
+
+# Lo que la página no puede pedir ni decir, en minúsculas. «instalad» caza
+# instalada, instaladas e instalado.
+NO_SE_PUEDE_AQUI = (
+    "almacén", "instalad", "python -m", "--montar", "carpeta de revocaciones",
+    "bájala", "ponla en",
+)
+
+
+def _sin_lo_que_no_se_puede(salida: str) -> None:
+    dichos = [
+        (palabra, texto)
+        for texto in _cadenas(json.loads(salida))
+        for palabra in NO_SE_PUEDE_AQUI
+        if palabra in texto.lower()
+    ]
+    assert not dichos, f"la página pide lo que no se puede hacer en ella: {dichos}"
+
+
+@pytest.fixture
+def con_anclas_de_prueba(la_pagina):
+    """La página con la raíz y la intermedia de `test_cadena` entre sus anclas.
+
+    Ninguna factura de muestra llega hoy a un ancla del paquete, así que sin
+    esto la revocación no se mira nunca y no hay nada que ver.
+    """
+    from test_cadena import intermedia, raiz
+
+    anclas = la_pagina.carpeta / "opt" / "factura-e" / "anclas"
+    (anclas / "zz-raiz-de-prueba.cer").write_bytes(raiz())
+    (anclas / "zz-intermedia-de-prueba.cer").write_bytes(intermedia())
+    return la_pagina
+
+
+def _firmada_con_su_lista_en(url: str) -> bytes:
+    from test_cadena import HOJA, HOY, hoja
+    from test_firma import documento
+    from test_revocacion import _puntos
+
+    return documento(
+        cert=hoja(extensiones=_puntos(url)),
+        modulo=HOJA[0],
+        privada=HOJA[1],
+        firmado_el=HOY,
+    )
+
+
+def _la_firma(salida: str) -> dict:
+    return {p["nombre"]: p for p in json.loads(salida)["partes"]}["La firma"]
+
+
+class TestLaRevocacionEnLaPagina:
+    def test_sin_prueba_dentro_no_manda_a_ninguna_carpeta(self, con_anclas_de_prueba):
+        salida = con_anclas_de_prueba(
+            {"f.xml": _firmada_con_su_lista_en("http://pki.ejemplo.es/ca.crl")}
+        )
+        [aviso] = _incidencias(salida, "REVOCACION-SIN-COMPROBAR")
+        assert "http://pki.ejemplo.es/ca.crl" not in aviso["mensaje"]
+        assert "no trae dentro la lista de revocación" in aviso["mensaje"]
+        firma = _la_firma(salida)
+        assert "si está anulado el certificado de este documento" in firma["sin_mirar"]
+        assert "hace falta la lista" not in salida
+        _sin_lo_que_no_se_puede(salida)
+
+    def test_con_la_lista_dentro_se_apunta_la_revocacion(self, con_anclas_de_prueba):
+        from datetime import timedelta
+
+        from test_cadena import HOY
+        from test_revocacion import con_lista_dentro, lista
+
+        firmada = _firmada_con_su_lista_en("http://pki.ejemplo.es/ca.crl")
+        datos = con_lista_dentro(firmada, lista(desde=HOY + timedelta(hours=1)))
+        salida = con_anclas_de_prueba({"f.xml": datos})
+        assert _incidencias(salida, "CONFIANZA-REVOCACION")
+        assert not _incidencias(salida, "REVOCACION-LISTA-VIEJA")
+        firma = _la_firma(salida)
+        assert "que no lo hayan anulado" in firma["mirado"]
+        assert "si está anulado el certificado" not in firma["sin_mirar"]
+        _sin_lo_que_no_se_puede(salida)
+
+    def test_con_un_revocado_no_dice_que_falte_la_lista(self, con_anclas_de_prueba):
+        from datetime import timedelta
+
+        from test_cadena import HOY
+        from test_revocacion import HOJA_SERIE, _linea, con_lista_dentro, lista
+
+        anulada = lista(
+            desde=HOY + timedelta(hours=1),
+            lineas=[_linea(HOJA_SERIE, HOY - timedelta(days=3))],
+        )
+        firmada = _firmada_con_su_lista_en("http://pki.ejemplo.es/ca.crl")
+        salida = con_anclas_de_prueba({"f.xml": con_lista_dentro(firmada, anulada)})
+        assert _incidencias(salida, "REVOCADO")
+        firma = _la_firma(salida)
+        assert "si está anulado el certificado" not in firma["sin_mirar"]
+        assert "hace falta la lista" not in salida
+        _sin_lo_que_no_se_puede(salida)
+
+
+def test_la_portada_no_promete_la_revocacion_instalada():
+    """«si el documento trae la prueba o la tienes instalada», y en la página no
+    se puede instalar nada. Lo mismo en la pregunta de por qué no lo sabe."""
+    portada = " ".join((RAIZ / "web" / "index.html").read_text(encoding="utf-8").split())
+    assert "tienes instalada" not in portada
+    assert "si hay lista" not in portada
+
+
+def test_nada_de_lo_que_recibe_la_pagina_pide_instalar(la_pagina, monkeypatch):
+    """Ni almacén, ni instalar, ni órdenes de consola, con lo que trae la portada.
+
+    `fe-0001.xml` salía con «Puede ser que falte un certificado en el almacén».
+    Y con el paquete sin llegar, la queja de las anclas decía dónde se
+    instalan, que en la página es una carpeta de su disco virtual.
+    """
+    ficheros = {
+        camino.name: camino.read_bytes()
+        for camino in sorted((RAIZ / "ejemplos").iterdir())
+        if camino.suffix in (".xml", ".edi")
+    }
+    _sin_lo_que_no_se_puede(la_pagina(ficheros))
+    # El paquete que no llega: las variables que pone `traerPaquete` apuntan a
+    # carpetas vacías, y la página arma su almacén igual.
+    vacia = la_pagina.carpeta / "vacia"
+    vacia.mkdir()
+    for variable in ("FACTURAE_ESQUEMAS", "FACTURAE_ANCLAS", "FACTURAE_ANCLAS_SELLOS"):
+        monkeypatch.setenv(variable, str(vacia))
+    salida = la_pagina({"fe-0001.xml": (RAIZ / "ejemplos" / "fe-0001.xml").read_bytes()})
+    [sin_anclas] = _incidencias(salida, "CADENA-SIN-ANCLAS")
+    assert "recargarla las vuelve a pedir" in sin_anclas["mensaje"]
+    _sin_lo_que_no_se_puede(salida)
+    _sin_la_carpeta(salida, la_pagina.carpeta)
 
 
 def test_la_procedencia_de_la_pagina_lleva_tilde(la_pagina):

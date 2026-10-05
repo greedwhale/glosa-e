@@ -1197,16 +1197,16 @@ class TestLaFraseNoPrometeQueLaCadenaLlegue:
     el aviso de encima negaba.
     """
 
-    PROMESA = "que ese certificado lleve a una autoridad de confianza instalada"
+    PROMESA = "que ese certificado lleve a un ancla de confianza"
 
-    def _alcance(self, tmp_path, *documentos, listas=False):
+    def _alcance(self, tmp_path, *documentos):
         almacen = con_ancla(tmp_path)
         rutas = []
         for numero, datos in enumerate(documentos):
             rutas.append(tmp_path / f"{numero}.xml")
             rutas[-1].write_bytes(datos)
         lote = factura.validar_lote(rutas, hoy=HOY.date(), almacen=almacen)
-        return lote.alcance(anclas=True, listas=listas)
+        return lote.alcance(anclas=True)
 
     def _ajena(self):
         # La misma clave con otro nombre: la firma cuadra, y la cadena no llega
@@ -1225,7 +1225,7 @@ class TestLaFraseNoPrometeQueLaCadenaLlegue:
 
     def test_ni_promete_mirar_la_revocacion_de_lo_que_no_llega(self, tmp_path):
         # La revocación solo se mira sobre una cadena que llega.
-        alcance = self._alcance(tmp_path, self._ajena(), listas=True)
+        alcance = self._alcance(tmp_path, self._ajena())
         assert "que no lo hayan anulado" not in alcance
 
     def test_con_una_de_cada_dice_las_dos_cosas(self, tmp_path):

@@ -193,10 +193,13 @@ def test_la_portada_no_promete_la_revocacion_a_secas():
         "una: si se ha reescrito, este guardián está ciego")
     dice = celdas[0]
     if "revocación" in dice:
-        assert "si hay lista" in dice, (
+        # Decía «si hay lista», y en la página no hay dónde ponerla: desde el
+        # 05-10-2026 la condición es la que de verdad vale allí.
+        assert "si trae la prueba" in dice, (
             f"la ficha promete «{dice}» sin decir de qué depende la "
             "revocación. No siempre se puede comprobar: hace falta una CRL o "
-            "una respuesta OCSP, y de aquí no se sale a buscarlas.")
+            "una respuesta OCSP dentro de la factura, y de aquí no se sale a "
+            "buscarlas.")
 
 
 def test_el_testigo_cuenta_lo_que_ha_ido_por_la_red():

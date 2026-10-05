@@ -98,8 +98,8 @@ FAMILIAS: dict[str, str] = {
     ),
     "CADENA": (
         "De quién es el certificado que firma. Se sigue la cadena hacia arriba "
-        "hasta un ancla de confianza instalada. Que la firma cuadre no dice "
-        "nada de quién la hizo: eso lo dice la cadena."
+        "hasta un ancla de confianza. Que la firma cuadre no dice nada de "
+        "quién la hizo: eso lo dice la cadena."
     ),
     "REVOCACION": (
         "Si anularon el certificado antes de firmar con él. Es la única "
@@ -171,10 +171,13 @@ CODIGOS: dict[str, str] = {
         "existía. Es el mismo hecho con dos valores distintos de prueba."
     ),
     "REVOCACION-SIN-COMPROBAR": (
-        "No se ha podido saber si está anulado, y se dice cuál es la lista que "
-        "falta y dónde dice el propio certificado que está. Este validador no "
-        "sale a la red a buscarla: bajarla es un acto explícito de quien usa "
-        "la herramienta."
+        "No se ha podido saber si está anulado, y se dice por qué: el "
+        "documento no trae dentro la lista de su autoridad ni una respuesta "
+        "OCSP, o la que trae se publicó antes de la firma y no pudo enterarse "
+        "de una anulación posterior. Este validador no sale a la red a "
+        "buscarla. En la página la única prueba que vale es la que trae el "
+        "documento; en consola vale también una lista puesta en la carpeta "
+        "de revocaciones, y el aviso dice dónde dice el certificado que está."
     ),
     "REVOCACION-SOLO-OCSP": (
         "La autoridad no publica lista de revocación, solo un servicio de "
@@ -195,9 +198,10 @@ CODIGOS: dict[str, str] = {
         "lista caducada no es lo mismo que estar vigente."
     ),
     "CONFIANZA-REVOCACION": (
-        "Nota: no consta anulado ningún certificado de la cadena, y se declara "
-        "contra qué se ha comprobado (qué lista o qué respuesta OCSP, de quién "
-        "y de qué día). Una prueba solo responde por el momento en que se hizo."
+        "Nota: no consta anulado ninguno de los certificados que se han "
+        "podido comprobar, y se declara contra qué (qué lista o qué respuesta "
+        "OCSP, de quién y de qué día). Si el que firma no está entre ellos, la "
+        "nota lo dice. Una prueba solo responde por el momento en que se hizo."
     ),
     "CONFIANZA-ANCLA": (
         "Nota: a qué autoridad llega la cadena, por qué se cree a esa "
@@ -206,8 +210,8 @@ CODIGOS: dict[str, str] = {
     ),
     "CADENA-DESCONOCIDA": (
         "El certificado no lleva a ninguna autoridad conocida. Puede ser que "
-        "falte un certificado intermedio o que no lo emitiera nadie de fiar: "
-        "no es lo mismo, y desde aquí no se distingue."
+        "su autoridad no esté entre las anclas de confianza o que no lo "
+        "emitiera nadie de fiar: no es lo mismo, y desde aquí no se distingue."
     ),
     "CADENA-RETIRADA": (
         "La cadena llega a una autoridad que ya no era cualificada cuando se "
@@ -219,9 +223,10 @@ CODIGOS: dict[str, str] = {
         "hizo quien dice, o quien lo emitió no era una autoridad."
     ),
     "CADENA-SIN-ANCLAS": (
-        "No hay anclas de confianza instaladas, así que solo se ha comprobado "
-        "que la firma cuadra con su certificado. Un certificado que el "
-        "remitente se haya inventado pasaría igual."
+        "No hay anclas de confianza, así que solo se ha comprobado que la "
+        "firma cuadra con su certificado. Un certificado que el remitente se "
+        "haya inventado pasaría igual. En la página las anclas vienen con "
+        "ella, y faltan solo si no han llegado: recargarla las vuelve a pedir."
     ),
     "BR-01": (
         'El campo donde la factura declara a qué especificación se ajusta: el '
@@ -782,7 +787,7 @@ CODIGOS: dict[str, str] = {
         'Quién acredita la fecha, y por qué se le cree. Un sello de tiempo se '
         'puede fabricar entero, autoridad incluida, así que comprobar que '
         'cuadra no basta: hace falta que el certificado de quien selló llegue '
-        'a una de las anclas de sellado instaladas, y esas anclas salen de la '
+        'a una de las anclas de sellado, y esas anclas salen de la '
         'lista de confianza del Estado. Esta nota dice a cuál llega y de qué '
         'lista viene, que es lo que permite juzgar cuánto vale la fecha. '
         'Cuando la autoridad dejó de ser cualificada después de sellar, '
@@ -1383,7 +1388,7 @@ CODIGOS: dict[str, str] = {
         'firma y la que sella casi nunca hay dos relojes iguales.'
     ),
     "SELLO-SIN-CONTRASTAR": (
-        'El sello cuadra y no hay anclas de sellado instaladas con las que '
+        'El sello cuadra y no hay anclas de sellado con las que '
         'contrastar quién lo puso. Importa más de lo que suena, porque un '
         'sello se puede fabricar entero, autoridad incluida, y uno fabricado '
         'pasaría esta parte igual que uno bueno: lo que distingue a los dos '
@@ -1394,11 +1399,11 @@ CODIGOS: dict[str, str] = {
     ),
     "SELLO-TSA-DESCONOCIDA": (
         'El sello cuadra, pero la autoridad que lo puso no llega a ninguna de '
-        'las de sellado instaladas. El sello es coherente consigo mismo; lo '
+        'las anclas de sellado. El sello es coherente consigo mismo; lo '
         'que no consta es que quien lo firmó sea una autoridad de sellado '
         'cualificada. El informe dice hasta dónde llega la cadena y en qué '
         'certificado se queda, que es lo que permite distinguir los dos casos '
-        'de detrás: una autoridad legítima cuyo ancla no está instalada, y '
+        'de detrás: una autoridad legítima cuyo ancla no está entre ellas, y '
         'una que no es autoridad de nada. Cuando lo que pasa es que el ancla '
         'estaba retirada, se dice con esas palabras y no con la jerga de '
         'dentro.'
@@ -3556,9 +3561,11 @@ CODIGOS: dict[str, str] = {
         "identificadores y no con su domicilio."
     ),
     "ANCLAS-SIN-RENOVAR": (
-        "Las anclas salen de una lista que decía renovarse antes de hoy. La "
-        "cadena llega igual, pero que una autoridad estuviera cualificada "
-        "entonces no dice que lo esté ahora."
+        "Las anclas salen de una lista que decía renovarse antes de hoy. Que "
+        "una autoridad estuviera cualificada entonces no dice que lo esté "
+        "ahora, y una que el Estado haya añadido después no está entre ellas. "
+        "En consola se vuelven a montar con una orden; las de la página las "
+        "vuelve a montar quien la mantiene."
     ),
 }
 

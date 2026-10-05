@@ -38,6 +38,7 @@ from validador import (
     facturae,
     firma,
     normas,
+    revocacion,
     sellos,
     sintaxis,
     solucion_publica,
@@ -613,6 +614,39 @@ class InformeLote:
         """Documentos con alguna firma verificada que no llega a ningún ancla."""
         return sum(1 for _, informe in self.informes if self._llegan(informe) is False)
 
+    def _anulado_contestado(self, informe: Informe) -> bool | None:
+        """¿Se sabe si estaba anulado el certificado que firma? `None` si no viene a cuento.
+
+        Solo viene a cuento cuando las firmas llegan a un ancla: antes de eso
+        no se mira la revocación. Y se sabe cuando ninguna de ellas lleva un
+        aviso de `revocacion.SIN_CONTESTAR`, que salen justo cuando del que
+        firma no se ha podido saber nada, o solo con una lista vencida.
+
+        No vale contar la nota de «no consta anulado», que también sale con
+        una lista de la raíz sola y el aviso del que firma al lado. Y no vale
+        lo que hacía la frase antes de esto: preguntar si había alguna lista en
+        la carpeta, que no mira lo que pasó con cada documento.
+        """
+        if self._llegan(informe) is not True:
+            return None
+        return not any(
+            i.codigo in revocacion.SIN_CONTESTAR for i in informe.incidencias
+        )
+
+    @property
+    def con_revocacion_contestada(self) -> int:
+        return sum(
+            1 for _, informe in self.informes
+            if self._anulado_contestado(informe) is True
+        )
+
+    @property
+    def con_revocacion_sin_contestar(self) -> int:
+        return sum(
+            1 for _, informe in self.informes
+            if self._anulado_contestado(informe) is False
+        )
+
     def _familias(self) -> set[str]:
         return {
             informe.deteccion.familia
@@ -621,7 +655,7 @@ class InformeLote:
         }
 
     def _alcance_por_partes(
-        self, forma: bool, anclas: bool, listas: bool
+        self, forma: bool, anclas: bool
     ) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
         """Lo que se ha mirado y lo que no, repartido entre las tres partes.
 
@@ -709,27 +743,33 @@ class InformeLote:
                     # aviso y deja el veredicto en «sin errores»: la frase
                     # prometía justo lo que el aviso de encima negaba.
                     if self.con_cadena_que_llega:
+                        # «Instalada» no: en la página las anclas vienen con
+                        # ella y nadie ha instalado nada. De dónde salen lo
+                        # dice la nota de cada firma, con su huella.
                         de_la_firma.append(
-                            "que ese certificado lleve a una autoridad de "
-                            "confianza instalada"
+                            "que ese certificado lleve a un ancla de confianza "
+                            "(la nota de cada firma dice de dónde sale)"
                         )
-                        if listas:
+                        # Por documento, como la cadena: con la prueba que
+                        # trae cada uno o con la carpeta, y solo si contestó
+                        # por el que firma. Ver `_anulado_contestado`.
+                        if self.con_revocacion_contestada:
                             de_la_firma.append(
-                                "que no lo hayan anulado, según las listas de "
-                                "revocación instaladas"
+                                "que no lo hayan anulado, con la prueba de "
+                                "revocación que cita cada documento"
                             )
                             # Lo que queda no es un defecto del validador:
-                            # ninguna lista sabe lo que pasó después de
-                            # publicarse.
+                            # ninguna prueba sabe lo que pasó después.
                             sin_la_firma.append(
-                                "si lo anularon después de la última lista que "
-                                "tengas"
+                                "si lo anularon después de la fecha de esa "
+                                "prueba"
                             )
-                        else:
-                            sin_la_firma.append(
-                                "si el certificado está anulado (hace falta la "
-                                "lista de revocación de su autoridad)"
+                        sin_la_firma.extend(
+                            self._de_cuantos(
+                                self.con_revocacion_sin_contestar,
+                                "si está anulado el certificado",
                             )
+                        )
                     sin_la_firma.extend(
                         self._de_cuantos(
                             self.con_cadena_que_no_llega,
@@ -738,11 +778,15 @@ class InformeLote:
                     )
                 else:
                     # Decir «firma comprobada» a secas dejaría creer que también
-                    # se sabe de quién es, que es la mitad que más importa.
+                    # se sabe de quién es, que es la mitad que más importa. Y
+                    # la revocación no es cosa de salir a la red, como decía:
+                    # sin saber a qué autoridad llega no hay a quién creerle
+                    # una lista, venga de donde venga.
                     sin_la_firma.append(
-                        "de quién es el certificado ni si está revocado (lo "
-                        "primero necesita anclas de confianza instaladas, lo "
-                        "segundo salir a la red)"
+                        "de quién es el certificado ni si está anulado (sin "
+                        "anclas de confianza no se sabe a qué autoridad llega, "
+                        "y sin eso no se puede creer ninguna prueba de "
+                        "revocación)"
                     )
             # El porqué no se repite aquí: son cuatro motivos distintos y cada
             # documento lleva el suyo escrito en su aviso. Esta frase solo
@@ -786,14 +830,11 @@ class InformeLote:
             and informe.deteccion.familia == RESPUESTA
         )
 
-    def alcance(
-        self, forma: bool = True, anclas: bool = False, listas: bool = False
-    ) -> str:
+    def alcance(self, forma: bool = True, anclas: bool = False) -> str:
         """Qué se ha mirado, dicho una vez y al final del informe.
 
-        `forma` dice si había esquemas XSD con los que comprobarla, `anclas`
-        si había anclas de confianza y `listas` si había listas de
-        revocación instaladas. Sin este
+        `forma` dice si había esquemas XSD con los que comprobarla y `anclas`
+        si había anclas de confianza. Sin este
         dato la frase decía «se ha comprobado la forma contra el esquema XSD»
         justo encima del recordatorio de que no hay esquemas puestos: dos
         líneas seguidas contradiciéndose, que es peor que no decir nada y es
@@ -809,7 +850,7 @@ class InformeLote:
         que el recordatorio de los esquemas: en un lote de doscientos, cien
         repeticiones de la misma advertencia son ruido y se dejan de leer.
         """
-        mirado, sin_mirar = self._alcance_por_partes(forma, anclas, listas)
+        mirado, sin_mirar = self._alcance_por_partes(forma, anclas)
         dicho = [m for parte in PARTES for m in mirado[parte]]
         if not dicho:
             # Solo pasa si no se ha podido comprobar ningún fichero: cualquiera
@@ -835,9 +876,7 @@ class InformeLote:
             + "."
         )
 
-    def partes(
-        self, forma: bool = True, anclas: bool = False, listas: bool = False
-    ) -> list[Parte]:
+    def partes(self, forma: bool = True, anclas: bool = False) -> list[Parte]:
         """La forma, el contenido y la firma, cada una con lo que ha salido.
 
         Es `alcance` repartido en tres, con la cuenta de cada parte al lado,
@@ -851,7 +890,7 @@ class InformeLote:
         prometer cosas distintas. Vacía si no se ha podido leer ningún
         fichero: no hay partes que enseñar, y eso ya lo dice `alcance`.
         """
-        mirado, sin_mirar = self._alcance_por_partes(forma, anclas, listas)
+        mirado, sin_mirar = self._alcance_por_partes(forma, anclas)
         if not any(mirado.values()):
             return []
         cuentas = {parte: {ERROR: 0, AVISO: 0, NOTA: 0} for parte in PARTES}
@@ -907,9 +946,7 @@ class InformeLote:
             return [f"{que} de uno de los documentos (su aviso dice por qué)"]
         return [f"{que} de {cuantos} de los documentos (sus avisos dicen por qué)"]
 
-    def detalle(
-        self, forma: bool = True, anclas: bool = False, listas: bool = False
-    ) -> str:
+    def detalle(self, forma: bool = True, anclas: bool = False) -> str:
         senialados = self.senialados
         lineas: list[str] = []
         for camino, informe, nombre in self.nombrados:
@@ -935,7 +972,7 @@ class InformeLote:
             lineas.append("")
         lineas.append(self.resumen())
         lineas.append("")
-        lineas.append(self.alcance(forma, anclas, listas))
+        lineas.append(self.alcance(forma, anclas))
         return "\n".join(lineas)
 
 

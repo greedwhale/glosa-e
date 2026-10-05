@@ -6566,3 +6566,122 @@ Ninguna rotura pasó sin que la cazara una prueba.
 
 **Sin medir:** el navegador, como siempre que se toca el motor. Se ha medido en
 CPython con lxml 6.1.2; en Pyodide va lxml 6.0.2.
+
+## Lo visto en producción el 05-10-2026, y las tandas que lo cierran
+
+Al comprobar en producción los PR #7 y #8 salieron once cosas por arreglar
+(el informe está fuera del repositorio, en `informes/Infoerrores/`). Cuatro
+pedían una decisión de Jefe, y el 05-10-2026 se tomaron las recomendadas:
+
+1. La página promete la revocación **solo con la prueba que trae la factura**
+   (la opción A). Dejar soltar un `.crl` junto a la factura (B) queda para
+   cuando alguien lo pida.
+2. Las listas que vienen dentro de la factura **no avisan de caducidad**, igual
+   que ya no avisaban las respuestas OCSP. La fecha de hoy solo se aplica a
+   las listas de la carpeta de revocaciones, en consola.
+3. En «Tiene» va la cifra **tal cual está en el fichero**, con su punto: es lo
+   que se busca en el XML. Lo calculado va con coma decimal. Los miles no
+   tenían recomendación; se agrupan con punto a partir de cinco cifras, como
+   ya hace la portada con `toLocaleString("es-ES")`.
+4. Que el propio sitio baje la lista por quien valida (la variante E): no.
+
+Las tandas, un commit cada una y en este orden:
+
+| Tanda | Cosas | Qué |
+|---|---|---|
+| 1 | 1, 4 y el código de la 3 | La página deja de hablar de instalar, de carpetas y de órdenes de consola. La revocación se cuenta por documento |
+| 2 | 2 | El redondeo que se contradice en BR-CO-10 |
+| 3 | 5 y 10 | Las cifras del motor con coma, y los ejemplos de BR-DEC |
+| 4 | 6, 7 y 9 | Tildes, fechas en dd-mm-aaaa y bytes con punto de miles |
+| 5 | 11 | `XSD-ESQUEMA-ROTO` sin ruta, y una guardia que compile los esquemas |
+
+Fuera de las tandas: la cosa 8 (una Facturae de 400 cifras tumba al
+validador) se deja como está, porque reventar ahí es lo honrado y está
+escrito en `sintaxis.py`. Y el paquete de anclas hay que volver a montarlo
+**antes del 02-02-2027**, desde el equipo donde están las anclas.
+
+### Tanda 1: la revocación en la página, y las anclas que no se instalan
+
+**Reproducido** antes de tocar nada: el bloque `INFORME` de `glosa.js`, corrido
+en CPython sobre el paquete descomprimido como lo descomprime la página, con la
+raíz y la intermedia de `test_cadena` añadidas a las anclas. Cuatro casos: sin
+prueba dentro, con una lista dentro anterior a la firma, con una posterior y
+limpia, y con una posterior que lo anula. En los cuatro la página mandaba a
+«bájala y ponla en la carpeta de revocaciones», o la columna de la firma decía
+«hace falta la lista de revocación de su autoridad»; en el último, al lado del
+`REVOCADO` que salía de esa misma lista. La frase hablaba de una «autoridad de
+confianza instalada», y la lista anterior a la firma daba «la lista es del
+2026-03-02 y la firma dice ser del 2026-03-02»: dos fechas iguales para decir
+que una va antes que otra.
+
+**Lo que se hizo.**
+
+- **La página arma su almacén de listas sin carpeta**,
+  `AlmacenDeListas.sin_carpeta()`. Sin carpeta, el aviso dice qué traía el
+  documento y por qué no ha servido, y no manda a ninguna parte: «el documento
+  no trae dentro la lista de revocación de la autoridad que emitió el
+  certificado, ni una respuesta OCSP, y aquí no se sale a buscarlas». La lista
+  anterior a la firma dice cuánto antes: «se publicó el 2026-03-02, 1 hora
+  antes de la fecha de la firma».
+- **La frase y la columna cuentan por documento**, como ya hacían con la
+  cadena. Antes colgaban de «¿hay alguna lista en la carpeta?»: en la página
+  nunca la hay, y en consola una lista de otra autoridad prometía la
+  revocación de todo el lote. Ahora se promete cuando la cadena llega y
+  ninguna firma lleva un aviso de `revocacion.SIN_CONTESTAR`, y la línea final
+  de la consola, «no hay listas de revocación», sale solo si algún documento
+  se quedó sin contestar.
+- **La nota de «no consta anulado»** decía «ningún certificado de la cadena»
+  con solo la lista de la raíz, al lado del aviso de que el que firma no se
+  había mirado. Ahora dice «ninguno de los certificados que están por encima
+  del que firma».
+- **`REVOCACION-LISTA-VIEJA`, solo para las listas de la carpeta.** Las que
+  trae el documento no avisan, como no avisaban las respuestas OCSP. Y al
+  medirlo salió otra cosa: sin `--hoy` no se pasaba ninguna fecha, así que una
+  lista de la carpeta vencida el 01-04-2026 daba «no consta anulado» sin decir
+  nada. Ahora se mide con la fecha de hoy.
+- **Las anclas, que en la página no se instalan.** `glosa.js` declara siempre
+  la procedencia, también si el paquete no ha llegado; sin ella, la página sin
+  paquete daba la carpeta del disco virtual donde «se instalan». Con
+  procedencia, `CADENA-SIN-ANCLAS` dice que vienen con la página y que
+  recargarla las vuelve a pedir, y `ANCLAS-SIN-RENOVAR` dice que las vuelve a
+  montar quien mantiene la página, en vez de la orden de consola.
+- **`ANCLAS-SIN-RENOVAR` decía que la cadena llega aunque no llegara.** Ahora
+  tiene tres textos: llega, no llega («y puede ser por eso: una autoridad que
+  el Estado haya añadido después no está entre estas anclas»), o no se ha
+  verificado ninguna firma y no dice nada de la cadena. Y «hace un día» va en
+  singular.
+- **Fuera «instalada» y «almacén»** de los avisos de la cadena y del sello,
+  de nueve entradas del glosario y de la portada: la ficha dice «Cadena, sello
+  y revocación del firmante si trae la prueba», y la tabla y la pregunta
+  frecuente ya no dicen «o la tienes instalada».
+
+**Las pruebas.** En `test_revocacion.py`, la frase por documento (seis casos,
+también en consola), el almacén sin carpeta (cinco), las listas de dentro que
+no caducan (dos) y la nota que no promete por el firmante. En `test_cadena.py`,
+cuatro sobre las anclas: en la página, con la cadena que no llega y el
+singular. En `test_lo_que_ensena_la_pagina.py`, la revocación pasada por el `INFORME` de la
+página con los tres casos, la portada, y una guardia que corre los ejemplos y
+la página sin paquete y mira que nada de lo que vuelve diga «almacén»,
+«instalad», «python -m», «--montar», «carpeta de revocaciones», «bájala» ni
+«ponla en». La de `test_informe_por_partes.py` pierde la bandera de las
+listas, que ya no existe: de ocho combinaciones a cuatro, y por eso la suite
+baja de 2754 a 2737 aunque haya veintitrés pruebas nuevas.
+
+**Provocado.** Dieciséis roturas, una a una, y cada una pone en rojo la prueba
+que le toca: el aviso que da la dirección sin carpeta, el motivo de siempre
+sin carpeta, la página sin almacén de listas, la frase que promete por lote,
+las listas de dentro que caducan, el vencimiento sin `--hoy`, la nota que
+promete por el firmante, la consola que echa de menos la carpeta aunque se
+contestara, `CADENA-SIN-ANCLAS` con la carpeta en la página, `ANCLAS-SIN-RENOVAR`
+que dice que llega, «hace 1 días», la orden de consola en la página, la página
+sin procedencia cuando no hay paquete, la ficha con «si hay lista», la tabla
+con «o la tienes instalada» y la lista anterior con las dos fechas.
+
+**Lo que queda.** Un `.crl` soltado junto a la factura sigue saliendo como un
+fichero que no se puede validar: dejar soltarlo es la opción B, y no se ha
+hecho. Las fechas de los avisos van todavía en aaaa-mm-dd; eso es de la
+tanda 4.
+
+**Sin medir:** el navegador. Medido en CPython con lxml 6.1.2, corriendo el
+mismo bloque de Python que la página; en Pyodide va lxml 6.0.2. Se verá en
+producción después de fusionar.

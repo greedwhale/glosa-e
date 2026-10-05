@@ -770,26 +770,269 @@ class TestLaConsola:
         assert "no hay anclas de confianza" in salida
         assert "no hay listas de revocación" not in salida
 
-    def test_el_alcance_cambia_segun_haya_listas(self, tmp_path):
-        from validador import factura as modulo
+    def test_con_la_prueba_dentro_no_echa_de_menos_la_carpeta(
+        self, tmp_path, capsys
+    ):
+        """La línea del final decía «no se ha comprobado» de lo comprobado.
 
-        facturas = tmp_path / "facturas"
-        facturas.mkdir()
-        factura_de_la_cadena(facturas)
+        Con la carpeta vacía y la lista dentro de la factura, la revocación sí
+        se ha contestado, y quien lee no tiene que bajar nada.
+        """
         anclas = tmp_path / "anclas"
         anclas.mkdir()
         (anclas / "raiz.cer").write_bytes(raiz())
         (anclas / "intermedia.cer").write_bytes(intermedia())
-        lote = modulo.validar_lote(
-            sorted(facturas.iterdir()),
-            almacen=cadena.Almacen(anclas),
-            listas=AlmacenDeListas(tmp_path / "no-hay"),
+        facturas = tmp_path / "facturas"
+        facturas.mkdir()
+        ruta = factura_de_la_cadena(facturas)
+        ruta.write_bytes(con_lista_dentro(ruta.read_bytes(), lista(desde=DESPUES)))
+        consola.main(
+            [str(facturas), "--anclas", str(anclas), "--revocaciones", str(tmp_path / "no-hay")]
         )
-        con = lote.alcance(anclas=True, listas=True)
-        sin = lote.alcance(anclas=True, listas=False)
-        assert "que no lo hayan anulado" in con
-        assert "que no lo hayan anulado" not in sin
-        assert "hace falta la lista de revocación" in sin
+        salida = capsys.readouterr().out
+        assert "CONFIANZA-REVOCACION" in salida
+        assert "no hay listas de revocación" not in salida
+
+
+# --- La frase del final, documento a documento -----------------------------
+
+# Una hora después de la firma de `factura_de_la_cadena`: una lista de ese
+# momento sí pudo enterarse de una anulación anterior.
+DESPUES = HOY + timedelta(hours=1)
+
+_DS = "http://www.w3.org/2000/09/xmldsig#"
+_XADES = "http://uri.etsi.org/01903/v1.3.2#"
+
+
+def con_lista_dentro(datos: bytes, crl: bytes) -> bytes:
+    """El documento con una CRL dentro de su firma, como un XAdES-XL.
+
+    Va en un `ds:Object` nuevo dentro de la firma: la referencia al documento
+    quita la firma entera al resumirlo, así que lo que se le añada dentro no
+    la rompe.
+    """
+    import base64
+
+    from lxml import etree
+
+    raiz_xml = etree.fromstring(datos)
+    firma_xml = raiz_xml.xpath("//*[local-name()='Signature']")[0]
+    sitio = etree.SubElement(firma_xml, f"{{{_DS}}}Object")
+    for nombre in (
+        "QualifyingProperties",
+        "UnsignedProperties",
+        "UnsignedSignatureProperties",
+        "RevocationValues",
+        "CRLValues",
+        "EncapsulatedCRLValue",
+    ):
+        sitio = etree.SubElement(sitio, f"{{{_XADES}}}{nombre}")
+    sitio.text = base64.b64encode(crl).decode()
+    return etree.tostring(raiz_xml, xml_declaration=True, encoding="UTF-8")
+
+
+class TestLaFraseCuentaPorDocumento:
+    """«No se comprueba si el certificado está anulado (hace falta la lista…)».
+
+    Salía en la página al lado de un REVOCADO sacado de la lista que traía la
+    propia factura, y al lado de un «no consta anulado» también. Todo colgaba
+    de un interruptor, «¿hay alguna lista en la carpeta?», que no miraba lo que
+    pasó con cada documento; en consola, una lista de otra autoridad bastaba
+    para prometer la revocación de todas. Medido el 05-10-2026 con el Python de
+    la página. Hasta ese día aquí había una prueba que fijaba justo eso:
+    `test_el_alcance_cambia_segun_haya_listas`.
+    """
+
+    def _lote(self, tmp_path, datos: bytes, carpeta: list[bytes] = (), hoy=None):
+        from validador import factura as modulo
+
+        anclas = tmp_path / "anclas"
+        anclas.mkdir()
+        (anclas / "raiz.cer").write_bytes(raiz())
+        (anclas / "intermedia.cer").write_bytes(intermedia())
+        listas = tmp_path / "revocaciones"
+        listas.mkdir()
+        for numero, crl in enumerate(carpeta):
+            (listas / f"{numero}.crl").write_bytes(crl)
+        facturas = tmp_path / "facturas"
+        facturas.mkdir()
+        (facturas / "factura.xml").write_bytes(datos)
+        return modulo.validar_lote(
+            [facturas / "factura.xml"],
+            hoy=hoy,
+            almacen=cadena.Almacen(anclas),
+            listas=AlmacenDeListas(listas),
+        )
+
+    def _firmada(self, tmp_path) -> bytes:
+        return factura_de_la_cadena(tmp_path).read_bytes()
+
+    def test_sin_prueba_no_la_promete(self, tmp_path):
+        lote = self._lote(tmp_path, self._firmada(tmp_path))
+        frase = lote.alcance(anclas=True)
+        assert "que no lo hayan anulado" not in frase
+        assert "si está anulado el certificado de este documento" in frase
+
+    def test_una_lista_de_otra_autoridad_no_la_promete(self, tmp_path):
+        """El caso de consola: con una lista cualquiera en la carpeta bastaba."""
+        de_otra = lista(emisor="Raiz de pruebas", clave_emisor=RAIZ, desde=DESPUES)
+        lote = self._lote(tmp_path, self._firmada(tmp_path), carpeta=[de_otra])
+        assert "REVOCACION-SIN-COMPROBAR" in codigos(lote.informes[0][1].incidencias)
+        frase = lote.alcance(anclas=True)
+        assert "que no lo hayan anulado" not in frase
+        assert "si está anulado el certificado de este documento" in frase
+
+    def test_con_la_lista_dentro_si_la_promete(self, tmp_path):
+        """Y sin `hoy`, con la lista vencida hace meses: la de dentro no caduca."""
+        datos = con_lista_dentro(self._firmada(tmp_path), lista(desde=DESPUES))
+        lote = self._lote(tmp_path, datos)
+        incidencias = lote.informes[0][1].incidencias
+        assert "CONFIANZA-REVOCACION" in codigos(incidencias)
+        assert "REVOCACION-LISTA-VIEJA" not in codigos(incidencias)
+        frase = lote.alcance(anclas=True)
+        assert "que no lo hayan anulado" in frase
+        assert "si está anulado el certificado" not in frase
+        firma_parte = {p.nombre: p for p in lote.partes(anclas=True)}["La firma"]
+        assert "que no lo hayan anulado" in firma_parte.mirado
+
+    def test_con_un_revocado_no_dice_que_falte_la_lista(self, tmp_path):
+        anulada = lista(desde=DESPUES, lineas=[_linea(HOJA_SERIE, HOY - timedelta(days=3))])
+        datos = con_lista_dentro(self._firmada(tmp_path), anulada)
+        lote = self._lote(tmp_path, datos)
+        assert "REVOCADO" in codigos(lote.informes[0][1].incidencias)
+        frase = lote.alcance(anclas=True)
+        assert "hace falta la lista" not in frase
+        assert "si está anulado el certificado" not in frase
+
+    def test_una_lista_vencida_de_la_carpeta_avisa_sin_hoy(self, tmp_path):
+        """Sin `--hoy` no se pasaba fecha, y la vencida daba «no consta anulado».
+
+        Medido: una lista vencida el 01-04-2026, validando el 05-10-2026, salía
+        limpia y sin un aviso. La de esta prueba vence el 01-04-2026.
+        """
+        lote = self._lote(
+            tmp_path, self._firmada(tmp_path), carpeta=[lista(desde=DESPUES)]
+        )
+        assert "REVOCACION-LISTA-VIEJA" in codigos(lote.informes[0][1].incidencias)
+        assert "que no lo hayan anulado" not in lote.alcance(anclas=True)
+
+    def test_con_hoy_dentro_de_plazo_la_de_la_carpeta_vale(self, tmp_path):
+        lote = self._lote(
+            tmp_path,
+            self._firmada(tmp_path),
+            carpeta=[lista(desde=DESPUES)],
+            hoy=HOY.date(),
+        )
+        assert "REVOCACION-LISTA-VIEJA" not in codigos(lote.informes[0][1].incidencias)
+        assert "que no lo hayan anulado" in lote.alcance(anclas=True)
+
+
+class TestSinCarpeta:
+    """La página: no hay carpeta de revocaciones ni forma de poner una.
+
+    El aviso mandaba a «bájala y ponla en la carpeta de revocaciones», y la
+    portada prometía la revocación «si el documento trae la prueba o la tienes
+    instalada». Desde el 05-10-2026 la página promete solo la primera.
+    """
+
+    CON_PUNTO = leer(hoja(extensiones=_puntos("http://pki.ejemplo.es/ca.crl")))
+
+    def test_el_almacen_sin_carpeta(self):
+        nada = AlmacenDeListas.sin_carpeta()
+        assert nada.carpeta is None
+        assert nada.vacio
+        assert nada.todas() == []
+
+    def test_el_aviso_no_manda_a_ninguna_carpeta(self):
+        salen = revocacion.reglas(
+            [self.CON_PUNTO, LA_INTERMEDIA], [], cuando=HOY, con_carpeta=False
+        )
+        [aviso] = salen
+        assert aviso.codigo == "REVOCACION-SIN-COMPROBAR"
+        for prohibido in ("carpeta", "bája", "ponla", "http://"):
+            assert prohibido not in aviso.mensaje, aviso.mensaje
+        assert "no trae dentro la lista de revocación" in aviso.mensaje
+        assert "dentro del documento" in aviso.esperado
+
+    def test_con_carpeta_sigue_diciendo_donde_bajarla(self):
+        """En consola es lo accionable, y se queda."""
+        [aviso] = revocacion.reglas([self.CON_PUNTO, LA_INTERMEDIA], [], cuando=HOY)
+        assert "bájala y ponla en la carpeta de revocaciones" in aviso.mensaje
+
+    def test_la_de_dentro_anterior_a_la_firma_dice_cuanto_antes(self):
+        """«la lista es del 2026-03-02 y la firma dice ser del 2026-03-02».
+
+        Lo corriente es bajarla al firmar, y entonces caen el mismo día: con
+        las dos fechas se leía una contradicción.
+        """
+        antes = leer_lista(lista(desde=HOY - timedelta(hours=1)))
+        [aviso] = revocacion.reglas(
+            [self.CON_PUNTO, LA_INTERMEDIA],
+            [],
+            listas_dentro=[antes],
+            cuando=HOY,
+            con_carpeta=False,
+        )
+        assert "1 hora antes de la fecha de la firma" in aviso.mensaje
+        assert "no pudo enterarse" in aviso.mensaje
+        assert "carpeta" not in aviso.mensaje
+
+    def test_solo_ocsp_sin_carpeta_no_pide_una_lista(self):
+        solo_ocsp = leer(hoja(extensiones=_acceso_ocsp("http://ocsp.ejemplo.es")))
+        [aviso] = revocacion.reglas(
+            [solo_ocsp, LA_INTERMEDIA], [], cuando=HOY, con_carpeta=False
+        )
+        assert aviso.codigo == "REVOCACION-SOLO-OCSP"
+        assert "lista" not in aviso.esperado
+
+
+class TestLasListasDeDentroNoCaducan:
+    """Si sirvió para contestar, se publicó después de la firma, y eso no caduca.
+
+    Lo mismo que ya se hacía con las respuestas OCSP. Pasándole la fecha de hoy
+    a la página, toda factura archivada con su lista dentro saldría con «la
+    lista venció el …» al lado del «no consta anulado».
+    """
+
+    def test_la_de_dentro_no_avisa(self):
+        vieja = leer_lista(lista(desde=DESPUES, hasta=HOY + timedelta(days=5)))
+        salen = revocacion.reglas(
+            [LA_HOJA, LA_INTERMEDIA],
+            [],
+            listas_dentro=[vieja],
+            cuando=HOY,
+            hoy=(HOY + timedelta(days=60)).date(),
+        )
+        assert codigos(salen) == {"CONFIANZA-REVOCACION"}
+
+    def test_la_misma_en_la_carpeta_si(self):
+        vieja = leer_lista(lista(desde=DESPUES, hasta=HOY + timedelta(days=5)))
+        salen = revocacion.reglas(
+            [LA_HOJA, LA_INTERMEDIA],
+            [vieja],
+            cuando=HOY,
+            hoy=(HOY + timedelta(days=60)).date(),
+        )
+        assert "REVOCACION-LISTA-VIEJA" in codigos(salen)
+
+
+def test_la_nota_no_promete_por_el_firmante_si_no_se_le_miro():
+    """Con la lista de la raíz sola, el que firma se queda sin comprobar.
+
+    La nota decía «no consta anulado ningún certificado de la cadena» al lado
+    del aviso de que el que firma no se había comprobado: prometía justo el que
+    faltaba.
+    """
+    de_la_raiz = leer_lista(
+        lista(emisor="Raiz de pruebas", clave_emisor=RAIZ, desde=DESPUES)
+    )
+    salen = revocacion.reglas(
+        [LA_HOJA, LA_INTERMEDIA, leer(raiz())], [de_la_raiz], cuando=HOY
+    )
+    assert codigos(salen) == {"REVOCACION-SIN-COMPROBAR", "CONFIANZA-REVOCACION"}
+    nota = next(i for i in salen if i.codigo == "CONFIANZA-REVOCACION")
+    assert "ningún certificado de la cadena" not in nota.mensaje
+    assert "por encima del que firma" in nota.mensaje
 
 
 # --- Fuera del círculo -----------------------------------------------------

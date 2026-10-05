@@ -798,19 +798,24 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 
     <div id="informe"></div>
 
-    <!-- «si hay lista» no sobra. De las tres cosas que se miran de una
+    <!-- «si trae la prueba» no sobra. De las tres cosas que se miran de una
          firma, la revocación es la única que puede quedarse sin contestar:
          hace falta una CRL o una respuesta OCSP, y este validador no sale a
          la red a buscarlas. La condición estaba escrita, pero 300 líneas
          más abajo y dentro de una FAQ, mientras aquí arriba se prometía a
          secas. Lo que se lee primero es esto.
 
+         Hasta el 05-10-2026 la condición era que hubiera lista, y aquí no hay
+         dónde poner una: la única prueba que vale en la página es la que trae
+         la propia factura. Y «del firmante» porque la del sello de tiempo no
+         se mira.
+
          Desde la portada B va debajo de la herramienta y no del lema, en
          todos los anchos: describe la herramienta, y leída después dice lo
          mismo. -->
     <dl class="ficha">
       <div><dt>De la norma</dt><dd>219 de sus 223 reglas</dd></div>
-      <div><dt>La firma</dt><dd>Cadena, sello y revocación si hay lista</dd></div>
+      <div><dt>La firma</dt><dd>Cadena, sello y revocación del firmante si trae la prueba</dd></div>
       <div><dt>Contra qué</dt><dd>EN 16931 · RD 238/2026</dd></div>
       <div><dt>Formatos</dt><dd>Facturae · UBL · CII · EDIFACT</dd></div>
     </dl>
@@ -941,8 +946,8 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
               autoridades la comprueba ni si mira la revocación. Dos solo miran
               si está.</td>
               <td data-rotulo="Aquí">Hasta la lista de confianza del Estado, con
-              sello de tiempo, y con revocación <b>si el documento trae la prueba
-              o la tienes instalada</b> (no se sale a la red a buscarla, y cuando
+              sello de tiempo, y con revocación <b>si el documento trae la
+              prueba</b> (no se sale a la red a buscarla, y cuando
               falta <a href="#no-comprobado">se dice que falta</a>). Y <a
               href="#trae">se dice de qué día es la lista</a>.</td>
             </tr>
@@ -1092,8 +1097,8 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             algo que nadie comprobó.</p>
             <p>El caso típico es la revocación: saber si anularon un
             certificado exige una lista o una respuesta del emisor, y si el
-            documento no la trae y no la tienes instalada, no hay forma de
-            saberlo sin salir a preguntar. Aquí no se pregunta, y se explica por
+            documento no la trae dentro, no hay forma de saberlo sin salir a
+            preguntar. Aquí no se pregunta, y se explica por
             qué en <a href="./incidencias.html#familia-REVOCACION">la familia
             REVOCACION</a>.</p>
           </div>

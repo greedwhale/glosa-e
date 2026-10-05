@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2754 tests, todos en verde.
+2737 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -1463,10 +1463,15 @@ se ha inventado pasa las seis comprobaciones —de hecho es justo lo que hacen l
 tests—, y por eso el informe dice lo que no mira:
 
 ```
-No se comprueba de quién es el certificado ni si está revocado
-—lo primero necesita anclas de confianza instaladas, lo segundo
-salir a la red—, ni si lo que dice la factura es cierto.
+No se comprueba de quién es el certificado ni si está anulado (sin
+anclas de confianza no se sabe a qué autoridad llega, y sin eso no se
+puede creer ninguna prueba de revocación), ni si lo que dice la
+factura es cierto.
 ```
+
+Hasta el 05-10-2026 decía que lo segundo necesitaba «salir a la red».
+No: la prueba puede venir dentro del documento, y lo que falta sin
+anclas es saber a quién creérsela.
 
 Ese párrafo cambia solo cuando el lote trae firmas. Sobre uno sin firmar sería
 explicar qué mitad de algo que no hay se comprueba.
@@ -1490,13 +1495,25 @@ escrito. Una firma que se ha mirado y está rota **sí** cuenta como comprobada:
 ahí la promesa se cumple, y de que esté rota se queja el error.
 
 Lo mismo con la cadena, desde el 16-09-2026. «Se ha comprobado que ese
-certificado lleve a una autoridad de confianza instalada» salía en cuanto había
+certificado lleve a una autoridad de confianza» salía en cuanto había
 anclas puestas, también con `CADENA-DESCONOCIDA` en el informe: un aviso, así
 que el veredicto seguía siendo «sin errores» debajo de una frase que prometía
 lo que el aviso negaba. Ahora se promete si **todas** las firmas que se
 sostienen llegan a un ancla —se cuenta una nota de confianza por firma—, y los
 documentos que no llegan van al otro lado: «no se comprueba de quién es el
 certificado de este documento —su aviso dice por qué—».
+
+Y con la revocación, desde el 05-10-2026. La promesa colgaba de un solo
+interruptor, «¿hay alguna lista en la carpeta?», que no miraba lo que pasó
+con cada documento. En la página, donde no hay carpeta, salía «No se
+comprueba si el certificado está anulado (hace falta la lista de revocación
+de su autoridad)» al lado de un `REVOCADO` sacado de la lista que traía la
+propia factura; en consola, una lista de otra autoridad bastaba para
+prometer la revocación de todo el lote. Ahora se cuenta por documento: se
+promete cuando la cadena llega y ninguna firma lleva uno de los avisos de
+`revocacion.SIN_CONTESTAR` (no se sabe del que firma, o solo con una lista
+vencida), y los demás van al otro lado: «no se comprueba si está anulado el
+certificado de este documento (su aviso dice por qué)».
 
 Y el código único se promete solo donde se mira: en UBL, CII y Facturae. De un
 EDIFACT no se saca, y la frase decía haberlo comprobado sobre dos copias
@@ -2283,7 +2300,7 @@ sitios, los dos locales:
    se firmó, que es lo que la norma inventó para poder comprobar una firma
    dentro de veinte años, cuando la autoridad que la emitió ya no exista. Se
    leen y se usan.
-2. **De una carpeta**, como los esquemas y las anclas.
+2. **De una carpeta**, como los esquemas y las anclas. Solo en consola.
 
 Bajar una lista es un acto explícito de quien usa la herramienta. Lo que hace
 el validador es decir **cuál le falta y dónde dice el propio certificado que
@@ -2291,10 +2308,35 @@ está**:
 
 ```
 [REVOCACION-SIN-COMPROBAR · Firma electrónica] No se ha comprobado si el
-certificado está anulado: no tenemos ninguna lista de esa autoridad. El propio
+certificado está anulado: no hay ninguna lista de esa autoridad. El propio
 certificado dice que su lista está en http://…/crl.crl; bájala y ponla en la
 carpeta de revocaciones.
 ```
+
+### En la página, solo la prueba que trae la factura
+
+En la página no hay carpeta ni forma de poner una lista, y hasta el
+05-10-2026 el aviso de arriba salía igual: mandaba a hacer algo imposible, y
+la portada prometía la revocación «si el documento trae la prueba o la tienes
+instalada». Ahora la página arma su almacén de listas con
+`AlmacenDeListas.sin_carpeta()`, y el aviso cuenta lo que pasó de verdad, sin
+mandar a ninguna parte:
+
+```
+No se ha comprobado si el certificado está anulado: el documento no trae
+dentro la lista de revocación de la autoridad que emitió el certificado, ni
+una respuesta OCSP, y aquí no se sale a buscarlas.
+```
+
+Los otros dos casos ya llevaban su motivo: la lista que trae es anterior a la
+firma («se publicó el …, 1 hora antes de la fecha de la firma, así que no pudo
+enterarse de una anulación posterior»), o el respondedor OCSP contestó
+«unknown». Se decidió así, la opción A del informe del 05-10-2026, porque es
+lo mismo que se hizo con los esquemas: decir lo que trae la página y no lo que
+podría traer. Dejar soltar un `.crl` junto a la factura (la B) queda para
+cuando alguien lo pida; bajarla el navegador por su cuenta rompería «dominios
+de terceros: 0», y repartir listas con la página sería un visto bueno sacado
+de una foto vieja.
 
 ### Por qué CRL y no OCSP
 
@@ -2418,8 +2460,14 @@ Aquí no se pinta. Casos en que se dice «no se sabe» en vez de «vigente»:
 - La lista trae una **extensión crítica** que no sabemos leer.
 - La lista es **anterior** a la fecha de la firma: no pudo enterarse de una
   anulación posterior.
-- La lista está **vencida**: `REVOCACION-LISTA-VIEJA`, porque no aparecer en
-  una lista caducada no es lo mismo que estar vigente.
+- La lista de la carpeta está **vencida**: `REVOCACION-LISTA-VIEJA`, porque
+  no aparecer en una lista caducada no es lo mismo que estar vigente. Se mide
+  con `--hoy` o, sin él, con la fecha de hoy: hasta el 05-10-2026 sin `--hoy`
+  no se medía, y una lista vencida el 01-04-2026 daba «no consta anulado»
+  medio año después. Una lista que trae el documento no avisa, igual que una
+  respuesta OCSP: si ha servido para contestar es posterior a la firma, y lo
+  que dice de aquel momento no caduca. Avisar ahí llenaría de ruido toda
+  factura archivada.
 
 Manda **la lista más nueva, y solo ella**. Recorrerlas todas buscando el número
 de serie parece más prudente y es lo contrario: una suspensión que se levanta

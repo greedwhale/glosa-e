@@ -698,6 +698,7 @@ import json
 from validador import factura
 from validador.cadena import Almacen
 from validador.esquema import Catalogo
+from validador.revocacion import AlmacenDeListas
 
 # El catalogo y el almacen se arman **una vez** y se guardan.
 #
@@ -712,15 +713,22 @@ from validador.esquema import Catalogo
 # guardar, porque cada orden es un proceso nuevo.
 if "_c" not in globals():
     _a = Almacen.por_defecto()
-    if _a.declarada:
-        _a = Almacen(_a.carpeta, 'que viene con esta página, ' + _a.declarada,
-                     _a.sellos_en)
+    # Con procedencia siempre, tambien si el paquete no ha llegado: es lo que
+    # le dice al motor que aqui las anclas no se instalan ni se montan. Sin
+    # ella, una pagina sin paquete decia «Se instalan en «anclas»».
+    _a = Almacen(_a.carpeta, ', '.join(
+        ['que viene con esta página'] + ([_a.declarada] if _a.declarada else [])),
+        _a.sellos_en)
     # Lo mismo con los esquemas: sin esto, el aviso de que falta uno decia que
     # se busca «dentro de /opt/factura-e/esquemas», el disco virtual de aqui.
     _c = Catalogo.por_defecto(procedencia='que vienen con esta página')
+    # Y las listas de revocacion: aqui no hay carpeta donde ponerlas, asi que
+    # la unica prueba que vale es la que trae la factura. Sin esto, el aviso
+    # mandaba a «ponla en la carpeta de revocaciones». Visto el 05-10-2026.
+    _l = AlmacenDeListas.sin_carpeta()
 
 _lote = factura.validar_lote(list(_rutas), catalogo=_c, almacen=_a,
-                             nombres=list(_nombres))
+                             listas=_l, nombres=list(_nombres))
 
 def _inc(i):
     return {

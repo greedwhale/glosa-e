@@ -280,13 +280,7 @@ def main(argumentos: list[str] | None = None) -> int:
             informe.incidencias = informe.errores
         lote.cruzadas = [i for i in lote.cruzadas if i.gravedad == ERROR]
 
-    print(
-        lote.detalle(
-            forma=not catalogo.vacio,
-            anclas=not almacen.vacio,
-            listas=not listas.vacio,
-        )
-    )
+    print(lote.detalle(forma=not catalogo.vacio, anclas=not almacen.vacio))
     if catalogo.vacio:
         # Una sola línea al final, no un aviso por fichero: quien no tiene los
         # esquemas puestos ya lo sabe, y no hace falta repetírselo cien veces.
@@ -302,10 +296,14 @@ def main(argumentos: list[str] | None = None) -> int:
             f"No se ha comprobado de quién son las firmas: no hay anclas de "
             f"confianza en {almacen.carpeta}. El README dice cómo ponerlas."
         )
-    elif listas.vacio and lote.firmados:
+    elif listas.vacio and lote.con_revocacion_sin_contestar:
         # Solo cuando las anclas si estan: sin ellas no se llega ni a saber de
         # quien es el certificado, y echar de menos su lista de revocacion
         # seria pedir el segundo paso antes que el primero.
+        #
+        # Y solo si a algun documento le falto: con la prueba dentro de cada
+        # factura, la carpeta vacia no ha dejado nada sin contestar, y la linea
+        # decia «no se ha comprobado» de lo que si se habia comprobado.
         print(
             f"No se ha comprobado si los certificados están anulados: no hay "
             f"listas de revocación en {listas.carpeta}. El informe de cada "

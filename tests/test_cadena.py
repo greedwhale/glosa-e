@@ -596,6 +596,32 @@ class TestSobreUnaFacturaDeVerdad:
         assert "CADENA-SIN-ANCLAS" in {i.codigo for i in informe.incidencias}
 
     @tiene_ejemplo
+    def test_sin_anclas_en_la_pagina_no_da_la_carpeta(self, tmp_path):
+        """En consola, dónde se instalan; en la página, que se recargue.
+
+        Con procedencia las anclas vienen con la herramienta y quien valida no
+        las puede poner. Sin ella, una página cuyo paquete no llegó decía «Se
+        instalan en «anclas»», que es una carpeta de su disco virtual.
+        """
+        from validador import factura
+
+        carpeta = tmp_path / "anclas"
+        en_consola = factura.validar_archivo(EJEMPLO, almacen=Almacen(carpeta))
+        en_la_pagina = factura.validar_archivo(
+            EJEMPLO, almacen=Almacen(carpeta, "que viene con esta página")
+        )
+        [consola] = [
+            i for i in en_consola.incidencias if i.codigo == "CADENA-SIN-ANCLAS"
+        ]
+        [pagina] = [
+            i for i in en_la_pagina.incidencias if i.codigo == "CADENA-SIN-ANCLAS"
+        ]
+        assert f"Se instalan en «{carpeta}»." in consola.mensaje
+        assert str(carpeta) not in pagina.mensaje
+        assert "instala" not in pagina.mensaje
+        assert "recargarla las vuelve a pedir" in pagina.mensaje
+
+    @tiene_ejemplo
     def test_con_su_certificado_de_ancla_la_cadena_llega(self, tmp_path):
         from validador import factura
 
@@ -637,13 +663,13 @@ class TestSobreUnaFacturaDeVerdad:
         lote = factura.validar_lote([EJEMPLO], almacen=Almacen(tmp_path))
         sin = lote.alcance(forma=False, anclas=False)
         con = lote.alcance(forma=False, anclas=True)
-        assert "necesita anclas de confianza instaladas" in sin
-        assert "necesita anclas de confianza instaladas" not in con
+        assert "sin anclas de confianza no se sabe" in sin
+        assert "sin anclas de confianza no se sabe" not in con
         # Y con anclas tampoco promete que la cadena llegue: la del ejemplo no
         # llega a ninguna, y hasta el 16-09-2026 esta prueba pedía justo esa
         # promesa. Lo que se dice es que no se sabe de quién es, y dónde mirar
         # por qué. Que la promesa sale cuando sí llega lo prueba `test_firma`.
-        assert "autoridad de confianza instalada" not in con
+        assert "lleve a un ancla de confianza" not in con
         assert "de quién es el certificado de este documento" in con
 
     def test_un_documento_sin_firma_no_dice_nada_de_cadenas(self, tmp_path):
@@ -711,6 +737,63 @@ class TestLasAnclasSinRenovar:
         assert salta[0].gravedad == AVISO
         # Los días de atraso, para que no haya que restar de cabeza.
         assert "30 días" in salta[0].mensaje
+        assert "La cadena de esta firma llega, pero" in salta[0].mensaje
+        # En consola, la orden con que se arregla.
+        assert "python -m validador --montar-anclas" in salta[0].mensaje
+
+    @tiene_ejemplo
+    def test_si_la_cadena_no_llega_no_dice_que_llega(self, tmp_path):
+        """Decía «la cadena de esta firma llega igual» encima de un CADENA-DESCONOCIDA.
+
+        El aviso se queda, porque con unas anclas viejas puede ser justo eso:
+        una autoridad que el Estado añadió a su lista después de montarlas.
+        """
+        from validador import factura
+
+        (tmp_path / "otra.cer").write_bytes(raiz())
+        _manifiesto_de(tmp_path)
+        informe = factura.validar_archivo(
+            EJEMPLO, almacen=Almacen(tmp_path), hoy=date(2027, 3, 4)
+        )
+        codigos_salen = {i.codigo for i in informe.incidencias}
+        assert "CADENA-DESCONOCIDA" in codigos_salen
+        [salta] = [i for i in informe.incidencias if i.codigo == "ANCLAS-SIN-RENOVAR"]
+        assert "llega, pero" not in salta.mensaje
+        assert "no llega a ninguna" in salta.mensaje
+
+    @tiene_ejemplo
+    def test_un_dia_va_en_singular(self, tmp_path):
+        """«y de eso hace 1 días». Medido con las fechas del paquete publicado."""
+        from validador import factura
+
+        (tmp_path / "ejemplo.cer").write_bytes(_certificado_del_ejemplo())
+        _manifiesto_de(tmp_path)
+        informe = factura.validar_archivo(
+            EJEMPLO, almacen=Almacen(tmp_path), hoy=date(2027, 2, 3)
+        )
+        [salta] = [i for i in informe.incidencias if i.codigo == "ANCLAS-SIN-RENOVAR"]
+        assert "hace un día," in salta.mensaje
+        assert "1 días" not in salta.mensaje
+
+    @tiene_ejemplo
+    def test_en_la_pagina_no_manda_a_la_consola(self, tmp_path):
+        """Las anclas de la página las trae ella: la orden no se puede dar allí.
+
+        Desde el 03-02-2027, si el paquete no se vuelve a montar antes, toda
+        factura firmada sacaría en la página «Hay que volver a montarlas con
+        python -m validador --montar-anclas». La procedencia es lo que le dice
+        al motor que las anclas vienen con la herramienta.
+        """
+        from validador import factura
+
+        (tmp_path / "ejemplo.cer").write_bytes(_certificado_del_ejemplo())
+        _manifiesto_de(tmp_path)
+        almacen = Almacen(tmp_path, "que viene con esta página")
+        informe = factura.validar_archivo(EJEMPLO, almacen=almacen, hoy=date(2027, 3, 4))
+        [salta] = [i for i in informe.incidencias if i.codigo == "ANCLAS-SIN-RENOVAR"]
+        assert "python -m" not in salta.mensaje
+        assert "--montar-anclas" not in salta.mensaje
+        assert "quien mantiene esta página" in salta.mensaje
 
     @tiene_ejemplo
     def test_antes_de_la_fecha_no_se_dice_nada(self, tmp_path):
