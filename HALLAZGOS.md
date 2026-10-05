@@ -6721,3 +6721,67 @@ con `:.2f`, en «Tiene» y dentro del paréntesis que explica la cuenta. Así qu
 el caso de 21.005 dice «Debería ser: 21.01 · Tiene: 21.00», y el de los
 cargos, «100.13 (100.00 + 0.12 de cargos)», que no suma. Es la decisión 3:
 «Tiene» como está en el fichero.
+
+### Tanda 3: las cifras con coma, y «Tiene» tal cual
+
+**Lo que había.** Cada módulo escribía sus cifras con `:.2f` o con su propio
+`_fmt`: unas 110 líneas entre `en16931`, `iva`, `facturae` y `copia_fiel`.
+Con punto decimal, que en castellano se lee como miles («Debería ser: 90.00»,
+«se aparta 0.50»), y redondeando también lo que copiaba del fichero: en
+«Tiene» un 100 salía 100.00 y un 21.005 salía 21.00. En el glosario, «10.500 son tres
+decimales» y «21.000 vale» se leían diez mil quinientos y veintiún mil, 37
+veces en 19 fichas de BR-DEC.
+
+**Lo que se hizo.** Un módulo nuevo, `validador/cifras.py`, con tres puertas
+según de dónde sale la cifra, y una para los tipos:
+
+- `calculada`: lo que calcula el validador. `100,13`, con coma, dos decimales
+  y el redondeo de las reglas.
+- `en_castellano`: una cifra del fichero dentro de una frase o de la cuenta
+  que explica un «Debería ser». Sin redondear y con dos decimales como mínimo:
+  «100,13 (100,00 + 0,125 de cargos)», que ahora suma.
+- `tiene`: la cifra del fichero sola en «Tiene», tal cual, con su punto.
+- `tipo`: 21% y 6,5%. De paso, `COPIA-CARGO-IVA` escribía el tipo con el texto
+  del fichero y un espacio: «al 21.00 %».
+
+Los miles con punto desde cinco cifras (12.345,67, y 1234,56 sin él), como
+`toLocaleString("es-ES")` en la portada; en el glosario, 1.163,52 y 1.250 € pasan
+a 1163,52 y 1250 €. Los ejemplos de BR-DEC van entre comillas invertidas, como
+ya iba en el glosario lo escrito en el XML, y también los dos identificadores
+de la solución pública. `facturae` tenía una variable local `cifras` que
+habría tapado el módulo: se llama `cuantas`.
+
+**Lo que se decidió sin preguntar, y por qué.** El informe recomendaba «Tiene»
+tal cual y «entre «»». Va tal cual y **sin** las comillas: el resto de avisos
+(la forma, BR-DEC, el anexo) ya ponían en «Tiene» el texto del fichero sin
+ellas, y ponérselas solo a las cuentas dejaba dos maneras de escribir lo mismo.
+Los miles desde cinco cifras no tenían recomendación; se eligió eso por ser lo
+que ya hace la portada.
+
+**Las pruebas.** `tests/test_cifras.py`, 29: las cuatro funciones; una guardia
+que lee `validador/` y no deja una cifra con `:.2f` ni con un `fmt` propio
+fuera de `cifras.py` (y de `sintaxis.py`, que define el `fmt` que ya no usa
+nadie, y de los megas de `__main__`, escritos con su porqué); y otra que pasa
+por el validador las muestras y facturas con las cuentas rotas de los cuatro
+motores, con importes de tres decimales y de cinco cifras, y mira que ningún
+mensaje ni «Debería ser» lleve un punto decimal. Exige además que sigan
+saliendo once códigos de cuentas, para que un constructor que cambie no la deje
+en verde sin mirar nada. En `test_glosario.py`, una que no deja una cifra con
+punto fuera de comillas invertidas, salvo la versión 2.5 de SPFE-SINTAXIS,
+escrita. Cambiaron 47 líneas de prueba que fijaban el punto en lo calculado.
+
+**Provocado.** Trece roturas, una a una: la coma vuelve a ser punto, sin miles,
+miles desde cuatro cifras, lo calculado con el redondeo de `Decimal`, la cuenta
+del paréntesis redondeada, sin los dos decimales, «Tiene» redondeado, el tipo
+con punto, un `:.2f` nuevo en `iva`, una cifra cruda en una frase de Facturae,
+el tipo crudo en `COPIA-CARGO-IVA`, un ejemplo de BR-DEC sin comillas y un
+1.163,52 en el glosario. Las trece en rojo; la última solo después de hacer
+estrictas las dos guardias, que daban por buenos unos miles desde cuatro
+cifras.
+
+**Lo que queda.** En EDIFACT con la coma como marca decimal, «Tiene» sale con
+punto: el árbol que se valida ya la trae cambiada (`edifact._valor`), y
+guardarla tocaría la lectura, que está en `sintaxis.py`. Un «+» delante o unos
+ceros a la izquierda tampoco se conservan, porque `Decimal` no los guarda. Y en
+la descripción para buscadores de cada código las comillas invertidas se
+quitan, así que allí `10.500` sigue sin ellas.

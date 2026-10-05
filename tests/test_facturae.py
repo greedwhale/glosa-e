@@ -275,7 +275,7 @@ class TestLaCadenaDeTotales:
         # 200 - 20 + 10 = 190, no 500.
         salta = [i for i in quejas(fe(base="500.00")) if i.codigo == "FE-BASE"]
         assert salta and salta[0].gravedad == ERROR
-        assert "190.00" in salta[0].esperado
+        assert "190,00" in salta[0].esperado
 
     def test_el_total_de_la_factura(self):
         assert "FE-TOTAL" in codigos(quejas(fe(total="999.99")), ERROR)
@@ -286,7 +286,7 @@ class TestLaCadenaDeTotales:
     def test_el_total_a_ejecutar(self):
         # 200 - 5 retenido - 3 en especie + 7 de suplidos + 1 financiero = 200.
         salta = [i for i in quejas(fe(ejecutar="180.00")) if i.codigo == "FE-EJECUTAR"]
-        assert salta and "200.00" in salta[0].esperado
+        assert salta and "200,00" in salta[0].esperado
 
     def test_el_total_general_de_descuentos(self):
         # El detallado sigue diciendo 20,00 y el total dice 35,00.
@@ -318,16 +318,16 @@ class TestLasLineas:
     def test_el_coste_es_cantidad_por_precio(self):
         salta = [i for i in quejas(fe(cantidad="3.00")) if i.codigo == "FE-LINEA-COSTE"]
         assert salta and salta[0].gravedad == ERROR
-        assert "300.00" in salta[0].esperado
+        assert "300,00" in salta[0].esperado
 
     def test_el_bruto_es_el_coste_menos_descuentos_mas_cargos(self):
         # 200 - 20 + 10 = 190, y la línea dice 175.
         salta = [i for i in quejas(fe(bruto_1="175.00")) if i.codigo == "FE-LINEA-BRUTO"]
-        assert salta and "190.00" in salta[0].esperado
+        assert salta and "190,00" in salta[0].esperado
 
     def test_el_bruto_total_es_la_suma_de_las_lineas(self):
         salta = [i for i in quejas(fe(bruto_total="123.00")) if i.codigo == "FE-BRUTO"]
-        assert salta and "200.00" in salta[0].esperado
+        assert salta and "200,00" in salta[0].esperado
 
     def test_la_queja_dice_en_que_linea_esta(self):
         """Con cincuenta líneas, «una línea no cuadra» no sirve de nada."""
@@ -360,7 +360,7 @@ class TestLosImpuestos:
 
     def test_la_cuota_frente_al_tipo(self):
         salta = [i for i in quejas(fe(cuota_iva="1.00")) if i.codigo == "FE-CUOTA"]
-        assert salta and "39.90" in salta[0].esperado
+        assert salta and "39,90" in salta[0].esperado
 
     def test_la_cuota_es_aviso_y_no_error(self):
         """A diferencia de BR-CO-17, que sí es error en UBL y en CII.
@@ -385,7 +385,7 @@ class TestLosImpuestos:
 
     def test_el_recargo_frente_a_su_porcentaje(self):
         salta = [i for i in quejas(fe(recargo="2.00")) if i.codigo == "FE-RECARGO"]
-        assert salta and "9.88" in salta[0].esperado
+        assert salta and "9,88" in salta[0].esperado
 
     def test_dos_impuestos_sobre_la_misma_base_no_son_un_descuadre(self):
         """En Ceuta se factura con IPSI y en la Península con IVA, y hay
@@ -412,13 +412,13 @@ class TestLoQueSeFacturaYNoSeGrava:
 
     def test_en_el_desglose_de_la_factura(self):
         salta = [i for i in quejas(fe(base_iva="100.00")) if i.codigo == "FE-SIN-GRAVAR"]
-        assert salta and "90.00" in salta[0].mensaje
+        assert salta and "90,00" in salta[0].mensaje
 
     def test_en_una_linea(self):
         salta = [
             i for i in quejas(fe(base_linea_1="0.00")) if i.codigo == "FE-LINEA-SIN-GRAVAR"
         ]
-        assert salta and "190.00" in salta[0].mensaje
+        assert salta and "190,00" in salta[0].mensaje
 
     def test_va_como_aviso(self):
         """El esquema no lo escribe como fórmula, y hay regímenes —agencias de
@@ -571,7 +571,7 @@ class TestLasRamasQueFaltaban:
             "<TotalGeneralSurcharges>10.00", "<TotalGeneralSurcharges>99.00")
         salta = [i for i in quejas(roto) if i.codigo == "FE-CARGOS"]
         assert salta and salta[0].gravedad == ERROR
-        assert "10.00" in salta[0].esperado
+        assert "10,00" in salta[0].esperado
 
     def test_el_total_a_pagar_del_fichero(self):
         salta = [i for i in quejas(fe(lote_pagar="1.00"))

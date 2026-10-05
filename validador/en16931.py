@@ -32,7 +32,7 @@ from decimal import Decimal
 
 from lxml import etree
 
-from validador import decimales, edifact, iva, listas_de_codigos, modelo
+from validador import cifras, decimales, edifact, iva, listas_de_codigos, modelo
 from validador.formato import FACTURAE, RESPUESTA, detectar, parser
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia, Informe
 from validador.sintaxis import (
@@ -48,7 +48,6 @@ from validador.sintaxis import (
     a_decimal,
     cuadra,
     cuadra_exacto,
-    fmt,
     importe,
     importe_en_moneda,
     redondear,
@@ -448,10 +447,10 @@ def _reglas_ajustes(
                 f"los {nombre} que detalla.",
                 campo=f"Total de {nombre} de documento",
                 esperado=(
-                    f"{redondear(detallados[es_cargo]):.2f} "
+                    f"{cifras.calculada(redondear(detallados[es_cargo]))} "
                     "(lo que suman los detallados)"
                 ),
-                encontrado=fmt(declarado),
+                encontrado=cifras.tiene(declarado),
             )
         )
     return incidencias
@@ -536,7 +535,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                     "línea añadida o modificada sin recalcular el total.",
                     campo="Suma de importes de línea",
                     esperado=(
-                        f"{redondear(acumulado):.2f} (suma de "
+                        f"{cifras.calculada(redondear(acumulado))} (suma de "
                         + (
                             "la única línea"
                             if len(lineas) == 1
@@ -544,7 +543,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                         )
                         + ")"
                     ),
-                    encontrado=fmt(suma_lineas),
+                    encontrado=cifras.tiene(suma_lineas),
                 )
             )
 
@@ -558,11 +557,11 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     if suma_lineas is not None and base is not None:
         calculada = suma_lineas - descuentos + cargos
         if not cuadra_exacto(calculada, base):
-            detalle = f"{suma_lineas:.2f}"
+            detalle = cifras.en_castellano(suma_lineas)
             if descuentos:
-                detalle += f" - {descuentos:.2f} de descuentos"
+                detalle += f" - {cifras.en_castellano(descuentos)} de descuentos"
             if cargos:
-                detalle += f" + {cargos:.2f} de cargos"
+                detalle += f" + {cifras.en_castellano(cargos)} de cargos"
             incidencias.append(
                 Incidencia(
                     "BR-CO-13",
@@ -570,8 +569,8 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                     "La base imponible no cuadra con las líneas menos los "
                     "descuentos más los cargos.",
                     campo="Base imponible total",
-                    esperado=f"{redondear(calculada):.2f}  ({detalle})",
-                    encontrado=fmt(base),
+                    esperado=f"{cifras.calculada(redondear(calculada))}  ({detalle})",
+                    encontrado=cifras.tiene(base),
                 )
             )
 
@@ -609,7 +608,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                 campo="Importe total de impuestos",
                 esperado=f"uno solo en {moneda or 'la moneda de la factura'}",
                 encontrado=", ".join(
-                    fmt(a_decimal(n.text)) for n in en_su_moneda),
+                    cifras.tiene(a_decimal(n.text)) for n in en_su_moneda),
             )
         )
     elif base is not None and con_impuestos is not None:
@@ -653,11 +652,11 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                         "importe de impuestos.",
                         campo="Total con impuestos",
                         esperado=(
-                            f"{redondear(calculada):.2f}  ({base:.2f} + "
-                            f"{impuestos:.2f} "
-                            "de impuestos)"
+                            f"{cifras.calculada(redondear(calculada))}  "
+                            f"({cifras.en_castellano(base)} + "
+                            f"{cifras.en_castellano(impuestos)} de impuestos)"
                         ),
-                        encontrado=fmt(con_impuestos),
+                        encontrado=cifras.tiene(con_impuestos),
                     )
                 )
 
@@ -667,15 +666,15 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
         if not cuadra_exacto(calculada, a_pagar):
             desglose = []
             if anticipos:
-                desglose.append(f"- {anticipos:.2f} ya pagados")
+                desglose.append(f"- {cifras.en_castellano(anticipos)} ya pagados")
             if redondeo:
-                desglose.append(f"+ {redondeo:.2f} de redondeo")
+                desglose.append(f"+ {cifras.en_castellano(redondeo)} de redondeo")
             explicacion = (
-                f"{redondear(calculada):.2f}  "
-                f"({con_impuestos:.2f} {' '.join(desglose)})"
+                f"{cifras.calculada(redondear(calculada))}  "
+                f"({cifras.en_castellano(con_impuestos)} {' '.join(desglose)})"
                 if desglose
-                else f"{redondear(calculada):.2f}, que es el total con "
-                "impuestos"
+                else f"{cifras.calculada(redondear(calculada))}, que es el "
+                "total con impuestos"
             )
             incidencias.append(
                 Incidencia(
@@ -685,7 +684,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                     "anticipado.",
                     campo="Total a pagar",
                     esperado=explicacion,
-                    encontrado=fmt(a_pagar),
+                    encontrado=cifras.tiene(a_pagar),
                 )
             )
 

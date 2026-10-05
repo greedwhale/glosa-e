@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2748 tests, todos en verde.
+2779 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -118,10 +118,10 @@ ejemplos\cii-A-0001.xml
   [BR-S-08 · EN 16931] La base declarada para S (tipo general) al 21% no
   coincide con la suma de lo que va a ese tipo.
     Campo: Base imponible de S (tipo general) al 21%
-    Debería ser: 100.00 (línea 1)
+    Debería ser: 100,00 (línea 1)
     Tiene: 150.00
 
-  [IVA-TIPO-SIN-DESGLOSE · De la casa] Hay 50.00 a S (tipo general) al 10%,
+  [IVA-TIPO-SIN-DESGLOSE · De la casa] Hay 50,00 a S (tipo general) al 10%,
   pero el desglose no trae ninguna entrada a ese tipo. El desglose va por
   categoría y tipo, no solo por categoría.
     Campo: Desglose de IVA
@@ -135,12 +135,12 @@ ejemplos\f-0006.xml
   no coincide con la suma real de sus líneas. Suele ser una línea añadida o
   modificada sin recalcular el total.
     Campo: Suma de importes de línea
-    Debería ser: 90.00 (suma de la única línea)
+    Debería ser: 90,00 (suma de la única línea)
     Tiene: 100.00
 
   [BR-S-08 · EN 16931] La base declarada para S (tipo general) al 21% no
   coincide con la suma de lo que va a ese tipo.
-    Debería ser: 90.00 (línea 1)
+    Debería ser: 90,00 (línea 1)
     Tiene: 100.00
 
 ejemplos\fe-0001.xml
@@ -268,10 +268,10 @@ que es justo lo que mira Hacienda. Ninguna de las reglas BR-CO-* se entera.
 ```
 [BR-S-08] La base declarada para S (tipo general) al 21% no coincide con la
 suma de lo que va a ese tipo.
-  Debería ser: 100.00 (línea 1)
+  Debería ser: 100,00 (línea 1)
   Tiene: 150.00
 
-[IVA-TIPO-SIN-DESGLOSE] Hay 50.00 a S (tipo general) al 10%, pero el desglose
+[IVA-TIPO-SIN-DESGLOSE] Hay 50,00 a S (tipo general) al 10%, pero el desglose
 no trae ninguna entrada a ese tipo. El desglose va por categoría y tipo, no
 solo por categoría.
   Debería ser: una entrada al 10%
@@ -2509,7 +2509,7 @@ UBL v2.1 (factura) · dice seguir EN 16931 — 4 error(es).
 con la suma real de sus líneas. Suele ser una línea añadida o modificada sin
 recalcular el total.
   Campo: Suma de importes de línea
-  Debería ser: 90.00 (suma de las 2 líneas)
+  Debería ser: 90,00 (suma de las 2 líneas)
   Tiene: 100.00
 ```
 
@@ -4646,7 +4646,35 @@ Lo que se escribe como «Debería ser» sale de esa misma cuenta, desde el
 100.125 con suma declarada 100.12 daba BR-CO-10 con «Debería ser: 100.12 ·
 Tiene: 100.12», un error que decía que estaba bien. Pasaba igual en BR-CO-11 a
 BR-CO-16, en la base de cada tipo y en negativo. Ahora cada regla escribe la
-cifra que comparó, 100.13 en ese caso.
+cifra que comparó, 100,13 en ese caso.
+
+### Las cifras: con coma, y «Tiene» tal cual
+
+Hasta el 05-10-2026 el informe escribía todas las cifras con `:.2f`, cada
+módulo con su `_fmt`: con punto decimal, que en castellano se lee como
+separador de miles («Debería ser: 90.00», «se aparta 0.50»), y redondeando
+también lo que copiaba del fichero. «Tiene» no decía lo que tenía: un 100
+salía 100.00, y un 21.005 salía 21.00, una cifra que no está en el fichero.
+Ahora todas pasan por `validador/cifras.py`, que tiene tres puertas según de
+dónde sale la cifra:
+
+| Función | Para | Cómo sale |
+|---|---|---|
+| `calculada` | lo que calcula el validador | `100,13`: coma, dos decimales y el redondeo de la regla |
+| `en_castellano` | una cifra del fichero dentro de una frase o de la cuenta que explica un «Debería ser» | `0,125`: coma, sin redondear y con dos decimales como mínimo, para que la cuenta sume |
+| `tiene` | una cifra del fichero, sola, en «Tiene» | `21.005`: tal cual, con su punto, que es lo que se busca en el XML |
+
+Los miles van con punto desde cinco cifras (12.345,67, y 1234,56 sin él), que
+es lo que hace `toLocaleString("es-ES")` en la portada. En «Tiene», nunca.
+Lo que no se guarda es lo que `Decimal` no guarda: un «+» delante o ceros a
+la izquierda. Y en EDIFACT con la coma como marca decimal, «Tiene» sale con
+punto, porque el árbol que se valida ya lo trae así.
+
+Dos guardias: ninguna línea de `validador/` escribe una cifra con `:.2f` ni
+con un `fmt` propio (fuera de `cifras.py`, de `sintaxis.py`, que define el
+`fmt` que ya no usa nadie, y de los megas que `__main__` escribe al montar), y
+ningún mensaje ni «Debería ser» lleva un punto decimal, sobre las muestras y
+sobre facturas con las cuentas rotas de los cuatro motores.
 
 **Y los dos esquematrones oficiales no dicen lo mismo en el borde.** A
 exactamente una unidad, el de UBL escribe `<` y el de CII `<=`, y las pruebas

@@ -335,24 +335,24 @@ def test_con_retencion_el_total_de_la_copia_no_es_el_de_la_factura():
     assert set(salidas) == {"COPIA-TOTAL"}
     nota = salidas["COPIA-TOTAL"]
     assert nota.gravedad == NOTA
-    assert "121.00" in nota.esperado  # 100 de base + 21 de cuota
-    assert "106.00" in nota.encontrado  # lo que pone la factura
-    assert "15.00" in nota.encontrado  # y por qué es distinto
+    assert "121,00" in nota.esperado  # 100 de base + 21 de cuota
+    assert "106,00" in nota.encontrado  # lo que pone la factura
+    assert "15,00" in nota.encontrado  # y por qué es distinto
 
 
 def test_con_recargo_la_cuota_de_la_copia_no_es_la_de_la_factura():
     salidas = notas(recargo=True)
     assert set(salidas) == {"COPIA-CUOTA", "COPIA-TOTAL"}
     cuota = salidas["COPIA-CUOTA"]
-    assert "21.00" in cuota.esperado
-    assert "26.20" in cuota.encontrado and "5.20" in cuota.encontrado
+    assert "21,00" in cuota.esperado
+    assert "26,20" in cuota.encontrado and "5,20" in cuota.encontrado
 
 
 def test_con_las_dos_cosas_los_dos_numeros_cambian():
     salidas = notas(recargo=True, retenido="15.00")
     assert set(salidas) == {"COPIA-CUOTA", "COPIA-TOTAL"}
     # El total europeo no lleva ni la retención restada ni el recargo sumado.
-    assert "121.00" in salidas["COPIA-TOTAL"].esperado
+    assert "121,00" in salidas["COPIA-TOTAL"].esperado
 
 
 # La copia en UBL de la factura de prueba, con la cuota y el total a elegir.
@@ -445,7 +445,7 @@ def test_los_suplidos_no_se_sabe_donde_se_escriben():
 def test_los_gastos_financieros_no_tienen_sitio():
     salidas = notas(financieros="1.00")
     assert set(salidas) == {"COPIA-SIN-SITIO"}
-    assert "1.00" in salidas["COPIA-SIN-SITIO"].encontrado
+    assert "1,00" in salidas["COPIA-SIN-SITIO"].encontrado
 
 
 def test_todas_son_notas_y_ninguna_es_un_fallo():
@@ -509,7 +509,7 @@ def test_lo_que_se_queda_en_el_original_va_en_una_sola_nota():
     for cosa in ("idioma", "fax", "gastos financieros", "subvenciones"):
         assert cosa in quedan, quedan
     # Los importes van con su cifra; los datos, solo nombrados.
-    assert "1.00" in quedan and "50.00" in quedan
+    assert "1,00" in quedan and "50,00" in quedan
 
 
 def test_la_unidad_de_medida_no_vale_escrita_asi():
@@ -550,8 +550,8 @@ def test_el_importe_neto_de_la_linea_es_el_bruto_y_no_el_coste():
     """
     neto = notas(coste="100.00", neto="90.00")["COPIA-LINEA-NETO"]
     assert neto.gravedad == NOTA
-    assert "90.00" in neto.esperado
-    assert "100.00" in neto.encontrado
+    assert "90,00" in neto.esperado
+    assert "100,00" in neto.encontrado
     assert "1 de 1" in neto.encontrado
 
 
@@ -578,7 +578,7 @@ def test_un_descuento_general_pide_un_iva_que_la_factura_no_lleva():
     """
     cargo = notas(descuento_general="10.00")["COPIA-CARGO-IVA"]
     assert cargo.gravedad == NOTA
-    assert "21.00 %" in cargo.esperado
+    assert "al 21%," in cargo.esperado
     assert "1 en esta factura" in cargo.encontrado
 
 
@@ -610,7 +610,7 @@ def test_una_retencion_no_cuenta_como_otra_categoria_de_iva():
     """
     cargo = notas(descuento_general="10.00",
                   retencion_detallada=True)["COPIA-CARGO-IVA"]
-    assert "21.00 %" in cargo.esperado
+    assert "al 21%," in cargo.esperado
     assert "prorrata" not in cargo.esperado
 
 

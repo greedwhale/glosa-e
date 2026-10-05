@@ -368,7 +368,7 @@ CODIGOS: dict[str, str] = {
         'se puede comprobar de una que sólo se puede pagar: con el importe a '
         'secas no hay forma de casar la línea con un albarán ni de discutir '
         'una tarifa. El precio unitario y el importe de la línea son campos '
-        'distintos: una línea puede traer sus 1.250 € perfectamente y no '
+        'distintos: una línea puede traer sus 1250 € perfectamente y no '
         'decir en ningún sitio que salen de 25 unidades a 50 €.'
     ),
     "BR-45": (
@@ -2535,7 +2535,7 @@ CODIGOS: dict[str, str] = {
     "BR-AG-08": (
         'La base declarada con IPSI no es la suma de los conceptos que van a '
         'ese impuesto y tipo. El caso medido está entre las facturas de '
-        'ejemplo que publica la Administración: 1.163,52 de base al 3% y '
+        'ejemplo que publica la Administración: 1163,52 de base al 3% y '
         'ninguna línea a ese tipo detrás. Eso es una de dos cosas, y se '
         'arreglan en sitios distintos: o sobra esa entrada del desglose, o '
         'hay una línea con la categoría o el tipo cambiados. El informe lo '
@@ -2877,23 +2877,23 @@ CODIGOS: dict[str, str] = {
         'El importe de un descuento de documento (BT-92) lleva más de dos '
         'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
         'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
-        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
-        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo que '
+        '`10.50`, y basta con no escribir el cero. En Facturae se mira el valor, '
         'porque su esquema escribe los importes con hasta ocho decimales.'
     ),
     "BR-DEC-02": (
         'La base sobre la que se calcula un descuento de documento (BT-93) lleva '
         'más de dos decimales, y la norma admite dos como mucho. Se cuentan las '
         'cifras escritas detrás del punto, como en las vinculaciones oficiales '
-        'de UBL, CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo '
-        'que 10.50, y basta con no escribir el cero. Facturae no escribe la base '
+        'de UBL, CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo '
+        'que `10.50`, y basta con no escribir el cero. Facturae no escribe la base '
         'de un descuento o de un cargo, y ahí no se mira.'
     ),
     "BR-DEC-05": (
         'El importe de un cargo de documento (BT-99) lleva más de dos decimales, '
         'y la norma admite dos como mucho. Se cuentan las cifras escritas detrás '
         'del punto, como en las vinculaciones oficiales de UBL, CII y EDIFACT: '
-        '10.500 son tres decimales aunque valga lo mismo que 10.50, y basta con '
+        '`10.500` son tres decimales aunque valga lo mismo que `10.50`, y basta con '
         'no escribir el cero. En Facturae se mira el valor, porque su esquema '
         'escribe los importes con hasta ocho decimales.'
     ),
@@ -2901,39 +2901,39 @@ CODIGOS: dict[str, str] = {
         'La base sobre la que se calcula un cargo de documento (BT-100) lleva '
         'más de dos decimales, y la norma admite dos como mucho. Se cuentan las '
         'cifras escritas detrás del punto, como en las vinculaciones oficiales '
-        'de UBL, CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo '
-        'que 10.50, y basta con no escribir el cero. Facturae no escribe la base '
+        'de UBL, CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo '
+        'que `10.50`, y basta con no escribir el cero. Facturae no escribe la base '
         'de un descuento o de un cargo, y ahí no se mira.'
     ),
     "BR-DEC-09": (
         'La suma de los importes netos de las líneas (BT-106) lleva más de dos '
         'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
         'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
-        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
-        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo que '
+        '`10.50`, y basta con no escribir el cero. En Facturae se mira el valor, '
         'porque su esquema escribe los importes con hasta ocho decimales.'
     ),
     "BR-DEC-10": (
         'El total de los descuentos de documento (BT-107) lleva más de dos '
         'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
         'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
-        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
-        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo que '
+        '`10.50`, y basta con no escribir el cero. En Facturae se mira el valor, '
         'porque su esquema escribe los importes con hasta ocho decimales.'
     ),
     "BR-DEC-11": (
         'El total de los cargos de documento (BT-108) lleva más de dos '
         'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
         'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
-        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
-        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo que '
+        '`10.50`, y basta con no escribir el cero. En Facturae se mira el valor, '
         'porque su esquema escribe los importes con hasta ocho decimales.'
     ),
     "BR-DEC-12": (
         'El total de la factura sin IVA (BT-109) lleva más de dos decimales, y '
         'la norma admite dos como mucho. Se cuentan las cifras escritas detrás '
         'del punto, como en las vinculaciones oficiales de UBL, CII y EDIFACT: '
-        '10.500 son tres decimales aunque valga lo mismo que 10.50, y basta con '
+        '`10.500` son tres decimales aunque valga lo mismo que `10.50`, y basta con '
         'no escribir el cero. En Facturae se mira el valor, porque su esquema '
         'escribe los importes con hasta ocho decimales.'
     ),
@@ -2941,7 +2941,7 @@ CODIGOS: dict[str, str] = {
         'El total del IVA en la moneda de la factura (BT-110) lleva más de dos '
         'decimales, y la norma admite dos como mucho. En UBL y EDIFACT se '
         'cuentan las cifras escritas detrás del punto; en CII se mira el valor, '
-        'como hace su vinculación oficial con este total, y 21.000 vale. La '
+        'como hace su vinculación oficial con este total, y `21.000` vale. La '
         'vinculación de UBL la escribe con un filtro que no deja pasar ningún '
         'importe y se cumple siempre; aquí se mira como dice la norma. En '
         'Facturae no se mira: su total repercutido incluye el recargo de '
@@ -2951,7 +2951,7 @@ CODIGOS: dict[str, str] = {
         'El total de la factura con IVA (BT-112) lleva más de dos decimales, y '
         'la norma admite dos como mucho. Se cuentan las cifras escritas detrás '
         'del punto, como en las vinculaciones oficiales de UBL, CII y EDIFACT: '
-        '10.500 son tres decimales aunque valga lo mismo que 10.50. En Facturae '
+        '`10.500` son tres decimales aunque valga lo mismo que `10.50`. En Facturae '
         'no se mira: con retenciones su total no es este.'
     ),
     "BR-DEC-15": (
@@ -2966,8 +2966,8 @@ CODIGOS: dict[str, str] = {
     "BR-DEC-16": (
         'El importe ya pagado (BT-113) lleva más de dos decimales, y la norma '
         'admite dos como mucho. Se cuentan las cifras escritas detrás del punto, '
-        'como en las vinculaciones oficiales de UBL, CII y EDIFACT: 10.500 son '
-        'tres decimales aunque valga lo mismo que 10.50, y basta con no escribir '
+        'como en las vinculaciones oficiales de UBL, CII y EDIFACT: `10.500` son '
+        'tres decimales aunque valga lo mismo que `10.50`, y basta con no escribir '
         'el cero. En Facturae se mira el valor, porque su esquema escribe los '
         'importes con hasta ocho decimales.'
     ),
@@ -2980,8 +2980,8 @@ CODIGOS: dict[str, str] = {
     "BR-DEC-18": (
         'El importe a pagar (BT-115) lleva más de dos decimales, y la norma '
         'admite dos como mucho. Se cuentan las cifras escritas detrás del punto, '
-        'como en las vinculaciones oficiales de UBL, CII y EDIFACT: 10.500 son '
-        'tres decimales aunque valga lo mismo que 10.50, y basta con no escribir '
+        'como en las vinculaciones oficiales de UBL, CII y EDIFACT: `10.500` son '
+        'tres decimales aunque valga lo mismo que `10.50`, y basta con no escribir '
         'el cero. En Facturae se mira el valor, porque su esquema escribe los '
         'importes con hasta ocho decimales.'
     ),
@@ -2989,16 +2989,16 @@ CODIGOS: dict[str, str] = {
         'La base de una categoría del desglose de IVA (BT-116) lleva más de dos '
         'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
         'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
-        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
-        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo que '
+        '`10.50`, y basta con no escribir el cero. En Facturae se mira el valor, '
         'porque su esquema escribe los importes con hasta ocho decimales.'
     ),
     "BR-DEC-20": (
         'La cuota de una categoría del desglose de IVA (BT-117) lleva más de dos '
         'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
         'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
-        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
-        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo que '
+        '`10.50`, y basta con no escribir el cero. En Facturae se mira el valor, '
         'porque su esquema escribe los importes con hasta ocho decimales.'
     ),
     "BR-DEC-23": (
@@ -3006,31 +3006,31 @@ CODIGOS: dict[str, str] = {
         'norma admite dos como mucho. El precio unitario y la cantidad pueden '
         'llevar más decimales; el importe de la línea no. Se cuentan las cifras '
         'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
-        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
-        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo que '
+        '`10.50`, y basta con no escribir el cero. En Facturae se mira el valor, '
         'porque su esquema escribe los importes con hasta ocho decimales.'
     ),
     "BR-DEC-24": (
         'El importe de un descuento de línea (BT-136) lleva más de dos '
         'decimales, y la norma admite dos como mucho. Se cuentan las cifras '
         'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
-        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
-        '10.50, y basta con no escribir el cero. En Facturae se mira el valor, '
+        'CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo que '
+        '`10.50`, y basta con no escribir el cero. En Facturae se mira el valor, '
         'porque su esquema escribe los importes con hasta ocho decimales.'
     ),
     "BR-DEC-25": (
         'La base sobre la que se calcula un descuento de línea (BT-137) lleva '
         'más de dos decimales, y la norma admite dos como mucho. Se cuentan las '
         'cifras escritas detrás del punto, como en las vinculaciones oficiales '
-        'de UBL, CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo '
-        'que 10.50, y basta con no escribir el cero. Facturae no escribe la base '
+        'de UBL, CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo '
+        'que `10.50`, y basta con no escribir el cero. Facturae no escribe la base '
         'de un descuento o de un cargo, y ahí no se mira.'
     ),
     "BR-DEC-27": (
         'El importe de un cargo de línea (BT-141) lleva más de dos decimales, y '
         'la norma admite dos como mucho. Se cuentan las cifras escritas detrás '
         'del punto, como en las vinculaciones oficiales de UBL, CII y EDIFACT: '
-        '10.500 son tres decimales aunque valga lo mismo que 10.50, y basta con '
+        '`10.500` son tres decimales aunque valga lo mismo que `10.50`, y basta con '
         'no escribir el cero. En Facturae se mira el valor, porque su esquema '
         'escribe los importes con hasta ocho decimales.'
     ),
@@ -3038,8 +3038,8 @@ CODIGOS: dict[str, str] = {
         'La base sobre la que se calcula un cargo de línea (BT-142) lleva más de '
         'dos decimales, y la norma admite dos como mucho. Se cuentan las cifras '
         'escritas detrás del punto, como en las vinculaciones oficiales de UBL, '
-        'CII y EDIFACT: 10.500 son tres decimales aunque valga lo mismo que '
-        '10.50, y basta con no escribir el cero. Facturae no escribe la base de '
+        'CII y EDIFACT: `10.500` son tres decimales aunque valga lo mismo que '
+        '`10.50`, y basta con no escribir el cero. Facturae no escribe la base de '
         'un descuento o de un cargo, y ahí no se mira.'
     ),
     "BR-CL-03": (
@@ -3215,12 +3215,12 @@ CODIGOS: dict[str, str] = {
     "SPFE-ESPECIFICACION": (
         "El identificador de especificación (cbc:CustomizationID) nombra el "
         "CIUS de la solución pública, pero no con el valor exacto del anexo: "
-        "urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0. "
+        "`urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0`. "
         "Sale, por ejemplo, si se declara la edición de 2017 de la norma o "
         "otra versión del CIUS. Sale como nota, y la factura se mide igual, "
         "cuando el identificador es el que enseñó la AEAT el 02-10-2026 en un "
         "ejemplo mandado por correo, "
-        "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended, "
+        "`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, "
         "que no es el del anexo de abril y que el correo no explica. Y sale "
         "como aviso, sin aplicar el anexo, cuando el identificador nombra a la "
         "AEAT (urn:aeat.es:), no es ninguno de los dos y no nombra el CIUS: la "

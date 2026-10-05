@@ -382,7 +382,7 @@ class TestLasMismasReglas:
             montar(lineas=(("1", "60.00"), ("2", "30.00")), suma_lineas="100.00")
         )
         problema = next(i for i in informe.errores if i.codigo == "BR-CO-10")
-        assert "90.00" in problema.esperado
+        assert "90,00" in problema.esperado
         assert "2 líneas" in problema.esperado
         assert problema.encontrado == "100.00"
 

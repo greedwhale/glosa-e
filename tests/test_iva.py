@@ -350,14 +350,14 @@ class TestCuadre:
         )
         assert "BR-S-08" in codigos(incidencias, ERROR)
         problema = una(incidencias, "BR-S-08")
-        assert "100.00" in problema.esperado
+        assert "100,00" in problema.esperado
         assert "línea 1" in problema.esperado
         assert problema.encontrado == "150.00"
 
         # Y la otra mitad del mismo error: del 10% no hay ni entrada.
         falta = una(incidencias, "IVA-TIPO-SIN-DESGLOSE")
         assert falta.gravedad == ERROR
-        assert "50.00" in falta.mensaje
+        assert "50,00" in falta.mensaje
         assert "10%" in falta.esperado
         assert "línea 2" in falta.encontrado
 
@@ -389,7 +389,7 @@ class TestCuadre:
         )
         cuantas = [i for i in incidencias if i.codigo == "IVA-TIPO-SIN-DESGLOSE"]
         assert len(cuantas) == 1
-        assert "60.00" in cuantas[0].mensaje
+        assert "60,00" in cuantas[0].mensaje
 
     def test_falta_el_desglose_de_un_tipo_usado(self, revisar):
         incidencias = revisar(
@@ -411,7 +411,7 @@ class TestCuadre:
         )
         problema = una(incidencias, "BR-CO-14")
         assert problema.gravedad == ERROR
-        assert "26.00" in problema.esperado
+        assert "26,00" in problema.esperado
         assert problema.encontrado == "21.00"
 
     def test_la_cuota_no_sale_de_aplicar_el_tipo(self, revisar):
@@ -421,7 +421,7 @@ class TestCuadre:
             total_iva="16.00",
         )
         problema = una(incidencias, "BR-CO-17")
-        assert "21.00" in problema.esperado
+        assert "21,00" in problema.esperado
         assert problema.encontrado == "16.00"
 
     def test_un_centimo_se_tolera(self, revisar):
@@ -463,7 +463,7 @@ class TestCuadre:
             descuentos_total="10.00",
         )
         problema = una(incidencias, "BR-S-08")
-        assert "100.00" in problema.esperado
+        assert "100,00" in problema.esperado
 
 
 class TestBaseFantasma:
@@ -593,7 +593,7 @@ class TestTotalesDeAjustes:
         )
         problema = una(en16931.validar(xml).incidencias, "BR-CO-11")
         assert problema.gravedad == ERROR
-        assert "10.00" in problema.esperado
+        assert "10,00" in problema.esperado
         assert problema.encontrado == "50.00"
 
     def test_el_total_de_cargos_no_cuadra(self):
@@ -617,7 +617,7 @@ class TestTotalesDeAjustes:
             descuentos_total="10.00",
         )
         problema = una(en16931.validar(xml).incidencias, "BR-CO-11")
-        assert problema.esperado.startswith("10.01 "), problema.esperado
+        assert problema.esperado.startswith("10,01 "), problema.esperado
 
     def test_y_entonces_el_desglose_se_calla(self):
         """Una sola queja, en el campo que está mal.
@@ -1187,7 +1187,7 @@ class TestUnaCategoriaFueraDeLaLista:
         )
         problema = una(salta, "IVA-BASE")
         assert problema.gravedad == ERROR
-        assert "100.00" in problema.esperado
+        assert "100,00" in problema.esperado
 
     def test_con_una_categoria_de_la_lista_sale_su_BR(self, revisar):
         """El control: si esto también diera `IVA-BASE`, lo de arriba no
@@ -1304,7 +1304,7 @@ class TestLoQueDicenLasPruebasOficiales:
         assert "BR-CO-17" not in codigos(incidencias)
         nota = una(incidencias, "IVA-CUOTA-REDONDEO")
         assert nota.gravedad == NOTA
-        assert "0.50" in nota.mensaje
+        assert "0,50" in nota.mensaje
 
     def test_la_cuota_a_mas_de_una_unidad_es_error(self, revisar):
         incidencias = revisar(
@@ -1380,7 +1380,7 @@ class TestLaBaseComoCadaEsquematron:
         apuntes = [iva.Apunte("línea 1", Decimal("100.005"), "S", Decimal(21))]
         (problema,) = iva._regla_base_por_grupo(grupo, apuntes, SINTAXIS_CII)
         assert problema.codigo == "BR-S-08"
-        assert problema.esperado.startswith("100.01 "), problema.esperado
+        assert problema.esperado.startswith("100,01 "), problema.esperado
 
     def test_la_no_sujeta_es_exacta_en_las_dos(self):
         for sintaxis in (SINTAXIS_UBL, SINTAXIS_CII):

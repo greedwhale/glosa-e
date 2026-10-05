@@ -59,7 +59,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from validador import paises
+from validador import cifras, paises
 from validador.sintaxis import a_decimal
 from validador.formato import FACTURAE, Deteccion
 from validador.incidencias import AVISO, ERROR, Incidencia
@@ -99,19 +99,6 @@ def _cuadra(calculado: Decimal, declarado: Decimal, sumandos: int = 1) -> bool:
     buena rechazada por un céntimo es peor que un céntimo sin detectar.
     """
     return abs(calculado - declarado) <= MEDIO_CENTIMO * (sumandos + 1)
-
-
-def _fmt(valor: Decimal | None) -> str:
-    return "(vacío)" if valor is None else f"{valor:.2f}"
-
-
-def _fmt_tipo(valor: Decimal | None) -> str:
-    if valor is None:
-        return "(sin tipo)"
-    normalizado = valor.normalize()
-    if normalizado == normalizado.to_integral_value():
-        normalizado = normalizado.quantize(Decimal(1))
-    return f"{normalizado}%"
 
 
 # --- Lectura ---------------------------------------------------------------
@@ -213,7 +200,7 @@ class Impuesto:
         return conocido
 
     def __str__(self) -> str:
-        return f"{self.nombre} al {_fmt_tipo(self.tipo)}"
+        return f"{self.nombre} al {cifras.tipo(self.tipo)}"
 
 
 def _impuestos(nodo, bloque: str) -> list[Impuesto]:
@@ -247,13 +234,13 @@ def _repercutido(tributos: list[Impuesto]) -> tuple[Decimal, int]:
     impuestos y un recargo se rechazaba por dos céntimos.
     """
     total = Decimal(0)
-    cifras = 0
+    cuantas = 0
     for tributo in tributos:
         for importe in (tributo.cuota, tributo.recargo_cuota):
             if importe is not None:
                 total += importe
-                cifras += 1
-    return total, cifras
+                cuantas += 1
+    return total, cuantas
 
 
 def _por_tipo_de_impuesto(
@@ -322,8 +309,11 @@ def _reglas_ajustes(
                     f"El importe del {palabra} «{motivo}» no sale de aplicar su "
                     f"porcentaje a {que}.",
                     campo=f"{donde}{palabra.capitalize()} «{motivo}»",
-                    esperado=f"{calculado:.2f}  ({sobre:.2f} x {_fmt_tipo(tipo)})",
-                    encontrado=_fmt(importe),
+                    esperado=(
+                        f"{cifras.calculada(calculado)}  "
+                        f"({cifras.en_castellano(sobre)} x {cifras.tipo(tipo)})"
+                    ),
+                    encontrado=cifras.tiene(importe),
                 )
             )
     return incidencias
@@ -351,8 +341,12 @@ def _reglas_linea(linea, donde: str, numero: int) -> list[Incidencia]:
                     "El coste total de la línea no es la cantidad por el precio "
                     "unitario.",
                     campo=f"{donde_linea}Coste total",
-                    esperado=f"{calculado:.2f}  ({cantidad} x {precio})",
-                    encontrado=_fmt(coste),
+                    esperado=(
+                        f"{cifras.calculada(calculado)}  "
+                        f"({cifras.en_castellano(cantidad)} x "
+                        f"{cifras.en_castellano(precio)})"
+                    ),
+                    encontrado=cifras.tiene(coste),
                 )
             )
 
@@ -364,11 +358,11 @@ def _reglas_linea(linea, donde: str, numero: int) -> list[Incidencia]:
     if coste is not None and bruto is not None:
         calculado = coste - descuentos + cargos
         if not _cuadra(calculado, bruto, cuantos_d + cuantos_c + 1):
-            detalle = f"{coste:.2f}"
+            detalle = f"{cifras.en_castellano(coste)}"
             if descuentos:
-                detalle += f" - {descuentos:.2f} de descuentos"
+                detalle += f" - {cifras.en_castellano(descuentos)} de descuentos"
             if cargos:
-                detalle += f" + {cargos:.2f} de cargos"
+                detalle += f" + {cifras.en_castellano(cargos)} de cargos"
             incidencias.append(
                 Incidencia(
                     "FE-LINEA-BRUTO",
@@ -376,8 +370,8 @@ def _reglas_linea(linea, donde: str, numero: int) -> list[Incidencia]:
                     "El importe bruto de la línea no cuadra con su coste menos "
                     "los descuentos más los cargos.",
                     campo=f"{donde_linea}Importe bruto",
-                    esperado=f"{calculado:.2f}  ({detalle})",
-                    encontrado=_fmt(bruto),
+                    esperado=f"{cifras.calculada(calculado)}  ({detalle})",
+                    encontrado=cifras.tiene(bruto),
                 )
             )
 
@@ -399,12 +393,16 @@ def _reglas_linea(linea, donde: str, numero: int) -> list[Incidencia]:
                 Incidencia(
                     "FE-LINEA-SIN-GRAVAR",
                     AVISO,
-                    f"La línea factura {bruto:.2f} pero solo declara "
-                    f"{base:.2f} como base de {nombre}. Quedan "
-                    f"{abs(bruto - base):.2f} sin gravar ni justificar.",
+                    f"La línea factura {cifras.en_castellano(bruto)} pero solo "
+                    f"declara "
+                    f"{cifras.en_castellano(base)} como base de {nombre}. Quedan "
+                    f"{cifras.calculada(abs(bruto - base))} sin gravar ni justificar.",
                     campo=f"{donde_linea}Base de {nombre}",
-                    esperado=f"{bruto:.2f}, que es el importe bruto de la línea",
-                    encontrado=_fmt(base),
+                    esperado=(
+                        f"{cifras.en_castellano(bruto)}, que es el importe bruto de "
+                        "la línea"
+                    ),
+                    encontrado=cifras.tiene(base),
                 )
             )
 
@@ -438,10 +436,11 @@ def _reglas_cuota(tributos: list[Impuesto], donde: str) -> list[Incidencia]:
                     f"La cuota de {tributo} no sale de aplicar el tipo a la base.",
                     campo=f"{donde}Cuota de {tributo}",
                     esperado=(
-                        f"{calculada:.2f}  ({tributo.base:.2f} x "
-                        f"{_fmt_tipo(tributo.tipo)})"
+                        f"{cifras.calculada(calculada)}  "
+                        f"({cifras.en_castellano(tributo.base)} x "
+                        f"{cifras.tipo(tributo.tipo)})"
                     ),
-                    encontrado=_fmt(tributo.cuota),
+                    encontrado=cifras.tiene(tributo.cuota),
                 )
             )
 
@@ -461,10 +460,11 @@ def _reglas_cuota(tributos: list[Impuesto], donde: str) -> list[Incidencia]:
                     "a la misma base que el impuesto.",
                     campo=f"{donde}Recargo de equivalencia de {tributo}",
                     esperado=(
-                        f"{calculado:.2f}  ({tributo.base:.2f} x "
-                        f"{_fmt_tipo(tributo.recargo_tipo)})"
+                        f"{cifras.calculada(calculado)}  "
+                        f"({cifras.en_castellano(tributo.base)} x "
+                        f"{cifras.tipo(tributo.recargo_tipo)})"
                     ),
-                    encontrado=_fmt(tributo.recargo_cuota),
+                    encontrado=cifras.tiene(tributo.recargo_cuota),
                 )
             )
     return incidencias
@@ -522,8 +522,11 @@ def _cadena_de_totales(totales, donde: str) -> list[Incidencia]:
                 f"El total general de {palabra} no es la suma de los {palabra} "
                 "que detalla la factura.",
                 campo=f"{donde}Total general de {palabra}",
-                esperado=f"{sumado:.2f}  (lo que suman los {cuantos} detallados)",
-                encontrado=_fmt(valor),
+                esperado=(
+                    f"{cifras.calculada(sumado)}  "
+                    f"(lo que suman los {cuantos} detallados)"
+                ),
+                encontrado=cifras.tiene(valor),
             )
         )
 
@@ -534,11 +537,13 @@ def _cadena_de_totales(totales, donde: str) -> list[Incidencia]:
             "TotalGeneralSurcharges"
         )
         if not _cuadra(calculada, base, 3):
-            detalle = f"{bruto:.2f}"
+            detalle = f"{cifras.en_castellano(bruto)}"
             if cero("TotalGeneralDiscounts"):
-                detalle += f" - {cero('TotalGeneralDiscounts'):.2f} de descuentos"
+                descontado = cifras.en_castellano(cero("TotalGeneralDiscounts"))
+                detalle += f" - {descontado} de descuentos"
             if cero("TotalGeneralSurcharges"):
-                detalle += f" + {cero('TotalGeneralSurcharges'):.2f} de cargos"
+                cargado = cifras.en_castellano(cero("TotalGeneralSurcharges"))
+                detalle += f" + {cargado} de cargos"
             incidencias.append(
                 Incidencia(
                     "FE-BASE",
@@ -546,8 +551,8 @@ def _cadena_de_totales(totales, donde: str) -> list[Incidencia]:
                     "La base antes de impuestos no cuadra con el importe bruto "
                     "menos los descuentos más los cargos generales.",
                     campo=f"{donde}Total bruto antes de impuestos",
-                    esperado=f"{calculada:.2f}  ({detalle})",
-                    encontrado=_fmt(base),
+                    esperado=f"{cifras.calculada(calculada)}  ({detalle})",
+                    encontrado=cifras.tiene(base),
                 )
             )
 
@@ -556,9 +561,12 @@ def _cadena_de_totales(totales, donde: str) -> list[Incidencia]:
     if base is not None and repercutidos is not None and total is not None:
         calculado = base + repercutidos - (retenidos or Decimal(0))
         if not _cuadra(calculado, total, 3):
-            detalle = f"{base:.2f} + {repercutidos:.2f} de impuestos"
+            detalle = (
+                f"{cifras.en_castellano(base)} + "
+                f"{cifras.en_castellano(repercutidos)} de impuestos"
+            )
             if retenidos:
-                detalle += f" - {retenidos:.2f} de retenciones"
+                detalle += f" - {cifras.en_castellano(retenidos)} de retenciones"
             incidencias.append(
                 Incidencia(
                     "FE-TOTAL",
@@ -566,8 +574,8 @@ def _cadena_de_totales(totales, donde: str) -> list[Incidencia]:
                     "El total de la factura no es la base más los impuestos "
                     "repercutidos menos los retenidos.",
                     campo=f"{donde}Total factura",
-                    esperado=f"{calculado:.2f}  ({detalle})",
-                    encontrado=_fmt(total),
+                    esperado=f"{cifras.calculada(calculado)}  ({detalle})",
+                    encontrado=cifras.tiene(total),
                 )
             )
 
@@ -583,8 +591,11 @@ def _cadena_de_totales(totales, donde: str) -> list[Incidencia]:
                     "El total de anticipos no es la suma de los anticipos que "
                     "detalla la factura.",
                     campo=f"{donde}Total de anticipos",
-                    esperado=f"{sumado:.2f}  (lo que suman los {cuantos} detallados)",
-                    encontrado=_fmt(anticipos),
+                    esperado=(
+                        f"{cifras.calculada(sumado)}  "
+                        f"(lo que suman los {cuantos} detallados)"
+                    ),
+                    encontrado=cifras.tiene(anticipos),
                 )
             )
 
@@ -596,11 +607,11 @@ def _cadena_de_totales(totales, donde: str) -> list[Incidencia]:
     if total is not None and pendiente is not None:
         calculado = total - subvenciones - (anticipos or Decimal(0))
         if not _cuadra(calculado, pendiente, cuantas + 2):
-            detalle = f"{total:.2f}"
+            detalle = f"{cifras.en_castellano(total)}"
             if subvenciones:
-                detalle += f" - {subvenciones:.2f} de subvenciones"
+                detalle += f" - {cifras.en_castellano(subvenciones)} de subvenciones"
             if anticipos:
-                detalle += f" - {anticipos:.2f} de anticipos"
+                detalle += f" - {cifras.en_castellano(anticipos)} de anticipos"
             incidencias.append(
                 Incidencia(
                     "FE-PENDIENTE",
@@ -608,8 +619,8 @@ def _cadena_de_totales(totales, donde: str) -> list[Incidencia]:
                     "El total a pagar no cuadra con el total de la factura menos "
                     "las subvenciones y los anticipos.",
                     campo=f"{donde}Total a pagar",
-                    esperado=f"{calculado:.2f}  ({detalle})",
-                    encontrado=_fmt(pendiente),
+                    esperado=f"{cifras.calculada(calculado)}  ({detalle})",
+                    encontrado=cifras.tiene(pendiente),
                 )
             )
 
@@ -625,7 +636,7 @@ def _cadena_de_totales(totales, donde: str) -> list[Incidencia]:
         financieros = cero("TotalFinancialExpenses")
         calculado = pendiente - retenidas - especie + suplidos + financieros
         if not _cuadra(calculado, ejecutar, cuantas_r + cuantas_e + 3):
-            detalle = f"{pendiente:.2f}"
+            detalle = f"{cifras.en_castellano(pendiente)}"
             for cantidad, signo, palabra in (
                 (retenidas, "-", "retenido"),
                 (especie, "-", "pagado en especie"),
@@ -633,7 +644,7 @@ def _cadena_de_totales(totales, donde: str) -> list[Incidencia]:
                 (financieros, "+", "de gastos financieros"),
             ):
                 if cantidad:
-                    detalle += f" {signo} {cantidad:.2f} {palabra}"
+                    detalle += f" {signo} {cifras.en_castellano(cantidad)} {palabra}"
             incidencias.append(
                 Incidencia(
                     "FE-EJECUTAR",
@@ -641,8 +652,8 @@ def _cadena_de_totales(totales, donde: str) -> list[Incidencia]:
                     "El total a ejecutar no cuadra con el total a pagar una vez "
                     "aplicadas retenciones, suplidos y gastos financieros.",
                     campo=f"{donde}Total a ejecutar",
-                    esperado=f"{calculado:.2f}  ({detalle})",
-                    encontrado=_fmt(ejecutar),
+                    esperado=f"{cifras.calculada(calculado)}  ({detalle})",
+                    encontrado=cifras.tiene(ejecutar),
                 )
             )
 
@@ -664,8 +675,8 @@ def _reglas_impuestos_de_la_factura(
     # Equivalencia.»
     declarado = _numero(totales, "TotalTaxOutputs")
     if repercutidos and declarado is not None:
-        sumado, cifras = _repercutido(repercutidos)
-        if cifras and not _cuadra(sumado, declarado, cifras):
+        sumado, cuantas = _repercutido(repercutidos)
+        if cuantas and not _cuadra(sumado, declarado, cuantas):
             incidencias.append(
                 Incidencia(
                     "FE-REPERCUTIDOS",
@@ -674,10 +685,11 @@ def _reglas_impuestos_de_la_factura(
                     "cuotas del desglose, recargos de equivalencia incluidos.",
                     campo=f"{donde}Total impuestos repercutidos",
                     esperado=(
-                        f"{sumado:.2f}  (lo que suman las {cifras} cuotas "
+                        f"{cifras.calculada(sumado)}  (lo que suman las {cuantas} "
+                        "cuotas "
                         "del desglose)"
                     ),
-                    encontrado=_fmt(declarado),
+                    encontrado=cifras.tiene(declarado),
                 )
             )
 
@@ -699,8 +711,11 @@ def _reglas_impuestos_de_la_factura(
                     "El total de impuestos retenidos no es la suma de las "
                     "retenciones que detalla la factura.",
                     campo=f"{donde}Total impuestos retenidos",
-                    esperado=f"{sumado:.2f}  (lo que suman las {cuantos} retenciones)",
-                    encontrado=_fmt(declarado),
+                    esperado=(
+                        f"{cifras.calculada(sumado)}  "
+                        f"(lo que suman las {cuantos} retenciones)"
+                    ),
+                    encontrado=cifras.tiene(declarado),
                 )
             )
 
@@ -722,12 +737,17 @@ def _reglas_impuestos_de_la_factura(
                 Incidencia(
                     "FE-SIN-GRAVAR",
                     AVISO,
-                    f"La factura tiene una base de {base:.2f} pero solo declara "
-                    f"{declarada:.2f} como base de {nombre}. Quedan "
-                    f"{abs(base - declarada):.2f} sin gravar ni justificar.",
+                    f"La factura tiene una base de {cifras.en_castellano(base)} pero "
+                    f"solo declara "
+                    f"{cifras.en_castellano(declarada)} como base de {nombre}. Quedan "
+                    f"{cifras.calculada(abs(base - declarada))} sin gravar ni "
+                    "justificar.",
                     campo=f"{donde}Base de {nombre} en el desglose",
-                    esperado=f"{base:.2f}, que es la base antes de impuestos",
-                    encontrado=_fmt(declarada),
+                    esperado=(
+                        f"{cifras.en_castellano(base)}, que es la base antes de "
+                        "impuestos"
+                    ),
+                    encontrado=cifras.tiene(declarada),
                 )
             )
 
@@ -777,11 +797,11 @@ def _reglas_factura(factura, donde: str) -> list[Incidencia]:
                     "recalcular el total.",
                     campo=f"{donde}Total importe bruto",
                     esperado=(
-                        f"{sumado:.2f}  (suma de "
+                        f"{cifras.calculada(sumado)}  (suma de "
                         + ("la única línea" if cuantas == 1 else f"las {cuantas} líneas")
                         + ")"
                     ),
-                    encontrado=_fmt(declarado),
+                    encontrado=cifras.tiene(declarado),
                 )
             )
 
@@ -876,11 +896,11 @@ def _reglas_lote(raiz, facturas: list) -> list[Incidencia]:
                 "facturas que trae dentro.",
                 campo=f"Cabecera del fichero · {nombre.capitalize()}",
                 esperado=(
-                    f"{sumado:.2f}  (lo que suman "
+                    f"{cifras.calculada(sumado)}  (lo que suman "
                     + ("la única factura" if cuantos == 1 else f"las {cuantos} facturas")
                     + ")"
                 ),
-                encontrado=_fmt(declarado),
+                encontrado=cifras.tiene(declarado),
             )
         )
 

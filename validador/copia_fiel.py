@@ -181,6 +181,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
+from validador import cifras
 from validador.formato import FACTURAE, Deteccion
 from validador.incidencias import NOTA, Incidencia
 from validador.sintaxis import a_decimal
@@ -1240,10 +1241,6 @@ def _suma_profunda(nodo, nombre: str) -> Decimal:
     return total
 
 
-def _fmt(cantidad: Decimal) -> str:
-    return f"{cantidad:.2f}"
-
-
 def _de_las_lineas(factura, etiqueta: str) -> list[Incidencia]:
     """Lo que hay que decidir al copiar las líneas: el código y el importe.
 
@@ -1313,10 +1310,10 @@ def _de_las_lineas(factura, etiqueta: str) -> list[Incidencia]:
                 "líneas. Copiar el otro no deja un hueco: deja un número que "
                 "parece bueno.",
                 campo=f"{etiqueta}Importe neto de las líneas (BT-131 en la copia)",
-                esperado=f"{_fmt(bruto_de_esas)} en la copia, que es lo que "
-                         f"suman sus GrossAmount",
-                encontrado=f"{_fmt(coste_de_esas)} si se copiara TotalCost, "
-                           f"en {descuadradas} de {len(lineas)} líneas",
+                esperado=f"{cifras.calculada(bruto_de_esas)} en la copia, que es "
+                         "lo que suman sus GrossAmount",
+                encontrado=f"{cifras.calculada(coste_de_esas)} si se copiara "
+                           f"TotalCost, en {descuadradas} de {len(lineas)} líneas",
             )
         )
     return incidencias
@@ -1436,7 +1433,11 @@ def _de_los_cargos(factura, etiqueta: str) -> list[Incidencia]:
         esperado = (f"repartidos entre las {len(categorias)} categorías de IVA "
                     "de la factura, a prorrata de la base de cada una")
     elif categorias:
-        esperado = (f"la categoría de la factura, al {categorias[0][1]} %, "
+        # El tipo como se escribe en el resto del informe, 21% o 6,5%: el
+        # texto del fichero con un espacio delante del signo decía «al
+        # 21.00 %», con punto, en un «Debería ser».
+        tipo = cifras.tipo(a_decimal(categorias[0][1]))
+        esperado = (f"la categoría de la factura, al {tipo}, "
                     "en cada uno de los grupos de la copia")
     else:
         esperado = "una categoría de IVA en cada grupo de la copia"
@@ -1820,18 +1821,22 @@ def _de_una_factura(
                 # informe rotula estas dos líneas «Debería ser» y «Tiene», y
                 # sin el añadido se leería que la factura está mal, que es
                 # justo lo contrario de lo que dice la nota.
-                esperado=f"{_fmt(repercutido - recargo)} en la copia, sin el recargo",
-                encontrado=f"{_fmt(repercutido)} en esta factura, "
-                           f"con {_fmt(recargo)} de recargo dentro",
+                esperado=f"{cifras.calculada(repercutido - recargo)} en la copia, "
+                         "sin el recargo",
+                encontrado=f"{cifras.en_castellano(repercutido)} en esta factura, "
+                           f"con {cifras.en_castellano(recargo)} de recargo dentro",
             )
         )
     if retenido or recargo:
         # BT-112 es base más cuotas de IVA. Ni la retención se resta —no es un
         # impuesto de la factura para la norma— ni el recargo se suma ahí.
         europeo = base + repercutido - recargo
-        detalle = f"{_fmt(total)} en esta factura"
+        detalle = f"{cifras.en_castellano(total)} en esta factura"
         if retenido:
-            detalle += f", que ya tiene restados {_fmt(retenido)} de retenciones"
+            detalle += (
+                f", que ya tiene restados {cifras.en_castellano(retenido)} de "
+                "retenciones"
+            )
         incidencias.append(
             Incidencia(
                 "COPIA-TOTAL",
@@ -1841,7 +1846,8 @@ def _de_una_factura(
                 "impuestos de la copia es la base más las cuotas de IVA: la "
                 "retención viaja aparte, en la extensión española.",
                 campo=f"{etiqueta}Total factura (BT-112 en la copia)",
-                esperado=f"{_fmt(europeo)} en la copia: base más cuotas de IVA",
+                esperado=f"{cifras.calculada(europeo)} en la copia: base más "
+                         "cuotas de IVA",
                 encontrado=detalle,
             )
         )
@@ -1856,7 +1862,7 @@ def _de_una_factura(
                 "ruta. El 10-09-2026 la AEAT dijo que el anexo nuevo los usa, "
                 "pero ese texto no está publicado.",
                 campo=f"{etiqueta}Total de suplidos",
-                encontrado=_fmt(suplidos),
+                encontrado=cifras.tiene(suplidos),
             )
         )
     # Todo lo que se queda fuera, en **una** nota. Cinco notas seguidas
@@ -1866,9 +1872,9 @@ def _de_una_factura(
     # demás son datos y basta con nombrarlos.
     se_quedan = []
     if financieros:
-        se_quedan.append(f"gastos financieros ({_fmt(financieros)})")
+        se_quedan.append(f"gastos financieros ({cifras.en_castellano(financieros)})")
     if subvenciones:
-        se_quedan.append(f"subvenciones ({_fmt(subvenciones)})")
+        se_quedan.append(f"subvenciones ({cifras.en_castellano(subvenciones)})")
     for ruta, concepto in _SIN_SITIO_EN_LA_FACTURA:
         if _hijos(factura, *ruta):
             se_quedan.append(concepto)

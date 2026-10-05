@@ -19,6 +19,8 @@ romper es que dejen de encajar.
 """
 from __future__ import annotations
 
+import re
+
 from validador.codigos import codigos_del_paquete
 from validador.glosario import CODIGOS, FAMILIAS, explicar
 
@@ -46,6 +48,30 @@ def test_ninguna_explicacion_lleva_rayas():
     assert not con, (
         f"estas explicaciones llevan raya: {', '.join(con)}. Los incisos, "
         "entre comas o entre paréntesis.")
+
+
+def test_lo_escrito_en_el_fichero_va_entre_comillas_invertidas():
+    """«`10.500` son tres decimales», y no «10.500 son tres decimales».
+
+    Sin las comillas, en castellano se lee diez mil quinientos. Hasta el
+    05-10-2026 estaban así los ejemplos de las BR-DEC, 37 veces en 19 fichas.
+    Fuera de las comillas una cifra va como en el informe: coma decimal, y
+    punto de miles desde cinco cifras (1163,52, no 1.163,52). Lo único con
+    punto que queda fuera es una versión, y está escrita aquí.
+    """
+    versiones = {("SPFE-SINTAXIS", "2.5")}
+    con_punto = []
+    for clave, texto in [*FAMILIAS.items(), *CODIGOS.items()]:
+        fuera = re.sub(r"`[^`]*`", "", texto)
+        # Los miles bien puestos, desde cinco cifras: 12.345,67 sí, 1.163,52 no.
+        fuera = re.sub(r"(?:\d{2,3}(?:\.\d{3})+|\d(?:\.\d{3}){2,}),\d+", "", fuera)
+        for cifra in re.findall(r"\d+(?:\.\d+)+", fuera):
+            if (clave, cifra) not in versiones:
+                con_punto.append(f"{clave}: {cifra}")
+    assert not con_punto, (
+        "estas cifras se leen con el punto como miles: "
+        + ", ".join(con_punto)
+        + ". Lo que está escrito así en el fichero, entre comillas invertidas.")
 
 
 def test_ninguna_explicacion_escrita_sobra():

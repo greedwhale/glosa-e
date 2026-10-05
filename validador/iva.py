@@ -27,6 +27,7 @@ from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
 
+from validador import cifras
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 from validador.sintaxis import (
     SIN_MAPA,
@@ -34,8 +35,6 @@ from validador.sintaxis import (
     a_menos_de_una_unidad,
     cuadra,
     cuadra_exacto,
-    fmt,
-    fmt_tipo,
     importe,
     importe_en_moneda,
     redondear,
@@ -238,7 +237,7 @@ class Grupo:
         return _clave(self.categoria, self.tipo)
 
     def __str__(self) -> str:
-        return f"{nombre_categoria(self.categoria)} al {fmt_tipo(self.tipo)}"
+        return f"{nombre_categoria(self.categoria)} al {cifras.tipo(self.tipo)}"
 
 
 @dataclass(frozen=True)
@@ -458,7 +457,7 @@ def _regla_total(raiz, sintaxis: Sintaxis, grupos: list[Grupo]) -> list[Incidenc
             "rehacer el desglose.",
             campo="Importe total de impuestos",
             esperado=(
-                f"{redondear(suma):.2f} (suma de "
+                f"{cifras.calculada(redondear(suma))} (suma de "
                 + (
                     "la única entrada"
                     if len(con_cuota) == 1
@@ -466,7 +465,7 @@ def _regla_total(raiz, sintaxis: Sintaxis, grupos: list[Grupo]) -> list[Incidenc
                 )
                 + " del desglose)"
             ),
-            encontrado=fmt(declarado),
+            encontrado=cifras.tiene(declarado),
         )
     ]
 
@@ -569,7 +568,7 @@ def _regla_base_por_grupo(
                 "una línea con la categoría o el tipo cambiados.",
                 campo=f"Base imponible de {grupo}",
                 esperado="algún concepto que vaya a ese tipo",
-                encontrado=f"{grupo.base:.2f} sin nada detrás",
+                encontrado=f"{cifras.tiene(grupo.base)} sin nada detrás",
             )
         ]
 
@@ -581,6 +580,7 @@ def _regla_base_por_grupo(
     # esa misma cifra, o una base de 100.00 contra 100.005 diría que se
     # aparta 0.00.
     debida = redondear(suma)
+    de_que = ", ".join(a.descripcion for a in suyos)
     if (grupo.categoria in sintaxis.base_admite_una_unidad
             and abs(grupo.base - suma) < 1):
         return [
@@ -588,14 +588,15 @@ def _regla_base_por_grupo(
                 "IVA-BASE-TOLERADA",
                 AVISO,
                 f"La base declarada para {grupo} se aparta "
-                f"{abs(grupo.base - debida):.2f} de la suma de lo que va a ese "
+                f"{cifras.calculada(abs(grupo.base - debida))} de la suma de "
+                "lo que va a ese "
                 f"tipo. El esquematrón oficial de {sintaxis.nombre} lo deja "
                 "pasar porque es menos de una unidad, y por eso no es un "
                 f"error de {codigo}; pero una base es una suma y no tiene "
                 "redondeo que la explique, así que algo no está donde dice.",
                 campo=f"Base imponible de {grupo}",
-                esperado=f"{debida:.2f} ({', '.join(a.descripcion for a in suyos)})",
-                encontrado=fmt(grupo.base),
+                esperado=f"{cifras.calculada(debida)} ({de_que})",
+                encontrado=cifras.tiene(grupo.base),
             )
         ]
     return [
@@ -605,10 +606,22 @@ def _regla_base_por_grupo(
             f"La base declarada para {grupo} no coincide con la suma de lo que "
             "va a ese tipo.",
             campo=f"Base imponible de {grupo}",
-            esperado=f"{debida:.2f} ({', '.join(a.descripcion for a in suyos)})",
-            encontrado=fmt(grupo.base),
+            esperado=f"{cifras.calculada(debida)} ({de_que})",
+            encontrado=cifras.tiene(grupo.base),
         )
     ]
+
+
+def _cuota_esperada(calculada: Decimal, grupo: Grupo) -> str:
+    """«21,03 (100,12 x 21%)»: la cuota que sale y la cuenta que la da.
+
+    La base va como está en el fichero, sin redondear, para que la cuenta se
+    pueda rehacer a mano; ver `cifras`.
+    """
+    return (
+        f"{cifras.calculada(calculada)} "
+        f"({cifras.en_castellano(grupo.base)} x {cifras.tipo(grupo.tipo)})"
+    )
 
 
 def _regla_cuota_por_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]:
@@ -639,8 +652,8 @@ def _regla_cuota_por_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]
                 f"La entrada {grupo} va a tipo cero y declara cuota. A tipo "
                 "cero la cuota tiene que ser cero.",
                 campo=f"Cuota de {grupo}",
-                esperado="0.00",
-                encontrado=fmt(grupo.cuota),
+                esperado="0,00",
+                encontrado=cifras.tiene(grupo.cuota),
             )
         ]
     if grupo.base is None:
@@ -661,15 +674,14 @@ def _regla_cuota_por_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]
             Incidencia(
                 "IVA-CUOTA-REDONDEO",
                 NOTA,
-                f"La cuota de {grupo} se aparta {distancia:.2f} de aplicar el "
-                "tipo a la base. La norma lo admite (hasta una unidad, por el "
-                "redondeo línea a línea) y se ha dado por buena. Si no hay "
+                f"La cuota de {grupo} se aparta {cifras.calculada(distancia)} "
+                "de aplicar el tipo a la base. La norma lo admite (hasta una "
+                "unidad, por el redondeo línea a línea) y se ha dado por "
+                "buena. Si no hay "
                 "redondeo por líneas que lo explique, conviene revisarla.",
                 campo=f"Cuota de {grupo}",
-                esperado=(
-                    f"{calculada:.2f} ({grupo.base:.2f} x {fmt_tipo(grupo.tipo)})"
-                ),
-                encontrado=fmt(grupo.cuota),
+                esperado=_cuota_esperada(calculada, grupo),
+                encontrado=cifras.tiene(grupo.cuota),
             )
         ]
     return [
@@ -678,10 +690,8 @@ def _regla_cuota_por_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]
             ERROR,
             f"La cuota de IVA de {grupo} no sale de aplicar el tipo a la base.",
             campo=f"Cuota de {grupo}",
-            esperado=(
-                f"{calculada:.2f} ({grupo.base:.2f} x {fmt_tipo(grupo.tipo)})"
-            ),
-            encontrado=fmt(grupo.cuota),
+            esperado=_cuota_esperada(calculada, grupo),
+            encontrado=cifras.tiene(grupo.cuota),
         )
     ]
 
@@ -717,8 +727,8 @@ def _regla_cuota_de_la_categoria(
                 f"{nombre_categoria(grupo.categoria)} no hay impuesto que "
                 "repercutir: la cuota tiene que ser cero, sin redondeo.",
                 campo=f"Cuota de {grupo}",
-                esperado="0.00",
-                encontrado=fmt(grupo.cuota),
+                esperado="0,00",
+                encontrado=cifras.tiene(grupo.cuota),
             )
         ]
     if grupo.categoria not in sintaxis.comprueba_la_cuota_por_tipo:
@@ -738,10 +748,8 @@ def _regla_cuota_de_la_categoria(
             f"La cuota de {grupo} se aparta una unidad o más de aplicar el "
             "tipo a la base.",
             campo=f"Cuota de {grupo}",
-            esperado=(
-                f"{calculada:.2f} ({grupo.base:.2f} x {fmt_tipo(grupo.tipo)})"
-            ),
-            encontrado=fmt(grupo.cuota),
+            esperado=_cuota_esperada(calculada, grupo),
+            encontrado=cifras.tiene(grupo.cuota),
         )
     ]
 
@@ -1128,12 +1136,13 @@ def _regla_hay_desglose(
             Incidencia(
                 "IVA-TIPO-SIN-DESGLOSE",
                 ERROR,
-                f"Hay {suma:.2f} a {nombre_categoria(apunte.categoria)} al "
-                f"{fmt_tipo(apunte.tipo)}, pero el desglose no trae ninguna "
+                f"Hay {cifras.calculada(suma)} a "
+                f"{nombre_categoria(apunte.categoria)} al "
+                f"{cifras.tipo(apunte.tipo)}, pero el desglose no trae ninguna "
                 "entrada a ese tipo. El desglose va por categoría y tipo, no "
                 "solo por categoría.",
                 campo="Desglose de IVA",
-                esperado=f"una entrada al {fmt_tipo(apunte.tipo)}",
+                esperado=f"una entrada al {cifras.tipo(apunte.tipo)}",
                 encontrado=", ".join(suyos),
             )
         )
@@ -1276,12 +1285,12 @@ def _regla_tipos_espanoles(grupos: list[Grupo]) -> list[Incidencia]:
             Incidencia(
                 "IVA-TIPO",
                 AVISO,
-                f"{fmt_tipo(grupo.tipo)} no es un tipo de IVA vigente en "
+                f"{cifras.tipo(grupo.tipo)} no es un tipo de IVA vigente en "
                 "España. Es legal si la operación tributa en otro país, pero "
                 "si no, es un dedo torcido.",
                 campo=f"Tipo de {nombre_categoria(grupo.categoria)}",
                 esperado="21%, 10%, 4% o 0%",
-                encontrado=fmt_tipo(grupo.tipo),
+                encontrado=cifras.tiene(grupo.tipo),
             )
         )
     return incidencias
@@ -1382,7 +1391,7 @@ def _regla_tipo_de_los_conceptos(apuntes: list[Apunte]) -> list[Incidencia]:
                 mensaje,
                 campo="Conceptos: " + ", ".join(suyos),
                 esperado=esperado,
-                encontrado=fmt_tipo(tipo),
+                encontrado=cifras.tiene(tipo),
             )
         )
     return incidencias
@@ -1461,7 +1470,7 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
                 encontrado=(
                     "(no hay ninguna)"
                     if declarado is None
-                    else f"{declarado:.2f} de IVA sin desglosar"
+                    else f"{cifras.tiene(declarado)} de IVA sin desglosar"
                 ),
             )
         ]

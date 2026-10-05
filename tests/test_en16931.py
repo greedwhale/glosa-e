@@ -390,7 +390,7 @@ class TestCuadreAritmetico:
         )
         assert "BR-CO-10" in codigos(informe, ERROR)
         incidencia = next(i for i in informe.errores if i.codigo == "BR-CO-10")
-        assert "90.00" in incidencia.esperado
+        assert "90,00" in incidencia.esperado
         assert "2 líneas" in incidencia.esperado
         assert incidencia.encontrado == "100.00"
 
@@ -398,18 +398,18 @@ class TestCuadreAritmetico:
         "codigo,opciones,debida",
         [
             ("BR-CO-10", dict(lineas=(("1", "100.125"),), suma_lineas="100.12",
-                              base="100.12"), "100.13"),
+                              base="100.12"), "100,13"),
             ("BR-CO-10", dict(lineas=(("1", "-100.135"),),
-                              suma_lineas="-100.14"), "-100.13"),
-            ("BR-CO-13", dict(cargos="0.125", base="100.12"), "100.13"),
-            ("BR-CO-14", dict(impuestos="21.005"), "21.01"),
-            ("BR-CO-15", dict(impuestos="21.005"), "121.01"),
-            ("BR-CO-16", dict(anticipos="0.015", a_pagar="120.98"), "120.99"),
-            ("BR-CO-16", dict(con_impuestos="121.005"), "121.01"),
+                              suma_lineas="-100.14"), "-100,13"),
+            ("BR-CO-13", dict(cargos="0.125", base="100.12"), "100,13"),
+            ("BR-CO-14", dict(impuestos="21.005"), "21,01"),
+            ("BR-CO-15", dict(impuestos="21.005"), "121,01"),
+            ("BR-CO-16", dict(anticipos="0.015", a_pagar="120.98"), "120,99"),
+            ("BR-CO-16", dict(con_impuestos="121.005"), "121,01"),
             ("IVA-BASE-TOLERADA",
              dict(lineas=(("1", "100.005"),), suma_lineas="100.01",
                   base="100.01", base_iva="100.00", con_impuestos="121.01",
-                  a_pagar="121.01"), "100.01"),
+                  a_pagar="121.01"), "100,01"),
         ],
     )
     def test_lo_que_deberia_ser_es_lo_que_se_comparo(self, codigo, opciones, debida):
@@ -422,9 +422,10 @@ class TestCuadreAritmetico:
         """
         informe = en16931.validar(factura(**opciones))
         incidencia = next(i for i in informe.incidencias if i.codigo == codigo)
-        cifra = re.match(r"-?\d+\.\d+", incidencia.esperado).group()
+        cifra = re.match(r"-?\d+,\d+", incidencia.esperado).group()
         assert cifra == debida, incidencia.esperado
-        assert cifra != incidencia.encontrado
+        # Y no es la misma cifra que «Tiene», que va tal cual, con su punto.
+        assert Decimal(cifra.replace(",", ".")) != Decimal(incidencia.encontrado)
 
     def test_lo_que_se_aparta_sale_de_la_misma_cifra(self):
         # Base de 100.00 contra una línea de 100.005: la regla la compara con
@@ -434,7 +435,7 @@ class TestCuadreAritmetico:
             base_iva="100.00", con_impuestos="121.01", a_pagar="121.01"))
         incidencia = next(
             i for i in informe.incidencias if i.codigo == "IVA-BASE-TOLERADA")
-        assert "se aparta 0.01 " in incidencia.mensaje, incidencia.mensaje
+        assert "se aparta 0,01 " in incidencia.mensaje, incidencia.mensaje
 
     def test_base_imponible_no_cuadra(self):
         informe = en16931.validar(factura(suma_lineas="100.00", base="90.00"))
@@ -446,7 +447,7 @@ class TestCuadreAritmetico:
         )
         incidencia = next(i for i in informe.errores if i.codigo == "BR-CO-13")
         assert "descuentos" in incidencia.esperado
-        assert "90.00" in incidencia.esperado
+        assert "90,00" in incidencia.esperado
 
     def test_total_con_impuestos_no_cuadra(self):
         informe = en16931.validar(factura(impuestos="21.00", con_impuestos="130.00"))
