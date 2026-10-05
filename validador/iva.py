@@ -458,7 +458,7 @@ def _regla_total(raiz, sintaxis: Sintaxis, grupos: list[Grupo]) -> list[Incidenc
             "rehacer el desglose.",
             campo="Importe total de impuestos",
             esperado=(
-                f"{suma:.2f} (suma de "
+                f"{redondear(suma):.2f} (suma de "
                 + (
                     "la única entrada"
                     if len(con_cuota) == 1
@@ -576,6 +576,11 @@ def _regla_base_por_grupo(
     suma = sum((a.importe for a in suyos), Decimal(0))
     if cuadra_exacto(suma, grupo.base):
         return []
+    # Lo que se escribe es lo que se comparó, `redondear(suma)`, y no la
+    # suma con `:.2f`: ver BR-CO-10 en `en16931`. Y lo que se aparta, de
+    # esa misma cifra, o una base de 100.00 contra 100.005 diría que se
+    # aparta 0.00.
+    debida = redondear(suma)
     if (grupo.categoria in sintaxis.base_admite_una_unidad
             and abs(grupo.base - suma) < 1):
         return [
@@ -583,13 +588,13 @@ def _regla_base_por_grupo(
                 "IVA-BASE-TOLERADA",
                 AVISO,
                 f"La base declarada para {grupo} se aparta "
-                f"{abs(grupo.base - suma):.2f} de la suma de lo que va a ese "
+                f"{abs(grupo.base - debida):.2f} de la suma de lo que va a ese "
                 f"tipo. El esquematrón oficial de {sintaxis.nombre} lo deja "
                 "pasar porque es menos de una unidad, y por eso no es un "
                 f"error de {codigo}; pero una base es una suma y no tiene "
                 "redondeo que la explique, así que algo no está donde dice.",
                 campo=f"Base imponible de {grupo}",
-                esperado=f"{suma:.2f} ({', '.join(a.descripcion for a in suyos)})",
+                esperado=f"{debida:.2f} ({', '.join(a.descripcion for a in suyos)})",
                 encontrado=fmt(grupo.base),
             )
         ]
@@ -600,7 +605,7 @@ def _regla_base_por_grupo(
             f"La base declarada para {grupo} no coincide con la suma de lo que "
             "va a ese tipo.",
             campo=f"Base imponible de {grupo}",
-            esperado=f"{suma:.2f} ({', '.join(a.descripcion for a in suyos)})",
+            esperado=f"{debida:.2f} ({', '.join(a.descripcion for a in suyos)})",
             encontrado=fmt(grupo.base),
         )
     ]

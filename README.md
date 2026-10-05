@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2737 tests, todos en verde.
+2748 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4639,6 +4639,14 @@ cosa. Lo que la norma acepta y no cuadra al céntimo no se calla: sale como
 `IVA-CUOTA-REDONDEO`, una nota con la distancia y la base con la que se dio por
 buena. Y el redondeo es el de XPath —las mitades hacia arriba, sobre el valor
 absoluto—, no el de `Decimal`, porque en el borde de la unidad eso decide.
+
+Lo que se escribe como «Debería ser» sale de esa misma cuenta, desde el
+05-10-2026. La regla comparaba con `redondear` y el texto escribía la cifra con
+`:.2f`, que es el redondeo de `Decimal` y lleva las mitades al par: una línea de
+100.125 con suma declarada 100.12 daba BR-CO-10 con «Debería ser: 100.12 ·
+Tiene: 100.12», un error que decía que estaba bien. Pasaba igual en BR-CO-11 a
+BR-CO-16, en la base de cada tipo y en negativo. Ahora cada regla escribe la
+cifra que comparó, 100.13 en ese caso.
 
 **Y los dos esquematrones oficiales no dicen lo mismo en el borde.** A
 exactamente una unidad, el de UBL escribe `<` y el de CII `<=`, y las pruebas

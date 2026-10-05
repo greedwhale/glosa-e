@@ -6685,3 +6685,39 @@ tanda 4.
 **Sin medir:** el navegador. Medido en CPython con lxml 6.1.2, corriendo el
 mismo bloque de Python que la página; en Pyodide va lxml 6.0.2. Se verá en
 producción después de fusionar.
+
+### Tanda 2: «Debería ser» sale de la cuenta que decide el error
+
+**Reproducido** con el constructor de `test_en16931.py`. Las reglas de la
+cabecera comparan con `cuadra_exacto`, que redondea las mitades hacia arriba
+como el esquematrón; el texto escribía la cifra con `:.2f`, que es el redondeo
+de `Decimal` y las lleva al par. Con tres decimales acabados en 5, las dos
+cuentas se separan un céntimo y el error se contradice:
+
+| Caso | Salía | La regla comparó |
+|---|---|---|
+| línea de 100.125, suma 100.12 | BR-CO-10, «Debería ser: 100.12 · Tiene: 100.12» | 100.13 |
+| 100.00 más 0.125 de cargos, base 100.12 | BR-CO-13, 100.12 y 100.12 | 100.13 |
+| 21.005 de impuestos, total 121.00 | BR-CO-15, 121.00 y 121.00; BR-CO-14, 21.00 y 21.00 | 121.01 y 21.01 |
+| 0.015 de anticipos, a pagar 120.98 | BR-CO-16, 120.98 y 120.98 | 120.99 |
+| línea de -100.135, suma -100.14 | BR-CO-10, -100.14 y -100.14 | -100.13 |
+
+Lo mismo en BR-CO-11 y BR-CO-12 (un descuento detallado de 10.005) y en la base
+de cada tipo, BR-{X}-08 e `IVA-BASE-TOLERADA`, que además decía «se aparta
+0.00» de una base de 100.00 contra una línea de 100.005.
+
+**Lo que se hizo.** Cada regla escribe la cifra que comparó, `redondear(…)`, en
+los diez sitios: seis en `en16931` (BR-CO-16 tiene dos ramas) y tres en `iva`,
+más lo que se aparta en `IVA-BASE-TOLERADA`. BR-CO-17 ya lo hacía. Facturae no lo necesita: compara
+con margen (`facturae._cuadra`), y dos cifras que se escriben igual caben
+dentro de él.
+
+**Provocado.** Diez roturas, quitando el `redondear` de cada sitio uno a uno, y
+cada una pone en rojo su caso: once pruebas nuevas, nueve en `test_en16931.py`
+y dos en `test_iva.py`.
+
+**Lo que queda, para la tanda 3.** La cifra del fichero se sigue escribiendo
+con `:.2f`, en «Tiene» y dentro del paréntesis que explica la cuenta. Así que
+el caso de 21.005 dice «Debería ser: 21.01 · Tiene: 21.00», y el de los
+cargos, «100.13 (100.00 + 0.12 de cargos)», que no suma. Es la decisión 3:
+«Tiene» como está en el fichero.

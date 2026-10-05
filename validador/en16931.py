@@ -51,6 +51,7 @@ from validador.sintaxis import (
     fmt,
     importe,
     importe_en_moneda,
+    redondear,
     texto,
 )
 
@@ -446,7 +447,10 @@ def _reglas_ajustes(
                 f"El total de {nombre} que declara la factura no es la suma de "
                 f"los {nombre} que detalla.",
                 campo=f"Total de {nombre} de documento",
-                esperado=f"{detallados[es_cargo]:.2f} (lo que suman los detallados)",
+                esperado=(
+                    f"{redondear(detallados[es_cargo]):.2f} "
+                    "(lo que suman los detallados)"
+                ),
                 encontrado=fmt(declarado),
             )
         )
@@ -513,6 +517,14 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     # argumento de que la norma redondea; la norma redondea la suma y luego
     # compara sin margen, y un total que se aparta un céntimo de sus líneas
     # salía limpio. Lo cazaron las pruebas oficiales el 13-09-2026.
+    #
+    # Y lo que se escribe como «debería ser» es **la cifra que se comparó**,
+    # `redondear(…)`, en esta regla y en todas las de `cuadra_exacto`. Con
+    # `:.2f` a secas la cifra salía de otro redondeo, el de `Decimal`, que
+    # lleva las mitades al par: una línea de 100.125 con suma declarada
+    # 100.12 daba «Debería ser: 100.12 · Tiene: 100.12», un error que se
+    # contradice. La regla, como la oficial, redondea a 100.13. Medido el
+    # 05-10-2026, y lo mismo en BR-CO-13 a BR-CO-16 y en negativo.
     if lineas and suma_lineas is not None and not sin_importe:
         if not cuadra_exacto(acumulado, suma_lineas):
             incidencias.append(
@@ -524,7 +536,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                     "línea añadida o modificada sin recalcular el total.",
                     campo="Suma de importes de línea",
                     esperado=(
-                        f"{acumulado:.2f} (suma de "
+                        f"{redondear(acumulado):.2f} (suma de "
                         + (
                             "la única línea"
                             if len(lineas) == 1
@@ -558,7 +570,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                     "La base imponible no cuadra con las líneas menos los "
                     "descuentos más los cargos.",
                     campo="Base imponible total",
-                    esperado=f"{calculada:.2f}  ({detalle})",
+                    esperado=f"{redondear(calculada):.2f}  ({detalle})",
                     encontrado=fmt(base),
                 )
             )
@@ -641,7 +653,8 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                         "importe de impuestos.",
                         campo="Total con impuestos",
                         esperado=(
-                            f"{calculada:.2f}  ({base:.2f} + {impuestos:.2f} "
+                            f"{redondear(calculada):.2f}  ({base:.2f} + "
+                            f"{impuestos:.2f} "
                             "de impuestos)"
                         ),
                         encontrado=fmt(con_impuestos),
@@ -658,9 +671,11 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
             if redondeo:
                 desglose.append(f"+ {redondeo:.2f} de redondeo")
             explicacion = (
-                f"{calculada:.2f}  ({con_impuestos:.2f} {' '.join(desglose)})"
+                f"{redondear(calculada):.2f}  "
+                f"({con_impuestos:.2f} {' '.join(desglose)})"
                 if desglose
-                else f"{calculada:.2f}, que es el total con impuestos"
+                else f"{redondear(calculada):.2f}, que es el total con "
+                "impuestos"
             )
             incidencias.append(
                 Incidencia(

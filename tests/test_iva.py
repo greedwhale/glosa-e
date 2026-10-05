@@ -606,6 +606,19 @@ class TestTotalesDeAjustes:
         )
         assert "BR-CO-12" in codigos(en16931.validar(xml).incidencias, ERROR)
 
+    def test_lo_que_deberia_ser_es_lo_que_se_comparo(self):
+        # Un descuento de 10.005 se compara como 10.01; con `:.2f` se escribía
+        # 10.00, lo mismo que declara la factura. Ver la de BR-CO-10.
+        xml = ubl(
+            lineas=[Linea("1", "100.00")],
+            ajustes=[Ajuste("10.005")],
+            grupos=[Grupo("90.00", "18.90")],
+            total_iva="18.90",
+            descuentos_total="10.00",
+        )
+        problema = una(en16931.validar(xml).incidencias, "BR-CO-11")
+        assert problema.esperado.startswith("10.01 "), problema.esperado
+
     def test_y_entonces_el_desglose_se_calla(self):
         """Una sola queja, en el campo que está mal.
 
@@ -1359,6 +1372,15 @@ class TestLaBaseComoCadaEsquematron:
         assert self.base(*self.E, "100.99", "100.00", SINTAXIS_CII) == [
             ("IVA-BASE-TOLERADA", AVISO)]
         assert self.base(*self.E, "101.00", "100.00", SINTAXIS_CII) == [("BR-E-08", ERROR)]
+
+    def test_lo_que_deberia_ser_es_lo_que_se_comparo(self):
+        # Una línea de 100.005 se compara como 100.01. Con `:.2f` el error
+        # decía «Debería ser: 100.00 · Tiene: 100.00».
+        grupo = iva.Grupo("S", Decimal(21), Decimal("100.00"), Decimal(0), None)
+        apuntes = [iva.Apunte("línea 1", Decimal("100.005"), "S", Decimal(21))]
+        (problema,) = iva._regla_base_por_grupo(grupo, apuntes, SINTAXIS_CII)
+        assert problema.codigo == "BR-S-08"
+        assert problema.esperado.startswith("100.01 "), problema.esperado
 
     def test_la_no_sujeta_es_exacta_en_las_dos(self):
         for sintaxis in (SINTAXIS_UBL, SINTAXIS_CII):
