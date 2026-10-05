@@ -29,7 +29,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2724 tests, todos en verde.
+2754 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -475,11 +475,18 @@ Las dos mitades están medidas, porque de otro modo serían una suposición
 Cuando el esquema que toca no está, se dice cuál falta y no se comprueba la
 forma. Es la diferencia entre no saber y equivocarse en voz alta.
 
-Y hay un caso en que la versión se deduce: un documento **sin** `UBLVersionID`
-que declare el CIUS de la solución pública en su `CustomizationID` solo puede
-ser UBL 2.5, porque media docena de sus campos cuelgan de
+Y hay un caso en que la versión se deduce: a un documento **sin**
+`UBLVersionID` que declare en su `CustomizationID` un identificador de la
+AEAT (`urn:aeat.es:`) se le supone UBL 2.5, porque la solución pública solo
+existe sobre esa versión y media docena de sus campos cuelgan de
 `cac:CollectionInvoiceLine`, que en UBL 2.1 no existe. Suponerle 2.1 no era
-redondear: era mandar a medirla con un esquema que la rechaza entera.
+redondear: era mandar a medirla con un esquema que la rechaza entera. Con
+el CIUS de abril o el identificador del ejemplo, la suposición se apoya en
+que la AEAT ha dicho que la solución pública solo admite UBL 2.5; con otro
+de la AEAT que no se conoce, es solo una suposición. Hasta
+el 05-10-2026 la deducción colgaba del nombre del CIUS de abril, y el ejemplo
+de la propia AEAT, que declara otro identificador y no lleva versión, se
+medía como 2.1.
 
 ### Las respuestas: `ApplicationResponse`
 
@@ -3695,7 +3702,9 @@ anexo pide. **24 códigos, todos con el prefijo `SPFE-`** y la etiqueta «anexo 
 (borrador)» en el informe, que no es la del real decreto: es el anexo de una
 orden que todavía es un proyecto.
 
-**Solo a las facturas UBL que declaran el CIUS** en su `CustomizationID`. El
+**Solo a las facturas UBL que declaran el CIUS** en su `CustomizationID`, o,
+desde el 05-10-2026, el identificador del ejemplo que la AEAT mandó por
+correo el 02-10-2026 (ver «El ejemplo del 02-10-2026», más abajo). El
 anexo describe los campos en UBL y en nada más, y a qué corresponden en
 Facturae, CII o EDIFACT no lo publica nadie —la Agencia contestó el 17-09-2026
 que no le toca a ella, como se cuenta más abajo—: aplicarlo a otra sintaxis
@@ -3838,9 +3847,9 @@ Lo anunciado, y a qué regla le da:
 
 | Novedad del 10-09-2026 | Qué pasa aquí hoy |
 |---|---|
-| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | **Confirmado por escrito el 22-09-2026**, y el **23** la AEAT dio L10 entera —`QR`, `AUT`, `RECT:TIPO`, `RECT:MODALIDAD`, `RECT:IMPORTES`—. `SPFE-RECTIFICATIVA` ya no la exige y además **reconoce** los calificadores: dice cuáles hay y cuál falta, en una NOTA. El **valor** sigue sin comprobarse porque nadie ha dicho en qué campo del `BG-24` va |
+| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | **Confirmado por escrito el 22-09-2026**. L10 entera —`QR`, `AUT`, `RECT:TIPO`, `RECT:MODALIDAD`, `RECT:IMPORTES`— la repitió el correo del **23**, pero ya estaba en la diapositiva 8 de este seminario, como imagen, y no se vio hasta el 05-10-2026. `SPFE-RECTIFICATIVA` ya no exige la extensión y **reconoce** los calificadores: dice cuáles hay y cuál falta, en una NOTA. Desde el ejemplo del **02-10-2026** comprueba también el **valor**, en `cbc:DocumentTypeCode`, y avisa del que no está en su L2 (ver «El ejemplo del 02-10-2026», abajo) |
 | El indicador de copia pasa a `0..1` | `SPFE-COPIA` lo pide obligatorio |
-| Entra el **389** para la factura expedida por el destinatario, junto al 471 | `SPFE-TIPO-DE-FACTURA` mide con la L1 de abril |
+| El **389** para la factura expedida por el destinatario, junto al 471: «La expedición de facturas por el destinatario o por tercero está plenamente contemplada en el Anexo I» | No es nuevo: la L1 de abril ya lo trae, y aquí se escribió que entraba. `SPFE-TIPO-DE-FACTURA` mide con esa L1 |
 | El NIF del vendedor va en `BT-31` o en `BT-32`, este con esquema «LOC» y `@schemeID` «FC» | `SPFE-NIF` solo admite el esquema «VAT» |
 | L4 gana las categorías de la EN 16931:2026, entre ellas la `N`; y se han pedido códigos VATEX propios de España | `SPFE-CATEGORIA` mide con la L4 de abril |
 | L3A se recorta: fuera el simplificado, el recargo de equivalencia y el de agricultura, ganadería y pesca | `SPFE-CLAVE-DE-REGIMEN` los sigue admitiendo |
@@ -3871,6 +3880,85 @@ el sistema entero. La misma presentación dice que los documentos de validación
 catálogo de servicios y los WSDL se publicarán en ese portal antes de que haya
 entorno de pruebas, con octubre de 2026 como referencia. Por eso el portal
 entra ahora en la vigilancia mensual.
+
+### El ejemplo del 02-10-2026, y dos identificadores que nadie explicó
+
+El 23-09-2026 se le preguntaron al buzón tres cosas de L10: si su esquema lleva
+`ubl:`, en qué campo del `BG-24` va el valor del calificador y dónde va el
+número de la autorización. La respuesta llegó el **02-10-2026** y es toda ella
+una captura de un XML de ejemplo, sin una frase de criterio: una cabecera y
+cuatro `AdditionalDocumentReference`, sin partes, totales ni líneas. Contesta
+las tres:
+
+| Se preguntó | Lo que enseña el ejemplo |
+|---|---|
+| Si el esquema de L10 lleva `ubl:` | No, en los cuatro calificadores, el del QR incluido: `urn:aeat:names:specification:schema:QR` |
+| En qué campo va el valor | En `cbc:DocumentTypeCode`: `R1` en `RECT:TIPO`, `S` en `RECT:MODALIDAD`. La descripción lleva un texto libre |
+| Dónde va el número de la autorización | En `cbc:UUID`, como la dirección del QR. El calificador ocupa el `cbc:ID` |
+
+Aquí se había apostado por la descripción, por analogía con el QR, y no se
+programó porque razonable no es publicado. Fue lo correcto: programado, hoy
+daría por malas las facturas escritas como enseña la Agencia.
+
+**Y trae dos cosas que no se preguntaron.** Otro `CustomizationID`,
+`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, y otro
+`ProfileID`, `urn:aeat:names:specification:schema:profile:B2B`. Ninguno es el
+del anexo de abril, y el correo no explica el cambio. En la práctica de la
+EN 16931, `#compliant#` marca un CIUS y `#conformant#` una extensión; si va en
+serio, la AEAT declara su formato como extensión. Es inferencia: el texto de la
+norma que lo define no se ha podido leer.
+
+Medido el 05-10-2026 sobre `main`, antes de tocar nada: con el identificador
+del ejemplo **no se aplicaba ni una regla del anexo y nada lo decía**, se le
+suponía UBL 2.1 por no llevar `UBLVersionID`, el QR escrito sin `ubl:` no era
+el QR y la autorización no se reconocía. Una rectificativa que no dice qué
+rectifica salía «sin errores». Es el fallo de siempre, esta vez con el disfraz
+de un ejemplo de la propia Agencia. El detalle está en `HALLAZGOS.md`.
+
+Lo que se hizo, sin ninguna regla nueva que dé ERROR:
+
+| Qué | Cómo sale |
+|---|---|
+| El identificador del ejemplo | Se reconoce por el valor entero, se mide con el anexo de abril y `SPFE-ESPECIFICACION` lo dice en una NOTA |
+| Otro identificador que nombre a la AEAT (`urn:aeat.es:`) y no lleve `CIUS-ES-SPFE` | `SPFE-ESPECIFICACION` como AVISO, y no se le aplica el anexo. La forma y la norma europea se miden como siempre, así que con líneas de cobro sale `BR-CO-16`, que solo se quita cuando se mide con el anexo. Si lleva `CIUS-ES-SPFE`, es otra versión del CIUS y sale ERROR, como antes |
+| Sin `UBLVersionID` | Se supone UBL 2.5 con cualquier identificador de la AEAT, y no solo con el de abril |
+| El `ProfileID` del ejemplo | `SPFE-PROCESO` como NOTA, con cualquiera de los dos identificadores |
+| `QR` y `AUT` | Se reconocen con y sin `ubl:`, sin mirar los espacios de alrededor del identificador, y ninguno de los dos cuenta como dato de la rectificativa |
+| `RECT:TIPO` y `RECT:MODALIDAD` | El código se lee en `cbc:DocumentTypeCode` y se compara con L2.A y L2.B: el que está se dice comprobado, y el que no, AVISO. Si un calificador viene repetido se leen todos, y la nota lo dice |
+
+**Lo que sí cambia de gravedad, y hay que decirlo.** Ninguna regla nueva da
+ERROR, pero lo que antes se colaba por no reconocerse recibe ahora los ERROR
+que ya existían:
+
+- **Todo el anexo, con el identificador del ejemplo.** Antes no se le aplicaba
+  ninguna regla `SPFE-`; ahora todas. Una factura así sin `CopyIndicator`, sin
+  `ProfileID`, con el tipo 381, con el NIF en el esquema «LOC», escrita como
+  `CreditNote` o con la moneda del IVA en dólares da el ERROR de su regla, y
+  una 384 que no dice qué rectifica, el de `SPFE-RECTIFICATIVA`.
+- **Una 384 cuyo único `BG-24` es el QR escrito sin `ubl:`, o la
+  autorización**, con cualquiera de los dos identificadores.
+- **Un QR sin `ubl:` repetido, o sin descripción o dirección.**
+- **Un QR con espacios alrededor del identificador**, con o sin `ubl:`. Antes
+  se buscaba por igualdad exacta y ahora se lee como los demás calificadores,
+  sin esos espacios.
+
+Antes salían limpios porque no se miraban, no porque estuvieran bien.
+
+**Lo que no se hizo.** Un ejemplo no es el BOE, así que lo que enseña entra
+como NOTA o AVISO. El día que se publique el texto, la negativa de L10 de
+`solucion_publica.py` no deja importar el módulo hasta confirmar el sitio del
+valor, exigir los importes cuando la modalidad es S y pasar a ERROR lo que hoy
+no lo es. Tampoco se resuelve la regla UBL-SR-43 del esquematrón de sintaxis de
+CEN, de la vinculación de 2017 y de nivel fatal, que en un
+`AdditionalDocumentReference` solo admite el código 130 (o el 50 en un abono):
+`R1` y `S` la incumplen. Aquí no se cargan esas reglas, y si la vinculación de
+2026 la mantiene no se sabe. Queda por preguntar, con los importes rectificados
+—el ejemplo es una S y no los enseña— y con si L7 pierde también el `ubl:`.
+
+**Y una lección de proceso.** La L10 sin `ubl:` ya estaba en la diapositiva 8
+de «Principales novedades anexo I», la del 10-09-2026, como imagen: `pdftotext`
+no saca las tablas que van en imagen, y nadie la vio. Las transparencias se
+miran como imagen.
 
 ### La copia fiel, y los dos números que cambian
 

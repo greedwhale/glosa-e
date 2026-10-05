@@ -42,7 +42,9 @@ FAMILIAS: dict[str, str] = {
     "SPFE": (
         "El contenido mínimo que el anexo I del proyecto de orden pide a las "
         "facturas de la solución pública de la AEAT. Solo se comprueba en las "
-        "facturas UBL que declaran su CIUS, `urn:aeat.es:CIUS-ES-SPFE`. Es un "
+        "facturas UBL que declaran su CIUS, `urn:aeat.es:CIUS-ES-SPFE`, o el "
+        "identificador del ejemplo que la AEAT mandó por correo el 02-10-2026. "
+        "Es un "
         "borrador sometido a audiencia pública el 17-04-2026 y sin publicar en "
         "el BOE, así que lo que dice puede cambiar con la orden. De hecho ya "
         "cambió: la AEAT presentó sus novedades el 10-09-2026 y el texto nuevo "
@@ -3184,7 +3186,7 @@ CODIGOS: dict[str, str] = {
         'con pago fraccionado, la B ocupa el sitio de la S.'
     ),
     "SPFE-BORRADOR": (
-        "La factura declara el CIUS de la solución pública y se ha medido con "
+        "La factura dice ser de la solución pública y se ha medido con "
         "el anexo I, que es un borrador. Es una nota y no un fallo: dice con "
         "qué se ha comprobado. Que no salga ninguna queja SPFE- quiere decir "
         "que la factura cumple el borrador del 17-04-2026, no la orden que se "
@@ -3195,7 +3197,8 @@ CODIGOS: dict[str, str] = {
         "abril."
     ),
     "SPFE-SINTAXIS": (
-        "El documento declara el CIUS de la solución pública y no es UBL. El "
+        "El documento dice ser de la solución pública, por su CIUS o por el "
+        "identificador del ejemplo de la AEAT del 02-10-2026, y no es UBL. El "
         "anexo I solo describe los campos en UBL, y a qué corresponden en "
         "Facturae, CII o EDIFACT no lo publica nadie: preguntada por escrito, "
         "la AEAT contestó el 17-09-2026 que esa correspondencia es cosa de "
@@ -3209,13 +3212,23 @@ CODIGOS: dict[str, str] = {
         "CIUS de la solución pública, pero no con el valor exacto del anexo: "
         "urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0. "
         "Sale, por ejemplo, si se declara la edición de 2017 de la norma o "
-        "otra versión del CIUS."
+        "otra versión del CIUS. Sale como nota, y la factura se mide igual, "
+        "cuando el identificador es el que enseñó la AEAT el 02-10-2026 en un "
+        "ejemplo mandado por correo, "
+        "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended, "
+        "que no es el del anexo de abril y que el correo no explica. Y sale "
+        "como aviso, sin aplicar el anexo, cuando el identificador nombra a la "
+        "AEAT (urn:aeat.es:), no es ninguno de los dos y no nombra el CIUS: la "
+        "forma y la norma europea se miden igual."
     ),
     "SPFE-PROCESO": (
         "Falta el tipo de proceso de negocio (cbc:ProfileID) o no es el del "
         "anexo, que admite uno solo: "
         "urn:aeat:names:specification:ubl:schema:B2B. En la norma europea este "
-        "campo es opcional."
+        "campo es opcional. Sale como nota, y no como error, si es el del "
+        "ejemplo que la AEAT mandó por correo el 02-10-2026, "
+        "urn:aeat:names:specification:schema:profile:B2B: sin «ubl:» y con "
+        "«profile:»."
     ),
     "SPFE-COPIA": (
         "Falta decir si la factura es el original o una copia. En UBL es el "
@@ -3238,8 +3251,14 @@ CODIGOS: dict[str, str] = {
         "Sale como NOTA, y no como error, cuando la factura no lleva esa "
         "extensión pero sí un documento justificativo adicional (BG-24): ahí "
         "es donde van los datos rectificados desde que la AEAT confirmó, el "
-        "22-09-2026, que la extensión desaparece, y lo que diga ese grupo no "
-        "se comprueba mientras el texto del anexo nuevo no esté publicado."
+        "22-09-2026, que la extensión desaparece. En esa forma nueva se "
+        "reconocen los calificadores de la lista L10 (RECT:TIPO, "
+        "RECT:MODALIDAD), y el código se lee en cbc:DocumentTypeCode, que es "
+        "donde lo pone el ejemplo que la AEAT mandó por correo el 02-10-2026. "
+        "Si no está en su lista, R1 a R4 o I y S, sale como aviso: la lista es "
+        "del anexo publicado, pero el sitio solo lo enseña ese ejemplo. El QR "
+        "y la autorización (QR y AUT) también son de L10, pero no dicen qué se "
+        "rectifica."
     ),
     "SPFE-MONEDA-DEL-IVA": (
         "La moneda de contabilización del IVA (cbc:TaxCurrencyCode) no es el "
@@ -3330,7 +3349,10 @@ CODIGOS: dict[str, str] = {
         "El documento del QR fiscal está repetido o incompleto. El anexo admite "
         "uno, identificado con urn:aeat:names:specification:ubl:schema:QR, y "
         "pide dentro la descripción (VERIFACTU o la que corresponda) y la "
-        "dirección del QR en cbc:UUID."
+        "dirección del QR en cbc:UUID. También se reconoce escrito sin «ubl:», "
+        "urn:aeat:names:specification:schema:QR, que es como lo escriben la "
+        "lista L10 de las novedades del 10-09-2026 y el ejemplo que la AEAT "
+        "mandó por correo el 02-10-2026."
     ),
     "SPFE-TOTAL-A-PAGAR": (
         "La factura lleva líneas de cobro, y el anexo suma sus importes al "

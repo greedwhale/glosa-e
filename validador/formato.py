@@ -71,6 +71,75 @@ MARCADOR_EN16931 = MARCADORES_EN16931[0]
 # URN, salta ahí y no en producción.
 MARCADOR_CIUS_ES = "urn:aeat.es:CIUS-ES-SPFE"
 
+# El identificador que enseñó la AEAT el 02-10-2026, que no es el de arriba.
+#
+# Fue toda la respuesta del buzón a la consulta del 23-09-2026: una captura de
+# un XML de ejemplo, sin una frase de criterio. La captura no traía
+# `UBLVersionID` y declaraba **otro** `CustomizationID`, que el correo no
+# explica y que no sale en ninguna respuesta anterior ni en el texto de las
+# transparencias del 10-09-2026 (sus tablas en imagen no se han mirado todas):
+#
+# | Dónde | Identificador |
+# |---|---|
+# | el anexo de abril | `urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0` |
+# | el ejemplo del 02-10-2026 | `urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended` |
+#
+# `MARCADOR_CIUS_ES` no está en el segundo, y medido ese día: una factura
+# escrita como el ejemplo **no se reconocía** como de la solución pública. No
+# se le aplicaba ni una regla del anexo y nada lo decía, así que una
+# rectificativa que no dice qué rectifica salía «sin errores»; y sin
+# `UBLVersionID` se suponía la 2.1, con lo que unas líneas de cobro, que solo
+# existen en la 2.5, salían «cambiadas de sitio». El fallo de siempre: todo
+# verde, y no es lo que crees haber probado.
+#
+# Se reconoce **el valor entero** y no un trozo. Un trozo ancho daría por de
+# la solución pública cualquier cosa que nombre a la AEAT, y un ejemplo enseña
+# un valor, no un patrón. Lo que nombre a la AEAT sin ser ninguno de los dos
+# no se calla tampoco: lo avisa `solucion_publica` (ver `NOMBRA_A_LA_AEAT`).
+#
+# Que `#conformant#` marque una extensión de la norma y `#compliant#` un CIUS
+# es como lo usan otros: Factur-X declara su perfil EXTENDED con
+# `#conformant#…:extended` y los demás con `#compliant#` (visto el 05-10-2026
+# en `Profiles.java` de mustangproject), y XRechnung, su extensión con
+# `#conformant#` (en su esquematrón). El texto de la EN 16931-1 que lo define
+# no se ha podido leer. Si va en serio, la AEAT declara su formato como
+# extensión y no como CIUS. Aquí no cambia nada: se mide igual, y se dice con
+# qué en la NOTA de `SPFE-ESPECIFICACION`.
+ESPECIFICACION_DEL_EJEMPLO = (
+    "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended"
+)
+
+# Lo que llevan delante los dos identificadores de la AEAT, el del anexo y el
+# del ejemplo. No identifica la solución pública: sirve para no callarse ante
+# un tercero que no sea ninguno de los dos, y para saber que lo que lo declara
+# va en UBL 2.5.
+NOMBRA_A_LA_AEAT = "urn:aeat.es:"
+
+
+def declara_la_solucion_publica(perfil: str | None) -> bool:
+    """Si el `CustomizationID` es de la solución pública: el de abril o el del ejemplo.
+
+    El de abril se reconoce por el trozo que nombra al CIUS, como siempre: con
+    otra edición de la norma u otra versión del CIUS se le mide igual y
+    `SPFE-ESPECIFICACION` dice que el valor no es el del anexo. El del ejemplo,
+    por el valor entero.
+    """
+    return bool(perfil) and (
+        MARCADOR_CIUS_ES in perfil or perfil.strip() == ESPECIFICACION_DEL_EJEMPLO
+    )
+
+
+def _supone_ubl_25(perfil: str | None) -> bool:
+    """Sin `UBLVersionID`, si lo que declara es de la AEAT.
+
+    Basta con que nombre a la AEAT, y no hace falta que sea uno de los dos
+    identificadores conocidos: la solución pública solo admite UBL 2.5, así
+    que un tercero de la AEAT sin versión es mucho más probable que sea 2.5
+    que 2.1. Suponer 2.1 era lo que hacía salir «cambiadas de sitio» unas
+    líneas de cobro que en la 2.1 no existen.
+    """
+    return bool(perfil) and NOMBRA_A_LA_AEAT in perfil
+
 # Familias
 FACTURAE = "Facturae"
 UBL = "UBL"
@@ -368,7 +437,7 @@ def _detectar_ubl(raiz: etree._Element, namespace: str, nombre: str) -> Deteccio
     version = _texto(raiz, "./cbc:UBLVersionID", espacios)
     # Lo que el documento declara manda siempre. Cuando no declara nada hay
     # que suponer, y la suposición no es la misma para todos: un documento que
-    # dice ser del CIUS de la solución pública **solo puede ser UBL 2.5**,
+    # dice ser de la solución pública **solo puede ser UBL 2.5**,
     # porque la SPFE no admite otra cosa y porque media docena de sus campos
     # —los que cuelgan de `CollectionInvoiceLine`: suplidos, minoraciones,
     # recargo de equivalencia, régimen de grupo— usan elementos que en UBL 2.1
@@ -377,13 +446,18 @@ def _detectar_ubl(raiz: etree._Element, namespace: str, nombre: str) -> Deteccio
     # Suponer 2.1 ahí no era una imprecisión: mandaba a comprobar la factura
     # contra un esquema que la rechaza entera, y el informe habría acusado de
     # inventarse elementos a una factura correcta.
+    #
+    # Y volvió a pasar el 02-10-2026, con el ejemplo de la propia AEAT: la
+    # defensa colgaba de la cadena del CIUS de abril, y el ejemplo declara
+    # otro identificador. Ahora cuelga de que nombre a la AEAT
+    # (`_supone_ubl_25`), que es lo que de verdad dice «solución pública».
     if version:
         motivo = "Formato reconocido."
-    elif perfil and MARCADOR_CIUS_ES in perfil:
+    elif _supone_ubl_25(perfil):
         version = "2.5"
         motivo = (
-            "Sin UBLVersionID, pero declara el CIUS de la solución pública, "
-            "que solo existe sobre UBL 2.5."
+            "Sin UBLVersionID, pero declara una especificación de la AEAT, y "
+            "la solución pública solo existe sobre UBL 2.5."
         )
     else:
         version = "2.1"
@@ -410,7 +484,8 @@ def _detectar_respuesta(raiz: etree._Element, namespace: str) -> Deteccion:
 
     La versión se deduce igual que en `_detectar_ubl`, a propósito: una sola
     regla para todo lo que es UBL. Sin `UBLVersionID`, la 2.1, salvo que
-    declare el CIUS de la solución pública, que solo existe sobre UBL 2.5. Que
+    declare una especificación de la AEAT, porque la solución pública solo
+    existe sobre UBL 2.5. Que
     una respuesta de verdad lo declare es una suposición: el texto del mensaje
     de anulación no está publicado. Con el paquete de hoy da igual, porque de
     la 2.1 se sube a la 2.5 (ver `esquema._VERSIONES_UBL`); cambia la versión
@@ -421,11 +496,11 @@ def _detectar_respuesta(raiz: etree._Element, namespace: str) -> Deteccion:
     version = _texto(raiz, "./cbc:UBLVersionID", espacios)
     if version:
         motivo = "Formato reconocido."
-    elif perfil and MARCADOR_CIUS_ES in perfil:
+    elif _supone_ubl_25(perfil):
         version = "2.5"
         motivo = (
-            "Sin UBLVersionID, pero declara el CIUS de la solución pública, "
-            "que solo existe sobre UBL 2.5."
+            "Sin UBLVersionID, pero declara una especificación de la AEAT, y "
+            "la solución pública solo existe sobre UBL 2.5."
         )
     else:
         version = "2.1"

@@ -559,6 +559,45 @@ class TestLaEdicionDe2026:
         assert formato.MARCADOR_CIUS_ES in cius_es.ESPECIFICACION
         assert cius_es.ESPECIFICACION.startswith(formato.MARCADORES_EN16931)
 
+    def test_los_dos_identificadores_nombran_a_la_aeat(self):
+        """La suposición de UBL 2.5 cuelga de `NOMBRA_A_LA_AEAT`, no del CIUS.
+
+        Si el trozo dejara de estar en uno de los dos, a ese se le volvería a
+        suponer la 2.1 sin que nada lo dijera, que es lo que pasó con el
+        ejemplo de la AEAT del 02-10-2026 hasta que se midió.
+        """
+        from validador import cius_es
+
+        for identificador in (cius_es.ESPECIFICACION, formato.ESPECIFICACION_DEL_EJEMPLO):
+            assert formato.NOMBRA_A_LA_AEAT in identificador
+            assert identificador.startswith(formato.MARCADORES_EN16931)
+
+
+class TestQueEsDeLaSolucionPublica:
+    """El de abril, por el trozo del CIUS; el del ejemplo, por el valor entero."""
+
+    def test_los_dos_que_se_conocen(self):
+        from validador import cius_es
+
+        assert formato.declara_la_solucion_publica(cius_es.ESPECIFICACION)
+        assert formato.declara_la_solucion_publica(formato.ESPECIFICACION_DEL_EJEMPLO)
+
+    def test_el_de_abril_con_otra_edicion_se_reconoce_y_se_acusa_luego(self):
+        """`SPFE-ESPECIFICACION` es quien dice que el valor no es el del anexo."""
+        otra = CIUS_ES.replace("2026#", "2017#")
+        assert formato.declara_la_solucion_publica(otra)
+
+    def test_el_del_ejemplo_no_vale_a_trozos(self):
+        """Un ejemplo enseña un valor, no un patrón: lo parecido no entra."""
+        for parecido in (
+            formato.ESPECIFICACION_DEL_EJEMPLO + ":2",
+            formato.ESPECIFICACION_DEL_EJEMPLO.replace("1.0.0", "1.1.0"),
+            "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:otra",
+            "",
+            None,
+        ):
+            assert not formato.declara_la_solucion_publica(parecido), parecido
+
 
 class TestQueVersionDeUblSeSupone:
     def test_lo_que_declara_el_documento_manda_siempre(self):
@@ -576,7 +615,24 @@ class TestQueVersionDeUblSeSupone:
         """
         d = formato.detectar(ubl_cius())
         assert d.version == "2.5"
-        assert "CIUS" in d.motivo
+        assert "solución pública" in d.motivo
+
+    def test_sin_version_y_con_el_identificador_del_ejemplo_tambien_2_5(self):
+        """El ejemplo que mandó la AEAT el 02-10-2026 no lleva `UBLVersionID`.
+
+        Y declara otro identificador, sin el trozo del CIUS. Mientras la
+        suposición colgó de ese trozo se le suponía la 2.1, y unas líneas de
+        cobro, que solo existen en la 2.5, salían «cambiadas de sitio».
+        """
+        d = formato.detectar(ubl_cius().replace(CIUS_ES, formato.ESPECIFICACION_DEL_EJEMPLO))
+        assert d.version == "2.5"
+        assert "AEAT" in d.motivo
+
+    def test_sin_version_y_con_otro_identificador_de_la_aeat_tambien_2_5(self):
+        """Un tercero que nadie conoce: no se le mide con el anexo, pero si
+        nombra a la AEAT es de la solución pública, y esa solo es UBL 2.5."""
+        otro = "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:2.0.0:extended"
+        assert formato.detectar(ubl_cius().replace(CIUS_ES, otro)).version == "2.5"
 
     def test_sin_version_y_sin_cius_se_sigue_suponiendo_2_1(self):
         d = formato.detectar(UBL_SIN_PERFIL)

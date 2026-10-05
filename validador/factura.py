@@ -683,7 +683,8 @@ class InformeLote:
             # las facturas que…, lo que…» se leía como dos cosas distintas.
             contenido.append(
                 "lo que el borrador del anexo I pide a las facturas que declaran "
-                "el CIUS de la solución pública y se puede comprobar en UBL"
+                "el CIUS de la solución pública o el identificador del ejemplo "
+                "de la AEAT y se puede comprobar en UBL"
             )
         de_la_firma = mirado[PARTE_FIRMA]
         sin_la_firma = sin_mirar[PARTE_FIRMA]

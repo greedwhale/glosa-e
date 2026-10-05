@@ -6447,3 +6447,122 @@ arreglo; cada cosa pide una decisión o un cambio aparte:
 **Sin medir:** el navegador. Esto se ha medido corriendo en CPython, con lxml
 6.1.2, el mismo bloque de Python que corre la página; en Pyodide va lxml 6.0.2. Se verá en
 producción después de fusionar.
+
+## El ejemplo de la AEAT pasaba sin que se le mirara nada
+
+**Qué pasó.** El 02-10-2026 el buzón técnico de la AEAT contestó a la consulta
+del 23-09-2026 con una captura de un XML de ejemplo y ni una frase de criterio.
+Se transcribió el 05-10-2026 de una grabación de pantalla que subió Jefe. El
+ejemplo resolvía las tres preguntas de L10 (ver
+el README, «El ejemplo del 02-10-2026») y traía, sin anunciarlo en el correo,
+otro `CustomizationID` y otro `ProfileID`. Se escribió la cabecera del ejemplo
+sobre el cuerpo de la factura de pruebas del CIUS y se pasó por el validador
+entero, en `main` (`6f8364c`):
+
+| Se midió | Salía |
+|---|---|
+| Una 384 con el identificador del ejemplo y sin más `BG-24` que el QR de abril, con `ubl:` | «sin errores», exit 0. Con el identificador de abril, ERROR |
+| La misma, sin `UBLVersionID` y con líneas de cobro | UBL 2.1 supuesta, un XSD-ORDEN falso («cambiados de sitio») y un BR-CO-16 falso que con el CIUS se quita a propósito |
+| Un QR escrito como el ejemplo, sin `ubl:` y sin dirección | nada: `SPFE-QR` muda |
+| Una 384 cuyo único `BG-24` es el QR sin `ubl:` o la autorización | una NOTA que decía que «ninguno de sus identificadores es un calificador de L10», y `AUT` sí lo es |
+| `R1`/`S` frente a `R9`/`X`, en el sitio del ejemplo | la misma NOTA para los dos |
+| El `ProfileID` del ejemplo con el identificador de abril | ERROR de `SPFE-PROCESO` |
+
+**Por qué.** Tres cosas colgaban de la misma cadena, `urn:aeat.es:CIUS-ES-SPFE`
+(`formato.MARCADOR_CIUS_ES`): reconocer la solución pública, suponerle UBL 2.5
+sin `UBLVersionID` y, a través de lo primero, aplicar el anexo y nombrarlo en la
+frase de alcance. El ejemplo no lleva esa cadena. El QR se buscaba solo con el
+esquema del anexo, con `ubl:`, aunque los calificadores de la rectificativa ya
+se leían con los dos desde el 23-09-2026. Y `AUT` solo salía en los comentarios:
+ninguna constante del código lo reconocía.
+
+Al paso, el reconocimiento se hizo más estricto. Antes valía cualquier
+identificador que empezara por `urn:aeat:names:specification:` y acabara en el
+calificador; ahora, uno de los dos esquemas escritos, con y sin `ubl:`, y el
+calificador entero detrás. Un tercero sale como «un BG-24 sin leer», que es NOTA
+igual que antes.
+
+La deducción de la versión ya se había cerrado una vez («Suponer 2.1 ahí no era
+una imprecisión», en `formato.py`). Volvió porque el arreglo de entonces
+colgaba de un nombre, y el nombre cambió. Ahora cuelga de que el identificador
+nombre a la AEAT, `urn:aeat.es:`, y hay una prueba que comprueba que los dos
+identificadores conocidos lo llevan.
+
+**La apuesta que no se programó.** Hasta el 02-10-2026 el repositorio decía que
+lo razonable era leer el valor del calificador en la descripción, por analogía
+con el QR, y que razonable no es publicado. El ejemplo lo pone en
+`cbc:DocumentTypeCode`. Si se hubiera programado la apuesta, hoy saldrían malas
+las facturas escritas como enseña la Agencia. No adivinar fue lo que salvó esto.
+
+**Lo que no se vio.** La L10 sin `ubl:` estaba en la diapositiva 8 de las
+novedades del 10-09-2026, como imagen, y aquí se escribió que era lo nuevo del
+correo del 23-09-2026. `pdftotext` no saca las tablas en imagen. La diapositiva
+6 trae otra tabla en imagen que tampoco se recogió (`SUPL`, `MINO`, `RETE`,
+`IEDMT` y `OTROS`, sin `REEQ` ni `REGE`); que sea la L7 nueva es inferencia, y
+no se ha tocado nada por ella.
+
+**Lo que encontraron dos revisiones a la contra**, una del código y otra de lo
+que el cambio afirma, antes de darlo por terminado:
+
+- Con un calificador repetido, dos `RECT:TIPO`, se leía el primero y el resto
+  desaparecía sin decirlo: un `R9` detrás de un `R1` no salía, y la nota daba
+  el tipo por comprobado. Ahora se leen todos y la nota dice cuántos hay.
+- La lista de lo que cambia de gravedad se quedaba en tres casos, y con el
+  identificador del ejemplo se aplica el anexo entero (el README la da completa).
+  Faltaba también el QR con espacios alrededor del identificador.
+- Tres frases decían más de lo medido: que el anexo se aplica «solo» al CIUS, en
+  el glosario y en el README; que un identificador desconocido de la AEAT sale
+  «sin medir nada», cuando la forma y la norma europea sí se miden; y la frase
+  de alcance de un lote, que con «dicen ser de la solución pública» abarcaba
+  también al desconocido. `SPFE-SINTAXIS` decía «declara el CIUS» de un CII con
+  el identificador del ejemplo, que según el propio ejemplo no sería un CIUS.
+- Una prueba, la del namespace de las extensiones del ejemplo, pasaba sin probar
+  nada: la factura no llevaba ni un elemento `aeat:`. Ahora lleva una extensión
+  y se comprueba que se lee.
+- La cita del 389 no era literal, y la fecha en que Jefe vio el correo no tenía
+  fuente. Corregidas.
+
+**Cómo se probó rompiéndolo.** Cada arreglo se deshizo, uno a uno, se corrió la
+suite entera y se miró qué pruebas se ponían en rojo (sin contar la de la
+versión de Python de GitHub, que en este contenedor falla siempre, ni la de la
+cifra de pruebas del README, que fallaba en todas por haber pruebas nuevas):
+
+| Se rompió | En rojo |
+|---|---:|
+| El identificador del ejemplo deja de ser de la solución pública | 9 |
+| Sin versión, 2.5 solo con el CIUS de abril | 4 |
+| L10 solo con el esquema del anexo, con `ubl:` | 16 |
+| El QR y la autorización cuentan como datos de la rectificativa | 4 |
+| El código se busca en la descripción | 12 |
+| El código fuera de su lista no se avisa | 2 |
+| El identificador desconocido de la AEAT se calla | 2 |
+| El `ProfileID` del ejemplo vuelve a ser ERROR | 3 |
+| El identificador del ejemplo es ERROR en `SPFE-ESPECIFICACION` | 3 |
+| La frase de la sustitución sin importes no sale | 3 |
+| De un calificador repetido solo se lee el primero | 3 |
+| Una respuesta recibe el aviso del identificador desconocido | 1 |
+| El calificador vale con cualquier prefijo de la AEAT, como antes | 1 |
+| La S solo se mira en la primera modalidad | 1 |
+
+Ninguna rotura pasó sin que la cazara una prueba.
+
+**Lo que se dejó sin hacer, y por qué.**
+
+- **La entrada de la bitácora** `rectificativas-sin-bg-es-1.html` dice que lo
+  razonable sería la descripción, que el número de la autorización «hoy va en
+  el identificador» y que Glosa «no comprueba lo que vale cada uno»; el ejemplo
+  desmiente lo primero y lo segundo, y este cambio lo último. Es texto
+  publicado y fechado, y
+  si se corrige, o se le añade una entrada nueva, lo decide Jefe.
+- **UBL-SR-43**, del esquematrón de sintaxis de CEN (2017, nivel fatal), solo
+  admite 130, o 50 en un abono, en el `DocumentTypeCode` de un
+  `AdditionalDocumentReference`, y el ejemplo pone `R1` y `S`. Aquí no se
+  cargan las reglas de sintaxis de CEN. Queda por preguntar.
+- **L7 sin `ubl:`**. Si las líneas de cobro pierden el `ubl:` como L10, Glosa
+  daría ERROR falso: medido con `SUPL` sin `ubl:`. No se ha tocado porque nada
+  publicado lo dice.
+- **Los importes rectificados.** El ejemplo es una S y no los enseña, y
+  `DocumentReference` no tiene ningún elemento de importe.
+
+**Sin medir:** el navegador, como siempre que se toca el motor. Se ha medido en
+CPython con lxml 6.1.2; en Pyodide va lxml 6.0.2.

@@ -20,8 +20,8 @@ import pytest
 from lxml import etree
 
 from validador import cius_es, factura, solucion_publica
-from validador.formato import detectar
-from validador.incidencias import ERROR, NOTA, Incidencia
+from validador.formato import ESPECIFICACION_DEL_EJEMPLO, detectar
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
 from tests.test_rutas_cius import _andar, _esquema_de_ubl, con_esquema
 
@@ -457,10 +457,17 @@ class TestLosCalificadoresDeL10:
     ESQUEMA_DEL_ANEXO = "urn:aeat:names:specification:ubl:schema:"
 
     @staticmethod
-    def adjunto(calificador, valor="R4"):
+    def adjunto(calificador, valor="R4", codigo=None):
+        """`valor` va en la descripción y `codigo` en cbc:DocumentTypeCode.
+
+        El código va donde lo pone el ejemplo de la AEAT del 02-10-2026; la
+        descripción es donde se apostaba que iría antes de ese día.
+        """
+        codigo = f"    <cbc:DocumentTypeCode>{codigo}</cbc:DocumentTypeCode>\n" if codigo else ""
         return (
             "  <cac:AdditionalDocumentReference>\n"
             f"    <cbc:ID>{calificador}</cbc:ID>\n"
+            f"{codigo}"
             f"    <cbc:DocumentDescription>{valor}</cbc:DocumentDescription>\n"
             "  </cac:AdditionalDocumentReference>\n"
         )
@@ -473,9 +480,9 @@ class TestLosCalificadoresDeL10:
             "".join(adjuntos) + "  <cac:AccountingSupplierParty>")
 
     @classmethod
-    def completa(cls, esquema):
-        return cls.rectificativa_con(cls.adjunto(esquema + "RECT:TIPO", "R4"),
-                                     cls.adjunto(esquema + "RECT:MODALIDAD", "S"))
+    def completa(cls, esquema, tipo="R4", modalidad="S"):
+        return cls.rectificativa_con(cls.adjunto(esquema + "RECT:TIPO", "texto libre", tipo),
+                                     cls.adjunto(esquema + "RECT:MODALIDAD", "texto libre", modalidad))
 
     def test_reconoce_el_tipo_y_la_modalidad(self):
         queja = la(self.completa(self.ESQUEMA_DEL_CORREO), "SPFE-RECTIFICATIVA")
@@ -503,19 +510,106 @@ class TestLosCalificadoresDeL10:
         assert "Falta la modalidad de rectificación" in queja.mensaje
         assert queja.gravedad == NOTA, "el anexo que lo pide no esta publicado"
 
-    def test_no_promete_haber_comprobado_el_valor(self):
-        """Un R9 que no esta en L2.A tiene que salir igual que un R4.
+    def test_el_codigo_se_lee_en_document_type_code(self):
+        """Donde lo pone el ejemplo que la AEAT mandó por correo el 02-10-2026.
 
-        No por prudencia: es que no se sabe en que campo del BG-24 va el
-        valor. Los dos BG-24 publicados lo ponen en sitios distintos.
+        Hasta ese día no se sabía en qué campo del BG-24 iba el valor, y un
+        R9 salía con la misma nota que un R4. Ahora el R4 se dice comprobado.
         """
         bueno = la(self.completa(self.ESQUEMA_DEL_CORREO), "SPFE-RECTIFICATIVA")
-        malo = la(self.rectificativa_con(
+        assert bueno.gravedad == NOTA
+        assert "Se comprueba el código" in bueno.mensaje
+        assert "R4, está en la lista L2.A" in bueno.mensaje
+        assert "S, está en la lista L2.B" in bueno.mensaje
+        assert "02-10-2026" in bueno.mensaje
+
+    def test_un_codigo_fuera_de_su_lista_es_aviso_y_no_error(self):
+        """La lista es la del anexo publicado; el sitio solo lo enseña un
+        ejemplo. Eso da para avisar y no para condenar."""
+        malo = self.completa(self.ESQUEMA_DEL_CORREO, tipo="R9", modalidad="X")
+        quejas = las(malo, "SPFE-RECTIFICATIVA")
+        assert [q.gravedad for q in quejas] == [NOTA, AVISO, AVISO]
+        assert [(q.encontrado, q.esperado) for q in quejas[1:]] == [
+            ("R9", "R1, R2, R3 o R4"), ("X", "I o S")]
+        assert "Se comprueba el código" not in quejas[0].mensaje
+        assert not [i for i in spfe(malo) if i.gravedad == ERROR]
+
+    def test_en_la_descripcion_no_se_busca_y_se_dice(self):
+        """La apuesta de antes del 02-10-2026 era la descripción, y era mala.
+
+        Un valor escrito ahí no se lee: ni se da por bueno ni por malo, y la
+        nota dice que no se ha comprobado y por qué.
+        """
+        en_la_descripcion = self.rectificativa_con(
             self.adjunto(self.ESQUEMA_DEL_CORREO + "RECT:TIPO", "R9"),
-            self.adjunto(self.ESQUEMA_DEL_CORREO + "RECT:MODALIDAD", "S")),
-            "SPFE-RECTIFICATIVA")
-        assert bueno.mensaje == malo.mensaje
-        assert "no dice en qué campo del BG-24 va el valor" in bueno.mensaje
+            self.adjunto(self.ESQUEMA_DEL_CORREO + "RECT:MODALIDAD", "S"))
+        quejas = las(en_la_descripcion, "SPFE-RECTIFICATIVA")
+        assert [q.gravedad for q in quejas] == [NOTA]
+        assert "No se comprueba el tipo de rectificativa y la modalidad" in quejas[0].mensaje
+        assert "Se comprueba el código" not in quejas[0].mensaje
+
+    def test_la_sustitucion_sin_importes_se_dice_y_no_se_condena(self):
+        """La AEAT escribió el 23-09-2026 que las S llevan importes; ni el
+        anexo ni el ejemplo dicen cómo se escriben."""
+        queja = la(self.completa(self.ESQUEMA_DEL_CORREO), "SPFE-RECTIFICATIVA")
+        assert "La modalidad es S y no trae los importes rectificados" in queja.mensaje
+        por_diferencias = la(self.completa(self.ESQUEMA_DEL_CORREO, modalidad="I"),
+                             "SPFE-RECTIFICATIVA")
+        assert "no trae los importes" not in por_diferencias.mensaje
+
+    def test_un_tipo_repetido_se_lee_entero(self):
+        """Antes se leía el primero y el resto desaparecía sin decirlo: un R9
+        detrás de un R1 no salía, y la nota daba el tipo por comprobado."""
+        tipo = self.ESQUEMA_DEL_CORREO + "RECT:TIPO"
+        modalidad = self.ESQUEMA_DEL_CORREO + "RECT:MODALIDAD"
+        dos = self.rectificativa_con(self.adjunto(tipo, "uno", "R1"), self.adjunto(tipo, "otro", "R9"),
+                                     self.adjunto(modalidad, "texto libre", "I"))
+        quejas = las(dos, "SPFE-RECTIFICATIVA")
+        assert [(q.gravedad, q.encontrado) for q in quejas] == [
+            (NOTA, "RECT:MODALIDAD y RECT:TIPO"), (AVISO, "R9")]
+        assert "Hay 2 documentos con el tipo de rectificativa" in quejas[0].mensaje
+        assert "R1, está en la lista L2.A" in quejas[0].mensaje
+
+    def test_un_repetido_sin_codigo_no_tapa_al_que_lo_lleva(self):
+        tipo = self.ESQUEMA_DEL_CORREO + "RECT:TIPO"
+        mezcla = self.rectificativa_con(
+            self.adjunto(tipo, "sin código"), self.adjunto(tipo, "texto libre", "R1"),
+            self.adjunto(self.ESQUEMA_DEL_CORREO + "RECT:MODALIDAD", "texto libre", "I"))
+        nota = la(mezcla, "SPFE-RECTIFICATIVA")
+        assert "No se comprueba uno de los documentos del tipo de rectificativa" in nota.mensaje
+        assert "R1, está en la lista L2.A" in nota.mensaje
+
+    def test_la_s_se_mira_en_todas_las_modalidades(self):
+        modalidad = self.ESQUEMA_DEL_CORREO + "RECT:MODALIDAD"
+        dos = self.rectificativa_con(
+            self.adjunto(self.ESQUEMA_DEL_CORREO + "RECT:TIPO", "texto libre", "R1"),
+            self.adjunto(modalidad, "texto libre", "I"), self.adjunto(modalidad, "texto libre", "S"))
+        assert "La modalidad es S y no trae los importes" in la(dos, "SPFE-RECTIFICATIVA").mensaje
+
+    def test_la_s_con_importes_no_dice_que_le_faltan(self):
+        con_importes = self.rectificativa_con(
+            self.adjunto(self.ESQUEMA_DEL_CORREO + "RECT:TIPO", "texto libre", "R1"),
+            self.adjunto(self.ESQUEMA_DEL_CORREO + "RECT:MODALIDAD", "texto libre", "S"),
+            self.adjunto(self.ESQUEMA_DEL_CORREO + "RECT:IMPORTES", "70.00"))
+        nota = la(con_importes, "SPFE-RECTIFICATIVA")
+        assert "no trae los importes" not in nota.mensaje
+        assert nota.encontrado == "RECT:IMPORTES, RECT:MODALIDAD y RECT:TIPO"
+
+    def test_el_qr_y_la_autorizacion_no_dicen_que_se_rectifica(self):
+        """Son de L10, pero no de la rectificativa.
+
+        Antes del 05-10-2026 la autorización no se reconocía, y una 384 que
+        solo la llevaba a ella salía con una nota y no con el error de no
+        decir qué rectifica: un BG-24 cualquiera bastaba para eso.
+        """
+        for esquema in (self.ESQUEMA_DEL_CORREO, self.ESQUEMA_DEL_ANEXO):
+            pelada = self.rectificativa_con(
+                "  <cac:AdditionalDocumentReference>\n"
+                f"    <cbc:ID>{esquema}AUT</cbc:ID>\n"
+                "    <cbc:UUID>REG015642102461</cbc:UUID>\n"
+                "  </cac:AdditionalDocumentReference>\n")
+            queja = la(pelada, "SPFE-RECTIFICATIVA")
+            assert queja.gravedad == ERROR, esquema
 
     def test_un_bg24_ajeno_sigue_sin_leerse(self):
         """Un albaran no es una rectificativa, y ahora se distingue."""
@@ -534,10 +628,170 @@ class TestLosCalificadoresDeL10:
         el calificador detras de sus dos puntos.
         """
         for ajeno in ("urn:otra:empresa:cualquiera:RECT:TIPO",
-                      "urn:aeat:names:specification:schema:MIRECT:TIPO"):
+                      "urn:aeat:names:specification:schema:MIRECT:TIPO",
+                      # Hasta el 05-10-2026 valía cualquier prefijo de la AEAT;
+                      # ahora, uno de los dos esquemas escritos de L10.
+                      "urn:aeat:names:specification:ubl:schema:ext:id:RECT:TIPO"):
             queja = la(self.rectificativa_con(self.adjunto(ajeno, "R4")),
                        "SPFE-RECTIFICATIVA")
             assert queja.encontrado == "un BG-24 sin leer", ajeno
+
+
+# Lo que la AEAT mandó por correo el 02-10-2026, tal cual, sobre el cuerpo de
+# la BUENA: la captura era solo la cabecera y los cuatro BG-24, sin partes,
+# totales ni líneas. Va sin `UBLVersionID`, con los dos identificadores nuevos
+# y con los cuatro calificadores de L10 sin `ubl:`. La URL del QR se deja la de
+# la BUENA: la del ejemplo apunta a un dominio, `gob.aeat`, que no existe.
+BG24_DEL_EJEMPLO = """  <cac:AdditionalDocumentReference>
+    <cbc:ID>urn:aeat:names:specification:schema:RECT:TIPO</cbc:ID>
+    <cbc:DocumentTypeCode>R1</cbc:DocumentTypeCode>
+    <cbc:DocumentDescription>Rectificación por el artículo 80.1 de la LIVA</cbc:DocumentDescription>
+  </cac:AdditionalDocumentReference>
+  <cac:AdditionalDocumentReference>
+    <cbc:ID>urn:aeat:names:specification:schema:RECT:MODALIDAD</cbc:ID>
+    <cbc:DocumentTypeCode>S</cbc:DocumentTypeCode>
+    <cbc:DocumentDescription>Rectificación por sustitución</cbc:DocumentDescription>
+  </cac:AdditionalDocumentReference>
+  <cac:AdditionalDocumentReference>
+    <cbc:ID>urn:aeat:names:specification:schema:AUT</cbc:ID>
+    <cbc:UUID>REG015642102461</cbc:UUID>
+    <cbc:DocumentDescription>Autorización facturación máquina vending</cbc:DocumentDescription>
+  </cac:AdditionalDocumentReference>
+"""
+PROCESO_DEL_EJEMPLO = "urn:aeat:names:specification:schema:profile:B2B"
+_CABECERA_DEL_EJEMPLO = cambia(
+    cambia(
+        cambia(
+            cambia(BUENA, "  <cbc:UBLVersionID>2.5</cbc:UBLVersionID>\n", ""),
+            CIUS, ESPECIFICACION_DEL_EJEMPLO),
+        "urn:aeat:names:specification:ubl:schema:B2B", PROCESO_DEL_EJEMPLO),
+    "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>384<")
+SIN_LOS_BG24 = cambia(_CABECERA_DEL_EJEMPLO, "urn:aeat:names:specification:ubl:schema:QR",
+                      "urn:aeat:names:specification:schema:QR")
+EJEMPLO = cambia(SIN_LOS_BG24, "  <cac:AccountingSupplierParty>",
+                 BG24_DEL_EJEMPLO + "  <cac:AccountingSupplierParty>")
+
+
+class TestElEjemploDeLaAEAT:
+    """La respuesta del 02-10-2026: una captura, y ni una frase de criterio.
+
+    Medido el 05-10-2026, antes de tocar nada: con el identificador del
+    ejemplo no se aplicaba ni una regla del anexo y nada lo decía, se le
+    suponía UBL 2.1, el QR sin `ubl:` no era el QR y la autorización no se
+    reconocía. Una rectificativa que no dice qué rectifica salía «sin
+    errores». Cada prueba de aquí rompe una de esas cosas.
+    """
+
+    def test_pasa_el_validador_entero_y_dice_lo_que_ha_aceptado(self):
+        informe = factura.validar(EJEMPLO.encode("utf-8"))
+        assert informe.deteccion.version == "2.5"
+        assert [(i.codigo, i.campo) for i in informe.errores] == []
+        assert [(i.codigo, i.campo) for i in informe.avisos] == []
+        assert {i.codigo for i in informe.notas} == {
+            "SPFE-BORRADOR", "SPFE-TOTAL-A-PAGAR", "SPFE-ESPECIFICACION",
+            "SPFE-PROCESO", "SPFE-RECTIFICATIVA"}
+
+    def test_con_el_namespace_de_las_extensiones_del_ejemplo_tambien(self):
+        """El ejemplo declara `aeat:` con un namespace; las pruebas usan otro
+        a propósito, y las reglas van por nombre local. Que sea verdad, con una
+        extensión dentro que se lea: sin la base, el grupo de entidades se queja.
+        """
+        con_el_suyo = cambia(EJEMPLO, "  <cac:InvoiceLine>", LINEA_REGE + "  <cac:InvoiceLine>").replace(
+            "urn:glosa:pruebas:aeat", "urn:es:aeat:names:specification:ubl:schema:xsd:Extensiones-1")
+        assert "<aeat:TaxableAmount>" in con_el_suyo
+        assert factura.validar(con_el_suyo.encode("utf-8")).errores == []
+        sin_base = cambia(con_el_suyo, "<aeat:TaxableAmount>95.00</aeat:TaxableAmount>", "")
+        assert "BT-ES-30" in la(sin_base, "SPFE-GRUPO-DE-ENTIDADES").mensaje
+
+    def test_la_nota_dice_con_que_identificador_se_ha_medido(self):
+        nota = la(EJEMPLO, "SPFE-ESPECIFICACION")
+        assert nota.gravedad == NOTA
+        assert nota.encontrado == ESPECIFICACION_DEL_EJEMPLO
+        assert "02-10-2026" in nota.mensaje and "anexo de abril" in nota.mensaje
+        assert la(EJEMPLO, "SPFE-BORRADOR").encontrado == ESPECIFICACION_DEL_EJEMPLO
+
+    def test_el_alcance_nombra_el_anexo(self, tmp_path):
+        (tmp_path / "ejemplo.xml").write_text(EJEMPLO, encoding="utf-8")
+        assert "borrador del anexo I" in factura.validar_lote([tmp_path / "ejemplo.xml"]).alcance()
+
+    def test_una_384_que_no_dice_que_rectifica_ya_no_sale_limpia(self):
+        """El caso que se midió el 05-10-2026 con «sin errores» y exit 0."""
+        informe = factura.validar(SIN_LOS_BG24.encode("utf-8"))
+        assert "SPFE-RECTIFICATIVA" in {i.codigo for i in informe.errores}
+
+    def test_r1_y_s_se_comprueban_y_la_sustitucion_sin_importes_se_dice(self):
+        queja = la(EJEMPLO, "SPFE-RECTIFICATIVA")
+        assert queja.gravedad == NOTA
+        assert queja.encontrado == "RECT:MODALIDAD y RECT:TIPO"
+        assert "R1, está en la lista L2.A" in queja.mensaje
+        assert "La modalidad es S y no trae los importes" in queja.mensaje
+
+    def test_el_proceso_del_ejemplo_es_nota_con_cualquiera_de_los_dos(self):
+        con_el_de_abril = cambia(BUENA, "urn:aeat:names:specification:ubl:schema:B2B",
+                                 PROCESO_DEL_EJEMPLO)
+        assert la(con_el_de_abril, "SPFE-PROCESO").gravedad == NOTA
+        assert codigos(con_el_de_abril) == set()
+        assert la(EJEMPLO, "SPFE-PROCESO").encontrado == PROCESO_DEL_EJEMPLO
+
+    def test_otro_identificador_de_la_aeat_se_avisa_y_no_se_mide(self, tmp_path):
+        """No se le aplica el anexo, porque no dice ser lo que el anexo define.
+        Pero no se calla, que es lo que pasaba con el del ejemplo."""
+        otro = "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:2.0.0:extended"
+        tercero = cambia(SIN_LOS_BG24, ESPECIFICACION_DEL_EJEMPLO, otro)
+        quejas = spfe(tercero)
+        assert [(q.codigo, q.gravedad) for q in quejas] == [("SPFE-ESPECIFICACION", AVISO)]
+        assert quejas[0].encontrado == otro and "no se han comprobado" in quejas[0].mensaje
+        (tmp_path / "tercero.xml").write_text(tercero, encoding="utf-8")
+        assert "anexo I" not in factura.validar_lote([tmp_path / "tercero.xml"]).alcance()
+
+    def test_en_otra_sintaxis_el_del_ejemplo_se_avisa_como_el_cius(self):
+        with open("ejemplos/cii-A-0001.xml", encoding="utf-8") as f:
+            cii = f.read()
+        marcador = "<ram:ID>urn:cen.eu:en16931:2017</ram:ID>"
+        con_el_del_ejemplo = cambia(cii, marcador, f"<ram:ID>{ESPECIFICACION_DEL_EJEMPLO}</ram:ID>")
+        quejas = spfe(con_el_del_ejemplo)
+        assert [(q.codigo, q.gravedad) for q in quejas] == [("SPFE-SINTAXIS", AVISO)]
+        assert "dice ser de la solución pública" in quejas[0].mensaje
+        otro = "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:2.0.0:extended"
+        con_otro = cambia(cii, marcador, f"<ram:ID>{otro}</ram:ID>")
+        assert [(q.codigo, q.gravedad) for q in spfe(con_otro)] == [("SPFE-ESPECIFICACION", AVISO)]
+
+    def test_lo_que_no_nombra_a_la_aeat_sigue_sin_nada(self):
+        assert spfe(cambia(SIN_LOS_BG24, ESPECIFICACION_DEL_EJEMPLO, "urn:cen.eu:en16931:2026")) == []
+
+
+class TestElQrConYSinUbl:
+    """El anexo de abril escribe el QR con `ubl:`; L10 y el ejemplo, sin él."""
+
+    QR_SIN_UBL = "urn:aeat:names:specification:schema:QR"
+
+    def test_sin_ubl_es_el_qr(self):
+        sin_ubl = cambia(BUENA, "urn:aeat:names:specification:ubl:schema:QR", self.QR_SIN_UBL)
+        assert codigos(sin_ubl) == set()
+        sin_direccion = cambia(
+            sin_ubl,
+            "<cbc:UUID>https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=B12345674</cbc:UUID>",
+            "")
+        assert "BT-ES-47" in la(sin_direccion, "SPFE-QR").mensaje
+
+    def test_uno_de_cada_esquema_son_dos(self):
+        otro = ("  <cac:AdditionalDocumentReference>\n"
+                f"    <cbc:ID>{self.QR_SIN_UBL}</cbc:ID>\n"
+                "    <cbc:UUID>https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR</cbc:UUID>\n"
+                "    <cbc:DocumentDescription>VERIFACTU</cbc:DocumentDescription>\n"
+                "  </cac:AdditionalDocumentReference>\n")
+        doble = cambia(BUENA, "  <cac:AccountingSupplierParty>", otro + "  <cac:AccountingSupplierParty>")
+        assert la(doble, "SPFE-QR").encontrado == "2"
+
+    def test_un_parecido_no_es_el_qr(self):
+        """El calificador entero detrás del esquema, no un trozo."""
+        parecido = cambia(BUENA, "urn:aeat:names:specification:ubl:schema:QR",
+                          "urn:aeat:names:specification:schema:QRX")
+        sin_direccion = cambia(
+            parecido,
+            "<cbc:UUID>https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=B12345674</cbc:UUID>",
+            "")
+        assert "SPFE-QR" not in codigos(sin_direccion)
 
 
 class TestPartes:
@@ -757,12 +1011,13 @@ class TestSeNiegaSiElAnexoCambia:
     def test_si_aparece_l10_se_niega_hasta_terminar_de_leer_el_bg24(self, monkeypatch):
         """El anexo de abril tiene de L1 a L8, sin L9 ni L10.
 
-        L10 es lo que la AEAT adelanto por correo el 23-09-2026 y lo que hara
-        legible el valor del BG-24. El dia que llegue quedan dos reglas por
-        aplicar -el tipo contra L2.A y la modalidad contra L2.B, y los
-        importes obligatorios cuando la modalidad es S-, asi que esto no
-        arranca hasta que esten. Es una anotacion que no depende de que nadie
-        se acuerde.
+        L10 es la lista de calificadores que la AEAT escribio en las
+        transparencias del 10-09-2026 y en el correo del 23-09-2026. Desde el
+        ejemplo del 02-10-2026 el tipo y la modalidad se comprueban contra
+        L2.A y L2.B en cbc:DocumentTypeCode, con AVISO. El dia que llegue el
+        texto queda por hacer: confirmar ese sitio, exigir los importes
+        cuando la modalidad es S y pasar a ERROR lo que hoy es NOTA o AVISO.
+        Es una anotacion que no depende de que nadie se acuerde.
         """
         assert "L10" not in cius_es.LISTAS, "ya llego: hay una regla que terminar"
         monkeypatch.setitem(cius_es.LISTAS, "L10", cius_es.LISTAS["L2.B"])
@@ -770,7 +1025,9 @@ class TestSeNiegaSiElAnexoCambia:
             with pytest.raises(LookupError) as negativa:
                 importlib.reload(solucion_publica)
             assert type(negativa.value).__name__ == "AnexoCambiado"
-            assert "L2.A" in str(negativa.value) and "S" in str(negativa.value)
+            assert "DocumentTypeCode" in str(negativa.value)
+            assert "modalidad es S" in str(negativa.value)
+            assert "ERROR" in str(negativa.value)
         finally:
             monkeypatch.undo()
             importlib.reload(solucion_publica)

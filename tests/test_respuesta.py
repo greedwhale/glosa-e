@@ -34,7 +34,14 @@ from validador import (
     solucion_publica,
 )
 from validador.esquema import Catalogo
-from validador.formato import EDIFACT, FACTURAE, RESPUESTA, UBL, detectar
+from validador.formato import (
+    EDIFACT,
+    ESPECIFICACION_DEL_EJEMPLO,
+    FACTURAE,
+    RESPUESTA,
+    UBL,
+    detectar,
+)
 from validador.incidencias import Informe
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -114,13 +121,19 @@ class TestSeReconoce:
         assert detectar(respuesta(version=None)).version == "2.1"
 
     def test_sin_version_y_con_otro_perfil_tambien_la_2_1(self):
-        """Solo el CIUS de la solución pública sube la suposición a la 2.5."""
+        """Solo un identificador de la AEAT sube la suposición a la 2.5."""
         d = detectar(respuesta(version=None, perfil=PERFIL_EN16931))
         assert d.version == "2.1"
 
     def test_sin_version_pero_con_el_cius_de_la_solucion_publica_es_la_2_5(self):
         """Solo existe sobre UBL 2.5: suponerle la 2.1 sería medirla mal."""
         d = detectar(respuesta(version=None, perfil=PERFIL_CIUS))
+        assert d.version == "2.5"
+        assert "solo existe sobre UBL 2.5" in d.motivo
+
+    def test_sin_version_y_con_el_identificador_del_ejemplo_tambien_la_2_5(self):
+        """Una sola regla para todo lo que es UBL, también con el del 02-10-2026."""
+        d = detectar(respuesta(version=None, perfil=ESPECIFICACION_DEL_EJEMPLO))
         assert d.version == "2.5"
         assert "solo existe sobre UBL 2.5" in d.motivo
 
@@ -206,9 +219,16 @@ class TestNoSeLeAcusaDeSerUnaFactura:
         assert informe.incidencias == [], informe.detalle()
         assert informe.validado and informe.conforme
 
-    @pytest.mark.parametrize("perfil", [PERFIL_EN16931, PERFIL_CIUS, None])
+    @pytest.mark.parametrize("perfil", [
+        PERFIL_EN16931, PERFIL_CIUS, ESPECIFICACION_DEL_EJEMPLO,
+        "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:2.0.0:extended", None])
     def test_ni_con_el_perfil_de_una_factura_ni_con_el_del_cius(self, catalogo, perfil):
-        """Ni `BR-*`, ni `CU-*`, ni `PERFIL-*`, ni `SPFE-*`: nada de facturas."""
+        """Ni `BR-*`, ni `CU-*`, ni `PERFIL-*`, ni `SPFE-*`: nada de facturas.
+
+        Tampoco el aviso de un identificador de la AEAT que no se conoce: el
+        anexo no mide respuestas, y avisar de que no se le ha aplicado sería
+        dar a entender que se le habría aplicado.
+        """
         informe = factura.validar(respuesta(perfil=perfil), catalogo=catalogo)
         assert informe.incidencias == [], informe.detalle()
 
