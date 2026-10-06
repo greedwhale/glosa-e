@@ -61,7 +61,9 @@ un comentario que pida memoria.
 Todas cuelgan de **`paquete.NoSeMonta`**, y `__main__` caza esa clase, no una
 lista escrita a mano: la lista ya se quedó atrás una vez (en HALLAZGOS). Una
 negativa nueva hereda de `NoSeMonta` y ya está cazada; hay prueba que recorre
-el módulo y no deja ninguna suelta.
+el módulo y no deja ninguna suelta. Las de `--empaquetar` (`SinManifiesto`,
+`SinRenovar` y `EsquemaQueNoCompila`, que compila todos los esquemas de
+entrada) cuelgan de la otra raíz, **`paquete.NoSeEmpaqueta`**, por lo mismo.
 
 **El código es AGPL-3.0-only.** Desde el 01-09-2026; antes era MIT. El motor
 entero viaja al navegador de quien abre la página, en claro, dentro del `.whl`:

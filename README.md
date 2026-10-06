@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2842 tests, todos en verde.
+2850 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4760,6 +4760,41 @@ vuelve a montar hasta antes del 02-02-2027. Por eso se pasa al leerla, en
 **Los bytes** con punto de miles: el banco decía «1247225 bytes», y ahora
 «1.247.225», con `cifras.recuento` en Python y `toLocaleString("es-ES")` en
 `glosa.js`.
+
+### Un esquema que no compila no se publica
+
+El 06-10-2026. `XSD-ESQUEMA-ROTO` sale cuando el esquema que le toca a un
+documento está y no compila. Con el paquete publicado no salía, pero si hubiera
+salido en la página habría dicho la ruta del disco virtual del navegador
+(«/opt/factura-e/esquemas/ubl/maindoc/...») y «Suele ser una descarga a medias;
+vuelve a bajarlo», que allí no se puede. Reproducido con el código de antes y
+un `UBL-Invoice-2.1.xsd` cortado por la mitad en un catálogo con la procedencia
+de la página.
+
+Ahora hace lo mismo que `XSD-SIN-ESQUEMA`: con procedencia, dice que el
+esquema «está entre los esquemas que vienen con esta página pero no se puede
+leer», que es un fallo de la página y no de la factura y que recargar no lo
+arregla; en «Tiene», el motivo de libxml2 sin la carpeta delante
+(«ubl/maindoc/UBL-Invoice-2.1.xsd, line 501»). En consola sigue diciendo dónde
+está y que se vuelva a bajar.
+
+Y para que no llegue a salir, dos puertas:
+
+| Dónde | Qué | Con qué libxml2 |
+|---|---|---|
+| `--empaquetar` | compila los esquemas de entrada uno a uno y se niega con `EsquemaQueNoCompila` si alguno no compila | la de esta máquina, 2.11.9 |
+| el banco | «los esquemas de entrada compilan con este libxml2», crítica | la del navegador, 2.9.10 |
+
+Hacen falta las dos porque compilar aquí no prueba lo de allí. Los de entrada
+son los que `_nombres_esperados` puede pedir (`_DE_ENTRADA`, y una prueba
+comprueba que todo lo que pide encaja): once en el paquete de hoy, que compilan
+en un segundo aquí y en 1,85 s en el navegador, medido el 06-10-2026. Hasta
+entonces, en el banco solo se compilaba el de Facturae.
+
+Las negativas de `--empaquetar` eran dos y `__main__` las cazaba por su nombre.
+Con la tercera se les puso raíz, `NoSeEmpaqueta`, como `NoSeMonta` la tiene
+para `--sitio`, y la prueba que recorre `paquete.py` exige que toda excepción
+cuelgue de una de las dos.
 
 ### El desglose de EDIFACT, y el margen de la base
 

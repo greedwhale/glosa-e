@@ -184,6 +184,42 @@ class TestLoQueNoSeEmpaqueta:
         assert "02-02-2027" in str(motivo.value)
         assert not (tmp_path / "p.zip").exists()
 
+    def test_un_esquema_de_entrada_que_no_compila_no_se_reparte(
+            self, tmp_path, carpetas):
+        """En la página saldría XSD-ESQUEMA-ROTO en cada factura de su formato."""
+        esquemas, anclas, sellos = carpetas
+        (esquemas / "ubl" / "UBL-Invoice-2.1.xsd").write_text(
+            "<esto no es un esquema/>", encoding="utf-8")
+        with pytest.raises(paquete.EsquemaQueNoCompila) as motivo:
+            paquete.armar(
+                tmp_path / "p.zip", esquemas, anclas, sellos, hoy=date(2026, 9, 1)
+            )
+        assert "UBL-Invoice-2.1.xsd" in str(motivo.value)
+        assert "Facturaev3_2_2.xsd" not in str(motivo.value)
+        assert not (tmp_path / "p.zip").exists()
+
+    def test_lo_que_no_es_de_entrada_no_se_compila_suelto(self, tmp_path, carpetas):
+        """Un fichero que no importa nadie no rompe ninguna factura."""
+        esquemas, anclas, sellos = carpetas
+        (esquemas / "ubl" / "UBL-Suelto-2.1.xsd").write_text(
+            "<esto no es un esquema/>", encoding="utf-8")
+        paquete.armar(
+            tmp_path / "p.zip", esquemas, anclas, sellos, hoy=date(2026, 9, 1)
+        )
+        assert (tmp_path / "p.zip").exists()
+
+    def test_la_orden_lo_dice_y_sale_con_2(self, tmp_path, carpetas, capsys):
+        from validador import __main__
+
+        esquemas, anclas, _ = carpetas
+        (esquemas / "Facturaev3_2_2.xsd").write_text("<roto/>", encoding="utf-8")
+        codigo = __main__._empaquetar(
+            tmp_path / "p.zip", esquemas, anclas, date(2026, 9, 1), False)
+        assert codigo == 2
+        error = capsys.readouterr().err
+        assert "No se ha empaquetado nada" in error
+        assert "Facturaev3_2_2.xsd" in error
+
     def test_un_dia_antes_todavia_se_reparte(self, tmp_path, carpetas):
         """La frontera es la que dice la lista, no un margen inventado."""
         esquemas, anclas, sellos = carpetas
@@ -1660,10 +1696,10 @@ class TestNingunaNegativaSaleConTraza:
         """La que se escriba mañana ya está cazada el día que se escribe."""
         import inspect
 
-        # Las dos de `--empaquetar`, que no montan ningún sitio. Están aquí
-        # escritas para que añadir una excepción obligue a decidir de cuál de
-        # las dos clases es, en vez de dejarla suelta sin que nadie lo note.
-        DE_OTRA_COSA = {"SinManifiesto", "SinRenovar", "NoSeMonta"}
+        # Las de `--empaquetar`, que no montan ningún sitio, cuelgan de la otra
+        # raíz desde el 06-10-2026: hasta entonces eran dos escritas aquí por
+        # su nombre, y `__main__` las cazaba igual, por su nombre.
+        RAICES = (paquete.NoSeMonta, paquete.NoSeEmpaqueta)
 
         sueltas = [
             nombre
@@ -1671,14 +1707,20 @@ class TestNingunaNegativaSaleConTraza:
             if inspect.isclass(cosa)
             and issubclass(cosa, Exception)
             and cosa.__module__ == paquete.__name__
-            and nombre not in DE_OTRA_COSA
-            and not issubclass(cosa, paquete.NoSeMonta)
+            and cosa not in RAICES
+            and not issubclass(cosa, RAICES)
         ]
         assert not sueltas, (
-            f"{sueltas} no hereda(n) de `NoSeMonta`, así que `--sitio` saldría "
-            "con traza de Python y código 1 al levantarla(s). O hereda, o "
-            "consta en DE_OTRA_COSA."
+            f"{sueltas} no hereda(n) de `NoSeMonta` ni de `NoSeEmpaqueta`, así "
+            "que `--sitio` o `--empaquetar` saldrían con traza de Python y "
+            "código 1 al levantarla(s)."
         )
+
+    def test_las_de_empaquetar_cuelgan_de_la_suya(self):
+        for cual in (paquete.SinManifiesto, paquete.SinRenovar,
+                     paquete.EsquemaQueNoCompila):
+            assert issubclass(cual, paquete.NoSeEmpaqueta), cual.__name__
+            assert not issubclass(cual, paquete.NoSeMonta), cual.__name__
 
     def test_la_raiz_caza_a_las_siete(self):
         for cual in (paquete.SinRueda, paquete.SinPagina, paquete.SinPyodide,

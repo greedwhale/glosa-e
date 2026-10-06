@@ -86,8 +86,8 @@ caché —todo verde, y no es lo que crees que has probado—.
 
 ## Qué mirar
 
-Arriba, el tiempo de arranque. Abajo, 42 comprobaciones que deben salir todas
-en verde; 31 están marcadas como **críticas** y son las que, si fallan, tumban
+Arriba, el tiempo de arranque. Abajo, 43 comprobaciones que deben salir todas
+en verde; 32 están marcadas como **críticas** y son las que, si fallan, tumban
 la idea entera. Están todas, en el orden en que corren, y esa lista completa
 no es cosmética: la tabla se quedó corta durante meses, con críticas sin
 fila que nadie echaba de menos, y una comprobación que no aparece en la lista de lo
@@ -124,6 +124,7 @@ en los dos sentidos.
 | la promesa del informe cuadra con los esquemas y las anclas que hay | el informe dice qué ha comprobado y qué no; si esa frase se desacopla de lo que trae el paquete, la línea de alcance miente en la dirección peligrosa |
 | los esquemas viajan con la página y comprueban la forma | sin ellos la página comprueba el contenido y no la forma, y lo que no se comprueba se da por bueno |
 | el esquema de Facturae compila sin red | los XSD del formato nacional importan la firma XMLDSig **por dirección web**; aquí no hay adónde salir, y sin la copia local no compilan |
+| los esquemas de entrada compilan con este libxml2 | al empaquetar se compilan con el lxml de fuera, y aquí va otra libxml2: uno que no compile deja cada factura de su formato con `XSD-ESQUEMA-ROTO` y sin la forma comprobada |
 | los mensajes de libxml2 se traducen igual con esta versión | las regex de la traducción se escribieron leyendo el libxml2 de fuera; si este redacta una sola frase distinta, todos los errores de forma salen en inglés y solo en el navegador |
 | las anclas viajan con la página y dicen de cuándo son | sin ellas no se sabe de quién es el certificado, y sin su fecha un conjunto viejo sigue creyendo a autoridades a las que el Estado ya retiró la cualificación |
 | el paquete que ha llegado es el que la ficha dice | un zip truncado se descomprime **sin error** y deja al validador con menos anclas de las que la página dice traer: aprobados de más repartidos en silencio |
@@ -209,7 +210,7 @@ visita de verdad baja los 14,71 MB; con la CDN cacheada solo se pagan los
 0,13 MB, todo lo demás salió de la caché—; y con la página ya visitada son
 menos de 5 s.
 
-Los 42 resultados coinciden exactamente con los de la misma prueba
+Los 43 resultados coinciden exactamente con los de la misma prueba
 ejecutada con Python nativo: mismos códigos, mismos resúmenes, mismos importes.
 Es la comprobación que de verdad importa, porque libxml2 aquí es **2.9.10** y
 en local es 2.11.9. Dos versiones distintas que dicen lo mismo, **canonicalización
@@ -222,7 +223,7 @@ página sin anclas—. Verificar y montar cuesta 20,8 ms allí.
 
 ## La prueba de soltar una factura firmada
 
-No basta con que las 42 salgan verdes: la zona de arrastre es la
+No basta con que las 43 salgan verdes: la zona de arrastre es la
 interacción del producto, y hay que verla funcionar. Soltando
 `ejemplos/fe-0001.xml`, que es un Facturae 3.2.2 firmado:
 

@@ -6903,3 +6903,65 @@ Es la misma decisión que la coma de EDIFACT en la tanda 3, y se toca en la
 lectura. En desarrollo, sin `--sitio`, el banco sigue fallando «el navegador
 tiene orden de no pedir nada fuera», porque la política de contenido la pone
 el montaje; es lo esperado.
+
+### Tanda 5: un esquema que no compila no se publica
+
+**Lo que había.** `XSD-ESQUEMA-ROTO` no salía con el paquete publicado, pero
+si hubiera salido en la página habría enseñado la ruta del disco virtual del
+navegador y «Suele ser una descarga a medias; vuelve a bajarlo», en una página
+donde no se baja nada. **Reproducido** con el validador de antes (una copia de
+HEAD aparte) y un `UBL-Invoice-2.1.xsd` cortado por la mitad en un catálogo
+con la procedencia de la página: el campo era la ruta entera, y en «Tiene» iba
+otra vez, con su `file:/` delante. Y nada impedía publicar un esquema así: al
+empaquetar no se compilaba ninguno, y en el banco solo el de Facturae.
+
+**Lo que se hizo.**
+
+- `XSD-ESQUEMA-ROTO` hace lo que ya hacía `XSD-SIN-ESQUEMA`: con procedencia
+  dice que el esquema está entre los que vienen con la página y no se puede
+  leer, que es un fallo de la página y no de la factura y que recargar no lo
+  arregla. En «Tiene», el motivo de libxml2 sin la carpeta delante, también en
+  su forma `file:`. En consola, dónde está y que se vuelva a bajar.
+- Los esquemas de entrada tienen nombre propio en `esquema.py`, `_DE_ENTRADA`:
+  los que `_nombres_esperados` puede pedir. `Catalogo.los_que_no_compilan()`
+  los compila todos.
+- `--empaquetar` se niega con `EsquemaQueNoCompila` si alguno no compila.
+- En el banco, una crítica nueva: «los esquemas de entrada compilan con este
+  libxml2». La 43.
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- Las negativas de `--empaquetar` eran dos y `__main__` las cazaba por su
+  nombre, que es la lista escrita a mano que ya se quedó atrás una vez con
+  `--sitio`. La tercera hacía falta añadirla a esa lista. En vez de eso se les
+  puso raíz, `NoSeEmpaqueta`, y la prueba que recorre `paquete.py` exige ahora
+  que toda excepción cuelgue de `NoSeMonta` o de `NoSeEmpaqueta`. Va escrito
+  también en CLAUDE.md, al lado de `NoSeMonta`.
+- Se compilan solo los de entrada: un fichero que no importa nadie no rompe
+  ninguna factura. Uno roto que sí importa un esquema de entrada rompe a ese,
+  y se dice por el de entrada, que es el que falla en la página.
+
+**Las pruebas.** Ocho nuevas: el aviso en la página sin rutas ni «bajar», y
+en consola con ellas; que todo lo que pide `_nombres_esperados` (UBL de la 2.0
+a la 2.5 y una desconocida, facturas, abonos y respuestas; CII; Facturae de la
+3.0 a la 3.2.2) es de entrada, y que lo que importan no; que se compilan todos
+y se dicen los rotos; la negativa, que no la provoca un fichero suelto, y la
+orden saliendo con 2.
+
+**Provocado.** Siete roturas, las siete en rojo: el aviso de la página otra vez
+con «vuelve a bajarlo», la ruta otra vez en «Tiene», empaquetar sin compilar,
+`__main__` cazando por nombre, `SinRenovar` sin raíz, las respuestas fuera de
+los de entrada, y `los_que_no_compilan` sin compilar de verdad. Y dos de punta
+a punta, con el paquete descomprimido y `UBL-Invoice-2.5.xsd` cortado: el banco
+en Python da 42 de 43, con la nueva en rojo y el motivo de libxml2; y
+`--empaquetar` de verdad se niega con salida 2, nombra el fichero y no deja
+zip.
+
+**Visto en el navegador**, con el sitio montado: las 43 en verde, y la nueva
+dice «los 11 compilan con libxml2 2.9.10» en 1,85 s. Aquí compilan en un
+segundo con la 2.11.9. Los 43 resultados son los mismos que en Python nativo
+con el mismo paquete: solo cambian las versiones, los tiempos, la barra de una
+ruta y las tres que solo pueden medirse en el navegador. Lo que no se ha visto
+en el navegador es el aviso nuevo: hacerlo salir allí pide un paquete con un
+esquema roto y su huella publicada, y `--empaquetar` ya no lo arma. Lo cubre
+la prueba que monta el catálogo como lo monta la página.

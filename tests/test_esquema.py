@@ -317,10 +317,33 @@ class TestEsquemaRoto:
         )
         return Catalogo(tmp_path)
 
-    def test_no_revienta_y_lo_dice(self, catalogo_roto):
+    def test_no_revienta_y_lo_dice(self, catalogo_roto, tmp_path):
         aviso = una(revisar(CORRECTA, catalogo_roto), "XSD-ESQUEMA-ROTO")
         assert aviso.gravedad == AVISO
-        assert "UBL-Invoice-2.1.xsd" in aviso.campo
+        assert aviso.campo == "Esquema"
+        # En consola, dónde está y qué hacer: la carpeta es de quien valida.
+        assert str(tmp_path / "UBL-Invoice-2.1.xsd") in aviso.mensaje
+        assert "vuelve a bajarlo" in aviso.mensaje
+
+    def test_en_la_pagina_no_dice_rutas_ni_que_lo_baje(self, tmp_path):
+        """En la página no hay carpeta que abrir ni nada que volver a bajar.
+
+        Hasta el 06-10-2026 decía la ruta del disco virtual y «vuelve a
+        bajarlo», también en «Tiene», donde libxml2 pone la ruta entera.
+        """
+        disco = tmp_path / "opt" / "factura-e" / "esquemas"
+        (disco / "ubl").mkdir(parents=True)
+        (disco / "ubl" / "UBL-Invoice-2.1.xsd").write_text(
+            PRINCIPAL[: len(PRINCIPAL) // 2], encoding="utf-8")
+        catalogo = Catalogo(disco, procedencia="que vienen con esta página")
+        aviso = una(revisar(CORRECTA, catalogo), "XSD-ESQUEMA-ROTO")
+        assert "UBL-Invoice-2.1.xsd, está entre los esquemas que vienen con " \
+               "esta página" in aviso.mensaje
+        assert "quien la mantiene" in aviso.mensaje
+        assert "bajar" not in aviso.mensaje
+        for texto in (aviso.mensaje, aviso.encontrado):
+            assert str(disco) not in texto and disco.as_posix() not in texto
+        assert "ubl/UBL-Invoice-2.1.xsd" in aviso.encontrado
 
     def test_el_lote_sigue_adelante(self, catalogo_roto, tmp_path):
         ruta = tmp_path / "f.xml"
@@ -333,6 +356,48 @@ class TestEsquemaRoto:
         for _ in range(5):
             revisar(CORRECTA, catalogo_roto)
         assert len(catalogo_roto._rotos) == 1
+
+
+class TestLosDeEntrada:
+    """Los esquemas que se compilan al empaquetar y en el banco."""
+
+    def test_todo_lo_que_se_pide_es_de_entrada(self):
+        """Si `_nombres_esperados` pidiera uno que no encaja, no se compilaría
+        al empaquetar y podría llegar roto a la página."""
+        from validador.formato import CII, FACTURAE, RESPUESTA, UBL, Deteccion
+
+        detecciones = [Deteccion(familia=CII, tipo_documento="factura")]
+        for version in esquema._VERSIONES_UBL + (None, "2.9"):
+            for tipo in ("factura", "abono"):
+                detecciones.append(Deteccion(familia=UBL, version=version,
+                                             tipo_documento=tipo))
+            detecciones.append(Deteccion(familia=RESPUESTA, version=version,
+                                         tipo_documento="respuesta"))
+        for version in ("3.0", "3.1", "3.2", "3.2.1", "3.2.2", None):
+            detecciones.append(Deteccion(familia=FACTURAE, version=version,
+                                         tipo_documento="factura"))
+        nombres = {n for d in detecciones for n in esquema._nombres_esperados(d)}
+        assert len(nombres) > 20
+        fuera = sorted(n for n in nombres if not esquema._DE_ENTRADA.match(n))
+        assert not fuera, fuera
+
+    def test_lo_que_importan_no_es_de_entrada(self):
+        for nombre in ("UBL-CommonBasicComponents-2.1.xsd",
+                       "CrossIndustryInvoice_QualifiedDataType_100pD16B.xsd",
+                       "UBL-xmldsig-core-schema-2.1.xsd"):
+            assert not esquema._DE_ENTRADA.match(nombre), nombre
+
+    def test_se_compilan_todos_y_se_dicen_los_rotos(self, tmp_path):
+        (tmp_path / "Facturaev3_2_2.xsd").write_text("<roto/>", encoding="utf-8")
+        (tmp_path / "UBL-Invoice-2.1.xsd").write_text(PRINCIPAL, encoding="utf-8")
+        (tmp_path / "common").mkdir()
+        catalogo = Catalogo(tmp_path)
+        assert list(catalogo.de_entrada) == ["Facturaev3_2_2.xsd",
+                                             "UBL-Invoice-2.1.xsd"]
+        rotos = catalogo.los_que_no_compilan()
+        # El de UBL importa lo que aquí no está: también es de los rotos, y
+        # se dice por el de entrada, que es el que falla en la página.
+        assert set(rotos) == {"Facturaev3_2_2.xsd", "UBL-Invoice-2.1.xsd"}
 
 
 def _deteccion_ubl():

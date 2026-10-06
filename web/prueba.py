@@ -1290,6 +1290,30 @@ def _():
     return "compila y valida sin poder pedirle nada a w3.org"
 
 
+@comprobar("los esquemas de entrada compilan con este libxml2", critica=True)
+def _():
+    """Todos, y no solo el de Facturae.
+
+    Al empaquetar se compilan con el lxml de fuera (`EsquemaQueNoCompila`),
+    pero aqui va otra libxml2, y uno que compila alli puede no compilar aqui.
+    Si pasa, cada factura de su formato sale con XSD-ESQUEMA-ROTO y sin la
+    forma comprobada, y eso solo se veria con una factura delante. Hasta el
+    06-10-2026 aqui solo se compilaba el de Facturae.
+    """
+    from lxml import etree
+    from validador.esquema import Catalogo
+
+    catalogo = Catalogo.por_defecto()
+    if catalogo.vacio:
+        return "no hay paquete: no hay ningún esquema que compilar"
+    de_entrada = catalogo.de_entrada
+    assert de_entrada, "el paquete no trae ningún esquema de entrada"
+    rotos = catalogo.los_que_no_compilan()
+    assert not rotos, "; ".join("%s: %s" % par for par in rotos.items())
+    return "los %d compilan con libxml2 %s" % (
+        len(de_entrada), ".".join(str(n) for n in etree.LIBXML_VERSION))
+
+
 # --- La traduccion de los mensajes de libxml2 ------------------------------
 #
 # Este riesgo no rompe nada: degrada, que es peor.

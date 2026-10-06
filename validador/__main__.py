@@ -329,9 +329,11 @@ def _empaquetar(
 ) -> int:
     """Arma el zip que la página se lleva puesto, o se niega y dice por qué.
 
-    Las dos negativas —sin manifiesto y sin renovar— salen por aquí en vez de
-    por una traza, porque son la parte que importa: no son fallos técnicos
-    sino la razón por la que ese paquete no se puede repartir.
+    Las negativas (sin manifiesto, sin renovar y, desde el 06-10-2026, un
+    esquema que no compila) salen por aquí en vez de por una traza, porque son
+    la parte que importa: no son fallos técnicos sino la razón por la que ese
+    paquete no se puede repartir. Se cazan por su raíz, `NoSeEmpaqueta`, y no
+    por su nombre.
     """
     from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
 
@@ -343,7 +345,7 @@ def _empaquetar(
             hoy=hoy,
             aunque_esten_vencidas=aunque_vencidas,
         )
-    except (paquete.SinManifiesto, paquete.SinRenovar) as motivo:
+    except paquete.NoSeEmpaqueta as motivo:
         print(f"No se ha empaquetado nada.\n\n  {motivo}", file=sys.stderr)
         return 2
     except OSError as error:

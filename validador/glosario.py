@@ -1678,12 +1678,15 @@ CODIGOS: dict[str, str] = {
     ),
     "XSD-ESQUEMA-ROTO": (
         'La forma no se ha comprobado porque el esquema que le toca a este '
-        'documento está instalado y no se puede leer. No es lo mismo que no '
-        'tenerlo (de eso avisa XSD-SIN-ESQUEMA) y el arreglo es otro: aquí el '
-        'fichero está, así que lo que hay que hacer es volver a bajarlo, '
-        'porque lo corriente es una descarga a medias. El informe dice qué '
-        'fichero es y qué dijo exactamente el analizador al intentar '
-        'compilarlo, que es la línea con la que se arregla.'
+        'documento está y no se puede leer. No es lo mismo que no tenerlo (de '
+        'eso avisa XSD-SIN-ESQUEMA) y el arreglo es otro. En consola, el '
+        'fichero está en tu carpeta de esquemas y lo corriente es una descarga '
+        'a medias: hay que volver a bajarlo. En la página, los esquemas vienen '
+        'con ella y se compilan todos antes de publicarla, así que si sale ahí '
+        'es un fallo de la página y no de la factura, que recargar no arregla: '
+        'lo tiene que arreglar quien la mantiene. El informe dice qué fichero '
+        'es y qué dijo exactamente el analizador al intentar compilarlo, que '
+        'es la línea con la que se arregla.'
     ),
     "XSD-OTRO": (
         'El documento no cumple el esquema y este validador no ha sabido '

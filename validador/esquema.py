@@ -134,6 +134,19 @@ def _versiones_ubl(declarada: str | None) -> tuple[str, ...]:
     return _VERSIONES_UBL[_VERSIONES_UBL.index(_UBL_POR_DEFECTO):]
 
 
+# Los esquemas de entrada: los nombres que `_nombres_esperados` puede pedir.
+# El resto de la carpeta es lo que estos importan. Se compilan todos al
+# empaquetar (`paquete.EsquemaQueNoCompila`) y otra vez en el banco, con el
+# libxml2 del navegador: uno que no compile sale en cada factura de su
+# formato como XSD-ESQUEMA-ROTO, y hasta el 06-10-2026 eso solo se habría
+# visto con una factura delante. Una prueba comprueba que todo lo que pide
+# `_nombres_esperados` encaja aquí.
+_DE_ENTRADA = re.compile(
+    r"^(?:UBL-(?:Invoice|CreditNote|ApplicationResponse)-2\.\d+"
+    r"|CrossIndustryInvoice_100pD\d\dB|Facturaev\d+(?:_\d+)*)\.xsd$"
+)
+
+
 def _nombres_esperados(deteccion) -> tuple[str, ...]:
     """Nombres de fichero del esquema que le toca a un documento."""
     if deteccion.familia == UBL:
@@ -326,7 +339,10 @@ class Catalogo:
         una frase.
         """
         ruta = self.ruta_para(deteccion)
-        if ruta is None or ruta in self._rotos:
+        return None if ruta is None else self._compilar(ruta)
+
+    def _compilar(self, ruta: Path) -> etree.XMLSchema | None:
+        if ruta in self._rotos:
             return None
         if ruta not in self._compilados:
             # El parser lleva el resolvedor pegado porque las importaciones de
@@ -340,9 +356,38 @@ class Catalogo:
                     etree.parse(str(ruta), parser=lector)
                 )
             except (etree.LxmlError, OSError) as error:
-                self._rotos[ruta] = _por_que(sin_red, error)
+                self._rotos[ruta] = self._sin_rutas(
+                    _por_que(sin_red, error, self.procedencia))
                 return None
         return self._compilados[ruta]
+
+    def _sin_rutas(self, motivo: str) -> str:
+        """El motivo sin la carpeta delante, cuando la carpeta no es de nadie.
+
+        libxml2 dice en qué fichero falló, con su ruta entera, y en la página
+        esa ruta es la del disco virtual del navegador: «/opt/factura-e/
+        esquemas/ubl/...», que nadie puede abrir. Con procedencia se queda
+        en «ubl/...», que dice qué fichero es; en consola, entera.
+        """
+        if not self.procedencia:
+            return motivo
+        for carpeta in {self.carpeta.as_posix(), str(self.carpeta)}:
+            # Con el `file:` que le pone libxml2 delante, si se lo pone.
+            delante = r"(?:file:)?/*" + re.escape(carpeta.lstrip("/\\")) + r"[/\\]"
+            motivo = re.sub(delante, "", motivo)
+        return motivo
+
+    @property
+    def de_entrada(self) -> dict[str, Path]:
+        """Los esquemas de entrada que hay en la carpeta, por nombre."""
+        return {nombre: ruta for nombre, ruta in sorted(self.indice.items())
+                if _DE_ENTRADA.match(nombre)}
+
+    def los_que_no_compilan(self) -> dict[str, str]:
+        """Compila todos los de entrada y devuelve los que no, con su motivo."""
+        return {nombre: self._rotos[ruta]
+                for nombre, ruta in self.de_entrada.items()
+                if self._compilar(ruta) is None}
 
     def por_que_no_compila(self, deteccion) -> tuple[Path, str] | None:
         """El esquema que le toca existe pero está roto, y por qué."""
@@ -384,7 +429,7 @@ def _como_se_llama(deteccion) -> str:
     )
 
 
-def _por_que(sin_red: _SinRed, error: Exception) -> str:
+def _por_que(sin_red: _SinRed, error: Exception, procedencia: str = "") -> str:
     """Por qué no ha compilado, diciendo la causa y no el síntoma.
 
     Si el esquema pedía un fichero de fuera que no está instalado, el error de
@@ -394,6 +439,14 @@ def _por_que(sin_red: _SinRed, error: Exception) -> str:
     """
     if not sin_red.no_estaban:
         return str(error)
+    if procedencia:
+        # En la página no hay nada que instalar ni carpeta donde dejarlo:
+        # la copia tenía que venir entre los esquemas de la página.
+        return (
+            f"este esquema importa {sin_red.no_estaban[0]} por dirección web "
+            f"y no hay ninguna copia entre los esquemas {procedencia}. El "
+            f"validador no sale a la red a buscarla. ({error})"
+        )
     return (
         f"este esquema importa {sin_red.no_estaban[0]} por dirección web y no "
         "hay ninguna copia instalada. El validador no sale a la red a "
@@ -875,14 +928,27 @@ def reglas(raiz, deteccion, catalogo: Catalogo | None = None) -> list[Incidencia
         roto = catalogo.por_que_no_compila(deteccion)
         if roto is not None:
             ruta, motivo = roto
+            # Lo mismo que XSD-SIN-ESQUEMA: en la página no hay carpeta que
+            # abrir ni nada que volver a bajar. Hasta el 06-10-2026 decía la
+            # ruta del disco virtual y «vuelve a bajarlo». No salía con el
+            # paquete publicado, y para que no salga se compilan todos al
+            # empaquetar; si aun así sale, el arreglo es de quien la mantiene.
+            arreglo = (
+                f"está entre los esquemas {catalogo.procedencia} pero no se "
+                "puede leer. Es un fallo de la página y no de la factura, y "
+                "no se arregla recargando: lo tiene que arreglar quien la "
+                "mantiene."
+                if catalogo.procedencia
+                else f"está en {ruta} pero no se puede leer. Suele ser una "
+                "descarga a medias; vuelve a bajarlo."
+            )
             return [
                 Incidencia(
                     "XSD-ESQUEMA-ROTO",
                     AVISO,
                     "No se ha comprobado la forma: el esquema que le toca a "
-                    "este documento está ahí pero no se puede leer. Suele ser "
-                    "una descarga a medias; vuelve a bajarlo.",
-                    campo=str(ruta),
+                    f"este documento, {ruta.name}, {arreglo}",
+                    campo="Esquema",
                     encontrado=_limpiar(motivo),
                 )
             ]

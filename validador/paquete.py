@@ -27,9 +27,11 @@ publicar la página las reparte igual. Lo que hace falta es poder contrastarlas,
 y para eso va el SHA-256 en `PAQUETE.json`, dentro del zip y fuera, y a la vista
 en la página.
 
-**Y dos negativas que valen más que el resto del módulo.** No se empaquetan
-anclas sin manifiesto, y no se empaquetan anclas cuya lista debía haberse
-renovado. La primera porque un conjunto que no dice de dónde viene es justo lo
+**Y tres negativas que valen más que el resto del módulo.** No se empaquetan
+anclas sin manifiesto, no se empaquetan anclas cuya lista debía haberse
+renovado y, desde el 06-10-2026, no se empaqueta un esquema de entrada que no
+compile (`EsquemaQueNoCompila`): en la página saldría `XSD-ESQUEMA-ROTO` en
+cada factura de su formato. La primera porque un conjunto que no dice de dónde viene es justo lo
 que habíamos quedado en no repartir. La segunda porque el día que una lista
 vence, las autoridades a las que el Estado les haya retirado la cualificación
 siguen valiendo dentro del paquete, con su certificado en vigor y su cadena
@@ -57,6 +59,7 @@ from validador.cadena import (
 from validador import bitacora, cifras, pagina_incidencias
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
+from validador.esquema import Catalogo
 
 __all__ = [
     "NOMBRE",
@@ -94,12 +97,32 @@ _DE_ANCLAS = ("*.cer", "*.crt", "*.der", "*.pem", "*.ca-bundle")
 _SUELTOS = (NOMBRE_DEL_MANIFIESTO, NOMBRE_DE_ESTADOS)
 
 
-class SinManifiesto(Exception):
+class NoSeEmpaqueta(Exception):
+    """La raíz de las negativas de `--empaquetar`, como `NoSeMonta` de `--sitio`.
+
+    Hasta el 06-10-2026 eran dos y `__main__` las cazaba por su nombre, que
+    es la lista escrita a mano que ya se quedó atrás una vez con `--sitio`.
+    Al llegar la tercera, `EsquemaQueNoCompila`, se les puso raíz antes de
+    que pasara lo mismo.
+    """
+
+
+class SinManifiesto(NoSeEmpaqueta):
     """Las anclas no dicen de dónde vienen, así que no se reparten."""
 
 
-class SinRenovar(Exception):
+class SinRenovar(NoSeEmpaqueta):
     """La lista de la que salen las anclas debía haberse renovado."""
+
+
+class EsquemaQueNoCompila(NoSeEmpaqueta):
+    """Un esquema de entrada que no compila no se reparte.
+
+    En la página saldría XSD-ESQUEMA-ROTO en cada factura de su formato, y
+    sin nada que quien la abre pueda hacer: el arreglo está aquí. Compilar
+    con el lxml de esta máquina no prueba el del navegador, que lleva otra
+    libxml2; eso lo mira el banco, dentro de la página.
+    """
 
 
 @dataclass(frozen=True)
@@ -210,6 +233,20 @@ def armar(
             "en vigor y su cadena llegando: no hay nada en el documento que lo "
             "delate. Vuelve a montarlas con "
             "`python -m validador --montar-anclas`."
+        )
+
+    # Todos los de entrada, uno a uno. Medido el 06-10-2026: los once del
+    # paquete compilan en un segundo con libxml2 2.11.9.
+    rotos = Catalogo(carpeta_esquemas).los_que_no_compilan()
+    if rotos:
+        lista = "\n".join(f"    - {nombre}: {motivo}" for nombre, motivo in rotos.items())
+        raise EsquemaQueNoCompila(
+            f"Estos esquemas de entrada no compilan:\n\n{lista}\n\n"
+            "En la página saldría XSD-ESQUEMA-ROTO en cada factura de su "
+            "formato, sin la forma comprobada y sin nada que quien la abre "
+            "pueda hacer. Si es una descarga a medias, vuelve a bajarlos; si "
+            "importan algo por dirección web, deja la copia en la carpeta de "
+            "esquemas."
         )
 
     partes = [
