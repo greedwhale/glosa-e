@@ -6965,3 +6965,10 @@ ruta y las tres que solo pueden medirse en el navegador. Lo que no se ha visto
 en el navegador es el aviso nuevo: hacerlo salir allí pide un paquete con un
 esquema roto y su huella publicada, y `--empaquetar` ya no lo arma. Lo cubre
 la prueba que monta el catálogo como lo monta la página.
+
+**Lo que vio GitHub y aquí no.** Publicada la tanda, la suite de GitHub salió
+en rojo en una prueba: pedía que «Tiene» dijera `ubl/UBL-Invoice-2.1.xsd`, que
+es como lo escribe la libxml2 de Windows, y en Linux libxml2 pone solo el
+nombre del fichero. El código estaba bien (en ninguno de los dos sale la
+carpeta); la prueba pedía la forma de una máquina. Ahora pide el nombre, y que
+la carpeta no esté.

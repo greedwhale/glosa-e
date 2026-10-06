@@ -343,7 +343,10 @@ class TestEsquemaRoto:
         assert "bajar" not in aviso.mensaje
         for texto in (aviso.mensaje, aviso.encontrado):
             assert str(disco) not in texto and disco.as_posix() not in texto
-        assert "ubl/UBL-Invoice-2.1.xsd" in aviso.encontrado
+        # El nombre sí. Con la carpeta de dentro o sin ella depende de la
+        # libxml2: en Windows sale «ubl/UBL-Invoice-2.1.xsd», en Linux solo el
+        # nombre. Medido en GitHub el 06-10-2026, donde esto pedía lo primero.
+        assert "UBL-Invoice-2.1.xsd" in aviso.encontrado
 
     def test_el_lote_sigue_adelante(self, catalogo_roto, tmp_path):
         ruta = tmp_path / "f.xml"
