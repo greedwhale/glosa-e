@@ -6785,3 +6785,20 @@ guardarla tocaría la lectura, que está en `sintaxis.py`. Un «+» delante o un
 ceros a la izquierda tampoco se conservan, porque `Decimal` no los guarda. Y en
 la descripción para buscadores de cada código las comillas invertidas se
 quitan, así que allí `10.500` sigue sin ellas.
+
+### Lo que se le escapó a la tanda 1: el banco buscaba las frases de antes
+
+Al repasar los nombres del banco para la tanda 4 salió que la comprobación
+«la promesa del informe cuadra con lo que hay instalado» buscaba en la frase
+«necesita anclas de confianza instaladas» y «autoridad de confianza
+instalada», las dos que la tanda 1 quitó. Con anclas pasaba en verde sin
+mirar nada, porque las dos ausencias coincidían con lo esperado; sin anclas,
+fallaba. La suite entera estaba en verde porque `test_banco.py` monta el banco
+en un fixture de módulo, que se monta antes que el aislamiento por prueba de
+`conftest.py` y veía las `anclas/` y los `esquemas/` de esta carpeta. En GitHub,
+donde no los hay, habría salido en rojo al primer push.
+
+Ahora el banco busca las frases nuevas, y el fixture apunta esquemas y anclas a
+carpetas que no existen, como el resto de la suite. **Provocado:** con el
+`prueba.py` de antes y el fixture nuevo, la comprobación sale en rojo, como en
+GitHub; con las anclas de verdad, las 42 en verde.

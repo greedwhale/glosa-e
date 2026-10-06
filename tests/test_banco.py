@@ -59,12 +59,26 @@ def espacio(tmp_path_factory) -> dict:
     # ruta del sitio y aquí es la carpeta del repositorio. Y escribe donde se
     # le diga: en el navegador, la raíz del disco virtual; aquí, una carpeta
     # temporal nueva, y no la raíz del disco de quien corre la suite.
+    #
+    # Y sin los esquemas ni las anclas de esta carpeta, como el resto de la
+    # suite (ver `conftest.py`). El aislamiento de allí es por prueba, y este
+    # fixture es de módulo: se monta antes y lo veía todo. Así, el 05-10-2026
+    # una comprobación del banco buscaba en la frase del informe unas
+    # palabras que ya no se escribían, y aquí pasaba en verde porque había
+    # `anclas/`; en GitHub, donde no las hay, fallaba.
+    vacia = tmp_path_factory.getbasetemp()
     puestas = {
         "EJEMPLOS": str(RAIZ / "ejemplos"),
         "DISCO_DEL_BANCO": str(tmp_path_factory.mktemp("disco-del-banco")),
+        "FACTURAE_ESQUEMAS": str(vacia / "esquemas-que-no-existen"),
+        "FACTURAE_ANCLAS": str(vacia / "anclas-que-no-existen"),
     }
-    anteriores = {nombre: os.environ.get(nombre) for nombre in puestas}
+    quitadas = ("FACTURAE_ANCLAS_SELLOS",)
+    anteriores = {nombre: os.environ.get(nombre)
+                  for nombre in (*puestas, *quitadas)}
     os.environ.update(puestas)
+    for nombre in quitadas:
+        os.environ.pop(nombre, None)
     try:
         espacio: dict = {"__name__": "banco"}
         exec(compile(BANCO.read_text(encoding="utf-8"), str(BANCO), "exec"),

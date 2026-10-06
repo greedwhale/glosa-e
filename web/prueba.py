@@ -1210,12 +1210,18 @@ def _():
     assert ("esquema XSD" in dice) == (not catalogo.vacio), dice
     # Con anclas puestas no puede echarlas de menos, y sin ellas no puede
     # callarse que faltan.
-    assert ("necesita anclas de confianza instaladas" in dice) == almacen.vacio, dice
+    #
+    # Las frases son las del 05-10-2026, cuando dejaron de decir «instaladas»
+    # (en la pagina no se instala nada). Con las de antes esto se quedo
+    # buscando lo que ya no se escribe: con anclas pasaba en verde sin mirar
+    # nada, y sin ellas fallaba. Se vio corriendo el banco sin anclas, como
+    # corre en GitHub.
+    assert ("sin anclas de confianza no se sabe" in dice) == almacen.vacio, dice
     # Y que la cadena llega solo se promete si llega. Hasta el 16-09-2026 esto
     # pedia la promesa en cuanto habia anclas, y la cadena del ejemplo no llega
     # a ninguna: la comprobacion daba por bueno justo lo que era falso.
     llega = lote.con_cadena_que_llega > 0
-    assert ("autoridad de confianza instalada" in dice) == (
+    assert ("que ese certificado lleve a un ancla de confianza" in dice) == (
         not almacen.vacio and llega
     ), dice
     return "promete %s la forma; anclas %s, y la cadena del ejemplo %s" % (
