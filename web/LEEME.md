@@ -121,7 +121,7 @@ en los dos sentidos.
 | las rutas de EDIFACT valen con este libxml2 | van con predicados y con el eje `self::`, más XPath del que usan UBL y CII; si fallaran no darían error, darían una factura sin líneas ni desglose —o sea, sin nada que comprobar— y diría que está bien |
 | un UNA de cinco caracteres se lee igual | el hueco reservado del `UNA` cambia los separadores del intercambio entero; leerlo mal deja el fichero sin ningún mensaje, y eso se cuenta como «aquí no hay nada que validar» |
 | un separador sin soltar no tumba el lote | un fichero mal escrito de un remitente no puede llevarse por delante a los demás del lote |
-| la promesa del informe cuadra con lo que hay instalado | el informe dice qué ha comprobado y qué no; si esa frase se desacopla de lo que trae el paquete, la línea de alcance miente en la dirección peligrosa |
+| la promesa del informe cuadra con los esquemas y las anclas que hay | el informe dice qué ha comprobado y qué no; si esa frase se desacopla de lo que trae el paquete, la línea de alcance miente en la dirección peligrosa |
 | los esquemas viajan con la página y comprueban la forma | sin ellos la página comprueba el contenido y no la forma, y lo que no se comprueba se da por bueno |
 | el esquema de Facturae compila sin red | los XSD del formato nacional importan la firma XMLDSig **por dirección web**; aquí no hay adónde salir, y sin la copia local no compilan |
 | los mensajes de libxml2 se traducen igual con esta versión | las regex de la traducción se escribieron leyendo el libxml2 de fuera; si este redacta una sola frase distinta, todos los errores de forma salen en inglés y solo en el navegador |

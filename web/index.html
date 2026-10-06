@@ -1270,6 +1270,10 @@ const escapar = (s) => String(s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const plural = (n, uno, varios) => n + " " + (n === 1 ? uno : varios);
+// El mensaje del fallo, sin el «Error:» que antepone `String`. Lo que
+// `glosa.js` pone en el mensaje es para quien mira; el detalle para quien
+// mantiene la página va a la consola.
+const motivo = (error) => (error && error.message) || String(error);
 
 // --- El testigo ------------------------------------------------------------
 //
@@ -1470,8 +1474,8 @@ function pintarLoQueTrae(paquete) {
     fila("Esquemas XSD", paquete.esquemas) +
     fila("Anclas de firma", paquete.anclas) +
     fila("Anclas de sellado de tiempo", paquete.anclas_de_sellos) +
-    fila("De dónde salen", escapar(paquete.declarada || "(no consta)")) +
-    fila("Montadas el", paquete.montada || "(no consta)");
+    fila("De dónde salen", escapar(Glosa.fecha(paquete.declarada || "(no consta)"))) +
+    fila("Montadas el", paquete.montada ? Glosa.fecha(paquete.montada) : "(no consta)");
   // La fecha que de verdad importa. Un conjunto de anclas no caduca —los
   // certificados de dentro duran veinte años— pero la lista de quién sigue
   // estando autorizado se renueva cada seis meses, y pasada esa fecha aquí se
@@ -1480,10 +1484,10 @@ function pintarLoQueTrae(paquete) {
   if (!siguiente) {
     filas += fila("Se renuevan el", "(la lista no lo dice)", "ojo");
   } else if (new Date(siguiente) < new Date()) {
-    filas += fila("Debían renovarse el", siguiente, "ojo");
+    filas += fila("Debían renovarse el", Glosa.fecha(siguiente), "ojo");
     filas += fila("Mientras tanto", "se cree a autoridades que quizá ya no lo sean", "ojo");
   } else {
-    filas += fila("Se renuevan el", siguiente);
+    filas += fila("Se renuevan el", Glosa.fecha(siguiente));
   }
   lista.innerHTML = filas;
 }
@@ -1672,7 +1676,7 @@ async function empezar() {
     fallo = true;
     $("zona").setAttribute("aria-disabled", "true");
     $("zona-titulo").textContent = "No ha arrancado";
-    $("zona-pie").textContent = String(error);
+    $("zona-pie").textContent = motivo(error);
     $("arranque").hidden = true;
     $("banco-nota").textContent =
       "El validador no ha arrancado, así que aquí tampoco hay nada que correr.";
@@ -1709,7 +1713,7 @@ async function verElEjemplo(boton) {
     // el botón muerto.
     $("informe").innerHTML =
       "<div class='veredicto no'><h3>El ejemplo no ha salido</h3><p>" +
-      escapar(String(error)) + "</p></div>";
+      escapar(motivo(error)) + "</p></div>";
     console.error(error);
   } finally {
     muestras.forEach((b) => { b.disabled = false; });
@@ -1752,7 +1756,7 @@ async function soltar(ficheros, aclaracion = "") {
   } catch (error) {
     $("informe").innerHTML =
       "<div class='veredicto no'><h3>No se ha podido leer</h3><p>" +
-      escapar(String(error)) + "</p></div>";
+      escapar(motivo(error)) + "</p></div>";
     console.error(error);
   }
 }
@@ -1808,7 +1812,7 @@ async function correrElBanco() {
   } catch (error) {
     salida.innerHTML =
       "<div class='veredicto no'><h3>No se han podido correr</h3><p>" +
-      escapar(String(error)) + "</p></div>";
+      escapar(motivo(error)) + "</p></div>";
     console.error(error);
   } finally {
     boton.textContent = antes;

@@ -181,7 +181,7 @@ class TestLoQueNoSeEmpaqueta:
             paquete.armar(
                 tmp_path / "p.zip", esquemas, anclas, sellos, hoy=date(2027, 6, 1)
             )
-        assert "2027-02-02" in str(motivo.value)
+        assert "02-02-2027" in str(motivo.value)
         assert not (tmp_path / "p.zip").exists()
 
     def test_un_dia_antes_todavia_se_reparte(self, tmp_path, carpetas):

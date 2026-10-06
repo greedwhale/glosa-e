@@ -86,6 +86,7 @@ from datetime import datetime, timezone
 
 from lxml import etree
 
+from validador import cifras
 from validador.formato import (
     FACTURAE,
     FIRMA_EN_PIE,
@@ -1669,10 +1670,10 @@ def _regla_certificado(examen: Examen, donde: str) -> list[Incidencia]:
                     "haberse firmado la factura.",
                     campo=f"{donde}Vigencia del certificado",
                     esperado=(
-                        f"entre {cert.desde.date().isoformat()} y "
-                        f"{cert.hasta.date().isoformat()}"
+                        f"entre {cifras.fecha(cert.desde)} y "
+                        f"{cifras.fecha(cert.hasta)}"
                     ),
-                    encontrado=f"firmada el {cuando.date().isoformat()}",
+                    encontrado=f"firmada el {cifras.fecha(cuando)}",
                 )
             )
 

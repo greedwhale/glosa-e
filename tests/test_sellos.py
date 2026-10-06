@@ -415,7 +415,7 @@ class TestEnUnaFactura:
         incidencias = quejas(documento())
         assert "SELLO-FALTA" in codigos(incidencias, NOTA)
         texto = texto_de(incidencias, "SELLO-FALTA")
-        assert "2026-03-02" in texto
+        assert "02-03-2026" in texto
         assert "fechando hacia atrás" in texto
 
     def test_sin_xades_no_se_dice_nada(self):

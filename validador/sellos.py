@@ -82,6 +82,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
+from validador import cifras
 from validador.firma import (
     _C14N,
     momento_de_firma,
@@ -766,7 +767,7 @@ TOLERANCIA = timedelta(minutes=5)
 
 
 def _cuando(momento: datetime) -> str:
-    return momento.strftime("%Y-%m-%d a las %H:%M:%S UTC")
+    return cifras.momento(momento)
 
 
 def _sin_sello(firma, donde: str, llevaba: bool = False) -> list[Incidencia]:
@@ -780,7 +781,7 @@ def _sin_sello(firma, donde: str, llevaba: bool = False) -> list[Incidencia]:
     """
     declarada = momento_de_firma(firma)
     if declarada is not None:
-        cual = f"la que declara quien firma, el {declarada.date().isoformat()}"
+        cual = f"la que declara quien firma, el {cifras.fecha(declarada)}"
     else:
         cual = "ninguna, porque el documento tampoco dice cuándo se firmó"
     aviso = (
@@ -819,7 +820,7 @@ def _otra_clase(hallado: Hallado, donde: str) -> Incidencia:
     """Un sello que está pero que no se comprueba. Decirlo, no callarlo."""
     fecha = ""
     if hallado.sello is not None and hallado.sello.momento is not None:
-        fecha = f" Dice ser del {hallado.sello.momento.date().isoformat()}."
+        fecha = f" Dice ser del {cifras.fecha(hallado.sello.momento)}."
     return Incidencia(
         "SELLO-NO-COMPROBADO",
         NOTA,
@@ -871,12 +872,12 @@ def _contra_el_certificado(sello: Sello, cert, donde: str) -> list[Incidencia]:
             "SELLO-ANTES-DEL-CERTIFICADO",
             ERROR,
             "El sello de tiempo acredita que esta firma ya existía el "
-            f"{sello.momento.date().isoformat()}, antes de que se emitiera el "
+            f"{cifras.fecha(sello.momento)}, antes de que se emitiera el "
             f"certificado{quien} con el que dice estar hecha. Una de las dos "
             "cosas es falsa.",
             campo=f"{donde}Sello de tiempo",
-            esperado=f"un sello posterior al {cert.desde.date().isoformat()}",
-            encontrado=f"sellada el {sello.momento.date().isoformat()}",
+            esperado=f"un sello posterior al {cifras.fecha(cert.desde)}",
+            encontrado=f"sellada el {cifras.fecha(sello.momento)}",
         )
     ]
 
@@ -906,15 +907,15 @@ def _despues_de_caducar(sello: Sello, cert, donde: str) -> list[Incidencia]:
             "SELLO-DESPUES-DE-CADUCAR",
             AVISO,
             f"El certificado{quien} caducó el "
-            f"{cert.hasta.date().isoformat()}, y lo único que hay acreditado "
+            f"{cifras.fecha(cert.hasta)}, y lo único que hay acreditado "
             f"de esta firma es que ya existía el "
-            f"{sello.momento.date().isoformat()}, después. Pudo firmarse "
+            f"{cifras.fecha(sello.momento)}, después. Pudo firmarse "
             "antes, cuando el certificado aún valía, pero eso solo lo dice la "
             "fecha que escribe quien firma. Sellar tarde es legítimo; fechar "
             "hacia atrás para tapar una caducidad, también se ve así.",
             campo=f"{donde}Sello de tiempo",
-            esperado=f"un sello anterior al {cert.hasta.date().isoformat()}",
-            encontrado=f"sellada el {sello.momento.date().isoformat()}",
+            esperado=f"un sello anterior al {cifras.fecha(cert.hasta)}",
+            encontrado=f"sellada el {cifras.fecha(sello.momento)}",
         )
     ]
 
@@ -937,8 +938,8 @@ def _contradice(sello: Sello, firma, donde: str) -> list[Incidencia]:
             "documento no es cierta. Se usa la del sello, que es la que está "
             "acreditada.",
             campo=f"{donde}Sello de tiempo",
-            esperado=f"una fecha anterior al {sello.momento.date().isoformat()}",
-            encontrado=f"declara el {declarada.date().isoformat()}",
+            esperado=f"una fecha anterior al {cifras.fecha(sello.momento)}",
+            encontrado=f"declara el {cifras.fecha(declarada)}",
         )
     ]
 
@@ -1060,7 +1061,7 @@ def reglas(firma, cert: Certificado | None = None, donde: str = "") -> list[Inci
                     campo=f"{donde}Sello de tiempo",
                     esperado="un sello del valor de esta firma",
                     encontrado="un sello de otra cosa, del "
-                    f"{sello.momento.date().isoformat()}",
+                    f"{cifras.fecha(sello.momento)}",
                 )
             )
             continue

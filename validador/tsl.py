@@ -89,7 +89,7 @@ from pathlib import Path
 
 from lxml import etree
 
-from validador import firma
+from validador import cifras, firma
 from validador.cadena import (
     CARPETA_DE_RETIRADAS,
     NOMBRE_DEL_MANIFIESTO,
@@ -675,9 +675,13 @@ def _manifiesto(lista: Lista, resumen: Resumen, cuando: datetime) -> str:
     """
     quien = lista.operador or f"el operador de la lista de {lista.territorio}"
     emitida = lista.emitida.date().isoformat() if lista.emitida else "(sin fecha)"
+    # La cabecera es una frase y acaba en el informe: la fecha, como en el
+    # resto de frases. Las líneas de debajo las lee `Almacen.renovacion` con
+    # `date.fromisoformat`, y siguen en ISO.
     cabecera = (
         f"de la lista de confianza de {lista.territorio or '(sin territorio)'}, "
-        f"publicada por {quien} el {emitida}"
+        f"publicada por {quien} el "
+        + (cifras.fecha(lista.emitida) if lista.emitida else "(sin fecha)")
     )
     lineas = [
         cabecera,

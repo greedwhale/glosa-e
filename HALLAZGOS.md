@@ -6802,3 +6802,104 @@ Ahora el banco busca las frases nuevas, y el fixture apunta esquemas y anclas a
 carpetas que no existen, como el resto de la suite. **Provocado:** con el
 `prueba.py` de antes y el fixture nuevo, la comprobación sale en rojo, como en
 GitHub; con las anclas de verdad, las 42 en verde.
+
+### Tanda 4: tildes, fechas en dd-mm-aaaa y bytes con punto de miles
+
+**Lo que había.** Si la página no arrancaba, quien la abría leía «No esta el
+interprete en ./pyodide/. Traelo con `python -m validador --traer-pyodide`», o
+«El validador (factura_e-0.1.0-py3-none-any.whl) no es lo que la pagina dice
+traer: rueda.json publica...»: sin tildes, con rutas y huellas, y con una
+orden que no puede dar. En el banco, 13 de las 42 comprobaciones llevaban el
+nombre sin tildes, y 66 cadenas cambiaron en total; la ayuda de la consola,
+igual. La ficha del paquete decía «Montadas el 2026-08-27», el informe
+escribía así las fechas de sus frases, y el banco decía «1247225 bytes».
+
+**Lo que se hizo.**
+
+- `glosa.js` lanza los fallos con `averia(paraQuienMira, paraQuienMantiene)`.
+  En pantalla, qué ha pasado y «Recarga la página; si sigue igual, el fallo es
+  de la página y no de tu navegador.». En la consola del navegador, el detalle,
+  que además viaja en `cause`. La portada y el banco enseñan `error.message`,
+  sin el «Error:» que antepone `String`.
+- Las cadenas del banco, de `glosa.js` y de la ayuda de la consola, con sus
+  tildes. Una errata del glosario de paso: «código unico».
+- `cifras.fecha` (06-08-2026) y `cifras.momento` (16-12-2015 a las 14:41:55
+  UTC), y 50 fechas del informe y de los avisos de consola que pasan por ellas,
+  en ocho módulos. En la portada y el banco, `Glosa.fecha`, una sola para las
+  dos páginas, que pintan la misma ficha.
+- `cifras.recuento` para los bytes del banco, y `toLocaleString("es-ES")` para
+  los de `glosa.js`.
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- Se quedan en ISO, cada uno con su motivo escrito en `EN_ISO`: la fecha del
+  fichero en «Tiene», que va tal cual como las cifras; `PAQUETE.json` y las
+  líneas del manifiesto de las anclas, que son para máquina; y los
+  inventarios de consola (`--ver-anclas`, `--ver-revocaciones`, `--ver-tsl`),
+  que son columnas y en ISO se ordenan solas. Los avisos de consola que son
+  frases sí cambian.
+- La frase de procedencia lleva la fecha **escrita dentro del manifiesto** de
+  las anclas, y ese manifiesto viaja en el paquete publicado. Montar de nuevo
+  ya la escribe bien, pero el paquete de hoy no se monta hasta antes del
+  02-02-2027, así que la fecha se pasa al leerla: en `Almacen.declarada` y en
+  `Glosa.fecha`, que admite una frase con fechas dentro.
+- El banco, sin paquete, decía «Para arreglarlo: python -m validador
+  --empaquetar». Ahora dice que se recargue: la orden está en el README.
+- La comprobación «la promesa del informe cuadra con lo que hay instalado» se
+  llama ahora «... con los esquemas y las anclas que hay»: en la página no se
+  instala nada, que es lo que quitó la tanda 1.
+- En el README, «Las cifras» de la tanda 3 estaba metida en medio de otra
+  sección y le dejaba los párrafos huérfanos. Se movió al final de esa sección.
+
+**Las pruebas.** 63 nuevas. En `tests/test_voz.py`, una red de palabras que en
+castellano no existen sin tilde («aqui», «pagina», «deberia», «ningun», las
+acabadas en «-cion») sobre el texto de las seis páginas y los tres artículos de la bitácora, las
+cadenas de `glosa.js` y del Python que lleva dentro, las del banco y las del
+motor. Las que existen con y sin tilde («esta», «valida», «solo», «donde») se
+quedan fuera a propósito: cambian de sentido, no de ortografía. En
+`tests/test_fallos_de_la_pagina.py`, que ningún `new Error` llegue a la
+pantalla sin pasar por `averia` (salvo dos, con su motivo), que lo que lee
+quien mira pida recargar y no lleve rutas, huellas ni órdenes, y que el
+detalle vaya a la consola. En `tests/test_cifras.py`, las tres funciones
+nuevas, la procedencia vieja leída en dd-mm-aaaa, y una guardia que recorre
+`validador/` con `ast` y no deja un `isoformat` ni un `strftime` fuera de las
+funciones de `EN_ISO`: por función y no por línea, porque lo que decide si una
+fecha es para leer o para máquina es para qué sirve lo que la escribe.
+
+**Provocado.** Catorce roturas, una a una: una tilde menos en el banco, en
+`glosa.js`, en la portada y en la ayuda de la consola; la orden de consola
+otra vez en pantalla; un `new Error` sin avería; una avería sin recargar; el
+detalle fuera de la consola; la portada con `String(error)`; una fecha del
+informe con `isoformat`; la hora con `isoformat`; `cifras.fecha` en ISO; la
+procedencia vieja sin pasar; y los bytes sin miles. Las catorce en rojo, pero
+la de `glosa.js` **solo después de arreglar la guardia**: sacaba las cadenas
+con una expresión regular, y `glosa.js` lleva `/href="([^"]+\.whl)"/g`, con
+comillas dentro. Desde ahí cada cadena salía con el principio de la siguiente,
+y una «pagina» sin tilde pasaba en verde. Ahora las saca un lector que salta
+comentarios y expresiones regulares.
+
+**Visto en el navegador**, con el sitio montado como en producción
+(`--sitio --exigir-paquete`): las 42 del banco en verde, «son 1.247.225
+bytes», «sello de TSU de prueba del 27-08-2026», «de una lista del
+06-08-2026»; la ficha con «Montadas el 27-08-2026», «Se renuevan el
+02-02-2027» y la procedencia en dd-mm-aaaa; y el informe de la muestra firmada
+sin una sola fecha en ISO. Para ver un fallo, con la huella del validador
+cambiada en `rueda.json`: la portada dice «No ha arrancado» y «El validador ha
+llegado distinto de lo publicado, seguramente una copia vieja que guardaba el
+navegador, y no se usa. Recarga la página; si sigue igual, el fallo es de la
+página y no de tu navegador.»; el banco, lo mismo tras «No ha arrancado:»; y
+la consola, «Glosa: dist/7182b289/factura_e-0.1.0-py3-none-any.whl: rueda.json
+publica 000000000000... y lo que ha llegado resume 7182b289ad37...». Con
+`rueda.json` devuelto, «Listo en 8,96 s».
+
+El primer intento de provocarlo fue quitar `pyodide.js` del sitio, y la página
+arrancó igual: el navegador lo tenía guardado. Es el disfraz de siempre, y por
+eso se provocó por `rueda.json`, que es lo único que se pide siempre fresco.
+
+**Lo que queda.** En «Tiene», la fecha de una factura CII saldría en ISO y no
+como la escribe el fichero (`20260302`): `leer_fecha` la lee y `revisar` la
+escribe con `isoformat`. Lo dice el código; con una factura no se ha visto.
+Es la misma decisión que la coma de EDIFACT en la tanda 3, y se toca en la
+lectura. En desarrollo, sin `--sitio`, el banco sigue fallando «el navegador
+tiene orden de no pedir nada fuera», porque la política de contenido la pone
+el montaje; es lo esperado.

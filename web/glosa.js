@@ -151,6 +151,42 @@ function laHuellaDe(clave) {
   return (MANIFIESTO && MANIFIESTO.huellas && MANIFIESTO.huellas[clave]) || null;
 }
 
+// Un fallo de la pagina se le cuenta a dos personas, y no con las mismas
+// palabras.
+//
+// Quien abre la pagina no puede hacer nada con «rueda.json publica 3f2a...»
+// ni con una orden de consola: lo que puede hacer es recargar, y eso es lo
+// que tiene que leer. Quien la mantiene necesita justo lo otro, y lo busca
+// en la consola del navegador. Hasta el 06-10-2026 iban las dos cosas
+// juntas a la pantalla, y sin tildes: «No esta el interprete en
+// ./pyodide/. Traelo con `python -m validador --traer-pyodide`».
+//
+// El detalle se escribe en la consola aqui mismo, al crear el error, y no
+// se deja a quien lo cace: la portada y el banco lo cazan cada uno a su
+// manera, y una pagina que se olvidara de escribirlo lo perderia. Viaja
+// ademas en `cause`, que es donde lo busca quien inspecciona el error.
+const RECARGA = "Recarga la página; si sigue igual, el fallo es de la " +
+                "página y no de tu navegador.";
+
+function averia(paraQuienMira, paraQuienMantiene) {
+  console.error("Glosa: " + paraQuienMantiene);
+  return new Error(paraQuienMira, { cause: paraQuienMantiene });
+}
+
+// Un recuento con punto de miles desde las cinco cifras, como la portada y
+// como `validador/cifras.py`: «1247225 bytes» no se lee de un vistazo.
+const enMiles = (n) => Number(n).toLocaleString("es-ES");
+
+// Las fechas en dd-mm-aaaa, como el resto del sitio y como el informe
+// (`cifras.fecha`): la ficha del paquete decia «Montadas el 2026-08-27».
+// Vale con una fecha suelta (asi las guarda PAQUETE.json, que es para
+// maquina y se queda en ISO) y con una frase que lleve alguna dentro: la
+// procedencia de las anclas montadas antes del 06-10-2026 la escribe en ISO.
+// Lo usan la portada y el banco, que pintan la misma ficha.
+function fecha(texto) {
+  return String(texto).replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, "$3-$2-$1");
+}
+
 // Lo que ha llegado, contra lo que el manifiesto dice que tenia que llegar.
 //
 // Hasta el 20-09-2026 esas huellas solo servian de `?v=`: iban detras de la
@@ -174,10 +210,11 @@ async function comprobar(clave, bytes, queEs) {
   const medida = await huellaDe(bytes);
   if (medida === null) return null;
   if (medida !== publicada) {
-    throw new Error(
-      queEs + " no es lo que la pagina dice traer: rueda.json publica " +
-      publicada.slice(0, 12) + "... y lo que ha llegado resume " +
-      medida.slice(0, 12) + "... . No se usa.");
+    throw averia(
+      queEs + " ha llegado distinto de lo publicado, seguramente una copia " +
+      "vieja que guardaba el navegador, y no se usa. " + RECARGA,
+      clave + ": rueda.json publica " + publicada.slice(0, 12) +
+      "... y lo que ha llegado resume " + medida.slice(0, 12) + "...");
   }
   return true;
 }
@@ -216,8 +253,9 @@ async function buscarWheel() {
       return { donde: DIST + nombres.sort().pop(), clave: null, fresco: true };
     }
   }
-  throw new Error(
-    "No hay ningun .whl en " + DIST + ", ni suelto ni anunciado en rueda.json."
+  throw averia(
+    "Falta una parte de la página: el validador. " + RECARGA,
+    "No hay ningún .whl en " + DIST + ", ni suelto ni anunciado en rueda.json."
   );
 }
 
@@ -249,7 +287,7 @@ async function instalarElValidador() {
   const respuesta = await pedir(donde, "El validador",
                                fresco ? { cache: "reload" } : undefined);
   const crudo = new Uint8Array(await respuesta.arrayBuffer());
-  await comprobar(clave, crudo, "El validador (" + donde.split("/").pop() + ")");
+  await comprobar(clave, crudo, "El validador");
   await pyodide.loadPackage(donde);
   return donde;
 }
@@ -278,8 +316,8 @@ async function instalarElValidador() {
 async function pedir(direccion, queEs, opciones) {
   const respuesta = await fetch(direccion, opciones);
   if (!respuesta.ok) {
-    throw new Error(queEs + " no ha llegado: " + direccion.split("?")[0] +
-                    " contesta " + respuesta.status + ".");
+    throw averia(queEs + " no ha llegado. " + RECARGA,
+                 direccion.split("?")[0] + " contesta " + respuesta.status + ".");
   }
   return respuesta;
 }
@@ -316,7 +354,7 @@ async function traerPaquete() {
   let crudo = null;
   try {
     const zip = await fetch(conHuella("./paquete.zip", "paquete.zip"));
-    if (!zip.ok) throw new Error("no esta el zip");
+    if (!zip.ok) throw new Error("no está el zip");
     crudo = await zip.arrayBuffer();
   } catch (_) {
     PAQUETE = null;
@@ -340,20 +378,21 @@ async function traerPaquete() {
   const medida = await huellaDe(crudo);
   PAQUETE.huella_comprobada = medida === null ? null : medida === PAQUETE.huella;
   if (PAQUETE.huella_comprobada === false) {
-    throw new Error(
-      "El paquete de esquemas y anclas no es el que la pagina dice traer: " +
-      "PAQUETE.json publica " + String(PAQUETE.huella).slice(0, 12) +
-      "... y lo que ha llegado resume " + medida.slice(0, 12) + "... . " +
-      "No se descomprime."
+    throw averia(
+      "El paquete de esquemas y anclas ha llegado distinto de lo publicado, " +
+      "y no se usa. " + RECARGA,
+      "paquete.zip: PAQUETE.json publica " + String(PAQUETE.huella).slice(0, 12) +
+      "... y lo que ha llegado resume " + medida.slice(0, 12) + "..."
     );
   }
   // El tamano no sobra aunque se haya mirado la huella: es lo unico que se
   // puede comprobar cuando `crypto.subtle` no esta, que es exactamente el
   // caso de servir esto en una red local por http.
   if (PAQUETE.bytes && crudo.byteLength !== PAQUETE.bytes) {
-    throw new Error(
-      "El paquete de esquemas y anclas ha llegado con " + crudo.byteLength +
-      " bytes y la ficha dice " + PAQUETE.bytes + ". Es una descarga a medias."
+    throw averia(
+      "El paquete de esquemas y anclas ha llegado a medias. " + RECARGA,
+      "paquete.zip ha llegado con " + enMiles(crudo.byteLength) +
+      " bytes y PAQUETE.json dice " + enMiles(PAQUETE.bytes) + "."
     );
   }
 
@@ -391,8 +430,10 @@ function cargarElArranque() {
     etiqueta.src = PYODIDE_EN + "pyodide.js";
     etiqueta.onload = bien;
     etiqueta.onerror = () =>
-      mal(new Error(
-        "No esta el interprete en " + PYODIDE_EN + ". Traelo con " +
+      mal(averia(
+        "No ha llegado el intérprete de Python con el que corre la página. " +
+        RECARGA,
+        "No está el intérprete en " + PYODIDE_EN + ". Se trae con " +
         "`python -m validador --traer-pyodide`."
       ));
     document.head.appendChild(etiqueta);
@@ -653,8 +694,10 @@ async function arrancarDeVerdad(avisar) {
   try {
     pyodide.pyimport("validador");
   } catch (_) {
-    throw new Error(
-      "El validador no ha llegado: `" + elWheel + "` no se ha podido instalar."
+    throw averia(
+      "El validador no ha llegado a instalarse. " + RECARGA,
+      "`" + elWheel + "` no se ha podido instalar: loadPackage no se " +
+      "queja, pero `import validador` falla."
     );
   }
   decir("El validador", seg(performance.now() - t));
@@ -884,7 +927,7 @@ async function validarEjemplo(nombre) {
   // encolar y quien llama se entera ahora y no cuando le toque el turno.
   if (!EJEMPLOS.includes(nombre)) {
     throw new Error(
-      "«" + nombre + "» no es una de las facturas que trae la pagina.");
+      "«" + nombre + "» no es una de las facturas que trae la página.");
   }
   return enFila(() => _validarEjemploAhora(nombre));
 }
@@ -915,7 +958,7 @@ async function correrBanco() {
 
 window.Glosa = {
   arrancar, validar, validarEjemplo, correrBanco, puedeVender,
-  hayIdentificacion,
+  hayIdentificacion, fecha,
   titular: TITULAR,
   get paquete() { return PAQUETE; },
 };

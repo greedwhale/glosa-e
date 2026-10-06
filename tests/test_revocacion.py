@@ -404,7 +404,7 @@ class TestLasFechas:
             _linea(HOJA_SERIE, HOY, motivo=1, invalida_desde=HOY - timedelta(days=90)),
             cuando=HOY - timedelta(days=60),
         )
-        assert (HOY - timedelta(days=90)).date().isoformat() in salen[0].mensaje
+        assert (HOY - timedelta(days=90)).strftime("%d-%m-%Y") in salen[0].mensaje
 
     def test_una_suspension_es_aviso_no_error(self):
         salen = quejas(_linea(HOJA_SERIE, HOY - timedelta(days=30), motivo=6), cuando=HOY)
@@ -433,7 +433,7 @@ class TestLasFechas:
         assert codigos(salen, AVISO) == set()
         assert codigos(salen, NOTA) == {"CONFIANZA-REVOCACION"}
         assert "CA intermedia" in salen[0].mensaje
-        assert (HOY - timedelta(days=1)).date().isoformat() in salen[0].mensaje
+        assert (HOY - timedelta(days=1)).strftime("%d-%m-%Y") in salen[0].mensaje
 
     def test_una_sola_nota_por_firma_aunque_se_comprueben_varios(self):
         """En un lote de doscientas, una línea por cada eslabón de cada cadena
@@ -1164,7 +1164,7 @@ class TestElInformeConsultaElOcsp:
         salen = con_ocsp(_respuesta(), cuando=HOY - timedelta(days=1))
         assert "respuesta OCSP" in salen[0].mensaje
         assert "CA intermedia" in salen[0].mensaje
-        assert HOY.date().isoformat() in salen[0].mensaje
+        assert HOY.strftime("%d-%m-%Y") in salen[0].mensaje
         # Y que no promete de hoy lo que solo sabe de aquel día.
         assert "no cómo está hoy" in salen[0].mensaje
 

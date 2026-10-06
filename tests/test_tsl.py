@@ -696,7 +696,7 @@ class TestLaProcedencia:
         procedencia = almacen.procedencia_de(almacen.todas()[0])
         assert procedencia.startswith("de la lista de confianza de ES")
         assert "Ministerio de pruebas" in procedencia
-        assert "2026-08-01" in procedencia
+        assert "01-08-2026" in procedencia
 
     def test_sin_manifiesto_se_dice_la_ruta(self, tmp_path):
         (tmp_path / "una.cer").write_bytes(intermedia())
@@ -913,7 +913,7 @@ class TestLasRetiradas:
         cual = next(c for c in almacen.todas() if almacen.retirada(c))
         assert almacen.vale_para(cual, datetime(2024, 5, 1, tzinfo=timezone.utc)) == ""
         motivo = almacen.vale_para(cual, datetime(2025, 5, 1, tzinfo=timezone.utc))
-        assert "dejó de ser una autoridad cualificada el 2025-02-01" in motivo
+        assert "dejó de ser una autoridad cualificada el 01-02-2025" in motivo
 
     def test_el_mismo_dia_de_la_retirada_ya_no(self, tmp_path):
         # El día en que la retiran, se acabó. Ponerlo al revés sería regalar un
@@ -1026,7 +1026,7 @@ class TestLaCadenaConFecha:
         )
         notas = [i for i in salen if i.codigo == "CONFIANZA-ANCLA"]
         assert len(notas) == 1
-        assert "dejó de ser cualificada el 2025-02-01" in notas[0].mensaje
+        assert "dejó de ser cualificada el 01-02-2025" in notas[0].mensaje
         assert "porque la factura es anterior" in notas[0].mensaje
 
     def test_una_retirada_fuera_de_plazo_no_tapa_a_una_vigente(self, tmp_path):

@@ -277,8 +277,8 @@ class TestRegistro:
         incidencias = registro.anotar(cu(fecha=date(2026, 9, 8)))
         problema = next(i for i in incidencias if i.codigo == "CU-11")
         assert problema.gravedad == ERROR
-        assert "2026-09-07" in problema.esperado
-        assert "2026-09-08" in problema.encontrado
+        assert "07-09-2026" in problema.esperado
+        assert "08-09-2026" in problema.encontrado
 
     def test_solo_cambia_la_caja(self):
         registro = Registro()
@@ -421,7 +421,7 @@ class TestPartirOrdinal:
             i for i in codigo_unico.revisar_lote(lote, hoy=HOY) if i.codigo == "CU-14"
         )
         assert problema.gravedad == AVISO
-        assert "2026-09-10" in problema.encontrado
+        assert "10-09-2026" in problema.encontrado
 
     def test_el_mismo_numero_no_es_un_numero_que_avanza(self):
         """CU-14 afirmaba algo que no habia pasado.

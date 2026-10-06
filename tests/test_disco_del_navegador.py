@@ -54,7 +54,7 @@ class TestLoQueNoLlegaNoSeEscribe:
     def test_hay_una_manera_de_pedir_lo_que_tiene_que_estar(self):
         codigo = _codigo()
         assert "async function pedir(direccion, queEs, opciones) {" in codigo
-        assert re.search(r"if \(!respuesta\.ok\) \{\s*\n\s*throw new Error\(queEs", codigo), (
+        assert re.search(r"if \(!respuesta\.ok\) \{\s*\n\s*throw averia\(queEs", codigo), (
             "`pedir` ya no se niega cuando el servidor contesta otra cosa"
         )
 

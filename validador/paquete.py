@@ -54,7 +54,7 @@ from validador.cadena import (
     SUFIJO_DE_SELLOS,
     Almacen,
 )
-from validador import bitacora, pagina_incidencias
+from validador import bitacora, cifras, pagina_incidencias
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
 
@@ -203,7 +203,7 @@ def armar(
     if renovacion.vencida(dia) and not aunque_esten_vencidas:
         raise SinRenovar(
             f"La lista de la que salen estas anclas decía renovarse el "
-            f"{renovacion.siguiente.isoformat()}, y hoy es {dia.isoformat()}. "
+            f"{cifras.fecha(renovacion.siguiente)}, y hoy es {cifras.fecha(dia)}. "
             "Empaquetarlas repartiría a desconocidos un conjunto en el que "
             "cualquier autoridad a la que el Estado le haya retirado la "
             "cualificación desde entonces sigue valiendo, con su certificado "
@@ -471,7 +471,7 @@ def traer_pyodide(
     lineas = [
         f"# Pyodide {version}, bajado de {raiz}",
         "# Se sirve desde el propio sitio para que el navegador de quien visita",
-        "# la pagina no tenga que hablar con nadie mas.",
+        "# la página no tenga que hablar con nadie más.",
         "",
     ]
     lineas += [f"{h}  {n}" for n, h in sorted(huellas.items())]

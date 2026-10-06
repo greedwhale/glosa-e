@@ -34,7 +34,7 @@ from datetime import date, datetime
 
 from lxml import etree
 
-from validador import edifact, nif
+from validador import cifras, edifact, nif
 from validador import paises
 from validador.formato import (
     CII,
@@ -234,7 +234,7 @@ def revisar(codigo: CodigoUnico, hoy: date | None = None) -> list[Incidencia]:
                 "La fecha de expedición es posterior a hoy. Una factura no puede "
                 "emitirse con fecha futura.",
                 campo="Fecha de expedición",
-                esperado=f"{hoy.isoformat()} o anterior",
+                esperado=f"{cifras.fecha(hoy)} o anterior",
                 encontrado=codigo.fecha.isoformat(),
             )
         )
@@ -463,8 +463,8 @@ class Registro:
                     "de una serie, un número no puede usarse dos veces."
                     + _de_donde(de_antes, procedencia),
                     campo=f"Factura {codigo.numero_completo}",
-                    esperado=f"ya usado el {anterior.fecha.isoformat()}",
-                    encontrado=f"reutilizado el {codigo.fecha.isoformat()}",
+                    esperado=f"ya usado el {cifras.fecha(anterior.fecha)}",
+                    encontrado=f"reutilizado el {cifras.fecha(codigo.fecha)}",
                     ficheros=_implicados(de_antes, procedencia),
                 )
             )
@@ -600,12 +600,12 @@ def _reglas_de_serie(codigos: list[CodigoUnico]) -> list[Incidencia]:
                         campo=f"Serie {nombre_serie}",
                         esperado=(
                             f"{codigo.numero_completo}: "
-                            f"{anterior.fecha.isoformat()} o posterior"
+                            f"{cifras.fecha(anterior.fecha)} o posterior"
                         ),
                         encontrado=(
                             f"{anterior.numero_completo} el "
-                            f"{anterior.fecha.isoformat()}, pero "
-                            f"{codigo.numero_completo} el {codigo.fecha.isoformat()}"
+                            f"{cifras.fecha(anterior.fecha)}, pero "
+                            f"{codigo.numero_completo} el {cifras.fecha(codigo.fecha)}"
                         ),
                     )
                 )

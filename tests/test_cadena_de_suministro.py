@@ -201,7 +201,7 @@ class TestElNavegadorMiraLoQueSeBaja:
         assert "if (medida === null) return null;" in trozo
 
     @pytest.mark.parametrize("queien", [
-        'await comprobar(clave, crudo, "El validador (',
+        'await comprobar(clave, crudo, "El validador")',
         'await comprobar(clave, crudo, "El ejemplo ',
         'await comprobar("prueba.py", crudo, "El fichero de comprobaciones")',
     ])

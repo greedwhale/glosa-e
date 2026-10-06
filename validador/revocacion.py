@@ -89,7 +89,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from validador import ocsp
+from validador import cifras, ocsp
 from validador.firma import (
     _OID_ALGORITMO,
     Certificado,
@@ -701,7 +701,7 @@ def comprobar(
             "sin_saber",
             lista=mejor,
             motivo=(
-                f"la lista se publicó el {mejor.desde.date().isoformat()}, "
+                f"la lista se publicó el {cifras.fecha(mejor.desde)}, "
                 f"{_cuanto(cuando - mejor.desde)} antes de la fecha de la "
                 "firma, así que no pudo enterarse de una anulación posterior"
             ),
@@ -802,7 +802,7 @@ def comprobar_ocsp(
                 "el respondedor no dijo hasta cuándo la daba por vigente"
                 if estado.vale_hasta is None
                 else "el propio respondedor solo la daba por vigente hasta el "
-                f"{estado.vale_hasta.isoformat(' ', 'seconds')}"
+                f"{cifras.momento(estado.vale_hasta)}"
             )
             return Veredicto(
                 "sin_saber",
@@ -923,10 +923,10 @@ def _anulado(
 ) -> Incidencia:
     anulacion = veredicto.anulacion
     quien = _quien(cert, primero)
-    fecha = anulacion.cuando.date().isoformat() if anulacion.cuando else "una fecha que no se lee"
+    fecha = cifras.fecha(anulacion.cuando) if anulacion.cuando else "una fecha que no se lee"
     if veredicto.ocsp is not None:
         miro = (
-            veredicto.ocsp.mirada.date().isoformat()
+            cifras.fecha(veredicto.ocsp.mirada)
             if veredicto.ocsp.mirada
             else "una fecha que no se lee"
         )
@@ -944,7 +944,7 @@ def _anulado(
         if anulacion.invalida_desde:
             desde = (
                 f" La lista sitúa el compromiso el "
-                f"{anulacion.invalida_desde.date().isoformat()}."
+                f"{cifras.fecha(anulacion.invalida_desde)}."
             )
         return Incidencia(
             "REVOCACION-COMPROMISO",
@@ -999,7 +999,7 @@ def _anulado(
             "REVOCACION-POSTERIOR",
             NOTA,
             f"{quien} se anuló el {fecha}, después del "
-            f"{cuando.date().isoformat()} en que el sello de tiempo de "
+            f"{cifras.fecha(cuando)} en que el sello de tiempo de "
             f"«{sello.quien}» acredita que esta firma ya existía. La factura "
             "se firmó cuando el certificado aún valía, y eso no depende de lo "
             "que declare quien firma.",
@@ -1011,7 +1011,7 @@ def _anulado(
         "REVOCACION-POSTERIOR",
         AVISO,
         f"{quien} se anuló el {fecha}, después del "
-        f"{cuando.date().isoformat()} que declara la firma. Si esa fecha es "
+        f"{cifras.fecha(cuando)} que declara la firma. Si esa fecha es "
         "cierta, la factura se firmó cuando el certificado aún valía. Pero esa "
         "fecha la escribe quien firma: sin un sello de tiempo de un tercero no "
         "hay forma de comprobarla, y este documento no lo trae.",
@@ -1109,13 +1109,13 @@ def reglas(
                         AVISO,
                         f"{_quien(hijo, primero)} no aparece anulado, pero la "
                         f"lista que lo dice venció el "
-                        f"{lista.hasta.date().isoformat()} y desde entonces "
+                        f"{cifras.fecha(lista.hasta)} y desde entonces "
                         "puede haber anulaciones que no recoge. No aparecer en "
                         "una lista caducada no es lo mismo que estar vigente.",
                         campo=f"{donde}Revocación",
                         esperado="una lista dentro de su plazo",
                         encontrado=f"lista de «{lista.emisor_nombre or '?'}» "
-                        f"vencida el {lista.hasta.date().isoformat()}",
+                        f"vencida el {cifras.fecha(lista.hasta)}",
                     )
                 )
             continue
@@ -1169,7 +1169,7 @@ def _nota_de_limpieza(
     )
     detalles = []
     for lista in usadas:
-        cuando = lista.desde.date().isoformat() if lista.desde else "fecha ilegible"
+        cuando = cifras.fecha(lista.desde) if lista.desde else "fecha ilegible"
         quien = lista.emisor_nombre or "una autoridad sin nombre común"
         detalles.append(f"«{quien}», publicada el {cuando}")
     contados = (
@@ -1192,7 +1192,7 @@ def _nota_de_limpieza(
         # Con hora, y no solo el día: entre mirar el estado y firmar pasan
         # segundos, y en días ese hueco no se ve.
         cuando = (
-            prueba.mirada.isoformat(" ", "seconds")
+            cifras.momento(prueba.mirada)
             if prueba.mirada
             else "fecha ilegible"
         )
@@ -1206,7 +1206,7 @@ def _nota_de_limpieza(
             detalle += (
                 f" (mirada {_cuanto(prueba.hueco)} antes de la firma, y el "
                 f"propio respondedor la daba por vigente hasta el "
-                f"{prueba.vale_hasta.isoformat(' ', 'seconds')})"
+                f"{cifras.momento(prueba.vale_hasta)})"
             )
         pruebas.append(detalle)
     return Incidencia(

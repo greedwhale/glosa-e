@@ -63,7 +63,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from validador import firma, ocsp, revocacion, sellos
+from validador import cifras, firma, ocsp, revocacion, sellos
 from validador.firma import (
     ALGORITMOS_ROTOS,
     Certificado,
@@ -152,6 +152,8 @@ CARPETA_DE_RETIRADAS = "retiradas"
 _PEM = re.compile(
     rb"-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----", re.S
 )
+# Una fecha en ISO dentro de la frase del manifiesto (ver `Almacen.declarada`).
+_FECHA_ISO = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 
 # Más de esto y es que hay un ciclo o alguien está intentando algo.
 PROFUNDIDAD_MAXIMA = 10
@@ -345,13 +347,13 @@ class Almacen:
             )
         if cuando is None:
             return (
-                f"dejó de ser una autoridad cualificada el {desde.isoformat()} "
+                f"dejó de ser una autoridad cualificada el {cifras.fecha(desde)} "
                 "y el documento no dice cuándo se firmó"
             )
         fecha = cuando.date() if hasattr(cuando, "date") else cuando
         if fecha >= desde:
             return (
-                f"dejó de ser una autoridad cualificada el {desde.isoformat()}, "
+                f"dejó de ser una autoridad cualificada el {cifras.fecha(desde)}, "
                 f"antes de la fecha de la firma"
             )
         return ""
@@ -370,7 +372,13 @@ class Almacen:
             )
         except (OSError, UnicodeDecodeError):
             return ""
-        return texto.strip().splitlines()[0].strip() if texto.strip() else ""
+        primera = texto.strip().splitlines()[0].strip() if texto.strip() else ""
+        # La primera línea es una frase y acaba en el informe, con la fecha
+        # como en el resto de frases. Las anclas montadas antes del 06-10-2026
+        # la escribieron en ISO («publicada por ... el 2026-08-06»), y así
+        # viajan en el paquete publicado hasta que se vuelva a montar: se pasa
+        # aquí, al leerla, en vez de esperar a eso.
+        return _FECHA_ISO.sub(r"\3-\2-\1", primera)
 
     @property
     def renovacion(self) -> Renovacion:
@@ -670,10 +678,10 @@ def _regla_vigencias(cadena: Cadena, cuando: datetime | None, donde: str,
                     f"por encima del que firma, no estaba vigente {segun}.",
                     campo=f"{donde}Cadena de confianza",
                     esperado=(
-                        f"entre {cert.desde.date().isoformat()} y "
-                        f"{cert.hasta.date().isoformat()}"
+                        f"entre {cifras.fecha(cert.desde)} y "
+                        f"{cifras.fecha(cert.hasta)}"
                     ),
-                    encontrado=f"firmada el {cuando.date().isoformat()}",
+                    encontrado=f"firmada el {cifras.fecha(cuando)}",
                 )
             )
     return incidencias
@@ -751,7 +759,7 @@ def _nota_de_confianza(cadena: Cadena, almacen: Almacen, donde: str) -> Incidenc
         _, desde, _ = almacen.estado_de(ancla)
         retirada = (
             " Esa autoridad dejó de ser cualificada el "
-            f"{desde.isoformat() if desde else '(no consta)'}: se acepta porque "
+            f"{cifras.fecha(desde) if desde else '(no consta)'}: se acepta porque "
             "la factura es anterior, no porque siga vigente."
         )
 
@@ -991,7 +999,7 @@ def _confianza_del_sello(sello, almacen: Almacen | None, donde: str):
         _, desde, _ = almacen.estado_de(ancla)
         if desde is not None:
             retirada = (
-                f" Esa autoridad dejó de ser cualificada el {desde.isoformat()}: "
+                f" Esa autoridad dejó de ser cualificada el {cifras.fecha(desde)}: "
                 "el sello se acepta porque es anterior, no porque siga vigente."
             )
     return [
@@ -1037,7 +1045,7 @@ def _anclas_sin_renovar(
         return None
     atraso = (dia - renovacion.siguiente).days
     montada = (
-        f", montado el {renovacion.montada.isoformat()}"
+        f", montado el {cifras.fecha(renovacion.montada)}"
         if renovacion.montada
         else ""
     )
@@ -1071,12 +1079,12 @@ def _anclas_sin_renovar(
         "ANCLAS-SIN-RENOVAR",
         AVISO,
         "Las anclas de confianza salen de una lista que decía renovarse el "
-        f"{renovacion.siguiente.isoformat()}, y de eso hace "
+        f"{cifras.fecha(renovacion.siguiente)}, y de eso hace "
         f"{'un día' if atraso == 1 else f'{atraso} días'}{montada}. "
         f"{cadena} {arreglo}",
         campo="Anclas de confianza",
-        esperado=f"una lista renovada después del {renovacion.siguiente.isoformat()}",
-        encontrado=f"la del {renovacion.publicada.isoformat()}"
+        esperado=f"una lista renovada después del {cifras.fecha(renovacion.siguiente)}",
+        encontrado=f"la del {cifras.fecha(renovacion.publicada)}"
         if renovacion.publicada
         else "(el manifiesto no dice de cuándo)",
     )

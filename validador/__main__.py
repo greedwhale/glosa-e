@@ -16,7 +16,7 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from validador import bitacora, factura, paquete, tsl
+from validador import bitacora, cifras, factura, paquete, tsl
 from validador.cadena import Almacen
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.cadena import SUFIJO_DE_SELLOS
@@ -120,77 +120,77 @@ def main(argumentos: list[str] | None = None) -> int:
     analizador.add_argument(
         "--anclas",
         metavar="CARPETA",
-        help="carpeta con los certificados raiz de las autoridades en las que "
-        "confias, para comprobar tambien de quien es la firma. Por defecto, la "
+        help="carpeta con los certificados raíz de las autoridades en las que "
+        "confías, para comprobar también de quién es la firma. Por defecto, la "
         f"variable de entorno {ANCLAS_ENTORNO} o ./{ANCLAS_POR_DEFECTO}.",
     )
     analizador.add_argument(
         "--ver-anclas",
         action="store_true",
-        help="enseña las anclas instaladas con su huella y cuando caducan, y "
+        help="enseña las anclas instaladas con su huella y cuándo caducan, y "
         "no valida nada. La huella es lo que permite contrastar cada ancla con "
-        "la que publica su autoridad, sin fiarse de por donde llego el fichero.",
+        "la que publica su autoridad, sin fiarse de por dónde llegó el fichero.",
     )
     analizador.add_argument(
         "--revocaciones",
         metavar="CARPETA",
-        help="carpeta con las listas de revocacion (CRL) de esas autoridades, "
-        "para comprobar tambien si el certificado esta anulado. Por defecto, la "
+        help="carpeta con las listas de revocación (CRL) de esas autoridades, "
+        "para comprobar también si el certificado está anulado. Por defecto, la "
         f"variable de entorno {LISTAS_ENTORNO} o ./{LISTAS_POR_DEFECTO}. "
-        "Bajarlas es cosa tuya: este programa no abre ninguna conexion.",
+        "Bajarlas es cosa tuya: este programa no abre ninguna conexión.",
     )
     analizador.add_argument(
         "--ver-revocaciones",
         action="store_true",
-        help="enseña las listas de revocacion instaladas, de que autoridad son "
-        "y hasta cuando valen, y no valida nada.",
+        help="enseña las listas de revocación instaladas, de qué autoridad son "
+        "y hasta cuándo valen, y no valida nada.",
     )
     analizador.add_argument(
         "--ver-tsl",
         metavar="FICHERO",
         help="enseña lo que dice una lista de confianza (TSL) sin montar nada: "
-        "de quien es, de cuando, y cuantas autoridades trae concedidas y "
+        "de quién es, de cuándo, y cuántas autoridades trae concedidas y "
         "retiradas.",
     )
     analizador.add_argument(
         "--montar-anclas",
         metavar="FICHERO",
         help="monta la carpeta de anclas a partir de una lista de confianza "
-        "(TSL). Hay que decir quien tenia que firmarla con --firmante: de una "
+        "(TSL). Hay que decir quién tenía que firmarla con --firmante: de una "
         "lista sin comprobar no se monta nada.",
     )
     analizador.add_argument(
         "--firmante",
         metavar="HUELLA",
         action="append",
-        help="la huella SHA-256 del certificado que tenia que firmar la lista. "
-        "Para la lista de listas europea (LOTL) esta publicada en el Diario "
-        "Oficial de la UE; para la de un pais, en la LOTL. Se puede repetir: el "
+        help="la huella SHA-256 del certificado que tenía que firmar la lista. "
+        "Para la lista de listas europea (LOTL) está publicada en el Diario "
+        "Oficial de la UE; para la de un país, en la LOTL. Se puede repetir: el "
         "Diario Oficial publica seis certificados a la vez, cualquiera de los "
-        "cuales puede ser el que este firmando hoy.",
+        "cuales puede ser el que esté firmando hoy.",
     )
     analizador.add_argument(
         "--segun",
         metavar="LOTL",
-        help="saca de esta lista de listas quien puede firmar la que se monta, "
+        help="saca de esta lista de listas quién puede firmar la que se monta, "
         "en vez de escribir la huella a mano. La LOTL hay que comprobarla "
-        "tambien: --firmante se aplica entonces a ella.",
+        "también: --firmante se aplica entonces a ella.",
     )
     analizador.add_argument(
         "--en",
         metavar="CARPETA",
-        help="donde escribir las anclas montadas. Por defecto, la misma que "
-        "usaria --anclas.",
+        help="dónde escribir las anclas montadas. Por defecto, la misma que "
+        "usaría --anclas.",
     )
     analizador.add_argument(
         "--empaquetar",
         metavar="FICHERO",
         nargs="?",
         const="web/paquete.zip",
-        help="arma el paquete que la pagina web necesita para comprobar las "
+        help="arma el paquete que la página web necesita para comprobar las "
         "tres cosas: los esquemas XSD y las anclas de confianza, en un solo "
-        "zip. Sin el, la pagina solo comprueba el contenido. No se empaquetan "
-        "anclas sin manifiesto ni anclas cuya lista debia haberse renovado.",
+        "zip. Sin él, la página solo comprueba el contenido. No se empaquetan "
+        "anclas sin manifiesto ni anclas cuya lista debía haberse renovado.",
     )
     analizador.add_argument(
         "--aunque-esten-vencidas",
@@ -203,27 +203,27 @@ def main(argumentos: list[str] | None = None) -> int:
         metavar="CARPETA",
         nargs="?",
         const="sitio",
-        help="monta en CARPETA lo que hay que publicar y nada mas: la pagina, "
+        help="monta en CARPETA lo que hay que publicar y nada más: la página, "
         "el wheel con su rueda.json, las facturas de ejemplo y el paquete de "
-        "esquemas y anclas si esta armado. No sube el repositorio entero, que "
+        "esquemas y anclas si está armado. No sube el repositorio entero, que "
         "lleva facturas de terceros y anclas sueltas.",
     )
     analizador.add_argument(
         "--exigir-paquete",
         action="store_true",
-        help="con --sitio, se niega a montar si no esta el paquete de "
-        "esquemas y anclas, o si esta vacio. Sin esta bandera se monta igual y "
+        help="con --sitio, se niega a montar si no está el paquete de "
+        "esquemas y anclas, o si está vacío. Sin esta bandera se monta igual y "
         "se avisa por pantalla, que es lo que hace falta en local; con ella no "
         "se monta, que es lo que hace falta al publicar, donde el aviso no lo "
-        "lee nadie y lo unico que se mira es el codigo de salida.",
+        "lee nadie y lo único que se mira es el código de salida.",
     )
     analizador.add_argument(
         "--traer-pyodide",
         metavar="CARPETA",
         nargs="?",
         const=paquete.CARPETA_DE_PYODIDE,
-        help="baja el interprete de Python para WebAssembly y lo deja en "
-        "CARPETA, para servirlo desde el propio sitio en vez de pedirselo a un "
+        help="baja el intérprete de Python para WebAssembly y lo deja en "
+        "CARPETA, para servirlo desde el propio sitio en vez de pedírselo a un "
         "CDN ajeno en cada visita. Son unos 8 MB y se baja una vez.",
     )
     analizador.add_argument(
@@ -357,9 +357,14 @@ def _empaquetar(
     print(f"  anclas de firma       {contenido.anclas}")
     print(f"  anclas de sellado     {contenido.anclas_de_sellos}")
     print()
+    # Las fechas de `contenido` son las de `PAQUETE.json`, en ISO porque son
+    # para máquina; aquí van en una frase.
+    def en_frase(iso: str | None, si_no: str) -> str:
+        return cifras.fecha(date.fromisoformat(iso)) if iso else si_no
+
     print(f"  {contenido.declarada}")
-    print(f"  montadas el {contenido.montada or '(no consta)'}, "
-          f"la lista se renueva el {contenido.siguiente or '(no dice)'}")
+    print(f"  montadas el {en_frase(contenido.montada, '(no consta)')}, "
+          f"la lista se renueva el {en_frase(contenido.siguiente, '(no dice)')}")
     if contenido.siguiente:
         quedan = (date.fromisoformat(contenido.siguiente) - hoy).days
         # El aviso va aquí y no solo al validar porque quien arma el paquete es
@@ -748,7 +753,7 @@ def _montar_anclas(
         print()
         print(
             f"Ojo: esta lista prometía volver a publicarse el "
-            f"{lista.siguiente.date().isoformat()} y ya ha pasado. Lo que dice "
+            f"{cifras.fecha(lista.siguiente)} y ya ha pasado. Lo que dice "
             "sigue siendo cierto de aquel día; lo que haya cambiado desde "
             "entonces no está aquí."
         )

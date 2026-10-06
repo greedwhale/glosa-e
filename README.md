@@ -16,6 +16,7 @@ según el RD 238/2026.
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
 | `validador/solucion_publica.py` | El anexo I: lo que la solución pública pide a una factura UBL que declara su CIUS | Terminado sobre el borrador |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
+| `validador/cifras.py` | Cómo se escriben cifras y fechas en lo que lee una persona: coma decimal, miles, «Tiene» tal cual y dd-mm-aaaa | Terminado |
 | `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
 | `validador/facturae.py` | La aritmética del formato nacional: totales, líneas, impuestos y lote | Terminado |
 | `validador/firma.py` | La firma XAdES: integridad del documento y verificación RSA y ECDSA, sin salir a la red | Terminado |
@@ -29,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2779 tests, todos en verde.
+2842 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -1821,7 +1822,7 @@ Cuando cuadra, sale así:
 
 ```
 [SELLO-TIEMPO · Firma electrónica] La firma lleva un sello de tiempo de «TSU de
-prueba» del 2026-08-27 a las 22:32:13 UTC, con una precisión de ±1 s 500 ms
+prueba» del 27-08-2026 a las 22:32:13 UTC, con una precisión de ±1 s 500 ms
 100 µs, y el sello cuadra: esa autoridad vio esta firma ese día, así que la
 firma ya existía entonces. Esa es la fecha que se usa para la vigencia y la
 revocación, en vez de la que declara quien firma. Lo que todavía no se
@@ -1837,7 +1838,7 @@ eso cambia resultados:
 
 ```
 [REVOCACION-POSTERIOR · Firma electrónica] El certificado que firma se anuló el
-2026-03-02, después del 2026-01-01 en que el sello de tiempo de «TSU de prueba»
+02-03-2026, después del 01-01-2026 en que el sello de tiempo de «TSU de prueba»
 acredita que esta firma ya existía. La factura se firmó cuando el certificado
 aún valía, y eso no depende de lo que declare quien firma.
 ```
@@ -1857,7 +1858,7 @@ existía esta firma»—, que es una acusación que antes no se podía sostener.
 ```
 [SELLO-FALTA · Firma electrónica] La firma no lleva sello de tiempo de un
 tercero. La fecha que se ha usado para comprobar la vigencia del certificado y
-la revocación es la que declara quien firma, el 2026-03-02: quien firma puede
+la revocación es la que declara quien firma, el 02-03-2026: quien firma puede
 escribir la que quiera, y fechando hacia atrás se esquivan las dos
 comprobaciones a la vez.
 ```
@@ -1893,7 +1894,7 @@ firma:
 [SELLO-CONFIANZA · Firma electrónica] La fecha la acredita «TSU de prueba», que
 está publicada como autoridad de sellado en la lista de confianza del Estado:
 de la lista de confianza de ES, publicada por MINISTERIO DE ASUNTOS ECONOMICOS
-Y TRANSFORMACION DIGITAL el 2026-08-06.
+Y TRANSFORMACION DIGITAL el 06-08-2026.
 ```
 
 Cuando no:
@@ -1967,7 +1968,7 @@ Y entonces el camino entero, sobre una factura del Gobierno de 2007:
 
 ```
 [SELLO-TIEMPO · Firma electrónica] La firma lleva un sello de tiempo de «TSA1
-ACCV 2016» del 2026-08-27 a las 23:53:44 UTC, con una precisión de ±0 s 500 ms
+ACCV 2016» del 27-08-2026 a las 23:53:44 UTC, con una precisión de ±0 s 500 ms
 1 µs, y el sello cuadra: esa autoridad vio esta firma ese día, así que la firma
 ya existía entonces. Esa es la fecha que se usa para la vigencia y la
 revocación, en vez de la que declara quien firma.
@@ -1975,11 +1976,11 @@ revocación, en vez de la que declara quien firma.
 [SELLO-CONFIANZA · Firma electrónica] La fecha la acredita «TSA1 ACCV 2016»,
 que está publicada como autoridad de sellado en la lista de confianza del
 Estado: de la lista de confianza de ES, publicada por MINISTERIO DE ASUNTOS
-ECONOMICOS Y TRANSFORMACION DIGITAL el 2026-08-06.
+ECONOMICOS Y TRANSFORMACION DIGITAL el 06-08-2026.
 
 [SELLO-DESPUES-DE-CADUCAR · Firma electrónica] El certificado (Usuario ejemplo
-FacturaE) caducó el 2008-12-10, y lo único que hay acreditado de esta firma es
-que ya existía el 2026-08-27, después. …
+FacturaE) caducó el 10-12-2008, y lo único que hay acreditado de esta firma es
+que ya existía el 27-08-2026, después. …
 ```
 
 La última es correcta y conviene entenderla: son facturas de 2007-2009 selladas
@@ -2151,7 +2152,7 @@ EE:CA:8D:AA:…
 
 [CONFIANZA-REVOCACION · Firma electrónica] No consta anulado ningún
 certificado de la cadena: se ha comprobado 1 certificado contra la lista de
-«CA intermedia», publicada el 2026-09-18. Una lista solo responde por lo que
+«CA intermedia», publicada el 18-09-2026. Una lista solo responde por lo que
 se sabía el día que se publicó.
 ```
 
@@ -2396,9 +2397,9 @@ saber:
 [CONFIANZA-REVOCACION · Firma electrónica] No consta anulado ningún certificado
 de la cadena: se ha comprobado 1 certificado contra la respuesta OCSP de
 «Servidor de OCSP - Fabrica Nacional de Moneda y Timbre Q2826004J» que trae el
-propio documento, del 2015-12-16 14:41:55+00:00 —mirada 27 segundos antes de la
-firma, y el propio respondedor la daba por vigente hasta el 2015-12-16
-18:42:22+00:00—. Una respuesta OCSP dice cómo estaba el certificado el día y la
+propio documento, del 16-12-2015 a las 14:41:55 UTC (mirada 27 segundos antes
+de la firma, y el propio respondedor la daba por vigente hasta el 16-12-2015 a
+las 18:42:22 UTC). Una respuesta OCSP dice cómo estaba el certificado el día y la
 hora en que se miró, no cómo está hoy.
 ```
 
@@ -2839,7 +2840,7 @@ respondía por ella, y se dice con un código propio.
 ```
 [CADENA-RETIRADA · Firma electrónica] El certificado que firma lleva a una
 autoridad que ya no era cualificada cuando se firmó: «AC de antaño» dejó de ser
-una autoridad cualificada el 2025-02-01, antes de la fecha de la firma. La
+una autoridad cualificada el 01-02-2025, antes de la fecha de la firma. La
 firma puede ser auténtica; lo que no la ampara es la lista de confianza del
 Estado.
 ```
@@ -2850,7 +2851,7 @@ normal:
 
 ```
 [CONFIANZA-ANCLA · Firma electrónica] … Esa autoridad dejó de ser cualificada
-el 2025-02-01: se acepta porque la factura es anterior, no porque siga vigente.
+el 01-02-2025: se acepta porque la factura es anterior, no porque siga vigente.
 ```
 
 **Por qué van en una subcarpeta, y no mezcladas.** Porque ampliar el conjunto
@@ -2880,7 +2881,7 @@ es la que sale en el informe de cada factura:
 
 ```
 de la lista de confianza de ES, publicada por Ministerio para la
-Transformacion Digital el 2026-08-01
+Transformacion Digital el 01-08-2026
 ```
 
 Va en un fichero y no en el código de quien construye el almacén porque **la
@@ -3393,8 +3394,8 @@ Escrito web/paquete.zip (1.19 MB)
   anclas de sellado     121
 
   de la lista de confianza de ES, publicada por MINISTERIO DE ASUNTOS
-  ECONOMICOS Y TRANSFORMACION DIGITAL el 2026-08-06
-  montadas el 2026-08-27, la lista se renueva el 2027-02-02
+  ECONOMICOS Y TRANSFORMACION DIGITAL el 06-08-2026
+  montadas el 27-08-2026, la lista se renueva el 02-02-2027
 ```
 
 Las carpetas de las que sale no se versionan; el zip sí, desde que la página se
@@ -4648,34 +4649,6 @@ Tiene: 100.12», un error que decía que estaba bien. Pasaba igual en BR-CO-11 a
 BR-CO-16, en la base de cada tipo y en negativo. Ahora cada regla escribe la
 cifra que comparó, 100,13 en ese caso.
 
-### Las cifras: con coma, y «Tiene» tal cual
-
-Hasta el 05-10-2026 el informe escribía todas las cifras con `:.2f`, cada
-módulo con su `_fmt`: con punto decimal, que en castellano se lee como
-separador de miles («Debería ser: 90.00», «se aparta 0.50»), y redondeando
-también lo que copiaba del fichero. «Tiene» no decía lo que tenía: un 100
-salía 100.00, y un 21.005 salía 21.00, una cifra que no está en el fichero.
-Ahora todas pasan por `validador/cifras.py`, que tiene tres puertas según de
-dónde sale la cifra:
-
-| Función | Para | Cómo sale |
-|---|---|---|
-| `calculada` | lo que calcula el validador | `100,13`: coma, dos decimales y el redondeo de la regla |
-| `en_castellano` | una cifra del fichero dentro de una frase o de la cuenta que explica un «Debería ser» | `0,125`: coma, sin redondear y con dos decimales como mínimo, para que la cuenta sume |
-| `tiene` | una cifra del fichero, sola, en «Tiene» | `21.005`: tal cual, con su punto, que es lo que se busca en el XML |
-
-Los miles van con punto desde cinco cifras (12.345,67, y 1234,56 sin él), que
-es lo que hace `toLocaleString("es-ES")` en la portada. En «Tiene», nunca.
-Lo que no se guarda es lo que `Decimal` no guarda: un «+» delante o ceros a
-la izquierda. Y en EDIFACT con la coma como marca decimal, «Tiene» sale con
-punto, porque el árbol que se valida ya lo trae así.
-
-Dos guardias: ninguna línea de `validador/` escribe una cifra con `:.2f` ni
-con un `fmt` propio (fuera de `cifras.py`, de `sintaxis.py`, que define el
-`fmt` que ya no usa nadie, y de los megas que `__main__` escribe al montar), y
-ningún mensaje ni «Debería ser» lleva un punto decimal, sobre las muestras y
-sobre facturas con las cuentas rotas de los cuatro motores.
-
 **Y los dos esquematrones oficiales no dicen lo mismo en el borde.** A
 exactamente una unidad, el de UBL escribe `<` y el de CII `<=`, y las pruebas
 de cada uno prueban ese punto. Aquí se sigue a cada uno en su sintaxis, con un
@@ -4713,6 +4686,80 @@ EDIFACT leía los dos como entradas del desglose. Aquí se escribió ese día qu
 eso salían los `BR-45` y `BR-46` de 37 de las 73 facturas EDIFACT del corpus.
 **Era falso**: 37 son las facturas que tenían la queja, no las que la tenían
 por eso. Lo medido está en la sección siguiente.
+
+### Las cifras: con coma, y «Tiene» tal cual
+
+Hasta el 05-10-2026 el informe escribía todas las cifras con `:.2f`, cada
+módulo con su `_fmt`: con punto decimal, que en castellano se lee como
+separador de miles («Debería ser: 90.00», «se aparta 0.50»), y redondeando
+también lo que copiaba del fichero. «Tiene» no decía lo que tenía: un 100
+salía 100.00, y un 21.005 salía 21.00, una cifra que no está en el fichero.
+Ahora todas pasan por `validador/cifras.py`, que tiene tres puertas según de
+dónde sale la cifra:
+
+| Función | Para | Cómo sale |
+|---|---|---|
+| `calculada` | lo que calcula el validador | `100,13`: coma, dos decimales y el redondeo de la regla |
+| `en_castellano` | una cifra del fichero dentro de una frase o de la cuenta que explica un «Debería ser» | `0,125`: coma, sin redondear y con dos decimales como mínimo, para que la cuenta sume |
+| `tiene` | una cifra del fichero, sola, en «Tiene» | `21.005`: tal cual, con su punto, que es lo que se busca en el XML |
+
+Los miles van con punto desde cinco cifras (12.345,67, y 1234,56 sin él), que
+es lo que hace `toLocaleString("es-ES")` en la portada. En «Tiene», nunca.
+Lo que no se guarda es lo que `Decimal` no guarda: un «+» delante o ceros a
+la izquierda. Y en EDIFACT con la coma como marca decimal, «Tiene» sale con
+punto, porque el árbol que se valida ya lo trae así.
+
+Dos guardias: ninguna línea de `validador/` escribe una cifra con `:.2f` ni
+con un `fmt` propio (fuera de `cifras.py`, de `sintaxis.py`, que define el
+`fmt` que ya no usa nadie, y de los megas que `__main__` escribe al montar), y
+ningún mensaje ni «Debería ser» lleva un punto decimal, sobre las muestras y
+sobre facturas con las cuentas rotas de los cuatro motores.
+
+### Lo que se lee: tildes, fechas y bytes
+
+El 06-10-2026, lo que quedaba del repaso del 05-10 en lo que lee una persona.
+
+**Las tildes.** Si la página no arrancaba, decía «No esta el interprete en
+./pyodide/. Traelo con `python -m validador --traer-pyodide`»: sin tildes, con
+una ruta y con una orden que quien abre la página no puede dar. Ahora
+`glosa.js` lanza esos fallos con `averia(paraQuienMira, paraQuienMantiene)`.
+Lo primero es lo que sale en pantalla («No ha llegado el intérprete de Python
+con el que corre la página. Recarga la página; si sigue igual, el fallo es de
+la página y no de tu navegador.»), y lo segundo va a la consola del navegador
+y viaja en `cause`. La portada y el banco enseñan `error.message`, sin el
+«Error:» delante. En el banco, 13 de las 42 comprobaciones llevaban el nombre
+sin tildes, y unas sesenta cadenas en total; también la ayuda de la consola.
+
+La guardia está en `tests/test_voz.py`: una red de palabras que en castellano
+no existen sin su tilde («aqui», «pagina», «deberia», «ningun», las acabadas en
+«-cion»), sobre el texto de las páginas, las cadenas de `glosa.js` (y las del
+Python que lleva dentro), las del banco y las del motor. Las que existen con y
+sin tilde («esta», «valida», «solo», «que», «donde») cambian de sentido y no
+de ortografía, y se quedan fuera: esas se corrigen leyendo. Otra en
+`tests/test_fallos_de_la_pagina.py`: ningún `new Error` llega a la pantalla
+sin pasar por `averia`, salvo dos con su motivo, y lo que lee quien mira pide
+que recargue y no lleva rutas, huellas ni órdenes.
+
+**Las fechas**, en dd-mm-aaaa, como el resto del sitio. La ficha del paquete
+decía «Montadas el 2026-08-27» y el informe escribía así unas cincuenta.
+`cifras.fecha` las escribe en el informe y `cifras.momento` cuando llevan hora
+(«16-12-2015 a las 14:41:55 UTC»); en la portada y el banco, `Glosa.fecha`.
+Se quedan en ISO, por función y con su motivo en `EN_ISO`
+(`tests/test_cifras.py`): la fecha del fichero en «Tiene», que va tal cual
+como las cifras; `PAQUETE.json` y las líneas del manifiesto de las anclas,
+que son para máquina; y los inventarios de consola (`--ver-anclas`,
+`--ver-revocaciones`, `--ver-tsl`), que son columnas y en ISO se ordenan
+solas.
+
+La frase de procedencia lleva la fecha **dentro del manifiesto** de las
+anclas, que viaja en el paquete publicado: «publicada por ... el 2026-08-06».
+Montar de nuevo ya la escribe en dd-mm-aaaa, pero el paquete de hoy no se
+vuelve a montar hasta antes del 02-02-2027. Por eso se pasa al leerla, en
+`Almacen.declarada` y en `Glosa.fecha`, que admite una frase con fechas dentro.
+
+**Los bytes** con punto de miles: el banco decía «1247225 bytes», y ahora
+«1.247.225», con `cifras.recuento` en Python y `toLocaleString("es-ES")` en
+`glosa.js`.
 
 ### El desglose de EDIFACT, y el margen de la base
 

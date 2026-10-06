@@ -33,10 +33,22 @@ lleva.
 
 Los tipos impositivos tienen su función, `tipo`, porque no son importes: van
 sin ceros de adorno, 21% y no 21,00%, y con coma cuando la llevan, 6,5%.
+
+Y tres más, del 06-10-2026. `recuento`, para lo que se cuenta sin decimales
+(bytes, anclas), con los mismos miles: el banco decía «1247225 bytes».
+`fecha`, para una fecha dentro de una frase: 06-08-2026, como escribe las
+fechas el resto del sitio. «Publicada el 2026-08-06» es el formato del XML,
+y en una frase en castellano se lee como un código. Y `momento`, la fecha con
+su hora, para los sellos y las respuestas OCSP. No pasan por `fecha`
+la fecha del fichero en «Tiene», que va tal cual como las cifras;
+`PAQUETE.json` y los manifiestos de las anclas, que son para máquina y se
+leen con `date.fromisoformat`; y los inventarios de consola, que son
+columnas y en ISO se ordenan solas.
 """
 
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from validador.sintaxis import redondear
@@ -90,3 +102,30 @@ def tipo(valor: Decimal | None) -> str:
     if normalizado == normalizado.to_integral_value():
         normalizado = normalizado.quantize(Decimal(1))
     return _castellano(format(normalizado, "f")) + "%"
+
+
+def recuento(cuantos: int) -> str:
+    """Lo que se cuenta, con los mismos miles: «1.247.225», «4096»."""
+    return _castellano(str(int(cuantos)))
+
+
+def fecha(cuando: date) -> str:
+    """Una fecha dentro de una frase: «06-08-2026».
+
+    Vale también un `datetime`, del que se escribe el día: la hora, cuando
+    importa, la pone quien llama (ver `sellos._cuando`).
+    """
+    return f"{cuando.day:02d}-{cuando.month:02d}-{cuando.year:04d}"
+
+
+def momento(cuando: datetime) -> str:
+    """Una fecha con su hora: «02-03-2026 a las 10:20:30 UTC».
+
+    En UTC, que es como vienen los sellos de tiempo y las respuestas OCSP.
+    Una sin zona se escribe sin ella: no se sabe de dónde es, y no se le
+    pone una.
+    """
+    if cuando.tzinfo is None:
+        return f"{fecha(cuando)} a las {cuando:%H:%M:%S}"
+    cuando = cuando.astimezone(timezone.utc)
+    return f"{fecha(cuando)} a las {cuando:%H:%M:%S} UTC"

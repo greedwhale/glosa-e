@@ -182,10 +182,10 @@ def _():
     esquema = etree.XMLSchema(etree.fromstring(xsd))
     bueno = etree.fromstring(b"<factura><total>121.00</total></factura>")
     malo = etree.fromstring(b"<factura><total>ciento veintiuno</total></factura>")
-    assert esquema.validate(bueno), "rechaza un documento valido"
-    assert not esquema.validate(malo), "acepta un documento invalido"
-    assert esquema.error_log, "no hay error_log, y de ahi salen los mensajes"
-    return "compila, acepta, rechaza y explica por que"
+    assert esquema.validate(bueno), "rechaza un documento válido"
+    assert not esquema.validate(malo), "acepta un documento inválido"
+    assert esquema.error_log, "no hay error_log, y de ahí salen los mensajes"
+    return "compila, acepta, rechaza y explica por qué"
 
 
 @comprobar("el paquete validador importa", critica=True)
@@ -218,13 +218,13 @@ def _():
     nombres = sorted(m.name for m in pkgutil.iter_modules(validador.__path__))
     faltan = sorted(ESPERADOS - set(nombres))
     assert not faltan, (
-        "al wheel de dist/ le faltan estos modulos: {}. Suele querer decir "
+        "al wheel de dist/ le faltan estos módulos: {}. Suele querer decir "
         "que es de antes: python -m build --wheel --outdir dist".format(
             ", ".join(faltan))
     )
     for nombre in nombres:
         importlib.import_module("validador." + nombre)
-    return "los {} modulos: {}".format(len(nombres), ", ".join(nombres))
+    return "los {} módulos: {}".format(len(nombres), ", ".join(nombres))
 
 
 @comprobar("el parser endurecido no expande entidades", critica=True)
@@ -236,7 +236,7 @@ def _():
              b"<r>&x;</r>")
     raiz = etree.fromstring(bomba, parser=parser())
     texto = etree.tostring(raiz, encoding="unicode")
-    assert "SECRETO" not in texto, "la entidad se expandio: " + texto
+    assert "SECRETO" not in texto, "la entidad se expandió: " + texto
     return "la entidad no se expande"
 
 
@@ -245,7 +245,7 @@ def _():
     from validador.formato import detectar_archivo
     d = detectar_archivo(BASE + "/f-0001.xml")
     assert d, d.motivo
-    return "{} - {}".format(d.familia, d.version or "sin version")
+    return "{} - {}".format(d.familia, d.version or "sin versión")
 
 
 @comprobar("una factura correcta sale conforme", critica=True)
@@ -282,7 +282,7 @@ def _():
     from validador import factura
     informe = factura.validar_archivo(BASE + "/cii-A-0001.xml", hoy=HOY)
     assert informe.validado, "no se ha reconocido"
-    assert not informe.conforme, "esta factura esta rota y deberia saltar"
+    assert not informe.conforme, "esta factura está rota y debería saltar"
     return informe.resumen()
 
 
@@ -319,7 +319,7 @@ def _():
     from pathlib import Path
     catalogo = Catalogo(carpeta=Path("/no-existe"))
     assert catalogo.vacio, "dice que tiene esquemas y no los tiene"
-    return "catalogo vacio detectado, sin reventar"
+    return "catálogo vacío detectado, sin reventar"
 
 
 @comprobar("un lote entero de una vez")
@@ -332,7 +332,7 @@ def _():
     # que no puede tener un validador: dar por bueno lo que no ha visto.
     assert rutas, "no hay ni un fichero en " + BASE
     lote = factura.validar_lote(rutas, hoy=HOY)
-    assert lote.informes, "el lote ha vuelto vacio"
+    assert lote.informes, "el lote ha vuelto vacío"
     return "{} -> {}".format(len(rutas), lote.resumen())
 
 
@@ -398,12 +398,12 @@ def _():
     informe = factura.validar_archivo(firmadas[0], hoy=HOY)
     rotas = [i.codigo for i in informe.errores
              if i.codigo in ("FIRMA-ALTERADA", "FIRMA-NO-CUADRA")]
-    assert not rotas, "dice que esta manipulada una factura intacta: " + str(rotas)
+    assert not rotas, "dice que está manipulada una factura intacta: " + str(rotas)
     return firmadas[0].split("/")[-1] + " -> firma intacta"
 
 
 
-@comprobar("la cadena de confianza se encadena aqui tambien", critica=True)
+@comprobar("la cadena de confianza se encadena aquí también", critica=True)
 def _():
     # cadena.py es RSA y DER: aritmetica pura, sin nada que pueda faltar en
     # WebAssembly. Se comprueba igualmente porque el coste es cero y porque
@@ -432,7 +432,7 @@ def _():
     with open(os.path.join(carpeta, "ejemplo.cer"), "wb") as f:
         f.write(crudo)
     almacen = Almacen(carpeta)
-    assert not almacen.vacio, "no ha leido el ancla del disco virtual"
+    assert not almacen.vacio, "no ha leído el ancla del disco virtual"
     assert almacen.contiene(hoja), "no reconoce su propio certificado"
     assert construir(hoja, almacen).llega, "no encadena hasta el ancla"
 
@@ -457,7 +457,7 @@ def _():
     crudo = base64.b64decode("".join(
         raiz.xpath("//*[local-name()='X509Certificate']/text()")[0].split()))
     salen = reglas([leer_certificado(crudo)], Almacen("/no-hay-anclas"))
-    assert [i.codigo for i in salen] == ["CADENA-SIN-ANCLAS"],         "deberia avisar de que no ha comprobado nada: " + str(salen)
+    assert [i.codigo for i in salen] == ["CADENA-SIN-ANCLAS"],         "debería avisar de que no ha comprobado nada: " + str(salen)
     return "avisa en vez de callarse"
 
 
@@ -578,7 +578,7 @@ def _certificado_del_ejemplo():
     return leer_certificado(crudo)
 
 
-@comprobar("el informe declara de donde salen las anclas", critica=True)
+@comprobar("el informe declara de dónde salen las anclas", critica=True)
 def _():
     # Esta es la condicion que hace aceptable que la pagina traiga las anclas
     # puestas: la decision de en quien creer la toma la pagina y no quien lee
@@ -596,21 +596,21 @@ def _():
     os.makedirs(carpeta, exist_ok=True)
     with open(os.path.join(carpeta, "ejemplo.cer"), "wb") as f:
         f.write(hoja.der)
-    almacen = Almacen(carpeta, procedencia="viene con la pagina")
+    almacen = Almacen(carpeta, procedencia="viene con la página")
 
     notas = [i for i in reglas([hoja], almacen) if i.gravedad == "nota"]
     assert len(notas) == 1, "no declara nada: " + str(notas)
     nota = notas[0]
     assert nota.codigo == "CONFIANZA-ANCLA", nota.codigo
-    assert "viene con la pagina" in nota.mensaje, nota.mensaje
+    assert "viene con la página" in nota.mensaje, nota.mensaje
     assert hoja.huella() in nota.mensaje, "no deja constancia de la huella"
     # Y que no se cuela la ruta del disco virtual, que a quien lee no le dice
     # nada y encima suena a que el ancla la puso el.
     assert "anclas-pagina" not in nota.mensaje, nota.mensaje
-    return "dice de donde viene el ancla y con que huella"
+    return "dice de dónde viene el ancla y con qué huella"
 
 
-@comprobar("una lista de revocacion se lee y se comprueba aqui", critica=True)
+@comprobar("una lista de revocación se lee y se comprueba aquí", critica=True)
 def _():
     from validador.revocacion import comprobar as comprobar_revocacion
     from validador.revocacion import leer_lista
@@ -620,8 +620,8 @@ def _():
 
     crudo = _lista_de_juguete(hoja.emisor_der, serie=hoja.serie)
     una = leer_lista(crudo)
-    assert len(una.anulaciones) == 1, "no ha leido la linea de anulados"
-    assert una.anulaciones[hoja.serie].compromiso, "no ha leido el motivo"
+    assert len(una.anulaciones) == 1, "no ha leído la línea de anulados"
+    assert una.anulaciones[hoja.serie].compromiso, "no ha leído el motivo"
 
     salida = comprobar_revocacion(hoja, hoja, [una])
     assert salida.estado == "anulado", "no lo da por anulado: " + salida.estado
@@ -636,7 +636,7 @@ def _():
     return "lee la lista, la verifica y rechaza la manipulada"
 
 
-@comprobar("una respuesta OCSP del documento se verifica aqui", critica=True)
+@comprobar("una respuesta OCSP del documento se verifica aquí", critica=True)
 def _():
     # Un XAdES-XL moderno guarda respuestas OCSP y a menudo no guarda CRL, asi
     # que sin esto la revocacion de esos documentos no se comprueba nunca. Se
@@ -654,13 +654,13 @@ def _():
 
     crudo = _respuesta_de_juguete(hoja)
     una = ocsp.leer_respuesta(crudo)
-    assert una.correcta, "no ha leido la respuesta: " + una.que_paso
-    assert len(una.estados) == 1, "no ha leido el estado del certificado"
-    assert ocsp.casa_con(una.estados[0], hoja, hoja),         "el CertID no cuadra: SHA-1 no da lo mismo aqui dentro"
+    assert una.correcta, "no ha leído la respuesta: " + una.que_paso
+    assert len(una.estados) == 1, "no ha leído el estado del certificado"
+    assert ocsp.casa_con(una.estados[0], hoja, hoja),         "el CertID no cuadra: SHA-1 no da lo mismo aquí dentro"
 
     salida = comprobar_ocsp(hoja, hoja, [una])
     assert salida.estado == "anulado", "no lo da por anulado: " + salida.estado
-    assert salida.ocsp is not None, "no dice de que respuesta lo ha sacado"
+    assert salida.ocsp is not None, "no dice de qué respuesta lo ha sacado"
 
     roto = bytearray(crudo); roto[-3] ^= 0xFF
     otra = comprobar_ocsp(hoja, hoja, [ocsp.leer_respuesta(bytes(roto))])
@@ -680,7 +680,7 @@ def _():
         return "no hay ninguna firmada entre los ejemplos"
 
     completa = leer_lista(_lista_de_juguete(hoja.emisor_der))
-    assert comprobar_revocacion(hoja, hoja, [completa]).estado == "vigente",         "una lista completa y limpia deberia poder decir que esta vigente"
+    assert comprobar_revocacion(hoja, hoja, [completa]).estado == "vigente",         "una lista completa y limpia debería poder decir que está vigente"
 
     incremental = leer_lista(_lista_de_juguete(hoja.emisor_der, delta=True))
     salida = comprobar_revocacion(hoja, hoja, [incremental])
@@ -727,7 +727,7 @@ VECTORES = {
 MENSAJE_DEL_VECTOR = b"Factura-e: vector fijo para la prueba del navegador"
 
 
-@comprobar("se verifica una firma de curva eliptica", critica=True)
+@comprobar("se verifica una firma de curva elíptica", critica=True)
 def _():
     from validador.firma import CURVAS_POR_NOMBRE, Certificado, verificar
     tiempos = []
@@ -738,7 +738,7 @@ def _():
             algoritmo_clave="ecdsa", curva=nombre,
             punto=(int(x, 16), int(y, 16)),
         )
-        assert curva.encima(*cert.punto), nombre + ": el punto no esta en la curva"
+        assert curva.encima(*cert.punto), nombre + ": el punto no está en la curva"
         valor = bytes.fromhex(firmada)
         arranque = time.perf_counter()
         ok = verificar(valor, MENSAJE_DEL_VECTOR, cert, alg, concatenada=True)
@@ -750,7 +750,7 @@ def _():
     return ", ".join(tiempos)
 
 
-@comprobar("las curvas son las de verdad, tambien aqui", critica=True)
+@comprobar("las curvas son las de verdad, también aquí", critica=True)
 def _():
     # Los parametros van escritos a mano en el codigo. Si el wheel trajera una
     # version con una errata, las firmas de curva dejarian de verificar y el
@@ -879,7 +879,7 @@ def _tsl_de_juguete(firmante_der, ancla_der, estado="granted",
     return etree.tostring(raiz, xml_declaration=True, encoding="UTF-8")
 
 
-@comprobar("una lista de confianza se comprueba y se monta aqui", critica=True)
+@comprobar("una lista de confianza se comprueba y se monta aquí", critica=True)
 def _():
     import os
     from validador import tsl
@@ -909,7 +909,7 @@ def _():
              if i.gravedad == "nota" and i.codigo == "CONFIANZA-ANCLA"]
     assert len(notas) == 1, "no declara de donde sale: " + str(notas)
     assert "lista de confianza de ES" in notas[0].mensaje, notas[0].mensaje
-    return "verifica la lista, monta el ancla y dice de donde sale"
+    return "verifica la lista, monta el ancla y dice de dónde sale"
 
 
 @comprobar("una lista de confianza manipulada no monta nada", critica=True)
@@ -973,7 +973,7 @@ def _():
     antes = datetime.datetime(2015, 1, 1, tzinfo=utc)
     despues = datetime.datetime(2020, 1, 1, tzinfo=utc)
     assert almacen.vale_para(hoja, antes) == "", "no vale para lo de antes"
-    assert almacen.vale_para(hoja, despues), "vale para lo de despues, y no debe"
+    assert almacen.vale_para(hoja, despues), "vale para lo de después, y no debe"
     assert almacen.vale_para(hoja, None), "vale sin fecha, y no debe"
 
     # Y sin la tabla de estados no se usa: es lo que hace que copiar la carpeta
@@ -981,12 +981,12 @@ def _():
     os.remove(destino + "/ESTADOS.tsv")
     almacen.recargar()
     assert almacen.vale_para(hoja, antes), "sin tabla se la da por buena"
-    return "vale antes de 2016-07-01, no despues, y sin la tabla no vale"
+    return "vale antes del 01-07-2016, no después, y sin la tabla no vale"
 
 
-@comprobar("un sello de tiempo se lee y se comprueba aqui", critica=True)
+@comprobar("un sello de tiempo se lee y se comprueba aquí", critica=True)
 def _():
-    from validador import sellos
+    from validador import cifras, sellos
     sello = sellos.leer(base64.b64decode(SELLO_BUENO))
     assert sello.momento is not None, "no se lee la fecha"
     assert sello.firmante is not None, "no encuentra el certificado de la TSA"
@@ -994,10 +994,10 @@ def _():
     assert motivo == "", "no se cree un sello bueno: " + motivo
     sellado = base64.b64decode(SELLADO)
     motivo = sellos.cubre(sello, sellado)
-    assert motivo == "", "no ata el sello a lo que sello: " + motivo
+    assert motivo == "", "no ata el sello a lo que selló: " + motivo
     # Y que no se lo trague sobre otra cosa, que es de lo que sirve.
     assert sellos.cubre(sello, sellado + b" "), "acepta el sello sobre otros bytes"
-    return "sello de %s del %s" % (sello.quien, sello.momento.date().isoformat())
+    return "sello de %s del %s" % (sello.quien, cifras.fecha(sello.momento))
 
 
 @comprobar("un sello sin permiso para sellar no vale", critica=True)
@@ -1012,11 +1012,11 @@ def _():
     sello = sellos.leer(base64.b64decode(SELLO_SIN_PERMISO))
     mensaje = b"\x31" + sello.atributos_der[1:]
     assert verificar(sello.valor_firma, mensaje, sello.firmante,
-                     sello.resumen_firma), "la firma del vector deberia valer"
+                     sello.resumen_firma), "la firma del vector debería valer"
     assert sellos.cubre(sello, base64.b64decode(SELLADO)) == "", "no cubre lo mismo"
     motivo = sellos.comprobar(sello)
     assert "sellar el tiempo" in motivo, "lo da por bueno: " + repr(motivo)
-    return "firma valida, permiso no: se rechaza"
+    return "firma válida, permiso no: se rechaza"
 
 
 @comprobar("las anclas de sellado van aparte de las de firma", critica=True)
@@ -1054,8 +1054,8 @@ def _():
     # no mete lo de una en la otra.
     almacen = Almacen(destino)
     assert str(almacen.sellos.carpeta).replace("\\", "/").endswith(SUFIJO_DE_SELLOS)
-    assert almacen.vacio, "la de firma no esta vacia"
-    assert not almacen.sellos.vacio, "la de sellado si deberia tener algo"
+    assert almacen.vacio, "la de firma no está vacía"
+    assert not almacen.sellos.vacio, "la de sellado sí debería tener algo"
     assert not almacen.contiene(hoja), "un ancla de sellado avala una firma"
     assert almacen.sellos.contiene(hoja), "no reconoce su propia ancla de sellado"
     return "el sellador no entra entre las de firma, y se encuentra al lado"
@@ -1064,7 +1064,7 @@ def _():
 # --- EDIFACT ---------------------------------------------------------------
 
 
-@comprobar("un EDIFACT plano se lee y se valida aqui", critica=True)
+@comprobar("un EDIFACT plano se lee y se valida aquí", critica=True)
 def _():
     """El cuarto formato de la ley, y el unico que no es XML.
 
@@ -1104,7 +1104,7 @@ def _():
         raiz, _ = edifact.convertir(f.read())
     mapa = sintaxis.SINTAXIS_EDIFACT
 
-    assert len(raiz.xpath(mapa.lineas)) == 2, "no encuentra las dos lineas"
+    assert len(raiz.xpath(mapa.lineas)) == 2, "no encuentra las dos líneas"
     assert len(raiz.xpath(mapa.desglose)) == 1, "no encuentra el desglose"
     assert len(raiz.xpath(mapa.cargos)) == 1, "no encuentra el cargo"
     assert sintaxis.texto(raiz, mapa.vendedor_nombre, mapa) == (
@@ -1114,7 +1114,7 @@ def _():
 
     # El eje `self::` con un filtro y una subida, que es lo mas raro del mapa.
     grupo = raiz.xpath(mapa.desglose)[0]
-    assert grupo.xpath(mapa.desglose_motivo) == [], "un tipo general sin exencion"
+    assert grupo.xpath(mapa.desglose_motivo) == [], "un tipo general sin exención"
 
     # Y el `SIN_MAPA`, que tiene que no encontrar nada nunca.
     assert raiz.xpath(sintaxis.SIN_MAPA) == []
@@ -1155,7 +1155,7 @@ def _():
     assert "EDI-UNA-DE-CINCO" in codigos, codigos
     assert "EDI-SIN-MENSAJE" not in codigos, codigos
     assert not [i for i in informe.incidencias if i.gravedad == "error"], codigos
-    return "se lee la factura entera y se dice que el UNA venia de cinco"
+    return "se lee la factura entera y se dice que el UNA venía de cinco"
 
 
 @comprobar("un separador sin soltar no tumba el lote", critica=True)
@@ -1185,7 +1185,7 @@ def _():
 # --- Lo que la pagina trae puesto ------------------------------------------
 
 
-@comprobar("la promesa del informe cuadra con lo que hay instalado", critica=True)
+@comprobar("la promesa del informe cuadra con los esquemas y las anclas que hay", critica=True)
 def _():
     """La frase del final dice de que se ha fiado quien lee el informe.
 
@@ -1231,7 +1231,7 @@ def _():
     )
 
 
-@comprobar("los esquemas viajan con la pagina y comprueban la forma",
+@comprobar("los esquemas viajan con la página y comprueban la forma",
            critica=True)
 def _():
     """Sin esto, de las tres comprobaciones la pagina hace una.
@@ -1247,7 +1247,7 @@ def _():
     catalogo = Catalogo.por_defecto()
     if catalogo.vacio:
         # Se cuenta en vez de callarse, que es lo que dice la pagina tambien.
-        return "no hay paquete: la pagina comprobaria solo el contenido"
+        return "no hay paquete: la página comprobaría solo el contenido"
     with open(BASE + "/f-0001.xml", "rb") as f:
         datos = f.read()
     assert catalogo.ruta_para(detectar(datos)) is not None, "sin XSD para Facturae"
@@ -1280,7 +1280,7 @@ def _():
 
     catalogo = Catalogo.por_defecto()
     if catalogo.vacio:
-        return "no hay paquete: no hay ningun esquema que compilar"
+        return "no hay paquete: no hay ningún esquema que compilar"
     with open(BASE + "/fe-0001.xml", "rb") as f:
         datos = f.read()
     deteccion = detectar(datos)
@@ -1393,11 +1393,11 @@ FORMA_ESPERADA = (
     ("un importe con coma decimal",
      _forma(_BIEN + '<PayableAmount currencyID="EUR">1.234,56</PayableAmount>'),
      ("XSD-TIPO",), _ESQUEMA_DE_JUGUETE),
-    ("un texto mas largo de lo que cabe",
+    ("un texto más largo de lo que cabe",
      _forma("<ID>" + "F" * 30 + "</ID><IssueDate>2026-03-02</IssueDate>"
             "<InvoiceTypeCode>380</InvoiceTypeCode>"),
      ("XSD-LONGITUD",), _ESQUEMA_DE_JUGUETE),
-    ("un valor que no encaja con el patron",
+    ("un valor que no encaja con el patrón",
      _forma(_BIEN + "<CompanyID>hola</CompanyID>"),
      ("XSD-PATRON",), _ESQUEMA_DE_JUGUETE),
     ("falta un atributo obligatorio",
@@ -1409,7 +1409,7 @@ FORMA_ESPERADA = (
     ("texto suelto donde solo caben elementos",
      _CABEZA + "pegado sin querer" + _BIEN + "</Invoice>",
      ("XSD-TEXTO",), _ESQUEMA_DE_JUGUETE),
-    ("una raiz que el esquema no declara",
+    ("una raíz que el esquema no declara",
      _forma(_BIEN), ("XSD-RAIZ",), _ESQUEMA_SIN_INVOICE),
 )
 
@@ -1442,7 +1442,7 @@ def _provocar_forma():
     return salida
 
 
-@comprobar("los mensajes de libxml2 se traducen igual con esta version",
+@comprobar("los mensajes de libxml2 se traducen igual con esta versión",
            critica=True)
 def _():
     fallos = [
@@ -1456,7 +1456,7 @@ def _():
         len(FORMA_ESPERADA), len(FORMA_ESPERADA))
 
 
-@comprobar("las anclas viajan con la pagina y dicen de cuando son",
+@comprobar("las anclas viajan con la página y dicen de cuándo son",
            critica=True)
 def _():
     """Y la otra mitad: de quien es el certificado que firma.
@@ -1467,20 +1467,21 @@ def _():
     creyendo a autoridades a las que el Estado ya les retiro la
     cualificacion, con su certificado en vigor y su cadena llegando.
     """
+    from validador import cifras
     from validador.cadena import Almacen
 
     almacen = Almacen.por_defecto()
     if almacen.vacio:
-        return "no hay paquete: no se comprueba de quien es el certificado"
-    assert almacen.declarada, "las anclas no dicen de donde vienen"
+        return "no hay paquete: no se comprueba de quién es el certificado"
+    assert almacen.declarada, "las anclas no dicen de dónde vienen"
     renovacion = almacen.renovacion
-    assert renovacion.hay, "las anclas no dicen de cuando son"
+    assert renovacion.hay, "las anclas no dicen de cuándo son"
     # Y las de sellado, que van en la carpeta hermana y son las que se olvidan.
     assert not almacen.sellos.vacio, "faltan las anclas de sellado de tiempo"
     return "%d anclas y %d de sellado, de una lista del %s" % (
         len(almacen.todas()),
         len(almacen.sellos.todas()),
-        renovacion.publicada.isoformat() if renovacion.publicada else "?",
+        cifras.fecha(renovacion.publicada) if renovacion.publicada else "?",
     )
 
 
@@ -1517,23 +1518,24 @@ def _():
     """
     js = _desde_el_navegador()
     if js is None:
-        return "fuera del navegador no se baja ningun paquete"
+        return "fuera del navegador no se baja ningún paquete"
     paquete = js.window.Glosa.paquete
     if paquete is None:
         return "no hay paquete: no hay huella que comprobar"
     comprobada = getattr(paquete, "huella_comprobada", None)
     assert comprobada is not False, (
-        "el zip no resume lo que dice PAQUETE.json y aun asi esta descomprimido"
+        "el zip no resume lo que dice PAQUETE.json y aun así está descomprimido"
     )
     assert comprobada is not None, (
-        "no se ha podido calcular la huella: `crypto.subtle` no esta, o sea "
+        "no se ha podido calcular la huella: `crypto.subtle` no está, o sea "
         "que esto no es un contexto seguro. Sin ella no se ha comprobado nada"
     )
-    return "el zip resume lo que PAQUETE.json publica, y son %d bytes" % (
-        paquete.bytes,)
+    from validador import cifras
+    return "el zip resume lo que PAQUETE.json publica, y son %s bytes" % (
+        cifras.recuento(paquete.bytes),)
 
 
-@comprobar("esta pagina no le pide nada a nadie", critica=True)
+@comprobar("esta página no le pide nada a nadie", critica=True)
 def _():
     """La cifra de cabecera de la tesis, medida donde se puede medir.
 
@@ -1559,7 +1561,7 @@ def _():
         n.split("/")[2] for n in nombres
         if n.startswith("http://") or n.startswith("https://")
     } - {js.location.host})
-    assert not ajenos, "esta pagina le ha pedido algo a " + ", ".join(ajenos)
+    assert not ajenos, "esta página le ha pedido algo a " + ", ".join(ajenos)
     return "%d peticiones y todas a %s" % (len(nombres), js.location.host)
 
 
@@ -1593,13 +1595,13 @@ def _():
     """
     js = _desde_el_navegador()
     if js is None:
-        return "fuera del navegador no hay politica que mirar"
+        return "fuera del navegador no hay política que mirar"
     meta = js.document.querySelector('meta[http-equiv="Content-Security-Policy"]')
     # El `null` de JavaScript llega como JsNull y no como None: con un `is not
     # None` a secas esto pasaba y reventaba una linea mas abajo, en rojo pero
     # sin decir por que. Provocado quitando la politica de la pagina montada.
     assert meta is not None and type(meta).__name__ != "JsNull", (
-        "esta pagina no lleva politica de contenido: la pone `--sitio` al montar")
+        "esta página no lleva política de contenido: la pone `--sitio` al montar")
     directivas = {}
     for trozo in str(meta.content).split(";"):
         partes = trozo.split()
@@ -1619,7 +1621,7 @@ def _():
         pass
     else:
         raise AssertionError(
-            "eval ha corrido: la politica esta escrita y el navegador no la aplica")
+            "eval ha corrido: la política está escrita y el navegador no la aplica")
     return "solo a %s, y el navegador la cumple" % js.location.host
 
 

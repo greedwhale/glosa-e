@@ -139,23 +139,23 @@ function contarLoQueTrae(paquete) {
       fila("Esquemas XSD", "no están", "mal") +
       fila("Anclas de confianza", "no están", "mal") +
       fila("Entonces no se comprueba", "la forma ni de quién es el certificado", "mal") +
-      fila("Para arreglarlo", "python -m validador --empaquetar", "");
+      fila("Para arreglarlo", "recarga la página", "");
     return;
   }
   let filas =
     fila("Esquemas XSD", paquete.esquemas) +
     fila("Anclas de firma", paquete.anclas) +
     fila("Anclas de sellado de tiempo", paquete.anclas_de_sellos) +
-    fila("De dónde salen", escapar(paquete.declarada || "(no consta)")) +
-    fila("Montadas el", paquete.montada || "(no consta)");
+    fila("De dónde salen", escapar(Glosa.fecha(paquete.declarada || "(no consta)"))) +
+    fila("Montadas el", paquete.montada ? Glosa.fecha(paquete.montada) : "(no consta)");
   const siguiente = paquete.siguiente;
   if (!siguiente) {
     filas += fila("Se renuevan el", "(la lista no lo dice)", "ojo");
   } else if (new Date(siguiente) < new Date()) {
-    filas += fila("Debían renovarse el", siguiente, "ojo");
+    filas += fila("Debían renovarse el", Glosa.fecha(siguiente), "ojo");
     filas += fila("Mientras tanto", "se cree a autoridades que quizá ya no lo sean", "ojo");
   } else {
-    filas += fila("Se renuevan el", siguiente);
+    filas += fila("Se renuevan el", Glosa.fecha(siguiente));
   }
   $("trae").innerHTML = filas;
 }
@@ -200,7 +200,7 @@ Glosa.arrancar(marcar).then(async ({ total, paquete }) => {
   pintar(await Glosa.correrBanco(), paquete);
 }).catch((error) => {
   $("veredicto").className = "veredicto no";
-  $("veredicto").textContent = "No ha arrancado: " + error;
+  $("veredicto").textContent = "No ha arrancado: " + (error.message || error);
   console.error(error);
 });
 </script>

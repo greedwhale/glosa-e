@@ -7,8 +7,9 @@ Ver `validador/cifras.py` para las tres maneras y por qué.
 
 from __future__ import annotations
 
+import ast
 import re
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -72,6 +73,113 @@ class TestLasCuatro:
 
     def test_tipo_sin_nada(self):
         assert cifras.tipo(None) == "(sin tipo)"
+
+
+class TestFechasYRecuentos:
+    """Del 06-10-2026: «publicada el 2026-08-06» y «1247225 bytes»."""
+
+    def test_fecha(self):
+        assert cifras.fecha(date(2026, 8, 6)) == "06-08-2026"
+
+    def test_fecha_de_un_momento_es_su_dia(self):
+        cuando = datetime(2027, 2, 2, 23, 59, 59, tzinfo=timezone.utc)
+        assert cifras.fecha(cuando) == "02-02-2027"
+
+    def test_momento_en_utc(self):
+        cuando = datetime(2026, 3, 2, 10, 20, 30, tzinfo=timezone.utc)
+        assert cifras.momento(cuando) == "02-03-2026 a las 10:20:30 UTC"
+
+    def test_momento_de_otra_zona_se_pasa_a_utc(self):
+        madrid = timezone(timedelta(hours=1))
+        cuando = datetime(2026, 3, 2, 0, 30, tzinfo=madrid)
+        assert cifras.momento(cuando) == "01-03-2026 a las 23:30:00 UTC"
+
+    def test_momento_sin_zona_no_se_inventa_una(self):
+        assert cifras.momento(datetime(2026, 3, 2, 10, 20, 30)) == (
+            "02-03-2026 a las 10:20:30")
+
+    @pytest.mark.parametrize("cuantos,escrito", [
+        (1247225, "1.247.225"), (4096, "4096"), (12345, "12.345"), (0, "0"),
+    ])
+    def test_recuento(self, cuantos, escrito):
+        assert cifras.recuento(cuantos) == escrito
+
+
+# Lo que puede seguir escribiendo fechas en ISO, por función, y por qué. Lo
+# demás va por `cifras.fecha` o `cifras.momento`.
+EN_ISO = {
+    ("__main__.py", "_ver_anclas"): "inventario de consola: son columnas, y en ISO "
+                                    "se ordenan solas",
+    ("__main__.py", "_ver_revocaciones"): "inventario de consola",
+    ("__main__.py", "_ver_tsl"): "inventario de consola",
+    ("revocacion.py", "inventario"): "el de `--ver-revocaciones`",
+    ("bitacora.py", "_indice"): "el atributo `datetime` de `<time>`, que es para "
+                                "máquina",
+    ("codigo_unico.py", "canonico"): "el código único, que se compara y no se lee",
+    ("codigo_unico.py", "huella"): "lo que se resume para la huella",
+    ("codigo_unico.py", "revisar"): "la fecha del fichero en «Tiene», que va tal "
+                                    "cual como las cifras",
+    ("paquete.py", "armar"): "`PAQUETE.json`, que es para máquina",
+    ("paquete.py", "_para_investigadores"): "la cabecera `Expires` de security.txt, "
+                                            "que la fija su norma",
+    ("tsl.py", "_manifiesto"): "las líneas del manifiesto que lee "
+                               "`Almacen.renovacion` con `date.fromisoformat`",
+    ("tsl.py", "_fila"): "la tabla de estados, que se lee de vuelta",
+}
+
+
+def _fechas_en_iso() -> list[tuple[str, str, int]]:
+    halladas = []
+    for ruta in sorted((RAIZ / "validador").glob("*.py")):
+        def visitar(nodo, funcion):
+            if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                funcion = nodo.name
+            if (isinstance(nodo, ast.Call) and isinstance(nodo.func, ast.Attribute)
+                    and nodo.func.attr in ("isoformat", "strftime")):
+                halladas.append((ruta.name, funcion, nodo.lineno))
+            for hijo in ast.iter_child_nodes(nodo):
+                visitar(hijo, funcion)
+        visitar(ast.parse(ruta.read_text(encoding="utf-8")), "(módulo)")
+    return halladas
+
+
+def test_ninguna_fecha_se_escribe_por_su_cuenta():
+    """Así salían unas cincuenta fechas del informe: «se publicó el 2026-03-02».
+
+    Por función y no por línea: lo que decide si una fecha es para leer o para
+    máquina es para qué sirve lo que la escribe.
+    """
+    sueltas = [f"{fichero}:{linea} en {funcion}"
+               for fichero, funcion, linea in _fechas_en_iso()
+               if (fichero, funcion) not in EN_ISO]
+    assert not sueltas, (
+        "estas fechas no pasan por `cifras.fecha` ni `cifras.momento`:\n"
+        + "\n".join(sueltas))
+
+
+def test_la_lista_de_excepciones_no_guarda_nada_que_ya_no_este():
+    vivas = {(fichero, funcion) for fichero, funcion, _ in _fechas_en_iso()}
+    assert not set(EN_ISO) - vivas, set(EN_ISO) - vivas
+
+
+def test_la_procedencia_de_un_paquete_montado_antes_va_en_dd_mm_aaaa(tmp_path):
+    """Las anclas montadas antes del 06-10-2026 escribieron la frase en ISO.
+
+    Y así viajan en el paquete publicado hasta que se vuelva a montar. La frase
+    se pasa al leerla; las líneas de debajo, que son para máquina, se siguen
+    leyendo.
+    """
+    from validador.cadena import NOMBRE_DEL_MANIFIESTO, Almacen
+    (tmp_path / NOMBRE_DEL_MANIFIESTO).write_text(
+        "de la lista de confianza de ES, publicada por el Ministerio el 2026-08-06\n"
+        "\n"
+        "  publicada        2026-08-06\n"
+        "  siguiente        2027-02-02\n"
+        "  montada          2026-08-27\n", encoding="utf-8")
+    almacen = Almacen(tmp_path)
+    assert almacen.declarada == (
+        "de la lista de confianza de ES, publicada por el Ministerio el 06-08-2026")
+    assert almacen.renovacion.siguiente == date(2027, 2, 2)
 
 
 # Lo único que puede seguir escribiendo cifras con su propio formato, y por qué.
