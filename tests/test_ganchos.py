@@ -299,6 +299,31 @@ def test_el_gancho_de_git_sale_con_lf():
     assert b"\r\n" not in (RAIZ / ".githooks" / "pre-push").read_bytes()
 
 
+def test_el_gancho_de_git_se_versiona_ejecutable():
+    """Sin el permiso de ejecución, git en Linux se salta el gancho y empuja.
+
+    Medido el 07-10-2026 en una copia recién clonada en Linux, con
+    `core.hooksPath` puesto: `pre-push` estaba en el índice como `100644`, y un
+    push con un fichero sin commit no lo paró nadie. Git dejó una pista —«hook
+    was ignored because it's not set as executable»— y siguió. En Windows no se
+    notaba porque Git for Windows no mira ese permiso (`core.fileMode` falso) y
+    el gancho corría. Con `+x` puesto a mano, el mismo push se negó en 0,1 s.
+
+    Se mira el índice y no el disco: el permiso que viaja con el repositorio es
+    el del índice, y en Windows el disco no lo tiene nunca.
+    """
+    salida = subprocess.run(
+        ["git", "-C", str(RAIZ), "ls-files", "--stage", "--", ".githooks/pre-push"],
+        check=True, capture_output=True, text=True, encoding="utf-8").stdout
+    assert salida, "`.githooks/pre-push` no está versionado"
+    modo = salida.split(maxsplit=1)[0]
+    assert modo == "100755", (
+        f"`.githooks/pre-push` está en el índice como {modo}: en Linux y en macOS "
+        "git no lo llama y el push sale sin correr la suite. Se arregla con "
+        "`git update-index --chmod=+x .githooks/pre-push`."
+    )
+
+
 def test_el_gancho_de_git_llama_al_guion_que_se_prueba_aqui():
     """Si uno cambia de nombre y el otro no, git llamaría a un fichero que no está.
 

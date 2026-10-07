@@ -6972,3 +6972,44 @@ es como lo escribe la libxml2 de Windows, y en Linux libxml2 pone solo el
 nombre del fichero. El código estaba bien (en ninguno de los dos sale la
 carpeta); la prueba pedía la forma de una máquina. Ahora pide el nombre, y que
 la carpeta no esté.
+
+## El gancho de git no corría en Linux
+
+**Lo que había.** `.githooks/pre-push` estaba en el índice como `100644`, sin
+permiso de ejecución. En Windows no se notaba: Git for Windows no mira ese
+permiso (`core.fileMode` falso) y llama al gancho igual. En Linux y en macOS,
+git se lo salta, deja una pista y sigue.
+
+**Reproducido** el 07-10-2026 en una copia recién clonada en Linux, la de una
+sesión de Claude Code en la nube, con `core.hooksPath` puesto en `.githooks` y
+un fichero sin commit:
+
+```
+hint: The '.githooks/pre-push' hook was ignored because it's not set as executable.
+```
+
+El push a un repositorio desnudo de usar y tirar no lo paró el gancho. Falló
+por otra cosa (la copia es superficial y el desnudo no acepta eso), así que
+salió en rojo y no por lo que se creía. Es el disfraz de siempre: la
+comprobación de `CLAUDE.md`, hecha al pie de la letra, no habría distinguido
+una cosa de la otra. Hay que leer el motivo, no solo el código de salida.
+
+**Lo que se hizo.** `git update-index --chmod=+x .githooks/pre-push`, y una
+prueba en `tests/test_ganchos.py` que lee el modo del **índice** y se niega si
+no es `100755`. El índice y no el disco: el permiso que viaja con el
+repositorio es el del índice, y en Windows el disco no lo tiene nunca, así que
+la prueba vale en las dos máquinas.
+
+**Provocado.** La prueba, escrita antes del arreglo, en rojo con `100644`; en
+verde con `100755`; y en rojo otra vez quitándole el permiso en el índice. Y el
+gancho de verdad, con el permiso puesto y el mismo fichero sin commit: se negó
+en 0,1 s con «Hay cambios sin guardar en un commit».
+
+**Lo que cambia en Linux, y se decidió sin preguntar.** Con el gancho ya
+ejecutable, una copia en Linux sin `.venv/Scripts/python.exe` se niega a
+empujar con «No se empuja: no está el entorno que corre las pruebas». Es cerrar
+con palabras, que es lo que se quiere. En la sesión de la nube se montó el
+`.venv` con Python 3.14.6 y las versiones de `requisitos-pruebas.txt`, y un
+enlace `Scripts` → `bin` para que el gancho lo encuentre. No se ha tocado la
+ruta que busca el gancho: la copia principal es la de Windows, y enseñarle a
+buscar también `.venv/bin/python` es otro cambio, para cuando haga falta.
