@@ -4223,6 +4223,37 @@ especificación de abril— y medir sus reglas nuevas. Las dos cosas piden
 regenerar `cius_es` desde el XML del BOE y poner cada regla al texto, y van en
 la tanda siguiente. Hasta entonces, la nota lo dice en cada factura.
 
+### La consulta del 07-10-2026, todavía sin respuesta
+
+Con la orden publicada se le escribió otra vez al buzón el **07-10-2026**. Cada
+dato del correo se midió ese día contra el XML del BOE —el de la huella de
+arriba— y contra los esquemas de UBL 2.5, escribiendo cada variante y
+validándola. Lo que consta aquí es el borrador: si cambió algo al mandarlo, no
+está recogido. Lo que se preguntó, y qué cambia aquí con cada respuesta:
+
+| Se preguntó | Por qué: lo medido | Qué cambia aquí con la respuesta |
+|---|---|---|
+| La ruta del mensaje de anulación del anexo I (`CANCELINVOICE`; la tabla se titula «Mensaje de anulación» y los artículos 3.5 y 5 lo llaman «mensaje de baja») | Toda la factura anulada cuelga de `cac:Response/cac:DocumentReference`, y en UBL 2.5 `cac:Response` no lo admite, mientras que `cac:DocumentResponse` lo exige: al pie de la letra, el esquema la rechaza. Los ocho mensajes del anexo II cuelgan lo mismo de `cac:DocumentResponse/cac:DocumentReference` | La regla que mida la anulación, que es nueva y va en la tanda de las reglas nuevas |
+| Dónde va el nombre del vendedor en esa misma anulación | `cac:PartyLegalEntity` no puede ir dentro de `cac:PartyTaxScheme`, y caben dos rutas válidas: `cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName`, la del anexo II, y `cac:IssuerParty/cac:PartyTaxScheme/cbc:RegistrationName` | Lo mismo. Mientras no se sepa, no se puede dar por mala ninguna de las dos |
+| Qué `cac:TaxScheme/cbc:ID` lleva el NIF del vendedor en los nueve mensajes de estado —la anulación y los ocho del anexo II—, y si va con «ES» | Va en `cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID`; `cac:PartyTaxScheme` exige `cac:TaxScheme` y ninguna fila lo da: sin él, el esquema rechaza los nueve | La medida de los mensajes del anexo II |
+| Si en `BT-ES-8` va la suma de las cuotas | La fila pide el mismo importe en `cac:AllowanceCharge/cac:TaxTotal/cbc:TaxAmount` y en su `cac:TaxSubtotal`, y `BG-ES-2` es `0..n` dentro de cada cargo; `cac:AllowanceCharge` admite un solo `cac:TaxTotal` con un solo `cbc:TaxAmount`. Con dos impuestos en el mismo cargo no se puede cumplir | Lo que se mida de esos cargos al poner las reglas al texto |
+| El `ProfileID`: el de `BT-23`, con `ubl:`, o el del ejemplo del 02-10-2026, sin él | `BT-23` es el único sitio del XML con `specification:ubl:schema:`; los calificadores de L7, L8 y L10 van sin `ubl:`. El `CustomizationID` del ejemplo sí es el de la orden | `SPFE-PROCESO`, que hoy acepta el de la orden y deja el del ejemplo en NOTA |
+| Si el servicio de validación de PRE pedirá certificado | El artículo 11.1 lo exige para «la utilización de la solución pública», y la orden no nombra ningún entorno de pruebas ni servicio de validación aparte del envío | Si PRE puede servir aquí de contraste sin certificado |
+| El formato del código único | El artículo 6 lo remite al anexo I, y el anexo I no lo trae: ni orden, ni separador, ni formato de fecha, ni qué NIF —`BT-31` con «ES» o `BT-32` sin él—, ni si serie y número son el `cbc:ID` entero. El título del artículo habla de su «inserción en la sintaxis de la factura», y no hay campo para él | `codigo_unico.py` y sus reglas `CU-`, que suponen lo de VeriFactu: serie y número pegados sin separador y un tope de 60 caracteres |
+| Si los calificadores de L7, L8 y L10 se escriben delante del valor | Las filas dan solo el valor —«usar «QR»» en `BT-122`, «usar «SUPL»» en `BT-ES-10`, «INFO» en `BT-160`— y cada lista trae aparte su calificador; el ejemplo del 02-10-2026 escribe los dos juntos en `cbc:ID`: `urn:aeat:names:specification:schema:RECT:TIPO` | Desde el 07-10-2026 se aceptan las dos formas donde se miran —las líneas de cobro de L7, la clave de régimen y la referencia catastral de L8, los `BG-24` de L10—; con la respuesta, solo una |
+
+Se dijeron además, sin pregunta, dos erratas menores —el grupo `RECT:IMPORTES`
+es `0..5` y `BT-3` habla de «hasta tres grupos»; la descripción de `BT-48`, el
+NIF-IVA del comprador, dice «del vendedor»— y las rutas que tienen una sola
+corrección posible, como se leen aquí salvo que la Agencia diga otra cosa: en
+`BT-ES-5`, `cbc:ServiceTypeCode` cuelga de `cac:ServiceProviderParty` y no de su
+`cac:Party`; en `BT-ES-6` a `BT-ES-9` sobra `cac:Invoice` y `cac:TaxSubTotal` es
+`cac:TaxSubtotal`; en `BT-ES-23` y `BT-ES-24`, `/in:invoice` es `/in:Invoice`.
+
+**Lo que no se preguntó.** La regla UBL-SR-43 de la vinculación de CEN, que
+solo admite el código 130 en un `AdditionalDocumentReference` y que `R1` y `S`
+incumplen (en «El ejemplo del 02-10-2026», arriba), sigue por preguntar.
+
 ### La copia fiel, y el número que cambia
 
 Hasta el 07-10-2026 este apartado se titulaba «La copia fiel, y los dos números
