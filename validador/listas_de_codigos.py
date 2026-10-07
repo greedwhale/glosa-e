@@ -177,12 +177,24 @@ def _vale(codigo: str, como: str, valores: frozenset[str]) -> bool:
     return codigo in valores
 
 
-def reglas(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
+def reglas(raiz, sintaxis: Sintaxis,
+           de_mas: dict[str, frozenset[str]] | None = None) -> list[Incidencia]:
+    """Las BR-CL sobre un documento ya parseado.
+
+    `de_mas` añade valores a una lista, por su nombre, cuando quien llama sabe
+    que el documento se mide con otra más ancha. Hoy solo lo usa la solución
+    pública: la L4 de la Orden HAC/1028/2026 trae las categorías de IVA N, D y
+    F, que la lista de la edición de 2017 no tiene, y hasta el 07-10-2026
+    BR-CL-17 y BR-CL-18 daban por mala una factura de la solución pública
+    escrita con ellas. Se añade a la lista y no se borra la queja después: así
+    un código inválido de verdad en la misma factura sigue saliendo.
+    """
     incidencias: list[Incidencia] = []
+    de_mas = de_mas or {}
     for codigo, donde, cual, como, que, ejemplo in _REGLAS:
         if codigo in sintaxis.codigos_con_otra_lista:
             continue
-        valores = lista(cual, sintaxis)
+        valores = lista(cual, sintaxis) | de_mas.get(cual, frozenset())
         lugares: list[str] = []
         malos: list[str] = []
         for grupo, campo in donde:

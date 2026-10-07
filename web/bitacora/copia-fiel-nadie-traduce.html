@@ -1,7 +1,7 @@
 <article class="entrada"
   data-fecha="2026-09-21"
   data-titulo="Habrá que mandar a la AEAT una copia de cada factura en otro formato, y nadie publica cómo se traduce"
-  data-entradilla="Quien no emita a través de la solución pública tendrá que mandarle una copia fiel de cada factura, escrita en la sintaxis que ella define. Se preguntó por escrito quién publica la correspondencia entre formatos: la Agencia contestó el 17 de septiembre que no es ella. Y mientras tanto, dos importes del formato español significan otra cosa en la copia: en 6 de cada 14 facturas reales analizadas, copiarlos tal cual pondría un total que no es el suyo. Corregida el 26 de septiembre: ese total mal copiado no pasa las validaciones de la copia, como decía; lo que pasa sin error es el medio de pago.">
+  data-entradilla="Quien no emita a través de la solución pública tendrá que mandarle una copia fiel de cada factura, escrita en la sintaxis que ella define. Se preguntó por escrito quién publica la correspondencia entre formatos: la Agencia contestó el 17 de septiembre que no es ella. Y mientras tanto, el total del formato español significa otra cosa en la copia: en 6 de cada 14 facturas reales analizadas, copiarlo tal cual pondría un total que no es el suyo. Corregida el 26 de septiembre: ese total mal copiado no pasa las validaciones de la copia, como decía; lo que pasa sin error es el medio de pago. Actualizada el 7 de octubre: con la orden en el BOE, el recargo de equivalencia va dentro de la cuota de IVA, y de las dos cifras que cambiaban al copiar queda una, el total.">
 
   <time datetime="2026-09-21">21 de septiembre de 2026</time>
   <h1>Habrá que mandar a la AEAT una copia de cada factura en otro formato, y
@@ -11,6 +11,33 @@
   lo mismo. Quién decide qué campo va en qué campo es una pregunta con
   respuesta, y la respuesta llegó el 17 de septiembre: <b>no lo publica la
   Agencia</b>.</p>
+
+  <aside class="correccion">
+    <b>Actualizada el 7 de octubre de 2026.</b> La orden ministerial ya no es
+    un proyecto: es la <b>Orden HAC/1028/2026</b>, publicada en el BOE el 5 de
+    octubre y en vigor desde el 6. Su anexo I cambia una de las dos cifras de
+    esta entrada. Hasta hoy decía que el recargo de equivalencia
+    tenía en el anexo un grupo propio, aparte de la cuota de IVA, y que por
+    eso la cuota de la copia era 210 y no 262. Era el borrador de abril. La
+    orden no tiene ese grupo: el desglose del IVA (<code>BG-23</code>)
+    «también proporcionará información sobre el desglose del recargo de
+    equivalencia», con su cuota y su tipo (<code>BT-117</code> y
+    <code>BT-119</code>). Y como la sintaxis de la solución pública es la
+    norma europea en UBL (artículo 3.1, y el anexo se titula «conforme al
+    modelo UBL y la EN 16931»), donde la cuota total, <code>BT-110</code>, es
+    la suma de ese desglose (<code>BR-CO-14</code>), la cuota de la copia lleva
+    el recargo: 262, como en Facturae. El total de la copia es 1.262, y al
+    copiar campo a campo solo cambia él, por la retención: 150 euros. Las
+    seis facturas de catorce siguen siendo seis, porque las seis llevan
+    retención. Medido el 7 de octubre pasando por Glosa-e las cifras de abajo,
+    con el recargo en el desglose: con 262 y 1.262 no salta ninguna de las
+    reglas de cuentas de la norma; con el total de Facturae, 1.112, salta
+    <code>BR-CO-15</code>, que es la que queda de las dos del aviso de abajo;
+    con la cuota sin el recargo (210 y 1.210, lo que aconsejaba esta entrada
+    hasta hoy) salta <code>BR-CO-14</code>; y si el recargo se deja fuera también del
+    desglose, no salta nada, que es la peor manera de equivocarse. El texto de
+    abajo ya lo dice así.
+  </aside>
 
   <aside class="correccion">
     <b>Corregida el 26 de septiembre de 2026.</b> La primera versión decía
@@ -42,12 +69,13 @@
   CII o en EDIFACT (el <a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-7295">Real
   Decreto 238/2026</a> admite las cuatro sintaxis), pero la copia que reciba la
   Agencia irá en la suya: <b>UBL</b>, con el contenido que describe el
-  <b>anexo I</b> del proyecto de orden. Son dos documentos distintos, el que
+  <b>anexo I</b> de la orden. Son dos documentos distintos, el que
   emites y el que se copia, y tienen que decir lo mismo.</p>
 
   <p>Nada de esto obliga todavía a nadie. La orden ministerial de la que
-  cuelga sigue siendo un <b>proyecto</b>, y de ahí salen los plazos que ya se
-  contaron <a href="./bitacora-edifact-reglas-de-2018.html">en la entrada
+  cuelga se publicó en el BOE el <b>5 de octubre de 2026</b>, y de ella salen
+  los plazos que ya se contaron
+  <a href="./bitacora-edifact-reglas-de-2018.html">en la entrada
   anterior</a>. Lo que sí se puede hacer hoy es la pregunta de ingeniería que
   viene ahora, porque quien esté construyendo un sistema de facturación se la
   está haciendo ya.</p>
@@ -100,12 +128,12 @@
   que citar. Mientras tanto, una correspondencia que cada uno se escriba a sí
   mismo no es algo contra lo que un tercero pueda contrastar nada.</p>
 
-  <h2>Por qué eso no es un detalle: dos importes que cambian por el camino</h2>
+  <h2>Por qué eso no es un detalle: un total que cambia por el camino</h2>
 
   <p>Aquí es donde deja de ser una cuestión de organización. El formato
-  español define dos de sus totales de una manera que <b>no es la europea</b>, y
-  no es una interpretación: está escrito en su esquema oficial, en la
-  documentación de cada elemento.</p>
+  español define dos de sus totales a su manera, y no es una interpretación:
+  está escrito en su esquema oficial, en la documentación de cada
+  elemento.</p>
 
   <blockquote><p>«Total impuestos repercutidos. <b>Sumatorio de todas Cuotas y
   Recargos de Equivalencia</b>.»<br>
@@ -117,8 +145,10 @@
   retenciones</b>. El anexo I, en cambio, define sus campos como lo que dice la
   norma europea: <code>BT-110</code> es la «cuota total del IVA de la factura» y
   <code>BT-112</code> el «importe total de la factura después de aplicar el
-  IVA». La retención no es un impuesto de la factura para la norma, y el
-  recargo de equivalencia tiene su propio grupo, aparte de la cuota de IVA.</p>
+  IVA». La retención no es un impuesto de la factura para la norma, y va
+  aparte, en su grupo. El recargo de equivalencia va en el desglose del IVA,
+  y con él dentro de la cuota: en eso los dos documentos dicen lo
+  mismo.</p>
 
   <p>Con una factura de ejemplo (mil euros de base, IVA del 21 %, retención del
   15 % y recargo de equivalencia del 5,2 %) los dos documentos dicen esto:</p>
@@ -129,27 +159,27 @@
     <thead><tr><th>Concepto</th><th class="n">En la factura</th><th class="n">En la copia</th></tr></thead>
     <tbody>
       <tr><td>Base imponible</td><td class="n">1.000,00</td><td class="n">1.000,00 <span class="pie">BT-109</span></td></tr>
-      <tr><td>Cuota de IVA <span class="pie">(21 %)</span></td><td class="n">dentro de los 262</td><td class="n">210,00 <span class="pie">BT-110</span></td></tr>
-      <tr><td>Recargo de equivalencia <span class="pie">(5,2 %)</span></td><td class="n">dentro de los 262</td><td class="n">52,00 <span class="pie">grupo propio</span></td></tr>
+      <tr><td>Cuota de IVA <span class="pie">(21 %)</span></td><td class="n">dentro de los 262</td><td class="n">210,00 <span class="pie">BT-117</span></td></tr>
+      <tr><td>Recargo de equivalencia <span class="pie">(5,2 %)</span></td><td class="n">dentro de los 262</td><td class="n">52,00 <span class="pie">BT-117</span></td></tr>
       <tr><td>Retención <span class="pie">(15 %)</span></td><td class="n">150,00</td><td class="n">150,00 <span class="pie">grupo propio</span></td></tr>
-      <tr><td><b>Total de impuestos repercutidos</b></td><td class="n"><b>262,00</b></td><td class="n">no hay ese campo</td></tr>
-      <tr><td><b>Total de la factura</b></td><td class="n"><b>1.112,00</b></td><td class="n"><b>1.210,00</b> <span class="pie">BT-112</span></td></tr>
+      <tr><td><b>Total de impuestos repercutidos</b></td><td class="n"><b>262,00</b></td><td class="n"><b>262,00</b> <span class="pie">BT-110</span></td></tr>
+      <tr><td><b>Total de la factura</b></td><td class="n"><b>1.112,00</b></td><td class="n"><b>1.262,00</b> <span class="pie">BT-112</span></td></tr>
     </tbody>
   </table>
   </div>
 
-  <p>Noventa y ocho euros de diferencia en el total, y una cuota de IVA que si
-  se copia tal cual sale inflada en cincuenta y dos, en una factura correcta,
-  bien hecha y bien sumada. Quien construya la
+  <p>Ciento cincuenta euros de diferencia en el total, los de la retención,
+  en una factura correcta, bien hecha y bien sumada. Quien construya la
   copia llevando cada campo a su homónimo (que es lo que hará cualquiera sin
-  una tabla delante) pondrá esos dos números, y serán otros.</p>
+  una tabla delante) pondrá ese número, y será otro. La cuota, en cambio,
+  pasa tal cual: con la orden, los 262 de Facturae son los 262 de la
+  copia.</p>
 
-  <p>Eso, al menos, se ve. Con 262 de cuota y 1.112 de total <b>la copia
-  deja de cuadrar consigo misma</b>, y las reglas de la norma la rechazan:
-  <code>BR-CO-14</code>, porque la cuota no es la suma del desglose del IVA,
-  y <code>BR-CO-15</code>, porque el total no es la base más la cuota. Esas
-  reglas dicen que no cuadra, no qué cifra va, y quien convierta así se
-  encuentra con ello en la primera factura con retención o recargo.</p>
+  <p>Eso, al menos, se ve. Con 1.112 de total <b>la copia deja de cuadrar
+  consigo misma</b>, y una regla de la norma la rechaza:
+  <code>BR-CO-15</code>, porque el total no es la base más la cuota. Esa
+  regla dice que no cuadra, no qué cifra va, y quien convierta así se
+  encuentra con ello en la primera factura con retención.</p>
 
   <p>Lo que no se ve está en otra fila de la misma tabla: <b>el medio de
   pago</b>. Los códigos de Facturae existen en la lista europea queriendo
@@ -158,11 +188,16 @@
   validaciones y la copia dice que se paga de otra manera.</p>
 
   <p>Falta una tercera cifra, y es de las que no se pueden dar por sabidas:
-  <b>lo que el cliente paga de verdad</b>. Va en otro campo del anexo, y qué
-  entra exactamente en él (con el recargo, con los suplidos, con los importes
-  cobrados en nombre de terceros) es una cuenta que hoy <b>no se puede
-  comprobar</b> contra ningún texto publicado. Aquí se dice así, en vez de
-  elegir una respuesta y presentarla como la buena.</p>
+  <b>lo que el cliente paga de verdad</b>. Va en otro campo del anexo, el
+  total a pagar (<code>BT-115</code>), y la orden ya dice qué entra en él: el
+  total con IVA, que lleva el recargo, menos lo pagado por adelantado, «junto
+  con los importes correspondientes a los conceptos BT-179» y el redondeo.
+  Esos importes son los suplidos y demás cargos en nombre de un tercero, sus
+  minoraciones y las retenciones. Lo que no dice es dónde se escriben:
+  <code>BT-179</code> es un término de la edición de 2026 de la norma y la
+  orden no le da ruta en UBL. Así que la cuenta hoy <b>no se puede
+  comprobar</b>. Aquí se dice así, en vez de elegir una respuesta y
+  presentarla como la buena.</p>
 
   <h2>Cuántas facturas están en ese caso</h2>
 
@@ -175,7 +210,7 @@
     <thead><tr><th>Qué lleva la factura</th><th class="n">De 14</th></tr></thead>
     <tbody>
       <tr><td>Retenciones <span class="pie">(cambia el total)</span></td><td class="n"><b>6</b></td></tr>
-      <tr><td>Recargo de equivalencia <span class="pie">(cambia la cuota)</span></td><td class="n">4 <span class="pie">dentro de las seis</span></td></tr>
+      <tr><td>Recargo de equivalencia <span class="pie">(con la orden, no cambia nada)</span></td><td class="n">4 <span class="pie">dentro de las seis</span></td></tr>
       <tr><td>Suplidos <span class="pie">(sin ruta en el anexo de abril)</span></td><td class="n">2</td></tr>
       <tr><td><b>Alguna de las anteriores</b></td><td class="n"><b>6</b></td></tr>
     </tbody>
@@ -185,9 +220,9 @@
   <p>Seis de catorce. Conviene decir qué es y qué no es ese número:
   <b>no es una estadística de España</b>, son las facturas que hay aquí para
   probar, y catorce son pocas. Lo que sí dice es que no hace falta buscar un
-  caso raro: retenciones y recargo de equivalencia son dos cosas corrientes de
-  la facturación española, y las dos caen justo donde el formato español y la
-  norma europea no se entienden.</p>
+  caso raro: las retenciones son de lo más corriente de la facturación
+  española, y caen justo donde el formato español y la norma europea no se
+  entienden.</p>
 
   <h2>Lo que la Agencia sí dejó resuelto, y lo que no</h2>
 
@@ -199,28 +234,30 @@
   evidente.</p>
 
   <p>Pero fíjate en lo que <b>no</b> cubre. Omitir está permitido; escribir
-  otra cifra no es omitir. Los dos importes de arriba no son conceptos que
-  falten: son conceptos que existen en los dos sitios y <b>significan cosas
+  otra cifra no es omitir. El total de arriba no es un concepto que falte:
+  es un concepto que existe en los dos sitios y <b>significa cosas
   distintas</b>. Para eso no hay permiso que valga, porque no hay nada roto que
   perdonar: hay una traducción mal hecha.</p>
 
   <h2>Qué hacer hoy, si estás construyendo esto</h2>
 
   <ul>
-    <li><b>No copies los totales.</b> Recalcúlalos con la definición europea:
-    base más cuotas de IVA, sin restar retenciones y sin sumar el recargo.</li>
-    <li><b>La retención y el recargo viajan aparte</b>, en los grupos que el
-    anexo I tiene para ellos, no dentro de la cuota de IVA.</li>
+    <li><b>No copies el total.</b> Recalcúlalo con la definición europea:
+    base más las cuotas del desglose del IVA, recargo de equivalencia
+    incluido, y sin restar retenciones.</li>
+    <li><b>La retención viaja aparte</b>, en el grupo que el anexo I tiene
+    para ella, no dentro de la cuota de IVA. El recargo, en cambio, va en el
+    desglose del IVA, con su cuota y su tipo.</li>
     <li><b>Escribe tu correspondencia y escribe por qué</b>, campo a campo.
     Nadie te la va a dar, y el día que haya que defender una copia, la
     diferencia entre una decisión y una casualidad es que esté escrita.</li>
   </ul>
 
-  <p>Y una advertencia sobre el calendario: el anexo I que hay publicado es el
-  de abril de 2026, y la propia AEAT presentó cambios sobre él el 10 de
-  septiembre. El texto actualizado <b>no está publicado</b>. Quien esté
-  mapeando campos ahora mismo lo está haciendo contra un documento que ya se
-  sabe que va a cambiar.</p>
+  <p>Y una advertencia sobre el calendario: el anexo I publicado es ya el de
+  la orden, en el BOE del 5 de octubre de 2026, y no es el borrador de abril
+  sobre el que la AEAT presentó cambios el 10 de septiembre. Entre otras
+  cosas, cambia dónde va el recargo. Quien haya mapeado campos contra el de
+  abril tiene que repasarlos.</p>
 
   <h2>Qué hace Glosa-e con esto, hoy</h2>
 
@@ -256,6 +293,14 @@
       del proyecto de orden ministerial</a> (PDF, Ministerio de Hacienda,
       16-04-2026): las definiciones de <code>BT-110</code> y
       <code>BT-112</code>.</li>
+      <li><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-20587">Orden
+      HAC/1028/2026</a>, BOE-A-2026-20587, publicada el 05-10-2026: el
+      anexo I, con el recargo en el desglose del IVA (<code>BG-23</code>,
+      <code>BT-117</code> y <code>BT-119</code>), las definiciones de
+      <code>BT-110</code>, <code>BT-112</code> y <code>BT-115</code> y los
+      grupos <code>BG-34</code> de las retenciones y de los cargos en nombre
+      de un tercero; el artículo 3.1, la EN 16931 en UBL como modelo de la
+      solución pública, y el 4, el de la copia fiel.</li>
       <li>Respuesta del buzón técnico de la AEAT de 17-09-2026 a una consulta
       escrita el 10-09-2026. No tiene dirección pública: es correo, y se cita
       textual lo que contestó.</li>
@@ -264,7 +309,10 @@
     de catorce ficheros Facturae de terceros validados en local el 20 de
     septiembre de 2026. Los ficheros no salen de la máquina donde se validan y
     no se publica ningún nombre de empresa, NIF ni dato de las facturas: solo
-    recuentos agregados. La factura del ejemplo numérico es inventada.</p>
+    recuentos agregados. La factura del ejemplo numérico es inventada. Sus
+    cifras se pasaron por Glosa-e el 7 de octubre de 2026 como copia UBL, con
+    el recargo en el desglose del IVA, y de lo que salió se miraron las
+    reglas de cuentas de la norma, las <code>BR-CO</code>.</p>
   </footer>
 
 </article>

@@ -19,7 +19,7 @@ from dataclasses import replace
 import pytest
 from lxml import etree
 
-from validador import cius_es, factura, solucion_publica
+from validador import cius_es, factura, glosario, iva, solucion_publica
 from validador.formato import ESPECIFICACION_DEL_EJEMPLO, detectar
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
@@ -213,19 +213,39 @@ class TestLasBuenas:
         assert [(i.codigo, i.campo) for i in informe.avisos] == []
         assert {i.codigo for i in informe.notas} == {"SPFE-BORRADOR", "SPFE-TOTAL-A-PAGAR"}
 
-    def test_la_nota_del_borrador_sale_siempre_y_dice_que_es_un_borrador(self):
+    def test_la_nota_sale_siempre_y_dice_con_que_se_ha_medido(self):
+        """Hasta el 07-10-2026 decía que el anexo «no está publicado en el BOE».
+
+        La orden salió el 05-10-2026. Lo que la nota tiene que decir ahora es
+        la mezcla de verdad: la orden publicada, lo que de ella ya se admite, y
+        que el resto sigue midiendo el borrador de abril.
+        """
         nota = la(BUENA, "SPFE-BORRADOR")
         assert nota.gravedad == NOTA
-        assert "borrador" in nota.mensaje and "17-04-2026" in nota.mensaje
+        assert "HAC/1028/2026" in nota.mensaje and "05-10-2026" in nota.mensaje
+        assert "borrador de abril" in nota.mensaje
+        assert "no quiere decir que la factura cumpla la orden" in nota.mensaje
+        assert "no está publicad" not in nota.mensaje
         assert nota.encontrado == CIUS
+        # «No siempre»: una 384 con un BG-24 cualquiera, o el proceso del
+        # ejemplo, siguen en NOTA hasta poner las reglas al texto, y alguna de
+        # lo que la orden quita sí sale. «Todavía no se rechaza», a secas, era
+        # verdad solo en parte.
+        assert "no siempre se rechaza" in nota.mensaje
 
     def test_el_alcance_dice_el_anexo_solo_si_hay_una_factura_que_lo_declara(self, tmp_path):
         """«Sin errores» en una factura del CIUS quiere decir también que cumple
-        el borrador del anexo, y la frase que dice qué se ha mirado lo tiene que
-        decir. En un lote sin facturas del CIUS no se ha mirado, y no lo dice."""
+        el anexo hasta donde se ha puesto al día, y la frase que dice qué se ha
+        mirado lo tiene que decir. En un lote sin facturas del CIUS no se ha
+        mirado, y no lo dice."""
         (tmp_path / "cius.xml").write_text(BUENA, encoding="utf-8")
         con = factura.validar_lote([tmp_path / "cius.xml"]).alcance()
-        assert "borrador del anexo I" in con
+        assert "anexo I de la solución pública" in con
+        # «Parte de»: lo que se mide es lo que ya pedía el borrador de abril,
+        # y salían «sin errores» facturas que incumplen la orden en cosas que
+        # en UBL se pueden ver. Lo midió el revisor de promesas el 07-10-2026.
+        assert "parte de lo que el anexo I de la solución pública pide" in con
+        assert "las reglas nuevas de la orden todavía no" in con
         (tmp_path / "otra.xml").write_text(cambia(BUENA, CIUS, "urn:cen.eu:en16931:2017"),
                                            encoding="utf-8")
         sin = factura.validar_lote([tmp_path / "otra.xml"]).alcance()
@@ -233,9 +253,13 @@ class TestLasBuenas:
 
     def test_llevan_la_etiqueta_del_anexo_y_no_la_del_real_decreto(self):
         assert factura.origen(Incidencia("SPFE-NIF", ERROR, "")) == factura.SOLUCION_PUBLICA
-        detalle = factura.validar(cambia(BUENA, "<cbc:CopyIndicator>false</cbc:CopyIndicator>", "")
+        detalle = factura.validar(cambia(BUENA, "<cbc:ProfileID>urn:aeat:names:specification:ubl:schema:B2B</cbc:ProfileID>", "")
                                   .encode("utf-8")).detalle(norma=factura.origen)
-        assert "[SPFE-COPIA · Anexo I (borrador)]" in detalle
+        # Contra un literal, y no contra la constante: compararla consigo misma
+        # no fijaba nada, y la etiqueta podía volver a decir «borrador» sin que
+        # ninguna prueba lo viera (lo encontró la revisión del 07-10-2026).
+        assert "[SPFE-PROCESO · Anexo I]" in detalle
+        assert "borrador" not in factura.SOLUCION_PUBLICA
 
 
 # --- A quién se aplica ---------------------------------------------------------
@@ -301,7 +325,8 @@ class TestCabecera:
     def test_la_especificacion_tiene_que_ser_el_valor_entero(self):
         otra = cambia(BUENA, "en16931:2026#compliant", "en16931:2017#compliant")
         assert codigos(otra) == {"SPFE-ESPECIFICACION"}
-        assert la(otra, "SPFE-ESPECIFICACION").esperado == CIUS
+        # Lo que se pide es el de la orden publicada, no el de abril.
+        assert la(otra, "SPFE-ESPECIFICACION").esperado == ESPECIFICACION_DEL_EJEMPLO
 
     def test_el_proceso_falta_o_es_otro(self):
         sin = cambia(BUENA, "<cbc:ProfileID>urn:aeat:names:specification:ubl:schema:B2B</cbc:ProfileID>", "")
@@ -310,9 +335,20 @@ class TestCabecera:
         assert codigos(otro) == {"SPFE-PROCESO"}
         assert la(otro, "SPFE-PROCESO").encontrado.endswith("B2G")
 
-    def test_original_o_copia_es_obligatorio(self):
-        assert codigos(cambia(BUENA, "<cbc:CopyIndicator>false</cbc:CopyIndicator>", "")) == {"SPFE-COPIA"}
-        assert codigos(cambia(BUENA, ">false</cbc:CopyIndicator>", ">true</cbc:CopyIndicator>")) == set()
+    def test_sin_indicador_de_copia_es_el_original_y_se_dice(self):
+        """En abril era obligatorio; en la orden, `0..1` y «sin informar: original».
+
+        Hasta el 07-10-2026 esto era un ERROR. Ahora es una NOTA, que dice lo
+        que la orden supone y lo que pide a una copia fiel (artículo 4.3).
+        """
+        sin = cambia(BUENA, "<cbc:CopyIndicator>false</cbc:CopyIndicator>", "")
+        assert codigos(sin) == set()
+        nota = la(sin, "SPFE-COPIA")
+        assert nota.gravedad == NOTA
+        assert "original" in nota.mensaje and "apartado 3 del artículo 4" in nota.mensaje
+        assert las(cambia(BUENA, ">false</cbc:CopyIndicator>", ">true</cbc:CopyIndicator>"),
+                   "SPFE-COPIA") == []
+        assert las(BUENA, "SPFE-COPIA") == []
 
     def test_el_381_no_existe_en_la_solucion_publica(self):
         abono = cambia(BUENA, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>381<")
@@ -341,12 +377,21 @@ class TestCabecera:
                       "<cbc:TaxCurrencyCode>USD</cbc:TaxCurrencyCode>")
         assert la(otra, "SPFE-MONEDA-DEL-IVA").encontrado == "USD"
 
-    def test_el_importe_pagado_solo_puede_ser_cero(self):
+    def test_el_importe_pagado_se_admite_y_se_dice_lo_que_no_se_ve(self):
+        """Abril lo admitía solo a cero; la orden lo admite, salvo anticipos con IVA devengado.
+
+        Hasta el 07-10-2026 un importe distinto de cero era ERROR. Lo que la
+        orden prohíbe (art. 75.Dos de la Ley del IVA) no se ve en la factura, y
+        la NOTA lo dice en vez de callarlo.
+        """
         antes = "<cbc:PayableAmount currencyID"
         pagado = cambia(BUENA, antes, '<cbc:PrepaidAmount currencyID="EUR">10.00</cbc:PrepaidAmount>' + antes)
-        assert la(pagado, "SPFE-IMPORTE-PAGADO").encontrado == "10.00"
+        assert codigos(pagado) == set()
+        nota = la(pagado, "SPFE-IMPORTE-PAGADO")
+        assert nota.gravedad == NOTA and nota.encontrado == "10.00"
+        assert "75.Dos" in nota.mensaje
         cero = cambia(BUENA, antes, '<cbc:PrepaidAmount currencyID="EUR">0.00</cbc:PrepaidAmount>' + antes)
-        assert codigos(cero) == set()
+        assert las(cero, "SPFE-IMPORTE-PAGADO") == []
 
     @pytest.mark.parametrize("escrito", ["NaN", "1E+3"])
     def test_lo_que_no_es_un_numero_no_se_acusa_de_no_ser_cero(self, escrito):
@@ -395,7 +440,10 @@ class TestRectificativa:
         assert queja.gravedad == NOTA, "una factura escrita al anexo nuevo sale mala"
         assert "SPFE-RECTIFICATIVA" not in codigos(nueva)
         assert queja.campo == "Datos rectificados (BG-24)"
-        assert "22-09-2026" in queja.mensaje and "L10" in queja.mensaje
+        # Desde el 07-10-2026 cita la orden, que es la que lo dice, y no la
+        # respuesta del 22-09-2026; y ya no dice que «no está publicado».
+        assert "05-10-2026" in queja.mensaje and "L10" in queja.mensaje
+        assert "no está publicad" not in queja.mensaje
 
     def test_la_nota_no_promete_haber_leido_el_bg24(self):
         """Porque no se puede: el anexo dice que un BG-24 no se distingue de
@@ -413,7 +461,7 @@ class TestRectificativa:
         assert "urn:aeat:names:specification:ubl:schema:QR" in pelada
         queja = la(pelada, "SPFE-RECTIFICATIVA")
         assert queja.gravedad == ERROR
-        assert queja.esperado == "la extensión de rectificativas, o un BG-24"
+        assert queja.esperado == "los BG-24 RECT:TIPO y RECT:MODALIDAD, o la extensión de abril"
 
     def test_le_falta_la_modalidad(self):
         queja = la(cambia(RECTIFICATIVA, "<aeat:Method>S</aeat:Method>", ""), "SPFE-RECTIFICATIVA")
@@ -521,7 +569,8 @@ class TestLosCalificadoresDeL10:
         assert "Se comprueba el código" in bueno.mensaje
         assert "R4, está en la lista L2.A" in bueno.mensaje
         assert "S, está en la lista L2.B" in bueno.mensaje
-        assert "02-10-2026" in bueno.mensaje
+        # El sitio lo enseñó el ejemplo del 02-10-2026 y lo fija la orden.
+        assert "BT-ES-27" in bueno.mensaje and "no está publicad" not in bueno.mensaje
 
     def test_un_codigo_fuera_de_su_lista_es_aviso_y_no_error(self):
         """La lista es la del anexo publicado; el sitio solo lo enseña un
@@ -602,7 +651,9 @@ class TestLosCalificadoresDeL10:
         solo la llevaba a ella salía con una nota y no con el error de no
         decir qué rectifica: un BG-24 cualquiera bastaba para eso.
         """
-        for esquema in (self.ESQUEMA_DEL_CORREO, self.ESQUEMA_DEL_ANEXO):
+        # Y a secas: desde el 07-10-2026 el calificador de L10 se reconoce
+        # también sin el esquema delante.
+        for esquema in (self.ESQUEMA_DEL_CORREO, self.ESQUEMA_DEL_ANEXO, ""):
             pelada = self.rectificativa_con(
                 "  <cac:AdditionalDocumentReference>\n"
                 f"    <cbc:ID>{esquema}AUT</cbc:ID>\n"
@@ -610,6 +661,22 @@ class TestLosCalificadoresDeL10:
                 "  </cac:AdditionalDocumentReference>\n")
             queja = la(pelada, "SPFE-RECTIFICATIVA")
             assert queja.gravedad == ERROR, esquema
+
+    def test_los_de_la_rectificativa_a_secas_se_leen_como_los_demas(self):
+        """`RECT:TIPO` y `RECT:MODALIDAD` sin el esquema delante.
+
+        Antes de publicar solo se probaba «QR» a secas, y la rotura que deja
+        reconocer solo ése pasaba toda la suite: un R9 dejaba de avisar y la
+        pareja completa salía como «un BG-24 sin leer». Lo vio la revisión del
+        07-10-2026.
+        """
+        fuera = las(self.rectificativa_con(self.adjunto("RECT:TIPO", "texto libre", "R9")),
+                    "SPFE-RECTIFICATIVA")
+        assert (AVISO, "R9") in [(q.gravedad, q.encontrado) for q in fuera]
+        completa = la(self.rectificativa_con(
+            self.adjunto("RECT:TIPO", "texto libre", "R1"),
+            self.adjunto("RECT:MODALIDAD", "texto libre", "S")), "SPFE-RECTIFICATIVA")
+        assert completa.encontrado == "RECT:MODALIDAD y RECT:TIPO"
 
     def test_un_bg24_ajeno_sigue_sin_leerse(self):
         """Un albaran no es una rectificativa, y ahora se distingue."""
@@ -687,9 +754,10 @@ class TestElEjemploDeLaAEAT:
         assert informe.deteccion.version == "2.5"
         assert [(i.codigo, i.campo) for i in informe.errores] == []
         assert [(i.codigo, i.campo) for i in informe.avisos] == []
+        # Sin SPFE-ESPECIFICACION desde el 07-10-2026: el identificador del
+        # ejemplo es el que fija la orden publicada, y ya no hay nada que anotar.
         assert {i.codigo for i in informe.notas} == {
-            "SPFE-BORRADOR", "SPFE-TOTAL-A-PAGAR", "SPFE-ESPECIFICACION",
-            "SPFE-PROCESO", "SPFE-RECTIFICATIVA"}
+            "SPFE-BORRADOR", "SPFE-TOTAL-A-PAGAR", "SPFE-PROCESO", "SPFE-RECTIFICATIVA"}
 
     def test_con_el_namespace_de_las_extensiones_del_ejemplo_tambien(self):
         """El ejemplo declara `aeat:` con un namespace; las pruebas usan otro
@@ -703,16 +771,19 @@ class TestElEjemploDeLaAEAT:
         sin_base = cambia(con_el_suyo, "<aeat:TaxableAmount>95.00</aeat:TaxableAmount>", "")
         assert "BT-ES-30" in la(sin_base, "SPFE-GRUPO-DE-ENTIDADES").mensaje
 
-    def test_la_nota_dice_con_que_identificador_se_ha_medido(self):
-        nota = la(EJEMPLO, "SPFE-ESPECIFICACION")
-        assert nota.gravedad == NOTA
-        assert nota.encontrado == ESPECIFICACION_DEL_EJEMPLO
-        assert "02-10-2026" in nota.mensaje and "anexo de abril" in nota.mensaje
+    def test_el_identificador_del_ejemplo_es_el_de_la_orden_y_no_se_anota(self):
+        """Hasta el 07-10-2026 salía con una NOTA: «un ejemplo no es el BOE».
+
+        La fila BT-24 de la orden publicada el 05-10-2026 dice, letra a letra,
+        el identificador del ejemplo. Ya no hay nada que anotar, y la NOTA que
+        sigue diciendo con qué se ha medido es SPFE-BORRADOR.
+        """
+        assert las(EJEMPLO, "SPFE-ESPECIFICACION") == []
         assert la(EJEMPLO, "SPFE-BORRADOR").encontrado == ESPECIFICACION_DEL_EJEMPLO
 
     def test_el_alcance_nombra_el_anexo(self, tmp_path):
         (tmp_path / "ejemplo.xml").write_text(EJEMPLO, encoding="utf-8")
-        assert "borrador del anexo I" in factura.validar_lote([tmp_path / "ejemplo.xml"]).alcance()
+        assert "anexo I de la solución pública" in factura.validar_lote([tmp_path / "ejemplo.xml"]).alcance()
 
     def test_una_384_que_no_dice_que_rectifica_ya_no_sale_limpia(self):
         """El caso que se midió el 05-10-2026 con «sin errores» y exit 0."""
@@ -772,7 +843,7 @@ class TestElQrConYSinUbl:
             sin_ubl,
             "<cbc:UUID>https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=B12345674</cbc:UUID>",
             "")
-        assert "BT-ES-47" in la(sin_direccion, "SPFE-QR").mensaje
+        assert "BT-ES-25" in la(sin_direccion, "SPFE-QR").mensaje
 
     def test_uno_de_cada_esquema_son_dos(self):
         otro = ("  <cac:AdditionalDocumentReference>\n"
@@ -824,7 +895,8 @@ class TestPartes:
 
     def test_el_tercero_sin_tipologia(self):
         sin = cambia(BUENA, "<cbc:ServiceTypeCode>ThirdPartyInvoicing</cbc:ServiceTypeCode>", "")
-        assert "BT-ES-15" in la(sin, "SPFE-TERCERO").mensaje
+        # Con el número de la orden, BT-ES-5, que en abril era BT-ES-15.
+        assert "BT-ES-5" in la(sin, "SPFE-TERCERO").mensaje
 
     def test_el_tercero_con_otro_impuesto(self):
         otro = cambia(BUENA, "B87654321</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT<",
@@ -870,7 +942,16 @@ class TestDocumento:
                                                          "</cac:AdditionalDocumentReference><cac:Add", 1))
         quejas = las(doble, "SPFE-QR")
         assert [q.encontrado for q in quejas] == ["2", "(falta)"]
-        assert "BT-ES-47" in quejas[1].mensaje
+        assert "BT-ES-25" in quejas[1].mensaje
+
+    def test_el_qr_sin_descripcion_vale(self):
+        """La descripción era `1..1` en abril y es `0..1` en la orden.
+
+        Hasta el 07-10-2026, un QR con su dirección y sin descripción salía con
+        ERROR. Que la dirección siga siendo obligatoria lo prueba la de arriba.
+        """
+        sin = cambia(BUENA, "<cbc:DocumentDescription>VERIFACTU</cbc:DocumentDescription>", "")
+        assert las(sin, "SPFE-QR") == []
 
 
 class TestLineas:
@@ -903,7 +984,7 @@ class TestLineas:
     def test_la_situacion_del_inmueble_fuera_de_la_lista(self):
         queja = la(cambia(BUENA, ">01</cbc:ValueQualifier>", ">05</cbc:ValueQualifier>"),
                    "SPFE-REFERENCIA-CATASTRAL")
-        assert queja.encontrado == "05" and "BT-ES-43" in queja.campo
+        assert queja.encontrado == "05" and "BT-ES-23" in queja.campo  # el número de la orden
 
     def test_dos_referencias_catastrales_en_una_linea(self):
         assert la(cambia(BUENA, self.RCAT, self.RCAT * 2), "SPFE-REFERENCIA-CATASTRAL").encontrado == "más de una"
@@ -941,17 +1022,18 @@ class TestLineasDeCobro:
     def test_la_retencion_con_un_concepto_fuera_de_l5_y_otro_esquema(self):
         malo = cambia(cambia(BUENA, "<cbc:TaxTypeCode>01<", "<cbc:TaxTypeCode>99<"), "<cbc:ID>WTH<", "<cbc:ID>IRPF<")
         queja = la(malo, "SPFE-RETENCION")
-        assert "BT-ES-39" in queja.mensaje and "«99»" in queja.mensaje and "BT-ES-38" in queja.mensaje
+        # Con los números de la orden: el concepto es BT-ES-21, y el esquema lo pide su grupo.
+        assert "BT-ES-21" in queja.mensaje and "«99»" in queja.mensaje and "«WTH» (BG-ES-4)" in queja.mensaje
 
     def test_la_retencion_sin_su_linea_de_cobro(self):
         linea = ("  <cac:CollectionInvoiceLine>\n    <cbc:ID>urn:aeat:names:specification:ubl:schema:RETE</cbc:ID>\n"
                  "    <cac:Item><cbc:Name>Retencion IRPF</cbc:Name></cac:Item>\n  </cac:CollectionInvoiceLine>\n")
-        assert "BT-ES-32" in la(cambia(BUENA, linea, ""), "SPFE-RETENCION").mensaje
+        assert "BT-ES-16" in la(cambia(BUENA, linea, ""), "SPFE-RETENCION").mensaje
 
     def test_la_linea_de_retencion_sin_retenciones(self):
         inicio = BUENA.index("  <cac:WithholdingTaxTotal>")
         fin = BUENA.index("</cac:WithholdingTaxTotal>\n") + len("</cac:WithholdingTaxTotal>\n")
-        assert "BT-ES-33" in la(BUENA[:inicio] + BUENA[fin:], "SPFE-RETENCION").mensaje
+        assert "BT-ES-17" in la(BUENA[:inicio] + BUENA[fin:], "SPFE-RETENCION").mensaje
 
     def test_el_grupo_de_entidades_mal_identificado_y_sin_base(self):
         malo = cambia(cambia(CON_GRUPO, "ext:id:REGE", "ext:id:OTRA"),
@@ -961,6 +1043,632 @@ class TestLineasDeCobro:
 
 
 # --- Que salga del anexo, y que se niegue si el anexo cambia -------------------
+
+
+# --- La orden publicada ----------------------------------------------------------
+
+# Una factura escrita al pie de la letra del anexo I de la Orden HAC/1028/2026,
+# BOE del 05-10-2026 (BOE-A-2026-20587), con las formas que el borrador de abril
+# no admitía: el proceso de la orden, sin indicador de copia, el vendedor
+# identificado en BT-32 con «LOC» y el atributo «FC» y en BT-30, un anticipo
+# pagado, la retención con el calificador de la L7 de la orden y el QR con el
+# calificador de L10. Medido el 07-10-2026 sobre `cc0a935`, antes de tocar
+# nada: seis ERROR (SPFE-PROCESO, -COPIA, -IMPORTE-PAGADO, -NIF,
+# -LINEA-DE-COBRO y -RETENCION). Con las variantes, más: el tercero, el NIF del
+# comprador en BT-47 y el QR sin descripción.
+PROCESO_DEL_BOE = "urn:aeat:names:specification:ubl:schema:profile:B2B"
+L7_DEL_BOE = "urn:aeat:names:specification:schema:add:"
+
+DEL_BOE = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2">
+  <cbc:UBLVersionID>2.5</cbc:UBLVersionID>
+  <cbc:CustomizationID>{ESPECIFICACION_DEL_EJEMPLO}</cbc:CustomizationID>
+  <cbc:ProfileID>{PROCESO_DEL_BOE}</cbc:ProfileID>
+  <cbc:ID>F-2026-0101</cbc:ID>
+  <cbc:IssueDate>2026-10-06</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+  <cac:AdditionalDocumentReference>
+    <cbc:ID>urn:aeat:names:specification:schema:QR</cbc:ID>
+    <cbc:UUID>https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=B12345674</cbc:UUID>
+    <cbc:DocumentDescription>VERIFACTU</cbc:DocumentDescription>
+  </cac:AdditionalDocumentReference>
+  <cac:AccountingSupplierParty><cac:Party>
+    <cac:PostalAddress>
+      <cbc:StreetName>Calle Mayor 1</cbc:StreetName><cbc:CityName>Madrid</cbc:CityName>
+      <cbc:PostalZone>28001</cbc:PostalZone><cbc:CountrySubentity>Madrid</cbc:CountrySubentity>
+      <cac:Country><cbc:IdentificationCode>ES</cbc:IdentificationCode></cac:Country>
+    </cac:PostalAddress>
+    <cac:PartyTaxScheme><cbc:CompanyID schemeID="FC">B12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>LOC</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
+    <cac:PartyLegalEntity><cbc:RegistrationName>Talleres Ejemplo SL</cbc:RegistrationName><cbc:CompanyID>B12345674</cbc:CompanyID></cac:PartyLegalEntity>
+  </cac:Party></cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty><cac:Party>
+    <cac:PostalAddress>
+      <cbc:StreetName>Calle Menor 2</cbc:StreetName><cbc:CityName>Sevilla</cbc:CityName>
+      <cbc:PostalZone>41001</cbc:PostalZone><cbc:CountrySubentity>Sevilla</cbc:CountrySubentity>
+      <cac:Country><cbc:IdentificationCode>ES</cbc:IdentificationCode></cac:Country>
+    </cac:PostalAddress>
+    <cac:PartyTaxScheme><cbc:CompanyID>ESA12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
+    <cac:PartyLegalEntity><cbc:RegistrationName>Comercio Cliente SA</cbc:RegistrationName></cac:PartyLegalEntity>
+  </cac:Party></cac:AccountingCustomerParty>
+  <cac:PrepaidPayment><cbc:PaidAmount currencyID="EUR">20.00</cbc:PaidAmount><cbc:PaidDate>2026-10-06</cbc:PaidDate></cac:PrepaidPayment>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="EUR">100.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:WithholdingTaxTotal>
+    <cbc:TaxAmount currencyID="EUR">15.00</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="EUR">100.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="EUR">15.00</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>15</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>WTH</cbc:ID><cbc:TaxTypeCode>01</cbc:TaxTypeCode></cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:WithholdingTaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="EUR">100.00</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="EUR">121.00</cbc:TaxInclusiveAmount>
+    <cbc:PrepaidAmount currencyID="EUR">20.00</cbc:PrepaidAmount>
+    <cbc:PayableAmount currencyID="EUR">86.00</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:CollectionInvoiceLine>
+    <cbc:ID>{L7_DEL_BOE}RETE</cbc:ID>
+    <cac:Item><cbc:Name>Retencion IRPF</cbc:Name></cac:Item>
+  </cac:CollectionInvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Name>Asesoria fiscal de octubre</cbc:Name>
+      <cac:ClassifiedTaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory>
+      <cac:AdditionalItemProperty><cbc:Name>REGI</cbc:Name><cbc:Value>01</cbc:Value><cbc:ValueQualifier>IVA</cbc:ValueQualifier></cac:AdditionalItemProperty>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="EUR">100.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>"""
+
+_VENDEDOR_LOC = ('<cac:PartyTaxScheme><cbc:CompanyID schemeID="FC">B12345674</cbc:CompanyID>'
+                 '<cac:TaxScheme><cbc:ID>LOC</cbc:ID>')
+_COMPRADOR_VAT = ("<cac:PartyTaxScheme><cbc:CompanyID>ESA12345674</cbc:CompanyID>"
+                  "<cac:TaxScheme><cbc:ID>VAT</cbc:ID>")
+_TERCERO_DEL_BOE = """    <cac:ServiceProviderParty>
+      <cbc:ServiceTypeCode>FacturaciónPorTercero</cbc:ServiceTypeCode>
+      <cac:Party>
+        <cac:PartyTaxScheme><cbc:CompanyID schemeID="FC">B87654321</cbc:CompanyID><cac:TaxScheme><cbc:ID>LOC</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
+        <cac:PartyLegalEntity><cbc:RegistrationName>Gestoria Ejemplo SL</cbc:RegistrationName></cac:PartyLegalEntity>
+      </cac:Party>
+    </cac:ServiceProviderParty>
+  </cac:Party></cac:AccountingSupplierParty>"""
+_COBROS_DEL_BOE = "".join(
+    f"""  <cac:CollectionInvoiceLine>
+    <cbc:ID>{prefijo}{valor}</cbc:ID>
+    <cac:Item><cbc:Name>{nombre}</cbc:Name></cac:Item>
+  </cac:CollectionInvoiceLine>
+""" for prefijo, valor, nombre in (
+        (L7_DEL_BOE, "IEDMT", "Impuesto especial sobre determinados medios de transporte"),
+        (L7_DEL_BOE, "SUPL", "Tasas pagadas por cuenta del cliente"),
+        (L7_DEL_BOE, "MINO", "Devolucion de un suplido"),
+        ("", "OTROS", "Otra tasa"),
+    ))
+
+CON_EL_TERCERO_DEL_BOE = cambia(DEL_BOE, "  </cac:Party></cac:AccountingSupplierParty>", _TERCERO_DEL_BOE)
+CON_LOS_COBROS_DEL_BOE = cambia(DEL_BOE, "  <cac:InvoiceLine>", _COBROS_DEL_BOE + "  <cac:InvoiceLine>")
+CON_EL_COMPRADOR_EN_BT47 = cambia(
+    DEL_BOE, _COMPRADOR_VAT,
+    '<cac:PartyTaxScheme><cbc:CompanyID schemeID="FC">A12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>LOC</cbc:ID>')
+CON_EL_VENDEDOR_EN_BT31 = cambia(
+    DEL_BOE, _VENDEDOR_LOC,
+    "<cac:PartyTaxScheme><cbc:CompanyID>ESB12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID>")
+CON_LA_RETENCION_SIN_CALIFICADOR = cambia(DEL_BOE, f"{L7_DEL_BOE}RETE<", "RETE<")
+CON_EL_QR_SIN_DESCRIPCION = cambia(DEL_BOE, "<cbc:DocumentDescription>VERIFACTU</cbc:DocumentDescription>", "")
+# El recargo de equivalencia como lo pone la orden: sin línea propia, en el
+# desglose del IVA (BG-23) con la categoría N, su tipo (BT-119) y su cuota
+# (BT-117), sobre la misma base que la entrada S. La cuota total y el total con
+# impuestos lo suman (BR-CO-14 y BR-CO-15). Medido el 07-10-2026 con la N ya
+# admitida: IVA-BASE en ERROR, «base fantasma» al 5,2%, porque ninguna línea
+# va a ese tipo, y ninguna puede ir (BT-151 y BT-152 son 1..1 por línea).
+CON_EL_RECARGO_EN_EL_DESGLOSE = cambia(cambia(cambia(cambia(
+    DEL_BOE,
+    "    </cac:TaxSubtotal>\n  </cac:TaxTotal>",
+    """    </cac:TaxSubtotal>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="EUR">100.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="EUR">5.20</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:ID>N</cbc:ID><cbc:Percent>5.2</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>"""),
+    '<cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>\n    <cac:TaxSubtotal>',
+    '<cbc:TaxAmount currencyID="EUR">26.20</cbc:TaxAmount>\n    <cac:TaxSubtotal>'),
+    '<cbc:TaxInclusiveAmount currencyID="EUR">121.00</cbc:TaxInclusiveAmount>',
+    '<cbc:TaxInclusiveAmount currencyID="EUR">126.20</cbc:TaxInclusiveAmount>'),
+    '<cbc:PayableAmount currencyID="EUR">86.00</cbc:PayableAmount>',
+    '<cbc:PayableAmount currencyID="EUR">91.20</cbc:PayableAmount>')
+
+# El grupo de entidades de nivel avanzado: la línea lleva el importe total de
+# la contraprestación (BT-131) y el desglose, la base imponible a coste
+# (BT-116), con la categoría N. Las dos cosas las dice la orden en sus filas, y
+# no tienen por qué coincidir. Medido el 07-10-2026: IVA-BASE en ERROR,
+# esperado 150,00 (la línea) y encontrado 100,00 (la base a coste).
+CON_EL_GRUPO_DE_ENTIDADES = cambia(cambia(cambia(cambia(cambia(
+    DEL_BOE,
+    '<cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>\n    <cac:Item>',
+    '<cbc:LineExtensionAmount currencyID="EUR">150.00</cbc:LineExtensionAmount>\n    <cac:Item>'),
+    "<cac:ClassifiedTaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent>",
+    "<cac:ClassifiedTaxCategory><cbc:ID>N</cbc:ID><cbc:Percent>21</cbc:Percent>"),
+    "<cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent>",
+    "<cac:TaxCategory><cbc:ID>N</cbc:ID><cbc:Percent>21</cbc:Percent>"),
+    """    <cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="EUR">100.00</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="EUR">121.00</cbc:TaxInclusiveAmount>""",
+    """    <cbc:LineExtensionAmount currencyID="EUR">150.00</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="EUR">150.00</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="EUR">171.00</cbc:TaxInclusiveAmount>"""),
+    '<cbc:PayableAmount currencyID="EUR">86.00</cbc:PayableAmount>',
+    '<cbc:PayableAmount currencyID="EUR">136.00</cbc:PayableAmount>')
+
+# Una inversión del sujeto pasivo (AE) con el comprador identificado solo en
+# BT-47, con «LOC» y «FC», como dice la fila de la orden. BR-AE-02 pide el
+# identificador de IVA del comprador (BT-48) o su registro legal (BT-47), y lo
+# buscaba donde lo pone la vinculación de 2017, en cac:PartyLegalEntity.
+# Medido el 07-10-2026: BR-AE-02 en ERROR, «no identifica fiscalmente al
+# comprador», con el NIF del comprador puesto donde lo pide la orden.
+CON_AE_Y_EL_COMPRADOR_EN_BT47 = cambia(cambia(cambia(cambia(cambia(cambia(
+    CON_EL_COMPRADOR_EN_BT47,
+    "<cac:ClassifiedTaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent>",
+    "<cac:ClassifiedTaxCategory><cbc:ID>AE</cbc:ID><cbc:Percent>0</cbc:Percent>"),
+    """      <cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent><cac:TaxScheme>""",
+    """      <cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:ID>AE</cbc:ID><cbc:Percent>0</cbc:Percent><cbc:TaxExemptionReasonCode>VATEX-EU-AE</cbc:TaxExemptionReasonCode><cac:TaxScheme>"""),
+    '<cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>\n    <cac:TaxSubtotal>',
+    '<cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount>\n    <cac:TaxSubtotal>'),
+    '<cbc:TaxInclusiveAmount currencyID="EUR">121.00</cbc:TaxInclusiveAmount>',
+    '<cbc:TaxInclusiveAmount currencyID="EUR">100.00</cbc:TaxInclusiveAmount>'),
+    '<cbc:PayableAmount currencyID="EUR">86.00</cbc:PayableAmount>',
+    '<cbc:PayableAmount currencyID="EUR">65.00</cbc:PayableAmount>'),
+    "<cbc:Name>Asesoria fiscal de octubre</cbc:Name>",
+    "<cbc:Name>Ejecucion de obra con inversion del sujeto pasivo</cbc:Name>")
+
+# La L8 de la orden da el valor, «REGI», y aparte el calificador
+# urn:aeat:names:specification:schema:lin:, sin decir cómo se juntan.
+CON_LA_CLAVE_CON_CALIFICADOR = cambia(DEL_BOE, "<cbc:Name>REGI</cbc:Name>",
+                                      "<cbc:Name>urn:aeat:names:specification:schema:lin:REGI</cbc:Name>")
+
+# Una segunda línea y su desglose en la categoría N, la del recargo de
+# equivalencia en la L4 de la orden, al 5,2%. Medido el 07-10-2026 antes de
+# tocar nada: BR-CL-17 y BR-CL-18 en ERROR, e IVA-CATEGORIA-RARA e IVA-TIPO en
+# AVISO, porque la lista de 2017 no tiene la N.
+_LINEA_N = """  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="H87">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">0.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Name>Recargo de equivalencia</cbc:Name>
+      <cac:ClassifiedTaxCategory><cbc:ID>N</cbc:ID><cbc:Percent>5.2</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory>
+      <cac:AdditionalItemProperty><cbc:Name>REGI</cbc:Name><cbc:Value>01</cbc:Value><cbc:ValueQualifier>IVA</cbc:ValueQualifier></cac:AdditionalItemProperty>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="EUR">0.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+"""
+_SUBTOTAL_N = """    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="EUR">0.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:ID>N</cbc:ID><cbc:Percent>5.2</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>"""
+CON_LA_N = cambia(
+    cambia(DEL_BOE, "</cac:InvoiceLine>\n</Invoice>", "</cac:InvoiceLine>\n" + _LINEA_N + "</Invoice>"),
+    "    </cac:TaxSubtotal>\n  </cac:TaxTotal>", "    </cac:TaxSubtotal>\n" + _SUBTOTAL_N)
+
+
+def _en_la_categoria(xml: str, viejo: str, nuevo: str) -> str:
+    """La línea y el desglose al 21% de una categoría pasados a otra.
+
+    Con el tipo en la búsqueda: la retención de la factura de la orden también
+    lleva un `cac:TaxCategory` S, al 15%, y ésa no es del IVA.
+    """
+    tipo = "</cbc:ID><cbc:Percent>21</cbc:Percent>"
+    return cambia(cambia(xml, f"<cac:ClassifiedTaxCategory><cbc:ID>{viejo}{tipo}",
+                         f"<cac:ClassifiedTaxCategory><cbc:ID>{nuevo}{tipo}"),
+                  f"<cac:TaxCategory><cbc:ID>{viejo}{tipo}", f"<cac:TaxCategory><cbc:ID>{nuevo}{tipo}")
+
+
+# La D (agencias de viajes) y la F (bienes usados) de la L4 de la orden, con
+# la línea y el desglose de la factura de la orden. Antes de publicar solo la
+# N tenía prueba: con `_L4_QUE_LA_NORMA_NO_TIENE` reducido a la N, la suite
+# entera pasaba y estas dos salían con BR-CL-17 y BR-CL-18 en ERROR (lo vio la
+# revisión del 07-10-2026).
+CON_LA_D = _en_la_categoria(DEL_BOE, "S", "D")
+CON_LA_F = _en_la_categoria(DEL_BOE, "S", "F")
+# Y la D con la base del desglose distinta del importe de la línea, que es lo
+# que pasa si la base es el margen: el salto de IVA-BASE, medido también en ella.
+CON_LA_D_SOBRE_EL_MARGEN = _en_la_categoria(CON_EL_GRUPO_DE_ENTIDADES, "N", "D")
+
+# La referencia catastral con el calificador de L8 delante, como la clave de
+# régimen. `_referencias_catastrales` la lee igual que la REGI desde el
+# 07-10-2026, y hasta la revisión no lo probaba nadie.
+_RCAT_CON_CALIFICADOR = (
+    "<cac:AdditionalItemProperty><cbc:Name>urn:aeat:names:specification:schema:lin:RCAT</cbc:Name>"
+    "<cbc:Value>9872023VH5797S0001WX</cbc:Value><cbc:ValueQualifier>{}</cbc:ValueQualifier>"
+    "</cac:AdditionalItemProperty>")
+_REGI_DEL_BOE = ("<cac:AdditionalItemProperty><cbc:Name>REGI</cbc:Name><cbc:Value>01</cbc:Value>"
+                 "<cbc:ValueQualifier>IVA</cbc:ValueQualifier></cac:AdditionalItemProperty>")
+CON_LA_REFERENCIA_CON_CALIFICADOR = cambia(
+    DEL_BOE, _REGI_DEL_BOE, _REGI_DEL_BOE + "\n      " + _RCAT_CON_CALIFICADOR.format("01"))
+
+
+class TestUnaFacturaEscritaComoDiceLaOrden:
+    """La primera tanda del BOE: que lo que la orden admite no salga condenado.
+
+    Lo que la orden ya no admite (las claves 18, 19 y 20, las líneas REEQ y
+    REGE, el proceso y la especificación de abril) se sigue aceptando: dejar
+    de hacerlo pide poner todas las reglas al texto, y es otra tanda.
+    """
+
+    @pytest.mark.parametrize("xml", [
+        DEL_BOE, CON_EL_TERCERO_DEL_BOE, CON_LOS_COBROS_DEL_BOE, CON_EL_COMPRADOR_EN_BT47,
+        CON_EL_VENDEDOR_EN_BT31, CON_LA_RETENCION_SIN_CALIFICADOR, CON_EL_QR_SIN_DESCRIPCION,
+        CON_LA_N, CON_LA_CLAVE_CON_CALIFICADOR, CON_EL_RECARGO_EN_EL_DESGLOSE,
+        CON_EL_GRUPO_DE_ENTIDADES, CON_AE_Y_EL_COMPRADOR_EN_BT47,
+        CON_LA_D, CON_LA_F, CON_LA_D_SOBRE_EL_MARGEN, CON_LA_REFERENCIA_CON_CALIFICADOR,
+    ], ids=["la de la orden", "con el tercero", "con suplidos, minoraciones e impuestos",
+            "el comprador en BT-47", "el vendedor en BT-31", "la retención sin calificador",
+            "el QR sin descripción", "con la categoría N", "la clave con calificador",
+            "el recargo en el desglose", "el grupo de entidades",
+            "AE con el comprador en BT-47", "con la categoría D", "con la categoría F",
+            "la D sobre el margen", "la referencia catastral con calificador"])
+    def test_no_da_ni_un_error_ni_un_aviso_en_todo_el_validador(self, xml):
+        informe = factura.validar(xml.encode("utf-8"))
+        assert [(i.codigo, i.campo) for i in informe.errores] == []
+        assert [(i.codigo, i.campo) for i in informe.avisos] == []
+
+    # Cada frase de lo que la nota SPFE-BORRADOR dice que ya se admite, con un
+    # trozo que la reconoce, las facturas que lo demuestran y qué tiene que
+    # llevar cada una para que lo demuestre de verdad. Una frase nueva en
+    # `LO_QUE_YA_SE_ADMITE` sin su fila aquí no pasa: la nota prometería algo
+    # que nadie ha visto pasar el validador entero.
+    QUE_LO_DEMUESTRA = (
+        ("el tipo de proceso", [DEL_BOE], lambda x: PROCESO_DEL_BOE in x),
+        ("sin indicador de copia", [DEL_BOE], lambda x: "CopyIndicator" not in x),
+        ("«LOC» y «FC» del vendedor", [DEL_BOE, CON_EL_COMPRADOR_EN_BT47, CON_EL_TERCERO_DEL_BOE],
+         lambda x: 'schemeID="FC"' in x),
+        ("registro del comprador (BT-47)", [CON_AE_Y_EL_COMPRADOR_EN_BT47],
+         lambda x: "<cbc:ID>AE</cbc:ID>" in x and 'schemeID="FC">A12345674' in x),
+        ("el importe pagado", [DEL_BOE], lambda x: '<cbc:PrepaidAmount currencyID="EUR">20.00' in x),
+        ("su lista L7", [CON_LOS_COBROS_DEL_BOE, CON_LA_RETENCION_SIN_CALIFICADOR],
+         lambda x: "<cac:CollectionInvoiceLine>" in x),
+        ("nombre del tercero", [CON_EL_TERCERO_DEL_BOE],
+         lambda x: "<cbc:RegistrationName>Gestoria Ejemplo SL</cbc:RegistrationName>" in x),
+        ("el QR sin descripción", [CON_EL_QR_SIN_DESCRIPCION], lambda x: "VERIFACTU" not in x),
+        ("clave de régimen con el calificador", [CON_LA_CLAVE_CON_CALIFICADOR],
+         lambda x: "schema:lin:REGI<" in x),
+        ("las categorías N, D y F", [CON_LA_N, CON_LA_D, CON_LA_F, CON_EL_RECARGO_EN_EL_DESGLOSE,
+                                     CON_EL_GRUPO_DE_ENTIDADES, CON_LA_D_SOBRE_EL_MARGEN],
+         lambda x: any(f"<cac:TaxCategory><cbc:ID>{c}</cbc:ID>" in x for c in "NDF")),
+    )
+
+    def test_cada_cosa_que_la_nota_dice_admitir_tiene_su_factura(self):
+        """Las frases y las filas se casan una a una, y cada factura pasa limpia."""
+        frases = solucion_publica.LO_QUE_YA_SE_ADMITE
+        for trozo, _, _ in self.QUE_LO_DEMUESTRA:
+            casadas = [f for f in frases if trozo in f]
+            assert len(casadas) == 1, (trozo, casadas)
+        for frase in frases:
+            casados = [t for t, _, _ in self.QUE_LO_DEMUESTRA if t in frase]
+            assert len(casados) == 1, (frase, casados)
+        for trozo, facturas, lo_lleva in self.QUE_LO_DEMUESTRA:
+            for xml in facturas:
+                assert lo_lleva(xml), trozo
+                informe = factura.validar(xml.encode("utf-8"))
+                assert [(i.codigo, i.campo) for i in informe.errores + informe.avisos] == [], trozo
+
+    def test_la_nota_y_el_glosario_dicen_la_misma_lista(self):
+        """Estaba escrita dos veces y ya no decía lo mismo: el glosario se había
+        dejado la clave de régimen. Lo vio el revisor de promesas el 07-10-2026,
+        antes de publicar."""
+        cosas = solucion_publica.LO_QUE_YA_SE_ADMITE
+        frase = "; ".join(cosas[:-1]) + "; y " + cosas[-1]
+        assert frase in la(DEL_BOE, "SPFE-BORRADOR").mensaje
+        assert frase in glosario.CODIGOS["SPFE-BORRADOR"]
+
+    def test_dice_en_notas_lo_que_ha_aceptado_y_con_que_base(self):
+        informe = factura.validar(DEL_BOE.encode("utf-8"))
+        assert {i.codigo for i in informe.notas} == {
+            "SPFE-BORRADOR", "SPFE-COPIA", "SPFE-IMPORTE-PAGADO", "SPFE-TOTAL-A-PAGAR"}
+
+    def test_el_proceso_de_la_orden_es_el_que_se_pide(self):
+        assert las(DEL_BOE, "SPFE-PROCESO") == []
+        otro = cambia(DEL_BOE, PROCESO_DEL_BOE, PROCESO_DEL_BOE + "X")
+        assert la(otro, "SPFE-PROCESO").esperado == PROCESO_DEL_BOE
+        del_ejemplo = cambia(DEL_BOE, PROCESO_DEL_BOE, PROCESO_DEL_EJEMPLO)
+        nota = la(del_ejemplo, "SPFE-PROCESO")
+        # Una NOTA que ya no dice que el texto no está publicado: dice el valor
+        # que fija la orden, y que es el que manda.
+        assert nota.gravedad == NOTA and nota.esperado == PROCESO_DEL_BOE
+        assert "05-10-2026" in nota.mensaje and "no está publicad" not in nota.mensaje
+
+    def test_el_nif_con_loc_tiene_que_llevar_fc(self):
+        """La orden pide las dos cosas: el impuesto «LOC» y el atributo «FC»."""
+        sin_fc = cambia(DEL_BOE, ' schemeID="FC">B12345674', ">B12345674")
+        queja = la(sin_fc, "SPFE-NIF")
+        assert queja.campo == "NIF del vendedor (BT-31 o BT-32)"
+        assert queja.encontrado == "B12345674 con el impuesto «LOC»"
+        otro = cambia(DEL_BOE, ' schemeID="FC">B12345674', ' schemeID="NIF">B12345674')
+        assert la(otro, "SPFE-NIF").encontrado == "B12345674 con el impuesto «LOC» y schemeID «NIF»"
+
+    @pytest.mark.parametrize("identificador", [
+        f"{L7_DEL_BOE}REEQ",        # la de abril, con el calificador de la orden
+        f"{L7_DEL_BOE}RETEX",       # un parecido
+        f"X{L7_DEL_BOE}RETE",       # el calificador con algo delante
+        "urn:aeat:names:specification:ubl:schema:IEDMT",  # la de la orden, con la URN de abril
+        "REGE",                     # la de abril, sin calificador
+    ])
+    def test_lo_que_no_es_de_ninguna_l7_sigue_sin_valer(self, identificador):
+        mala = cambia(DEL_BOE, f"{L7_DEL_BOE}RETE<", f"{identificador}<")
+        assert la(mala, "SPFE-LINEA-DE-COBRO").encontrado == identificador
+
+    def test_dos_retenciones_son_dos_aunque_se_escriban_distinto(self):
+        """Una con la URN de abril y otra con el calificador de la orden siguen
+        siendo dos grupos de retenciones, y la orden admite uno (`0..1`)."""
+        otra = """  <cac:CollectionInvoiceLine>
+    <cbc:ID>urn:aeat:names:specification:ubl:schema:RETE</cbc:ID>
+    <cac:Item><cbc:Name>Otra retencion</cbc:Name></cac:Item>
+  </cac:CollectionInvoiceLine>
+"""
+        doble = cambia(DEL_BOE, "  <cac:InvoiceLine>", otra + "  <cac:InvoiceLine>")
+        assert "retenciones" in la(doble, "SPFE-LINEA-DE-COBRO").mensaje
+
+    def test_la_retencion_de_la_orden_se_reconoce_y_se_le_mide_lo_demas(self):
+        """Antes no se veía la línea, y salía que le faltaba. Ahora se ve, y se
+        le pide la suma, como a la de abril."""
+        inicio = DEL_BOE.index("  <cac:WithholdingTaxTotal>")
+        fin = DEL_BOE.index("</cac:WithholdingTaxTotal>\n") + len("</cac:WithholdingTaxTotal>\n")
+        sin_suma = DEL_BOE[:inicio] + DEL_BOE[fin:]
+        assert "la suma de retenciones" in la(sin_suma, "SPFE-RETENCION").mensaje
+
+    def test_al_tercero_de_la_orden_se_le_pide_el_nombre_y_el_fc(self):
+        sin_nombre = cambia(CON_EL_TERCERO_DEL_BOE,
+                            "<cbc:RegistrationName>Gestoria Ejemplo SL</cbc:RegistrationName>", "")
+        assert "el nombre o razón social (BT-ES-3)" in la(sin_nombre, "SPFE-TERCERO").mensaje
+        sin_fc = cambia(CON_EL_TERCERO_DEL_BOE, ' schemeID="FC">B87654321', ">B87654321")
+        assert "«LOC» con el atributo «FC»" in la(sin_fc, "SPFE-TERCERO").mensaje
+
+    @pytest.mark.parametrize(("xml", "categoria"), [
+        (CON_LA_N, "N"), (CON_LA_D, "D"), (CON_LA_F, "F"),
+    ], ids=["N", "D", "F"])
+    def test_la_n_la_d_y_la_f_se_aceptan_y_se_dice_con_que_base(self, xml, categoria):
+        nota = la(xml, "SPFE-CATEGORIA")
+        assert nota.gravedad == NOTA and nota.encontrado == categoria
+        assert "lista L4 de la orden" in nota.mensaje and "no se ha comprobado" in nota.mensaje
+        # Las cuatro reglas que no se les aplican, con su nombre: decía «los
+        # tipos de IVA» y callaba IVA-CATEGORIA-RARA (el revisor de promesas,
+        # antes de publicar).
+        for regla in ("BR-CL-17", "BR-CL-18", "IVA-CATEGORIA-RARA", "IVA-TIPO"):
+            assert regla in nota.mensaje, regla
+
+    def test_la_n_tiene_nombre_en_los_mensajes_de_la_norma(self):
+        """Ni «categoría no reconocida» en el mismo informe que dice que la admite.
+
+        Con la cuota del recargo mal, BR-CO-17 hablaba de «N (categoría no
+        reconocida)» y la NOTA SPFE-CATEGORIA de la misma factura decía que la
+        N está en la L4 de la orden. Lo vio la revisión del 07-10-2026, antes
+        de publicar. El nombre va aparte
+        de `iva.CATEGORIAS`, que es la lista de la norma y la que da el «Las
+        admitidas son…» de IVA-CATEGORIA-RARA.
+        """
+        mala = cambia(CON_EL_RECARGO_EN_EL_DESGLOSE,
+                      '<cbc:TaxAmount currencyID="EUR">5.20</cbc:TaxAmount>',
+                      '<cbc:TaxAmount currencyID="EUR">9.00</cbc:TaxAmount>')
+        cuota = next(i for i in factura.validar(mala.encode("utf-8")).errores
+                     if i.codigo == "BR-CO-17")
+        assert "no reconocida" not in cuota.mensaje and "no reconocida" not in cuota.campo
+        assert "N (regímenes nacionales" in cuota.mensaje
+        for codigo in ("N", "D", "F"):
+            assert "no reconocida" not in iva.nombre_categoria(codigo)
+            assert codigo not in iva.CATEGORIAS
+        assert iva.nombre_categoria("X") == "X (categoría no reconocida)"
+
+    def test_un_abono_no_recibe_la_lista_de_la_orden(self):
+        """Al abono no se le mide con el anexo, y por eso tampoco con su L4.
+
+        `solucion_publica.reglas` corta en el abono antes de `_categorias`, y
+        la NOTA que dice qué se aceptó no salía; pero la N se aceptaba igual,
+        sin BR-CL-17, BR-CL-18 ni los avisos de IVA. Lo vio la revisión del
+        07-10-2026, antes de publicar.
+        """
+        abono = (CON_LA_N.replace("Invoice-2", "CreditNote-2")
+                 .replace("<Invoice ", "<CreditNote ").replace("</Invoice>", "</CreditNote>")
+                 .replace("<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>",
+                          "<cbc:CreditNoteTypeCode>381</cbc:CreditNoteTypeCode>")
+                 .replace("<cac:InvoiceLine>", "<cac:CreditNoteLine>")
+                 .replace("</cac:InvoiceLine>", "</cac:CreditNoteLine>")
+                 .replace("<cbc:InvoicedQuantity", "<cbc:CreditedQuantity")
+                 .replace("</cbc:InvoicedQuantity>", "</cbc:CreditedQuantity>"))
+        assert "<Invoice " not in abono and "<cac:InvoiceLine>" not in abono
+        informe = factura.validar(abono.encode("utf-8"))
+        assert {"BR-CL-17", "BR-CL-18"} <= {i.codigo for i in informe.errores}
+        assert "SPFE-CATEGORIA" not in {i.codigo for i in informe.incidencias}
+
+    def test_la_referencia_catastral_con_calificador_se_mide(self):
+        mala = cambia(DEL_BOE, _REGI_DEL_BOE, _REGI_DEL_BOE + _RCAT_CON_CALIFICADOR.format("05"))
+        assert la(mala, "SPFE-REFERENCIA-CATASTRAL").encontrado == "05"
+
+    def test_la_n_no_tapa_un_codigo_que_no_es_de_ninguna_lista(self):
+        """La N se añade a la lista; la queja no se borra después.
+
+        Con `_SOBRA_SI`, que apaga el código entero, una X en otra línea de la
+        misma factura se habría callado con la N. Así sigue saliendo, y sola.
+        """
+        con_una_x = cambia(CON_LA_N, "<cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory>",
+                           "<cbc:ID>X</cbc:ID><cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory>")
+        queja = next(i for i in factura.validar(con_una_x.encode("utf-8")).errores
+                     if i.codigo == "BR-CL-18")
+        assert queja.encontrado == "X"
+
+    def test_sin_declarar_la_solucion_publica_la_n_se_mide_como_siempre(self):
+        """Qué lista rige para quien declara la edición de 2026 sin la solución
+        pública no está decidido, y entretanto no se cambia nada."""
+        sin = cambia(CON_LA_N, ESPECIFICACION_DEL_EJEMPLO, "urn:cen.eu:en16931:2026")
+        errores = {i.codigo for i in factura.validar(sin.encode("utf-8")).errores}
+        assert {"BR-CL-17", "BR-CL-18"} <= errores
+
+    @pytest.mark.parametrize("nombre", [
+        "XREGI", "urn:aeat:names:specification:schema:lin:REGIX",
+        "urn:aeat:names:specification:ubl:schema:lin:REGI",
+    ])
+    def test_un_parecido_de_regi_no_es_una_clave_de_regimen(self, nombre):
+        parecido = cambia(DEL_BOE, "<cbc:Name>REGI</cbc:Name>", f"<cbc:Name>{nombre}</cbc:Name>")
+        assert la(parecido, "SPFE-CLAVE-DE-REGIMEN").encontrado == "(falta)"
+
+    def test_la_base_de_la_n_no_se_compara_pero_su_cuota_si(self):
+        """La base no se ata a las líneas; BR-CO-17 sigue atando la cuota."""
+        mala = cambia(CON_EL_RECARGO_EN_EL_DESGLOSE,
+                      '<cbc:TaxAmount currencyID="EUR">5.20</cbc:TaxAmount>',
+                      '<cbc:TaxAmount currencyID="EUR">9.00</cbc:TaxAmount>')
+        errores = {i.codigo for i in factura.validar(mala.encode("utf-8")).errores}
+        assert "BR-CO-17" in errores and "IVA-BASE" not in errores
+
+    def test_bt47_de_la_orden_solo_cuenta_con_loc_y_fc(self):
+        sin_fc = cambia(CON_AE_Y_EL_COMPRADOR_EN_BT47, ' schemeID="FC">A12345674', ">A12345674")
+        errores = {i.codigo for i in factura.validar(sin_fc.encode("utf-8")).errores}
+        assert "BR-AE-02" in errores
+        # Y la otra mitad: el FC bajo otro impuesto que «LOC» tampoco es el
+        # BT-47 de la orden. Hasta la revisión del 07-10-2026 solo se quitaba
+        # el FC, y el filtro de «LOC» se podía borrar sin que nada fallara.
+        otro_impuesto = cambia(
+            CON_AE_Y_EL_COMPRADOR_EN_BT47,
+            'schemeID="FC">A12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>LOC</cbc:ID>',
+            'schemeID="FC">A12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>IRPF</cbc:ID>')
+        errores = {i.codigo for i in factura.validar(otro_impuesto.encode("utf-8")).errores}
+        assert "BR-AE-02" in errores
+
+    @pytest.mark.parametrize(("viejo", "nuevo"), [
+        ('schemeID="FC">A12345674', 'schemeID="FC ">A12345674'),
+        ("A12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>LOC</cbc:ID>",
+         "A12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>LOC </cbc:ID>"),
+        ("A12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>LOC</cbc:ID>",
+         "A12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>\n LOC\n</cbc:ID>"),
+    ], ids=["FC con un espacio", "LOC con un espacio", "LOC entre saltos de línea"])
+    def test_los_espacios_de_loc_y_fc_se_leen_igual_en_las_dos_reglas(self, viejo, nuevo):
+        """SPFE-NIF y BR-AE-02 no pueden decir lo contrario del mismo NIF.
+
+        `_nif_bien_puesto` recorta los espacios, como todo el módulo; el BT-47
+        de la orden se buscaba con el texto exacto, y un espacio tras «FC»
+        daba el NIF por bien puesto y, a la vez, al comprador por no
+        identificado. Lo vio la revisión del 07-10-2026, antes de publicar.
+        """
+        con_espacios = cambia(CON_AE_Y_EL_COMPRADOR_EN_BT47, viejo, nuevo)
+        errores = {i.codigo for i in factura.validar(con_espacios.encode("utf-8")).errores}
+        assert errores == set()
+
+    def test_sin_desglose_el_bt47_de_la_orden_sigue_contando(self):
+        """La rama de BR-CO-18 también mira BR-AE-02, y tiene que mirarlo igual.
+
+        Esa rama no recibía el sitio de la orden, y una AE sin desglose salía
+        con BR-AE-02 por tener al comprador donde lo pone la orden, además de
+        con BR-CO-18 por no traer desglose. Lo vio la revisión del 07-10-2026,
+        antes de publicar.
+        """
+        inicio = CON_AE_Y_EL_COMPRADOR_EN_BT47.index("  <cac:TaxTotal>")
+        fin = CON_AE_Y_EL_COMPRADOR_EN_BT47.index("</cac:TaxTotal>\n") + len("</cac:TaxTotal>\n")
+        sin_desglose = CON_AE_Y_EL_COMPRADOR_EN_BT47[:inicio] + CON_AE_Y_EL_COMPRADOR_EN_BT47[fin:]
+        errores = {i.codigo for i in factura.validar(sin_desglose.encode("utf-8")).errores}
+        assert "BR-CO-18" in errores and "BR-AE-02" not in errores
+
+    def test_sin_declarar_la_solucion_publica_bt47_es_el_de_la_norma(self):
+        """Fuera de la solución pública, BT-47 sigue siendo el registro legal
+        de la vinculación de 2017, y el NIF con LOC no lo cumple."""
+        sin = cambia(CON_AE_Y_EL_COMPRADOR_EN_BT47, ESPECIFICACION_DEL_EJEMPLO, "urn:cen.eu:en16931:2026")
+        errores = {i.codigo for i in factura.validar(sin.encode("utf-8")).errores}
+        assert "BR-AE-02" in errores
+
+    def test_el_qr_con_el_calificador_solo_se_reconoce(self):
+        """La fila dice «usar «QR»», y la lista L10 da el esquema aparte.
+
+        Hasta el 07-10-2026 un QR escrito «QR» a secas no era el QR: no se le
+        miraba ni la dirección ni si estaba repetido. Ahora sí, y sin la
+        dirección sale el ERROR de siempre.
+        """
+        solo = cambia(DEL_BOE, "<cbc:ID>urn:aeat:names:specification:schema:QR</cbc:ID>",
+                      "<cbc:ID>QR</cbc:ID>")
+        assert las(solo, "SPFE-QR") == []
+        sin_direccion = cambia(
+            solo,
+            "<cbc:UUID>https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=B12345674</cbc:UUID>",
+            "")
+        assert la(sin_direccion, "SPFE-QR").encontrado == "(falta)"
+
+    def test_ningun_mensaje_dice_que_la_orden_no_esta_publicada(self):
+        """Ni en la factura de la orden ni en sus variantes, ni rompiéndolas.
+
+        Hasta el 07-10-2026 varios mensajes decían que el anexo nuevo «no está
+        publicado» o que «el anexo nuevo» lo fijaría: la rectificativa, el 381,
+        el identificador de la AEAT y el total a pagar.
+        """
+        casos = [
+            DEL_BOE, CON_LA_N, CON_EL_TERCERO_DEL_BOE, CON_LOS_COBROS_DEL_BOE,
+            cambia(DEL_BOE, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>381<"),
+            cambia(DEL_BOE, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>384<"),
+            cambia(DEL_BOE, ESPECIFICACION_DEL_EJEMPLO,
+                   "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:2.0.0:extended"),
+            EJEMPLO, SIN_LOS_BG24,
+            # Un R9 solo: el AVISO de fuera de L2.A y el «falta la modalidad».
+            # Ninguno de los de arriba llegaba a esos dos mensajes, y los dos
+            # podían volver a decir «no está publicado» con la suite verde.
+            cambia(cambia(DEL_BOE, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>384<"),
+                   "  <cac:AccountingSupplierParty>",
+                   TestLosCalificadoresDeL10.adjunto(
+                       "urn:aeat:names:specification:schema:RECT:TIPO", "texto libre", "R9")
+                   + "  <cac:AccountingSupplierParty>"),
+        ]
+        for xml in casos:
+            for i in spfe(xml):
+                assert "no está publicad" not in i.mensaje, (i.codigo, i.mensaje)
+                assert "anexo nuevo" not in i.mensaje, (i.codigo, i.mensaje)
+
+    def test_el_381_manda_a_los_bg24_de_la_orden(self):
+        queja = la(cambia(DEL_BOE, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>381<"),
+                   "SPFE-TIPO-DE-FACTURA")
+        assert "RECT:TIPO" in queja.mensaje and "BT-3" in queja.mensaje
+        assert "extensión" not in queja.mensaje
+
+    def test_otro_identificador_de_la_aeat_pide_el_de_la_orden(self):
+        otro = cambia(DEL_BOE, ESPECIFICACION_DEL_EJEMPLO,
+                      "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:2.0.0:extended")
+        queja = la(otro, "SPFE-ESPECIFICACION")
+        assert queja.esperado == ESPECIFICACION_DEL_EJEMPLO
+        assert "ejemplo" not in queja.mensaje
+
+    def test_el_total_a_pagar_nombra_la_l7_de_la_orden(self):
+        nota = la(CON_LOS_COBROS_DEL_BOE, "SPFE-TOTAL-A-PAGAR")
+        assert "IEDMT" in nota.mensaje and "BT-115" in nota.mensaje
+
+    def test_el_ejemplo_de_las_claves_sale_de_las_listas(self):
+        """El mensaje decía que la 20 existe en el IVA: en la L3A de la orden ya
+        no. El ejemplo de ahora vale con las dos, y se comprueba con la tabla."""
+        queja = la(cambia(DEL_BOE, "<cbc:Value>01</cbc:Value><cbc:ValueQualifier>IVA<",
+                          "<cbc:Value>17</cbc:Value><cbc:ValueQualifier>IVA<"),
+                   "SPFE-CLAVE-DE-REGIMEN")
+        assert "la 17 existe en el IGIC y no en el IVA" in queja.mensaje
+        assert "la 02 en el IVA y no en el IPSI" in queja.mensaje
+        listas = cius_es.LISTAS
+        assert "17" in listas["L3B"].valores and "17" not in listas["L3A"].valores
+        assert "02" in listas["L3A"].valores and "02" not in listas["L3C"].valores
+
+    def test_la_k_sigue_fuera_de_la_l4_de_la_orden(self):
+        con_k = cambia(DEL_BOE, "<cac:ClassifiedTaxCategory><cbc:ID>S</cbc:ID>",
+                       "<cac:ClassifiedTaxCategory><cbc:ID>K</cbc:ID>")
+        queja = next(i for i in las(con_k, "SPFE-CATEGORIA") if i.gravedad == ERROR)
+        assert queja.encontrado == "K" and "N" in queja.esperado
 
 
 def _recargar_con(monkeypatch, campos):

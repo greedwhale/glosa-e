@@ -40,8 +40,15 @@ _DETALLE_CASA = "no lo exige ninguna norma concreta, es criterio de este validad
 EUROPEA = "EN 16931"
 ESPANOLA = "RD 238/2026"
 # El contenido mínimo de la solución pública. No es el real decreto: es el
-# anexo de una orden que todavía es un proyecto, y la etiqueta lo dice.
-SOLUCION_PUBLICA = "Anexo I (borrador)"
+# anexo I de la Orden HAC/1028/2026. Hasta el 07-10-2026 la etiqueta decía
+# «Anexo I (borrador)», y desde el BOE del 05-10-2026 eso ya no es verdad.
+# Tampoco puede decir la orden a secas mientras queden reglas que miden lo que
+# solo está en el borrador de abril —el recargo de equivalencia, el grupo de
+# entidades—: pondría el nombre de la orden a quejas que la orden no hace. Así
+# que dice el anexo, sin versión, y la nota SPFE-BORRADOR de cada factura dice
+# con qué se ha medido. Cuando todas las reglas midan la orden, la etiqueta
+# podrá nombrarla.
+SOLUCION_PUBLICA = "Anexo I"
 FORMA = "Esquema XSD"
 NACIONAL = "Formato Facturae"
 SELLO = "Firma electrónica"
@@ -59,8 +66,15 @@ SINTAXIS_EDI = "ISO 9735"
 NORMAS: tuple[tuple[str, str, str], ...] = (
     ("BR-", EUROPEA, "la norma europea de factura electrónica"),
     ("CU-", ESPANOLA, "el real decreto español del código único"),
+    # «O, en las reglas que todavía no…»: con la orden a secas, la ficha de
+    # SPFE-RECARGO-DE-EQUIVALENCIA, que solo existe en el borrador, decía «De
+    # dónde viene: el anexo I de la Orden HAC/1028/2026» dos líneas por debajo
+    # de decir que la orden ya no tiene esa línea. Lo vio el revisor de
+    # promesas el 07-10-2026, antes de publicar.
     ("SPFE-", SOLUCION_PUBLICA,
-     "el contenido mínimo de las facturas de la solución pública, en proyecto de orden"),
+     "el contenido mínimo de las facturas de la solución pública: el anexo I de la "
+     "Orden HAC/1028/2026 o, en las reglas que todavía no se han puesto al día, el "
+     "del borrador de abril"),
     ("XSD-", FORMA, "el esquema oficial del formato"),
     ("FE-", NACIONAL, "la especificación española de Facturae"),
     ("EDI-", SINTAXIS_EDI, "la sintaxis de EDIFACT"),

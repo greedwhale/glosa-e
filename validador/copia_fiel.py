@@ -4,9 +4,10 @@
 Qué es una copia fiel
 ---------------------
 Quien no emita por la solución pública tiene que mandarle una **copia fiel** de
-cada factura, en UBL, a la vez que la emite (RD 238/2026, y el artículo 4 del
-proyecto de orden). La factura original sigue siendo la que es —Facturae, CII,
-EDIFACT—; lo que viaja a la AEAT es una copia escrita en otra sintaxis.
+cada factura, en UBL, a la vez que la emite (RD 238/2026, y el artículo 4 de
+la Orden HAC/1028/2026, en el BOE del 05-10-2026). La factura original sigue
+siendo la que es —Facturae, CII, EDIFACT—; lo que viaja a la AEAT es una copia
+escrita en otra sintaxis.
 
 En **UBL 2.5**, desde el 22-09-2026 y por escrito: preguntada si la edición de
 junio de 2026 de la norma vale también fuera de la solución pública, la AEAT
@@ -28,26 +29,34 @@ La respuesta trae además la regla que decide el tono de todo este módulo: un
 concepto del original que no tenga equivalente **se puede omitir o llevar en una
 extensión**, y «si el concepto del original no es equivalente, no se realizará
 la validación del dato». Es decir: que a la copia le falte algo del original no
-es un fallo de nadie. Por eso todo lo que sale de aquí es **NOTA**.
+es un fallo de nadie. Por eso todo lo que sale de aquí es **NOTA**. La orden
+dice lo mismo con otras palabras (artículo 4.2): la copia lleva los conceptos
+del original «que tengan correspondencia semántica equivalente».
 
 Lo que no es esto
 -----------------
 No es un conversor: aquí no se escribe ninguna copia. No valida la copia, que
 es otro documento y se mide con sus propias reglas —las `SPFE-`—. Y no adivina
 dónde se escriben en Facturae los campos españoles del anexo: el anexo los
-describe en UBL, y el 10-09-2026 la AEAT anunció que cambian.
+describe en UBL y de Facturae no dice nada. Hasta el 07-10-2026 aquí se
+añadía que la AEAT había anunciado el 10-09-2026 que esos campos cambiaban;
+cambiaron, y los de ahora son los de la orden.
 
 Lo que sí hace es decir seis cosas distintas sobre la factura que se está
 mirando, y las cuatro últimas son las que no dice nadie:
 
 1. **Lo que llega igual.** La mayor parte.
 2. **Lo que no tiene sitio** y habrá que omitir o meter en una extensión.
-3. **Lo que llega con otro número.** Los totales de Facturae no son los
-   europeos: `InvoiceTotal` **resta las retenciones** y `TotalTaxOutputs`
-   **suma el recargo de equivalencia**, y está en el esquema del formato, no en
-   una interpretación. Quien copie campo a campo pondrá esos importes en
-   `BT-112` y `BT-110` y serán otros. Medido el 20-09-2026 sobre las facturas
-   de terceros que hay aquí: **6 de 14 llevan retenciones o recargo**.
+3. **Lo que llega con otro número.** El total de Facturae no es el europeo:
+   `InvoiceTotal` **resta las retenciones**, y está en el esquema del formato,
+   no en una interpretación. Quien copie campo a campo pondrá ese importe en
+   `BT-112` y será otro. Hasta el 07-10-2026 se decía lo mismo de
+   `TotalTaxOutputs`, que **suma el recargo de equivalencia**: el borrador de
+   abril daba al recargo un grupo propio, fuera de `BT-110`. La orden lo pone
+   en el desglose del IVA, así que `BT-110` lo lleva y la cuota llega igual.
+   Medido el 20-09-2026 sobre las facturas de terceros que hay aquí: **6 de
+   14 llevan retenciones o recargo**; cuántas de esas seis llevan retención,
+   que es lo que hoy cambia el número, no está medido.
 4. **Lo que llega cortado de otra manera.** El dato viaja entero, pero los dos
    formatos no cortan los campos por el mismo sitio: la serie y el número son
    dos campos aquí y uno solo en la copia, y el código postal de una dirección
@@ -93,12 +102,15 @@ en una fuente distinta y alguna todavía no tiene fuente:
 
 1. **Los importes** (20-09-2026). Se empezó por ahí porque copiar campo a campo
    no omite un dato: **cambia una cifra**, y es lo primero con lo que tropieza
-   quien copie así en cuanto la factura lleve retención o recargo. Tropieza
-   porque se ve: la copia deja de cuadrar consigo misma y la rechazan
-   `BR-CO-14` y `BR-CO-15`. Hasta el 26-09-2026 aquí se decía lo contrario
-   —«un número equivocado no se ve»— y no era cierto; lo fija
-   `test_el_total_copiado_tal_cual_no_pasa_las_reglas_de_la_copia`. Lo que
-   pasa en silencio de verdad es el medio de pago, en la quinta familia.
+   quien copie así en cuanto la factura lleve retención. Tropieza porque se
+   ve: la copia deja de cuadrar consigo misma y la rechaza `BR-CO-15`. Hasta
+   el 26-09-2026 aquí se decía lo contrario —«un número equivocado no se
+   ve»— y no era cierto; lo fija
+   `test_el_total_copiado_tal_cual_no_pasa_las_reglas_de_la_copia`. Hasta el
+   07-10-2026 se decía además «retención o recargo» y se sumaba `BR-CO-14`,
+   que era el borrador de abril: con la orden, la cuota de Facturae es la de
+   la copia. Lo que pasa en silencio de verdad es el medio de pago, en la
+   quinta familia.
 2. **Lo evidente** (20-09-2026): la dirección postal, el contacto, la serie y
    las fechas. Se llama evidente porque casi todas sus filas son «llega igual»,
    y se escribe entera justamente por las que no lo son y quedan escondidas
@@ -159,16 +171,32 @@ europeos** del anexo, medido el 22-09-2026. Los 12 que no se nombran son los
 **grupos** —`BG-4` a `BG-9`, `BG-22`, `BG-25`, `BG-29` a `BG-31`— y `BT-154`,
 que la tercera familia deja vacío a propósito: contenedores, no datos.
 
-Las tres últimas familias **quedan debajo del anuncio del 10-09-2026** y se
-escribieron igual, contra el texto de abril, que es el único publicado y contra
-el que está medida la tabla entera. Lo que el anuncio puede mover va marcado en
-su fila: el NIF del vendedor (`BT-31`/`BT-32` con esquema «LOC»), el `389` en
-la lista de tipos, el recorte de la `L3A` y las categorías nuevas de la `L4`.
+La tabla entera está medida contra el borrador de abril del anexo, que es el
+que tiene `cius_es.CAMPOS`, y las tres últimas familias se escribieron
+debajo del anuncio del 10-09-2026, marcando en su fila lo que podía moverse.
+Desde el 05-10-2026 el anexo es el de la Orden HAC/1028/2026, y lo movió:
+el NIF del vendedor (`BT-31`, o `BT-32` con «LOC» y «FC»), el recorte de la
+`L3A` —fuera las claves 18, 19 y 20— y las categorías N, D y F de la `L4`.
+El `389` de la lista de tipos no era nuevo: ya estaba en la L1 de abril.
 
-Y esperan, éstas sí porque no hay de dónde sacarlas: **los campos españoles del
-anexo**, **los centros administrativos**, **el lote** y las tres filas que
-están en `POR_DECIDIR`. Unas transparencias dicen qué va a cambiar, no cómo
-queda redactado, y una fila cuyo porqué es una diapositiva no vale nada.
+El 07-10-2026 se corrigieron aquí las filas que la orden contradice de
+frente: el recargo de equivalencia, que pasa al desglose con la categoría N;
+las cuotas repercutidas, que por eso llegan igual; el grupo de entidades,
+que sale del mismo `BG-34`; los suplidos y las retenciones, que ya tienen
+grupo, y lo que se decía del texto como si no hubiera salido. El resto se
+vuelve a mirar entero cuando `cius_es.CAMPOS` se regenere desde el BOE, y no
+hace falta acordarse: medido el 07-10-2026, el anexo de la orden trae **116
+términos europeos**, los 104 de abril y doce más (`BG-14`, `BG-33`, `BT-30`,
+`BT-31`, `BT-47`, `BT-73`, `BT-74`, `BT-130`, `BT-142`, `BT-143`, `BT-149`
+y `BT-167`), así que `test_el_anexo_sigue_teniendo_los_terminos_que_dice_la_cabecera`
+salta ese día, y `test_el_destino_de_cada_fila_existe_en_el_anexo` con él
+en cada fila «el anexo no lo pide» que nombre un término que la orden sí
+pide, como el periodo de facturación (`BG-14`).
+
+Y esperan **los campos españoles del anexo**, **el lote** y las dos filas
+que están en `POR_DECIDIR`; eran tres hasta el 07-10-2026, y la de los
+suplidos salió al leer la orden. **Los centros administrativos** ya no
+esperan nada: el anexo de la orden no los recoge.
 
 **No todas las filas sacan una nota**, y es a propósito: lo que llega igual no
 se dice. Un informe que celebre cada campo que sí viaja no lo lee nadie. Sale
@@ -190,8 +218,9 @@ from validador.sintaxis import a_decimal
 # tentación es juntarlos en «llega» y «no llega», y eso borra justo lo que hay
 # que decidir.
 #
-#   - «no se sabe» no es «no tiene sitio»: el primero se resuelve leyendo el
-#     anexo nuevo cuando salga, el segundo no se resuelve.
+#   - «no se sabe» no es «no tiene sitio»: el primero se resuelve leyendo un
+#     texto que diga dónde va, el segundo no se resuelve. Leer la orden ya ha
+#     sacado de aquí los suplidos; lo que queda espera a otro texto.
 #   - «cortado de otra manera» no es «llega igual»: el dato viaja entero, pero
 #     los dos formatos no cortan los campos por el mismo sitio y quien copia
 #     tiene que decidir dónde pega o por dónde parte. Pasa en las dos
@@ -240,16 +269,25 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "las dos son el importe bruto menos descuentos más cargos generales",
     ),
     Correspondencia(
-        "cuotas repercutidas", "TotalTaxOutputs", "BT-110", CAMBIA,
+        "cuotas repercutidas", "TotalTaxOutputs", "BT-110", IGUAL,
         "el esquema de Facturae dice «sumatorio de todas las cuotas y recargos "
-        "repercutidos»: lleva dentro el recargo de equivalencia, que en el "
-        "anexo va en su propio grupo y no en la cuota de IVA",
+        "repercutidos», y BT-110 es la suma de las cuotas del desglose "
+        "(BR-CO-14), donde la orden pone también el recargo de equivalencia: "
+        "son el mismo número. Hasta el 07-10-2026 esta fila decía «llega con "
+        "otro número», porque el borrador de abril daba al recargo un grupo "
+        "propio fuera de la cuota de IVA. Vale mientras todo lo de "
+        "`TaxesOutputs` sea IVA, IGIC o IPSI, que son los que tienen "
+        "categoría en la L4: un impuesto que no sea ninguno de los tres "
+        "-Facturae admite ahí desde el 05 «otro» hasta los especiales- en la "
+        "copia va como cargo y no entra en BT-110. Ese caso no se ha visto: "
+        "medido el 22-09-2026, las 14 escriben el 01 o el 02",
     ),
     Correspondencia(
         "total de la factura", "InvoiceTotal", "BT-112", CAMBIA,
         "el esquema lo define como base más repercutidos **menos retenidos**, y "
-        "BT-112 es base más cuotas: la retención no es un impuesto de la "
-        "factura para la norma europea",
+        "BT-112 es base más cuotas del desglose, recargo incluido: la "
+        "retención no es un impuesto de la factura para la norma europea, y "
+        "la orden la lleva aparte, en su grupo de retenciones",
     ),
     Correspondencia(
         "anticipos", "TotalPaymentsOnAccount", "BT-113", IGUAL,
@@ -263,10 +301,12 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "comprobar todavía: es la misma duda de SPFE-TOTAL-A-PAGAR",
     ),
     Correspondencia(
-        "retenciones de impuestos", "TotalTaxesWithheld", "anexo I: suma de retenciones",
-        APARTE,
-        "la norma europea no tiene término para la retención; el anexo sí, con "
-        "su base, su tipo y su concepto",
+        "retenciones de impuestos", "TotalTaxesWithheld",
+        "BG-34 de retenciones (línea RETE) y cac:WithholdingTaxTotal", APARTE,
+        "la norma europea no tiene término para la retención; la orden sí: un "
+        "grupo de retenciones con su línea de cobro identificada con «RETE» "
+        "(BT-ES-16), la suma en cac:WithholdingTaxTotal (BT-ES-17) y cada "
+        "retención con su base, su tipo y su concepto de la L5",
     ),
     Correspondencia(
         "importes retenidos", "AmountsWithheld", "anexo I: retención aplicada",
@@ -278,15 +318,39 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     ),
     Correspondencia(
         "recargo de equivalencia", "EquivalenceSurchargeAmount",
-        "anexo I: recargo de equivalencia", APARTE,
-        "el anexo le da grupo propio, con base, tipo y cuota, fuera de la cuota "
-        "de IVA",
+        "BG-23 (BT-116, BT-117, BT-118 y BT-119)", OTRO_CORTE,
+        "la orden lo pone en el desglose del IVA: BG-23 «también "
+        "proporcionará información sobre el desglose del recargo de "
+        "equivalencia», BT-117 lleva «la cuota de dicho recargo» y BT-119 su "
+        "tipo, con la categoría N de la L4, que es «régimen especial del "
+        "recargo de equivalencia». Facturae lo escribe dentro de la entrada "
+        "del IVA, con su tipo y su cuota al lado, y una entrada del desglose "
+        "lleva un solo tipo y una sola cuota: hay que partirla en dos. La "
+        "base de la segunda la orden no la explica para el recargo; la de "
+        "Facturae es «la misma que para el IVA». Como el recargo entra en el "
+        "desglose, entra también en BT-110 y en BT-112, y por eso no saca "
+        "nota. Hasta el 07-10-2026 esta fila decía que el anexo le daba grupo "
+        "propio, fuera de la cuota de IVA: era el borrador de abril, un BG-34 "
+        "con la línea REEQ, y la orden lo quitó",
     ),
     Correspondencia(
-        "suplidos", "TotalReimbursableExpenses", "BG-34 (BT-179 y BT-180)", POR_DECIDIR,
-        "los importes de terceros son términos de la edición de 2026 de la "
-        "norma, y el anexo de abril no les da ruta: hasta que salga el texto "
-        "nuevo no se sabe dónde se escriben",
+        "suplidos", "TotalReimbursableExpenses",
+        "BG-34 (BT-179 y BT-180), en la línea SUPL", APARTE,
+        "la orden los pone en el grupo de cargos en nombre de un tercero, "
+        "BG-34, que no entra en el total con impuestos y se suma al total a "
+        "pagar, igual que en Facturae. El grupo va en una línea de cobro "
+        "identificada con «SUPL» en cac:CollectionInvoiceLine/cbc:ID "
+        "(BT-ES-10). El importe y la descripción son BT-179 y BT-180, "
+        "términos de la edición de 2026 de la norma, y la orden no les da "
+        "ruta UBL, y no es un olvido: el anexo solo escribe la ruta de lo que "
+        "no tiene término en la norma. La de los términos europeos es la de "
+        "su correspondencia UBL, que para la edición de 2026 es "
+        "UNE-CEN/TS 16931-3-2:2026 -la que la AEAT dio por aplicable el "
+        "22-09-2026-, de pago y aquí sin leer. Y BT-180 es obligatoria y Facturae "
+        "no la tiene: de un suplido guarda las partes, la fecha, la factura "
+        "de origen y el importe. Hasta el 07-10-2026 esta fila estaba en «no se "
+        "sabe todavía», porque el borrador de abril no les daba ruta y el "
+        "texto que iba a dársela no había salido",
     ),
     Correspondencia(
         "gastos financieros", "TotalFinancialExpenses", "", SIN_SITIO,
@@ -453,9 +517,11 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     Correspondencia(
         "unidad de medida", "UnitOfMeasure",
         "BT-129 (el atributo de la cantidad)", OTRA_LISTA,
-        "dos cosas a la vez, y las dos hay que hacerlas. En la copia no hay "
-        "campo propio -BT-130 no está en el anexo, que mete la unidad en un "
-        "atributo de BT-129-, y el código **no es el mismo vocabulario**: "
+        "dos cosas a la vez, y las dos hay que hacerlas. En la copia va en un "
+        "atributo de la cantidad -el borrador de abril, contra el que se mide "
+        "la tabla, no tiene BT-130 y la mete en BT-129; la orden sí lo "
+        "recoge, y en UBL es ese mismo atributo-, y el código **no es el "
+        "mismo vocabulario**: "
         "Facturae tiene su lista de 36 valores de dos dígitos y la norma pide "
         "UN/ECE, recomendaciones 20 y 21. Medido el 21-09-2026 sobre el propio "
         "esquema de Facturae: de sus 36 códigos, 13 llevan el europeo en su "
@@ -507,9 +573,12 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "pago. Medido: las 3 facturas de aquí que traen fiscalidad especial "
         "traen el `01`. Lo que hay que escribir en la copia lo decide quien "
         "copia, y en el caso corriente es `01` por régimen general. Ojo "
-        "además a que el 10-09-2026 la AEAT anunció que **L3A se recorta** "
-        "-fuera el régimen simplificado, el recargo de equivalencia y el de "
-        "agricultura, ganadería y pesca-",
+        "además a que la L3A de la orden **viene recortada**: no trae las "
+        "claves 18, 19 y 20 del borrador de abril -el recargo de "
+        "equivalencia, el de agricultura, ganadería y pesca y el régimen "
+        "simplificado-, que es lo que la AEAT había anunciado el 10-09-2026. "
+        "El recargo ya no se dice con una clave: se dice con la categoría N "
+        "en el desglose, ver su fila en la primera familia",
     ),
     Correspondencia(
         "nota de la línea", "AdditionalLineItemInformation", "BT-127",
@@ -704,12 +773,17 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     #
     # Y queda libre un hueco de referencia, `BT-10`, que no es para esto. El
     # anexo lo define como «un identificador asignado por el comprador para
-    # especificar rutas internas de la factura», y lo que en Facturae hace eso
-    # -los centros administrativos- tiene sus propios campos españoles,
-    # `BT-ES-9`, `BT-ES-10` y `BT-ES-11`. Poner ahí el pedido es el fallo del
-    # medio de pago otra vez: la copia vale y dice otra cosa. Por eso esta
-    # familia saca nota siendo toda «el anexo no lo pide», que es la primera
-    # vez que pasa: lo que se avisa no es la falta, es el hueco.
+    # especificar rutas internas de la factura». Poner ahí el pedido es el
+    # fallo del medio de pago otra vez: la copia vale y dice otra cosa. Por eso
+    # esta familia saca nota siendo toda «el anexo no lo pide», que es la
+    # primera vez que pasa: lo que se avisa no es la falta, es el hueco.
+    #
+    # Hasta el 07-10-2026 aquí se añadía que lo que en Facturae encamina -los
+    # centros administrativos- tenía sus propios campos españoles, `BT-ES-9`,
+    # `BT-ES-10` y `BT-ES-11`. Era el borrador de abril. El anexo de la orden
+    # no recoge los centros, y esos tres números son ahora otra cosa: `BT-ES-10`
+    # es la línea `SUPL` de los suplidos. Si los centros acaban en `BT-10`, la
+    # orden no lo dice.
     Correspondencia(
         "referencia del pedido del comprador", "ReceiverTransactionReference",
         "BT-13", NO_LO_PIDEN,
@@ -798,9 +872,13 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "un periodo entero, sin número, así que leer el bloque como BG-3 "
         "acusaría a esas de no llevar referencia- y aquí se dice **qué se "
         "escribe** cuando sí lo hay. Son dos preguntas distintas sobre el "
-        "mismo elemento, como con la unidad de medida. Lo que espera al texto "
-        "nuevo es la extensión de rectificativas, `BG-ES-1`: el tipo y la "
-        "modalidad los mueve el anuncio del 10-09-2026",
+        "mismo elemento, como con la unidad de medida. El resto de la "
+        "rectificativa no está en esta fila: en la orden, el tipo, la "
+        "modalidad y los importes rectificados van en tres usos más de BG-24, "
+        "con «RECT:TIPO», «RECT:MODALIDAD» y «RECT:IMPORTES». Hasta el "
+        "07-10-2026 aquí se decía que esperaban, en la extensión española "
+        "`BG-ES-1` del borrador de abril, a que saliera el texto que los "
+        "movía; salió, y en la orden `BG-ES-1` son los datos del tercero",
     ),
     Correspondencia(
         "fecha de la factura rectificada", "InvoiceIssueDate", "BT-26", IGUAL,
@@ -811,29 +889,35 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "de arriba no trae ninguna",
     ),
     Correspondencia(
-        "documento adjunto", "Attachment", "BT-125", NO_LO_PIDEN,
-        "el fichero pegado a la factura, en base64. La norma lo tiene -BT-125, "
-        "el documento adjunto- y el anexo no recoge ni ése ni BT-124, la "
-        "dirección del documento externo. Y el grupo donde irían, BG-24, está "
-        "ocupado: el anexo lo usa dos veces y las dos para otra cosa, con "
-        "valores fijos -y el anuncio del 10-09-2026 le da un tercer uso, las "
-        "rectificativas-. Además, un adjunto de Facturae no tiene referencia "
-        "-lleva el fichero- y BT-122 es obligatorio en el grupo, así que "
-        "tampoco podría rellenarlo. Medido: 2 de 14",
+        "documento adjunto", "Attachment", "", SIN_SITIO,
+        "el fichero pegado a la factura, en base64, y la copia no puede "
+        "llevarlo: «las copias fieles remitidas a la solución pública de "
+        "facturación electrónica no podrán incorporar otros ficheros "
+        "integrados o embebidos», dice el artículo 4.4 de la orden. Hasta el "
+        "07-10-2026 esta fila decía «llega, pero el anexo no lo pide», con "
+        "destino BT-125: la norma tiene el término, y el anexo no recoge ni "
+        "ése ni BT-124, la dirección del documento externo. Tampoco habría "
+        "grupo: el anexo de la orden usa BG-24 cinco veces, todas con valores "
+        "fijos y para otra cosa -el QR, la autorización y tres para las "
+        "rectificativas-, y un adjunto de Facturae no tiene referencia -lleva "
+        "el fichero- y BT-122 es obligatorio en el grupo. Medido: 2 de 14",
     ),
     Correspondencia(
         "el QR y la autorización", "(no lo tiene)", "BG-24 (BT-122 y BT-123)",
         SE_INVENTA,
-        "las dos veces que el anexo usa el grupo de documentos justificativos "
-        "son contenido que la factura no tiene: el **QR fiscal** del artículo "
-        "6.5 del RD 1619/2012 -BT-122 con el valor fijo "
-        "`urn:aeat:names:specification:ubl:schema:QR`, BT-123 con «VERIFACTU» "
-        "y la dirección en `BT-ES-47`- y el **número de la autorización** del "
-        "Departamento de Gestión Tributaria. Ninguno de los dos está en "
+        "dos de los cinco usos que el anexo de la orden da al grupo de "
+        "documentos justificativos son contenido que la factura no tiene: el "
+        "**QR fiscal** del artículo 6.5 del RD 1619/2012 -BT-122 con «QR» de "
+        "la L10, `urn:aeat:names:specification:schema:QR`; BT-123 con "
+        "«VERIFACTU» o «TICKETBAI», que la orden deja opcional, y la "
+        "dirección en cbc:UUID, `BT-ES-25`- y el **número de la "
+        "autorización** de facturación, con «AUT». Ninguno de los dos está en "
         "Facturae, así que quien copia los saca de su sistema o deja el grupo "
         "vacío, que los dos son opcionales. Se escribe porque un conversor que "
         "solo mire el XML no puede ponerlos, y eso hay que saberlo antes y no "
-        "después",
+        "después. Hasta el 07-10-2026 esta fila daba lo del borrador de "
+        "abril: el valor con «ubl:», la descripción obligatoria y la "
+        "dirección en `BT-ES-47`",
     ),
 
     # La séptima familia: el desglose del IVA. Las tres primeras filas son de
@@ -855,14 +939,17 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "entrada por impuesto y tipo, y la norma una por categoría y tipo. "
         "Con un solo impuesto coinciden; con IVA e IPSI en la misma factura "
         "-que aquí pasa en una- son dos categorías distintas y el reparto ya "
-        "viene hecho",
+        "viene hecho. Hay una excepción, el régimen del grupo de entidades: "
+        "ahí BT-116 no es esta base, ver su fila más abajo",
     ),
     Correspondencia(
         "cuota por categoría", "TaxAmount", "BT-117", IGUAL,
         "la cuota de esa misma entrada. Ojo con el recargo de equivalencia, "
-        "que Facturae declara dentro de la entrada y la copia se lleva a su "
-        "grupo español: eso está en la primera familia y es la razón de "
-        "`COPIA-CUOTA`",
+        "que Facturae declara dentro de la misma entrada que el IVA y la "
+        "orden pone en una entrada más del desglose, con la categoría N: su "
+        "cuota también es un BT-117, y por eso la cuota total llega igual. "
+        "Está en la primera familia. Hasta el 07-10-2026 aquí se decía que la "
+        "copia se lo llevaba a un grupo español, que era el borrador de abril",
     ),
     Correspondencia(
         "impuesto del desglose", "TaxTypeCode", "BT-118", OTRA_LISTA,
@@ -921,13 +1008,19 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     ),
     Correspondencia(
         "base del grupo de entidades", "SpecialTaxableBase",
-        "BG-34 (BT-179 y BT-180)", APARTE,
+        "BG-23 (BT-116)", OTRO_CORTE,
         "el régimen especial del grupo de entidades obliga a escribir dos "
         "bases para la misma operación -la del coste de adquisición y la que "
-        "habría sido sin el régimen- y el anexo le da uno de sus cinco grupos "
-        "españoles, el mismo BG-34 que reutiliza para los cargos de terceros, "
-        "las minoraciones, el recargo y las retenciones. Medido: ninguna de "
-        "las 14 lo trae",
+        "habría sido sin el régimen-, y Facturae las pone juntas en la "
+        "entrada del impuesto: ésta y `TaxableBase`. La orden, para el nivel "
+        "avanzado, las separa: en el desglose, BT-116 lleva «la base "
+        "imponible a coste», que es ésta, "
+        "con la categoría N de la L4, y en la línea BT-131 lleva «el importe "
+        "total de la contraprestación». Así que en esa entrada BT-116 no es "
+        "`TaxableBase`, que es lo que sale de copiar campo a campo. Hasta el "
+        "07-10-2026 esta fila decía que el anexo le daba uno de sus grupos "
+        "españoles, un BG-34 con la línea REGE: era el borrador de abril, y "
+        "la orden lo quitó. Medido: ninguna de las 14 lo trae",
     ),
 
     # La octava familia: la cabecera. Es la que más filas tiene con «lo pone
@@ -948,8 +1041,9 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "arriba todavía, en `FileHeader/InvoiceIssuerType` -`EM` emisor, `RE` "
         "receptor, `TE` tercero-, que es lo que separa la 380 de la **389** y "
         "la 384 de la **471**. Medido: las 14 de aquí son `FC` y `OO`, o sea "
-        "380. Ojo a que el anuncio del 10-09-2026 mete el 389 en la lista que "
-        "la solución pública admite, y a que `en16931.py` traduce hoy el "
+        "380. La L1 de la orden admite el 389 y el 471, igual que la de abril; "
+        "hasta el 07-10-2026 aquí se decía que el 389 lo metía el anuncio del "
+        "10-09-2026, y no era nuevo. Ojo a que `en16931.py` traduce hoy el "
         "criterio 03 a un **381** que la L1 española no tiene: está en "
         "HALLAZGOS y sigue pendiente",
     ),
@@ -998,12 +1092,16 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "las dos son **obligatorias** y de valor fijo, y son la fila que "
         "mejor explica por qué la copia no es la factura: BT-24 declara qué "
         "especificación sigue el documento, "
-        "`urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0`, "
-        "y BT-23 qué proceso es, `urn:aeat:names:specification:ubl:schema:B2B` "
-        "-fijo, así que ni siquiera distingue el B2G-. Una factura no dice "
-        "eso de sí misma; lo dice quien la copia. Y de paso deja escrito que "
-        "la copia se mide con la edición **2026** de la norma, que es la que "
-        "trae los términos que el anexo de abril todavía no coloca",
+        "`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, "
+        "y BT-23 qué proceso es, "
+        "`urn:aeat:names:specification:ubl:schema:profile:B2B` -fijo, así que "
+        "ni siquiera distingue el B2G-. Una factura no dice eso de sí misma; "
+        "lo dice quien la copia. Y de paso deja escrito que la copia se mide "
+        "con la edición **2026** de la norma, que es la que trae términos como "
+        "BT-179 y BT-180, a los que la orden pone sitio y no ruta. Hasta el "
+        "07-10-2026 esta fila daba los dos valores del borrador de abril, "
+        "`...2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0` y "
+        "`...ubl:schema:B2B`, sin «profile:»",
     ),
     Correspondencia(
         "los huecos que el anexo deja abiertos", "(no lo tiene)",
@@ -1051,12 +1149,15 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     Correspondencia(
         "NIF", "TaxIdentificationNumber",
         "BT-32 del vendedor, BT-48 del comprador", IGUAL,
-        "hoy es el mismo dato en el mismo sitio, y es **la fila que el texto "
-        "nuevo mueve seguro**: el 10-09-2026 la AEAT anunció que el NIF del "
-        "vendedor podrá ir en `BT-31` -que el anexo de abril ni siquiera "
-        "recoge- o en `BT-32` con esquema «LOC» y `@schemeID` «FC», en vez "
-        "del «VAT» de ahora. Escrita hoy contra el texto de abril, y marcada "
-        "para volver a mirarla",
+        "el mismo dato, y el destino está escrito contra el borrador de "
+        "abril, donde el del vendedor va en BT-32 con «VAT» y el del "
+        "comprador en BT-48. La orden lo movió, "
+        "como había anunciado la AEAT el 10-09-2026: el del vendedor va en "
+        "`BT-31`, el NIF-IVA con «VAT», o en `BT-32`, el NIF con «LOC» y "
+        "`@schemeID` «FC»; y el del comprador, en `BT-48` o en `BT-47` de la "
+        "misma manera. `BT-31` y `BT-47` no están en el anexo de abril, así "
+        "que la fila cambia de destino el día que `cius_es.CAMPOS` se "
+        "regenere desde el BOE, y hasta entonces se queda marcada",
     ),
     Correspondencia(
         "nombre comercial", "TradeName", "BT-28", NO_LO_PIDEN,
@@ -1088,9 +1189,13 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
 # Lo que la tabla tiene que cubrir para que las reglas de abajo no hablen de
 # nada. Es el cepo de este módulo: si alguien quita una fila y deja la regla,
 # el paquete no se monta. Un comentario pidiendo memoria no lo evitaría.
+#
+# `EquivalenceSurchargeAmount` salió de aquí el 07-10-2026, con la nota que lo
+# miraba: con la orden, el recargo no cambia ninguna cifra de la copia. Su fila
+# se queda en la tabla, que dice adónde va; lo que no hay es regla.
 _LO_QUE_SE_MIRA = (
     "TotalTaxOutputs", "InvoiceTotal", "TotalTaxesWithheld",
-    "EquivalenceSurchargeAmount", "TotalReimbursableExpenses",
+    "TotalReimbursableExpenses",
     "TotalFinancialExpenses", "Subsidies",
     "InvoiceSeriesCode", "PostCodeAndTown",
     "LanguageName", "PlaceOfIssue",
@@ -1230,8 +1335,10 @@ _SIN_SITIO_EN_LAS_PARTES = (
 def _suma_profunda(nodo, nombre: str) -> Decimal:
     """Lo que suman todos los elementos con ese nombre, estén donde estén.
 
-    El recargo de equivalencia se declara por tipo impositivo, así que hay uno
-    por cada línea del desglose y el documento no trae su total.
+    Para lo que Facturae escribe por partes sin poner el total al lado: las
+    subvenciones van en un bloque cada una. Hasta el 07-10-2026 servía también
+    para el recargo de equivalencia, que se declara en cada entrada del
+    desglose; con la orden ya no hay nota que lo sume.
     """
     total = Decimal(0)
     for encontrado in nodo.xpath(f".//*[local-name()='{nombre}']"):
@@ -1795,60 +1902,51 @@ def _de_una_factura(
     total = _numero(totales, "InvoiceTotal")
     suplidos = _numero(totales, "TotalReimbursableExpenses")
     financieros = _numero(totales, "TotalFinancialExpenses")
-    recargo = _suma_profunda(factura, "EquivalenceSurchargeAmount")
     # El documento no trae el total de las subvenciones: hay un bloque por
-    # cada una, como con el recargo.
+    # cada una.
     subvenciones = Decimal(0)
     for grupo in _hijos(totales, "Subsidies"):
         subvenciones += _suma_profunda(grupo, "SubsidyAmount")
 
-    if recargo:
-        # BT-110 es la suma de las cuotas de IVA y nada más. El recargo tiene
-        # grupo propio en el anexo, así que sale de aquí.
-        incidencias.append(
-            Incidencia(
-                "COPIA-CUOTA",
-                NOTA,
-                "La cuota que lleva esta factura no es la que iría en la copia. "
-                "El total de impuestos repercutidos de Facturae suma también el "
-                "recargo de equivalencia, y en la copia el recargo va en su "
-                "propio grupo, fuera de la cuota de IVA.",
-                # Sin flechas ni nada fuera del latín de siempre: esto se
-                # imprime en consolas que todavía hablan cp1252, y un carácter
-                # que no esté ahí no sale mal: revienta el informe entero.
-                campo=f"{etiqueta}Total de impuestos repercutidos (BT-110 en la copia)",
-                # Con «en la copia» y «en esta factura» pegados al número: el
-                # informe rotula estas dos líneas «Debería ser» y «Tiene», y
-                # sin el añadido se leería que la factura está mal, que es
-                # justo lo contrario de lo que dice la nota.
-                esperado=f"{cifras.calculada(repercutido - recargo)} en la copia, "
-                         "sin el recargo",
-                encontrado=f"{cifras.en_castellano(repercutido)} en esta factura, "
-                           f"con {cifras.en_castellano(recargo)} de recargo dentro",
-            )
-        )
-    if retenido or recargo:
-        # BT-112 es base más cuotas de IVA. Ni la retención se resta —no es un
-        # impuesto de la factura para la norma— ni el recargo se suma ahí.
-        europeo = base + repercutido - recargo
-        detalle = f"{cifras.en_castellano(total)} en esta factura"
-        if retenido:
-            detalle += (
-                f", que ya tiene restados {cifras.en_castellano(retenido)} de "
-                "retenciones"
-            )
+    # Aquí había una nota más, `COPIA-CUOTA`, que salía con recargo de
+    # equivalencia y mandaba escribir en BT-110 la cuota sin él. Era el
+    # borrador de abril, que daba al recargo un grupo propio. La orden lo pone
+    # en el desglose del IVA -BT-117 lleva «la cuota de dicho recargo»-, y
+    # BT-110 es la suma del desglose (BR-CO-14): la cuota de Facturae, con el
+    # recargo dentro, es la de la copia. Se quitó el 07-10-2026, y no por
+    # prudencia: lo que mandaba hacer, hecho entero -el recargo fuera de la
+    # cuota y del desglose-, no lo caza ninguna regla de cuentas. Lo mide
+    # `test_el_total_copiado_tal_cual_no_pasa_las_reglas_de_la_copia`.
+    if retenido:
+        # BT-112 es la base más BT-110 (BR-CO-15), y BT-110 lleva el recargo,
+        # así que es la base más `TotalTaxOutputs` y nada más. Lo único que
+        # separa el total de Facturae del de la copia es la retención, que
+        # Facturae resta y la norma no conoce: la orden la lleva en su grupo de
+        # retenciones. Sin retención no hay nota, lleve recargo o no.
+        europeo = base + repercutido
         incidencias.append(
             Incidencia(
                 "COPIA-TOTAL",
                 NOTA,
                 "El total de esta factura no es el que iría en la copia. El "
                 "total de Facturae resta las retenciones, y el total con "
-                "impuestos de la copia es la base más las cuotas de IVA: la "
-                "retención viaja aparte, en la extensión española.",
+                "impuestos de la copia (BT-112) es la base más las cuotas del "
+                "desglose, recargo de equivalencia incluido: la retención "
+                "viaja aparte, en el grupo de retenciones de la orden, con su "
+                "línea de cobro RETE y la suma en cac:WithholdingTaxTotal.",
+                # Sin flechas ni nada fuera del latín de siempre: esto se
+                # imprime en consolas que todavía hablan cp1252, y un carácter
+                # que no esté ahí no sale mal: revienta el informe entero.
                 campo=f"{etiqueta}Total factura (BT-112 en la copia)",
+                # Con «en la copia» y «en esta factura» pegados al número: el
+                # informe rotula estas dos líneas «Debería ser» y «Tiene», y
+                # sin el añadido se leería que la factura está mal, que es
+                # justo lo contrario de lo que dice la nota.
                 esperado=f"{cifras.calculada(europeo)} en la copia: base más "
-                         "cuotas de IVA",
-                encontrado=detalle,
+                         "cuotas, sin restar la retención",
+                encontrado=f"{cifras.en_castellano(total)} en esta factura, "
+                           f"que ya tiene restados "
+                           f"{cifras.en_castellano(retenido)} de retenciones",
             )
         )
     if suplidos:
@@ -1856,12 +1954,19 @@ def _de_una_factura(
             Incidencia(
                 "COPIA-SUPLIDO",
                 NOTA,
-                "Esta factura lleva suplidos, y no se sabe dónde se escriben en "
-                "la copia. Son importes de terceros: términos de la edición de "
-                "2026 de la norma europea, y el anexo I de abril no les da "
-                "ruta. El 10-09-2026 la AEAT dijo que el anexo nuevo los usa, "
-                "pero ese texto no está publicado.",
-                campo=f"{etiqueta}Total de suplidos",
+                "Esta factura lleva suplidos, y en la copia van en el grupo de "
+                "cargos en nombre de un tercero (BG-34), fuera del total con "
+                "impuestos, en una línea de cobro identificada con SUPL "
+                "(cac:CollectionInvoiceLine/cbc:ID, BT-ES-10 en la orden). El "
+                "importe y la descripción son BT-179 y BT-180, términos de la "
+                "edición de 2026 de la norma, y la orden no les da ruta UBL: "
+                "dónde se escriben dentro de esa línea no lo dice. Y la "
+                "descripción es obligatoria y Facturae no la tiene: de un "
+                "suplido guarda las partes, la fecha, la factura de origen y "
+                "el importe, así que la escribe quien copia.",
+                campo=f"{etiqueta}Total de suplidos (BG-34 en la copia)",
+                esperado="una línea de cobro SUPL en la copia, con su "
+                         "descripción",
                 encontrado=cifras.tiene(suplidos),
             )
         )
@@ -1919,9 +2024,10 @@ def _direcciones_de_fuera(raiz) -> list[Incidencia]:
 
     Solo las de las partes. Un centro administrativo también puede tener la
     suya —medido el 20-09-2026: 3 de las 6 direcciones de fuera que hay aquí
-    cuelgan de uno—, y esa no tiene este destino: del centro, el anexo se queda
-    con sus tres identificadores y no con su domicilio. Es otra familia y
-    espera al texto nuevo.
+    cuelgan de uno—, y esa no tiene este destino: el domicilio del centro no
+    es el de la parte. Hasta el 07-10-2026 se añadía que del centro el anexo se
+    quedaba con sus tres identificadores; era el borrador de abril, y el anexo
+    de la orden no recoge ni ésos.
     """
     incidencias = []
     for parte, quien, postal, poblacion in (

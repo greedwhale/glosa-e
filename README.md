@@ -14,7 +14,7 @@ según el RD 238/2026.
 | `validador/en16931.py` | Campos obligatorios y cuadre aritmético, sobre UBL, CII y EDIFACT | Terminado |
 | `validador/iva.py` | El desglose de IVA: bases, cuotas, categorías y exenciones | Terminado |
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
-| `validador/solucion_publica.py` | El anexo I: lo que la solución pública pide a una factura UBL que declara su CIUS | Terminado sobre el borrador |
+| `validador/solucion_publica.py` | El anexo I: lo que la solución pública pide a una factura UBL que declara su CIUS | Sobre el borrador, con la primera tanda de la orden publicada el 05-10-2026 |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
 | `validador/cifras.py` | Cómo se escriben cifras y fechas en lo que lee una persona: coma decimal, miles, «Tiene» tal cual y dd-mm-aaaa | Terminado |
 | `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2851 tests, todos en verde.
+2914 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -231,24 +231,41 @@ Del RD 238/2026, de 25 de marzo:
 
 ## ⚠️ Corrección importante sobre las fechas
 
-**Las fechas que se citan por ahí no están confirmadas.** Al contrastar
-fuentes encontré versiones incompatibles: unas dicen 1 de enero de 2027 para
-empresas y 1 de julio de 2027 para autónomos; otras hablan de octubre de 2027
-y octubre de 2028; otras incluso de enero de 2026.
+**Desde el 06-10-2026 las fechas están fijadas, y el plazo ya corre.** Hasta
+ese día no lo estaban. Al contrastar fuentes salían versiones incompatibles
+—unas decían 1 de enero de 2027 para empresas y 1 de julio de 2027 para
+autónomos; otras, octubre de 2027 y octubre de 2028; otras incluso enero de
+2026—, y lo único sólido era que los plazos empezaban a contar desde la
+entrada en vigor de una orden ministerial que no había salido.
 
-Lo que sí parece sólido y explica la discrepancia:
+Salió. La **Orden HAC/1028/2026** se publicó en el BOE del **05-10-2026**
+(BOE-A-2026-20587) y entró en vigor el **06-10-2026**: su disposición final
+única dice «el día siguiente al de su publicación», y con ella empieza el
+cómputo. Lo que el RD 238/2026 cuenta desde ahí, en su disposición final
+cuarta, contado de fecha a fecha:
 
-> Los plazos **empiezan a contar desde la entrada en vigor de la Orden
-> Ministerial técnica**, que todavía no se ha publicado y se espera para
-> finales de 2026.
+| Quién o qué | Lo que dice el decreto | Desde |
+|---|---|---|
+| Quien facturó más de 8 millones de euros el año anterior | apartado 1, a): «Doce meses después» | **06-10-2027** |
+| El resto | apartado 1, b): «Veinticuatro meses después» | **06-10-2028** |
+| La copia fiel, la interconexión y los requisitos de las plataformas privadas | apartado 2: «transcurridos doce meses desde la entrada en vigor de la referida orden» | **06-10-2027** |
+
+Comprobado leyendo el XML del BOE el 07-10-2026. Cómo se llegó aquí, y lo que
+se escribió antes, está en «El binding EN 16931 de Facturae, que no existía»,
+más abajo.
 
 Consecuencias prácticas para este proyecto:
 
-1. **La fecha límite es real, pero aún no está fijada.** No prometas fechas
-   concretas a nadie hasta que salga la Orden Ministerial.
-2. **La especificación técnica tampoco es definitiva.** La Orden Ministerial
-   concretará los requisitos del sistema. Construir hoy el producto completo de
-   cumplimiento sería prematuro.
+1. **La fecha límite es real y está fijada.** Hasta el 06-10-2026 este punto
+   pedía no prometer ninguna; ahora se pueden dar las de arriba, con su cita al
+   lado.
+2. **El anexo I es definitivo; las especificaciones técnicas viven en otro
+   sitio.** La orden fija el contenido de la factura en su anexo I y deja «las
+   especificaciones técnicas y volumetría» a lo que conste en la Sede
+   electrónica de la AEAT (artículo 3.1), que no es el BOE: lo que se mida
+   contra ellas hay que vigilarlo como una fuente que se mueve. Lo que el
+   validador mide del anexo se está poniendo al texto publicado por tandas (ver
+   «La orden en el BOE, y la primera tanda»).
 3. **Lo que sí es seguro construir ahora** es justo lo que hay hecho: reglas que
    no dependen de esa orden. Los dígitos de control del NIF llevan décadas sin
    cambiar; el cómputo de días hábiles tampoco va a cambiar; y las reglas
@@ -507,10 +524,14 @@ Lo que no se hace es tan importante como lo que sí:
   `CU-*`—, y con el CIUS declarado, `SPFE-TIPO-DE-FACTURA` («es un abono») en
   lugar de `BR-01`. Con una familia propia, todo `if familia == X` contesta
   «no me toca».
-- **El mensaje de anulación no se mide con el anexo I.** El texto de ese
-  mensaje no está publicado (ver «El anexo ya cambió, y el texto no está publicado»); reconocerlo
-  como respuesta no es saber si un documento concreto es el mensaje de
-  anulación, ni qué exige.
+- **El mensaje de anulación no se mide con el anexo I.** Su contenido está
+  publicado desde el 05-10-2026, en el anexo I de la orden («Mensaje de
+  anulación»): `cbc:ResponseCode` «CANCELINVOICE», la fecha de la anulación y
+  la factura anulada, con su número, su fecha y el NIF y el nombre del
+  vendedor. Hasta ese día no lo estaba (ver «El anexo cambió antes que el
+  texto»). Medirlo es una regla nueva, y las reglas nuevas de la orden van en
+  la tanda siguiente; hasta entonces, reconocerlo como respuesta no es saber si
+  un documento concreto es el mensaje de anulación, ni qué exige.
 - **Sin esquema, no es «correcta».** La forma es lo que se le comprueba a una
   respuesta, así que sin un `UBL-ApplicationResponse-*.xsd` que compile sale
   **SIN COMPROBAR** con código de salida 1, no «correcto» con 0, aunque traiga
@@ -897,9 +918,12 @@ de un «duplicado» genérico. CU-10 es un reenvío. CU-11 es una infracción de
 numeración correlativa. CU-12 es el peor de los tres, porque cada sistema cree
 tener una factura distinta y ninguno detecta nada.
 
-**El tope de 60 caracteres está tomado de Verifactu.** La Orden Ministerial del
-RD 238/2026 no se ha publicado y podría fijar otro. Es una constante justo para
-poder cambiarla en una línea.
+**El tope de 60 caracteres está tomado de Verifactu.** La orden del RD 238/2026,
+la HAC/1028/2026, salió en el BOE el 05-10-2026 y no fija ninguno: su anexo I
+describe `BT-1` como «Serie y número que identifican la factura emitida», sin
+longitud, y deja las especificaciones técnicas a lo que conste en la Sede
+electrónica de la AEAT (artículo 3.1). Si el tope sale de ahí, puede ser otro.
+Es una constante justo para poder cambiarla en una línea.
 
 **La búsqueda del NIF es relativa al vendedor, no absoluta.** Con `//` en lugar
 de `./`, la consulta arranca de la raíz del documento aunque se lance desde el
@@ -1100,13 +1124,18 @@ factura se ajuste al modelo semántico EN 16931 **bajo cualquiera de las cuatro
 sintaxis admitidas**, y Facturae es la cuarta.
 
 **Cuándo obliga, que no es lo que aquí se escribió primero.** El decreto está
-en vigor desde el 20-04-2026, pero su aplicación efectiva queda **diferida** y
-se cuenta desde la entrada en vigor de una orden ministerial que a día de hoy
-sigue siendo un **proyecto** —publicado el 16-04-2026, con entrada en vigor
-prevista el 01-10-2026—. De ahí salen doce meses para quien facture más de
-8 M€ (**01-10-2027**) y veinticuatro para el resto (**01-10-2028**). El
-01-10-2026 no obliga a nadie: es cuando empieza a contar, y solo si esa orden
-se publica como está redactada.
+en vigor desde el 20-04-2026, pero su aplicación efectiva queda **diferida**:
+su disposición final cuarta, apartado 1, la cuenta «desde la entrada en vigor
+de la orden ministerial prevista en el apartado 1 de la disposición final
+tercera». Esa orden es la HAC/1028/2026, publicada en el BOE el 05-10-2026 y
+en vigor desde el **06-10-2026**, el día siguiente. De ahí salen «Doce meses
+después» para quien facture más de 8 M€ (**06-10-2027**) y «Veinticuatro
+meses después» para el resto (**06-10-2028**), contados de fecha a fecha; y el
+apartado 2 lleva al 06-10-2027 la copia fiel, la interconexión y los
+requisitos de las plataformas privadas. El 06-10-2026 no obliga a nadie: es
+cuando empieza a contar. Hasta el 07-10-2026 aquí ponía 01-10-2027 y
+01-10-2028: la orden era un proyecto, publicado el 16-04-2026, con entrada en
+vigor prevista el 01-10-2026.
 
 ### No hay mapa oficial, y por eso hay que escribirlo
 
@@ -1404,9 +1433,10 @@ Con la lista delante, de los cuatro métodos **dos se traducen y dos no**:
 
 Cuando se traduce **sale dicho con qué base**, en una `FE-TIPO-POR-METODO`:
 la correspondencia sale de las definiciones del propio esquema de Facturae y
-no de ningún mapa publicado —el anexo I del proyecto de orden no menciona
-Facturae ni una vez—. Cuando no, sigue saliendo `FE-TIPO-SIN-EQUIVALENTE`, y
-ahora dice cuál de las dos razones es.
+no de ningún mapa publicado —el anexo I del proyecto de orden no mencionaba
+Facturae ni una vez, y la orden publicada el 05-10-2026 tampoco, ni en sus
+artículos ni en sus anexos—. Cuando no, sigue saliendo
+`FE-TIPO-SIN-EQUIVALENTE`, y ahora dice cuál de las dos razones es.
 
 Y con la traducción puesta se pudo encender **BR-CL-01**: que el tipo salga de
 la lista UNTDID 1001. Los 62 códigos admitidos se sacaron del esquematrón
@@ -3571,14 +3601,26 @@ El RD 238/2026 admite cuatro sintaxis. La solución pública de la AEAT admite
 **una**, y ni siquiera es UBL sin más: la respuesta de la Agencia en su
 seminario del 19-05-2026 fue *«La SPFE solo admitirá facturas compatibles con
 UBL 2.5 de acuerdo a la semántica europea EN16931 y ajustadas al contenido
-mínimo del Anexo I»*. Ese anexo define un CIUS español propio,
-`urn:aeat.es:CIUS-ES-SPFE:1.0.0`, sobre la edición de 2026 de la norma.
+mínimo del Anexo I»*. Ese anexo, el borrador de abril, define un CIUS español
+propio, `urn:aeat.es:CIUS-ES-SPFE:1.0.0`, sobre la edición de 2026 de la norma.
 
-Lo que trae, contado: **174 filas, 155 identificadores distintos y once listas
-de códigos**, de los cuales **52 son campos que la EN 16931 no tiene** —el
-recargo de equivalencia, las retenciones, los suplidos, las minoraciones, el
-régimen de grupo de entidades a nivel avanzado y el QR fiscal—. Y no se publica
-como esquema ni como esquematrón: se publica como una tabla dentro de un PDF.
+**Lo que se cuenta de aquí a «Que no cambie en silencio» es, sobre todo, la
+lectura de ese borrador**, que es de donde sale todavía
+`validador/cius_es.py`. El anexo que rige desde el 06-10-2026 es el de la
+Orden HAC/1028/2026, publicada en el BOE el 05-10-2026: declara otro
+identificador,
+`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, numera
+de otra manera sus campos españoles y ya no da grupo propio al recargo de
+equivalencia ni al grupo de entidades. Qué se ha puesto al día y qué no, en «La
+orden en el BOE, y la primera tanda».
+
+Lo que trae el borrador, contado: **174 filas, 155 identificadores distintos y
+once listas de códigos**, de los cuales **52 son campos que la EN 16931 no
+tiene** —el recargo de equivalencia, las retenciones, los suplidos, las
+minoraciones, el régimen de grupo de entidades a nivel avanzado y el QR
+fiscal—. Y no se publica como esquema ni como esquematrón: se publica como una
+tabla dentro de un PDF. La orden tampoco trae esquema ni esquematrón, pero su
+tabla viene también en el XML del BOE, que se lee sin coordenadas.
 
 Así que se lee el PDF. `herramientas/anexo_i.py` lo saca a
 `validador/cius_es.py`, y no por columnas de texto sino por las coordenadas de
@@ -3733,10 +3775,12 @@ es un `Invoice` con el código 384. Así que aquí no se inventan rutas de
 
 ### Que no cambie en silencio
 
-Es un borrador. No está en el BOE, la orden tampoco, y la AEAT ha dicho que el
-anexo *«se alineará plenamente»* con UBL 2.5. Una tabla generada de una fuente
-que se mueve es justo lo que en este repositorio se rompe sin avisar, así que
-hay dos guardianes, los dos provocados: la **huella SHA-256 del PDF** va
+Era un borrador cuando se escribió esto, y la AEAT había dicho que el anexo
+*«se alineará plenamente»* con UBL 2.5; la orden salió en el BOE el 05-10-2026,
+con el anexo cambiado (ver «La orden en el BOE», más abajo). Una tabla generada
+de una fuente que se mueve es justo lo que en este repositorio se rompe sin
+avisar, así que hay dos guardianes, los dos provocados: la **huella SHA-256 del
+PDF** va
 declarada en el módulo generado y una prueba la comprueba, y otra vuelve a
 extraer y exige que salga exactamente lo mismo, por si alguien toca el
 extractor y la tabla se queda vieja.
@@ -3747,13 +3791,14 @@ sin él las dos pruebas se saltan diciendo por qué.
 ### Las reglas del anexo, y a quién se le aplican
 
 Leído el anexo, `validador/solucion_publica.py` le pide a la factura lo que el
-anexo pide. **24 códigos, todos con el prefijo `SPFE-`** y la etiqueta «anexo I
-(borrador)» en el informe, que no es la del real decreto: es el anexo de una
-orden que todavía es un proyecto.
+anexo pide. **24 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
+I» en el informe, que no es la del real decreto: es el anexo de la Orden
+HAC/1028/2026. Hasta el 07-10-2026 decía «Anexo I (borrador)».
 
 **Solo a las facturas UBL que declaran el CIUS** en su `CustomizationID`, o,
 desde el 05-10-2026, el identificador del ejemplo que la AEAT mandó por
-correo el 02-10-2026 (ver «El ejemplo del 02-10-2026», más abajo). El
+correo el 02-10-2026, que es letra a letra el de la orden publicada ese mismo
+día (ver «El ejemplo del 02-10-2026», más abajo). El
 anexo describe los campos en UBL y en nada más, y a qué corresponden en
 Facturae, CII o EDIFACT no lo publica nadie —la Agencia contestó el 17-09-2026
 que no le toca a ella, como se cuenta más abajo—: aplicarlo a otra sintaxis
@@ -3768,27 +3813,37 @@ Lo que se comprueba:
 
 | Qué | Códigos |
 |---|---|
-| La cabecera: el valor entero de `BT-24`, el proceso `B2B`, original o copia, el tipo de factura de L1, el euro como moneda del IVA y el importe pagado a cero | `SPFE-ESPECIFICACION`, `-PROCESO`, `-COPIA`, `-TIPO-DE-FACTURA`, `-MONEDA-DEL-IVA`, `-IMPORTE-PAGADO` |
-| La extensión de rectificativas en toda 384 y 471, con su tipo (L2.A), su modalidad (L2.B) y su identificador | `SPFE-RECTIFICATIVA` |
-| Las partes: el NIF de las dos en un esquema «VAT», la dirección entera cuando está en España, y el tercero que expide la factura | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
+| La cabecera: el valor entero de `BT-24`, el proceso `B2B`, el tipo de factura de L1 y el euro como moneda del IVA; y, en notas, la factura sin indicador de copia y el importe pagado | `SPFE-ESPECIFICACION`, `-PROCESO`, `-TIPO-DE-FACTURA`, `-MONEDA-DEL-IVA`, `-COPIA`, `-IMPORTE-PAGADO` |
+| Los datos de la rectificativa en toda 384 y 471: los `BG-24` `RECT:TIPO` y `RECT:MODALIDAD` de la orden, con su valor de L2.A y L2.B, o la extensión de abril, que todavía se acepta, con su identificador | `SPFE-RECTIFICATIVA` |
+| Las partes: el NIF de las dos en un esquema «VAT» o en uno «LOC» con «FC», la dirección entera cuando está en España, y el tercero que expide la factura | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
 | Lo que la norma deja opcional y el anexo no: la fecha de la factura referenciada y el motivo en texto de descuentos y cargos | `SPFE-FACTURA-REFERENCIADA`, `-MOTIVO` |
-| El IVA: «VAT» en todos los esquemas y la categoría de L4, sin `K` ni `B` | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA` |
+| El IVA: «VAT» en todos los esquemas y la categoría de L4, sin `K` ni `B`; la `N`, la `D` y la `F` de la orden, en una nota | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA` |
 | Cada línea: una o dos claves de régimen en la lista de su impuesto, y como mucho una referencia catastral con su situación de L6 | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL` |
-| Las líneas de cobro: la lista L7, el recargo de equivalencia, las retenciones con su concepto de L5, el grupo de entidades y el QR fiscal | `SPFE-LINEA-DE-COBRO`, `-RECARGO-DE-EQUIVALENCIA`, `-RETENCION`, `-GRUPO-DE-ENTIDADES`, `-QR` |
+| Las líneas de cobro: la lista L7, la de la orden y todavía la de abril; las retenciones con su concepto de L5; el recargo de equivalencia y el grupo de entidades como los escribe el borrador, que la orden ya no tiene; y el QR fiscal | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-RECARGO-DE-EQUIVALENCIA`, `-GRUPO-DE-ENTIDADES`, `-QR` |
 
-Y dos notas: `SPFE-BORRADOR` en cada factura que se mide con el anexo, porque
-que no salga ninguna queja quiere decir que cumple el borrador y no la orden; y
-`SPFE-TOTAL-A-PAGAR`, que es lo que sigue.
+Y dos notas: `SPFE-BORRADOR`, que sale en cada factura que se mide con el
+anexo y dice con qué se ha medido —la orden, y en buena parte todavía el
+borrador de abril—, porque que no salga ninguna queja no quiere decir que
+cumpla la orden; y `SPFE-TOTAL-A-PAGAR`, que sale cuando hay líneas de cobro y
+es lo que sigue.
 
 **Una regla europea que daba por mala una factura bien hecha.** El anexo dice
-que el total a pagar suma los importes de terceros —los suplidos, las
-minoraciones, el recargo, las retenciones— «junto con» el total con IVA.
-BR-CO-16, que es de la edición de 2017, no los conoce: medido el 14-09-2026, una
+que el total a pagar suma «los importes correspondientes a los conceptos
+BT-179» junto con el total con IVA. En la orden, `BT-179` es el importe de
+cada grupo `BG-34`: los suplidos (`SUPL`), los impuestos y tasas cobrados en
+nombre de un tercero, como el IEDMT (`IEDMT` y `OTROS`), las minoraciones
+(`MINO`) y las retenciones (`RETE`). Aparte quedan las dos líneas del borrador
+de abril que todavía se aceptan y la orden ya no tiene: el recargo de
+equivalencia (`REEQ`) y el grupo de entidades (`REGE`). Hasta el 07-10-2026
+esta lista era la del borrador: suplidos, minoraciones, recargo y retenciones.
+BR-CO-16, que es de la edición de 2017, no conoce esos importes: medido el
+14-09-2026, una
 factura del CIUS con un suplido de 50 euros sumado como manda el anexo salía
-con BR-CO-16 en error. Y esos importes no se pueden sumar aquí, porque el anexo
-no dice dónde se escriben: son `BT-179`, un término de la edición de 2026 sin
-ruta. Así que con líneas de cobro la nota dice que el cuadre no se ha
-comprobado, y BR-CO-16 no sale. Sin líneas de cobro se comprueba como siempre.
+con BR-CO-16 en error. Y esos importes no se pueden sumar aquí, porque ni el
+borrador ni la orden dicen dónde se escriben: son `BT-179`, un término de la
+edición de 2026 sin ruta. Así que con líneas de cobro la nota dice que el
+cuadre no se ha comprobado, y BR-CO-16 no sale. Sin líneas de cobro se
+comprueba como siempre.
 
 **Qué sale del anexo y qué no.** Las rutas de los campos españoles vienen de
 `RUTAS_CIUS_ES`, y las de dentro de un grupo se piden relativas a él. Los
@@ -3798,16 +3853,21 @@ eso se comprueba **al importar**: si un anexo nuevo relaja un campo, cambia un
 valor o mueve una ruta, el módulo lanza `AnexoCambiado` y no se monta. Las tres
 formas están provocadas en las pruebas.
 
-Los campos que la norma ya tiene no traen ruta en el anexo —remite a la
-vinculación de 2026, sin publicar— y van por la de 2017. Que esos elementos
-existen en UBL 2.5 donde se buscan está comprobado contra el esquema; que la
-vinculación de 2026 los use para lo mismo no se sabrá hasta que salga.
+Los campos que la norma ya tiene no traen ruta en el anexo, ni en el borrador
+ni en la orden —remiten a la vinculación de 2026, la
+`UNE-CEN/TS 16931-3-2:2026`, que es de pago y aquí no se ha podido leer— y
+van por la de 2017. Que esos elementos existen en UBL 2.5 donde se buscan está
+comprobado contra el esquema; que la vinculación de 2026 los use para lo mismo
+no se sabrá sin leerla.
 
-**Lo que no se comprueba** está en `NO_SE_COMPRUEBA`, con el porqué: el importe
-y la descripción de los cobros (`BT-179`, `BT-180`) y todo lo que depende de
-ellos, la restricción de `BT-195` a VATEX-EU y VATEX-ES, el código
-«ThirdPartyInvoicing», que solo es obligatorio en un caso que no se ve en el
-documento, y la autorización de facturación, que no trae con qué distinguirla.
+**Lo que no se comprueba** está en `NO_SE_COMPRUEBA`, con el porqué. Entre
+otras cosas: el importe y la descripción de los cobros (`BT-179`, `BT-180`),
+que la orden tampoco ubica, y todo lo que depende de ellos; la restricción de
+`BT-195` a VATEX-EU y VATEX-ES; que la tipología del tercero sea
+«FacturaciónPorTercero» —«ThirdPartyInvoicing» en el borrador—, obligatoria en
+un caso que no se ve en el documento; y lo que son reglas nuevas de la orden,
+como el número de la autorización de facturación o que la descripción del QR,
+si la lleva, sea «VERIFACTU» o «TICKETBAI».
 
 **No hay facturas de verdad con las que medir.** La solución pública no está en
 marcha y en el corpus hay cero documentos que declaren el CIUS. Las pruebas
@@ -3818,10 +3878,12 @@ regla. Y provocado: 37 roturas del módulo, de su cableado y de la frase de
 alcance, las 37 en rojo.
 
 **La frase de alcance lo dice, y solo cuando toca.** «Sin errores» en una
-factura del CIUS quiere decir también que cumple el borrador del anexo, así que
-la línea del informe que dice qué se ha mirado lo añade cuando en el lote hay
-una factura que lo declara, y dice «lo que se puede comprobar en UBL», no el
-anexo entero. En un lote sin ninguna no lo dice.
+factura del CIUS quiere decir también algo del anexo, así que la línea del
+informe que dice qué se ha mirado lo añade cuando en el lote hay una factura
+que lo declara: «lo que se puede comprobar en UBL», no el anexo entero, y
+entre paréntesis «medido en parte todavía con el borrador de abril». Hasta el
+07-10-2026 decía «el borrador del anexo I», y «sin errores» quería decir que
+cumplía el borrador. En un lote sin ninguna no lo dice.
 
 ### Lo que contestó la Agencia, y lo que dejó abierto
 
@@ -3849,9 +3911,11 @@ puede ser un error: la propia Agencia dice que se puede omitir. Y tampoco puede
 serlo un dato que viaje en una extensión.
 
 **Y los documentos del portal son el contraste que hoy no existe.** Las 24
-reglas `SPFE-` salen de leer una tabla de un borrador; cuando se publiquen esos
-documentos habrá por fin con qué compararlas, y cubren justo lo español. Por eso
-el portal de desarrolladores entra en la vigilancia mensual de las fuentes.
+reglas `SPFE-` salen todavía, en buena parte, de leer una tabla de un borrador
+—desde el 07-10-2026, con lo que la orden ya admite encima—, y la orden es otra
+tabla que leer, no algo con qué compararlas. Cuando se publiquen esos
+documentos habrá por fin con qué, y cubren justo lo español. Por eso el portal
+de desarrolladores entra en la vigilancia mensual de las fuentes.
 
 **Dos cosas que hay que leer con cuidado, porque no las dice la respuesta.** La
 primera: la lista de normas que adjunta llama «Facturae» a
@@ -3874,21 +3938,30 @@ L1. Tampoco se aceptará la categoría K en L4». Con eso el precio deja de ser
 una deducción de esta casa y pasa a ser una cita: una factura válida según la
 EN 16931 —el 381 es el tipo con el que media Europa emite un abono, y la `K` es
 la categoría de las entregas intracomunitarias— no pasa el anexo español. La
-Agencia añade que **eleva la cuestión a gestión para que reevalúen el
-criterio**, así que está confirmado y vivo a la vez, y el `BT-3`/381 y la L4
-siguen aparcados por eso.
+Agencia añadía que **eleva la cuestión a gestión para que reevalúen el
+criterio**, así que quedó confirmado y vivo a la vez, y por eso se aparcaron
+aquí el `BT-3`/381 y la L4. La orden publicada el 05-10-2026 deja las dos
+listas como estaban —su L1 no tiene el 381 y su L4 no tiene la `K`—, así que
+cambiarlo pediría ya otra orden. Qué se hace con lo aparcado está por decidir.
 
-### El anexo ya cambió, y el texto no está publicado
+### El anexo cambió antes que el texto
+
+Este apartado se empezó el 17-09-2026, con el texto nuevo sin publicar. Salió
+en el BOE el 05-10-2026, y lo que se hizo entonces está en «La orden en el
+BOE, y la primera tanda», más abajo. Hasta el 07-10-2026 este apartado se
+titulaba «El anexo ya cambió, y el texto no está publicado»; la columna de la
+derecha de la tabla está al día, y el resto es cómo se llegó.
 
 Mirando el portal de entidades desarrolladoras el **17-09-2026** —se fue a
 buscar dónde saldrán esos documentos de validación— apareció otra cosa: un
 **seminario del 10-09-2026** con tres presentaciones, y una se titula
-«Principales novedades anexo I». O sea que el anexo sobre el que están escritas
-las 24 reglas `SPFE-` **ya no es el último**, la orden se quiere en vigor el
-**01-10-2026**, y el texto nuevo no está publicado: solo hay transparencias.
+«Principales novedades anexo I». O sea que el anexo sobre el que estaban
+escritas las 24 reglas `SPFE-` **ya no era el último**, la orden se quería en
+vigor el **01-10-2026**, y el texto nuevo no estaba publicado: solo había
+transparencias.
 
 Es el fallo de siempre de esta casa con otro disfraz. La vigilancia mensual de
-las fuentes miraba la huella del PDF del anexo, y esa huella no ha cambiado
+las fuentes miraba la huella del PDF del anexo, y esa huella no había cambiado
 —porque lo que hay de nuevo es **otro documento en otro sitio**—. La fuente
 seguía verde y el contenido estaba viejo.
 
@@ -3896,23 +3969,25 @@ Lo anunciado, y a qué regla le da:
 
 | Novedad del 10-09-2026 | Qué pasa aquí hoy |
 |---|---|
-| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | **Confirmado por escrito el 22-09-2026**. L10 entera —`QR`, `AUT`, `RECT:TIPO`, `RECT:MODALIDAD`, `RECT:IMPORTES`— la repitió el correo del **23**, pero ya estaba en la diapositiva 8 de este seminario, como imagen, y no se vio hasta el 05-10-2026. `SPFE-RECTIFICATIVA` ya no exige la extensión y **reconoce** los calificadores: dice cuáles hay y cuál falta, en una NOTA. Desde el ejemplo del **02-10-2026** comprueba también el **valor**, en `cbc:DocumentTypeCode`, y avisa del que no está en su L2 (ver «El ejemplo del 02-10-2026», abajo) |
-| El indicador de copia pasa a `0..1` | `SPFE-COPIA` lo pide obligatorio |
-| El **389** para la factura expedida por el destinatario, junto al 471: «La expedición de facturas por el destinatario o por tercero está plenamente contemplada en el Anexo I» | No es nuevo: la L1 de abril ya lo trae, y aquí se escribió que entraba. `SPFE-TIPO-DE-FACTURA` mide con esa L1 |
-| El NIF del vendedor va en `BT-31` o en `BT-32`, este con esquema «LOC» y `@schemeID` «FC» | `SPFE-NIF` solo admite el esquema «VAT» |
-| L4 gana las categorías de la EN 16931:2026, entre ellas la `N`; y se han pedido códigos VATEX propios de España | `SPFE-CATEGORIA` mide con la L4 de abril |
-| L3A se recorta: fuera el simplificado, el recargo de equivalencia y el de agricultura, ganadería y pesca | `SPFE-CLAVE-DE-REGIMEN` los sigue admitiendo |
-| `BG-34` (`BT-179`, `BT-180`) se usa para el IEDMT | Están en `NO_SE_COMPRUEBA` por no tener ruta en el anexo de abril |
-| Mensaje de anulación de factura, un `ApplicationResponse` de UBL | Documento nuevo. Desde el 29-09-2026 **se reconoce y se le mide la forma y la firma**; su contenido no, porque el texto no está publicado (ver «Las respuestas: `ApplicationResponse`») |
+| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | **Confirmado por escrito el 22-09-2026**. L10 entera —`QR`, `AUT`, `RECT:TIPO`, `RECT:MODALIDAD`, `RECT:IMPORTES`— la repitió el correo del **23**, pero ya estaba en la diapositiva 8 de este seminario, como imagen, y no se vio hasta el 05-10-2026. `SPFE-RECTIFICATIVA` ya no exige la extensión y **reconoce** los calificadores: dice cuáles hay y cuál falta, en una NOTA. Desde el ejemplo del **02-10-2026** comprueba también el **valor**, en `cbc:DocumentTypeCode`, y avisa del que no está en su L2 (ver «El ejemplo del 02-10-2026», abajo). La orden lo confirma: no tiene extensión de rectificativas, y la extensión de abril todavía se acepta |
+| El indicador de copia pasa a `0..1` | Confirmado por la orden. Desde el 07-10-2026, `SPFE-COPIA` es una NOTA |
+| El **389** para la factura expedida por el destinatario, junto al 471: «La expedición de facturas por el destinatario o por tercero está plenamente contemplada en el Anexo I» | No es nuevo: la L1 de abril ya lo trae, y aquí se escribió que entraba. La de la orden es la misma, `380, 384, 388, 389, 471`, y `SPFE-TIPO-DE-FACTURA` mide con ella |
+| El NIF del vendedor va en `BT-31` o en `BT-32`, este con esquema «LOC» y `@schemeID` «FC» | Confirmado por la orden. Desde el 07-10-2026, `SPFE-NIF` admite las dos formas |
+| L4 gana las categorías de la EN 16931:2026, entre ellas la `N`; y se han pedido códigos VATEX propios de España | La L4 de la orden trae la `N`, la `D` y la `F`. Desde el 07-10-2026 se aceptan en las facturas de la solución pública, con una NOTA |
+| L3A se recorta: fuera el simplificado, el recargo de equivalencia y el de agricultura, ganadería y pesca | Confirmado por la orden: sin la 18, la 19 ni la 20. `SPFE-CLAVE-DE-REGIMEN` las sigue admitiendo hasta la tanda que pone las reglas al texto |
+| `BG-34` (`BT-179`, `BT-180`) se usa para el IEDMT | Confirmado por la orden: el grupo «IMPUESTOS Y TASAS», con `IEDMT` u `OTROS` en `cac:CollectionInvoiceLine/cbc:ID`. Desde el 07-10-2026, `SPFE-LINEA-DE-COBRO` acepta los dos. `BT-179` y `BT-180` siguen en `NO_SE_COMPRUEBA`: son términos de la edición de 2026 y la orden tampoco les da ruta UBL |
+| Mensaje de anulación de factura, un `ApplicationResponse` de UBL | Documento nuevo. Desde el 29-09-2026 **se reconoce y se le mide la forma y la firma**. Su contenido está publicado desde el 05-10-2026, en el anexo I de la orden, pero medirlo es una regla nueva y va en la tanda siguiente (ver «Las respuestas: `ApplicationResponse`») |
 
-**No se ha tocado ni una regla, y es a propósito.** Unas transparencias no son
+**No se tocó ni una regla, y fue a propósito.** Unas transparencias no son
 un texto normativo: dicen qué va a cambiar, no cómo queda redactado. Reescribir
 24 reglas sobre ocho viñetas es exactamente lo que este repositorio no hace. Lo
-que sí se hace es **decirlo donde se ve**: la NOTA `SPFE-BORRADOR` que lleva
-cada factura medida dice ahora que el anexo cambió el 10-09-2026 y que el texto
-no está publicado, así que alguna regla puede haber quedado vieja. Y la lista de
-arriba vive también en la cabecera de `validador/solucion_publica.py`, que es
-donde se va a mirar el día que salga el texto.
+que sí se hizo fue **decirlo donde se ve**: la NOTA `SPFE-BORRADOR` que lleva
+cada factura medida decía, hasta el 07-10-2026, que el anexo cambió el
+10-09-2026 y que el texto no estaba publicado, así que alguna regla podía
+haber quedado vieja; desde ese día dice que el anexo es el de la orden y qué
+se ha puesto ya al día. Y la lista de arriba vive también en la cabecera de
+`validador/solucion_publica.py`: es la lista de lo que había que revisar el
+día que saliera el texto, y salió.
 
 **Y una cosa que la tercera presentación deja escrita.** La técnica, del
 Departamento de Informática Tributaria, dice contra qué valida la solución
@@ -3955,7 +4030,10 @@ daría por malas las facturas escritas como enseña la Agencia.
 del anexo de abril, y el correo no explica el cambio. En la práctica de la
 EN 16931, `#compliant#` marca un CIUS y `#conformant#` una extensión; si va en
 serio, la AEAT declara su formato como extensión. Es inferencia: el texto de la
-norma que lo define no se ha podido leer.
+norma que lo define no se ha podido leer. Iba en serio con el primero: la
+orden, tres días después, fija en `BT-24` ese mismo identificador, letra a
+letra. El segundo no: en `BT-23` pone
+`urn:aeat:names:specification:ubl:schema:profile:B2B`, con `ubl:`.
 
 Medido el 05-10-2026 sobre `main`, antes de tocar nada: con el identificador
 del ejemplo **no se aplicaba ni una regla del anexo y nada lo decía**, se le
@@ -3968,7 +4046,7 @@ Lo que se hizo, sin ninguna regla nueva que dé ERROR:
 
 | Qué | Cómo sale |
 |---|---|
-| El identificador del ejemplo | Se reconoce por el valor entero, se mide con el anexo de abril y `SPFE-ESPECIFICACION` lo dice en una NOTA |
+| El identificador del ejemplo | Se reconoce por el valor entero y se mide con el anexo. Hasta el 07-10-2026 se medía con el de abril y `SPFE-ESPECIFICACION` lo decía en una NOTA; desde ese día no sale nota, porque es el de la orden |
 | Otro identificador que nombre a la AEAT (`urn:aeat.es:`) y no lleve `CIUS-ES-SPFE` | `SPFE-ESPECIFICACION` como AVISO, y no se le aplica el anexo. La forma y la norma europea se miden como siempre, así que con líneas de cobro sale `BR-CO-16`, que solo se quita cuando se mide con el anexo. Si lleva `CIUS-ES-SPFE`, es otra versión del CIUS y sale ERROR, como antes |
 | Sin `UBLVersionID` | Se supone UBL 2.5 con cualquier identificador de la AEAT, y no solo con el de abril |
 | El `ProfileID` del ejemplo | `SPFE-PROCESO` como NOTA, con cualquiera de los dos identificadores |
@@ -3980,36 +4058,177 @@ ERROR, pero lo que antes se colaba por no reconocerse recibe ahora los ERROR
 que ya existían:
 
 - **Todo el anexo, con el identificador del ejemplo.** Antes no se le aplicaba
-  ninguna regla `SPFE-`; ahora todas. Una factura así sin `CopyIndicator`, sin
-  `ProfileID`, con el tipo 381, con el NIF en el esquema «LOC», escrita como
-  `CreditNote` o con la moneda del IVA en dólares da el ERROR de su regla, y
-  una 384 que no dice qué rectifica, el de `SPFE-RECTIFICATIVA`.
+  ninguna regla `SPFE-`; ahora todas. Una factura así sin `ProfileID`, con el
+  tipo 381, escrita como `CreditNote` o con la moneda del IVA en dólares da el
+  ERROR de su regla, y una 384 que no dice qué rectifica, el de
+  `SPFE-RECTIFICATIVA`. Sin `CopyIndicator` o con el NIF en el esquema «LOC»
+  también daba ERROR, hasta el 07-10-2026: desde ese día la falta de
+  `CopyIndicator` es una NOTA y el NIF en «LOC» con «FC» se acepta, porque la
+  orden admite las dos cosas. «LOC» sin «FC» sigue siendo ERROR.
 - **Una 384 cuyo único `BG-24` es el QR escrito sin `ubl:`, o la
   autorización**, con cualquiera de los dos identificadores.
-- **Un QR sin `ubl:` repetido, o sin descripción o dirección.**
+- **Un QR sin `ubl:` repetido, o sin dirección.** Sin descripción también,
+  hasta el 07-10-2026: la orden la deja opcional (`BT-123`, `0..1`).
 - **Un QR con espacios alrededor del identificador**, con o sin `ubl:`. Antes
   se buscaba por igualdad exacta y ahora se lee como los demás calificadores,
   sin esos espacios.
 
 Antes salían limpios porque no se miraban, no porque estuvieran bien.
 
-**Lo que no se hizo.** Un ejemplo no es el BOE, así que lo que enseña entra
-como NOTA o AVISO. El día que se publique el texto, la negativa de L10 de
-`solucion_publica.py` no deja importar el módulo hasta confirmar el sitio del
-valor, exigir los importes cuando la modalidad es S y pasar a ERROR lo que hoy
-no lo es. Tampoco se resuelve la regla UBL-SR-43 del esquematrón de sintaxis de
-CEN, de la vinculación de 2017 y de nivel fatal, que en un
-`AdditionalDocumentReference` solo admite el código 130 (o el 50 en un abono):
-`R1` y `S` la incumplen. Aquí no se cargan esas reglas, y si la vinculación de
-2026 la mantiene no se sabe. Queda por preguntar, con los importes rectificados
-—el ejemplo es una S y no los enseña— y con si L7 pierde también el `ubl:`.
+**Lo que no se hizo.** Un ejemplo no es el BOE, así que lo que enseñaba entró
+como NOTA o AVISO. El texto salió en el BOE el 05-10-2026, y la negativa de L10
+de `solucion_publica.py` salta el día que se regenere `cius_es` desde su XML,
+que trae L10: es la tanda siguiente. Ese día el módulo no se deja importar
+hasta confirmar el sitio del valor, exigir los importes cuando la modalidad es
+S y pasar a ERROR lo que hoy no lo es. Tampoco se resuelve la regla UBL-SR-43
+del esquematrón de sintaxis de CEN, de la vinculación de 2017 y de nivel
+fatal, que en un `AdditionalDocumentReference` solo admite el código 130 (o el
+50 en un abono): `R1` y `S` la incumplen. Aquí no se cargan esas reglas, y si
+la vinculación de 2026 la mantiene no se sabe; eso queda por preguntar. Las
+otras dos cosas que quedaban las contesta la orden. Los importes rectificados,
+que el ejemplo no enseñaba —es una S—: cada uno en su `BG-24`
+`RECT:IMPORTES`, con el importe en `BT-123`, como texto, y su código de L2.C
+(`Base`, `Cuota`, `CuotaRecargo`) en `cbc:DocumentTypeCode`; leerlos es de la
+tanda siguiente. Y si L7 pierde también el `ubl:`: sí, su calificador es
+`urn:aeat:names:specification:schema:add:`.
 
 **Y una lección de proceso.** La L10 sin `ubl:` ya estaba en la diapositiva 8
 de «Principales novedades anexo I», la del 10-09-2026, como imagen: `pdftotext`
 no saca las tablas que van en imagen, y nadie la vio. Las transparencias se
 miran como imagen.
 
-### La copia fiel, y los dos números que cambian
+### La orden en el BOE, y la primera tanda: dejar de condenar
+
+La Orden HAC/1028/2026 salió en el BOE del **05-10-2026** (BOE-A-2026-20587) y
+está en vigor desde el día siguiente. El XML del BOE trae las tablas del anexo
+enteras, sin PDF que leer por coordenadas. Bajado el 07-10-2026: el XML pesa
+249.350 bytes, con SHA-256
+`14bb2dad06a5ce3278c395232db9185f18052b08602cae472a9b2af3ae9c354a`, y el PDF,
+963.876 bytes, con
+`6384b2bb755404829f184fc18d7e2b99ce013436387ffed12ff4124ee99cd5d7`. Ninguno se
+versiona.
+
+Medido ese día sobre `cc0a935`, antes de tocar nada, con una factura escrita al
+pie de la letra del anexo publicado —el proceso de la orden, sin indicador de
+copia, el vendedor en `BT-32` con «LOC» y «FC», un anticipo pagado y la
+retención con el calificador de L7—: **seis ERROR** de reglas `SPFE-` que la
+orden ya no sostiene. Con variantes, más: el tercero escrito como la orden, el
+comprador en `BT-47`, el QR sin descripción, la clave de régimen con el
+calificador de L8, y la categoría `N`, que tumbaban `BR-CL-17` y `BR-CL-18` y
+dos avisos de IVA.
+
+| Lo que la orden admite | Antes | Ahora |
+|---|---|---|
+| El proceso `urn:aeat:names:specification:ubl:schema:profile:B2B` | `SPFE-PROCESO`, ERROR | Se acepta. El del ejemplo del 02-10-2026, sin `ubl:`, sale en una NOTA que dice que la orden fija otro |
+| La especificación del ejemplo, que es letra a letra la de la orden | NOTA: «un ejemplo no es el BOE» | Sin nota |
+| La factura sin `CopyIndicator` (`0..1`, «False (o sin informar): original») | `SPFE-COPIA`, ERROR | NOTA: la orden la toma por el original, y una copia fiel tiene que decirlo ahí (artículo 4, apartado 3) |
+| Un importe pagado distinto de cero | `SPFE-IMPORTE-PAGADO`, ERROR | NOTA: lo que la orden prohíbe, un anticipo con el IVA devengado (artículo 75.Dos de la Ley del IVA), no se ve en la factura |
+| El NIF con «LOC» y el atributo `schemeID` «FC», en `BT-32`, en `BT-47` y en el tercero | `SPFE-NIF` y `SPFE-TERCERO`, ERROR | Se acepta. «LOC» sin «FC», no |
+| La L7 de la orden —`SUPL`, `MINO`, `RETE`, `IEDMT` y `OTROS`—, con su calificador `urn:aeat:names:specification:schema:add:` delante o sin él | `SPFE-LINEA-DE-COBRO` y `SPFE-RETENCION`, ERROR | Se aceptan, y la de abril también, todavía |
+| El nombre del tercero en `cac:PartyLegalEntity/cbc:RegistrationName` | `SPFE-TERCERO`, ERROR | Se acepta, y en `cac:PartyName` también |
+| El QR sin descripción (`BT-123`, `0..1`) | `SPFE-QR`, ERROR | Se acepta. La dirección sigue siendo obligatoria |
+| La clave de régimen con el calificador de L8, `urn:aeat:names:specification:schema:lin:REGI` | `SPFE-CLAVE-DE-REGIMEN`, ERROR | Se acepta, y `REGI` a secas también |
+| Las categorías `N`, `D` y `F` de la L4 | `BR-CL-17` y `BR-CL-18`, ERROR; `IVA-CATEGORIA-RARA` e `IVA-TIPO`, AVISO | `SPFE-CATEGORIA`, NOTA, y solo en las facturas de la solución pública: no en sus abonos, a los que no se mide con el anexo |
+| La base de la `N` desligada de las líneas: el grupo de entidades la informa a coste (`BT-116`) y en la línea la contraprestación (`BT-131`), y el recargo de equivalencia va en el desglose sin línea propia; en la `D` y la `F` la base puede ser el margen | `IVA-BASE`, ERROR | No se compara con las líneas en la solución pública. `BR-CO-17`, la cuota con su base y su tipo, sigue |
+| El registro del comprador (`BT-47`) en un `cac:PartyTaxScheme` con «LOC» y «FC», que es donde lo pone la fila de la orden | `BR-AE-02`, ERROR, en una inversión del sujeto pasivo | Cuenta, en la solución pública. Fuera de ella, `BT-47` es el de la vinculación de 2017 |
+| El calificador de L10 a secas, `QR`, `AUT`, `RECT:TIPO` | No se reconocía: un QR así no se miraba | Se reconoce, como en L7 y L8 |
+| La referencia catastral con el calificador de L8, `…:lin:RCAT` | No se leía: una situación fuera de L6 pasaba | Se lee, como la clave de régimen |
+
+La nota `SPFE-BORRADOR` ya no dice que el anexo no está publicado: dice que es
+el de la orden, que aquí se mide todavía en buena parte con el borrador de
+abril, la lista entera de lo que ya se admite, y que «ninguna queja» no quiere
+decir que la factura cumpla la orden. La lista está escrita una vez,
+`solucion_publica.LO_QUE_YA_SE_ADMITE`; el glosario la copia letra a letra, y
+cada frase tiene en las pruebas las facturas que la demuestran y que pasan el
+validador entero sin una queja. La etiqueta del informe deja de ser «Anexo I
+(borrador)» y pasa a «Anexo I», sin versión: mientras queden reglas que solo
+existen en el borrador, como el recargo de equivalencia, ponerles el nombre de
+la orden sería atribuirle quejas que no hace, y la ficha de la familia dice
+las dos fuentes. La frase de alcance dice «parte de» lo que el anexo pide, y
+cuál: lo que ya pedía el borrador, sin las reglas nuevas de la orden.
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- **Los calificadores de L7 y L8.** La orden da cada valor —«usar «RETE»»— y,
+  aparte, el calificador de su lista, sin decir cómo se juntan. Se aceptan las
+  dos lecturas: el calificador delante, que es como la AEAT escribió los de
+  L10 en su ejemplo, y el valor solo, que es lo que dice la fila. Elegir una
+  daría por mala una factura que siga la otra. Es una pregunta para el buzón.
+- **La `N`, la `D` y la `F`, solo en la solución pública.** Ahí lo dice la L4
+  de la orden. Qué lista rige para quien declara la edición de 2026 sin
+  declarar la solución pública es una decisión del titular que no está
+  tomada, y entretanto esa factura se mide como siempre: la `N` le sigue dando
+  `BR-CL-17` y `BR-CL-18`.
+- **Se ensancha la lista y no se borra la queja.** `factura` le pasa a las
+  reglas europeas las categorías de la orden que la lista de 2017 no tiene
+  —calculadas restando, no escritas—, y `BR-CL-17` y `BR-CL-18` las cuentan
+  como buenas. Con `_SOBRA_SI`, que apaga el código entero, una `X` en otra
+  línea de la misma factura se habría callado. Así sigue saliendo, y sola.
+- **`BT-47` donde lo pone la orden, para la norma.** `BR-AE-02` pide el
+  identificador de IVA del comprador o su registro legal, `BT-47`. La orden
+  llama `BT-47` al NIF con «LOC» y «FC» en `cac:PartyTaxScheme`; la
+  vinculación de 2017, a `cac:PartyLegalEntity/cbc:CompanyID`. Que la orden
+  rotulara mal su fila también se puede sostener, y entonces el ERROR sería
+  bueno; se elige la lectura que no condena lo que el texto admite.
+- **`BR-G-02` se queda.** La exportación pide en la norma el identificador de
+  IVA del vendedor (`BT-31`), y la orden deja elegir `BT-31` o `BT-32`. Pero
+  el anexo es un mínimo, el artículo 3.1 exige la EN 16931 y nada deroga esa
+  regla: con el vendedor solo en `BT-32`, una exportación sigue en ERROR.
+- **Las constantes de la orden, a mano y juntas.** `cius_es` todavía sale del
+  PDF de abril. Lo que esta tanda toma de la orden va escrito en un solo
+  bloque de `solucion_publica.py`, con la fila de la que sale, y la guarda de
+  L10 se niega a importar el módulo el día que la tabla traiga L10, que la del
+  BOE trae: no hay que acordarse de moverlas.
+
+**La revisión, antes de publicar.** Tres miradas sobre el cambio —que el
+código haga lo que dice, que no acepte de más, que las pruebas lo fijen—, cada
+hallazgo verificado aparte por otra, y el revisor de promesas. Cuatro fallos:
+la rama de `BR-CO-18`, la de la factura sin desglose, no le pasaba a
+`BR-AE-02` el `BT-47` de la orden; «LOC» y «FC» con un espacio alrededor
+valían en `SPFE-NIF` y no en `BR-AE-02`, en el mismo informe; un abono que
+declara la solución pública recibía la L4 de la orden sin la nota que lo dice;
+y la `N` salía en `BR-CO-17` como «categoría no reconocida» junto a la nota
+que la daba por buena. Siete cosas que el cambio hacía y ninguna prueba
+fijaba: la `D` y la `F`, los calificadores de L10 a secas que no son el QR, dos
+mensajes de la rectificativa, la etiqueta «Anexo I», el filtro de «LOC» del
+`BT-47`, la `RCAT` con calificador y la fila del adjunto en la copia fiel. Y
+frases que prometían de más: la nota, el alcance, la ficha de la familia, la
+portada y la política. Arreglado todo, con la prueba en rojo antes.
+
+**Lo que la revisión propuso y se quedó como estaba.**
+
+- **`IVA-BASE` e `IVA-TIPO` siguen sin mirar la `N`, la `D` y la `F`** en la
+  solución pública. Se propuso volver a pedir que la base tenga líneas
+  detrás, salvo una `N` con la misma base que otra entrada. Rompía una factura
+  buena: el recargo de equivalencia solo grava las entregas de bienes
+  (artículo 154 de la Ley del IVA), y a un minorista con 80 de mercancía y 20
+  de un servicio le toca una `S` con base 100 y una `N` al 5,2% con base 80,
+  que no es la de ninguna otra entrada. Y en la `D` y la `F`, con la base en el
+  precio y la cuota sobre el margen, `BR-CO-17` obliga a un tipo que no está
+  en la tabla, y el aviso de tipos saltaría en falso. La nota `SPFE-CATEGORIA`
+  nombra las reglas que no se les aplican.
+- **Los espacios alrededor de `REGI` o de la línea `RETE`** se recortan, como
+  en todo el módulo: el tipo de factura, el identificador del QR y el valor de
+  la propia clave ya se recortaban. Antes, una línea `RETE` con espacios era
+  buena para `SPFE-LINEA-DE-COBRO` y le faltaba a `SPFE-RETENCION` en el mismo
+  informe.
+- **La 384 con un `BG-24` ajeno** y **el proceso del ejemplo del
+  02-10-2026** siguen en NOTA. Pasarlos a ERROR es poner las reglas al texto,
+  que es la tanda siguiente, y la nota lo dice: lo que la orden no admite
+  todavía no siempre se rechaza.
+
+**Lo que no se hizo, a propósito.** Rechazar lo que la orden ya no admite —las
+claves 18, 19 y 20 de L3A, las líneas `REEQ` y `REGE`, el proceso y la
+especificación de abril— y medir sus reglas nuevas. Las dos cosas piden
+regenerar `cius_es` desde el XML del BOE y poner cada regla al texto, y van en
+la tanda siguiente. Hasta entonces, la nota lo dice en cada factura.
+
+### La copia fiel, y el número que cambia
+
+Hasta el 07-10-2026 este apartado se titulaba «La copia fiel, y los dos números
+que cambian»: el recargo de equivalencia era el segundo, y con la orden ya no
+lo es (abajo). Las familias se escribieron contra el anexo de abril; donde la
+orden dice otra cosa, la fila lo dice con fecha.
 
 Quien no emita por la solución pública tiene que mandarle una **copia fiel** en
 UBL de cada factura, a la vez que la emite. El original sigue siendo el que es
@@ -4031,15 +4250,27 @@ entre sintaxis:
 | Facturae | 14 | 50 | **67** |
 
 Y dentro de esos 67, lo que decidió el orden de trabajo: no es que falten
-datos, es que **cambian cifras**. El esquema de Facturae define su total como
-la base más los impuestos repercutidos **menos los retenidos**, y su total de
-impuestos repercutidos incluye el **recargo de equivalencia**. `BT-112` es la
-base más las cuotas de IVA, y `BT-110` solo las cuotas. Quien copie campo a
-campo pondrá en la copia dos números que no son los suyos, y un número
-equivocado no se ve, mientras que un hueco sí.
+datos, es que **cambia una cifra**. El esquema de Facturae define su total como
+la base más los impuestos repercutidos **menos los retenidos**, y `BT-112` es
+la base más las cuotas, sin restar nada. Quien copie campo a campo pondrá en la
+copia un total que no es el suyo, y un número equivocado no se ve, mientras que
+un hueco sí.
 
-**Cuántas facturas están en ese caso: 6 de las 14.** Seis llevan retenciones y
-cuatro recargo —las cuatro, dentro de las seis—. Dos llevan suplidos.
+**Hasta el 07-10-2026 aquí se contaban dos cifras, y la otra era la cuota.** El
+total de impuestos repercutidos de Facturae incluye el **recargo de
+equivalencia**, y se escribió que `BT-110` no lo lleva, porque el borrador de
+abril le daba al recargo un grupo propio. La orden no tiene ese grupo: el
+recargo va en el desglose del IVA, `BG-23` —«También proporcionará información
+sobre el desglose del recargo de equivalencia, en su caso»—, con su cuota en
+`BT-117` y su tipo en `BT-119`, y con la categoría `N` de L4. Y como la orden
+exige ajustarse a la EN 16931 (artículo 3.1), cuya BR-CO-14 hace de `BT-110` la
+suma de los `BT-117`, la cuota total de la copia **lleva el recargo**, igual que
+la de Facturae, y `BT-112` es la base más esas cuotas. De las dos cifras, al
+copiar una Facturae solo cambia el total, y solo por la retención.
+
+**Cuántas facturas están en ese caso: 6 de las 14**, las seis que llevan
+retenciones. Cuatro llevan recargo, las cuatro dentro de las seis, y el recargo
+ya no cambia ninguna cifra. Dos llevan suplidos.
 
 **La segunda familia: lo evidente**, escrita el mismo día. Se llama evidente
 porque casi todas sus filas son «llega igual» —la calle, la población, el
@@ -4052,7 +4283,7 @@ frecuentes:
 |---|---:|---|
 | La **serie** va pegada al número | 8 | el anexo tiene **un solo campo**, `BT-1`, «número y serie de la factura», y Facturae tiene dos. Nadie dice cómo se juntan: aquí se pegan sin separador, que es como los junta el código único del RD 238/2026 |
 | La dirección **de fuera de España** junta código postal y población | 3 | `PostCodeAndTown` es un campo y la copia pide dos. Ni el esquema de Facturae ni el anexo dicen por dónde se corta la cadena |
-| El **periodo de facturación** no está en el anexo | 9 | la norma tiene `BG-14` y el anexo de abril no lo recoge, aunque el esquema de Facturae lo hace obligatorio en las recapitulativas |
+| El **periodo de facturación** no estaba en el anexo | 9 | la norma tiene `BG-14` y el anexo de abril no lo recoge, aunque el esquema de Facturae lo hace obligatorio en las recapitulativas. La orden sí lo recoge, desde el 05-10-2026: «PERIODO DE LA FACTURA RECAPITULATIVA», `0..1`, con `BT-73` y `BT-74` |
 
 Y lo que se queda en el original, que no lo dice nadie: el **idioma** (11 de
 14), el **lugar de expedición** (8), y el fax, la página web y el CNAE de las
@@ -4067,7 +4298,7 @@ fuera, pero lo que la hace útil son tres filas que desde los totales no se ven:
 | Lo que esconde una línea | De 14 | Qué pasa |
 |---|---:|---|
 | El **identificador de línea** no existe | 14 | `BT-126` es obligatorio en el anexo y Facturae no tiene ninguno. Su esquema da `SequenceNumber`, pero significa otra cosa —el orden de la línea en un pedido— y 11 de las 14 no traen ni uno. Lo pone quien copia, y tiene que ponerlo **siempre igual**: si la misma factura se copia hoy con las líneas numeradas de una manera y mañana de otra, las dos copias dicen cosas distintas del mismo original |
-| La **unidad de medida** es de otra lista | 11 | Facturae tiene la suya, 36 códigos de dos dígitos, y la norma pide UN/ECE, recomendaciones 20 y 21. De esos 36: 13 llevan el europeo en su propia etiqueta y valen tal cual, 16 lo llevan pero necesitan una `X` delante —los de embalaje—, 1 solo cuadra en mayúsculas y **6 no lo llevan**. Entre esos seis está `01`, «Units», que es justo el que escriben las 18 líneas medidas aquí: en la copia es `C62`. Y tampoco tiene campo propio, porque `BT-130` no está en el anexo: viaja como atributo de la cantidad |
+| La **unidad de medida** es de otra lista | 11 | Facturae tiene la suya, 36 códigos de dos dígitos, y la norma pide UN/ECE, recomendaciones 20 y 21. De esos 36: 13 llevan el europeo en su propia etiqueta y valen tal cual, 16 lo llevan pero necesitan una `X` delante —los de embalaje—, 1 solo cuadra en mayúsculas y **6 no lo llevan**. Entre esos seis está `01`, «Units», que es justo el que escriben las 18 líneas medidas aquí: en la copia es `C62`. Viaja como atributo de la cantidad, y en el anexo de abril ni siquiera tenía fila: `BT-130` no estaba. En la orden sí está, desde el 05-10-2026, y obligatorio (`1..1`) |
 | El **importe neto** se puede copiar del campo de al lado | 6 | `BT-131` es `GrossAmount` y no `TotalCost`, aunque el nombre invite a lo contrario. El esquema define `TotalCost` como cantidad por precio y `GrossAmount` como «TotalCost − DiscountAmount + ChargeAmount», y lo que la norma pide es el importe **después** de los descuentos de la línea |
 
 Y lo que el anexo no pide de una línea: la **nota** (6 de 14), el **código de
@@ -4111,12 +4342,12 @@ falta hacían, porque lo que se pierde no lo avisa ninguna regla:
 
 | Lo que pasa con una referencia | De 14 | Qué pasa |
 |---|---:|---|
-| **Ninguna tiene campo** en la copia | 8 | Facturae sabe llevar siete referencias —el pedido y el contrato, cada uno del emisor y del receptor, el expediente, el albarán y el número de línea del pedido— y el anexo **no recoge ni una**: de `BT-11` a `BT-19` no hay ninguna en sus 104 términos, ni tampoco `BT-132`. Se omiten o van en una extensión, y no las valida nadie |
+| **Ninguna tiene campo** en la copia | 8 | Facturae sabe llevar siete referencias —el pedido y el contrato, cada uno del emisor y del receptor, el expediente, el albarán y el número de línea del pedido— y el anexo **no recoge ni una**: de `BT-11` a `BT-19` no hay ninguna, ni tampoco `BT-132`, ni en el anexo de abril ni en el de la orden. Se omiten o van en una extensión, y no las valida nadie |
 | Queda **un hueco libre**, y no es para ellas | — | el anexo sí conserva una referencia de documento: `BT-10`, «un identificador asignado por el comprador para especificar rutas internas de la factura». Es el único sitio donde cabría algo, y meter ahí el pedido deja una copia válida que dice otra cosa: el mismo fallo que copiar el dígito del medio de pago. Lo que en Facturae sí encamina —los centros administrativos— tiene sus propios campos españoles, `BT-ES-9`, `BT-ES-10` y `BT-ES-11` |
 | Viven **dentro de la línea** | 8 | y la norma las pone en el documento. Ninguna de las 14 escribe una referencia en la cabecera, aunque el esquema lo permita: las 8 que traen alguna la traen en la línea, y **3 traen más de un albarán distinto**, así que este corte, al revés que el de los vencimientos, sí se ha visto |
 | Las **fechas** no existen para la norma | 3 | Facturae le pone fecha a cada referencia —seis en total, contando la del albarán— y para la norma una referencia es un identificador suelto: ninguna de `BT-12` a `BT-17` lleva fecha al lado |
 | La **factura anterior** pide una fecha que no hay | 0 | `BG-3` es el único grupo de referencia que sí viaja, y el anexo pone `BT-26` —la fecha de expedición de la referenciada— en **1..1**, donde la norma europea no obliga. La factura asociada de Facturae no lleva ninguna, y la rectificativa solo está obligada a escribir la suya con los criterios 01 y 02: sin fecha no se monta el grupo. Ninguna de las 14 se refiere a otra factura, así que se prueba provocado |
-| El **adjunto** no cabe, y el grupo está ocupado | 2 | `BT-125` no está en el anexo, y el grupo donde iría, `BG-24`, lo usa dos veces para otra cosa: el **QR fiscal** —con valores fijos y la dirección en `BT-ES-47`— y el número de la **autorización** del Departamento de Gestión Tributaria. Las dos son contenido que la factura no tiene: las pone quien copia, sacándolas de su sistema |
+| El **adjunto** no cabe, y el grupo está ocupado | 2 | `BT-125` no está en el anexo, ni en el de abril ni en el de la orden, y el grupo donde iría, `BG-24`, lo usa para otra cosa: el **QR fiscal** —con valores fijos y la dirección aparte, en `BT-ES-47` en abril y en `cbc:UUID` en la orden— y el número de la **autorización** del Departamento de Gestión Tributaria. Las dos son contenido que la factura no tiene: las pone quien copia, sacándolas de su sistema. Desde la orden, `BG-24` lleva además los datos de la rectificativa: `RECT:TIPO`, `RECT:MODALIDAD` y `RECT:IMPORTES` |
 
 De propina, el que cierra el cabo de la tercera familia: `SequenceNumber`, el
 que no servía como identificador de línea, es `BT-132` —la línea **del
@@ -4150,7 +4381,7 @@ sí misma, y eso no está en el original.
 |---|---:|---|
 | La **moneda del IVA** no hay que copiarla | 14 | y es el único caso de toda la tabla en el que el fallo es copiar **de más**. `TaxCurrencyCode` es obligatorio en Facturae y repite la moneda de la factura; `BT-6` solo tiene sentido cuando el IVA se contabiliza en otra. En cuanto se escribe, `BR-53` exige `BT-111` —la cuota en esa moneda—, que Facturae no lleva: lleva el tipo de cambio. Copiar el campo por estar escrito deja una copia que **no cumple la norma** por un dato que no aportaba nada |
 | El **tipo de factura** se arma con tres campos | 14 | `BT-3` sale de `InvoiceDocumentType`, de `InvoiceClass` y de `FileHeader/InvoiceIssuerType`, que está fuera de la factura y es lo que separa la 380 de la **389** y la 384 de la **471**. Las 14 de aquí son `FC` + `OO`, o sea 380 |
-| La **especificación** la escribe quien copia | 14 | `BT-23` y `BT-24` son obligatorias y de valor fijo: el proceso (`…:schema:B2B`, fijo, ni siquiera distingue el B2G) y la especificación que sigue el documento (`urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0`). Una factura no dice eso de sí misma |
+| La **especificación** la escribe quien copia | 14 | `BT-23` y `BT-24` son obligatorias y de valor fijo: el proceso (`urn:aeat:names:specification:ubl:schema:profile:B2B`, fijo, ni siquiera distingue el B2G) y la especificación que sigue el documento (`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`). Son los de la orden; hasta el 07-10-2026 aquí estaban los de abril, que terminaban en `…:schema:B2B` y `…:CIUS-ES-SPFE:1.0.0`. Una factura no dice eso de sí misma |
 | Cinco **huecos** sin origen | — | `BT-10`, `BT-20`, `BT-21`, `BT-114` y `BT-166` son opcionales y Facturae no tiene ninguno: la referencia interna del comprador, las condiciones de pago, el código de la nota, el importe de redondeo y la hora de expedición. Lo correcto es dejarlos vacíos; el fallo no es olvidarlos, es rellenarlos con lo que más se les parezca |
 
 **La novena familia: las partes** (22-09-2026). Las direcciones y los contactos
@@ -4161,15 +4392,14 @@ la fila que menos se espera:
 |---|---:|---|
 | El **nombre de una persona física** va en tres campos | 7 | `Name`, `FirstSurname` y `SecondSurname`, y en la copia va en uno solo y obligatorio. Nadie dice en qué orden ni con qué separador: no es lo mismo «Juana Mauriño» que «Mauriño, Juana» para quien busque la factura por su titular. Y quedarse solo con el nombre —que es lo que hace el validador para **leer** la factura, porque pegarle los apellidos sería inventar un formato— aquí perdería dos apellidos |
 | Los **datos registrales** son seis campos | 8 | libro, registro, hoja, folio, sección y tomo, y `BT-33` es una línea de texto libre. Hay que redactarla, no copiarla |
-| El **NIF** es la fila que el texto nuevo mueve seguro | 14 | hoy es el mismo dato en el mismo sitio; el 10-09-2026 se anunció que el del vendedor podrá ir en `BT-31` —que el anexo de abril ni recoge— o en `BT-32` con esquema «LOC» y `@schemeID` «FC» |
+| El **NIF** es la fila que mueve la orden | 14 | en Facturae es un solo campo por parte, y la orden publicada el 05-10-2026 da dos sitios a cada una: el vendedor en `BT-31`, con «VAT» y el prefijo de España, o en `BT-32` con esquema «LOC» y `@schemeID` «FC»; el comprador en `BT-48` con «VAT» o en `BT-47` con «LOC» y «FC». `BT-31` ni estaba en el anexo de abril. Hasta el 07-10-2026 esta fila decía que el texto nuevo la movería seguro, con lo anunciado el 10-09-2026 |
 | El **nombre comercial** no está en el anexo | 8 | ni `BT-28` ni ninguno de los identificadores de las partes. De las dos, el anexo se queda con el nombre y el NIF |
 
 Lo que dice el módulo, con los importes al lado:
 
 | Nota | Cuándo sale | Qué dice |
 |---|---|---|
-| `COPIA-TOTAL` | hay retenciones o recargo | el total de la copia es la base más las cuotas, sin restar la retención |
-| `COPIA-CUOTA` | hay recargo de equivalencia | la cuota de la copia no lleva el recargo: en el anexo tiene grupo propio |
+| `COPIA-TOTAL` | hay retenciones | el total de la copia es la base más las cuotas, sin restar la retención |
 | `COPIA-SERIE` | la serie trae texto | en la copia, el número de la factura es la serie y el número juntos |
 | `COPIA-DIRECCION` | hay dirección de fuera de España | el código postal y la población hay que partirlos en dos campos |
 | `COPIA-PAGO-MEDIO` | hay medio de pago | el código es de la lista de Facturae y en la europea significa otra cosa |
@@ -4182,8 +4412,15 @@ Lo que dice el módulo, con los importes al lado:
 | `COPIA-NOMBRE` | una parte es persona física | su nombre va en tres campos y en la copia va en uno |
 | `COPIA-REFERENCIAS` | hay pedido, contrato, expediente o albarán | ninguna tiene campo en la copia, y el hueco que queda libre no es el suyo |
 | `COPIA-FACTURA-PREVIA` | se refiere a otra factura | el número va con su serie, y la fecha de la referenciada es obligatoria |
-| `COPIA-SUPLIDO` | hay suplidos | son `BT-179` y `BT-180`, de la edición de 2026, y el anexo de abril no les da ruta |
+| `COPIA-SUPLIDO` | hay suplidos | son `BT-179` y `BT-180`, de la edición de 2026: la orden los pone en el `BG-34` de los cargos en nombre de un tercero, con «SUPL» en `cac:CollectionInvoiceLine/cbc:ID`, y no les da ruta |
 | `COPIA-SIN-SITIO` | hay algo que no viaja | la lista de lo que se queda en el original |
+
+Hasta el 07-10-2026 había una nota más, `COPIA-CUOTA`, que salía con recargo de
+equivalencia y decía que la cuota de la copia no lo lleva porque el anexo le
+daba grupo propio; y `COPIA-TOTAL` salía también con recargo, no solo con
+retenciones. Con la orden el recargo va en el desglose del IVA y la cuota de la
+copia lo lleva (arriba, al principio del apartado), así que la una desaparece y
+la otra sale solo cuando hay retenciones.
 
 Sobre las 14 facturas de aquí: **las 14 sacan alguna nota**. Eran 11 hasta la
 tercera familia, y las tres que callaban no eran facturas más limpias: eran las
@@ -4194,7 +4431,8 @@ conforme, porque ninguna es un error.
 
 **La tabla se escribe entera, con el porqué de cada fila**, en
 `CORRESPONDENCIAS`: **97 conceptos** que nombran **92 de los 104 términos
-europeos** del anexo, cada uno con lo que le pasa y de dónde sale esa decisión.
+europeos** del anexo de abril, que es el que trae todavía `cius_es`, cada uno
+con lo que le pasa y de dónde sale esa decisión.
 Los 12 que quedan sin nombrar no son un hueco: son **los grupos** —los
 contenedores, `BG-4` a `BG-9`, `BG-22`, `BG-25`, `BG-29` a `BG-31`— y
 `BT-154`, que la tercera familia deja vacío a propósito. Todo lo que lleva un
@@ -4208,11 +4446,11 @@ justo lo que hay que decidir:
 | llega, pero en la extensión española | el anexo le da grupo propio | las retenciones |
 | llega con otro número | el importe de la copia no es el de la factura | `BT-112` |
 | **llega, pero cortado de otra manera** | el dato viaja entero y los campos no se cortan igual en los dos formatos | la serie, que se junta; el código postal de fuera, que se parte |
-| **llega, pero el anexo no lo pide** | la norma tiene el término y el anexo no lo lista: llega y no lo mira nadie | el periodo de facturación, la persona de contacto |
+| **llega, pero el anexo no lo pide** | la norma tiene el término y el anexo no lo lista: llega y no lo mira nadie | la persona de contacto; el periodo de facturación, en el anexo de abril y no en la orden |
 | **llega, pero el código es de otra lista** | el campo existe en los dos sitios y el valor no vale: cada formato lo escribe con su vocabulario | la unidad de medida, `01` frente a `C62` |
 | **no está en la factura: lo pone quien copia** | el anexo pide un campo que Facturae no tiene | el identificador de línea |
 | no tiene sitio | se queda en el original | el idioma |
-| no se sabe todavía | lo desbloquea el texto nuevo del anexo | el total a pagar |
+| no se sabe todavía | lo desbloquearía una ruta para `BT-179`, que tampoco da la orden publicada | el total a pagar |
 
 Tres filas siguen en «no se sabe» a propósito: el total a pagar —la misma duda
 de `SPFE-TOTAL-A-PAGAR`—, los suplidos y los importes retenidos que no son de
@@ -4228,10 +4466,16 @@ tenerla:
   término que el anexo no recoge, o que diga «el anexo no lo pide» de uno que
   sí recoge, deja la suite en rojo. Provocado por los dos lados.
 
+Lo que el segundo cepo no ve todavía es la orden: compara con `cius_es`, que
+sale del borrador de abril, y la orden recoge términos que ese borrador no
+tenía —`BG-14`, `BT-130`, `BT-31`—. Las filas que dicen que no están en el
+anexo son verdad del borrador; que el cepo las señale cuando `cius_es` salga
+del XML del BOE es lo que se espera de él, y eso no se ha provocado.
+
 Lo que esto **no** es: no convierte nada —aquí no se escribe ninguna copia—, no
 valida la copia, que es otro documento con sus propias reglas `SPFE-`, y no
-adivina dónde se escriben en Facturae los campos españoles del anexo, que es lo
-que está cambiando.
+adivina dónde se escriben en Facturae los campos españoles del anexo, que con
+la orden han cambiado de número y, algunos, de sitio.
 
 ## Que a esto se llegue desde fuera
 
@@ -4935,10 +5179,15 @@ si es el de IVA o otro. La regla se evalúa con tres valores —está, no
 está, no se sabe—, y con «no se sabe» se calla: en las categorías que se
 conforman con cualquiera no hace falta, porque el esquema ya exige el número;
 en la intracomunitaria, la exportación y la no sujeta, que dependen de la
-clase, no se afirma nada. El borrador del CIUS español sí elige: lee el número
-del comprador como BT-48. Con esa lectura, **toda factura no sujeta que lleve el
-NIF del comprador sería error de BR-O-02**. Es una consecuencia del borrador, no
-de la norma, y queda escrita aquí para cuando haya texto definitivo.
+clase, no se afirma nada. El borrador del CIUS español sí elegía: leía el
+número del comprador como BT-48. Con esa lectura, **toda factura no sujeta que
+lleve el NIF del comprador sería error de BR-O-02**, que prohíbe BT-48 en la no
+sujeta. Era una consecuencia del borrador, no de la norma. La orden publicada
+el 05-10-2026 ya no elige uno solo: admite el NIF del comprador en BT-48, con
+«VAT», o en BT-47, con «LOC» y el atributo «FC». Así que una no sujeta tiene
+dónde llevarlo sin chocar con BR-O-02: en BT-47, que la regla no nombra y su
+esquematrón de UBL no mira, porque busca el `PartyTaxScheme` del comprador con
+«VAT».
 
 **Las facturas correctas de las pruebas no tenían identificador.** Cincuenta
 pruebas se pusieron en rojo el primer día: las facturas de ejemplo de UBL, CII y

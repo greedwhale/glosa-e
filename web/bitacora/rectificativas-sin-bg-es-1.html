@@ -1,7 +1,7 @@
 <article class="entrada"
   data-fecha="2026-09-28"
   data-titulo="Las rectificativas ya no van en BG-ES-1: lo que ha contestado la AEAT sobre el anexo nuevo"
-  data-entradilla="El borrador de abril metía los datos de una factura rectificativa en una extensión española, BG-ES-1. La AEAT contestó por escrito el 22 de septiembre que esa extensión desaparece, y el 23 dio la lista nueva con la que se escriben: cinco calificadores que el anexo publicado no trae. Hay una regla más estricta que la de abril, el abono 381 sigue fuera, y dos detalles que deciden cómo se programa siguen sin estar escritos en ninguna parte.">
+  data-entradilla="El borrador de abril metía los datos de una factura rectificativa en una extensión española, BG-ES-1. La AEAT contestó por escrito el 22 de septiembre que esa extensión desaparece, y el 23 dio la lista nueva con la que se escriben: cinco calificadores que el anexo de abril no trae. La respuesta trae una regla más estricta que la de abril, el abono 381 sigue fuera, y quedaban sin escribir dos detalles que deciden cómo se programa. Actualizada el 7 de octubre: la orden ya está en el BOE, confirma la lista, escribe los dos detalles y no pide los importes rectificados en toda sustitución.">
 
   <time datetime="2026-09-28">28 de septiembre de 2026</time>
   <h1>Las rectificativas ya no van en BG-ES-1: lo que ha contestado la AEAT
@@ -12,11 +12,42 @@
   escrito, y dijo también cómo se van a escribir. No lo dijo todo.</p>
 
   <aside class="correccion">
+    <b>Actualizada el 7 de octubre de 2026.</b> La orden salió en el BOE el 5
+    de octubre (<b>Orden HAC/1028/2026</b>), y esta entrada se ha contrastado
+    con su anexo, como se prometió abajo. Confirma lo esencial: no hay
+    extensión de rectificativas, van en <code>BG-24</code> con los
+    calificadores de <code>L10</code>, que son los cinco que dio la AEAT, bajo
+    <code>urn:aeat:names:specification:schema:</code>, sin <code>ubl:</code>;
+    y ni el 381 está en su <code>L1</code> ni la <code>K</code> en su
+    <code>L4</code>. Ojo con el nombre: <code>BG-ES-1</code> sigue existiendo
+    en la orden, pero es otro grupo, el de los datos del tercero. Y escribe las
+    dos cosas que aquí faltaban. El código del tipo, el de la modalidad y el
+    de los importes van en <code>cbc:DocumentTypeCode</code> (filas
+    <code>BT-ES-27</code>, <code>BT-ES-28</code> y <code>BT-ES-29</code>), y
+    el número de la autorización, en <code>cbc:UUID</code>
+    (<code>BT-ES-26</code>); no en la descripción, que es lo que aquí parecía
+    razonable. Lo único que no dice es si el identificador lleva el esquema
+    delante o va solo: cada fila da el valor, <code>RECT:TIPO</code>, y la
+    lista da el esquema aparte. En los importes rectificados dice menos que la
+    respuesta del 23: no van en toda sustitución. El grupo es
+    <code>0..5</code>, y su descripción lo limita a cuando «se proceda a la
+    rectificación por sustitución de la factura original, y se opte por la
+    emisión de una única factura con los importes correctos». Cada importe
+    lleva un código de una lista nueva, <code>L2.C</code> (<code>Base</code>,
+    <code>Cuota</code> o <code>CuotaRecargo</code>), y la cifra va en la
+    descripción (<code>BT-123</code>). Y el texto no casa consigo mismo: la
+    fila <code>BT-3</code> habla de «hasta tres grupos» de importes
+    rectificados, y el grupo admite cinco. Las frases de abajo que decían que
+    nada de esto estaba publicado ya dicen lo que hay.
+  </aside>
+
+  <aside class="correccion">
     <b>Esto no es el BOE.</b> Lo que sigue son respuestas escritas del buzón
     técnico de la AEAT, del 22 y del 23 de septiembre de 2026, sobre un anexo
-    que todavía no se ha publicado. El único texto publicado es el borrador de
-    abril. Cuando salga la orden en el boletín, esta entrada se contrastará con
-    él y se dirá aquí mismo lo que haya cambiado.
+    que el 28 de septiembre todavía no se había publicado: el único texto
+    publicado era el borrador de abril. Se dijo aquí que, cuando saliera la
+    orden en el boletín, esta entrada se contrastaría con ella y se diría aquí
+    mismo lo que hubiera cambiado. Es el aviso de arriba.
   </aside>
 
   <h2>Cómo era en el borrador de abril</h2>
@@ -61,7 +92,8 @@
   <p>El detalle que importa: <b>el anexo de abril tiene las listas de
   <code>L1</code> a <code>L8</code></b>. Ni <code>L9</code> ni
   <code>L10</code>. La lista con la que se escriben ahora las rectificativas
-  no está en ningún texto publicado.</p>
+  no estaba en ningún texto publicado hasta la orden del 5 de octubre, que sí
+  trae <code>L10</code>.</p>
 
   <h2>El 23 de septiembre: la lista L10</h2>
 
@@ -95,20 +127,24 @@
 
   <p>En abril, los importes eran opcionales y solo obligaban a la base
   <i>si</i> se informaban. Con esta respuesta, en una rectificativa por
-  sustitución dejan de ser opcionales.</p>
+  sustitución dejaban de ser opcionales. La orden no llega tan lejos, y está
+  en el aviso de arriba.</p>
 
-  <h2>Lo que sigue sin estar escrito</h2>
+  <h2>Lo que no estaba escrito</h2>
 
-  <p>Con la lista en la mano parece que ya se puede programar. Falta decidir
-  dos cosas, y ninguna de las dos se puede deducir.</p>
+  <p>Con la lista en la mano parecía que ya se podía programar. Faltaba
+  decidir dos cosas, y ninguna de las dos se podía deducir. La orden ha
+  escrito las dos, y lo que dice está en el aviso de arriba; lo que sigue es
+  cómo estaban el 28 de septiembre.</p>
 
   <p><b>El esquema del identificador.</b> La respuesta escribe
   <code>urn:aeat:names:specification:schema:</code>, sin <code>ubl:</code>.
-  El anexo publicado escribe
+  El anexo de abril escribe
   <code>urn:aeat:names:specification:ubl:schema:QR</code> para el QR, que es
   la primera entrada de esa misma lista. Los dos textos se contradicen en el
-  único valor que se puede comprobar, así que uno de los dos está mal, y no se
-  sabe cuál.</p>
+  único valor que se puede comprobar, así que uno de los dos estaba mal, y no
+  se sabía cuál. Era el de abril: la orden escribe el esquema de
+  <code>L10</code> sin <code>ubl:</code>.</p>
 
   <p><b>En qué campo va el valor.</b> Un <code>BG-24</code> tiene un
   identificador (<code>BT-122</code>) y una descripción
@@ -130,8 +166,8 @@
   calificador, <code>RECT:TIPO</code>, ocupa el identificador, el
   <code>R4</code> tiene que ir a otro campo, y la respuesta no dice a
   cuál. Lo razonable sería la descripción, como en el QR.
-  Pero entonces el número de la autorización, que hoy va en el identificador,
-  se queda sin sitio. <b>Razonable no es publicado.</b> Las dos preguntas se
+  Pero entonces el número de la autorización, que en abril iba en el
+  identificador, se queda sin sitio. <b>Razonable no es publicado.</b> Las dos preguntas se
   hicieron por escrito el 23 de septiembre y, al escribir esto, siguen sin
   respuesta de fondo.</p>
 
@@ -174,30 +210,36 @@
   <h2>Qué hacer hoy, si estás programando rectificativas</h2>
 
   <ul>
-    <li><b>No construyas sobre <code>BG-ES-1</code>.</b> Está en el único
-    texto publicado, pero la Agencia ha dicho por escrito que desaparece.</li>
-    <li><b>Prepara la rectificativa como <code>BG-24</code> con calificadores
-    de <code>L10</code></b>, y deja configurables las dos cosas que faltan: el
-    esquema del identificador, con <code>ubl:</code> o sin él, y el campo donde
-    va el valor.</li>
-    <li><b>Tipo y modalidad siempre, e importes en las de sustitución.</b> Si la
-    regla se relaja en el texto final, no habrá sobrado nada.</li>
+    <li><b>No construyas sobre la extensión de abril,
+    <code>BG-ES-1</code>.</b> La orden no la tiene, y en ella
+    <code>BG-ES-1</code> es otro grupo, el de los datos del tercero.</li>
+    <li><b>Escribe la rectificativa como <code>BG-24</code> con calificadores
+    de <code>L10</code></b>, con el esquema sin <code>ubl:</code> y el valor en
+    <code>cbc:DocumentTypeCode</code>, como dice la orden. Deja configurable lo
+    único que no dice: si el identificador lleva el esquema delante o va
+    solo.</li>
+    <li><b>Tipo y modalidad siempre, e importes cuando sustituyas con una única
+    factura</b> con los importes correctos, que es el caso para el que la orden
+    los prevé.</li>
     <li><b>Corrige con 384, no con 381</b>, aunque tu programa lo haga así para
     el resto de Europa.</li>
-    <li><b>El día del BOE, contrasta.</b> Estas respuestas describen un anexo
-    que no se ha publicado.</li>
+    <li><b>Contrasta con la orden, no con estas respuestas.</b> El anexo ya
+    está en el BOE, y en los importes rectificados dice menos que ellas.</li>
   </ul>
 
   <h2>Qué hace Glosa-e con esto, hoy</h2>
 
-  <p>Si una rectificativa llega con la extensión de abril, se mide contra el
-  anexo de abril, que es el publicado. Si llega a la forma nueva, con un
-  <code>BG-24</code>, Glosa-e <b>no la da por mala</b>. Reconoce qué
-  calificadores de <code>L10</code> trae, admite los dos esquemas del
-  identificador y dice cuál falta, el tipo o la modalidad. Todo eso sale como
-  <code>NOTA</code>, y dice por qué: <b>no comprueba lo que vale cada uno</b>,
-  porque no está escrito en qué campo va. Leer un <code>R4</code> de un campo
-  adivinado sería prometer una comprobación que no se ha hecho. La ficha
+  <p>Si una rectificativa llega con la extensión de abril, todavía se acepta,
+  aunque la orden ya no la tenga, y se mide contra el anexo de abril. Si llega
+  a la forma nueva, con un <code>BG-24</code>, Glosa-e <b>no la da por
+  mala</b>. Reconoce qué calificadores de <code>L10</code> trae, con
+  cualquiera de los dos esquemas del identificador o sin ninguno, lee el tipo
+  y la modalidad en <code>cbc:DocumentTypeCode</code>, los compara con
+  <code>L2.A</code> y <code>L2.B</code> y dice cuál falta. Un código que no
+  está en su lista sale como <code>AVISO</code>, y que falte el tipo o la
+  modalidad, como <code>NOTA</code>: la orden ya los pide, y todavía no se da
+  por malo porque estas reglas no se han puesto al día del todo con ella. Los
+  importes rectificados <b>todavía no se comprueban</b>. La ficha
   <a href="./codigo-SPFE-RECTIFICATIVA.html"><code>SPFE-RECTIFICATIVA</code></a>
   lo explica, y la del
   <a href="./codigo-SPFE-TIPO-DE-FACTURA.html">tipo de factura</a> explica por
@@ -207,8 +249,8 @@
   navegador</b>: el motor se descarga a tu ordenador y la factura no sale de
   él.</p>
 
-  <p>Está <b>en desarrollo y en pruebas</b>. Si encuentras algo mal, o si ya
-  sabes en qué campo va el valor,
+  <p>Está <b>en desarrollo y en pruebas</b>. Si encuentras algo mal, o si
+  sabes cómo se junta el esquema con el valor,
   <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20">escríbeme</a>.</p>
 
   <footer class="fuentes">
@@ -222,6 +264,14 @@
       16-04-2026): el grupo <code>BG-ES-1</code>, las listas <code>L1</code> a
       <code>L8</code> y los dos <code>BG-24</code> del QR y de la
       autorización.</li>
+      <li><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-20587">Orden
+      HAC/1028/2026</a>, BOE-A-2026-20587, publicada el 05-10-2026: el
+      anexo I, con los <code>BG-24</code> de la rectificativa y de la
+      autorización (filas <code>BT-3</code> y <code>BT-ES-26</code> a
+      <code>BT-ES-29</code>), el grupo <code>BG-ES-1</code> de los datos del
+      tercero y las listas <code>L1</code>, <code>L2.A</code>,
+      <code>L2.B</code>, <code>L2.C</code>, <code>L4</code> y
+      <code>L10</code>.</li>
       <li><a href="https://www.agenciatributaria.es/AEAT.desarrolladores/Desarrolladores/_menu_/Reuniones/Ejercicio_2026/Seminario_actualizacion_sobre_la_Solucion_Publica_de_Facturacion_Electronica__SPFE____10_09_2026/Seminario_actualizacion_sobre_la_Solucion_Publica_de_Facturacion_Electronica__SPFE____10_09_2026.html">Seminario
       de la AEAT del 10-09-2026</a>, en el Portal de Entidades Desarrolladoras:
       donde se anunciaron los cambios del anexo I.</li>
@@ -233,7 +283,9 @@
     listas de <code>L1</code> a <code>L8</code> se midió sobre la tabla del
     anexo importada al validador. Que los códigos de <code>L2</code> de la
     respuesta son los de abril se comparó entrada a entrada. Las citas de la
-    AEAT son literales, incluida su gramática.</p>
+    AEAT son literales, incluida su gramática. Lo de la orden se leyó fila a
+    fila en la tabla del anexo I del XML del BOE, el 7 de octubre de
+    2026.</p>
   </footer>
 
 </article>

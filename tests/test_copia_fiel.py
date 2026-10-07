@@ -10,14 +10,18 @@ Las cuentas de la factura de prueba, para poder seguirlas a mano:
     retención 15% ................................. 15,00
     total factura (Facturae) = 100 + 26,20 - 15 ... 111,20
 
-Y lo que tendría que llevar la copia, con los términos de la norma:
+Y lo que tendría que llevar la copia, con los términos de la norma y el anexo
+de la Orden HAC/1028/2026 (BOE del 05-10-2026):
 
-    BT-110, cuotas de IVA ......................... 21,00   (sin el recargo)
-    BT-112, total con impuestos = 100 + 21 ........ 121,00  (sin restar la retención)
+    BT-110, cuotas del desglose = 21 + 5,20 ....... 26,20   (con el recargo)
+    BT-112, total con impuestos = 100 + 26,20 ..... 126,20  (sin restar la retención)
 
-Los dos números de la copia son distintos de los dos de la factura, y esa es
-toda la razón de ser del módulo: no falta un dato, cambia una cifra. Cada
-prueba enciende **un** concepto y comprueba que sale **esa** nota.
+La cuota llega igual y el total no, y esa es la razón de ser del módulo: no
+falta un dato, cambia una cifra. Hasta el 07-10-2026 aquí ponía 21,00 y
+121,00, porque el borrador de abril daba al recargo un grupo propio fuera de la
+cuota de IVA; la orden lo pone en el desglose, con la categoría N, y BT-110 es
+la suma de ese desglose (BR-CO-14). Cada prueba enciende **un** concepto y
+comprueba que sale **esa** nota.
 """
 from __future__ import annotations
 
@@ -338,26 +342,40 @@ def test_con_retencion_el_total_de_la_copia_no_es_el_de_la_factura():
     assert "121,00" in nota.esperado  # 100 de base + 21 de cuota
     assert "106,00" in nota.encontrado  # lo que pone la factura
     assert "15,00" in nota.encontrado  # y por qué es distinto
+    # Y adónde va la retención, que es lo que quien copia necesita saber: el
+    # grupo de retenciones de la orden, no «la extensión española» a secas,
+    # que es lo que decía hasta el 07-10-2026.
+    assert "RETE" in nota.mensaje
+    assert "WithholdingTaxTotal" in nota.mensaje
 
 
-def test_con_recargo_la_cuota_de_la_copia_no_es_la_de_la_factura():
-    salidas = notas(recargo=True)
-    assert set(salidas) == {"COPIA-CUOTA", "COPIA-TOTAL"}
-    cuota = salidas["COPIA-CUOTA"]
-    assert "21,00" in cuota.esperado
-    assert "26,20" in cuota.encontrado and "5,20" in cuota.encontrado
+def test_el_recargo_solo_no_cambia_ninguna_cifra_de_la_copia():
+    """Provocado: hasta el 07-10-2026 esta factura sacaba dos notas falsas.
+
+    `COPIA-CUOTA` mandaba escribir 21,00 en BT-110, «sin el recargo», y
+    `COPIA-TOTAL` 121,00 en BT-112. Era el borrador de abril, que le daba al
+    recargo un grupo propio. La orden lo pone en el desglose del IVA -BT-117
+    lleva «la cuota de dicho recargo»-, así que la cuota de la copia es la de
+    Facturae, 26,20, y su total también, 126,20. Sin retención no hay ninguna
+    cifra que cambie, y una nota que diga lo contrario manda a escribir mal
+    una copia bien hecha.
+    """
+    assert notas(recargo=True) == {}
 
 
-def test_con_las_dos_cosas_los_dos_numeros_cambian():
+def test_con_recargo_y_retencion_el_total_lleva_el_recargo():
+    """Solo se resta mal la retención: el recargo está bien sumado en Facturae."""
     salidas = notas(recargo=True, retenido="15.00")
-    assert set(salidas) == {"COPIA-CUOTA", "COPIA-TOTAL"}
-    # El total europeo no lleva ni la retención restada ni el recargo sumado.
-    assert "121,00" in salidas["COPIA-TOTAL"].esperado
+    assert set(salidas) == {"COPIA-TOTAL"}
+    nota = salidas["COPIA-TOTAL"]
+    assert "126,20" in nota.esperado  # 100 + 21 + 5,20, sin restar los 15
+    assert "111,20" in nota.encontrado and "15,00" in nota.encontrado
 
 
-# La copia en UBL de la factura de prueba, con la cuota y el total a elegir.
-# El total a pagar (BT-115) va igual que el total porque qué entra en él está
-# `POR_DECIDIR` en la tabla, y así la prueba de abajo solo mueve lo que mide.
+# La copia en UBL de la factura de prueba, con la cuota y el total a elegir, y
+# con el recargo en el desglose o sin él. El total a pagar (BT-115) va igual
+# que el total porque qué entra en él está `POR_DECIDIR` en la tabla, y así la
+# prueba de abajo solo mueve lo que mide.
 COPIA_UBL = """<?xml version="1.0" encoding="UTF-8"?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
          xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
@@ -383,6 +401,7 @@ COPIA_UBL = """<?xml version="1.0" encoding="UTF-8"?>
       <cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>
       <cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>
     </cac:TaxSubtotal>
+    {recargo}
   </cac:TaxTotal>
   <cac:LegalMonetaryTotal>
     <cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>
@@ -403,43 +422,99 @@ COPIA_UBL = """<?xml version="1.0" encoding="UTF-8"?>
 </Invoice>
 """
 
+# El recargo como lo pide la orden: una entrada más del desglose, con la
+# categoría N de la L4, su tipo en BT-119 y su cuota en BT-117. Va en una
+# entrada propia porque cada una lleva un solo tipo y una sola cuota, y la base
+# es la del IVA porque así la define Facturae: «la misma que para el IVA».
+RECARGO_EN_EL_DESGLOSE = """<cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="EUR">100.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="EUR">5.20</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:ID>N</cbc:ID><cbc:Percent>5.2</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>
+    </cac:TaxSubtotal>"""
+
 
 def test_el_total_copiado_tal_cual_no_pasa_las_reglas_de_la_copia():
     """Un total mal copiado se ve: la copia deja de cuadrar consigo misma.
 
     Hasta el 26-09-2026 la cabecera del módulo y la bitácora del 21-09 decían
     lo contrario —que un número equivocado «cuadra consigo mismo, pasa las
-    validaciones de la copia»— y no era cierto. Con la cuota de Facturae
-    (26,20, con el recargo dentro) y su total (111,20, con la retención
-    restada) llevados a BT-110 y BT-112, la copia rompe `BR-CO-14` —la cuota
-    no es la suma del desglose, que son 21— y `BR-CO-15` —el total no es la
-    base más la cuota, que serían 126,20—.
+    validaciones de la copia»— y no era cierto. Con el total de Facturae
+    (111,20, con la retención restada) llevado a BT-112, la copia rompe
+    `BR-CO-15`: el total no es la base más la cuota, que son 126,20.
 
-    Lo que sí pasa en silencio es el medio de pago, y eso lo fija
+    Hasta el 07-10-2026 esta prueba daba por buena la copia con 21 y 121 y por
+    mala la cuota de Facturae, 26,20, que rompía además `BR-CO-14`. Era el
+    borrador de abril. Con la orden el recargo va en el desglose, y entonces
+    lo que rompe `BR-CO-14` es lo que mandaba aquella nota: quitar el recargo
+    de la cuota y dejarlo en el desglose. Medido el 07-10-2026: lo que la
+    nota mandaba hacer entero -quitarlo de los dos sitios- no lo caza ninguna
+    de las `BR-CO-`, que es la peor manera de equivocarse, y por eso la nota
+    se fue en vez de quedarse con otro número.
+
+    Lo que también pasa en silencio es el medio de pago, y eso lo fija
     `test_el_medio_de_pago_pasa_la_validacion_diciendo_otra_cosa`.
 
-    La copia bien traducida, con 21 y 121, sale limpia, y eso es lo que hace
-    que la prueba mida algo: un validador que rechazara todo pasaría la
-    segunda comprobación sin pasar la primera.
+    La copia bien traducida, con 26,20 y 126,20, sale sin ninguna `BR-CO-`, y
+    eso es lo que hace que la prueba mida algo: un validador que rechazara
+    todo pasaría la segunda comprobación sin pasar la primera. Se miran solo
+    las `BR-CO-` porque son las cuentas; lo que la edición de 2017 diga de la
+    categoría N es de otra prueba.
     """
     from validador import factura
 
-    def de_cuentas(cuota: str, total: str) -> set[str]:
-        informe = factura.validar(COPIA_UBL.format(cuota=cuota, total=total))
+    def de_cuentas(recargo: str, cuota: str, total: str) -> set[str]:
+        informe = factura.validar(
+            COPIA_UBL.format(recargo=recargo, cuota=cuota, total=total))
         assert informe.validado
         return {i.codigo for i in informe.incidencias
                 if i.codigo.startswith("BR-CO-")}
 
-    assert de_cuentas("21.00", "121.00") == set()
-    assert de_cuentas("26.20", "111.20") == {"BR-CO-14", "BR-CO-15"}
+    con, sin = RECARGO_EN_EL_DESGLOSE, ""
+    # La copia como la pide la orden.
+    assert de_cuentas(con, "26.20", "126.20") == set()
+    # El total de Facturae copiado tal cual.
+    assert de_cuentas(con, "26.20", "111.20") == {"BR-CO-15"}
+    # Lo que mandaba COPIA-CUOTA hasta el 07-10-2026: la cuota sin el recargo.
+    assert de_cuentas(con, "21.00", "121.00") == {"BR-CO-14"}
+    # Y si el recargo sale también del desglose, no lo caza nada.
+    assert de_cuentas(sin, "21.00", "121.00") == set()
 
 
-def test_los_suplidos_no_se_sabe_donde_se_escriben():
-    salidas = notas(suplidos="7.00")
-    assert set(salidas) == {"COPIA-SUPLIDO"}
-    assert "7.00" in salidas["COPIA-SUPLIDO"].encontrado
-    assert "BT-179" in salidas["COPIA-SUPLIDO"].mensaje or "2026" in salidas[
-        "COPIA-SUPLIDO"].mensaje
+def test_los_suplidos_van_en_el_grupo_de_cargos_de_terceros():
+    """Provocado: hasta el 07-10-2026 la nota decía que no se sabía dónde.
+
+    Y que el texto que lo diría no estaba publicado. Lo está desde el
+    05-10-2026: la orden los pone en el BG-34 de cargos en nombre de un
+    tercero, con la línea de cobro identificada con «SUPL» (BT-ES-10). Lo que
+    sigue sin ruta en la orden es el importe y la descripción, BT-179 y
+    BT-180, y la nota lo dice en vez de callarlo.
+    """
+    nota = notas(suplidos="7.00")["COPIA-SUPLIDO"]
+    assert nota.gravedad == NOTA
+    assert "7.00" in nota.encontrado
+    for dicho in ("BG-34", "SUPL", "BT-ES-10", "CollectionInvoiceLine",
+                  "BT-179", "BT-180"):
+        assert dicho in nota.mensaje, dicho
+    assert "SUPL" in nota.esperado
+    assert "no está publicado" not in nota.mensaje
+
+
+def test_la_descripcion_del_suplido_la_pone_quien_copia():
+    """BT-180 es 1..1 en el anexo de la orden y Facturae no la tiene.
+
+    De un suplido, Facturae guarda las partes, la fecha, el número de la
+    factura de origen y el importe (`ReimbursableExpensesType`), y ninguna
+    descripción. Sin ella el grupo no se monta.
+    """
+    from validador import cius_es
+
+    nota = notas(suplidos="7.00")["COPIA-SUPLIDO"]
+    assert "obligatoria" in nota.mensaje
+    # Y que sigue siendo obligatoria en lo que el validador tiene del anexo:
+    # el día que deje de serlo, la nota miente.
+    (descripcion,) = [c for c in cius_es.CAMPOS if c.id == "BT-180"
+                      and "cargo en nombre de un tercero" in c.termino]
+    assert descripcion.cardinalidad == "1..1"
 
 
 def test_los_gastos_financieros_no_tienen_sitio():
@@ -451,7 +526,8 @@ def test_los_gastos_financieros_no_tienen_sitio():
 def test_todas_son_notas_y_ninguna_es_un_fallo():
     """La AEAT dijo el 17-09-2026 que un concepto sin equivalente se puede omitir."""
     salidas = notas(recargo=True, retenido="15.00", suplidos="7.00", financieros="1.00")
-    assert len(salidas) == 4
+    # Tres y no cuatro: desde el 07-10-2026 el recargo no saca nota propia.
+    assert set(salidas) == {"COPIA-TOTAL", "COPIA-SUPLIDO", "COPIA-SIN-SITIO"}
     assert {i.gravedad for i in salidas.values()} == {NOTA}
 
 
@@ -496,8 +572,10 @@ def test_la_direccion_de_fuera_hay_que_partirla_en_dos():
 def test_la_direccion_de_un_centro_administrativo_no_es_la_de_la_parte():
     """Provocada: la mitad de las direcciones de fuera cuelgan de un centro.
 
-    Del centro, el anexo se queda con sus identificadores y no con su
-    domicilio, así que BT-52 y BT-53 no son su destino y la nota mentiría.
+    El domicilio del centro no es el de la parte, así que BT-52 y BT-53 no
+    son su destino y la nota mentiría. Hasta el 07-10-2026 se añadía que del
+    centro el anexo se quedaba con sus identificadores: era el borrador de
+    abril, y el anexo de la orden no recoge ni ésos.
     """
     assert notas(fuera="centro") == {}
 
@@ -928,3 +1006,74 @@ def test_cada_fila_dice_que_le_pasa_y_por_que():
         # dejado de inventárselo y el estado está mal puesto.
         if fila.efecto == copia_fiel.SE_INVENTA:
             assert fila.facturae == "(no lo tiene)", fila.concepto
+
+
+def _fila(elemento: str) -> copia_fiel.Correspondencia:
+    (fila,) = [f for f in copia_fiel.CORRESPONDENCIAS if f.facturae == elemento]
+    return fila
+
+
+def test_la_tabla_pone_el_recargo_donde_lo_pone_la_orden():
+    """En el desglose del IVA, con la categoría N, y no en un grupo propio.
+
+    Provocado: hasta el 07-10-2026 la fila del recargo decía «llega, pero en
+    la extensión española», en un grupo propio y fuera de la cuota, y la de
+    las cuotas repercutidas decía «llega con otro número» por lo mismo. Era el
+    borrador de abril: un BG-34 con la línea REEQ, que la orden quitó.
+    """
+    recargo = _fila("EquivalenceSurchargeAmount")
+    for termino in ("BG-23", "BT-116", "BT-117", "BT-118", "BT-119"):
+        assert termino in recargo.destino, termino
+    assert recargo.efecto == copia_fiel.OTRO_CORTE
+    assert "categoría N" in recargo.porque
+    assert _fila("TotalTaxOutputs").efecto == copia_fiel.IGUAL
+    cuota = _fila("TaxAmount")
+    assert "categoría N" in cuota.porque
+    assert "COPIA-CUOTA" not in cuota.porque
+    # Y el grupo de entidades, que la orden sacó del mismo BG-34 a la vez.
+    entidades = _fila("SpecialTaxableBase")
+    assert "BT-116" in entidades.destino
+    assert "BG-34" not in entidades.destino
+    assert "recargo" not in entidades.porque
+
+
+def test_el_adjunto_no_tiene_sitio_en_la_copia():
+    """El artículo 4.4 de la orden le prohíbe a la copia llevar ficheros.
+
+    Hasta el 07-10-2026 la fila decía «llega, pero el anexo no lo pide», con
+    destino BT-125, y la revisión vio que podía volver a eso sin que fallara
+    nada: BT-125 no está en el anexo de abril, y la comprobación del destino
+    lo aceptaba.
+    """
+    adjunto = _fila("Attachment")
+    assert adjunto.efecto == copia_fiel.SIN_SITIO
+    assert adjunto.destino == ""
+    assert "4.4" in adjunto.porque
+
+
+def test_la_tabla_sabe_donde_van_los_suplidos_y_las_retenciones():
+    """Provocado: hasta el 07-10-2026 los suplidos estaban `POR_DECIDIR`."""
+    suplidos = _fila("TotalReimbursableExpenses")
+    assert suplidos.efecto != copia_fiel.POR_DECIDIR
+    assert "SUPL" in suplidos.destino
+    assert "RETE" in _fila("TotalTaxesWithheld").destino
+
+
+def test_nada_en_el_modulo_da_la_orden_por_no_publicada():
+    """La orden está en el BOE desde el 05-10-2026.
+
+    Provocado: hasta el 07-10-2026 el módulo decía en varios sitios que el
+    texto no había salido. Se busca en el fuente entero -filas, mensajes,
+    comentarios- porque un comentario que miente acaba copiado en la fila de
+    al lado. Las cadenas partidas en dos renglones se juntan antes de buscar:
+    «hasta que salga el texto» estaba partido justo ahí.
+    """
+    import inspect
+
+    fuente = inspect.getsource(copia_fiel)
+    texto = re.sub(r'"\s*\n\s*"', "", fuente)
+    texto = re.sub(r"\s*\n\s*(#\s*)?", " ", texto)
+    for dicho in ("no está publicado", "cuando salga", "hasta que salga",
+                  "el único publicado", "texto nuevo", "anexo nuevo",
+                  "proyecto de orden", "transparencias"):
+        assert dicho not in texto, dicho

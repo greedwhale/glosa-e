@@ -7013,3 +7013,274 @@ con palabras, que es lo que se quiere. En la sesión de la nube se montó el
 enlace `Scripts` → `bin` para que el gancho lo encuentre. No se ha tocado la
 ruta que busca el gancho: la copia principal es la de Windows, y enseñarle a
 buscar también `.venv/bin/python` es otro cambio, para cuando haga falta.
+
+## La orden salió en el BOE y Glosa daba por mala una factura hecha como dice
+
+**Lo que había.** La Orden HAC/1028/2026 se publicó en el BOE del 05-10-2026
+(BOE-A-2026-20587) y entró en vigor el 06-10-2026. Su anexo I no es el
+borrador de abril con el que se escribieron las reglas `SPFE-`: cambia la
+cardinalidad de campos, los valores fijos, las listas y los sitios. La nota
+`SPFE-BORRADOR` de cada factura seguía diciendo que el anexo «no está
+publicado en el BOE», y la etiqueta del informe, «Anexo I (borrador)».
+
+**Reproducido** el 07-10-2026 sobre `cc0a935`, desde una sesión en la nube,
+con el XML del BOE bajado ese día (249.350 bytes, SHA-256
+`14bb2dad06a5ce3278c395232db9185f18052b08602cae472a9b2af3ae9c354a`) y
+extraído a tablas con un guion de cuarenta líneas. Una factura escrita al pie
+de la letra del anexo publicado —el proceso de la orden, sin indicador de
+copia, el vendedor en `BT-32` con «LOC» y «FC» y en `BT-30`, un anticipo
+pagado y la retención con el calificador de L7—, por el validador entero:
+
+| Código | Gravedad | Lo que decía | Lo que dice la orden |
+|---|---|---|---|
+| `SPFE-PROCESO` | ERROR | esperaba `urn:aeat:names:specification:ubl:schema:B2B` | BT-23: `urn:aeat:names:specification:ubl:schema:profile:B2B` |
+| `SPFE-COPIA` | ERROR | falta el indicador | BT-ES-1, `0..1`: «False (o sin informar): original» |
+| `SPFE-IMPORTE-PAGADO` | ERROR | esperaba 0, había 20,00 | BT-113 ya no dice «solo puede ser 0» |
+| `SPFE-NIF` | ERROR | el NIF «con el impuesto LOC» | BT-32: «LOC» y `@schemeID` «FC» |
+| `SPFE-LINEA-DE-COBRO` | ERROR | `urn:aeat:names:specification:schema:add:RETE` no es de L7 | L7: `RETE`, con el calificador `urn:aeat:names:specification:schema:add:` |
+| `SPFE-RETENCION` | ERROR | falta la línea que identifica la retención | la línea estaba; la ruta de abril llevaba la URN de abril dentro |
+
+Son los seis que nombraba el plan del 06-10. Con variantes salieron más: el
+tercero escrito como la orden —nombre en `cac:PartyLegalEntity`, NIF con
+«LOC»— daba `SPFE-TERCERO`; el comprador en `BT-47`, `SPFE-NIF`; el QR sin
+descripción (`BT-123`, `0..1` en la orden), `SPFE-QR`; la clave de régimen
+con el calificador de L8 delante, `SPFE-CLAVE-DE-REGIMEN`; y una línea y un
+desglose en la categoría `N` de la L4 de la orden, `BR-CL-17` y `BR-CL-18` en
+ERROR más `IVA-CATEGORIA-RARA` e `IVA-TIPO` en AVISO («5,2% no es un tipo de
+IVA vigente en España», que es el del recargo de equivalencia).
+
+**Lo que se hizo.** Dejar de condenar lo que la orden admite, y nada más:
+
+- `SPFE-PROCESO` acepta el de la orden; el del ejemplo del 02-10-2026 sigue en
+  NOTA, que ahora dice que la orden fija otro, y el ERROR pide el de la orden.
+- `SPFE-ESPECIFICACION` deja de anotar el identificador del ejemplo, que es
+  letra a letra el de la fila BT-24; su ERROR pide ese.
+- `SPFE-COPIA` e `SPFE-IMPORTE-PAGADO` pasan a NOTA: lo que la orden supone
+  sin indicador (el original, y una copia fiel tiene que decirlo), y lo que
+  prohíbe y no se ve (un anticipo con el IVA devengado).
+- `SPFE-NIF` y `SPFE-TERCERO` aceptan «VAT» o «LOC» con «FC»; el tercero, el
+  nombre en la razón social.
+- `_cobro` reconoce una línea de cobro por su valor de L7: la URN de abril
+  entera, o un valor de la L7 de la orden con su calificador o sin él.
+  `SPFE-LINEA-DE-COBRO` y `SPFE-RETENCION` lo usan, y las retenciones
+  repetidas se cuentan por valor, no por cómo se escriben.
+- `SPFE-QR` ya no pide la descripción; la dirección, sí.
+- `_propiedades` busca la clave de régimen y la referencia catastral por su
+  nombre de L8, con el calificador de la orden o sin él.
+- La `N`, la `D` y la `F`: `factura` pasa a `en16931` las categorías de la L4
+  de la orden que la lista de 2017 no tiene, calculadas restando, solo cuando
+  la factura declara la solución pública. `BR-CL-17` y `BR-CL-18` las cuentan
+  como buenas y los dos avisos de IVA no las miran. `SPFE-CATEGORIA` lo dice
+  en una NOTA, con lo que no se ha comprobado.
+- `SPFE-BORRADOR`, la etiqueta («Anexo I»), la frase de alcance, el glosario,
+  el aviso legal (con su fecha) y la portada dicen lo que es verdad hoy: la
+  orden publicada, medida todavía en parte con el borrador de abril.
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- **Las dos lecturas de los calificadores de L7 y L8.** La orden da el valor
+  en la fila y el calificador aparte, sin decir cómo se juntan. Se aceptan el
+  calificador delante —como escribió la AEAT los de L10 en su ejemplo— y el
+  valor solo, que es lo que dice la fila. Lo que no es de ninguna de las dos
+  (un `REEQ` con el calificador de la orden, un `XRETE`, un `IEDMT` con la URN
+  de abril) sigue siendo ERROR.
+- **La lista ancha, y no `_SOBRA_SI`.** `_SOBRA_SI` apaga un código entero si
+  sale otro. Con él, una `X` inválida en otra línea de una factura con `N` se
+  habría callado. Ensanchando la lista, la `X` sigue saliendo, y sola.
+- **La `N` solo con la solución pública.** Qué lista rige para quien declara
+  la edición de 2026 sin declarar la solución pública es decisión del titular.
+  Hasta entonces, esa factura se mide como siempre.
+- **Las constantes de la orden, a mano y juntas**, porque `cius_es` sale del
+  PDF de abril. La guarda de L10, que ya se negaba a importar el módulo el día
+  que el anexo trajera L10, nombra ahora también esas constantes: la tabla del
+  BOE trae L10.
+- **La etiqueta sin versión.** «Orden HAC/1028/2026» sería falso mientras haya
+  reglas que solo existen en el borrador, como el recargo de equivalencia.
+
+**Las pruebas.** Una factura escrita como la orden y ocho variantes, que
+tienen que pasar el validador entero sin un ERROR ni un AVISO; las notas que
+dicen qué se aceptó; y las roturas que prueban que lo que la orden prohíbe
+sigue saliendo: «LOC» sin «FC», cinco identificadores de línea de cobro que no
+son de ninguna L7, dos retenciones escritas distinto, la orden sin la suma de
+retenciones, el tercero sin nombre o sin «FC», tres parecidos de `REGI`, la
+`K`, una `X` junto a la `N`, y la `N` sin declarar la solución pública. Contra
+el código de antes, 14 de las 19 primeras salían en rojo; las otras cinco son
+de las que tienen que pasar en los dos.
+
+**Provocado.** Veintidós roturas, una por arreglo, las veintidós en rojo: cada
+forma de la orden dejando de aceptarse, cada NOTA volviendo a ERROR, la L7
+aceptando cualquier cosa que acabe en el valor o aceptando `REEQ`, las
+retenciones contadas por cómo se escriben, la nota diciendo otra vez que no
+está publicado, la lista ancha sin llegar a `BR-CL-17` o a los avisos de IVA,
+las categorías de la orden dadas a cualquier factura, y la `K` callada al
+estar la `N`.
+
+**Lo que no se hizo, a propósito.** Rechazar lo que la orden ya no admite —las
+claves 18, 19 y 20 de L3A, las líneas `REEQ` y `REGE`, el proceso y la
+especificación de abril— y medir sus reglas nuevas. Las dos cosas piden
+regenerar `cius_es` desde el XML del BOE, y van en la tanda siguiente.
+
+### El repaso, regla por regla contra el texto
+
+Con los arreglos de arriba hechos, cuatro análisis por separado —la cabecera y
+los textos, las partes y las líneas, el IVA y las categorías, los cobros y el
+BG-24— leyeron cada regla contra las filas del BOE, con la consigna de
+reproducir cada hallazgo con una factura que cumpla la orden. Salieron 59. De
+los del paso 1 que no estaban ya arreglados, estos eran veredictos falsos, y
+los tres se reprodujeron otra vez antes de tocar nada:
+
+- **`IVA-BASE` con la `N`**, en ERROR. En el grupo de entidades de nivel
+  avanzado la orden pone en la línea la contraprestación entera (BT-131) y en
+  el desglose la base a coste (BT-116): con 150 y 100, «esperado 150,00».
+  Y el recargo de equivalencia, escrito como la orden —una entrada N al 5,2%
+  en el desglose, sin línea, porque una línea solo tiene un tipo—, salía como
+  «base fantasma». La base de N, D y F ya no se compara con las líneas en las
+  facturas de la solución pública; en la D y la F, porque puede ser el margen y
+  la orden no lo aclara. `BR-CO-17` sigue atando la cuota a su base y su tipo,
+  y hay prueba de que una cuota mala del recargo sigue saliendo.
+- **`BR-AE-02` con el comprador en `BT-47`**, en ERROR. La orden pone `BT-47`
+  en un `cac:PartyTaxScheme` con «LOC» y «FC»; la regla lo buscaba en
+  `cac:PartyLegalEntity`, que es donde lo pone la vinculación de 2017. En las
+  facturas de la solución pública cuenta también el sitio de la orden, por el
+  mismo canal que las categorías (`solucion_publica.bt47_de_la_orden`). Fuera
+  de ellas, y con «LOC» sin «FC», sigue saliendo.
+- **El calificador de L10 a secas** —`QR`, `AUT`, `RECT:TIPO`— no se
+  reconocía: un QR así no se miraba, y una 384 así salía con una nota de «un
+  BG-24 sin leer». Se aceptan las dos lecturas, como en L7 y L8.
+
+Y frases que hoy eran falsas en lo que se lee: la rectificativa en BG-24
+(cinco que decían que el anexo nuevo «no está publicado»), el 381 (mandaba a la
+extensión de abril), el identificador de la AEAT que no es ninguno (llamaba
+«del ejemplo» al de la orden), el total a pagar (la L7 de abril), el recargo y
+el grupo de entidades (como si la orden los pidiera), los identificadores de
+abril en los mensajes (`BT-ES-32` a `BT-ES-39`, `BT-ES-43`, `BT-ES-44`, que en
+la orden son otros campos o no existen), `NO_SE_COMPRUEBA` (decía que la
+vinculación UBL de 2026 no está publicada: lo está, como UNE-CEN/TS
+16931-3-2:2026, y lo que pasa es que aquí no se ha podido leer), la ficha de la
+familia `SPFE` y siete entradas más del glosario. Y fuera de `solucion_publica`:
+`copia_fiel` decía que en la copia el recargo va fuera de la cuota de IVA, que
+con la orden es al revés; el README, en una docena de sitios; y tres artículos
+de la bitácora, que se corrigen con un aviso fechado, como el que ya tenía el
+de EDIFACT, y no reescribiéndolos.
+
+**Un código que se retira: `COPIA-CUOTA`.** Decía que en la copia fiel la
+cuota de IVA (`BT-110`) va sin el recargo de equivalencia, porque el borrador
+de abril le daba un grupo propio. Con la orden el recargo va en el desglose del
+IVA y `BR-CO-14` lo suma a la cuota, así que la cuota de la copia es el
+`TotalTaxOutputs` de Facturae tal cual y la nota no tiene nada que decir. Se
+quita la regla y su entrada del glosario, que la prueba de explicaciones
+sobrantes no deja dejar, y con ella su página de código: los códigos
+publicados pasan de 390 a 389, y la portada y la tesis lo dicen. `COPIA-TOTAL`
+sale ahora solo con retenciones y suma el recargo (con base 100, IVA 21,
+recargo 5,20 y retención 15, el total de la copia es 126,20). Contra el
+`copia_fiel.py` de antes, las 9 pruebas que lo fijan —7 nuevas y 2 que ya
+estaban, reescritas— salen en rojo.
+
+**Provocado otra vez.** Ocho roturas más, una por arreglo de esta vuelta: la
+base de la `N` comparada otra vez con las líneas, el `BT-47` de la orden sin
+llegar a `BR-AE-02` por dos caminos, dado a cualquier factura o sin «FC», la
+L10 a secas sin reconocer, y la rectificativa y el total a pagar con sus
+frases de antes. Con las de arriba, treinta, y las treinta en rojo (corridas
+sobre una copia del árbol, para no cambiarle los ficheros a nadie a mitad).
+
+**Las fechas de obligación, leídas y no supuestas.** Hasta hoy el README daba
+el 01-10-2027 y el 01-10-2028, del proyecto de abril. La disposición final
+cuarta del RD 238/2026, leída en el XML del BOE (BOE-A-2026-7295), cuenta los
+plazos «desde la entrada en vigor de la orden ministerial prevista en el
+apartado 1 de la disposición final tercera»: doce meses para quien facturó más
+de 8 M€, veinticuatro para el resto. Con la orden en vigor el 06-10-2026, el
+06-10-2027 y el 06-10-2028, contados de fecha a fecha.
+
+**Lo que se dejó, y por qué.**
+
+- **`BR-G-02`** con el vendedor solo en `BT-32`: la exportación pide en la
+  norma el identificador de IVA del vendedor (`BT-31`), y la orden deja elegir
+  entre `BT-31` y `BT-32` sin excepción por categoría. Pero el anexo es un
+  mínimo, el artículo 3.1 exige ajustarse a la EN 16931, y nada en la orden
+  deroga esa regla. El ERROR es de la norma y se queda.
+- **La `B` en `IVA-CATEGORIA-RARA`**: el aviso dice que no es una categoría de
+  la norma, y lo es (está en UNCL 5305 y tiene `BR-B-01` y `BR-B-02`). No viene
+  de la orden, que no la trae, y no es de esta tanda. Queda apuntado.
+- **La ruta de `BT-ES-5` en la orden** (`…/cac:ServiceProviderParty/cac:Party/
+  cbc:ServiceTypeCode`) no es UBL válido, y **las de `BG-ES-2`** llevan
+  `cac:Invoice` dentro de la factura y `TaxSubTotal` con mayúscula. Hoy no las
+  lee ninguna regla; son de la tanda que regenera la tabla, que tendrá que
+  arreglarlas a la vista y con su porqué, como ya se hace con las de abril.
+
+### La revisión antes de publicar: cuatro fallos, siete huecos y seis que se quedan
+
+Antes de empujar, tres miradas sobre el cambio entero, cada una con la consigna
+de reproducir lo que encontrara con una factura y un guion: que el código haga
+lo que dice, que no acepte de más, y que las pruebas lo fijen. Cada hallazgo lo
+verificó después otra mirada, que intentó tumbarlo. Aparte, el revisor de
+promesas leyó lo que Glosa afirma contra lo que hace.
+
+**Los cuatro fallos, reproducidos y con su prueba en rojo antes de tocar
+nada:**
+
+- **`BR-AE-02` en la factura sin desglose.** La rama de `BR-CO-18` llamaba a
+  `_regla_identificadores` sin el `BT-47` de la orden. La factura AE con el
+  comprador como dice la orden, sin su `cac:TaxTotal`, salía con `BR-AE-02`
+  («ninguno · línea 1») además de con `BR-CO-18`; con el desglose, o con el
+  comprador en `BT-48`, no.
+- **«LOC» y «FC» con espacios.** `_nif_bien_puesto` los lee con `_valor`, que
+  recorta, y el `BT-47` de la orden se buscaba con el texto exacto. Con
+  `schemeID="FC "`, con «LOC » o con «LOC» entre saltos de línea, `SPFE-NIF`
+  daba el NIF por bien puesto y `BR-AE-02` al comprador por no identificado.
+  Ahora el XPath usa `normalize-space`, como la vinculación de 2017 con el
+  «VAT» de `BT-48`; «loc» en minúscula sigue sin valer en las dos.
+- **El abono.** Un abono es UBL y puede declarar la solución pública, y
+  recibía la L4 de la orden: la `N` pasaba sin `BR-CL-17`, `BR-CL-18` ni los
+  avisos de IVA, y sin la nota `SPFE-CATEGORIA`, porque `reglas` se para en el
+  abono antes de llegar a ella. Ahora las dos funciones que ensanchan la norma
+  miran también que la raíz sea `Invoice` (`_se_mide_con_el_anexo`).
+- **«N (categoría no reconocida)».** Con la cuota del recargo mal,
+  `BR-CO-17` la nombraba así en el mismo informe en que `SPFE-CATEGORIA` decía
+  que la orden la admite. Los nombres de la N, la D y la F van en un
+  diccionario aparte (`iva.CATEGORIAS_DE_LA_ORDEN`): `CATEGORIAS` es la lista
+  de la norma y da el «Las admitidas son…» de `IVA-CATEGORIA-RARA`.
+
+**Los siete huecos.** Cosas que el cambio hacía y que se podían deshacer con
+la suite entera en verde, cada una comprobada rompiéndola: la `D` y la `F`
+(con la L4 reducida a la `N`, las dos volvían a `BR-CL-17` y `BR-CL-18`); los
+calificadores de L10 a secas que no son el QR (dejando solo el QR, una 384 con
+`AUT` a secas bajaba de ERROR a NOTA); dos mensajes de la rectificativa que
+ninguna prueba alcanzaba y que podían volver a decir «no está publicado»; la
+etiqueta, que la prueba comparaba con la misma constante que debía fijar; el
+filtro de «LOC» del `BT-47`, que solo se probaba quitando el «FC»; la `RCAT`
+con calificador; y la fila del adjunto en la copia fiel, que podía volver a
+«llega, pero el anexo no lo pide».
+
+**Las promesas.** La nota `SPFE-BORRADOR` decía «lo que el borrador daba por
+malo», y la N, la D y la F las condenaban reglas de la norma, no del borrador;
+decía «el NIF con «LOC»» sin la excepción de la exportación (`BR-G-02` sigue);
+callaba el `BT-47` y que la base de N, D y F no se compara; y su lista estaba
+escrita dos veces y ya no decía lo mismo, porque el glosario se había dejado
+la clave de régimen. Ahora es una sola tupla, el glosario la copia letra a
+letra, y cada frase tiene sus facturas en una prueba que se niega si sale una
+frase sin factura. La línea de alcance decía «lo que el anexo pide… (medido en
+parte con el borrador)», y salían «sin errores» facturas que incumplen la
+orden en cosas que en UBL sí se ven —la clave 18, el proceso de abril, un QR
+con la descripción equivocada—: ahora dice «parte de», y cuál. La ficha de la
+familia `SPFE` le atribuía a la orden, en `SPFE-RECARGO-DE-EQUIVALENCIA`, una
+queja que solo existe en el borrador. Y la portada (el panel, la pregunta y el
+pie) y la política decían que se comprueba el anexo de la orden sin el «en
+buena parte». La política cambia de huella; la fecha ya era la de hoy.
+
+**Lo que se propuso y se queda.** Seis cosas que la mirada de las
+aceptaciones dio por aceptadas de más; la verificación las tumbó todas, y el
+README cuenta el porqué de cada una. La que pesa: volver a atar la base de la
+`N` sin líneas a la de otra entrada rompía una factura legítima —el recargo
+solo grava los bienes, y 80 de mercancía con 20 de servicio dan una `N` con
+base 80 junto a una `S` con base 100—, y se comprobó con el parche propuesto
+puesto en una copia.
+
+**Provocado.** Una rotura por cada arreglo y por cada hueco, sobre una copia
+del árbol: con las treinta de antes, cuarenta y tres. Y ocho más para las
+promesas —una frase de la nota sin su factura, el glosario sin la clave de
+régimen, el «no siempre», el alcance, la ficha de la familia, el pie de la
+portada, la nota de categoría y la política cambiada sin cambiar de huella—:
+cincuenta y una, y las cincuenta y una en rojo. El guion de las roturas ahora
+se niega a empezar si la base no está en verde: con una prueba ya roja y `-x`,
+cada rotura saldría roja por la que ya fallaba, y diría que todo está
+provocado sin haber provocado nada.

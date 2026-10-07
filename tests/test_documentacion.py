@@ -541,8 +541,8 @@ def test_el_aviso_legal_dice_bajo_que_licencia_se_publica():
 # texto. Cambiar una palabra de la página, o de la ficha que la página pinta,
 # sin cambiar esto deja la suite en rojo.
 
-FECHA_DE_LA_POLITICA = "28 de septiembre de 2026"
-HUELLA_DE_LA_POLITICA = "a11e4a44ce947b422d95099d0fe8404fd5507eb214327eae8f806ddce37588b5"
+FECHA_DE_LA_POLITICA = "7 de octubre de 2026"
+HUELLA_DE_LA_POLITICA = "cedc37443330d1fbab9c9936522d5398e4deec751e742dfd1e12b67e8d399226"
 
 
 def _texto_de_la_politica() -> str:
@@ -655,3 +655,21 @@ def test_la_linea_de_autoria_es_la_misma_en_todas_las_paginas():
     assert re.fullmatch(r"© \d{4} Glosa-e", dicen["index.html"]), (
         f"la línea de autoría dice «{dicen['index.html']}», y desde el "
         "24-09-2026 es «© año Glosa-e» y nada más: lo decidió el titular")
+
+
+def test_donde_la_portada_nombra_el_anexo_dice_que_es_en_buena_parte_el_borrador():
+    """Ni «comprueba el anexo I de su orden» a secas.
+
+    El revisor de promesas, el 07-10-2026: el pie decía «Comprueba lo que
+    dicen EN 16931, el RD 238/2026 y el anexo I de su orden», y la pregunta
+    frecuente lo mismo entre paréntesis, cuando de la orden solo se ha
+    recogido lo que dejaba de condenar a una factura bien hecha y sus reglas
+    nuevas no se miden. Son tres párrafos; si sale un cuarto, que lo diga
+    también o que esta prueba cambie a la vista.
+    """
+    portada = (RAIZ / "web" / "index.html").read_text(encoding="utf-8")
+    parrafos = [" ".join(p.split()) for p in re.findall(r"<p\b.*?</p>", portada, re.S)]
+    con_el_anexo = [p for p in parrafos if re.search(r"\banexo I\b", p)]
+    assert len(con_el_anexo) == 3, con_el_anexo
+    for parrafo in con_el_anexo:
+        assert "buena parte" in parrafo and "borrador de abril" in parrafo, parrafo

@@ -247,7 +247,15 @@ def _reglas_con_cuentas(
     espanola = codigo_unico.obligado_en_espania(raiz, deteccion)
     incidencias = list(sintacticas or [])
     incidencias.extend(esquema.reglas(raiz, deteccion, catalogo))
-    incidencias.extend(en16931.reglas(raiz, deteccion, espanola=espanola))
+    # Lo que la orden admite y la vinculación de 2017 no conoce, si la factura
+    # declara la solución pública: las categorías de su L4 que la lista de 2017
+    # no tiene, y el sitio donde pone el registro del comprador (BT-47). Se
+    # deciden aquí porque aquí se saben las dos cosas, y `en16931` no puede
+    # preguntárselo a `solucion_publica`.
+    incidencias.extend(en16931.reglas(
+        raiz, deteccion, espanola=espanola,
+        categorias_de_mas=solucion_publica.categorias_que_la_norma_no_tiene(raiz, deteccion),
+        comprador_registro_de_mas=solucion_publica.bt47_de_la_orden(raiz, deteccion)))
     incidencias.extend(solucion_publica.reglas(raiz, deteccion))
     incidencias.extend(edifact.totales_de_otra_guia(raiz, deteccion))
     incidencias.extend(edifact.iva_fuera_del_desglose(raiz, deteccion))
@@ -715,10 +723,20 @@ class InformeLote:
             # anexo sin ruta que no se miran (`NO_SE_COMPRUEBA`). Sin comas
             # dentro: la frase entera se une con comas, y «…del RD 238/2026, en
             # las facturas que…, lo que…» se leía como dos cosas distintas.
+            # Hasta el 07-10-2026 decía «el borrador del anexo I»: la orden
+            # salió en el BOE el 05-10-2026, y lo que es verdad ahora es la
+            # mezcla, que va entre paréntesis para no meter otra coma. Y
+            # «parte de», porque lo que se mide es lo que ya pedía el borrador
+            # de abril: con «lo que el anexo pide… (medido en parte con el
+            # borrador)» salían «sin errores» facturas que incumplen la orden
+            # en cosas que en UBL sí se pueden ver —la clave 18 del IVA, el
+            # proceso de abril, un QR con la descripción equivocada—. Lo midió
+            # el revisor de promesas el 07-10-2026.
             contenido.append(
-                "lo que el borrador del anexo I pide a las facturas que declaran "
-                "el CIUS de la solución pública o el identificador del ejemplo "
-                "de la AEAT y se puede comprobar en UBL"
+                "parte de lo que el anexo I de la solución pública pide a las "
+                "facturas que la declaran (lo que ya pedía el borrador de abril "
+                "y se puede comprobar en UBL; las reglas nuevas de la orden "
+                "todavía no)"
             )
         de_la_firma = mirado[PARTE_FIRMA]
         sin_la_firma = sin_mirar[PARTE_FIRMA]

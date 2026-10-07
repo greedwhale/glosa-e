@@ -43,15 +43,32 @@ sería dar por mal una factura que no pretende ser eso. Quien lo declara sí
 acepta sus listas —el tipo de factura sin el 381, la categoría de IVA sin la
 K— y con ellas se le mide.
 
-Es un borrador
---------------
-Sometido a audiencia pública el 17-04-2026 y sin publicar en el BOE. Todo lo
-que sale de aquí lleva el prefijo `SPFE-`, y cada factura que se mide con él
-lleva una NOTA que lo dice: que no salga ninguna queja quiere decir que cumple
-el borrador, no la orden.
+La orden ya está en el BOE, y esto todavía mide en parte el borrador
+--------------------------------------------------------------------
+La Orden HAC/1028/2026 salió en el BOE del 05-10-2026 (BOE-A-2026-20587) y
+está en vigor desde el 06-10-2026. Lo que sigue, hasta «Lo que enseñó el
+ejemplo», se escribió cuando el anexo era un borrador sin publicar, y se deja
+porque cuenta de dónde sale cada regla.
 
-Y es un borrador que ya cambió
-------------------------------
+Medido el 07-10-2026, una factura escrita al pie de la letra del anexo de la
+orden recibía aquí seis ERROR, y más con un tercero, con el NIF del comprador
+en BT-47, con la categoría N o con un QR sin descripción. La primera tanda
+del BOE solo **deja de condenar lo que la orden admite**: lo que la orden ya
+no admite todavía se acepta, y sus reglas nuevas todavía no se miden. Las
+constantes que salen de la orden van escritas a mano y juntas, en «Lo que la
+orden publicada admite y el borrador no», hasta que `cius_es` se genere del
+XML del BOE; la guarda de L10 se niega a importar este módulo ese día. La
+NOTA `SPFE-BORRADOR` de cada factura dice, con la lista entera, qué se ha
+puesto al día y qué no.
+
+Era un borrador
+---------------
+Sometido a audiencia pública el 17-04-2026. Todo lo que sale de aquí lleva el
+prefijo `SPFE-`, y cada factura que se mide con él lleva una NOTA que dice
+con qué se ha medido.
+
+Y era un borrador que ya cambió
+-------------------------------
 El **10-09-2026**, en un seminario del portal de entidades desarrolladoras, la
 AEAT presentó las «principales novedades» del anexo I. El texto nuevo no está
 publicado —solo las transparencias—, y la orden se quiere en vigor el
@@ -213,7 +230,8 @@ from validador.listas_de_codigos import lista
 from validador.modelo import grupos
 from validador.sintaxis import NS_CIUS_ES, POR_ID, SIN_MAPA, SINTAXIS_UBL, a_decimal
 
-__all__ = ["AnexoCambiado", "NO_SE_COMPRUEBA", "declara_el_cius", "reglas"]
+__all__ = ["AnexoCambiado", "NO_SE_COMPRUEBA", "bt47_de_la_orden",
+           "categorias_que_la_norma_no_tiene", "declara_el_cius", "reglas"]
 
 
 class AnexoCambiado(LookupError):
@@ -295,11 +313,62 @@ _obligatorio("BT-24")
 # a mano y no en `cius_es`, que se genera del PDF. El de la especificación es
 # `formato.ESPECIFICACION_DEL_EJEMPLO`, porque de él cuelga también qué versión
 # de UBL se supone. El del proceso cambia en dos sitios a la vez: pierde el
-# `ubl:`, como los calificadores de L10, y gana un `profile:` que no está en
-# ningún otro texto.
+# `ubl:`, como los calificadores de L10, y gana un `profile:`.
 PROCESO_DEL_EJEMPLO = "urn:aeat:names:specification:schema:profile:B2B"
 
 _L = cius_es.LISTAS
+
+# --- Lo que la orden publicada admite y el borrador no -----------------------
+#
+# La Orden HAC/1028/2026 salió en el BOE del 05-10-2026 (BOE-A-2026-20587) y
+# está en vigor desde el 06-10-2026. Medido el 07-10-2026 sobre `cc0a935`: una
+# factura escrita al pie de la letra de su anexo I recibía aquí seis ERROR —el
+# proceso, la copia, el NIF del vendedor, el importe pagado, la línea de cobro
+# y la retención—, y más con un tercero, con el NIF del comprador en BT-47 o
+# con un QR sin descripción. Todo eso lo admite la orden.
+#
+# Esta es la primera tanda: **dejar de condenar lo que la orden admite**, y
+# nada más. Lo que la orden ya no admite —las claves 18, 19 y 20, las líneas
+# REEQ y REGE, el proceso y la especificación de abril— todavía no se
+# rechaza, y sus reglas nuevas todavía no se miden: eso pide regenerar
+# `cius_es` desde el XML del BOE, y entonces lo de aquí saldrá de la tabla. Por
+# eso va escrito a mano y con la fila del BOE de la que sale al lado, y por eso
+# la guarda de L10, más abajo, se niega a importar este módulo en cuanto la
+# tabla traiga L10, que la del BOE trae.
+#
+# El valor de BT-23, letra a letra el de la fila del BOE: con `ubl:`, como el
+# de abril, y con `profile:`, como el del ejemplo. No es ninguno de los dos.
+PROCESO_DEL_BOE = "urn:aeat:names:specification:ubl:schema:profile:B2B"
+
+# La lista L7 del BOE. Cada fila dice solo el valor —«Código obligatorio, usar
+# «RETE»»— y la lista lleva aparte su calificador,
+# `urn:aeat:names:specification:schema:add:`. Cómo se juntan no lo dice el
+# texto. Se acepta el calificador delante del valor, que es como la AEAT
+# escribió los de L10 en su ejemplo del 02-10-2026 —el calificador de L10 y,
+# detrás, `QR`—, y se acepta el valor solo, que es lo que dice la fila al pie de
+# la letra. Elegir una de las dos daría por mala una factura que siga la otra,
+# y las dos se pueden leer en el texto publicado.
+_CALIFICADOR_L7_DEL_BOE = "urn:aeat:names:specification:schema:add:"
+_L7_DEL_BOE = ("SUPL", "MINO", "RETE", "IEDMT", "OTROS")
+
+# El NIF con «LOC» y el atributo «FC», la otra forma que admite la orden en el
+# vendedor (BT-32), en el comprador (BT-47) y en el tercero (BT-ES-4).
+_IMPUESTO_LOCAL = "LOC"
+_ESQUEMA_DEL_NIF = "FC"
+
+# Dónde va el nombre del tercero en la orden (BT-ES-3). En abril iba en
+# `cac:PartyName/cbc:Name` (BT-ES-14), que se sigue leyendo.
+_TERCERO_NOMBRE_DEL_BOE = "./cac:Party/cac:PartyLegalEntity/cbc:RegistrationName"
+
+# La lista L4 de la orden, entera y en su orden. Trae tres categorías que la de
+# abril no tenía y que la lista de la edición de 2017 de la norma tampoco: la
+# N («Regímenes nacionales de IVA»: el grupo de entidades de nivel avanzado y
+# el recargo de equivalencia), la D (agencias de viajes) y la F (bienes
+# usados, arte, antigüedades y colección). Lo que no tiene la norma de 2017 se
+# saca restando, no se escribe: si la lista de la norma cambia, esto cambia
+# con ella.
+_L4_DEL_BOE = ("S", "Z", "E", "AE", "O", "G", "L", "M", "N", "D", "F")
+_L4_QUE_LA_NORMA_NO_TIENE = frozenset(_L4_DEL_BOE) - lista("UNCL_5305", SINTAXIS_UBL)
 
 # «Original o copia», que UBL deja opcional.
 _COPIA = _ruta(_obligatorio("BT-ES-1"))
@@ -365,6 +434,7 @@ _TERCERO_NIF = _relativa(_ruta(_obligatorio("BT-ES-12")), _TERCERO)
 _TERCERO_IMPUESTO = _relativa(_ruta("BT-ES-13"), _TERCERO)
 _TERCERO_NOMBRE = _relativa(_ruta(_obligatorio("BT-ES-14")), _TERCERO)
 _TERCERO_TIPO = _relativa(_ruta(_obligatorio("BT-ES-15")), _TERCERO)
+_TERCERO_ESQUEMAS = _padre(_TERCERO_NIF, "cbc:CompanyID")
 
 # La factura referenciada, con fecha.
 _obligatorio("BT-26")
@@ -400,6 +470,28 @@ if _fila("BG-32", "REFERENCIA CATASTRAL").cardinalidad != "0..1":
 _CLAVE = _relativa(_padre(_ruta(_obligatorio("BT-ES-44")), "cbc:ValueQualifier"), _LINEAS)
 _CATASTRO = _relativa(_padre(_ruta(_obligatorio("BT-ES-43")), "cbc:ValueQualifier"), _LINEAS)
 _CALIFICADOR = "./cbc:ValueQualifier"
+
+
+def _sin_nombre(ruta: str, nombre: str) -> str:
+    """La ruta de las propiedades del artículo, sin el nombre que la filtra."""
+    filtro = f"[cbc:Name='{nombre}']"
+    if not ruta.endswith(filtro):
+        raise AnexoCambiado(f"«{ruta}» ya no filtra la propiedad por su nombre, {nombre}")
+    return ruta[: -len(filtro)]
+
+
+# Las propiedades se buscan por su nombre con `_propiedades`, y no con esas dos
+# rutas, que llevan el nombre de abril dentro. La L8 de la orden publicada da
+# el valor —«Adoptará el valor fijo «REGI»»— y aparte un calificador,
+# `urn:aeat:names:specification:schema:lin:`, sin decir cómo se juntan: lo
+# mismo que en L7 (ver `_L7_DEL_BOE`). Con las rutas de abril, una clave de
+# régimen escrita con el calificador delante salía con que la línea no tenía
+# clave (medido el 07-10-2026). Se aceptan las dos formas.
+_PROPIEDADES = _sin_nombre(_CLAVE, "REGI")
+if _sin_nombre(_CATASTRO, "RCAT") != _PROPIEDADES:
+    raise AnexoCambiado("la referencia catastral y la clave de régimen ya no son "
+                        "propiedades del mismo sitio")
+_CALIFICADOR_L8_DEL_BOE = "urn:aeat:names:specification:schema:lin:"
 _obligatorio("BT-161", "Código de clave de régimen")
 _obligatorio("BT-161", "Referencia catastral")
 _REGIMENES = {_L[clave].calificador: clave for clave in ("L3A", "L3B", "L3C")}
@@ -541,12 +633,20 @@ _ESQUEMAS_L10 = (_ESQUEMA_DEL_ANEXO, _ESQUEMA_SIN_UBL)
 # eso lo dira el anexo nuevo, y cuando lo diga traera L10 consigo -el de abril
 # tiene de L1 a L8, sin L9 ni L10-, asi que en cuanto L10 aparezca esto se
 # niega a importarse. No hay que acordarse de nada: no arranca.
+#
+# La orden del BOE trae L10, así que esta misma guarda es la que se acuerda de
+# las constantes del BOE escritas a mano más arriba: con la tabla del BOE
+# sobran, y hay que leerlas de ella.
 if "L10" in cius_es.LISTAS:
     raise AnexoCambiado(
         "el anexo ya trae L10: falta terminar de leer el BG-24 (comprobar "
         "que el valor va en cbc:DocumentTypeCode, como en el ejemplo de la "
         "AEAT del 02-10-2026; exigir los importes cuando la modalidad es S; "
-        "y medir con ERROR lo que hasta hoy es NOTA o AVISO)")
+        "y medir con ERROR lo que hasta hoy es NOTA o AVISO), y leer de la "
+        "tabla lo que la primera tanda del BOE escribió a mano "
+        "(PROCESO_DEL_BOE, _CALIFICADOR_L7_DEL_BOE, _L7_DEL_BOE, el NIF con "
+        "LOC y FC, _TERCERO_NOMBRE_DEL_BOE, _L4_DEL_BOE y "
+        "_CALIFICADOR_L8_DEL_BOE)")
 
 
 def _calificador(identificador: str) -> str:
@@ -555,13 +655,52 @@ def _calificador(identificador: str) -> str:
     Tiene que ser uno de los dos esquemas **entero** y, detrás, un calificador
     de L10 **entero**: ni un `MIRECT:TIPO` de cualquiera ni un esquema
     parecido de otro cuelan por el final.
+
+    O el calificador solo. La orden da en cada fila el valor —«Valor
+    obligatorio: usar «QR»»— y el esquema aparte, en la lista L10, como en L7
+    y L8: se aceptan las mismas dos lecturas (ver `_L7_DEL_BOE`). Hasta el
+    07-10-2026, un QR identificado con «QR» a secas no se reconocía, y no se
+    le miraba ni la dirección ni si estaba repetido.
     """
+    if identificador in _L10_RECTIFICATIVA or identificador in _L10_AJENOS_A_LA_RECTIFICATIVA:
+        return identificador
     for esquema in _ESQUEMAS_L10:
         if identificador.startswith(esquema):
             resto = identificador[len(esquema):]
             if resto in _L10_RECTIFICATIVA or resto in _L10_AJENOS_A_LA_RECTIFICATIVA:
                 return resto
     return ""
+
+
+def _cobro(identificador: str) -> str:
+    """El valor de L7 de una línea de cobro, o «» si no se reconoce.
+
+    Con la URN entera del borrador de abril (`_COBROS`), o con un valor de la
+    L7 de la orden, con su calificador delante o solo (ver `_L7_DEL_BOE`). Como
+    en `_calificador`, tienen que casar enteros: un `XRETE` no es `RETE`, y un
+    REEQ con el calificador de la orden tampoco, porque la orden ya no lo tiene.
+    """
+    for valor, urn in _COBROS.items():
+        if identificador == urn:
+            return valor
+    resto = identificador.removeprefix(_CALIFICADOR_L7_DEL_BOE)
+    return resto if resto in _L7_DEL_BOE else ""
+
+
+def _cobros(raiz, valor: str) -> list:
+    """Las líneas de cobro de la factura que se identifican con ese valor de L7."""
+    return [linea for linea in _nodos(raiz, _LINEA_DE_COBRO)
+            if _cobro(_valor(linea, "./cbc:ID")) == valor]
+
+
+def _propiedades(linea, nombre: str) -> list:
+    """Las propiedades del artículo de una línea con ese nombre de L8.
+
+    Con el calificador de la L8 de la orden delante o sin él, y enteras: un
+    `XREGI` no es `REGI`.
+    """
+    return [propiedad for propiedad in _nodos(linea, _PROPIEDADES)
+            if _valor(propiedad, "./cbc:Name").removeprefix(_CALIFICADOR_L8_DEL_BOE) == nombre]
 
 
 def _adjuntos(raiz) -> list[tuple[str, object]]:
@@ -577,10 +716,13 @@ _dice("BT-115", "junto con los importes correspondientes a los conceptos BT-179"
 # informe sin quejas sobre esto podría leerse como que se ha comprobado.
 NO_SE_COMPRUEBA: dict[str, str] = {
     "BT-179 y BT-180": (
-        "El importe y la descripción de los cinco grupos de cobros (suplidos, "
-        "minoraciones, recargo de equivalencia, grupo de entidades y "
-        "retenciones). El anexo no les da ruta: son términos de la EN 16931 "
-        "de 2026, y su vinculación UBL no está publicada."
+        "El importe y la descripción de los grupos de cobros: los cuatro de la "
+        "orden (cargos en nombre de un tercero, impuestos y tasas, "
+        "minoraciones y retenciones) y los dos del borrador de abril que "
+        "todavía se aceptan (recargo de equivalencia y grupo de entidades). La "
+        "orden no les da ruta: son términos de la edición de 2026 de la norma, "
+        "y su vinculación UBL, la UNE-CEN/TS 16931-3-2:2026, no se ha podido "
+        "leer aquí."
     ),
     "BT-115": (
         "El total a pagar suma los importes de BT-179, que no tienen ruta. Con "
@@ -589,27 +731,36 @@ NO_SE_COMPRUEBA: dict[str, str] = {
     ),
     "BT-111": (
         "Con recargo de equivalencia, la cuota del IVA en euros suma también "
-        "las cuotas del recargo, y esas están en BT-179."
+        "las cuotas del recargo. En la orden esas cuotas van en el desglose del "
+        "IVA (BT-117); comprobar el cuadre es una regla nueva de la orden, que "
+        "todavía no se mide."
     ),
     "BT-195": (
-        "Solo admite códigos VATEX-EU o VATEX-ES, dice el anexo, pero es un "
-        "término de la edición de 2026 sin ruta en ninguna vinculación "
-        "publicada."
+        "Solo admite códigos VATEX-EU o VATEX-ES, dice la orden, pero es un "
+        "término de la edición de 2026 de la norma sin ruta en la vinculación "
+        "de 2017, y la de 2026 no se ha podido leer aquí."
     ),
-    "BT-ES-15": (
-        "El código «ThirdPartyInvoicing» es obligatorio cuando el tercero expide "
-        "materialmente la factura, y eso no se ve en el documento. Se comprueba "
-        "que la tipología esté, no cuál es."
+    "BT-ES-5": (
+        "La tipología del tercero tiene que ser «FacturaciónPorTercero» "
+        "(«ThirdPartyInvoicing» en el borrador de abril) cuando el tercero "
+        "expide materialmente la factura, y eso no se ve en el documento. Se "
+        "comprueba que la tipología esté, no cuál es."
     ),
     "BT-123": (
-        "La descripción del QR es «VERIFACTU o el que corresponda según "
-        "normativa aplicable»: no es una lista cerrada. Se comprueba que esté."
+        "La descripción del QR. La orden publicada la deja opcional, y cuando "
+        "está tiene que ser «VERIFACTU» o «TICKETBAI». Que lo sea todavía no se "
+        "comprueba: es una regla nueva de la orden."
+    ),
+    "BT-113": (
+        "El importe pagado no puede usarse para anticipos que hayan devengado "
+        "el IVA (artículo 75.Dos de la Ley del IVA), y eso no se ve en la "
+        "factura. SPFE-IMPORTE-PAGADO lo dice en una nota cuando lo hay."
     ),
     "BG-24 de la autorización": (
         "El grupo de la autorización de facturación se reconoce por su "
-        "calificador de L10, AUT, pero no se comprueba que lleve el número: el "
-        "anexo de abril no le da ruta, y que vaya en cbc:UUID solo lo enseña un "
-        "ejemplo que la AEAT mandó por correo el 02-10-2026."
+        "calificador de L10, AUT, pero no se comprueba que lleve el número. La "
+        "orden lo pone en cbc:UUID (BT-ES-26), y comprobarlo es una regla nueva "
+        "que todavía no se mide."
     ),
     "BG-17": (
         "El anexo admite una transferencia como mucho, y la vinculación UBL "
@@ -690,9 +841,11 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
         # `CustomizationID` (si el mensaje de anulación lo lleva no se sabe), y
         # sin esta línea recibía SPFE-SINTAXIS diciendo que el anexo «solo
         # define» el CIUS sobre UBL, que es falso: la respuesta es UBL. El
-        # mensaje de anulación de la solución pública es una respuesta, y su
-        # texto no está publicado: medirlo con el anexo de las facturas sería
-        # inventar una regla. Cuando salga, tendrá las suyas.
+        # mensaje de anulación de la solución pública es una respuesta. Su
+        # texto está en el anexo I de la orden desde el 05-10-2026 («Mensaje de
+        # anulación»), con sus propios campos: medirlo con las reglas de las
+        # facturas sería inventar una regla, y medirlo con las suyas es una
+        # regla nueva, que todavía no está escrita.
         return []
     if deteccion.familia != UBL:
         return [
@@ -713,23 +866,28 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
         return []
 
     incidencias = [
-        # El aviso dice dos cosas y las dos hacen falta. Que el anexo es un
-        # borrador se sabía desde el principio. Que ese borrador **ya no es el
-        # último** se sabe desde el 10-09-2026, cuando la AEAT presentó sus
-        # novedades en el portal de desarrolladores sin publicar el texto
-        # nuevo: hay reglas de aquí que con el anexo nuevo darían por mala una
-        # factura bien hecha —la extensión de rectificativas desaparece—. No se
-        # pueden reescribir sobre unas transparencias, así que lo que toca es
-        # decirlo en cada factura que se mide. Se quita cuando salga el texto.
+        # La nota dice con qué se ha medido, y eso hoy es una mezcla. Hasta el
+        # 07-10-2026 decía que el anexo era un borrador sin publicar, y eso
+        # dejó de ser verdad el 05-10-2026, cuando la orden salió en el BOE.
+        # Lo que sigue siendo verdad es que la mayoría de las reglas miden el
+        # borrador de abril: de la orden solo se ha recogido lo que dejaba de
+        # condenar a una factura bien hecha. Y eso es justo lo que hay que
+        # decir, porque «ninguna queja» no quiere decir «cumple la orden». La
+        # lista de lo que ya se ha puesto al día va entera, y sale de
+        # `LO_QUE_YA_SE_ADMITE`, para que la nota no prometa más de lo que se
+        # ha hecho.
         Incidencia(
             "SPFE-BORRADOR",
             NOTA,
-            "La factura dice ser de la solución pública y se ha medido "
-            "con el anexo I del proyecto de orden, que es un borrador: se "
-            "sometió a audiencia pública el 17-04-2026 y no está publicado en "
-            "el BOE. Además, el 10-09-2026 la AEAT anunció cambios en ese "
-            "anexo y todavía no ha publicado el texto: aquí se mide con el de "
-            "abril, así que alguna regla SPFE- puede haber quedado vieja.",
+            "La factura dice ser de la solución pública. Su anexo I es el de "
+            "la Orden HAC/1028/2026, publicada en el BOE el 05-10-2026 y en "
+            "vigor desde el 06-10-2026, y aquí todavía se mide en buena parte "
+            "con el borrador de abril. De la orden ya se admite lo que aquí se "
+            f"daba por malo: {_en_una_frase(LO_QUE_YA_SE_ADMITE)}. Los "
+            "calificadores de L8 y L10 se reconocen con el esquema delante o "
+            "sin él. Lo que la orden ya no admite todavía no siempre se "
+            "rechaza, y sus reglas nuevas todavía no se miden: que no salga "
+            "ninguna queja no quiere decir que la factura cumpla la orden.",
             campo="Identificador de especificación",
             encontrado=_valor(raiz, SINTAXIS_UBL.perfil),
         )
@@ -783,11 +941,11 @@ def _de_la_aeat_sin_reconocer(deteccion) -> list[Incidencia]:
             "SPFE-ESPECIFICACION",
             AVISO,
             "El identificador de especificación nombra a la AEAT, pero no es "
-            "ninguno de los dos que se conocen de la solución pública: ni el "
-            "del anexo de abril ni el del ejemplo que la AEAT mandó por correo "
-            "el 02-10-2026. Las reglas del anexo no se han comprobado.",
+            "el que fija la orden publicada en el BOE el 05-10-2026 (fila "
+            "BT-24) ni el CIUS del borrador de abril. Las reglas del anexo no "
+            "se han comprobado.",
             campo="Identificador de especificación (BT-24)",
-            esperado=f"{ESPECIFICACION} o {ESPECIFICACION_DEL_EJEMPLO}",
+            esperado=ESPECIFICACION_DEL_EJEMPLO,
             encontrado=perfil,
         )
     ]
@@ -801,33 +959,25 @@ def _especificacion(raiz) -> list[Incidencia]:
     forma de norma que hay.
     """
     declarado = _valor(raiz, SINTAXIS_UBL.perfil)
-    if declarado == ESPECIFICACION:
+    # El del ejemplo del 02-10-2026 es, letra a letra, el que fija la fila
+    # BT-24 de la orden publicada el 05-10-2026. Hasta el 07-10-2026 salía con
+    # una NOTA que decía que «un ejemplo no es el BOE: valdrá el que diga el
+    # texto que se publique». El texto dice este, así que ya no hay nada que
+    # anotar. El de abril se sigue aceptando: dejar de hacerlo es de la tanda
+    # que pone las reglas al texto, no de esta.
+    if declarado in (ESPECIFICACION, ESPECIFICACION_DEL_EJEMPLO):
         return []
-    if declarado == ESPECIFICACION_DEL_EJEMPLO:
-        return [
-            Incidencia(
-                "SPFE-ESPECIFICACION",
-                NOTA,
-                "El identificador de especificación no es el del anexo de "
-                "abril, sino el que enseñó la AEAT el 02-10-2026 en un ejemplo, "
-                "contestando por correo a una consulta. Se acepta, y la factura "
-                "se mide con el anexo de abril, que es el único publicado. El "
-                "correo no explica el cambio, y un ejemplo no es el BOE: valdrá "
-                "el que diga el texto que se publique.",
-                campo="Identificador de especificación (BT-24)",
-                encontrado=declarado,
-            )
-        ]
     return [
         Incidencia(
             "SPFE-ESPECIFICACION",
             ERROR,
             "El identificador de especificación nombra el CIUS de la solución "
-            "pública, pero no con el valor que fija el anexo. El anexo da el "
-            "valor entero, y cualquier diferencia (otra edición de la norma, "
-            "otra versión del CIUS) es otro identificador.",
+            "pública del borrador de abril, pero no con su valor entero, y "
+            "cualquier diferencia (otra edición de la norma, otra versión del "
+            "CIUS) es otro identificador. La orden publicada en el BOE el "
+            "05-10-2026 fija uno distinto, que es el que vale.",
             campo="Identificador de especificación (BT-24)",
-            esperado=ESPECIFICACION,
+            esperado=ESPECIFICACION_DEL_EJEMPLO,
             encontrado=declarado,
         )
     ]
@@ -840,31 +990,35 @@ def _proceso(raiz) -> list[Incidencia]:
     no lo lleva porque ninguna regla europea lo miraba.
     """
     declarado = _valor(raiz, "./cbc:ProfileID")
-    if declarado == PROCESO:
+    # El de la orden publicada, y también el de abril: dejar de admitir el de
+    # abril es de la tanda que pone las reglas al texto, no de esta.
+    if declarado in (PROCESO, PROCESO_DEL_BOE):
         return []
     if declarado == PROCESO_DEL_EJEMPLO:
         # Con cualquiera de los dos identificadores, y no solo con el del
-        # ejemplo: es una NOTA, que no condena ni absuelve, y la base que
-        # tiene, la captura del 02-10-2026, es la misma en los dos casos.
+        # ejemplo: es una NOTA, que no condena ni absuelve. Hasta el
+        # 07-10-2026 decía que el anexo nuevo no estaba publicado y que valdría
+        # el que dijera el texto: el texto salió el 05-10-2026 y dice otro.
         return [
             Incidencia(
                 "SPFE-PROCESO",
                 NOTA,
-                "El tipo de proceso de negocio no es el del anexo de abril, "
-                "sino el del ejemplo que la AEAT mandó por correo el "
-                "02-10-2026. Se acepta porque lo enseña la propia AEAT y el "
-                "anexo nuevo no está publicado: valdrá el que diga el texto "
-                "que se publique.",
+                "El tipo de proceso de negocio es el del ejemplo que la AEAT "
+                "mandó por correo el 02-10-2026, y no el que fija la orden "
+                f"publicada en el BOE el 05-10-2026, que es {PROCESO_DEL_BOE}: "
+                "con «ubl:». Esta regla todavía no se ha puesto al día con la "
+                "orden y lo acepta, pero lo que manda es el valor de la orden.",
                 campo="Tipo de proceso de negocio (BT-23)",
+                esperado=PROCESO_DEL_BOE,
                 encontrado=declarado,
             )
         ]
     mensaje = (
         "Falta el tipo de proceso de negocio. La norma europea lo deja "
-        "opcional; el anexo lo hace obligatorio, y con un valor fijo."
+        "opcional; la orden lo hace obligatorio, y con un valor fijo."
         if not declarado else
-        "El tipo de proceso de negocio no es el que fija el anexo, que admite "
-        "un solo valor."
+        "El tipo de proceso de negocio no es el que fija la orden publicada en "
+        "el BOE el 05-10-2026, que admite un solo valor."
     )
     return [
         Incidencia(
@@ -872,26 +1026,35 @@ def _proceso(raiz) -> list[Incidencia]:
             ERROR,
             mensaje,
             campo="Tipo de proceso de negocio (BT-23)",
-            esperado=PROCESO,
+            esperado=PROCESO_DEL_BOE,
             encontrado=declarado or "(falta)",
         )
     ]
 
 
 def _copia(raiz) -> list[Incidencia]:
-    """BT-ES-1: si es el original o una copia."""
+    """BT-ES-1: si es el original o una copia.
+
+    En el borrador de abril era obligatorio, y esto daba ERROR si faltaba. La
+    orden publicada lo deja en `0..1` —«True: copia. False (o sin informar):
+    original»—, así que sin él la factura es el original, y eso se dice en una
+    NOTA: quien mande una copia fiel sin el indicador está mandando, para la
+    orden, un original, y el artículo 4.3 pide que la copia fiel se identifique
+    justo ahí.
+    """
     if _valor(raiz, _COPIA):
         return []
     return [
         Incidencia(
             "SPFE-COPIA",
-            ERROR,
-            "Falta decir si la factura es el original o una copia. En UBL es "
-            "opcional; el anexo lo hace obligatorio: false para el original, "
-            "true para una copia.",
-            campo="Original o copia (BT-ES-1)",
-            esperado="cbc:CopyIndicator con false o true",
-            encontrado="(falta)",
+            NOTA,
+            "La factura no dice si es el original o una copia, y la orden "
+            "publicada en el BOE el 05-10-2026 la toma entonces por el "
+            "original: «False (o sin informar): original». Si es una copia "
+            "fiel, el apartado 3 del artículo 4 de la orden pide identificarla "
+            "ahí, con true.",
+            campo="Indicador de copia (BT-ES-1)",
+            encontrado="(sin informar)",
         )
     ]
 
@@ -907,15 +1070,15 @@ def _tipo_de_factura(raiz) -> list[Incidencia]:
     if not codigo or codigo in _L["L1"].valores or codigo not in _UNCL1001:
         return []
     mensaje = ("El tipo de factura es un código de la norma europea, pero no de "
-               "los que admite el anexo, que son los de la lista L1.")
+               "los que admite la orden, que son los de la lista L1.")
     if codigo == "381":
         mensaje += (" El 381 es el abono de la EN 16931 y en la solución pública "
                     "no existe: una rectificativa es 384, o 471 si la expide el "
                     "destinatario. Si rectifica por diferencias o por "
-                    "sustitución se dice en la extensión de rectificativas del "
-                    "anexo de abril, o en un documento justificativo adicional "
-                    "(BG-24), que es donde van los datos rectificados en el "
-                    "anexo nuevo.")
+                    "sustitución se dice en dos documentos justificativos "
+                    "adicionales (BG-24), con los calificadores RECT:TIPO y "
+                    "RECT:MODALIDAD de la lista L10, como pide la orden en su "
+                    "fila BT-3.")
     return [
         Incidencia(
             "SPFE-TIPO-DE-FACTURA",
@@ -934,10 +1097,11 @@ def _rectificativa(raiz) -> list[Incidencia]:
     Y desde el 22-09-2026, también lo que pasa cuando no está. Ese día la AEAT
     contestó por escrito que `BG-ES-1` «deja de existir de forma definitiva» y
     que las rectificativas se estructuran con el grupo `BG-24` de la norma, con
-    los calificadores de L10 y L2. El anexo de abril sigue siendo el único
-    texto publicado, así que aquí se sigue midiendo con él; lo que no se puede
-    es dar **por mala** una factura escrita a la forma nueva, que es lo que
-    hacía esta regla.
+    los calificadores de L10 y L2. La orden publicada el 05-10-2026 lo
+    confirma: no tiene extensión de rectificativas, y la fila BT-3 pide los
+    BG-24 del tipo y de la modalidad en toda 384 y 471. Aquí todavía se acepta
+    la extensión de abril, y lo que no se puede es dar **por mala** una factura
+    escrita a la forma nueva, que es lo que hacía esta regla.
 
     La forma nueva se lee en `_bg24_de_la_forma_nueva`. Aquí solo se decide si
     hay algo que leer: un BG-24 que no sea ni el QR ni la autorización, que
@@ -959,14 +1123,15 @@ def _rectificativa(raiz) -> list[Incidencia]:
                 "SPFE-RECTIFICATIVA",
                 ERROR,
                 f"La factura es rectificativa ({tipo}) y no dice qué "
-                "rectifica: ni la extensión de rectificativas que exige el "
-                "anexo de abril, ni un documento justificativo adicional "
-                "(BG-24), que es donde van los datos rectificados en el anexo "
-                "nuevo. Hace falta una de las dos: es donde se dice qué se "
+                "rectifica. La orden publicada en el BOE el 05-10-2026 lo pide "
+                "en documentos justificativos adicionales (BG-24), con los "
+                "calificadores RECT:TIPO y RECT:MODALIDAD de la lista L10 (fila "
+                "BT-3); todavía se acepta también la extensión de "
+                "rectificativas del borrador de abril. Ahí se dice qué se "
                 "rectifica (R1 a R4) y cómo, por diferencias (I) o por "
                 "sustitución (S).",
-                campo="Datos rectificados (BG-ES-1)",
-                esperado="la extensión de rectificativas, o un BG-24",
+                campo="Datos rectificados (BG-24, BT-3)",
+                esperado="los BG-24 RECT:TIPO y RECT:MODALIDAD, o la extensión de abril",
                 encontrado="(falta)",
             )
         ]
@@ -981,16 +1146,19 @@ def _rectificativa(raiz) -> list[Incidencia]:
                     "SPFE-RECTIFICATIVA",
                     ERROR,
                     "La extensión de rectificativas no se identifica con el "
-                    "valor que fija el anexo. Ese valor, en el cbc:ID de la "
-                    "extensión, es lo que dice qué extensión es.",
-                    campo="Identificador de la extensión (BT-ES-2)",
+                    "valor que fijaba el borrador de abril. Ese valor, en el "
+                    "cbc:ID de la extensión, es lo que dice qué extensión es. "
+                    "La orden publicada ya no tiene esta extensión: los datos "
+                    "rectificados van en documentos justificativos adicionales "
+                    "(BG-24).",
+                    campo="Identificador de la extensión (BT-ES-2 del borrador)",
                     esperado=_URN_RECT,
                     encontrado=extension or "(falta)",
                 )
             )
         for ruta, lista_, nombre, codigo in (
-            (_RECT_TIPO, "L2.A", "el tipo de rectificativa", "BT-ES-2"),
-            (_RECT_MODALIDAD, "L2.B", "la modalidad de rectificación", "BT-ES-3"),
+            (_RECT_TIPO, "L2.A", "el tipo de rectificativa", "BT-ES-2 del borrador"),
+            (_RECT_MODALIDAD, "L2.B", "la modalidad de rectificación", "BT-ES-3 del borrador"),
         ):
             escrito = _valor(correccion, ruta)
             valores = _L[lista_].valores
@@ -1010,7 +1178,7 @@ def _rectificativa(raiz) -> list[Incidencia]:
                 )
         for importes in _nodos(correccion, _RECT_IMPORTES):
             if not _valor(importes, _RECT_BASE):
-                faltan.append("la base rectificada (BT-ES-4)")
+                faltan.append("la base rectificada (BT-ES-4 del borrador)")
     if faltan:
         incidencias.insert(
             0,
@@ -1018,8 +1186,8 @@ def _rectificativa(raiz) -> list[Incidencia]:
                 "SPFE-RECTIFICATIVA",
                 ERROR,
                 f"A la extensión de rectificativas le falta {_y(faltan)}. El "
-                "anexo pide siempre el tipo y la modalidad, y la base "
-                "rectificada si se informan los importes rectificados.",
+                "borrador de abril pedía siempre el tipo y la modalidad, y la "
+                "base rectificada si se informan los importes rectificados.",
                 campo="Datos rectificados (BG-ES-1)",
                 esperado="el tipo (L2.A) y la modalidad (L2.B)",
                 encontrado="(falta)",
@@ -1045,9 +1213,11 @@ def _bg24_de_la_forma_nueva(tipo: str, adjuntos: list) -> list[Incidencia]:
     malas las facturas escritas como enseña la Agencia.
 
     Lo que no casa con su lista sale como AVISO y no como ERROR, y lo que
-    falta, como NOTA: la lista es del anexo publicado, pero el sitio lo dice
-    un ejemplo, y que todas lleven tipo y modalidad lo dice la prosa del
-    23-09-2026, que describe un anexo que no está en el BOE.
+    falta, como NOTA. Era así porque el sitio lo decía un ejemplo y que todas
+    lleven tipo y modalidad, la prosa del 23-09-2026. Desde el 05-10-2026 las
+    dos cosas las dice la orden (filas BT-3, BT-ES-27 y BT-ES-28), y los
+    mensajes lo dicen; subir las gravedades es de la tanda que pone las reglas
+    al texto, y la guarda de L10 no deja olvidarlo.
     """
     # Todos los de cada calificador, y no el primero: quedarse con uno hacía
     # desaparecer sin decirlo un R9 que viniera detrás de un R1, y la nota
@@ -1062,13 +1232,14 @@ def _bg24_de_la_forma_nueva(tipo: str, adjuntos: list) -> list[Incidencia]:
                 "SPFE-RECTIFICATIVA",
                 NOTA,
                 f"La factura es rectificativa ({tipo}) y no lleva la "
-                "extensión de rectificativas del anexo de abril, pero sí "
+                "extensión de rectificativas del borrador de abril, pero sí "
                 "trae un documento justificativo adicional (BG-24), que es "
-                "donde van los datos rectificados desde que la AEAT "
-                "confirmó, el 22-09-2026, que la extensión desaparece. No "
-                "se comprueba lo que dice: ninguno de sus identificadores es "
-                "un calificador de la rectificativa de los de la lista L10, "
-                "y el anexo que los fija no está publicado.",
+                "donde la orden publicada el 05-10-2026 pone los datos "
+                "rectificados. No se comprueba lo que dice: ninguno de sus "
+                "identificadores es un calificador de la rectificativa de los "
+                "de la lista L10. La orden pide en toda 384 y 471 los BG-24 "
+                "del tipo y de la modalidad (fila BT-3); esta regla todavía no "
+                "se ha puesto al día con ella y no lo da por malo.",
                 campo="Datos rectificados (BG-24)",
                 esperado="el tipo y la modalidad, con L10 y L2",
                 encontrado="un BG-24 sin leer",
@@ -1099,13 +1270,12 @@ def _bg24_de_la_forma_nueva(tipo: str, adjuntos: list) -> list[Incidencia]:
                 Incidencia(
                     "SPFE-RECTIFICATIVA",
                     AVISO,
-                    f"El código {_de(nombre)} no está en la lista {lista_} del "
-                    "anexo. Se ha leído en cbc:DocumentTypeCode, que es donde "
-                    "lo pone el ejemplo que la AEAT mandó por correo el "
-                    "02-10-2026; la lista es la del anexo de abril, que la AEAT "
-                    "confirmó palabra por palabra el 23-09-2026. Es un aviso y "
-                    "no un error porque el anexo que fija ese sitio no está "
-                    "publicado.",
+                    f"El código {_de(nombre)} no está en la lista {lista_}, que "
+                    "es la misma en el borrador de abril y en la orden. Se ha "
+                    "leído en cbc:DocumentTypeCode, que es donde lo pone la "
+                    "orden publicada el 05-10-2026 (filas BT-ES-27 y BT-ES-28). "
+                    "Todavía es un aviso y no un error porque esta regla no se "
+                    "ha puesto al día con la orden.",
                     campo=f"{nombre[0].upper()}{nombre[1:]} ({calificador})",
                     esperado=_y(list(valores)).replace(" y ", " o "),
                     encontrado=codigo,
@@ -1115,43 +1285,44 @@ def _bg24_de_la_forma_nueva(tipo: str, adjuntos: list) -> list[Incidencia]:
     mensaje = (
         f"La factura es rectificativa ({tipo}) y lleva los datos "
         "rectificados en documentos justificativos adicionales (BG-24), "
-        "que es donde van desde que la AEAT confirmó, el 22-09-2026, que "
-        "la extensión del anexo de abril desaparece. Se reconoce "
+        "que es donde los pone la orden publicada el 05-10-2026 (fila "
+        "BT-3); la extensión del borrador de abril ya no está en ella. Se "
+        "reconoce "
         f"{_y(sorted(_L10_RECTIFICATIVA[c] for c in presentes))}, por sus "
         "calificadores de la lista L10."
     )
     if repetidos:
-        mensaje += (f" Hay {_y(repetidos)}: se leen todos, y ni el anexo ni el "
-                    "ejemplo de la AEAT dicen si pueden repetirse.")
+        mensaje += (f" Hay {_y(repetidos)}: se leen todos. La orden admite uno "
+                    "de cada (0..1), y esta regla todavía no lo da por malo.")
     if leidos:
         mensaje += (
             f" Se comprueba el código: {_y(leidos)}. Se lee en "
-            "cbc:DocumentTypeCode, que es donde lo pone el ejemplo que la AEAT "
-            "mandó por correo el 02-10-2026; el anexo nuevo, que es el que lo "
-            "fijará, no está publicado."
+            "cbc:DocumentTypeCode, que es donde lo pone la orden (filas "
+            "BT-ES-27 y BT-ES-28)."
         )
     sin_codigo = list(dict.fromkeys(sin_codigo))
     if sin_codigo:
         mensaje += (
             f" No se comprueba {_y(sin_codigo)}: "
             f"{'no lleva' if len(sin_codigo) == 1 else 'no llevan'} código en "
-            "cbc:DocumentTypeCode, que es donde lo pone el ejemplo de la AEAT "
-            "del 02-10-2026, y en otro sitio no se busca porque nadie ha dicho "
-            "que vaya ahí."
+            "cbc:DocumentTypeCode, que es donde lo pide la orden (filas "
+            "BT-ES-27 y BT-ES-28, obligatorias en su grupo), y en otro sitio "
+            "no se busca. Esta regla todavía no lo da por malo."
         )
     faltan = [nombre for calificador, nombre in _L10_RECTIFICATIVA.items()
               if calificador not in presentes and calificador != "RECT:IMPORTES"]
     if faltan:
-        mensaje += (f" Falta {_y(faltan)}: la AEAT escribió que todas llevan el "
-                    "tipo y la modalidad. No se da por mala porque el anexo que "
-                    "lo dice no está publicado.")
+        mensaje += (f" Falta {_y(faltan)}: la orden pide el tipo y la "
+                    "modalidad en toda 384 y 471 (fila BT-3). Esta regla todavía "
+                    "no lo da por malo: es de la tanda que la pone al texto.")
     modalidades = {_valor(adjunto, _CODIGO_DEL_CALIFICADOR)
                    for adjunto in presentes.get("RECT:MODALIDAD", [])}
     if "S" in modalidades and "RECT:IMPORTES" not in presentes:
         mensaje += (" La modalidad es S y no trae los importes rectificados: la "
-                    "AEAT escribió el 23-09-2026 que las de sustitución los "
-                    "llevan, pero ni el anexo ni el ejemplo de la AEAT dicen "
-                    "cómo se escriben, así que no se da por mala.")
+                    "orden solo los prevé cuando, en una sustitución, se opta por "
+                    "emitir una única factura con los importes correctos (BG-24 "
+                    "«IMPORTES RECTIFICADOS»), y eso no se ve en la factura, así "
+                    "que no se da por mala.")
     incidencias.insert(
         0,
         Incidencia(
@@ -1199,7 +1370,15 @@ def _moneda_del_iva(raiz) -> list[Incidencia]:
 
 
 def _importe_pagado(raiz) -> list[Incidencia]:
-    """BT-113: si se informa, cero."""
+    """BT-113: lo pagado por adelantado.
+
+    El borrador de abril solo lo admitía a cero, y esto daba ERROR con
+    cualquier otro importe. La orden publicada quita esa frase y pone otra:
+    «Este campo no debe ser utilizado en el caso de pagos anticipados que
+    hayan supuesto el devengo del IVA previsto en el artículo 75.Dos de la Ley
+    37/1992». Si un anticipo devengó el IVA no se ve en la factura, así que
+    eso no se puede comprobar, y se dice en una NOTA en vez de callarlo.
+    """
     incidencias: list[Incidencia] = []
     for pagado in _nodos(raiz, SINTAXIS_UBL.anticipos):
         escrito = _escrito(pagado)
@@ -1211,42 +1390,63 @@ def _importe_pagado(raiz) -> list[Incidencia]:
         incidencias.append(
             Incidencia(
                 "SPFE-IMPORTE-PAGADO",
-                ERROR,
-                "El importe pagado por adelantado no es cero. El anexo solo "
-                "admite este importe si vale cero.",
+                NOTA,
+                "La factura lleva un importe pagado por adelantado. La orden "
+                "publicada en el BOE el 05-10-2026 lo admite, pero no para los "
+                "anticipos que hayan devengado el IVA (artículo 75.Dos de la Ley "
+                "del IVA), y eso no se ve en la factura: no se ha comprobado.",
                 campo="Importe pagado (BT-113)",
-                esperado="0",
                 encontrado=escrito,
             )
         )
     return incidencias
 
 
+def _nif_bien_puesto(esquema) -> bool:
+    """Si un `cac:PartyTaxScheme` lleva el NIF como admite la orden.
+
+    Con el impuesto «VAT» (BT-31, BT-48), o con «LOC» y el atributo
+    `schemeID` «FC» en el propio NIF (BT-32, BT-47). La segunda es nueva en la
+    orden publicada: el borrador de abril solo conocía la primera.
+    """
+    if not _valor(esquema, "./cbc:CompanyID"):
+        return False
+    impuesto = _valor(esquema, _IMPUESTO_DEL_ESQUEMA)
+    if impuesto == _IMPUESTO:
+        return True
+    return (impuesto == _IMPUESTO_LOCAL
+            and _valor(esquema, "./cbc:CompanyID/@schemeID") == _ESQUEMA_DEL_NIF)
+
+
 def _nif_de(raiz, esquemas: str) -> str | None:
-    """None si el NIF está con el impuesto «VAT»; si no, qué hay en su lugar."""
+    """None si el NIF está como lo admite la orden; si no, qué hay en su lugar."""
     encontrados = []
     for esquema in _nodos(raiz, esquemas):
+        if _nif_bien_puesto(esquema):
+            return None
         nif = _valor(esquema, "./cbc:CompanyID")
         impuesto = _valor(esquema, _IMPUESTO_DEL_ESQUEMA)
-        if nif and impuesto == _IMPUESTO:
-            return None
         if nif:
-            encontrados.append(f"{nif} con el impuesto «{impuesto or '(sin impuesto)'}»")
+            atributo = _valor(esquema, "./cbc:CompanyID/@schemeID")
+            con = f" y schemeID «{atributo}»" if atributo else ""
+            encontrados.append(f"{nif} con el impuesto «{impuesto or '(sin impuesto)'}»{con}")
     return ", ".join(encontrados) or "(falta)"
 
 
 def _nif(raiz) -> list[Incidencia]:
-    """BT-32 y BT-48 con BT-ES-7 y BT-ES-8: el NIF de cada parte, en «VAT».
+    """El NIF de cada parte, en «VAT» o en «LOC» con «FC».
 
-    El anexo llama BT-32 al del vendedor —el registro fiscal de la norma— y le
-    pone la ruta del esquema de impuesto «VAT», que es donde la vinculación
-    escribe BT-31. Aquí se mira lo que dice la ruta, que es lo que se puede
-    comprobar, y el campo se nombra como lo nombra el anexo.
+    La orden publicada da dos sitios para el NIF de cada parte, y basta uno:
+    el del vendedor va en BT-31, con el impuesto «VAT», o en BT-32, con «LOC» y
+    el atributo «FC» —«Será obligatorio consignar un NIF válido en el caso de
+    que el campo BT-31 no tenga contenido»—; el del comprador, igual, en BT-48 o
+    en BT-47. El borrador de abril solo admitía «VAT», y hasta el 07-10-2026
+    esta regla daba ERROR a un vendedor escrito como dice la orden.
     """
     incidencias: list[Incidencia] = []
     for quien, esquemas, codigos in (
-        ("vendedor", _ESQUEMAS_DEL_VENDEDOR, "BT-32, BT-ES-7"),
-        ("comprador", _ESQUEMAS_DEL_COMPRADOR, "BT-48, BT-ES-8"),
+        ("vendedor", _ESQUEMAS_DEL_VENDEDOR, "BT-31 o BT-32"),
+        ("comprador", _ESQUEMAS_DEL_COMPRADOR, "BT-48 o BT-47"),
     ):
         encontrado = _nif_de(raiz, esquemas)
         if encontrado is None:
@@ -1255,11 +1455,13 @@ def _nif(raiz) -> list[Incidencia]:
             Incidencia(
                 "SPFE-NIF",
                 ERROR,
-                f"Falta el NIF del {quien} donde lo pide el anexo: en un "
-                "esquema de impuesto «VAT». La norma europea lo deja opcional; "
-                "el anexo lo hace obligatorio para las dos partes.",
+                f"Falta el NIF del {quien} donde lo pide la orden, que admite "
+                "dos sitios: un esquema de impuesto «VAT», o uno «LOC» con el "
+                "atributo schemeID «FC» en el NIF. La norma europea lo deja "
+                "opcional; la orden lo hace obligatorio para las dos partes.",
                 campo=f"NIF del {quien} ({codigos})",
-                esperado="cac:PartyTaxScheme con cbc:CompanyID y cac:TaxScheme/cbc:ID «VAT»",
+                esperado="cac:PartyTaxScheme con cbc:CompanyID y cac:TaxScheme/cbc:ID "
+                         "«VAT», o «LOC» con cbc:CompanyID@schemeID «FC»",
                 encontrado=encontrado,
             )
         )
@@ -1337,20 +1539,31 @@ def _tipo_de_impuesto(raiz) -> list[Incidencia]:
 
 
 def _tercero(raiz) -> list[Incidencia]:
-    """BG-ES-3: si está el tercero, su NIF en «VAT», su nombre y su tipología."""
+    """El tercero, si está: su NIF, su nombre y su tipología.
+
+    La orden publicada lo llama BG-ES-1 y cambia dos cosas que el borrador de
+    abril (BG-ES-3) no admitía: el nombre va en la razón social,
+    `cac:PartyLegalEntity/cbc:RegistrationName` (BT-ES-3), y no en
+    `cac:PartyName`; y el NIF puede ir con «LOC» y el atributo «FC», como el
+    del vendedor (BT-ES-4). Se aceptan las dos formas: la de abril porque esta
+    regla todavía no se ha puesto al día del todo, la de la orden porque es la
+    que manda. Hasta el 07-10-2026, un tercero escrito como la orden salía sin
+    nombre y con el impuesto mal.
+    """
     incidencias: list[Incidencia] = []
     for nombre, tercero in _nombrados(_nodos(raiz, _TERCERO), "tercero"):
-        faltan = [
-            texto for ruta, texto in (
-                (_TERCERO_NIF, "el NIF (BT-ES-12)"),
-                (_TERCERO_NOMBRE, "el nombre (BT-ES-14)"),
-                (_TERCERO_TIPO, "la tipología (BT-ES-15)"),
-            )
-            if not _valor(tercero, ruta)
-        ]
-        impuesto = _valor(tercero, _TERCERO_IMPUESTO)
-        if impuesto != _IMPUESTO:
-            faltan.append(f"el impuesto «VAT» (BT-ES-13, hay «{impuesto or '(nada)'}»)")
+        faltan = []
+        if not _valor(tercero, _TERCERO_NIF):
+            faltan.append("el NIF (BT-ES-4)")
+        if not (_valor(tercero, _TERCERO_NOMBRE_DEL_BOE) or _valor(tercero, _TERCERO_NOMBRE)):
+            faltan.append("el nombre o razón social (BT-ES-3)")
+        if not _valor(tercero, _TERCERO_TIPO):
+            faltan.append("la tipología (BT-ES-5)")
+        esquemas = _nodos(tercero, _TERCERO_ESQUEMAS)
+        if _valor(tercero, _TERCERO_NIF) and not any(_nif_bien_puesto(e) for e in esquemas):
+            impuesto = _valor(tercero, _TERCERO_IMPUESTO)
+            faltan.append("el impuesto «VAT», o «LOC» con el atributo «FC» "
+                          f"(hay «{impuesto or '(nada)'}»)")
         if not faltan:
             continue
         incidencias.append(
@@ -1358,10 +1571,11 @@ def _tercero(raiz) -> list[Incidencia]:
                 "SPFE-TERCERO",
                 ERROR,
                 f"Al tercero que expide la factura le falta {_y(faltan)}. Si "
-                "el grupo del tercero está, el anexo pide su NIF con el "
-                "impuesto «VAT», su nombre y la tipología del tercero.",
-                campo=_donde("Datos del tercero (BG-ES-3)", [nombre]),
-                esperado="NIF, impuesto VAT, nombre y tipología",
+                "el grupo del tercero está, la orden pide su NIF —con el "
+                "impuesto «VAT», o con «LOC» y el atributo «FC»—, su nombre o "
+                "razón social y la tipología del tercero.",
+                campo=_donde("Datos del tercero (BG-ES-1)", [nombre]),
+                esperado="NIF con su impuesto, nombre y tipología",
                 encontrado=f"falta {_y(faltan)}",
             )
         )
@@ -1424,10 +1638,15 @@ def _categorias(raiz) -> list[Incidencia]:
     europeas = lista("UNCL_5305", SINTAXIS_UBL)
     lugares: list[str] = []
     malos: list[str] = []
+    nuevas: list[str] = []
     for grupo, campo in _CATEGORIAS_EN:
         for nombre, nodo in grupos(raiz, SINTAXIS_UBL, grupo):
             for encontrado in _nodos(nodo, getattr(SINTAXIS_UBL, campo)):
                 codigo = _escrito(encontrado)
+                if codigo in _L4_QUE_LA_NORMA_NO_TIENE:
+                    if codigo not in nuevas:
+                        nuevas.append(codigo)
+                    continue
                 if codigo in _CATEGORIAS or codigo not in europeas:
                     continue
                 lugar = nombre or ("desglose" if grupo == "desglose" else "")
@@ -1435,24 +1654,140 @@ def _categorias(raiz) -> list[Incidencia]:
                     lugares.append(lugar)
                 if codigo not in malos:
                     malos.append(codigo)
-    if not malos:
-        return []
-    mensaje = ("La categoría de IVA es de la norma europea, pero no de la lista "
-               "L4 del anexo.")
-    if "K" in malos:
-        mensaje += " La K, la entrega intracomunitaria, no tiene código en L4."
-    if "B" in malos:
-        mensaje += " La B, el pago fraccionado italiano, tampoco."
-    return [
-        Incidencia(
-            "SPFE-CATEGORIA",
-            ERROR,
-            mensaje,
-            campo=_donde("Categoría de IVA (BT-95, BT-102, BT-118, BT-151)", lugares),
-            esperado=_y(list(_L["L4"].valores)).replace(" y ", " o "),
-            encontrado=", ".join(malos),
+    incidencias: list[Incidencia] = []
+    if malos:
+        mensaje = ("La categoría de IVA es de la norma europea, pero no de la "
+                   "lista L4 de la orden.")
+        if "K" in malos:
+            mensaje += " La K, la entrega intracomunitaria, no tiene código en L4."
+        if "B" in malos:
+            mensaje += " La B, el pago fraccionado italiano, tampoco."
+        incidencias.append(
+            Incidencia(
+                "SPFE-CATEGORIA",
+                ERROR,
+                mensaje,
+                campo=_donde("Categoría de IVA (BT-95, BT-102, BT-118, BT-151)", lugares),
+                esperado=_y(list(_L4_DEL_BOE)).replace(" y ", " o "),
+                encontrado=", ".join(malos),
+            )
         )
-    ]
+    if nuevas:
+        # Lo que se aceptó y con qué base: la L4 de la orden. Hasta el
+        # 07-10-2026 la N salía con dos ERROR de la norma, BR-CL-17 y
+        # BR-CL-18, y dos AVISO de la casa, IVA-CATEGORIA-RARA e IVA-TIPO (el
+        # 5,2% del recargo «no es un tipo vigente en España»). Medido con una
+        # línea y un desglose de recargo de equivalencia escritos como la orden.
+        incidencias.append(
+            Incidencia(
+                "SPFE-CATEGORIA",
+                NOTA,
+                f"La factura usa {_y(nuevas)} como categoría de IVA. Están en la "
+                "lista L4 de la orden publicada en el BOE el 05-10-2026, que trae "
+                "las categorías de la edición de 2026 de la norma europea, y no "
+                "en la de la edición de 2017, con la que se miden aquí BR-CL-17 y "
+                "BR-CL-18 y avisan IVA-CATEGORIA-RARA e IVA-TIPO. Se aceptan, y "
+                "esas cuatro reglas no se les han aplicado. Su base tampoco se ha "
+                "comparado con las líneas: en "
+                "la N la orden la desliga (el grupo de entidades la informa a "
+                "coste y el recargo no tiene línea propia), y en la D y la F puede "
+                "ser el margen. Su cuota con su base y su tipo, y la suma de "
+                "todas, sí. Lo que la edición de 2026 les pida no se ha "
+                "comprobado.",
+                campo="Categoría de IVA (BT-95, BT-102, BT-118, BT-151)",
+                encontrado=", ".join(nuevas),
+            )
+        )
+    return incidencias
+
+
+# Lo que de la orden ya se admite y aquí se daba por malo, una cosa por
+# frase. «Aquí», y no «el borrador»: la N, la D y la F las condenaban
+# BR-CL-17 y BR-CL-18, que son de la norma, y el BT-47 del comprador
+# BR-AE-02; ninguna regla SPFE-. Lo dijo el revisor de promesas el
+# 07-10-2026, junto con otras dos cosas que esta lista corrige: la nota decía
+# «el NIF con «LOC»» sin la excepción de la exportación, donde BR-G-02 sigue
+# pidiendo el NIF-IVA del vendedor, y callaba el BT-47 y que la base de N, D
+# y F no se compara. Y la lista estaba escrita dos veces —aquí y en el
+# glosario— y ya no decía lo mismo: el glosario se había dejado la clave de
+# régimen. Ahora es una, el glosario la copia letra a letra, y hay prueba de
+# las dos cosas y de que cada frase tiene una factura que la demuestra
+# (`tests/test_solucion_publica.py`): una frase nueva sin su factura no pasa.
+LO_QUE_YA_SE_ADMITE = (
+    "el tipo de proceso",
+    "la factura sin indicador de copia",
+    ("el NIF con «LOC» y «FC» del vendedor, del comprador y del tercero (salvo "
+     "en una exportación, donde la norma europea sigue pidiendo el NIF-IVA del "
+     "vendedor)"),
+    "el registro del comprador (BT-47) donde lo pone la orden",
+    "el importe pagado",
+    "las líneas de cobro y las retenciones de su lista L7",
+    "el nombre del tercero en su razón social",
+    "el QR sin descripción",
+    "la clave de régimen con el calificador de L8",
+    "las categorías N, D y F (sin comparar su base con las líneas)",
+)
+
+
+def _en_una_frase(cosas) -> str:
+    """Una lista larga en castellano, con punto y coma: sus cosas llevan comas dentro."""
+    return "; ".join(cosas[:-1]) + "; y " + cosas[-1]
+
+
+def _se_mide_con_el_anexo(raiz, deteccion) -> bool:
+    """Si a esta factura se le aplican las reglas del anexo, y no solo la queja de ser otra cosa.
+
+    Hace falta las tres cosas: que declare la solución pública, que sea UBL y
+    que sea una factura (`Invoice`). Un abono declara lo mismo y es UBL, pero
+    `reglas` se para en él con SPFE-TIPO-DE-FACTURA y no le mide nada más del
+    anexo. Las dos funciones de abajo miraban solo las dos primeras, y el
+    abono recibía la L4 de la orden sin la NOTA que lo dice: lo vio la
+    revisión del 07-10-2026, antes de publicar.
+    """
+    return (declara_el_cius(deteccion) and deteccion.familia == UBL
+            and raiz is not None and raiz.xpath("local-name()") == "Invoice")
+
+
+def categorias_que_la_norma_no_tiene(raiz, deteccion) -> frozenset[str]:
+    """Las categorías de la L4 de la orden que la lista de 2017 no tiene.
+
+    Solo para una factura UBL que declara la solución pública: a esa se le
+    mide con la L4 de la orden, y las reglas europeas que miran la categoría
+    (BR-CL-17, BR-CL-18 y los avisos de IVA) no pueden darla por mala por
+    usar una que la orden admite. A cualquier otra, nada: qué lista rige para
+    quien declara la edición de 2026 sin declarar la solución pública es una
+    decisión que no está tomada, y entretanto se mide como siempre. Al abono,
+    tampoco: no se le mide con el anexo (`_se_mide_con_el_anexo`).
+    """
+    if not _se_mide_con_el_anexo(raiz, deteccion):
+        return frozenset()
+    return _L4_QUE_LA_NORMA_NO_TIENE
+
+
+def bt47_de_la_orden(raiz, deteccion) -> tuple[str, ...]:
+    """Dónde pone la orden el registro del comprador (BT-47), si es de la solución pública.
+
+    La fila BT-47 de la orden lo pone en un `cac:PartyTaxScheme` con «LOC» y el
+    atributo «FC» en el NIF, y la vinculación de 2017 en
+    `cac:PartyLegalEntity/cbc:CompanyID`. Se cuenta para BR-AE-02, que pide
+    uno u otro identificador del comprador, y solo en una factura UBL que
+    declara la solución pública: en las demás, BT-47 es el de la norma. Que
+    la regla europea lea BT-47 donde lo pone la orden es la lectura que no
+    condena lo que el texto admite; la otra, que la orden rotuló mal su fila,
+    también se puede sostener, y por eso se dice aquí y en el README.
+
+    «LOC» y «FC» se comparan sin los espacios de alrededor, con
+    `normalize-space`, porque así los lee `_nif_bien_puesto` —con `_valor`,
+    como todo este módulo— y así lee la vinculación de 2017 el «VAT» de BT-48.
+    Se comparaban exactos, y un espacio tras «FC» daba el NIF por bien puesto
+    en SPFE-NIF y al comprador por no identificado en BR-AE-02, en el mismo
+    informe: lo vio la revisión del 07-10-2026, antes de publicar.
+    """
+    if not _se_mide_con_el_anexo(raiz, deteccion):
+        return ()
+    return (f"{_ESQUEMAS_DEL_COMPRADOR}"
+            f"[normalize-space(cac:TaxScheme/cbc:ID)='{_IMPUESTO_LOCAL}']"
+            f"[normalize-space(cbc:CompanyID/@schemeID)='{_ESQUEMA_DEL_NIF}']/cbc:CompanyID",)
 
 
 def _claves_de_regimen(raiz) -> list[Incidencia]:
@@ -1462,7 +1797,7 @@ def _claves_de_regimen(raiz) -> list[Incidencia]:
     calificadores: list[tuple[str, str]] = []
     claves: list[tuple[str, str]] = []
     for nombre, linea in grupos(raiz, SINTAXIS_UBL, "lineas"):
-        propiedades = _nodos(linea, _CLAVE)
+        propiedades = _propiedades(linea, "REGI")
         if not propiedades:
             sin_clave.append(nombre)
         elif len(propiedades) > 2:
@@ -1481,10 +1816,10 @@ def _claves_de_regimen(raiz) -> list[Incidencia]:
             Incidencia(
                 "SPFE-CLAVE-DE-REGIMEN",
                 ERROR,
-                "Hay líneas sin clave de régimen. El anexo la pide en cada "
-                "línea, como una propiedad del artículo llamada «REGI»: la "
-                "clave en el valor y el impuesto (IVA, IGIC o IPSI) en el "
-                "calificador.",
+                "Hay líneas sin clave de régimen. La orden la pide en cada "
+                "línea, como una propiedad del artículo llamada «REGI» (sola o "
+                "con el calificador de la lista L8 delante): la clave en el "
+                "valor y el impuesto (IVA, IGIC o IPSI) en el calificador.",
                 campo=_donde("Clave de régimen (BG-32)", sin_clave),
                 esperado="cac:AdditionalItemProperty con cbc:Name «REGI»",
                 encontrado="(falta)",
@@ -1508,8 +1843,8 @@ def _claves_de_regimen(raiz) -> list[Incidencia]:
                 "SPFE-CLAVE-DE-REGIMEN",
                 ERROR,
                 "El impuesto de la clave de régimen no es IVA, IGIC ni IPSI, "
-                "que son los tres que tienen lista de claves en el anexo.",
-                campo=_donde("Impuesto de la clave de régimen (BT-ES-44)",
+                "que son los tres que tienen lista de claves en la orden.",
+                campo=_donde("Impuesto de la clave de régimen (BT-ES-24)",
                              [n for n, _ in calificadores]),
                 esperado="IVA, IGIC o IPSI",
                 encontrado=", ".join(dict.fromkeys(c for _, c in calificadores)),
@@ -1522,7 +1857,7 @@ def _claves_de_regimen(raiz) -> list[Incidencia]:
                 ERROR,
                 "La clave de régimen no está en la lista de su impuesto. Cada "
                 "impuesto tiene la suya: la 17 existe en el IGIC y no en el "
-                "IVA, y la 20 en el IVA y no en el IGIC.",
+                "IVA, y la 02 en el IVA y no en el IPSI.",
                 campo=_donde("Clave de régimen (BT-161)", [n for n, _ in claves]),
                 esperado="una clave de L3A (IVA), L3B (IGIC) o L3C (IPSI)",
                 encontrado=", ".join(dict.fromkeys(c for _, c in claves)),
@@ -1538,7 +1873,7 @@ def _referencias_catastrales(raiz) -> list[Incidencia]:
     incompletas: list[str] = []
     situaciones: list[tuple[str, str]] = []
     for nombre, linea in grupos(raiz, SINTAXIS_UBL, "lineas"):
-        propiedades = _nodos(linea, _CATASTRO)
+        propiedades = _propiedades(linea, "RCAT")
         if len(propiedades) > 1:
             repetidas.append(nombre)
         for propiedad in propiedades:
@@ -1578,7 +1913,7 @@ def _referencias_catastrales(raiz) -> list[Incidencia]:
                 ERROR,
                 "La situación del inmueble no es un código de la lista L6 del "
                 "anexo.",
-                campo=_donde("Situación del inmueble (BT-ES-43)", [n for n, _ in situaciones]),
+                campo=_donde("Situación del inmueble (BT-ES-23)", [n for n, _ in situaciones]),
                 esperado=_y(list(_L["L6"].valores)).replace(" y ", " o "),
                 encontrado=", ".join(dict.fromkeys(s for _, s in situaciones)),
             )
@@ -1590,23 +1925,29 @@ def _lineas_de_cobro(raiz) -> list[Incidencia]:
     """La lista L7, y un solo recargo, grupo de entidades y retención."""
     incidencias: list[Incidencia] = []
     identificadores = [_escrito(n) for n in _nodos(raiz, _LINEA_DE_COBRO + "/cbc:ID")]
-    desconocidos = [i or "(vacío)" for i in identificadores if i not in _COBROS.values()]
+    desconocidos = [i or "(vacío)" for i in identificadores if not _cobro(i)]
     if desconocidos:
         incidencias.append(
             Incidencia(
                 "SPFE-LINEA-DE-COBRO",
                 ERROR,
-                "Una línea de cobro no se identifica con ninguno de los cinco "
-                "valores del anexo (lista L7): suplido, minoración, recargo de "
-                "equivalencia, grupo de entidades o retención.",
+                "Una línea de cobro no se identifica con ningún valor de la "
+                "lista L7. La de la orden publicada en el BOE el 05-10-2026 "
+                "tiene cinco: suplido (SUPL), minoración (MINO), retención "
+                "(RETE), el impuesto especial sobre determinados medios de "
+                "transporte (IEDMT) y otros impuestos o tasas (OTROS). Se "
+                "aceptan también los cinco del borrador de abril, con su URN "
+                "entera, porque esta regla todavía no se ha puesto al día del "
+                "todo.",
                 campo="Identificación de la línea de cobro (CollectionInvoiceLine/cbc:ID)",
-                esperado="urn:aeat:names:specification:ubl:schema: y SUPL, MINO, REEQ, REGE o RETE",
+                esperado=f"{_CALIFICADOR_L7_DEL_BOE} y {_y(list(_L7_DEL_BOE)).replace(' y ', ' o ')}",
                 encontrado=", ".join(dict.fromkeys(desconocidos)),
             )
         )
+    valores = [_cobro(i) for i in identificadores]
     repetidos = [
         termino.lower() for clave, termino in _UNO_POR_FACTURA.items()
-        if identificadores.count(_COBROS[clave]) > 1
+        if valores.count(clave) > 1
     ]
     if repetidos:
         incidencias.append(
@@ -1647,9 +1988,12 @@ def _recargo(raiz) -> list[Incidencia]:
         Incidencia(
             "SPFE-RECARGO-DE-EQUIVALENCIA",
             ERROR,
-            f"Al recargo de equivalencia le falta {_y(faltan)}. El anexo pide "
-            "la suma de los recargos y, en cada subtotal, el impuesto «VAT», "
-            "la categoría «S», la base, el tipo y la cuota.",
+            f"Al recargo de equivalencia le falta {_y(faltan)}. El borrador "
+            "de abril pedía, en su línea de cobro, la suma de los recargos y, "
+            "en cada subtotal, el impuesto «VAT», la categoría «S», la base, el "
+            "tipo y la cuota. La orden publicada el 05-10-2026 ya no tiene esa "
+            "línea: el recargo va en el desglose del IVA (BG-23), con la "
+            "categoría N, su tipo (BT-119) y su cuota (BT-117).",
             campo="Recargo de equivalencia (BG-34, BG-ES-34)",
             esperado="la suma y cada subtotal completo",
             encontrado=f"falta {_y(faltan)}",
@@ -1660,34 +2004,42 @@ def _recargo(raiz) -> list[Incidencia]:
 def _retenciones(raiz) -> list[Incidencia]:
     """Las retenciones: la línea que las identifica, su total y cada una."""
     faltan: list[str] = []
-    lineas = _nodos(raiz, _RETENCION)
+    # Por su valor de L7 y no por la ruta del anexo de abril, que lleva su URN
+    # dentro: con ella, la línea RETE escrita como la orden no se veía, y una
+    # factura con sus retenciones bien puestas salía con que le faltaba la
+    # línea que las identifica (medido el 07-10-2026).
+    lineas = _cobros(raiz, "RETE")
     totales = _nodos(raiz, _RETENCIONES)
     if lineas and not _valor(raiz, _RETENCION_TOTAL):
-        faltan.append("la suma de retenciones (BT-ES-33)")
+        faltan.append("la suma de retenciones (BT-ES-17)")
     if totales and not lineas:
-        faltan.append("la línea de cobro que identifica la retención (BT-ES-32)")
+        faltan.append("la línea de cobro que identifica la retención (BT-ES-16)")
     for nombre, subtotal in _nombrados(_nodos(raiz, _RETENCIONES_APLICADAS), "retención"):
         sufijo = f" de la {nombre}" if nombre else ""
-        for identificador, texto, fijo in (
-            ("BT-ES-34", "la base", None),
-            ("BT-ES-35", "el importe", None),
-            ("BT-ES-36", "la categoría «S»", "S"),
-            ("BT-ES-37", "el porcentaje", None),
-            ("BT-ES-38", "el esquema «WTH»", "WTH"),
+        # Los identificadores del borrador leen la tabla; los de la orden son
+        # los que se enseñan, porque son los que tiene delante quien escribe la
+        # factura hoy. La categoría y el esquema no tienen fila en la orden:
+        # los pide su grupo, BG-ES-4 («Su uso implica…»).
+        for identificador, texto, fijo, de_la_orden in (
+            ("BT-ES-34", "la base", None, "BT-ES-18"),
+            ("BT-ES-35", "el importe", None, "BT-ES-19"),
+            ("BT-ES-36", "la categoría «S»", "S", "BG-ES-4"),
+            ("BT-ES-37", "el porcentaje", None, "BT-ES-20"),
+            ("BT-ES-38", "el esquema «WTH»", "WTH", "BG-ES-4"),
         ):
             escrito = _valor(subtotal, _RETENCION_HIJOS[identificador])
             if not escrito or (fijo and escrito != fijo):
-                faltan.append(f"{texto}{sufijo} ({identificador})")
+                faltan.append(f"{texto}{sufijo} ({de_la_orden})")
         concepto = _valor(subtotal, _RETENCION_HIJOS["BT-ES-39"])
         if concepto not in _L["L5"].valores:
-            faltan.append(f"un concepto de la lista L5{sufijo} (BT-ES-39, hay «{concepto or '(nada)'}»)")
+            faltan.append(f"un concepto de la lista L5{sufijo} (BT-ES-21, hay «{concepto or '(nada)'}»)")
     if not faltan:
         return []
     return [
         Incidencia(
             "SPFE-RETENCION",
             ERROR,
-            f"A las retenciones les falta {_y(faltan)}. El anexo pide la línea "
+            f"A las retenciones les falta {_y(faltan)}. La orden pide la línea "
             "que las identifica, la suma, y en cada retención la base, el "
             "importe, la categoría «S», el porcentaje, el esquema «WTH» y el "
             "concepto de la lista L5.",
@@ -1712,9 +2064,13 @@ def _grupo_de_entidades(raiz) -> list[Incidencia]:
         Incidencia(
             "SPFE-GRUPO-DE-ENTIDADES",
             ERROR,
-            f"Al grupo de entidades le falta {_y(faltan)}. El anexo pide la "
-            "extensión del régimen, identificada con su URN, y dentro la base "
-            "imponible calculada según los artículos 78 y 79 de la Ley del IVA.",
+            f"Al grupo de entidades le falta {_y(faltan)}. El borrador de "
+            "abril pedía, en su línea de cobro, la extensión del régimen, "
+            "identificada con su URN, y dentro la base imponible calculada "
+            "según los artículos 78 y 79 de la Ley del IVA. La orden publicada "
+            "el 05-10-2026 ya no tiene esa línea: el régimen va con la "
+            "categoría N y la clave 06 de L3A, y la base a coste en el desglose "
+            "del IVA (BT-116).",
             campo="Grupo de entidades (BG-34)",
             esperado=_URN_REGE,
             encontrado=f"falta {_y(faltan)}",
@@ -1723,11 +2079,17 @@ def _grupo_de_entidades(raiz) -> list[Incidencia]:
 
 
 def _qr(raiz) -> list[Incidencia]:
-    """BG-24 del QR fiscal: uno como mucho, con descripción y dirección.
+    """BG-24 del QR fiscal: uno como mucho, con su dirección.
 
     Se reconoce con los dos esquemas de L10. Con el de abril solo, un QR
     escrito como el ejemplo de la AEAT del 02-10-2026 dejaba mudo a SPFE-QR:
     medido ese día, sin la dirección del QR no salía nada.
+
+    La descripción (BT-123) ya no se pide. En el borrador de abril era `1..1`;
+    en la orden publicada el 05-10-2026 es `0..1`, «Valor obligatorio: usar
+    «VERIFACTU» o «TICKETBAI»» cuando se informa. Hasta el 07-10-2026 un QR sin
+    descripción salía con ERROR. Comprobar el valor, cuando está, es una regla
+    nueva de la orden y va con las demás reglas nuevas.
     """
     incidencias: list[Incidencia] = []
     qrs = [adjunto for calificador, adjunto in _adjuntos(raiz) if calificador == "QR"]
@@ -1742,22 +2104,16 @@ def _qr(raiz) -> list[Incidencia]:
                 encontrado=str(len(qrs)),
             )
         )
-    faltan: list[str] = []
-    for qr in qrs:
-        if not _valor(qr, "./cbc:DocumentDescription"):
-            faltan.append("la descripción (BT-123)")
-        if not _valor(qr, _QR_URL):
-            faltan.append("la dirección del QR (BT-ES-47)")
-    if faltan:
+    if any(not _valor(qr, _QR_URL) for qr in qrs):
         incidencias.append(
             Incidencia(
                 "SPFE-QR",
                 ERROR,
-                f"Al documento del QR fiscal le falta {_y(list(dict.fromkeys(faltan)))}. "
-                "El anexo pide la descripción (VERIFACTU o la que corresponda) "
-                "y la dirección del QR en cbc:UUID.",
+                "Al documento del QR fiscal le falta la dirección del QR. La "
+                "orden la pide en cbc:UUID: la URL del QR de VERI*FACTU o de "
+                "TicketBAI, según corresponda (BT-ES-25).",
                 campo="QR fiscal (BG-24)",
-                esperado="cbc:DocumentDescription y cbc:UUID",
+                esperado="cbc:UUID",
                 encontrado="(falta)",
             )
         )
@@ -1777,11 +2133,12 @@ def _total_a_pagar(raiz) -> list[Incidencia]:
         Incidencia(
             "SPFE-TOTAL-A-PAGAR",
             NOTA,
-            "La factura lleva líneas de cobro (suplidos, minoraciones, recargo "
-            "de equivalencia, grupo de entidades o retenciones), y el anexo "
-            "suma sus importes al total a pagar. La norma de 2017 no los conoce "
-            "y el anexo no dice dónde se escriben, así que el cuadre del total "
-            "a pagar (BR-CO-16) no se ha comprobado.",
+            "La factura lleva líneas de cobro (suplidos, minoraciones, "
+            "retenciones, o impuestos y tasas cobrados en nombre de un tercero, "
+            "como el IEDMT; o las de recargo y grupo de entidades del borrador "
+            "de abril), y la orden suma sus importes al total a pagar (BT-115). "
+            "La norma de 2017 no los conoce y la orden no dice dónde se escriben, "
+            "así que el cuadre del total a pagar (BR-CO-16) no se ha comprobado.",
             campo="Total a pagar (BT-115)",
             encontrado=_valor(raiz, SINTAXIS_UBL.a_pagar),
         )

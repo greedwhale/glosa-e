@@ -863,13 +863,24 @@ def _regla_tipo_de_documento(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
 # --- Entrada pública -------------------------------------------------------
 
 
-def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
+def reglas(raiz, deteccion, espanola: bool = True,
+           categorias_de_mas: frozenset[str] = frozenset(),
+           comprador_registro_de_mas: tuple[str, ...] = ()) -> list[Incidencia]:
     """Las reglas EN 16931 sobre un documento ya parseado.
 
     Separado de `validar` para que el orquestador pueda pasar el mismo árbol a
     varios conjuntos de reglas en vez de que cada uno se lo parsee por su
     cuenta. `raiz` puede ser None cuando el documento no es XML (EDIFACT), y
     entonces ni se mira.
+
+    `categorias_de_mas` son categorías de IVA que este documento puede usar
+    aunque la lista de 2017 no las tenga. Las decide el orquestador, que es
+    quien sabe si la factura declara la solución pública
+    (`solucion_publica.categorias_que_la_norma_no_tiene`): este módulo no
+    puede importar aquel, que ya importa de este.
+
+    `comprador_registro_de_mas`, lo mismo con el sitio donde la orden pone el
+    registro del comprador (BT-47): ver `iva._regla_identificadores`.
     """
     if deteccion.familia == RESPUESTA:
         # Una respuesta no es una factura: la EN 16931 no dice nada de ella, y
@@ -948,8 +959,11 @@ def reglas(raiz, deteccion, espanola: bool = True) -> list[Incidencia]:
     incidencias.extend(_reglas_cuadre(raiz, sintaxis))
     incidencias.extend(modelo.reglas(raiz, sintaxis))
     incidencias.extend(decimales.reglas(raiz, sintaxis))
-    incidencias.extend(listas_de_codigos.reglas(raiz, sintaxis))
-    incidencias.extend(iva.reglas(raiz, sintaxis, espanola=espanola))
+    incidencias.extend(listas_de_codigos.reglas(
+        raiz, sintaxis, de_mas={"UNCL_5305": categorias_de_mas}))
+    incidencias.extend(iva.reglas(
+        raiz, sintaxis, espanola=espanola, categorias_de_mas=categorias_de_mas,
+        comprador_registro_de_mas=comprador_registro_de_mas))
     return incidencias
 
 

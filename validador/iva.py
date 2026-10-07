@@ -213,10 +213,26 @@ def _clave(
     return (categoria, tipo)
 
 
+# Las tres categorías que la L4 de la Orden HAC/1028/2026 añade a la lista de
+# la norma, con los nombres que les da la orden. Van **aparte** de
+# `CATEGORIAS` a propósito: aquélla es la lista de la norma, la que da el «Las
+# admitidas son…» de IVA-CATEGORIA-RARA, y meterlas ahí las daría por buenas en
+# cualquier factura. Aquí solo sirven para nombrarlas. Sin ellas, el mismo
+# informe que en SPFE-CATEGORIA decía que la orden admite la N la llamaba en
+# BR-CO-17 «N (categoría no reconocida)»: lo vio la revisión del 07-10-2026,
+# antes de publicar.
+CATEGORIAS_DE_LA_ORDEN: dict[str, str] = {
+    "N": "regímenes nacionales de IVA, de la L4 de la orden",
+    "D": "agencias de viajes, de la L4 de la orden",
+    "F": "bienes usados, de la L4 de la orden",
+}
+
+
 def nombre_categoria(codigo: str | None) -> str:
     if not codigo:
         return "sin categoría"
-    return f"{codigo} ({CATEGORIAS.get(codigo, 'categoría no reconocida')})"
+    nombre = CATEGORIAS.get(codigo) or CATEGORIAS_DE_LA_ORDEN.get(codigo)
+    return f"{codigo} ({nombre or 'categoría no reconocida'})"
 
 
 # --- Lo que hay escrito en la factura --------------------------------------
@@ -856,7 +872,8 @@ def _cifra_de_identificadores(apunte: Apunte) -> str:
 
 
 def _regla_identificadores(
-    raiz, sintaxis: Sintaxis, apuntes: list[Apunte]
+    raiz, sintaxis: Sintaxis, apuntes: list[Apunte],
+    comprador_registro_de_mas: tuple[str, ...] = (),
 ) -> list[Incidencia]:
     """BR-{X}-02, 03 y 04: los identificadores que exige cada categoría.
 
@@ -868,6 +885,13 @@ def _regla_identificadores(
     Cuando lo que pide la regla depende de un campo que la sintaxis no
     distingue, la regla se calla: no se sabe si se cumple, y no se afirma
     ninguna de las dos cosas.
+
+    `comprador_registro_de_mas` son otros sitios donde puede ir el registro del
+    comprador (BT-47). Hoy, el de la orden de la solución pública: la fila BT-47
+    de la Orden HAC/1028/2026 lo pone en un cac:PartyTaxScheme con «LOC» y el
+    atributo «FC», y no en cac:PartyLegalEntity, que es donde lo escribe la
+    vinculación de 2017. Hasta el 07-10-2026, una factura AE de la solución
+    pública con el comprador escrito como la orden salía con BR-AE-02.
     """
     usos: dict[tuple[str, str], list[str]] = {}
     for apunte in apuntes:
@@ -883,6 +907,9 @@ def _regla_identificadores(
             "comprador_nif", "comprador_registro",
         )
     }
+    hay["comprador_registro"] = _alguno(
+        [hay["comprador_registro"]]
+        + [_esta(raiz, ruta, sintaxis) for ruta in comprador_registro_de_mas])
     incidencias = []
     for (categoria, cifra), suyos in sorted(usos.items()):
         regla = REGLAS[categoria]
@@ -1429,7 +1456,9 @@ def _regla_lineas_con_categoria(
 # --- Entrada pública -------------------------------------------------------
 
 
-def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
+def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True,
+           categorias_de_mas: frozenset[str] = frozenset(),
+           comprador_registro_de_mas: tuple[str, ...] = ()) -> list[Incidencia]:
     """Todas las comprobaciones de IVA sobre un documento ya parseado.
 
     `espanola` dice si el documento está sujeto a la facturación española. Solo
@@ -1437,6 +1466,18 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
     significa nada sobre una factura danesa. Por defecto sí, porque para eso
     existe esta herramienta y porque llamar a `reglas` sin decir nada no puede
     apagar comprobaciones en silencio.
+
+    `categorias_de_mas` son categorías que el documento puede usar aunque la
+    norma de 2017 no las tenga. Hoy, las de la L4 de la Orden HAC/1028/2026 en
+    una factura de la solución pública: N, D y F. No son «raras» para esa
+    factura, y sus tipos no son los de la tabla española —la N cubre el
+    recargo de equivalencia, al 5,2%, al 1,4% o al 0,5%—, así que ni
+    IVA-CATEGORIA-RARA ni IVA-TIPO dicen nada de ellas. Su base tampoco se
+    compara con las líneas (IVA-BASE): el porqué, donde se salta. Lo que la
+    edición de 2026 de la norma les pida no se comprueba, y la nota
+    SPFE-CATEGORIA lo dice.
+
+    `comprador_registro_de_mas`: ver `_regla_identificadores`.
     """
     grupos = _leer_grupos(raiz, sintaxis)
     apuntes = _leer_apuntes(raiz, sintaxis)
@@ -1457,8 +1498,13 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
         # decía uno, y el segundo aparecía el día que se arreglaba el primero.
         moneda = texto(raiz, sintaxis.moneda, sintaxis)
         declarado = importe_en_moneda(raiz, sintaxis.impuestos, sintaxis, moneda)
+        # Con el mismo `comprador_registro_de_mas` que la otra llamada. Sin
+        # él, una AE de la solución pública sin desglose salía con BR-AE-02
+        # por tener al comprador donde lo pone la orden: lo vio la revisión
+        # del 07-10-2026, antes de publicar.
         return _regla_tipo_de_los_conceptos(apuntes) + _regla_identificadores(
-            raiz, sintaxis, apuntes) + _regla_hay_desglose(grupos, apuntes) + [
+            raiz, sintaxis, apuntes, comprador_registro_de_mas) + _regla_hay_desglose(
+            grupos, apuntes) + [
             Incidencia(
                 "BR-CO-18",
                 ERROR,
@@ -1500,12 +1546,22 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
 
     for grupo in grupos:
         incidencias.extend(_reglas_campos_del_grupo(grupo, sintaxis))
-        incidencias.extend(_regla_forma_del_grupo(grupo))
-        if not a_ciegas:
+        if grupo.categoria not in categorias_de_mas:
+            incidencias.extend(_regla_forma_del_grupo(grupo))
+        # La base de N, D y F no se compara con las líneas: la orden la desliga.
+        # En la N, el grupo de entidades de nivel avanzado informa la base a
+        # coste (BT-116) y en la línea la contraprestación entera (BT-131), y el
+        # recargo de equivalencia no tiene línea propia que vaya a su tipo. En
+        # la D y la F la base puede ser el margen, y la orden no dice si es
+        # eso o el precio. Medido el 07-10-2026: las dos primeras daban
+        # IVA-BASE en ERROR. Lo que sigue atando esas entradas es BR-CO-17, su
+        # cuota con su base y su tipo, y BR-CO-14, la suma de las cuotas.
+        if not a_ciegas and grupo.categoria not in categorias_de_mas:
             incidencias.extend(_regla_base_por_grupo(grupo, apuntes, sintaxis))
         incidencias.extend(_reglas_cuota(grupo, sintaxis))
     incidencias.extend(_regla_tipo_de_los_conceptos(apuntes))
-    incidencias.extend(_regla_identificadores(raiz, sintaxis, apuntes))
+    incidencias.extend(_regla_identificadores(
+        raiz, sintaxis, apuntes, comprador_registro_de_mas))
     incidencias.extend(_regla_hay_desglose(grupos, apuntes))
     incidencias.extend(_regla_no_sujeta_a_solas(grupos))
     incidencias.extend(_regla_no_sujeta_sin_otras(grupos, apuntes))
@@ -1516,7 +1572,8 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True) -> list[Incidencia]:
         # condición era 64 quejas en 50 de las 73 facturas europeas de
         # `muestras/` —el 70% de todo lo que decía el programa— y la señal útil
         # quedaba enterrada debajo.
-        incidencias.extend(_regla_tipos_espanoles(grupos))
+        incidencias.extend(_regla_tipos_espanoles(
+            [g for g in grupos if g.categoria not in categorias_de_mas]))
     if sintaxis.categoria_derivada:
         # Lo que la deducción no alcanza, dicho una vez y con su porqué. Es la
         # otra mitad de `_derivar_categoria` y de `_categoria_de_las_lineas`:
