@@ -7327,3 +7327,42 @@ si no, la próxima vez que se generara volvería la frase vieja.
 **Provocado.** Cada uno de los cuatro arreglos, deshecho de uno en uno sobre
 el árbol: los cuatro en rojo. El guion se niega a empezar si la prueba no está
 en verde con todo puesto.
+
+## El revisor de promesas no se cargó nunca
+
+**Lo que había.** `.claude/agents/revisor-de-promesas.md` existe desde el
+26-09-2026 y ninguna sesión lo ha tenido disponible. Su `description` llevaba
+un «: » sin comillas («cuando un cambio toque una de ellas: la política…»), y
+en YAML eso abre un mapa dentro de otro. Claude Code no lo dice en la sesión:
+salta el fichero y lo apunta solo en el registro de `--debug`.
+
+**Reproducido** el 11-10-2026: `claude plugin validate .claude/agents` dio
+«YAML frontmatter failed to parse … At runtime this agent does not load at
+all», con salida 1. Y no estaba en la lista de agentes de esta sesión.
+
+**Lo que se hizo.**
+
+- La `description`, entre comillas dobles. `validate` pasa con salida 0.
+- Dos agentes nuevos, que dejan escrito lo que hasta ahora se repetía en cada
+  encargo. `auditor` (opus) intenta tumbar la tesis, exige reproducir antes de
+  afirmar y anota aparte lo que la refuerza. `localizador` (haiku) devuelve
+  `fichero:línea` o la URL con la cita literal, y nada más: el abanico localiza
+  y no concluye. Sin `model` en la llamada, Explore corre en el modelo de la
+  sesión, Opus 5.5 a 4 $/20 $ el millón; Haiku 5.5 cuesta 0,10 $/0,50 $.
+- `tests/test_agentes.py`: una comprobación más estricta que YAML, que corre
+  también en GitHub, y `claude plugin validate` donde Claude Code está
+  instalado.
+
+**Provocado.** Con la cabecera del 26-09 en su sitio, la prueba sale en rojo y
+nombra la línea 3. `validate` rechaza la cabecera rota de ejemplo (salida 1)
+antes de dar por buenas las de verdad. Cuatro cabeceras rotas (los dos puntos,
+la cabecera tarde, sin `name`, un `model` raro) salen en rojo cada una por su
+motivo.
+
+**Visto en la sesión.** Según la documentación, Claude Code vigila
+`.claude/agents/` y recoge un fichero nuevo en segundos. En la sesión del
+escritorio no fue así: dentro del mismo turno, `localizador` seguía sin existir
+minutos después («Agent type 'localizador' not found»). Los tres aparecieron
+al empezar el turno siguiente del titular, `revisor-de-promesas` incluido, por
+primera vez. Un agente nuevo, por tanto, se puede usar desde el turno
+siguiente, no desde el mismo.

@@ -1,6 +1,6 @@
 ---
 name: revisor-de-promesas
-description: Revisa que lo que Glosa AFIRMA coincida con lo que HACE — la política de privacidad contra las peticiones reales, el veredicto contra las gravedades, la línea de alcance contra lo que se miró, el manifiesto contra lo que viaja. Úsalo cuando se pida revisar esas promesas, o cuando un cambio toque una de ellas: la política de privacidad, el titular del veredicto, la línea de alcance, el manifiesto o una cifra medida de la documentación.
+description: "Revisa que lo que Glosa AFIRMA coincida con lo que HACE — la política de privacidad contra las peticiones reales, el veredicto contra las gravedades, la línea de alcance contra lo que se miró, el manifiesto contra lo que viaja. Úsalo cuando se pida revisar esas promesas, o cuando un cambio toque una de ellas: la política de privacidad, el titular del veredicto, la línea de alcance, el manifiesto o una cifra medida de la documentación."
 tools: Read, Grep, Glob, Bash, mcp__Claude_Browser__navigate, mcp__Claude_Browser__javascript_tool, mcp__Claude_Browser__read_network_requests, mcp__Claude_Browser__get_page_text, mcp__Claude_Browser__read_page
 model: opus
 ---
