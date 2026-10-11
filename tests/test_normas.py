@@ -78,18 +78,18 @@ def test_ningun_prefijo_tapa_a_otro():
 
 
 def test_la_familia_spfe_dice_de_que_anexo_sale_cada_regla():
-    """Contra un literal, y con las dos fuentes: la orden y el borrador de abril.
+    """Contra un literal, y solo con la orden.
 
     Hasta el 07-10-2026 la ficha decía «en proyecto de orden». La primera
     versión de la frase nueva, «el anexo I de la Orden HAC/1028/2026, todavía
     medido en parte con el borrador de abril», le atribuía a la orden, en
-    SPFE-RECARGO-DE-EQUIVALENCIA, una queja que solo existe en el borrador; y
+    SPFE-RECARGO-DE-EQUIVALENCIA, una queja que solo existía en el borrador; y
     nada la fijaba: cualquier otra frase dejaba la suite verde. Lo vio el
-    revisor de promesas, antes de publicar.
+    revisor de promesas, antes de publicar. Hasta el 11-10-2026 nombraba las
+    dos fuentes; desde entonces todas las reglas miden la orden.
     """
-    assert normas.norma("SPFE-RECARGO-DE-EQUIVALENCIA") == (
+    assert normas.norma("SPFE-RETENCION") == (
         "Anexo I",
         "el contenido mínimo de las facturas de la solución pública: el anexo I "
-        "de la Orden HAC/1028/2026 o, en las reglas que todavía no se han puesto "
-        "al día, el del borrador de abril",
+        "de la Orden HAC/1028/2026",
     )

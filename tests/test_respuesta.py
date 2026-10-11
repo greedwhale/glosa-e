@@ -30,13 +30,13 @@ from validador import (
     esquema,
     factura,
     formato,
+    cius_es,
     sintaxis,
     solucion_publica,
 )
 from validador.esquema import Catalogo
 from validador.formato import (
     EDIFACT,
-    ESPECIFICACION_DEL_EJEMPLO,
     FACTURAE,
     RESPUESTA,
     UBL,
@@ -47,6 +47,7 @@ from validador.incidencias import Informe
 RAIZ = Path(__file__).resolve().parent.parent
 
 PERFIL_CIUS = "urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0"
+PERFIL_DE_LA_ORDEN = cius_es.ESPECIFICACION
 PERFIL_EN16931 = "urn:cen.eu:en16931:2017"
 
 
@@ -131,9 +132,9 @@ class TestSeReconoce:
         assert d.version == "2.5"
         assert "solo existe sobre UBL 2.5" in d.motivo
 
-    def test_sin_version_y_con_el_identificador_del_ejemplo_tambien_la_2_5(self):
-        """Una sola regla para todo lo que es UBL, también con el del 02-10-2026."""
-        d = detectar(respuesta(version=None, perfil=ESPECIFICACION_DEL_EJEMPLO))
+    def test_sin_version_y_con_el_identificador_de_la_orden_tambien_la_2_5(self):
+        """Una sola regla para todo lo que es UBL, también con el de la orden."""
+        d = detectar(respuesta(version=None, perfil=PERFIL_DE_LA_ORDEN))
         assert d.version == "2.5"
         assert "solo existe sobre UBL 2.5" in d.motivo
 
@@ -220,7 +221,7 @@ class TestNoSeLeAcusaDeSerUnaFactura:
         assert informe.validado and informe.conforme
 
     @pytest.mark.parametrize("perfil", [
-        PERFIL_EN16931, PERFIL_CIUS, ESPECIFICACION_DEL_EJEMPLO,
+        PERFIL_EN16931, PERFIL_CIUS, PERFIL_DE_LA_ORDEN,
         "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:2.0.0:extended", None])
     def test_ni_con_el_perfil_de_una_factura_ni_con_el_del_cius(self, catalogo, perfil):
         """Ni `BR-*`, ni `CU-*`, ni `PERFIL-*`, ni `SPFE-*`: nada de facturas.

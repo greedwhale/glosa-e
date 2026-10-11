@@ -7366,3 +7366,97 @@ minutos después («Agent type 'localizador' not found»). Los tres aparecieron
 al empezar el turno siguiente del titular, `revisor-de-promesas` incluido, por
 primera vez. Un agente nuevo, por tanto, se puede usar desde el turno
 siguiente, no desde el mismo.
+
+## Las reglas, al texto de la orden
+
+**Lo que había.** Desde el 07-10-2026 las reglas `SPFE-` dejaban de condenar
+lo que la orden admite, pero seguían midiendo el borrador de abril: la tabla
+`cius_es` salía del PDF de abril, el identificador de especificación que se
+pedía era el de abril, y lo que la orden quitó se seguía aceptando. La nota
+`SPFE-BORRADOR` lo decía en cada factura.
+
+**Reproducido** el 11-10-2026 sobre `5d4f135`: once facturas escritas a partir
+de la de la orden, por el validador entero, en un worktree de `HEAD` y en la
+copia de trabajo ya cambiada.
+
+| Factura | En `5d4f135` | Ahora |
+|---|---|---|
+| la de la orden | sin errores | sin errores |
+| escrita con el borrador: su identificador, su proceso, la URN de abril en la retención y en el QR, y la clave 18 | **sin errores** | cinco ERROR: `ESPECIFICACION`, `PROCESO`, `LINEA-DE-COBRO`, `RETENCION` y `CLAVE-DE-REGIMEN` |
+| la clave 18 del IVA | **sin errores** | `CLAVE-DE-REGIMEN` |
+| una línea `REEQ` con la URN de abril | `RECARGO-DE-EQUIVALENCIA` | `LINEA-DE-COBRO`, que dice que era del borrador |
+| una 384 con el tipo `R9` | AVISO | ERROR |
+| la rectificativa de la orden, bien escrita | NOTA | nada |
+| el QR con la descripción «VeriFactu» | **sin errores** | `QR` |
+| el nombre del tercero en `cac:PartyName` | **sin errores** | `TERCERO` |
+| el QR con la URN de abril y sin dirección | `QR` | nada: no es el QR de la orden |
+
+**Lo que se hizo.**
+
+- `cius_es` se regenera del XML del BOE (`anexos/orden-hac-1028-2026.xml`,
+  SHA-256 `14bb2dad06a5ce3278c395232db9185f18052b08602cae472a9b2af3ae9c354a`)
+  con `herramientas/anexo_i.py`: 176 filas, 149 identificadores, 39 grupos y
+  14 listas. La prueba vuelve a extraer el XML y compara la tabla entera.
+- El identificador de especificación se da la vuelta: vale el de la orden, y
+  el de abril es ERROR con un mensaje que dice de dónde sale. `formato`
+  reconoce los dos, para medirlos.
+- Fuera `SPFE-RECARGO-DE-EQUIVALENCIA` y `SPFE-GRUPO-DE-ENTIDADES`: la orden
+  pone los dos regímenes en el desglose del IVA, con la categoría N. Las
+  líneas `REEQ` y `REGE` son ERROR en `SPFE-LINEA-DE-COBRO`.
+- Las claves 18, 19 y 20 dejan de pasar en el IVA: la L3A es la de la orden.
+- `SPFE-RECTIFICATIVA`, en ERROR: los BG-24 de L10 con su código en
+  `cbc:DocumentTypeCode`, cada uno de su lista (L2.A, L2.B y L2.C) y con su
+  máximo. La extensión de rectificativas de abril ya no cuenta. La sustitución
+  sin importes rectificados queda en NOTA, porque la orden solo los prevé si
+  se optó por una única factura.
+- `SPFE-QR`: uno como mucho, con su dirección, y si lleva descripción,
+  VERIFACTU o TICKETBAI.
+- `SPFE-TERCERO`: el nombre en la razón social, la tipología, y el NIF escrito
+  como el del vendedor.
+- `SPFE-BORRADOR` pasa a ser `SPFE-ALCANCE`: dice con qué se mide y las ocho
+  cosas de la orden que todavía no (`LO_QUE_TODAVIA_NO_SE_MIDE`), y el glosario
+  las copia letra a letra. La línea de alcance del informe manda a esa nota.
+  De 24 códigos `SPFE-` quedan 22, y de 389 en total, 387.
+- La portada, la tesis y el aviso legal (con su fecha y su huella) dicen
+  «parte del anexo I» y no «en buena parte con el borrador».
+- `copia_fiel`: 116 términos europeos; el periodo de facturación pasa a
+  IGUAL, y el porcentaje del cargo se parte en dos filas, el del documento
+  (que la orden no pide) y el de la línea (que sí). Quedan 98 filas.
+- `NO_SE_COMPRUEBA` pierde `BG-17`, que la orden deja en `0..n`.
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- **El QR con la URN de abril no es el QR**: ni se le pide la dirección ni
+  cuenta para estar repetido. La orden deja el QR en `0..1`, así que no
+  llevarlo no es un fallo, y una factura escrita con abril ya sale con su
+  identificador en ERROR.
+- **Lo que no se mide va en la nota y no en un AVISO.** No son fallos de la
+  factura sino límites del validador, y un AVISO en cada factura de la
+  solución pública diría lo contrario. Son el paso 7.
+- **El calificador de L10 delante o sin él**, como ya se hacía con los de L7
+  y L8: la orden da el valor en la fila y el calificador en la lista, sin
+  decir cómo se juntan.
+
+**Las pruebas.** `tests/test_solucion_publica.py` se reescribe sobre la
+factura de la orden, que pasa a ser la de partida, con 157 pruebas: la de la
+orden y veinte variantes pasan el validador entero sin un ERROR ni un AVISO, y
+lo que solo decía el borrador va aparte, en `TestLoQueSoloDeciaElBorrador`.
+
+**Provocado.** Diez roturas, las diez en rojo: `REEQ` y `REGE` vuelven a valer
+(4 pruebas en rojo), la URN de abril vuelve a ser de L10 (2), la rectificativa
+sin documentos vuelve a NOTA (5), las claves 18, 19 y 20 vuelven a valer (5),
+el identificador de abril vuelve a valer (2), lo que no se mide nombra una
+fila que no existe (2), el glosario dice otra lista (1), la línea de alcance
+deja de mandar a la nota (1), el QR admite otra descripción (2) y el formato
+deja de reconocer el identificador de la orden (116). Y una frase cambiada en
+una fila de `cius_es`: `test_volver_a_extraer_da_exactamente_lo_mismo`, en
+rojo.
+
+La primera versión de la rotura del glosario salió **verde**: añadía texto
+delante de la entrada, y la prueba mira que la lista esté dentro, no que no
+haya nada más. Se cambió por una que quita un trozo de la lista, y salió roja.
+
+**Lo que queda.** El mensaje de `BR-CL-17` y `BR-CL-18` para la N, la D y la
+F fuera de la solución pública (decidido el 11-10-2026: la lista de la norma,
+y un mensaje que diga que el código es de la L4 de la orden); el README al
+día; y el paso 7, las reglas nuevas de la orden.

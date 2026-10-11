@@ -731,12 +731,15 @@ class InformeLote:
             # borrador)» salían «sin errores» facturas que incumplen la orden
             # en cosas que en UBL sí se pueden ver —la clave 18 del IVA, el
             # proceso de abril, un QR con la descripción equivocada—. Lo midió
-            # el revisor de promesas el 07-10-2026.
+            # el revisor de promesas el 07-10-2026. Desde el 11-10-2026 las
+            # reglas miden la orden, y lo que de ella falta lo enumera la nota
+            # SPFE-ALCANCE de cada factura (`LO_QUE_TODAVIA_NO_SE_MIDE`): aquí
+            # se manda a ella en vez de copiar la lista, que ya estuvo escrita
+            # dos veces y dejó de decir lo mismo.
             contenido.append(
                 "parte de lo que el anexo I de la solución pública pide a las "
-                "facturas que la declaran (lo que ya pedía el borrador de abril "
-                "y se puede comprobar en UBL; las reglas nuevas de la orden "
-                "todavía no)"
+                "facturas que la declaran (lo que se puede comprobar en UBL; lo "
+                "que todavía no se mide lo dice la nota SPFE-ALCANCE)"
             )
         de_la_firma = mirado[PARTE_FIRMA]
         sin_la_firma = sin_mirar[PARTE_FIRMA]

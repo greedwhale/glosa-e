@@ -546,17 +546,19 @@ class TestLaEdicionDe2026:
         )
         assert formato.detectar(crudo.encode("latin-1")).conforme_en16931
 
-    def test_el_marcador_del_cius_es_el_que_dice_el_anexo(self):
-        """El guardián entre los dos sitios donde está escrito el mismo URN.
+    def test_el_marcador_del_borrador_no_es_el_de_la_orden(self):
+        """`formato.py` reconoce el de la orden entero, de `cius_es`, y el del
+        borrador por su trozo.
 
-        `formato.py` lleva el trozo que identifica al CIUS y `cius_es.py` el
-        valor entero, que sale del anexo. Si el anexo lo cambia, la tabla se
-        regenera y esto salta; sin la prueba, `formato.py` se quedaría
-        buscando un CIUS que ya no se llama así y no lo reconocería nunca.
+        Hasta el 11-10-2026 esta prueba decía lo contrario: que el trozo del
+        CIUS estaba en el valor del anexo, porque el anexo era el borrador. Si
+        el trozo de abril volviera a estar en el de la orden, a una factura de
+        la orden se la reconocería dos veces, y una por el motivo equivocado.
         """
         from validador import cius_es
 
-        assert formato.MARCADOR_CIUS_ES in cius_es.ESPECIFICACION
+        assert formato.MARCADOR_CIUS_ES not in cius_es.ESPECIFICACION
+        assert formato.MARCADOR_CIUS_ES in CIUS_ES
         assert cius_es.ESPECIFICACION.startswith(formato.MARCADORES_EN16931)
 
     def test_los_dos_identificadores_nombran_a_la_aeat(self):
@@ -568,30 +570,32 @@ class TestLaEdicionDe2026:
         """
         from validador import cius_es
 
-        for identificador in (cius_es.ESPECIFICACION, formato.ESPECIFICACION_DEL_EJEMPLO):
+        for identificador in (cius_es.ESPECIFICACION, CIUS_ES):
             assert formato.NOMBRA_A_LA_AEAT in identificador
             assert identificador.startswith(formato.MARCADORES_EN16931)
 
 
 class TestQueEsDeLaSolucionPublica:
-    """El de abril, por el trozo del CIUS; el del ejemplo, por el valor entero."""
+    """El de la orden, por el valor entero; el de abril, por el trozo del CIUS."""
 
     def test_los_dos_que_se_conocen(self):
         from validador import cius_es
 
         assert formato.declara_la_solucion_publica(cius_es.ESPECIFICACION)
-        assert formato.declara_la_solucion_publica(formato.ESPECIFICACION_DEL_EJEMPLO)
+        assert formato.declara_la_solucion_publica(CIUS_ES)
 
     def test_el_de_abril_con_otra_edicion_se_reconoce_y_se_acusa_luego(self):
-        """`SPFE-ESPECIFICACION` es quien dice que el valor no es el del anexo."""
+        """`SPFE-ESPECIFICACION` es quien dice que el valor no es el de la orden."""
         otra = CIUS_ES.replace("2026#", "2017#")
         assert formato.declara_la_solucion_publica(otra)
 
-    def test_el_del_ejemplo_no_vale_a_trozos(self):
-        """Un ejemplo enseña un valor, no un patrón: lo parecido no entra."""
+    def test_el_de_la_orden_no_vale_a_trozos(self):
+        """La orden da un valor, no un patrón: lo parecido no entra."""
+        from validador import cius_es
+
         for parecido in (
-            formato.ESPECIFICACION_DEL_EJEMPLO + ":2",
-            formato.ESPECIFICACION_DEL_EJEMPLO.replace("1.0.0", "1.1.0"),
+            cius_es.ESPECIFICACION + ":2",
+            cius_es.ESPECIFICACION.replace("1.0.0", "1.1.0"),
             "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:otra",
             "",
             None,
@@ -617,14 +621,17 @@ class TestQueVersionDeUblSeSupone:
         assert d.version == "2.5"
         assert "solución pública" in d.motivo
 
-    def test_sin_version_y_con_el_identificador_del_ejemplo_tambien_2_5(self):
+    def test_sin_version_y_con_el_identificador_de_la_orden_tambien_2_5(self):
         """El ejemplo que mandó la AEAT el 02-10-2026 no lleva `UBLVersionID`.
 
-        Y declara otro identificador, sin el trozo del CIUS. Mientras la
-        suposición colgó de ese trozo se le suponía la 2.1, y unas líneas de
-        cobro, que solo existen en la 2.5, salían «cambiadas de sitio».
+        Y declara el identificador que luego fijó la orden, sin el trozo del
+        CIUS de abril. Mientras la suposición colgó de ese trozo se le suponía
+        la 2.1, y unas líneas de cobro, que solo existen en la 2.5, salían
+        «cambiadas de sitio».
         """
-        d = formato.detectar(ubl_cius().replace(CIUS_ES, formato.ESPECIFICACION_DEL_EJEMPLO))
+        from validador import cius_es
+
+        d = formato.detectar(ubl_cius().replace(CIUS_ES, cius_es.ESPECIFICACION))
         assert d.version == "2.5"
         assert "AEAT" in d.motivo
 

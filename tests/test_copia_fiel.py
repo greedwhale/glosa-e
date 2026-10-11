@@ -953,20 +953,20 @@ def test_el_destino_de_cada_fila_existe_en_el_anexo():
 
 
 def test_el_anexo_sigue_teniendo_los_terminos_que_dice_la_cabecera():
-    """104 términos europeos, que es lo que dice el módulo al explicarse.
+    """116 términos europeos, que es lo que dice el módulo al explicarse.
 
     No es una cifra de adorno: de esa lista salen los destinos de la tabla y
-    contra ella se comparan. El 10-09-2026 la AEAT anunció que el anexo cambia,
-    así que el día que llegue el texto nuevo esto salta, y saltar es lo que hay
-    que hacer: la tabla entera se vuelve a mirar.
+    contra ella se comparan. Eran 104 en el borrador de abril, y la prueba
+    saltó el 11-10-2026, cuando la tabla se regeneró del BOE: saltar es lo
+    que tenía que hacer.
     """
     from validador import cius_es
 
     europeos = {campo.id for campo in cius_es.CAMPOS
                 if not campo.id.startswith(("BT-ES", "BG-ES"))}
-    assert len(europeos) == 104, (
+    assert len(europeos) == 116, (
         f"el anexo trae {len(europeos)} términos europeos y la cabecera de "
-        "`copia_fiel.py` dice 104. Cámbiala, y de paso vuelve a mirar los "
+        "`copia_fiel.py` dice 116. Cámbiala, y de paso vuelve a mirar los "
         "destinos de la tabla: si el anexo se ha movido, alguno habrá dejado "
         "de ser verdad."
     )

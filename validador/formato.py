@@ -22,6 +22,8 @@ from pathlib import Path
 
 from lxml import etree
 
+from validador import cius_es
+
 # --- Namespaces conocidos --------------------------------------------------
 
 NS_FACTURAE: dict[str, str] = {
@@ -51,8 +53,9 @@ NS_FIRMA = "http://www.w3.org/2000/09/xmldsig#"
 # 16931-1:2026 y se retiró formalmente la de 2017. Las dos ediciones van a
 # convivir años: Peppol y todo lo que hay hoy en circulación declaran la de
 # 2017, y la solución pública española pide la de 2026
-# —`urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0`, que es
-# el valor literal del anexo I y está en `cius_es.ESPECIFICACION`—.
+# —`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, que
+# es el valor literal de la fila BT-24 del anexo I y está en
+# `cius_es.ESPECIFICACION`—.
 #
 # Con un solo marcador, una factura del CIUS español salía «no declara
 # conformidad con EN 16931» **por declarar la edición correcta**. No es un
@@ -64,68 +67,62 @@ MARCADORES_EN16931 = ("urn:cen.eu:en16931:2017", "urn:cen.eu:en16931:2026")
 # y el que se enseña como ejemplo cuando falta.
 MARCADOR_EN16931 = MARCADORES_EN16931[0]
 
-# El CIUS de la solución pública. Se escribe detrás del marcador de 2026, en el
-# mismo `CustomizationID`. El valor entero está en `cius_es.ESPECIFICACION`,
-# que sale del anexo; aquí va solo el trozo que identifica al CIUS, y una
-# prueba comprueba que los dos siguen diciendo lo mismo. Si el anexo cambia el
-# URN, salta ahí y no en producción.
+# El CIUS del borrador de abril, que no llegó al BOE. La orden del 05-10-2026
+# fija otro identificador (`cius_es.ESPECIFICACION`, de su fila BT-24), y el
+# de abril se sigue reconociendo por este trozo para medirlo y poder decir que
+# ya no vale: `SPFE-ESPECIFICACION` sale en ERROR. Sin él, una factura escrita
+# con el borrador saldría sin una regla del anexo y sin que nada lo dijera.
 MARCADOR_CIUS_ES = "urn:aeat.es:CIUS-ES-SPFE"
 
-# El identificador que enseñó la AEAT el 02-10-2026, que no es el de arriba.
+# El identificador de la orden se reconoce **entero**, y no por un trozo.
 #
-# Fue toda la respuesta del buzón a la consulta del 23-09-2026: una captura de
-# un XML de ejemplo, sin una frase de criterio. La captura no traía
-# `UBLVersionID` y declaraba **otro** `CustomizationID`, que el correo no
-# explica y que no sale en ninguna respuesta anterior ni en el texto de las
-# transparencias del 10-09-2026 (sus tablas en imagen no se han mirado todas):
+# Lo enseñó primero la AEAT, el 02-10-2026, en la captura de un XML de
+# ejemplo que fue toda la respuesta del buzón a la consulta del 23-09-2026; y
+# tres días después lo fijó la orden en su fila BT-24, letra a letra:
 #
 # | Dónde | Identificador |
 # |---|---|
-# | el anexo de abril | `urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0` |
-# | el ejemplo del 02-10-2026 | `urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended` |
+# | el borrador de abril | `urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0` |
+# | el ejemplo del 02-10-2026 y la orden | `urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended` |
 #
-# `MARCADOR_CIUS_ES` no está en el segundo, y medido ese día: una factura
-# escrita como el ejemplo **no se reconocía** como de la solución pública. No
-# se le aplicaba ni una regla del anexo y nada lo decía, así que una
-# rectificativa que no dice qué rectifica salía «sin errores»; y sin
+# `MARCADOR_CIUS_ES` no está en el segundo, y medido el 02-10-2026: una
+# factura escrita como el ejemplo **no se reconocía** como de la solución
+# pública. No se le aplicaba ni una regla del anexo y nada lo decía, así que
+# una rectificativa que no dice qué rectifica salía «sin errores»; y sin
 # `UBLVersionID` se suponía la 2.1, con lo que unas líneas de cobro, que solo
 # existen en la 2.5, salían «cambiadas de sitio». El fallo de siempre: todo
 # verde, y no es lo que crees haber probado.
 #
-# Se reconoce **el valor entero** y no un trozo. Un trozo ancho daría por de
-# la solución pública cualquier cosa que nombre a la AEAT, y un ejemplo enseña
-# un valor, no un patrón. Lo que nombre a la AEAT sin ser ninguno de los dos
-# no se calla tampoco: lo avisa `solucion_publica` (ver `NOMBRA_A_LA_AEAT`).
+# Un trozo ancho daría por de la solución pública cualquier cosa que nombre a
+# la AEAT, y la orden da un valor, no un patrón. Lo que nombre a la AEAT sin
+# ser ninguno de los dos no se calla tampoco: lo avisa `solucion_publica` (ver
+# `NOMBRA_A_LA_AEAT`).
 #
 # Que `#conformant#` marque una extensión de la norma y `#compliant#` un CIUS
 # es como lo usan otros: Factur-X declara su perfil EXTENDED con
 # `#conformant#…:extended` y los demás con `#compliant#` (visto el 05-10-2026
 # en `Profiles.java` de mustangproject), y XRechnung, su extensión con
 # `#conformant#` (en su esquematrón). El texto de la EN 16931-1 que lo define
-# no se ha podido leer. Si va en serio, la AEAT declara su formato como
-# extensión y no como CIUS. Aquí no cambia nada: se mide igual, y se dice con
-# qué en la NOTA de `SPFE-ESPECIFICACION`.
-ESPECIFICACION_DEL_EJEMPLO = (
-    "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended"
-)
+# no se ha podido leer. La orden declara su formato como extensión y no como
+# CIUS; aquí no cambia nada, se mide igual.
 
-# Lo que llevan delante los dos identificadores de la AEAT, el del anexo y el
-# del ejemplo. No identifica la solución pública: sirve para no callarse ante
+# Lo que llevan delante los dos identificadores de la AEAT, el de la orden y
+# el del borrador. No identifica la solución pública: sirve para no callarse ante
 # un tercero que no sea ninguno de los dos, y para saber que lo que lo declara
 # va en UBL 2.5.
 NOMBRA_A_LA_AEAT = "urn:aeat.es:"
 
 
 def declara_la_solucion_publica(perfil: str | None) -> bool:
-    """Si el `CustomizationID` es de la solución pública: el de abril o el del ejemplo.
+    """Si el `CustomizationID` es de la solución pública: el de la orden o el de abril.
 
-    El de abril se reconoce por el trozo que nombra al CIUS, como siempre: con
-    otra edición de la norma u otra versión del CIUS se le mide igual y
-    `SPFE-ESPECIFICACION` dice que el valor no es el del anexo. El del ejemplo,
-    por el valor entero.
+    El de la orden, por el valor entero. El del borrador de abril, por el
+    trozo que nombra a su CIUS, con cualquier edición de la norma o versión
+    del CIUS: se le mide igual, y `SPFE-ESPECIFICACION` dice que no es el que
+    fija la orden.
     """
     return bool(perfil) and (
-        MARCADOR_CIUS_ES in perfil or perfil.strip() == ESPECIFICACION_DEL_EJEMPLO
+        perfil.strip() == cius_es.ESPECIFICACION or MARCADOR_CIUS_ES in perfil
     )
 
 

@@ -543,8 +543,8 @@ def test_el_aviso_legal_dice_bajo_que_licencia_se_publica():
 # texto. Cambiar una palabra de la página, o de la ficha que la página pinta,
 # sin cambiar esto deja la suite en rojo.
 
-FECHA_DE_LA_POLITICA = "7 de octubre de 2026"
-HUELLA_DE_LA_POLITICA = "cedc37443330d1fbab9c9936522d5398e4deec751e742dfd1e12b67e8d399226"
+FECHA_DE_LA_POLITICA = "11 de octubre de 2026"
+HUELLA_DE_LA_POLITICA = "6cfb8c998bfd59fa1dda9569aaa6d9b84726fac9bea90236e1aed7e7226c6b5d"
 
 
 def _texto_de_la_politica() -> str:
@@ -659,22 +659,26 @@ def test_la_linea_de_autoria_es_la_misma_en_todas_las_paginas():
         "24-09-2026 es «© año Glosa-e» y nada más: lo decidió el titular")
 
 
-def test_donde_la_portada_nombra_el_anexo_dice_que_es_en_buena_parte_el_borrador():
+def test_donde_la_portada_nombra_el_anexo_dice_que_es_parte_de_el():
     """Ni «comprueba el anexo I de su orden» a secas.
 
     El revisor de promesas, el 07-10-2026: el pie decía «Comprueba lo que
     dicen EN 16931, el RD 238/2026 y el anexo I de su orden», y la pregunta
-    frecuente lo mismo entre paréntesis, cuando de la orden solo se ha
-    recogido lo que dejaba de condenar a una factura bien hecha y sus reglas
-    nuevas no se miden. Son tres párrafos; si sale un cuarto, que lo diga
-    también o que esta prueba cambie a la vista.
+    frecuente lo mismo entre paréntesis, cuando de la orden solo se había
+    recogido lo que dejaba de condenar a una factura bien hecha. Hasta el
+    11-10-2026 los tres párrafos decían además que se medía «en buena parte»
+    con el borrador de abril; desde ese día las reglas miden la orden, pero no
+    todo lo que pide (`solucion_publica.LO_QUE_TODAVIA_NO_SE_MIDE`), y dicen
+    «parte». Si sale un cuarto párrafo, que lo diga también o que esta prueba
+    cambie a la vista.
     """
     portada = (RAIZ / "web" / "index.html").read_text(encoding="utf-8")
     parrafos = [" ".join(p.split()) for p in re.findall(r"<p\b.*?</p>", portada, re.S)]
     con_el_anexo = [p for p in parrafos if re.search(r"\banexo I\b", p)]
     assert len(con_el_anexo) == 3, con_el_anexo
     for parrafo in con_el_anexo:
-        assert "buena parte" in parrafo and "borrador de abril" in parrafo, parrafo
+        assert "parte del anexo I" in parrafo, parrafo
+        assert "borrador de abril" not in parrafo, parrafo
 
 
 # --- Lo que el validador dice de la orden -------------------------------------

@@ -90,9 +90,9 @@ que `facturae.py` ya comprueba una a una —`FE-TOTAL`, `FE-PENDIENTE`,
 sabe va marcado `POR_DECIDIR` y se dice así, en vez de colocarlo donde suene
 bien.
 
-El destino de una fila no se escribe de memoria: el anexo recoge **104
-términos europeos distintos** y están en `cius_es.CAMPOS`, con su nombre y su
-cardinalidad. Una prueba compara la tabla con esa lista, así que un BT-
+El destino de una fila no se escribe de memoria: el anexo de la orden recoge
+**116 términos europeos distintos** (el de abril, 104) y están en
+`cius_es.CAMPOS`, con su nombre y su cardinalidad. Una prueba compara la tabla con esa lista, así que un BT-
 inventado o un BT- que el anexo no tenga no pasan de aquí.
 
 Las familias, y en qué orden
@@ -192,6 +192,14 @@ y `BT-167`), así que `test_el_anexo_sigue_teniendo_los_terminos_que_dice_la_cab
 salta ese día, y `test_el_destino_de_cada_fila_existe_en_el_anexo` con él
 en cada fila «el anexo no lo pide» que nombre un término que la orden sí
 pide, como el periodo de facturación (`BG-14`).
+
+Saltaron el 11-10-2026, al regenerarse `cius_es.CAMPOS` del XML del BOE, y
+en dos filas: el periodo de facturación, que la orden recoge como el de la
+factura recapitulativa, y el porcentaje del cargo, que la orden recoge en la
+línea (`BT-143`, junto con su base, `BT-142`, para los impuestos y tasas de
+cada línea) y no en el documento (`BT-101`). Esa fila se partió en dos, y la
+tabla tiene desde entonces 98. Las demás filas se vuelven a mirar contra la
+orden en su propia tanda.
 
 Y esperan **los campos españoles del anexo**, **el lote** y las dos filas
 que están en `POR_DECIDIR`; eran tres hasta el 07-10-2026, y la de los
@@ -444,7 +452,7 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     ),
     Correspondencia(
         "fax", "TeleFax", "", SIN_SITIO,
-        "no hay término para el fax entre los 104 que recoge el anexo, ni "
+        "no hay término para el fax entre los 116 que recoge el anexo, ni "
         "equivalente en la norma",
     ),
     Correspondencia(
@@ -475,11 +483,13 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     ),
     Correspondencia(
         "periodo de facturación", "InvoicingPeriod", "BG-14 (BT-73 y BT-74)",
-        NO_LO_PIDEN,
-        "la norma tiene el grupo y el anexo de abril no lo recoge, y no es un "
-        "dato menor: el esquema de Facturae lo hace **obligatorio** en las "
-        "recapitulativas y en el servicio prestado temporalmente. Medido: 9 de "
-        "las 14 facturas de aquí lo traen",
+        IGUAL,
+        "la orden recoge el grupo, que el borrador de abril no tenía, como el "
+        "periodo de la factura recapitulativa: la fecha de inicio y la de fin "
+        "llegan igual. El esquema de Facturae lo hace **obligatorio** en las "
+        "recapitulativas y en el servicio prestado temporalmente; la orden "
+        "solo habla de las recapitulativas. Medido: 9 de las 14 facturas de "
+        "aquí lo traen",
     ),
 
     # La tercera familia: las líneas. Es la más larga de las tres y la que más
@@ -636,8 +646,16 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "escriben el porcentaje en alguna línea",
     ),
     Correspondencia(
-        "porcentaje del cargo", "ChargeRate", "BT-101 y BT-143", NO_LO_PIDEN,
-        "el mismo caso que el del descuento, en el otro sentido. Medido: 3 de 14",
+        "porcentaje del cargo del documento", "ChargeRate", "BT-101", NO_LO_PIDEN,
+        "el mismo caso que el del descuento, en el otro sentido. Medido en los "
+        "dos niveles juntos, el del documento y el de la línea: 3 de 14",
+    ),
+    Correspondencia(
+        "porcentaje del cargo de línea", "ChargeRate", "BT-143", IGUAL,
+        "la orden recoge en la línea el porcentaje del cargo y su base (BT-143 "
+        "y BT-142), que el borrador de abril no tenía, para los impuestos y "
+        "tasas de cada línea. El porcentaje llega igual. Hasta el 11-10-2026 "
+        "esta fila iba junto con la del documento, «el anexo no lo pide»",
     ),
     Correspondencia(
         "motivo del descuento", "DiscountReason",
@@ -762,7 +780,7 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     # llega, y por eso hay que escribirla. Facturae sabe llevar siete
     # referencias -el pedido y el contrato, cada uno del emisor y del
     # receptor, el expediente, el albarán y el número de línea del pedido- y
-    # el anexo **no recoge ninguna**: en sus 104 términos no está ni uno de
+    # el anexo **no recoge ninguna**: en sus 116 términos no está ni uno de
     # `BT-11` a `BT-19`, ni `BT-132`. Medido el 22-09-2026 sobre las 14: 8
     # traen alguna referencia escrita y **ninguna de las 14 la trae en la
     # cabecera**, que es el otro hallazgo de aquí.

@@ -1645,11 +1645,12 @@ def fmt_tipo(valor: Decimal | None) -> str:
 
 # --- El CIUS español, que no es UBL a secas ---------------------------------
 
-# La solución pública no admite UBL: admite **su** UBL, con 51 campos que la
-# EN 16931 no tiene —retenciones, suplidos, minoraciones, recargo de
-# equivalencia, régimen de grupo de entidades, QR fiscal—. Y no los publica
-# como esquema ni como esquematrón, sino como una columna de rutas dentro de
-# una tabla en PDF, que es lo que `validador/cius_es.py` trae ya leído.
+# La solución pública no admite UBL: admite **su** UBL, con 33 filas que la
+# EN 16931 no tiene —retenciones, suplidos, minoraciones, impuestos y tasas
+# cobrados en nombre de un tercero, el QR fiscal, la rectificativa—. Y no las
+# publica como esquema ni como esquematrón, sino como una columna de rutas
+# dentro de la tabla del anexo I de la Orden HAC/1028/2026, que es lo que
+# `validador/cius_es.py` trae ya leído del XML del BOE.
 #
 # Aquí no se copian esas rutas: se **derivan** de esa tabla al importar. Una
 # tabla copiada a mano se queda vieja el día que salga otro anexo y no se
@@ -1658,17 +1659,25 @@ def fmt_tipo(valor: Decimal | None) -> str:
 #
 # Lo que hay que hacerles a las rutas del anexo para poder usarlas:
 #
-# 1. **Quitarles la raíz.** Vienen absolutas, `/in:Invoice/…`, y aquí todo es
+# 1. **Separar la ruta de la prosa.** La columna «Ruta UBL» del BOE no siempre
+#    trae una ruta: unas filas dicen dónde va el campo; otras, qué impone su
+#    uso en otra parte («Su uso implica que la ruta … tomará el valor «VAT»»);
+#    la del NIF del tercero, las dos cosas; y la de la cuota del impuesto o
+#    tasa, dos rutas a la vez. Una ruta seguida de un valor entre comillas es
+#    una condición; una ruta sin valor, el sitio del campo. Las condiciones
+#    las da `condiciones()`.
+# 2. **Juntarles los renglones.** Una ruta partida en dos renglones del BOE
+#    llega con un espacio dentro —`cac:PrepaidPayment/ cbc:PaidDate`— o con
+#    la barra repetida —`cac:TaxTotal/ /cbc:TaxAmount`—. No es una errata del
+#    texto sino de cómo se compone: se juntan sin decir nada.
+# 3. **Quitarles la raíz.** Vienen absolutas, `/in:Invoice/…`, y aquí todo es
 #    relativo al documento como en el resto del módulo.
-# 2. **Arreglarles la caja.** Cinco de las cincuenta escriben `/in:invoice/`
-#    en minúscula. En XML eso no es un descuido de estilo: es otro elemento,
-#    y no existe ninguno que se llame así.
-# 3. **Deshacer el prefijo `aeat:`.** El anexo lo usa en 26 pasos y **no
-#    declara en ninguna parte a qué namespace corresponde**, así que como
-#    prefijo XPath no vale para nada. Esos pasos van por nombre local, que
-#    encuentra el elemento esté donde esté. No es elegante y es honrado: lo
-#    que identifica cada extensión no es su namespace sino el valor de su
-#    `ext:UBLExtension/cbc:ID`, y ese sí está publicado.
+# 4. **Arreglarles la caja.** Dos filas escriben `/in:invoice/` en minúscula.
+#    En XML eso no es un descuido de estilo: es otro elemento, y no existe
+#    ninguno que se llame así.
+# 5. **Arreglar lo que no existe en UBL**, en `_ARREGLOS`, con su porqué.
+# 6. **Distinguir las que comparten ruta**, en `_DISTINTIVOS`, con la fila del
+#    anexo que dice cómo.
 
 NS_CIUS_ES = dict(
     NS_UBL,
@@ -1676,113 +1685,137 @@ NS_CIUS_ES = dict(
 )
 
 _RAIZ_DEL_ANEXO = re.compile(r"^/in:[Ii]nvoice/")
-_PASO_AEAT = re.compile(r"\baeat:([A-Za-z]+)")
+
+# Una ruta del anexo dentro de su celda, aunque llegue partida en renglones.
+# El atributo lo escribe pegado al elemento, `cbc:CompanyID@schemeID`.
+_RUTA_EN_LA_CELDA = re.compile(
+    r"/in:[Ii]nvoice(?:/\s*(?:/\s*)?[a-z]{3}:[A-Za-z]+(?:@[A-Za-z]+)?)+")
+# El valor que una condición impone, entre las comillas del BOE.
+_VALOR_IMPUESTO = re.compile(r"«([^»]+)»")
 
 
-# Las rutas que el anexo da mal, con el arreglo y el porqué de cada uno. Dos
-# de cincuenta; lo demás va tal y como viene.
-_ARREGLOS: dict[str, tuple[str, str, str]] = {
-    "BT-ES-15": (
-        "cac:ServiceProviderParty/cac:Party/cac:ThirdPartyInvoicing/cbc:ServiceTypeCode",
+@dataclass(frozen=True)
+class Arreglo:
+    """Un trozo de ruta que el anexo escribe y que en UBL 2.5 no existe."""
+
+    mal: str
+    bien: str
+    porque: str
+
+
+# Las rutas que el anexo da mal, con el arreglo y el porqué de cada uno. Cada
+# arreglo se aplica a todas las filas que lo traen, y una prueba comprueba que
+# sigue habiendo alguna: si el BOE corrige la errata, el arreglo sobra y salta.
+_ARREGLOS: tuple[Arreglo, ...] = (
+    Arreglo(
+        "cac:ServiceProviderParty/cac:Party/cbc:ServiceTypeCode",
         "cac:ServiceProviderParty/cbc:ServiceTypeCode",
-        "«ThirdPartyInvoicing» no existe en UBL: cero apariciones en los 18 "
-        "ficheros de la 2.5 y otras tantas en la 2.1. Y el anexo se delata "
-        "solo, porque la descripción del propio campo dice que "
-        "«ThirdPartyInvoicing» es el **valor** que hay que escribir en el "
-        "código. Alguien lo pegó dentro del camino. `ServiceTypeCode` cuelga "
-        "directamente de `ServiceProviderParty`, no de su `Party`.",
+        "En UBL 2.5 `ServiceTypeCode` es hijo de `ServiceProviderParty`, no de "
+        "su `Party`: el tipo de `Party` no tiene ningún elemento que se llame "
+        "así. Es la tipología del tercero (BT-ES-5), y el borrador de abril ya "
+        "la ponía mal en el mismo sitio, con un `cac:ThirdPartyInvoicing` de "
+        "más que tampoco existía.",
     ),
-    "BG-ES-1": (
-        "aeat:Extension/aeat:Correction",
-        "aeat:InvoiceExtension/aeat:Correction",
-        "El grupo dice `aeat:Extension` y sus seis hijos dicen "
-        "`aeat:InvoiceExtension`. Uno contra seis, y el resto del anexo sigue "
-        "el mismo patrón (`aeat:CollectionInvoiceLineExtension` en BT-ES-30), "
-        "así que el raro es el padre.",
+    Arreglo(
+        "/in:Invoice/cac:Invoice/",
+        "/in:Invoice/",
+        "Una factura no lleva otra factura dentro: `Invoice` no es hijo de "
+        "`Invoice` en UBL 2.5. Las cuatro filas del impuesto o tasa a nivel de "
+        "documento (BT-ES-6 a BT-ES-9) lo escriben así, y su grupo cuelga de "
+        "los cargos del documento (BG-21), que van en `cac:AllowanceCharge` "
+        "directamente bajo la factura, como dice la fila de BG-21.",
     ),
-}
+    Arreglo(
+        "cac:TaxSubTotal",
+        "cac:TaxSubtotal",
+        "XML distingue mayúsculas, y el elemento de UBL es `TaxSubtotal`, con "
+        "minúscula: así lo escribe el propio anexo en los subtotales de las "
+        "retenciones y de los impuestos y tasas cobrados para un tercero. "
+        "`TaxSubTotal` no existe, y una ruta con él no encontraría nada nunca.",
+    ),
+)
 
 
-# Dieciséis campos se reparten seis rutas, y **el anexo dice cómo se
-# distinguen**: no en la columna de la ruta, sino en la descripción. Se
-# escribió «diecisiete» hasta el 14-09-2026; contados son dieciséis, y ahora
-# los cuenta una prueba. Lo que va
-# aquí sale de ahí, y hay una prueba que comprueba que sigue saliendo de ahí.
+# Hay filas que comparten ruta, y **el anexo dice cómo se distinguen**: no en
+# la columna de la ruta, sino en la descripción de otra fila, o en su valor
+# fijo. Lo que va aquí sale de ahí, y hay una prueba que comprueba que sigue
+# saliendo de ahí.
 #
 # Sin esto, `POR_ID` devolvería la misma ruta para «identificación del cargo
 # en nombre de un tercero» y para «identificación de retención», que son dos
 # cosas que no se parecen en nada.
-_SUPL = "urn:aeat:names:specification:ubl:schema:SUPL"
-_MINO = "urn:aeat:names:specification:ubl:schema:MINO"
-_REEQ = "urn:aeat:names:specification:ubl:schema:REEQ"
-_REGE = "urn:aeat:names:specification:ubl:schema:REGE"
-_RETE = "urn:aeat:names:specification:ubl:schema:RETE"
-
-
+#
 # Cada entrada lleva tres cosas: qué trozo de la ruta se sustituye, por qué se
-# sustituye, y **en qué campo del anexo está escrito el valor** que se mete en
-# el predicado. Lo tercero es lo que impide que esto se convierta en opinión:
-# hay una prueba que va a esa descripción y comprueba que el literal sigue
-# ahí. Casi siempre es el campo mismo; en dos casos —BT-ES-17 y BT-ES-19, que
-# son el «tipo de impuesto» del descuento y el del cargo— quien lo dice es su
-# hermano, el indicador, y por eso hace falta apuntarlo.
+# sustituye, y **en qué fila del anexo está escrito el valor** que se mete en
+# el predicado. Lo tercero es lo que impide que esto se convierta en opinión.
+#
+# Los valores de L7, L8 y L10 se aceptan solos o con el calificador de su
+# lista delante: la orden da el valor en la fila y el calificador aparte, sin
+# decir cómo se juntan, y la AEAT escribió los de L10 con el calificador en su
+# ejemplo del 02-10-2026. Se le preguntó al buzón el 07-10-2026.
 
 
-def _linea_de(urn: str, dicho_en: str) -> tuple[str, str, str]:
-    """La `CollectionInvoiceLine` que lleva un identificador concreto."""
-    return (
-        "cac:CollectionInvoiceLine",
-        f"cac:CollectionInvoiceLine[cbc:ID='{urn}']",
-        dicho_en,
-    )
+def _uno_de(elemento: str, hijo: str, valores: tuple[str, ...], lista: str) -> str:
+    """El elemento cuyo hijo es uno de esos valores, solo o con su calificador."""
+    calificador = cius_es.LISTAS[lista].calificador
+    opciones = [f"{hijo}='{v}'" for v in valores]
+    opciones += [f"{hijo}='{calificador}{v}'" for v in valores]
+    return f"{elemento}[{' or '.join(opciones)}]"
 
 
-def _cargo(indicador: str, dicho_en: str, dentro: str = "") -> tuple[str, str, str]:
-    """El `AllowanceCharge` que resta (false) o el que suma (true)."""
+def _linea_de(valores: tuple[str, ...], dicho_en: str) -> tuple[str, str, str]:
+    """La `CollectionInvoiceLine` que se identifica con un valor de L7."""
+    return ("cac:CollectionInvoiceLine",
+            _uno_de("cac:CollectionInvoiceLine", "cbc:ID", valores, "L7"), dicho_en)
+
+
+def _documento(valor: str) -> tuple[str, str, str]:
+    """El documento justificativo (BG-24) que se identifica con un valor de L10."""
+    return ("cac:AdditionalDocumentReference",
+            _uno_de("cac:AdditionalDocumentReference", "cbc:ID", (valor,), "L10"),
+            "BT-122")
+
+
+def _cargo(dicho_en: str, dentro: str = "") -> tuple[str, str, str]:
+    """El `AllowanceCharge` que suma, que el anexo marca con «true»."""
     return (
         f"{dentro}cac:AllowanceCharge",
-        f"{dentro}cac:AllowanceCharge[cbc:ChargeIndicator='{indicador}']",
+        f"{dentro}cac:AllowanceCharge[cbc:ChargeIndicator='true']",
         dicho_en,
     )
-
-
-def _sede(cual: str, dicho_en: str) -> tuple[str, str, str]:
-    """Órgano, unidad y oficina se distinguen por su `schemeName`."""
-    return ("cbc:ID", f"cbc:ID[@schemeName='{cual}']", dicho_en)
 
 
 def _propiedad(nombre: str) -> tuple[str, str, str]:
     """La propiedad del artículo que se llama como fija BT-160."""
-    return (
-        "cac:AdditionalItemProperty",
-        f"cac:AdditionalItemProperty[cbc:Name='{nombre}']",
-        "BT-160",
-    )
+    return ("cac:AdditionalItemProperty",
+            _uno_de("cac:AdditionalItemProperty", "cbc:Name", (nombre,), "L8"), "BT-160")
 
 
 _DISTINTIVOS: dict[str, tuple[str, str, str]] = {
-    # «Atributos obligatorios: usar schemeName="Organo"», dice el anexo.
-    "BT-ES-9": _sede("Organo", "BT-ES-9"),
-    "BT-ES-10": _sede("Unidad", "BT-ES-10"),
-    "BT-ES-11": _sede("Oficina", "BT-ES-11"),
-    # «Valor obligatorio: usar "false"» / «"true"».
-    "BT-ES-16": _cargo("false", "BT-ES-16"),
-    "BT-ES-17": _cargo("false", "BT-ES-16"),
-    "BT-ES-18": _cargo("true", "BT-ES-18"),
-    "BT-ES-19": _cargo("true", "BT-ES-18"),
-    "BT-ES-40": _cargo("false", "BT-ES-40", "cac:InvoiceLine/"),
-    "BT-ES-41": _cargo("true", "BT-ES-41", "cac:InvoiceLine/"),
-    # «Código obligatorio, usar "urn:aeat:…:SUPL"», y así los cinco.
-    "BT-ES-20": _linea_de(_SUPL, "BT-ES-20"),
-    "BT-ES-21": _linea_de(_MINO, "BT-ES-21"),
-    "BT-ES-27": _linea_de(_REEQ, "BT-ES-27"),
-    "BT-ES-31": _linea_de(_REGE, "BT-ES-31"),
-    "BT-ES-32": _linea_de(_RETE, "BT-ES-32"),
-    # «Adoptará el valor fijo "RCAT"» / «"REGI"», en el nombre de la propiedad
-    # de cada grupo. Hasta el 14-09-2026 estos dos iban en `AMBIGUAS` con la
-    # frase «el anexo no dice cuál»: lo dice, en la fila de al lado.
-    "BT-ES-43": _propiedad("RCAT"),
-    "BT-ES-44": _propiedad("REGI"),
+    # El impuesto o tasa a nivel de documento cuelga de los cargos (BG-21),
+    # que el anexo marca con «true»; los descuentos (BG-20), con «false».
+    "BT-ES-6": _cargo("BG-21"),
+    "BT-ES-7": _cargo("BG-21"),
+    "BT-ES-8": _cargo("BG-21"),
+    "BT-ES-9": _cargo("BG-21"),
+    # Y el de la línea, de los cargos de línea (BG-28).
+    "BT-ES-22": _cargo("BG-28", "cac:InvoiceLine/"),
+    # «Código obligatorio, usar «SUPL»», y así las cuatro líneas de cobro. La
+    # de los impuestos y tasas admite dos: «IEDMT» o «OTROS».
+    "BT-ES-10": _linea_de(("SUPL",), "BT-ES-10"),
+    "BT-ES-11": _linea_de(("IEDMT", "OTROS"), "BT-ES-11"),
+    "BT-ES-15": _linea_de(("MINO",), "BT-ES-15"),
+    "BT-ES-16": _linea_de(("RETE",), "BT-ES-16"),
+    # «Adoptará el valor fijo «RCAT»» / «REGI», en el nombre de la propiedad
+    # de cada grupo.
+    "BT-ES-23": _propiedad("RCAT"),
+    "BT-ES-24": _propiedad("REGI"),
+    # «Valor obligatorio: usar «QR»», y así los cinco documentos de L10.
+    "BT-ES-25": _documento("QR"),
+    "BT-ES-26": _documento("AUT"),
+    "BT-ES-27": _documento("RECT:TIPO"),
+    "BT-ES-28": _documento("RECT:MODALIDAD"),
+    "BT-ES-29": _documento("RECT:IMPORTES"),
 }
 
 
@@ -1793,7 +1826,7 @@ class RutaEs:
     id: str
     termino: str
     ruta: str  # relativa al documento; `SIN_MAPA` si el anexo no la da
-    anexo: str  # tal y como la escribe el anexo, para poder comparar
+    anexo: str  # la celda tal y como la escribe el anexo, para poder comparar
     porque: str = ""  # por qué difiere, si difiere
 
     @property
@@ -1801,26 +1834,47 @@ class RutaEs:
         return bool(self.porque)
 
 
+def _trozos(celda: str) -> list[tuple[str, str]]:
+    """Cada ruta de la celda con el valor que le impone, o «» si es un sitio.
+
+    El valor es el primero entre comillas que haya entre esta ruta y la
+    siguiente: «… /in:Invoice/…/cbc:ID tomará el valor «VAT»».
+    """
+    encontradas = list(_RUTA_EN_LA_CELDA.finditer(celda))
+    salida = []
+    for n, ruta in enumerate(encontradas):
+        hasta = encontradas[n + 1].start() if n + 1 < len(encontradas) else len(celda)
+        valor = _VALOR_IMPUESTO.search(celda, ruta.end(), hasta)
+        salida.append((re.sub(r"/\s*(?:/\s*)?", "/", ruta.group(0)),
+                       valor.group(1) if valor else ""))
+    return salida
+
+
 def _normalizar(ruta: str, identificador: str) -> tuple[str, str]:
-    """La ruta del anexo convertida en una que se pueda evaluar."""
-    if not ruta:
-        return SIN_MAPA, ""
-    porque = ""
-    arreglo = _ARREGLOS.get(identificador)
-    if arreglo and arreglo[0] in ruta:
-        ruta = ruta.replace(arreglo[0], arreglo[1], 1)
-        porque = arreglo[2]
-    limpia = _RAIZ_DEL_ANEXO.sub("", ruta)
-    # Los pasos `aeat:` se deshacen **antes** de meter el distintivo, y no
-    # después. Cinco de los distintivos son URN de la propia Agencia
-    # —`urn:aeat:names:specification:…`— y al revés el `aeat:names` de dentro
-    # del literal también casaba con el patrón: la ruta salía con un
-    # `local-name()` incrustado en mitad del URN y no encontraba nada nunca.
-    limpia = _PASO_AEAT.sub(lambda m: f"*[local-name()='{m.group(1)}']", limpia)
+    """Una ruta del anexo, ya separada de su prosa, convertida en una que se
+    pueda evaluar, con el porqué de lo que se le haya arreglado."""
+    porques = []
+    for arreglo in _ARREGLOS:
+        if arreglo.mal in ruta:
+            ruta = ruta.replace(arreglo.mal, arreglo.bien)
+            porques.append(arreglo.porque)
+    limpia = _RAIZ_DEL_ANEXO.sub("", ruta).replace("@", "/@")
     distintivo = _DISTINTIVOS.get(identificador)
     if distintivo and distintivo[0] in limpia:
         limpia = limpia.replace(distintivo[0], distintivo[1], 1)
-    return "./" + limpia, porque
+    return "./" + limpia, " ".join(porques)
+
+
+def condiciones(campo: cius_es.Campo) -> tuple[tuple[str, str], ...]:
+    """Lo que el uso de un campo impone en otra parte, según su fila.
+
+    Pares de ruta y valor: «Su uso implica que la ruta …/cbc:ID tomará el
+    valor «VAT»» da `("./…/cbc:ID", "VAT")`. Las rutas salen normalizadas
+    igual que las de `RUTAS_CIUS_ES`, con sus arreglos, y no con los
+    distintivos, que son de los campos españoles.
+    """
+    return tuple((_normalizar(ruta, "")[0], valor)
+                 for ruta, valor in _trozos(campo.ruta) if valor)
 
 
 def _tabla_cius() -> tuple[RutaEs, ...]:
@@ -1828,10 +1882,12 @@ def _tabla_cius() -> tuple[RutaEs, ...]:
     for campo in cius_es.CAMPOS:
         if not campo.espanol:
             continue
-        ruta, porque = _normalizar(campo.ruta, campo.id)
-        filas.append(
-            RutaEs(campo.id, campo.termino, ruta, campo.ruta, porque)
-        )
+        sitios = [ruta for ruta, valor in _trozos(campo.ruta) if not valor]
+        if not sitios:
+            filas.append(RutaEs(campo.id, campo.termino, SIN_MAPA, campo.ruta))
+        for sitio in sitios:
+            ruta, porque = _normalizar(sitio, campo.id)
+            filas.append(RutaEs(campo.id, campo.termino, ruta, campo.ruta, porque))
     return tuple(filas)
 
 
@@ -1842,12 +1898,9 @@ for _r in RUTAS_CIUS_ES:
     POR_ID[_r.id] = POR_ID.get(_r.id, ()) + (_r,)
 
 # Lo que sigue sin poder distinguirse después de todo lo de arriba, y por eso
-# se dice en voz alta en vez de disimularlo. Hoy no queda nada. Hasta el
-# 14-09-2026 quedaban «situación del inmueble» y «tipo de impuesto nacional»,
-# los dos en el `ValueQualifier` de un `AdditionalItemProperty`, con la frase
-# «el anexo no dice cuál» es el nombre de la propiedad. Lo dice: BT-160 fija
-# «RCAT» en un grupo y «REGI» en el otro. Se leyó la ruta y no la fila de al
-# lado.
+# se dice en voz alta en vez de disimularlo. Hoy no queda nada: las cuatro
+# rutas que el anexo reparte entre once filas las separa el valor fijo que el
+# propio anexo da en otra fila.
 AMBIGUAS: dict[str, tuple[str, ...]] = {}
 for _r in RUTAS_CIUS_ES:
     if _r.ruta != SIN_MAPA:
