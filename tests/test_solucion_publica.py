@@ -19,14 +19,18 @@ corrección de errores.
 """
 
 import importlib
+import os
 import pathlib
 import re
+import subprocess
+import sys
 from dataclasses import replace
 
 import pytest
 from lxml import etree
 
 from validador import cius_es, factura, glosario, iva, listas_de_codigos, solucion_publica
+from validador.esquema import Catalogo
 from validador.formato import detectar
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
@@ -80,10 +84,28 @@ def la(xml: str, codigo: str) -> Incidencia:
     return encontradas[0]
 
 
-def limpia(xml: str) -> list[tuple[str, str]]:
-    """Los errores y los avisos de todo el validador, que tienen que ser ninguno."""
-    informe = factura.validar(xml.encode("utf-8"))
+def limpia(xml: str, catalogo: Catalogo | None = None) -> list[tuple[str, str]]:
+    """Los errores y los avisos de todo el validador, que tienen que ser ninguno.
+
+    Con `catalogo`, también la forma: sin él, la suite no tiene esquemas
+    (`conftest.py`) y la forma no se mira.
+    """
+    informe = factura.validar(xml.encode("utf-8"), catalogo=catalogo)
     return [(i.codigo, i.campo) for i in informe.errores + informe.avisos]
+
+
+@pytest.fixture(scope="module")
+def catalogo(esquemas_del_paquete):
+    """Los esquemas de UBL 2.5 de verdad, los de `web/paquete.zip`.
+
+    La suite corre sin esquemas, a propósito, y sin ellos «el validador
+    entero» no mira la forma. Hasta el 11-10-2026 las buenas se probaban así:
+    este módulo y el README decían que pasaban la forma contra UBL 2.5, y en
+    la suite no lo comprobaba nadie. Se vio al provocar una prueba que tenía
+    que salir en rojo y salió verde. Medido ese día con estos esquemas: las
+    21 pasan, en un segundo.
+    """
+    return Catalogo(esquemas_del_paquete)
 
 
 # --- La factura de la orden ------------------------------------------------------
@@ -457,8 +479,8 @@ LAS_DE_LA_ORDEN = {
 class TestLasBuenas:
 
     @pytest.mark.parametrize("xml", LAS_DE_LA_ORDEN.values(), ids=LAS_DE_LA_ORDEN.keys())
-    def test_no_dan_ni_un_error_ni_un_aviso_en_todo_el_validador(self, xml):
-        assert limpia(xml) == []
+    def test_no_dan_ni_un_error_ni_un_aviso_en_todo_el_validador(self, xml, catalogo):
+        assert limpia(xml, catalogo) == []
 
     def test_dice_en_notas_lo_que_ha_aceptado_y_con_que_base(self):
         informe = factura.validar(DEL_BOE.encode("utf-8"))
@@ -687,7 +709,7 @@ class TestLoQueSoloDeciaElBorrador:
 
     @pytest.mark.parametrize("clave", ["18", "19", "20"])
     def test_las_claves_18_19_y_20_del_iva_ya_no_valen(self, clave):
-        """El régimen simplificado, el recargo y la agricultura: fuera de la L3A."""
+        """El recargo, la agricultura y el régimen simplificado: fuera de la L3A."""
         xml = cambia(DEL_BOE, "<cbc:Value>01</cbc:Value><cbc:ValueQualifier>IVA<",
                      f"<cbc:Value>{clave}</cbc:Value><cbc:ValueQualifier>IVA<")
         queja = la(xml, "SPFE-CLAVE-DE-REGIMEN")
@@ -1078,13 +1100,38 @@ class TestPartes:
         sin_fc = cambia(CON_EL_TERCERO_DEL_BOE, ' schemeID="FC">B87654321', ">B87654321")
         assert "«LOC» con el atributo «FC»" in la(sin_fc, "SPFE-TERCERO").mensaje
 
-    def test_el_nombre_del_tercero_donde_lo_ponia_el_borrador_no_se_lee(self):
-        """En `cac:PartyName`: hasta el 11-10-2026 se aceptaba también ahí."""
-        en_abril = cambia(CON_EL_TERCERO_DEL_BOE,
-                          "<cac:PartyLegalEntity><cbc:RegistrationName>Gestoria Ejemplo SL"
-                          "</cbc:RegistrationName></cac:PartyLegalEntity>",
-                          "<cac:PartyName><cbc:Name>Gestoria Ejemplo SL</cbc:Name></cac:PartyName>")
+    def test_el_nombre_del_tercero_donde_lo_ponia_el_borrador_no_se_lee(self, catalogo):
+        """En `cac:PartyName`: hasta el 11-10-2026 se aceptaba también ahí.
+
+        Delante de `cac:PartyTaxScheme`, que es donde UBL lo admite. Hasta la
+        revisión de ese día esta factura lo ponía detrás, el esquema la
+        rechazaba (XSD-ORDEN) y la prueba no lo veía porque solo miraba el
+        anexo; la medida de HALLAZGOS se hizo con ella. Lo vio el auditor.
+        Ahora pasa el validador entero, y el único fallo es el del tercero.
+        """
+        en_abril = cambia(cambia(CON_EL_TERCERO_DEL_BOE,
+                                 "<cac:PartyLegalEntity><cbc:RegistrationName>Gestoria Ejemplo SL"
+                                 "</cbc:RegistrationName></cac:PartyLegalEntity>", ""),
+                          '      <cac:Party>\n        <cac:PartyTaxScheme>',
+                          '      <cac:Party>\n'
+                          "        <cac:PartyName><cbc:Name>Gestoria Ejemplo SL</cbc:Name></cac:PartyName>\n"
+                          "        <cac:PartyTaxScheme>")
         assert "el nombre o razón social (BT-ES-3)" in la(en_abril, "SPFE-TERCERO").mensaje
+        assert {codigo for codigo, _ in limpia(en_abril, catalogo)} == {"SPFE-TERCERO"}
+
+    def test_la_tipologia_donde_la_escribe_la_orden_no_se_da_por_ausente(self):
+        """La ruta de BT-ES-5 cuelga de `cac:Party`, y ahí UBL no la admite: el
+        esquema la rechaza. La queja decía «le falta la tipología», y no falta:
+        está donde no puede ir. Lo vio el auditor el 11-10-2026."""
+        en_su_party = cambia(cambia(CON_EL_TERCERO_DEL_BOE,
+                                    "      <cbc:ServiceTypeCode>FacturaciónPorTercero</cbc:ServiceTypeCode>\n",
+                                    ""),
+                             "      <cac:Party>\n",
+                             "      <cac:Party>\n"
+                             "        <cbc:ServiceTypeCode>FacturaciónPorTercero</cbc:ServiceTypeCode>\n")
+        queja = la(en_su_party, "SPFE-TERCERO")
+        assert "está en su cac:Party" in queja.mensaje
+        assert "cac:ServiceProviderParty/cbc:ServiceTypeCode" in queja.mensaje
 
 
 # Un descuento del documento y uno de la línea, con su motivo escrito. Solo se
@@ -1393,7 +1440,16 @@ class TestCategoriasDeLaOrden:
         for queja in quejas:
             assert f"La {categoria} es de la lista L4 de la Orden HAC/1028/2026" in queja.mensaje
             assert "BT-24" in queja.mensaje and ESPECIFICACION in queja.mensaje
-            assert "no es de UNCL 5305" in queja.mensaje
+            assert "no es de UNCL 5305 tal como la recoge la norma" in queja.mensaje
+
+    def test_no_dice_que_la_d_y_la_f_no_son_de_la_untdid_5305(self):
+        """Lo son, desde la edición D16A: el margen de las agencias de viajes y
+        el de los bienes usados. No son de la lista que la norma admite, que es
+        otra cosa. El mensaje y el glosario decían «no es de UNCL 5305» a
+        secas. Lo vio el auditor el 11-10-2026, y se leyó en edifactory ese día."""
+        for codigo in ("BR-CL-17", "BR-CL-18"):
+            assert "no es de UNCL 5305 tal como la recoge la norma" in glosario.CODIGOS[codigo]
+            assert "no es de UNCL 5305." not in glosario.CODIGOS[codigo]
 
     def test_la_frase_nombra_solo_lo_que_es_de_la_orden(self):
         """Una X junto a la N: la queja lleva las dos, y la frase solo la N."""
@@ -1580,6 +1636,25 @@ def _recargar_con(monkeypatch, campos):
     return None
 
 
+# La base de la retención (BT-ES-18) movida a las líneas de cobro, y los dos
+# módulos otra vez: el que calcula las rutas y el que las usa.
+_MOVER_UNA_RUTA = """
+from dataclasses import replace
+from importlib import reload
+from validador import cius_es, sintaxis, solucion_publica
+fila = next(c for c in cius_es.CAMPOS if c.id == "BT-ES-18")
+movida = fila.ruta.replace("cac:WithholdingTaxTotal/cac:TaxSubtotal", "cac:CollectionInvoiceLine")
+assert movida != fila.ruta
+cius_es.CAMPOS = tuple(replace(c, ruta=movida) if c is fila else c for c in cius_es.CAMPOS)
+try:
+    reload(sintaxis)
+    reload(solucion_publica)
+    print("importa")
+except LookupError as negativa:
+    print(type(negativa).__name__, negativa)
+"""
+
+
 def _con(identificador, termino="", **cambios):
     return [replace(c, **cambios) if c.id == identificador and termino in c.termino else c
             for c in cius_es.CAMPOS]
@@ -1641,6 +1716,23 @@ class TestSeNiegaSiElAnexoCambia:
     def test_con_la_tabla_de_verdad_no_se_niega(self, monkeypatch):
         assert _recargar_con(monkeypatch, cius_es.CAMPOS) is None
 
+    def test_si_el_anexo_mueve_una_ruta_fuera_de_su_grupo_el_modulo_no_importa(self):
+        """La tercera forma, entera: la tabla con una ruta movida.
+
+        Las rutas las calcula `sintaxis` al importarse, así que recargar solo
+        este módulo no la ve; y recargar `sintaxis` en mitad de la suite deja a
+        los demás módulos con objetos de la copia vieja. Va en un proceso
+        aparte. Hasta el 11-10-2026 solo se probaba llamando a `_relativa`, y
+        el README decía que las tres formas estaban provocadas. Lo vio el
+        auditor.
+        """
+        salida = subprocess.run(
+            [sys.executable, "-c", _MOVER_UNA_RUTA],
+            cwd=pathlib.Path(__file__).resolve().parents[1], capture_output=True,
+            text=True, encoding="utf-8", env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+        assert salida.stdout.startswith("AnexoCambiado"), (salida.stdout, salida.stderr)
+        assert "ya no cuelga" in salida.stdout
+
     def test_si_una_ruta_deja_de_colgar_de_su_grupo(self):
         with pytest.raises(solucion_publica.AnexoCambiado, match="ya no cuelga"):
             solucion_publica._relativa("./cac:WithholdingTaxTotal/cbc:TaxAmount",
@@ -1685,11 +1777,15 @@ class TestDeDondeSale:
         assert {r: f for r, f in fallos.items() if f} == {}
 
     def test_las_lineas_de_cobro_son_las_de_l7_y_solo_la_retencion_va_una_vez(self):
-        assert set(solucion_publica._L7) == set(cius_es.LISTAS["L7"].valores)
+        # Con la lista escrita aquí: comparar `_L7` con la tabla era comparar
+        # la tabla consigo misma, y no podía fallar. Lo vio el auditor.
+        assert solucion_publica._L7 == ("SUPL", "MINO", "RETE", "IEDMT", "OTROS")
         assert solucion_publica._UNO_POR_FACTURA == {"RETE": "RETENCIONES"}
 
     def test_los_documentos_son_los_de_l10_y_cada_uno_con_su_lista(self):
-        assert set(solucion_publica._DOCUMENTOS) == set(cius_es.LISTAS["L10"].valores)
+        # Lo mismo: el módulo ya se niega a importar si no son los de L10.
+        assert set(solucion_publica._DOCUMENTOS) == {
+            "RECT:TIPO", "RECT:MODALIDAD", "RECT:IMPORTES", "QR", "AUT"}
         assert solucion_publica._LISTA_DEL_DOCUMENTO == {
             "RECT:TIPO": "L2.A", "RECT:MODALIDAD": "L2.B", "RECT:IMPORTES": "L2.C"}
         assert solucion_publica._TIPOS_DE_QR == ("VERIFACTU", "TICKETBAI")

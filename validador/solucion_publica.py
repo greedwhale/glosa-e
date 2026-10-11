@@ -124,6 +124,7 @@ from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 from validador.listas_de_codigos import lista
 from validador.modelo import grupos
 from validador.sintaxis import (
+    _ARREGLOS,
     NS_CIUS_ES,
     POR_ID,
     SIN_MAPA,
@@ -433,6 +434,15 @@ _TERCERO = _ruta("BG-ES-1")
 _TERCERO_NOMBRE = _relativa(_ruta(_obligatorio("BT-ES-3")), _TERCERO)
 _TERCERO_NIF = _relativa(_ruta(_obligatorio("BT-ES-4")), _TERCERO)
 _TERCERO_TIPO = _relativa(_ruta(_obligatorio("BT-ES-5")), _TERCERO)
+# Donde la orden escribe la tipología, que en UBL no existe y se lee donde sí
+# (`sintaxis._ARREGLOS`). Quien la escribe ahí la ha escrito: la queja lo dice,
+# en vez de decir que falta. Hasta el 11-10-2026 decía «le falta la tipología»
+# junto a XSD-ORDEN, que ya decía que estaba donde no podía. Lo vio el auditor.
+_TERCERO_TIPO_DE_LA_ORDEN = "./cac:Party/" + _TERCERO_TIPO.removeprefix("./")
+if not any(arreglo.mal.endswith("cac:ServiceProviderParty/cac:Party/cbc:ServiceTypeCode")
+           and arreglo.bien.endswith("cac:ServiceProviderParty/cbc:ServiceTypeCode")
+           for arreglo in _ARREGLOS):
+    raise AnexoCambiado("la tipología del tercero ya no se lee arreglando la ruta de la orden")
 _TERCERO_ESQUEMAS = _padre(_TERCERO_NIF, "cbc:CompanyID")
 _TERCERO_IMPUESTO = _TERCERO_ESQUEMAS + "/cac:TaxScheme/cbc:ID"
 if {valor for _, valor in condiciones(_fila("BT-ES-4"))} != {
@@ -1342,7 +1352,14 @@ def _tercero(raiz) -> list[Incidencia]:
         if not _valor(tercero, _TERCERO_NOMBRE):
             faltan.append("el nombre o razón social (BT-ES-3)")
         if not _valor(tercero, _TERCERO_TIPO):
-            faltan.append("la tipología (BT-ES-5)")
+            if _valor(tercero, _TERCERO_TIPO_DE_LA_ORDEN):
+                faltan.append(
+                    "la tipología (BT-ES-5) donde UBL la admite, en "
+                    "cac:ServiceProviderParty/cbc:ServiceTypeCode: está en su "
+                    "cac:Party, que es la ruta que escribe la orden y el esquema "
+                    "no admite")
+            else:
+                faltan.append("la tipología (BT-ES-5)")
         esquemas = _nodos(tercero, _TERCERO_ESQUEMAS)
         if _valor(tercero, _TERCERO_NIF) and not any(_nif_bien_puesto(e) for e in esquemas):
             impuesto = _valor(tercero, _TERCERO_IMPUESTO)
@@ -1546,8 +1563,8 @@ def _claves_de_regimen(raiz) -> list[Incidencia]:
     """BG-32 «CLAVE DE RÉGIMEN»: una o dos en cada línea, cada una en su lista.
 
     Las listas son las de la orden: la L3A ya no tiene las claves 18, 19 y 20
-    del borrador de abril (el régimen simplificado, el recargo de equivalencia
-    y el de agricultura, ganadería y pesca), y una línea con ellas en el IVA
+    del borrador de abril (el recargo de equivalencia, el de agricultura,
+    ganadería y pesca y el simplificado), y una línea con ellas en el IVA
     sale aquí, como cualquier otra clave que no es de su lista.
     """
     sin_clave: list[str] = []

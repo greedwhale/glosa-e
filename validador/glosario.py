@@ -3123,20 +3123,24 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-CL-17": (
         'La categoría de IVA de un descuento, de un cargo o de una entrada del '
-        'desglose (BT-95, BT-102, BT-118) no es de UNCL 5305. Son diez: S, Z, E, '
+        'desglose (BT-95, BT-102, BT-118) no es de UNCL 5305 tal como la recoge '
+        'la norma, que admite diez: S, Z, E, '
         'AE, K, G, O, L, M y B. El esquematrón de CII mira la del desglose con '
         'BR-CL-18, porque el elemento se llama igual que el de la línea; aquí '
         'sale con esta, como en la norma. En Facturae el impuesto va con su '
         'propia lista (el 01 es el IVA) y no se mira. La N, la D y la F son de '
-        'la lista L4 de la Orden HAC/1028/2026 y valen en las facturas de la '
+        'la lista L4 de la Orden HAC/1028/2026 (la D y la F, también de la '
+        'UNTDID 5305 entera, que no es la de la norma) y valen en las facturas de la '
         'solución pública; en cualquier otra, esta regla las da por malas y lo '
         'dice.'
     ),
     "BR-CL-18": (
-        'La categoría de IVA de una línea (BT-151) no es de UNCL 5305. Son diez: '
+        'La categoría de IVA de una línea (BT-151) no es de UNCL 5305 tal como la '
+        'recoge la norma, que admite diez: '
         'S, Z, E, AE, K, G, O, L, M y B. En Facturae el impuesto va con su '
         'propia lista (el 01 es el IVA) y no se mira. La N, la D y la F son de '
-        'la lista L4 de la Orden HAC/1028/2026 y valen en las facturas de la '
+        'la lista L4 de la Orden HAC/1028/2026 (la D y la F, también de la '
+        'UNTDID 5305 entera, que no es la de la norma) y valen en las facturas de la '
         'solución pública; en cualquier otra, esta regla las da por malas y lo '
         'dice.'
     ),

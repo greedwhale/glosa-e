@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2969 tests, todos en verde.
+2972 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3864,7 +3864,10 @@ valores fijos —los URN, «VAT», «S», «WTH», «EUR»— se leen de la desc
 su fila. Y cada campo que se exige tiene que ser obligatorio en la tabla. Todo
 eso se comprueba **al importar**: si un anexo nuevo relaja un campo, cambia un
 valor o mueve una ruta, el módulo lanza `AnexoCambiado` y no se monta. Las tres
-formas están provocadas en las pruebas.
+formas están provocadas en las pruebas; la de la ruta, en un proceso aparte,
+porque las rutas las calcula `sintaxis` al importarse y recargarlo en mitad de
+la suite estropea a los demás módulos. Hasta el 11-10-2026 de esa se probaba
+solo el trozo que se niega (en HALLAZGOS).
 
 Los campos que la norma ya tiene no traen ruta en el anexo, ni en el borrador
 ni en la orden —remiten a la vinculación de 2026, la
@@ -3892,11 +3895,15 @@ marcha y en el corpus hay cero documentos que declaren el CIUS. Las pruebas
 van sobre una factura escrita al pie de la letra de la orden y veinte
 variantes (la rectificativa, el tercero, los cobros, las categorías `N`, `D` y
 `F`, la autorización), que pasan **el validador entero** sin un error ni un
-aviso: forma contra UBL 2.5, norma europea, código único y anexo. De ahí se
-rompe cada regla. Hasta el 11-10-2026 la de partida era una escrita con el
+aviso: forma contra UBL 2.5, norma europea, código único y anexo. La forma,
+con los esquemas de `web/paquete.zip`: la suite corre sin esquemas, y hasta el
+11-10-2026 esto lo decía sin que se mirara (en HALLAZGOS). De ahí se rompe
+cada regla. Hasta el 11-10-2026 la de partida era una escrita con el
 borrador de abril; lo que solo decía el borrador se prueba ahora aparte, para
 ver que sale en ERROR. Provocado al escribir el módulo: 37 roturas, las 37 en
-rojo; al ponerlo al texto de la orden, trece más (en HALLAZGOS).
+rojo; al ponerlo al texto de la orden, catorce más (diez y una frase de la
+tabla en la primera tanda, tres en la segunda), y en la revisión antes de
+publicar, catorce y luego nueve (en HALLAZGOS).
 
 **La frase de alcance lo dice, y solo cuando toca.** «Sin errores» en una
 factura del CIUS quiere decir también algo del anexo, así que la línea del
@@ -3998,7 +4005,7 @@ Lo anunciado, y a qué regla le da:
 | El **389** para la factura expedida por el destinatario, junto al 471: «La expedición de facturas por el destinatario o por tercero está plenamente contemplada en el Anexo I» | No es nuevo: la L1 de abril ya lo trae, y aquí se escribió que entraba. La de la orden es la misma, `380, 384, 388, 389, 471`, y `SPFE-TIPO-DE-FACTURA` mide con ella |
 | El NIF del vendedor va en `BT-31` o en `BT-32`, este con esquema «LOC» y `@schemeID` «FC» | Confirmado por la orden. Desde el 07-10-2026, `SPFE-NIF` admite las dos formas |
 | L4 gana las categorías de la EN 16931:2026, entre ellas la `N`; y se han pedido códigos VATEX propios de España | La L4 de la orden trae la `N`, la `D` y la `F`. Desde el 07-10-2026 se aceptan en las facturas de la solución pública, con una NOTA |
-| L3A se recorta: fuera el simplificado, el recargo de equivalencia y el de agricultura, ganadería y pesca | Confirmado por la orden: sin la 18, la 19 ni la 20. `SPFE-CLAVE-DE-REGIMEN` las dio por buenas hasta el 11-10-2026; desde entonces, ERROR |
+| L3A se recorta: fuera el recargo de equivalencia, el de agricultura, ganadería y pesca y el simplificado | Confirmado por la orden: sin la 18, la 19 ni la 20. `SPFE-CLAVE-DE-REGIMEN` las dio por buenas hasta el 11-10-2026; desde entonces, ERROR |
 | `BG-34` (`BT-179`, `BT-180`) se usa para el IEDMT | Confirmado por la orden: el grupo «IMPUESTOS Y TASAS», con `IEDMT` u `OTROS` en `cac:CollectionInvoiceLine/cbc:ID`. Desde el 07-10-2026, `SPFE-LINEA-DE-COBRO` acepta los dos. `BT-179` y `BT-180` siguen en `NO_SE_COMPRUEBA`: son términos de la edición de 2026 y la orden tampoco les da ruta UBL |
 | Mensaje de anulación de factura, un `ApplicationResponse` de UBL | Documento nuevo. Desde el 29-09-2026 **se reconoce y se le mide la forma y la firma**. Su contenido está publicado desde el 05-10-2026, en el anexo I de la orden, pero medirlo es una regla nueva, todavía sin escribir (ver «Las respuestas: `ApplicationResponse`») |
 
@@ -4299,7 +4306,9 @@ titular el 11-10-2026: fuera de ella rige la lista de la norma, y `BR-CL-17` y
 `BR-CL-18` las siguen dando por malas. Pero decían «no es de UNCL 5305» y nada
 más, y quien escribió la `N` la sacó de la orden: ahora la queja añade que es
 de la L4 de la orden, que solo rige en las facturas UBL que declaran en `BT-24`
-el identificador de la orden, y lo escribe entero; y que son facturas
+el identificador de la orden, y lo escribe entero, y nombra la lista como lo
+que es, «UNCL 5305 tal como la recoge la norma», porque la D y la F sí están
+en la UNTDID 5305 entera; y que son facturas
 (`Invoice`), no abonos (`CreditNote`), porque un abono UBL que declara la orden
 lo leía como si cumpliera. Solo nombra los códigos que
 son de la orden: una `X` junto a la `N` sale en la misma queja, sin la frase.
@@ -4331,7 +4340,8 @@ son de la orden: una `X` junto a la `N` sale en la misma queja, sin la frase.
   el valor en la fila y el calificador en la lista, sin decir cómo se juntan.
   Está entre lo preguntado al buzón el 07-10-2026.
 
-El detalle de lo medido y las trece roturas provocadas, en HALLAZGOS.
+El detalle de lo medido y las catorce roturas provocadas (diez y una frase de
+la tabla en la primera tanda, tres en la segunda), en HALLAZGOS.
 
 ### La consulta del 07-10-2026, todavía sin respuesta
 

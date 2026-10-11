@@ -144,7 +144,12 @@ _NOMBRES = {
     "UNTDID_7143": "UNTDID 7143",
     "ISO_3166": "ISO 3166-1",
     "UNCL_4461": "UNCL 4461",
-    "UNCL_5305": "UNCL 5305",
+    # «Tal como la recoge la norma»: la norma tiene su versión de la lista, con
+    # diez códigos, y no es la UNTDID 5305 entera. Decir «no es de UNCL 5305»
+    # de la D o de la F, que la orden trae en su L4, era falso: las dos están
+    # en la entera desde la edición D16A (leído en edifactory el 11-10-2026).
+    # Lo vio el auditor.
+    "UNCL_5305": "UNCL 5305 tal como la recoge la norma",
     "UNCL_5189": "UNCL 5189",
     "UNCL_7161": "UNCL 7161",
     "VATEX": "VATEX",
@@ -181,8 +186,10 @@ def _vale(codigo: str, como: str, valores: frozenset[str]) -> bool:
 def _de_la_orden(cual: str) -> frozenset[str]:
     """Los códigos que no son de esta lista y sí de la L4 de la orden.
 
-    La L4 de la Orden HAC/1028/2026 trae tres categorías de IVA que UNCL 5305
-    no tiene: la N, la D y la F. Solo valen en las facturas de la solución
+    La L4 de la Orden HAC/1028/2026 trae tres categorías de IVA que la lista de
+    la norma no tiene: la N, la D y la F. La D y la F sí son de la UNTDID 5305
+    entera, desde su edición D16A, que es de donde la orden dice sacar la L4;
+    la N no está ni ahí. Solo valen en las facturas de la solución
     pública, a las que `solucion_publica.categorias_que_la_norma_no_tiene` se
     las añade por `de_mas`; fuera de ella rige la lista de la norma, como
     decidió el titular el 11-10-2026, y BR-CL-17 y BR-CL-18 las dan por malas.

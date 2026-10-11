@@ -166,8 +166,12 @@ class TestLasListasDeCodigos:
         Esta prueba se llamó «L4 añade dos categorías que la norma europea no
         tiene», y afirmaba que `L` y `M` no estaban en la UNCL5305. Están: el
         esquematrón las admite en BR-CL-18 (`AE L M E S Z G O K B`). Se
-        corrigió el 13-09-2026. Las tres nuevas sí son nuevas: las trae la
-        orden de la edición de 2026 de la norma.
+        corrigió el 13-09-2026. Las tres nuevas no son de la lista de la
+        norma. La D y la F sí son de la UNTDID 5305, desde su edición D16A (el
+        margen de las agencias de viajes y el de los bienes usados), que es de
+        donde la orden dice sacar la L4; la N no está ni ahí. Leído en
+        edifactory el 11-10-2026. Hasta ese día esto decía que las traía «la
+        edición de 2026 de la norma», sin fuente: lo vio el auditor.
         """
         assert set(cius_es.LISTAS["L4"].valores) == {
             "S", "Z", "E", "AE", "O", "G", "L", "M", "N", "D", "F"}

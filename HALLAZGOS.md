@@ -7388,7 +7388,7 @@ copia de trabajo ya cambiada.
 | una 384 con el tipo `R9` | AVISO | ERROR |
 | la rectificativa de la orden, bien escrita | NOTA | nada |
 | el QR con la descripción «VeriFactu» | **sin errores** | `QR` |
-| el nombre del tercero en `cac:PartyName` | **sin errores** | `TERCERO` |
+| el nombre del tercero en `cac:PartyName`, delante de `cac:PartyTaxScheme` (medido otra vez en la revisión: la primera vez iba detrás y salía `XSD-ORDEN`) | **sin errores** | `TERCERO` |
 | el QR con la URN de abril y sin dirección | `QR` | nada: no es el QR de la orden |
 
 **Lo que se hizo.**
@@ -7464,7 +7464,7 @@ día; y el paso 7, las reglas nuevas de la orden.
 ### La N fuera de la solución pública: el mensaje decía «no es de UNCL 5305» y nada más
 
 **Lo que había.** El titular decidió el 11-10-2026 que la N, la D y la F, que
-la L4 de la orden trae y UNCL 5305 no, valen solo en las facturas que declaran
+la L4 de la orden trae y la lista de la norma no, valen solo en las facturas que declaran
 la solución pública. Fuera de ella, `BR-CL-17` y `BR-CL-18` las dan por malas,
 y eso no cambia. Lo que faltaba era el porqué.
 
@@ -7588,3 +7588,67 @@ factura (1), la línea del lote por lo que se declara (1), la frase de la N sin
 el abono (1), el QR de abril callado (1), los importes con `I` callados (1),
 cuatro importes callados (2), la definición de `BT-ES-17` sin leer (1), la
 bitácora con otra gravedad (1) y la ficha sin un porqué (1).
+
+### La revisión antes de publicar: lo que no era exacto
+
+**Lo que había.** El mismo auditor encontró cosas que no tocan al informe de
+una factura sino a lo que se escribió para explicarlo o para probarlo. Cada
+una, reproducida aquí antes de arreglarla:
+
+- **Una medida de esta tanda, hecha con una factura inválida.** La fila del
+  nombre del tercero en `cac:PartyName` decía «sin errores» en `5d4f135`, y la
+  factura lo ponía detrás de `cac:PartyTaxScheme`, donde UBL no lo admite:
+  con `5d4f135` sale `XSD-ORDEN`, y con lo de hoy `XSD-ORDEN` y
+  `SPFE-TERCERO`. La prueba no lo veía porque solo miraba el anexo. Bien
+  colocado, `5d4f135` da nada y hoy `SPFE-TERCERO`: la conclusión vale, la
+  medida no. La prueba lleva ahora la factura bien escrita y pasa el
+  validador entero, y la fila dice cómo se midió.
+- **«UNCL 5305 no tiene la D ni la F».** Lo decían el código, esta misma
+  sección y el mensaje de `BR-CL-17` y `BR-CL-18`, que llamaba «UNCL 5305» a
+  secas a la lista de la norma. La UNTDID 5305 entera tiene la D y la F desde
+  su edición D16A (el margen de las agencias de viajes y el de los bienes
+  usados), y la N no la tiene; leído en edifactory el 11-10-2026. La norma usa
+  su versión, con diez códigos. El mensaje dice ahora «UNCL 5305 tal como la
+  recoge la norma». Y la orden, que dice sacar la L4 de la UNTDID 5305, trae
+  una N que no está en ella.
+- **La tipología del tercero, en la ruta que escribe la orden.** Ahí UBL no la
+  admite y sale `XSD-ORDEN`; `SPFE-TERCERO` decía además «le falta la
+  tipología», y no faltaba. Ahora dice que está en su `cac:Party` y dónde va.
+- **Dos pruebas que no podían fallar.** Una comparaba la L7 de la tabla
+  consigo misma, y la otra repetía una negativa que el módulo ya hace al
+  importar. Ahora comparan con la lista escrita en la prueba.
+- **«Las tres formas están provocadas».** La de la ruta movida solo se
+  probaba llamando a `_relativa`. Reproducido: con la ruta de `BT-ES-18`
+  movida en la tabla y solo `solucion_publica` recargado, importa sin
+  negarse, porque las rutas las calcula `sintaxis` al importarse; recargando
+  los dos, se niega. Ahora hay prueba de eso, en un proceso aparte.
+- **«Trece roturas»**, donde fueron catorce si se cuenta la frase cambiada en
+  la tabla. El README dice ahora las dos cosas.
+- **Las claves 18, 19 y 20 en otro orden.** Eran el recargo, la agricultura y
+  el simplificado, y un comentario, una prueba y el README las nombraban al
+  revés.
+
+**Lo que no se hizo.** Una 380 con un `RECT:TIPO` pasa sin nada. La orden ata
+el tipo de rectificativa a la 384 y la 471, pero no dice que otra factura no
+pueda llevarlo, y el auditor lo dejó como sospecha. Queda así.
+
+**Provocado.** Cinco pruebas nuevas o cambiadas en rojo contra `6865cbd` (la
+tipología y las tres categorías con su mensaje, y la que dice que la D y la F
+sí son de la UNTDID 5305). Y nueve roturas, una por arreglo, las nueve en
+rojo: el nombre del tercero otra vez detrás de `cac:PartyTaxScheme` (1 prueba
+en rojo), la tipología en su `cac:Party` dada otra vez por ausente (1), sin el
+arreglo de esa ruta en `sintaxis` (1, al importar), la lista otra vez «UNCL
+5305» a secas (3), el glosario igual (1), la L7 de la tabla cambiada con su
+fila a juego (1), la L10 igual (1), una de las buenas con un elemento fuera de
+su sitio (1) y una ruta que deja de colgar de su grupo sin que el módulo se
+niegue (1).
+
+**Lo que salió al provocar.** La primera rotura, el nombre del tercero otra
+vez detrás, salió en verde. La prueba ya pasaba la factura por «el validador
+entero», pero la suite corre sin esquemas (`conftest.py`), y sin esquemas el
+validador no mira la forma: `XSD-ORDEN` no podía salir. Lo mismo con las
+veintiuna buenas, de las que el README y el módulo de pruebas decían que
+pasaban la forma contra UBL 2.5 sin que la suite lo comprobara. Ahora esas
+pruebas cargan los esquemas de `web/paquete.zip`, que se versiona: las
+veintiuna pasan la forma, en 1,16 s medido. Las dos roturas que tocan la forma
+son las dos que se añadieron por esto, y salen en rojo.
