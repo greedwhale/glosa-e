@@ -18,10 +18,19 @@ Lo que aquí se comprueba va en dos niveles:
    la serie y fechas que retroceden. Esto último es lo que de verdad se paga,
    porque a ojo no se ve en un lote de trescientas facturas.
 
-Sobre los límites concretos: la Orden Ministerial técnica del RD 238/2026 aún
-no se ha publicado, así que el tope de longitud está tomado del esquema de
-Verifactu (RD 1007/2023), donde el campo equivalente admite 60 caracteres. Si
-la Orden fija otro, se cambia esta constante y ya está.
+Sobre los límites concretos: la orden técnica del RD 238/2026, la Orden
+HAC/1028/2026, salió en el BOE el 05-10-2026 y no fija ninguno. Su anexo I
+describe `BT-1` como «Serie y número que identifican la factura emitida», sin
+longitud, y su artículo 6 define el código único como la concatenación del NIF
+del emisor, la serie y número y la fecha de expedición «según lo especificado
+en el anexo I», que no lo especifica: ni separador ni formato. Las
+especificaciones técnicas las deja a la Sede electrónica de la AEAT (artículo
+3.1), y al buzón se le preguntó el 07-10-2026 (en el README, «La consulta del
+07-10-2026»). Hasta que alguna de las dos lo fije, el tope está tomado del
+esquema de Verifactu (RD 1007/2023), donde el campo equivalente admite 60
+caracteres, y la serie y el número se pegan sin separador, como allí. Si se
+fija otra cosa, se cambian esta constante y `CodigoUnico.numero_completo`, y
+ya está.
 """
 
 from __future__ import annotations

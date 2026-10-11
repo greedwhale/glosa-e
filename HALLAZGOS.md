@@ -7284,3 +7284,46 @@ cincuenta y una, y las cincuenta y una en rojo. El guion de las roturas ahora
 se niega a empezar si la base no está en verde: con una prueba ya roja y `-x`,
 cada rotura saldría roja por la que ya fallaba, y diría que todo está
 provocado sin haber provocado nada.
+
+## Cuatro sitios seguían diciendo que la orden no estaba publicada
+
+**Lo que había.** El 07-10-2026 la nota `SPFE-BORRADOR` dejó de decir que la
+orden no estaba publicada, y con ella las frases que vio la revisión. Quedaron
+otras. El 11-10-2026, al guardar en el README la consulta al buzón,
+se vio que la cabecera de `codigo_unico.py` seguía diciendo que «la Orden
+Ministerial técnica del RD 238/2026 aún no se ha publicado». La ficha de
+`CU-03` decía lo mismo con «todavía», y esa se publica en la página.
+
+**Reproducido** con una prueba nueva antes de tocar nada:
+`test_el_validador_no_dice_que_la_orden_este_por_publicar`, en
+`tests/test_documentacion.py`. Lee cada módulo de `validador/` con `tokenize`
+—cadenas y comentarios juntos, partidos en frases— y se niega si una frase dice
+que algo no se ha publicado y a la vez nombra la orden. En rojo encontró
+**cuatro** sitios, no dos:
+
+- la cabecera de `codigo_unico.py`;
+- la ficha de `CU-03` en `glosario.py`, con la frase partida en dos cadenas:
+  «todavía» al final de una y «no se ha publicado» en la siguiente;
+- la cabecera de la tabla de abril, `cius_es.py`: «No está publicado en el BOE,
+  la orden tampoco»;
+- una frase de la historia de `solucion_publica.py` escrita en presente: «El
+  texto nuevo no está publicado».
+
+Un `grep` el mismo día vio solo las dos primeras. Las otras dos dicen «no está
+publicado», y en la consola de la nube, sin configuración regional, `[aá]` no
+casa con la «á»: son dos bytes y el corchete cuenta uno. Medido: la misma orden
+con `LC_ALL=C.UTF-8` sí la encuentra. Y la de `CU-03`, partida en dos cadenas,
+no sale buscando «todavía no se ha publicado» entero. Por eso la prueba lee con
+Python y no con una expresión sobre el fichero.
+
+**Lo que se hizo.** Las cuatro dicen ahora lo que hay. La orden salió en el
+BOE el 05-10-2026 y no fija ningún tope: su anexo I describe `BT-1` sin
+longitud, y su artículo 6 remite el formato del código único a ese anexo, que
+no lo trae. Por eso el tope de 60 caracteres sigue tomado de Verifactu, y se
+dice de dónde sale y que se ha preguntado al buzón. La cabecera de la tabla de
+abril se cambió también en `herramientas/anexo_i.py`, que es quien la escribe:
+si no, la próxima vez que se generara volvería la frase vieja.
+
+**Provocado.** Cada uno de los cuatro arreglos, deshecho de uno en uno sobre
+el árbol: los cuatro en rojo. El guion se niega a empezar si la prueba no está
+en verde con todo puesto.

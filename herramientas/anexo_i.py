@@ -345,9 +345,12 @@ Qué trae: %(campos)d filas, %(distintos)d identificadores distintos y
 
 Lo que hay que tener presente al usarlo
 ---------------------------------------
-**Es un borrador y va a cambiar.** No está publicado en el BOE, la orden
-tampoco, y la propia AEAT respondió en su seminario del 19-05-2026 que el anexo
-«se alineará plenamente» con UBL 2.5 y la norma europea. La huella de arriba
+**Es un borrador, y ya cambió.** Este anexo, el de abril, nunca salió en el
+BOE: la orden se publicó el 05-10-2026 (Orden HAC/1028/2026) con otro anexo I,
+y lo que de ese ya se aplica va escrito a mano en `solucion_publica.py` hasta
+que esta tabla salga de su XML. La propia AEAT había respondido en su seminario
+del 19-05-2026 que el anexo «se alineará plenamente» con UBL 2.5 y la norma
+europea. La huella de arriba
 está para que el día que salga otro anexo esto no se quede en silencio: hay una
 prueba que la comprueba si el PDF está a mano.
 

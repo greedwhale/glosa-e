@@ -70,9 +70,10 @@ con qué se ha medido.
 Y era un borrador que ya cambió
 -------------------------------
 El **10-09-2026**, en un seminario del portal de entidades desarrolladoras, la
-AEAT presentó las «principales novedades» del anexo I. El texto nuevo no está
-publicado —solo las transparencias—, y la orden se quiere en vigor el
-01-10-2026. Lo que se anunció toca a este módulo por lo menos aquí:
+AEAT presentó las «principales novedades» del anexo I. El texto nuevo no
+estaba publicado —solo las transparencias—, y la orden se quería en vigor el
+01-10-2026; salió en el BOE el 05-10-2026. Lo que se anunció toca a este
+módulo por lo menos aquí:
 
 - **La extensión de rectificativas desaparece**, y esto ya no lo dice una
   transparencia: el **22-09-2026** la AEAT lo confirmó por escrito en el buzón

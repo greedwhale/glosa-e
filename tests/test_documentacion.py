@@ -14,11 +14,13 @@ La solución es la de siempre aquí: que no se pueda, en vez de pedir que
 alguien se acuerde.
 """
 
+import ast
 import hashlib
 import html
 import re
 import subprocess
 import sys
+import tokenize
 
 from pathlib import Path
 
@@ -673,3 +675,57 @@ def test_donde_la_portada_nombra_el_anexo_dice_que_es_en_buena_parte_el_borrador
     assert len(con_el_anexo) == 3, con_el_anexo
     for parrafo in con_el_anexo:
         assert "buena parte" in parrafo and "borrador de abril" in parrafo, parrafo
+
+
+# --- Lo que el validador dice de la orden -------------------------------------
+#
+# La Orden HAC/1028/2026 salió en el BOE el 05-10-2026. El 07-10-2026 la nota
+# `SPFE-BORRADOR` dejó de decir que no estaba publicada, y el 11-10-2026 se vio
+# que lo seguían diciendo la cabecera de `codigo_unico.py` y la ficha de
+# `CU-03`, que se publica en la página. Era la misma frase escrita en más sitios
+# de los que se cambiaron: buscarla a mano ya falló una vez.
+
+_POR_PUBLICAR = re.compile(
+    r"no se ha publicado|no está publicad[ao]|(?:aún|todavía) sin publicar", re.I)
+
+
+def _frases_de(modulo: Path) -> list[str]:
+    """Lo que dice un módulo, sus cadenas y sus comentarios, partido en frases.
+
+    Se lee con `tokenize` y no con una expresión sobre el fichero porque las
+    frases largas van partidas en cadenas seguidas o en varias líneas de
+    comentario, y la de `CU-03` lo estaba justo por la mitad: «todavía» al final
+    de una cadena y «no se ha publicado» en la siguiente.
+    """
+    trozos = []
+    with modulo.open("rb") as f:
+        for ficha in tokenize.tokenize(f.readline):
+            if ficha.type == tokenize.COMMENT:
+                trozos.append(ficha.string.lstrip("#"))
+            elif ficha.type == tokenize.FSTRING_MIDDLE:
+                trozos.append(ficha.string)
+            elif ficha.type == tokenize.STRING:
+                valor = ast.literal_eval(ficha.string)
+                if isinstance(valor, str):
+                    trozos.append(valor)
+    texto = " ".join(" ".join(trozos).split())
+    return re.split(r"(?<=[.!?»])\s+", texto)
+
+
+def test_el_validador_no_dice_que_la_orden_este_por_publicar():
+    """Ni en una ficha, ni en un mensaje, ni en un comentario.
+
+    Una frase que diga a la vez que algo no se ha publicado y que nombre la
+    orden. Lo histórico se escribe en pasado —«no estaba publicada»— y no
+    salta; si un día hace falta decir en presente que otra cosa de la orden
+    sigue sin publicarse, que se diga sin esas palabras o que esta prueba
+    cambie a la vista.
+    """
+    encontradas = [
+        f"{modulo.relative_to(RAIZ)}: «{frase[:160]}»"
+        for modulo in sorted((RAIZ / "validador").glob("*.py"))
+        for frase in _frases_de(modulo)
+        if _POR_PUBLICAR.search(frase) and re.search(r"\borden\b", frase, re.I)]
+    assert not encontradas, (
+        "La Orden HAC/1028/2026 está publicada desde el 05-10-2026 y esto "
+        "sigue diciendo que no:\n" + "\n".join(encontradas))

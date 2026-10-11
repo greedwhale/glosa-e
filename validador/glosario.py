@@ -1140,11 +1140,12 @@ CODIGOS: dict[str, str] = {
     "CU-03": (
         'El número de factura no cabe. El tope son sesenta caracteres, serie '
         'incluida, y de dónde sale ese número importa tanto como la '
-        'comprobación: la Orden Ministerial técnica del RD 238/2026 todavía '
-        'no se ha publicado, así que se ha tomado del esquema de Verifactu, '
-        'donde el campo equivalente admite sesenta. Está escrito en una '
-        'constante y en un solo sitio, de modo que el día que la Orden fije '
-        'otro se cambia ahí y ya está. Un límite sin procedencia es un límite '
+        'comprobación: la orden técnica del RD 238/2026, la Orden '
+        'HAC/1028/2026, publicada en el BOE el 05-10-2026, no fija ninguno, '
+        'así que se ha tomado del esquema de Verifactu, donde el campo '
+        'equivalente admite sesenta. Está escrito en una constante y en un '
+        'solo sitio, de modo que el día que la AEAT fije otro se cambia ahí y '
+        'ya está. Un límite sin procedencia es un límite '
         'que nadie puede discutir.'
     ),
     "CU-04": (
