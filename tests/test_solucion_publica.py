@@ -26,7 +26,7 @@ from dataclasses import replace
 import pytest
 from lxml import etree
 
-from validador import cius_es, factura, glosario, iva, solucion_publica
+from validador import cius_es, factura, glosario, iva, listas_de_codigos, solucion_publica
 from validador.formato import detectar
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
@@ -1214,6 +1214,10 @@ class TestCategoriasDeLaOrden:
         informe = factura.validar(abono.encode("utf-8"))
         assert {"BR-CL-17", "BR-CL-18"} <= {i.codigo for i in informe.errores}
         assert "SPFE-CATEGORIA" not in {i.codigo for i in informe.incidencias}
+        # Y la queja dice de dónde sale la N, como a cualquier otra factura
+        # que no se mide con el anexo.
+        queja = next(i for i in informe.errores if i.codigo == "BR-CL-18")
+        assert "La N es de la lista L4" in queja.mensaje
 
     def test_la_n_no_tapa_un_codigo_que_no_es_de_ninguna_lista(self):
         """La N se añade a la lista; la queja no se borra después."""
@@ -1225,11 +1229,44 @@ class TestCategoriasDeLaOrden:
 
     def test_sin_declarar_la_solucion_publica_la_n_se_mide_como_siempre(self):
         """Fuera de la solución pública rige la lista de la norma: lo decidió
-        el titular el 11-10-2026. El mensaje que diga de dónde sale la N es de
-        otra tanda."""
+        el titular el 11-10-2026."""
         sin = cambia(CON_LA_N, ESPECIFICACION, "urn:cen.eu:en16931:2026")
         errores = {i.codigo for i in factura.validar(sin.encode("utf-8")).errores}
         assert {"BR-CL-17", "BR-CL-18"} <= errores
+
+    @pytest.mark.parametrize(("xml", "categoria"), [
+        (CON_LA_N, "N"), (CON_LA_D, "D"), (CON_LA_F, "F"),
+    ], ids=["N", "D", "F"])
+    def test_sin_declararla_el_mensaje_dice_de_donde_sale_y_que_falta(self, xml, categoria):
+        """Hasta el 11-10-2026 decía «no es de UNCL 5305» y nada más.
+
+        Y mandaba a buscar el fallo donde no está: quien escribió la N la
+        sacó de la orden, y lo que le falta es declarar la solución pública.
+        Medido ese día sobre `354b6bd`, con la N y con la D sin declararla.
+        """
+        sin = cambia(xml, ESPECIFICACION, "urn:cen.eu:en16931:2026")
+        quejas = [i for i in factura.validar(sin.encode("utf-8")).errores
+                  if i.codigo in ("BR-CL-17", "BR-CL-18")]
+        assert {q.codigo for q in quejas} == {"BR-CL-17", "BR-CL-18"}
+        for queja in quejas:
+            assert f"La {categoria} es de la lista L4 de la Orden HAC/1028/2026" in queja.mensaje
+            assert "BT-24" in queja.mensaje and ESPECIFICACION in queja.mensaje
+            assert "no es de UNCL 5305" in queja.mensaje
+
+    def test_la_frase_nombra_solo_lo_que_es_de_la_orden(self):
+        """Una X junto a la N: la queja lleva las dos, y la frase solo la N."""
+        sin = cambia(CON_LA_N, ESPECIFICACION, "urn:cen.eu:en16931:2026")
+        con_una_x = cambia(sin, "<cac:ClassifiedTaxCategory><cbc:ID>S<",
+                           "<cac:ClassifiedTaxCategory><cbc:ID>X<")
+        queja = next(i for i in factura.validar(con_una_x.encode("utf-8")).errores
+                     if i.codigo == "BR-CL-18")
+        assert set(queja.encontrado.split(", ")) == {"N", "X"}
+        assert "La N es de la lista L4" in queja.mensaje and "la X" not in queja.mensaje
+        solo_la_x = cambia(cambia(DEL_BOE, ESPECIFICACION, "urn:cen.eu:en16931:2026"),
+                           "<cac:ClassifiedTaxCategory><cbc:ID>S<", "<cac:ClassifiedTaxCategory><cbc:ID>X<")
+        queja = next(i for i in factura.validar(solo_la_x.encode("utf-8")).errores
+                     if i.codigo == "BR-CL-18")
+        assert "L4" not in queja.mensaje and "HAC/1028/2026" not in queja.mensaje
 
     def test_la_base_de_la_n_no_se_compara_pero_su_cuota_si(self):
         """La base no se ata a las líneas; BR-CO-17 sigue atando la cuota."""
@@ -1431,6 +1468,13 @@ class TestDeDondeSale:
         assert solucion_publica._LISTA_DEL_DOCUMENTO == {
             "RECT:TIPO": "L2.A", "RECT:MODALIDAD": "L2.B", "RECT:IMPORTES": "L2.C"}
         assert solucion_publica._TIPOS_DE_QR == ("VERIFACTU", "TICKETBAI")
+
+    def test_las_categorias_de_mas_son_las_mismas_en_los_dos_sitios(self):
+        """Las que la solución pública añade y las que BR-CL explica fuera de
+        ella: restadas en dos módulos, y tienen que salir iguales."""
+        de_la_orden = listas_de_codigos._de_la_orden("UNCL_5305")
+        assert de_la_orden == solucion_publica._L4_QUE_LA_NORMA_NO_TIENE == {"N", "D", "F"}
+        assert listas_de_codigos._de_la_orden("ISO_4217") == frozenset()
 
     def test_las_claves_de_regimen_se_buscan_en_la_lista_de_su_impuesto(self):
         assert solucion_publica._REGIMENES == {"IVA": "L3A", "IGIC": "L3B", "IPSI": "L3C"}

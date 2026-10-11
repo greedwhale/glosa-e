@@ -46,6 +46,7 @@ quitar nada.
 """
 from __future__ import annotations
 
+from validador import cius_es
 from validador.incidencias import ERROR, Incidencia
 from validador.modelo import grupos
 from validador.sintaxis import SIN_MAPA, Sintaxis, buscar, como_texto
@@ -177,6 +178,41 @@ def _vale(codigo: str, como: str, valores: frozenset[str]) -> bool:
     return codigo in valores
 
 
+def _de_la_orden(cual: str) -> frozenset[str]:
+    """Los códigos que no son de esta lista y sí de la L4 de la orden.
+
+    La L4 de la Orden HAC/1028/2026 trae tres categorías de IVA que UNCL 5305
+    no tiene: la N, la D y la F. Solo valen en las facturas de la solución
+    pública, a las que `solucion_publica.categorias_que_la_norma_no_tiene` se
+    las añade por `de_mas`; fuera de ella rige la lista de la norma, como
+    decidió el titular el 11-10-2026, y BR-CL-17 y BR-CL-18 las dan por malas.
+    Pero un «no es de UNCL 5305» a secas manda a buscar el fallo donde no
+    está: quien escribió la N la sacó de la orden, y lo que le falta es
+    declarar la solución pública, no cambiar de código. El mensaje lo dice.
+
+    Se calcula restando, y en cada llamada: las listas de abajo las reescribe
+    `herramientas/listas_de_codigos.py`, y lo que se pusiera junto a ellas se
+    borraría la próxima vez.
+    """
+    if cual != "UNCL_5305":
+        return frozenset()
+    return frozenset(cius_es.LISTAS["L4"].valores) - UNCL_5305
+
+
+def _de_donde_salen(codigos: list[str]) -> str:
+    """La frase que dice que esos códigos son de la orden y dónde valen."""
+    nombres = [f"la {c}" for c in codigos]
+    quien = nombres[0] if len(nombres) == 1 else ", ".join(nombres[:-1]) + " y " + nombres[-1]
+    verbo = "es" if len(nombres) == 1 else "son"
+    return (
+        f" {quien[0].upper()}{quien[1:]} {verbo} de la lista L4 de la Orden "
+        "HAC/1028/2026, que solo rige en las facturas de la solución pública: "
+        "las que van en UBL y declaran en su identificador de especificación "
+        f"(BT-24) el de la orden, {cius_es.ESPECIFICACION}. En cualquier otra "
+        "rige la lista de la norma."
+    )
+
+
 def reglas(raiz, sintaxis: Sintaxis,
            de_mas: dict[str, frozenset[str]] | None = None) -> list[Incidencia]:
     """Las BR-CL sobre un documento ya parseado.
@@ -211,13 +247,15 @@ def reglas(raiz, sintaxis: Sintaxis,
             continue
         if ejemplo is None:
             ejemplo = sorted(valores)[0]
+        de_la_orden = [m for m in malos if m in _de_la_orden(cual)]
         incidencias.append(
             Incidencia(
                 codigo,
                 ERROR,
                 f"El código no es de {_NOMBRES[cual]}, que es la lista de la que "
                 "tiene que salir. Un código que no está en la lista no lo entiende "
-                "quien recibe la factura, aunque se lea bien.",
+                "quien recibe la factura, aunque se lea bien."
+                + (_de_donde_salen(de_la_orden) if de_la_orden else ""),
                 campo=que + (f" · {', '.join(lugares)}" if lugares else ""),
                 esperado=f"un código de {_NOMBRES[cual]}, como {ejemplo}",
                 encontrado=", ".join(m or "(vacío)" for m in malos),

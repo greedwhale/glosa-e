@@ -7460,3 +7460,39 @@ haya nada más. Se cambió por una que quita un trozo de la lista, y salió roja
 F fuera de la solución pública (decidido el 11-10-2026: la lista de la norma,
 y un mensaje que diga que el código es de la L4 de la orden); el README al
 día; y el paso 7, las reglas nuevas de la orden.
+
+### La N fuera de la solución pública: el mensaje decía «no es de UNCL 5305» y nada más
+
+**Lo que había.** El titular decidió el 11-10-2026 que la N, la D y la F, que
+la L4 de la orden trae y UNCL 5305 no, valen solo en las facturas que declaran
+la solución pública. Fuera de ella, `BR-CL-17` y `BR-CL-18` las dan por malas,
+y eso no cambia. Lo que faltaba era el porqué.
+
+**Reproducido** sobre `354b6bd`, con la factura de la orden en la N y en la D
+y el identificador cambiado a `urn:cen.eu:en16931:2026`: `BR-CL-17` y
+`BR-CL-18` en ERROR, con «El código no es de UNCL 5305, que es la lista de la
+que tiene que salir», y ni una palabra de la orden. Quien escribió la N la
+sacó de la orden, y lo que le falta es declarar la solución pública, no
+cambiar de código: el mensaje mandaba a buscar el fallo donde no está.
+
+**Lo que se hizo.** `listas_de_codigos` resta la L4 de la orden menos UNCL
+5305, y cuando un código que falla es de esa resta, la queja añade una frase:
+que es de la lista L4 de la Orden HAC/1028/2026, que solo rige en las facturas
+UBL que declaran en BT-24 el identificador de la orden (escrito entero), y que
+en cualquier otra rige la de la norma. Solo nombra los que son de la orden:
+con una X junto a la N, la queja lleva las dos y la frase solo la N. El
+glosario de las dos reglas lo dice también.
+
+La resta se hace en cada llamada y no junto a las listas: lo que hay debajo de
+la marca lo reescribe `herramientas/listas_de_codigos.py`. Y se hace en dos
+módulos, el de las listas y `solucion_publica`, así que hay prueba de que las
+dos dan `{N, D, F}`.
+
+**Lo que no se hizo, a propósito.** `IVA-CATEGORIA-RARA` sigue diciendo «no
+es una categoría de IVA de la norma» sin nombrar la orden: es verdad, va en
+AVISO, y la decisión era sobre las dos reglas que condenan.
+
+**Provocado.** Seis pruebas nuevas o ampliadas, las seis en rojo contra
+`354b6bd` y en verde con el arreglo. Y tres roturas del arreglo, las tres en
+rojo: la frase nombrando todo lo que falla (1), la resta en cualquier lista
+(1) y la frase sin el identificador (3).
