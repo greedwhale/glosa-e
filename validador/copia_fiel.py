@@ -145,7 +145,7 @@ en una fuente distinta y alguna todavía no tiene fuente:
    el albarán y la factura anterior. Es la única familia que se escribe
    sabiendo que casi nada llega: de las siete referencias que Facturae sabe
    llevar, el anexo **no recoge ninguna** —de `BT-11` a `BT-19` no hay ni una
-   en sus 104 términos—. Y aun así saca nota, por el hueco que queda libre:
+   en sus 104 términos, ni en los 116 de la orden—. Y aun así saca nota, por el hueco que queda libre:
    `BT-10` es la referencia del comprador, la de sus rutas internas, y quien
    meta ahí el pedido repite el fallo del medio de pago. Medido: 8 de 14 traen
    alguna, y las 8 dentro de la línea.
@@ -198,8 +198,11 @@ en dos filas: el periodo de facturación, que la orden recoge como el de la
 factura recapitulativa, y el porcentaje del cargo, que la orden recoge en la
 línea (`BT-143`, junto con su base, `BT-142`, para los impuestos y tasas de
 cada línea) y no en el documento (`BT-101`). Esa fila se partió en dos, y la
-tabla tiene desde entonces 98. Las demás filas se vuelven a mirar contra la
-orden en su propia tanda.
+tabla tiene desde entonces 98, que nombran 96 de los 116 términos europeos.
+Sin nombrar quedan los doce grupos (los once de antes y `BG-33`), `BT-154` y
+siete términos que la orden trae y el borrador no: `BT-30`, `BT-31`, `BT-47`,
+`BT-130`, `BT-142`, `BT-149` y `BT-167`. Esos, y las demás filas, se vuelven
+a mirar contra la orden en su propia tanda.
 
 Y esperan **los campos españoles del anexo**, **el lote** y las dos filas
 que están en `POR_DECIDIR`; eran tres hasta el 07-10-2026, y la de los

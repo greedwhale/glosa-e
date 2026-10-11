@@ -14,7 +14,7 @@ según el RD 238/2026.
 | `validador/en16931.py` | Campos obligatorios y cuadre aritmético, sobre UBL, CII y EDIFACT | Terminado |
 | `validador/iva.py` | El desglose de IVA: bases, cuotas, categorías y exenciones | Terminado |
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
-| `validador/solucion_publica.py` | El anexo I: lo que la solución pública pide a una factura UBL que declara su CIUS | Sobre el borrador, con la primera tanda de la orden publicada el 05-10-2026 |
+| `validador/solucion_publica.py` | El anexo I: lo que la solución pública pide a una factura UBL que declara su CIUS | Sobre la orden publicada el 05-10-2026; sus reglas nuevas, todavía no |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
 | `validador/cifras.py` | Cómo se escriben cifras y fechas en lo que lee una persona: coma decimal, miles, «Tiene» tal cual y dd-mm-aaaa | Terminado |
 | `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
@@ -530,8 +530,9 @@ Lo que no se hace es tan importante como lo que sí:
   la factura anulada, con su número, su fecha y el NIF y el nombre del
   vendedor. Hasta ese día no lo estaba (ver «El anexo cambió antes que el
   texto»). Medirlo es una regla nueva, y las reglas nuevas de la orden van en
-  la tanda siguiente; hasta entonces, reconocerlo como respuesta no es saber si
-  un documento concreto es el mensaje de anulación, ni qué exige.
+  su propia tanda, todavía sin hacer; hasta entonces, reconocerlo como
+  respuesta no es saber si un documento concreto es el mensaje de anulación,
+  ni qué exige.
 - **Sin esquema, no es «correcta».** La forma es lo que se le comprueba a una
   respuesta, así que sin un `UBL-ApplicationResponse-*.xsd` que compile sale
   **SIN COMPROBAR** con código de salida 1, no «correcto» con 0, aunque traiga
@@ -555,7 +556,7 @@ Lo que no se hace es tan importante como lo que sí:
   esquemas). La línea del informe dice «v2.1» y no dice con qué esquema se
   midió. Con las facturas pasa lo mismo de la 2.2 a la 2.4; con las respuestas
   es el caso de todos los días.
-- **Aunque declare el CIUS de la solución pública**, no recibe `SPFE-BORRADOR`
+- **Aunque declare el CIUS de la solución pública**, no recibe `SPFE-ALCANCE`
   ni ninguna otra nota: el anexo I no se le pasa, y lo dice la columna del
   contenido. A una factura que lo declara sí se le pone, porque a ella sí se le
   mide.
@@ -3605,14 +3606,14 @@ mínimo del Anexo I»*. Ese anexo, el borrador de abril, define un CIUS español
 propio, `urn:aeat.es:CIUS-ES-SPFE:1.0.0`, sobre la edición de 2026 de la norma.
 
 **Lo que se cuenta de aquí a «Que no cambie en silencio» es, sobre todo, la
-lectura de ese borrador**, que es de donde sale todavía
-`validador/cius_es.py`. El anexo que rige desde el 06-10-2026 es el de la
-Orden HAC/1028/2026, publicada en el BOE el 05-10-2026: declara otro
-identificador,
+lectura de ese borrador**, que es de donde salió `validador/cius_es.py` hasta
+el 11-10-2026. El anexo que rige desde el 06-10-2026 es el de la Orden
+HAC/1028/2026, publicada en el BOE el 05-10-2026: declara otro identificador,
 `urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, numera
 de otra manera sus campos españoles y ya no da grupo propio al recargo de
-equivalencia ni al grupo de entidades. Qué se ha puesto al día y qué no, en «La
-orden en el BOE, y la primera tanda».
+equivalencia ni al grupo de entidades. Desde el 11-10-2026 `cius_es` sale del
+XML del BOE y las reglas miden la orden: en «La orden en el BOE» y «La segunda
+tanda», más abajo.
 
 Lo que trae el borrador, contado: **174 filas, 155 identificadores distintos y
 once listas de códigos**, de los cuales **52 son campos que la EN 16931 no
@@ -3620,11 +3621,12 @@ tiene** —el recargo de equivalencia, las retenciones, los suplidos, las
 minoraciones, el régimen de grupo de entidades a nivel avanzado y el QR
 fiscal—. Y no se publica como esquema ni como esquematrón: se publica como una
 tabla dentro de un PDF. La orden tampoco trae esquema ni esquematrón, pero su
-tabla viene también en el XML del BOE, que se lee sin coordenadas.
+tabla viene también en el XML del BOE, que se lee sin coordenadas: 176 filas,
+149 identificadores distintos y catorce listas.
 
-Así que se lee el PDF. `herramientas/anexo_i.py` lo saca a
-`validador/cius_es.py`, y no por columnas de texto sino por las coordenadas de
-cada pieza, porque las columnas de texto mienten: `BT-179` sale partido en dos
+Así que se leía el PDF, hasta el 11-10-2026: `herramientas/anexo_i.py` lo
+sacaba a `validador/cius_es.py`, y no por columnas de texto sino por las
+coordenadas de cada pieza, porque las columnas de texto mienten: `BT-179` sale partido en dos
 renglones y el `21` de `BT-ES-21` aparece dentro de la columna del término. Un
 parser que se fíe de eso da 174 filas plausibles y equivocadas.
 
@@ -3779,26 +3781,32 @@ Era un borrador cuando se escribió esto, y la AEAT había dicho que el anexo
 *«se alineará plenamente»* con UBL 2.5; la orden salió en el BOE el 05-10-2026,
 con el anexo cambiado (ver «La orden en el BOE», más abajo). Una tabla generada
 de una fuente que se mueve es justo lo que en este repositorio se rompe sin
-avisar, así que hay dos guardianes, los dos provocados: la **huella SHA-256 del
-PDF** va
-declarada en el módulo generado y una prueba la comprueba, y otra vuelve a
-extraer y exige que salga exactamente lo mismo, por si alguien toca el
-extractor y la tabla se queda vieja.
+avisar, así que hay dos guardianes, los dos provocados: la **huella SHA-256 de
+la fuente** (el PDF de abril hasta el 11-10-2026, el XML del BOE desde
+entonces) va declarada en el módulo generado y una prueba la comprueba, y otra
+vuelve a extraer y exige que salga exactamente lo mismo, por si alguien toca el
+extractor y la tabla se queda vieja. Con el XML compara cada fila entera y
+cada lista con sus descripciones: una frase cambiada en una fila la pone en
+rojo (provocado el 11-10-2026).
 
-El PDF no se versiona —es de Hacienda y pesa un mega—; se baja a `anexos/` y
-sin él las dos pruebas se saltan diciendo por qué.
+Ni el PDF ni el XML se versionan, porque son de Hacienda. El XML se baja a
+`anexos/orden-hac-1028-2026.xml`, y sin él las dos pruebas se saltan diciendo
+por qué; en GitHub no está, y allí se saltan.
 
 ### Las reglas del anexo, y a quién se le aplican
 
 Leído el anexo, `validador/solucion_publica.py` le pide a la factura lo que el
-anexo pide. **24 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
+anexo pide. **22 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
 I» en el informe, que no es la del real decreto: es el anexo de la Orden
-HAC/1028/2026. Hasta el 07-10-2026 decía «Anexo I (borrador)».
+HAC/1028/2026. Hasta el 07-10-2026 decía «Anexo I (borrador)», y hasta el
+11-10-2026 eran 24 y medían en buena parte el borrador de abril (en «La
+segunda tanda», más abajo).
 
-**Solo a las facturas UBL que declaran el CIUS** en su `CustomizationID`, o,
-desde el 05-10-2026, el identificador del ejemplo que la AEAT mandó por
-correo el 02-10-2026, que es letra a letra el de la orden publicada ese mismo
-día (ver «El ejemplo del 02-10-2026», más abajo). El
+**Solo a las facturas UBL que declaran la solución pública** en su
+`CustomizationID`: con el identificador de la orden, o con el CIUS del
+borrador de abril, que se reconoce para decir en ERROR que ya no vale. Otro
+identificador que nombre a la AEAT (`urn:aeat.es:`) recibe un AVISO,
+`SPFE-ESPECIFICACION`, que dice que el anexo no se ha comprobado. El
 anexo describe los campos en UBL y en nada más, y a qué corresponden en
 Facturae, CII o EDIFACT no lo publica nadie —la Agencia contestó el 17-09-2026
 que no le toca a ella, como se cuenta más abajo—: aplicarlo a otra sintaxis
@@ -3813,29 +3821,31 @@ Lo que se comprueba:
 
 | Qué | Códigos |
 |---|---|
-| La cabecera: el valor entero de `BT-24`, el proceso `B2B`, el tipo de factura de L1 y el euro como moneda del IVA; y, en notas, la factura sin indicador de copia y el importe pagado | `SPFE-ESPECIFICACION`, `-PROCESO`, `-TIPO-DE-FACTURA`, `-MONEDA-DEL-IVA`, `-COPIA`, `-IMPORTE-PAGADO` |
-| Los datos de la rectificativa en toda 384 y 471: los `BG-24` `RECT:TIPO` y `RECT:MODALIDAD` de la orden, con su valor de L2.A y L2.B, o la extensión de abril, que todavía se acepta, con su identificador | `SPFE-RECTIFICATIVA` |
-| Las partes: el NIF de las dos en un esquema «VAT» o en uno «LOC» con «FC», la dirección entera cuando está en España, y el tercero que expide la factura | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
+| La cabecera: el identificador de la orden en `BT-24`, su proceso `B2B` en `BT-23`, el tipo de factura de L1 y el euro como moneda del IVA; y, en notas, la factura sin indicador de copia, el importe pagado y el proceso del ejemplo del 02-10-2026 | `SPFE-ESPECIFICACION`, `-PROCESO`, `-TIPO-DE-FACTURA`, `-MONEDA-DEL-IVA`, `-COPIA`, `-IMPORTE-PAGADO` |
+| Los datos de la rectificativa en toda 384 y 471: un `BG-24` `RECT:TIPO` y uno `RECT:MODALIDAD`, con su código en `cbc:DocumentTypeCode`, de L2.A y L2.B; y, si los lleva, hasta cinco `RECT:IMPORTES`, cada uno con su código de L2.C y su importe | `SPFE-RECTIFICATIVA` |
+| Las partes: el NIF de las dos en un esquema «VAT» o en uno «LOC» con «FC», la dirección entera cuando está en España, y el tercero que expide la factura, con su razón social, su NIF y su tipología | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
 | Lo que la norma deja opcional y el anexo no: la fecha de la factura referenciada y el motivo en texto de descuentos y cargos | `SPFE-FACTURA-REFERENCIADA`, `-MOTIVO` |
-| El IVA: «VAT» en todos los esquemas y la categoría de L4, sin `K` ni `B`; la `N`, la `D` y la `F` de la orden, en una nota | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA` |
-| Cada línea: una o dos claves de régimen en la lista de su impuesto, y como mucho una referencia catastral con su situación de L6 | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL` |
-| Las líneas de cobro: la lista L7, la de la orden y todavía la de abril; las retenciones con su concepto de L5; el recargo de equivalencia y el grupo de entidades como los escribe el borrador, que la orden ya no tiene; y el QR fiscal | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-RECARGO-DE-EQUIVALENCIA`, `-GRUPO-DE-ENTIDADES`, `-QR` |
+| El IVA: «VAT» en los descuentos y cargos, las líneas y el desglose, y la categoría de L4, sin `K` ni `B`; la `N`, la `D` y la `F` de la orden, en una nota | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA` |
+| Cada línea: una o dos claves de régimen en la lista de su impuesto (la L3A de la orden ya no tiene la 18, la 19 ni la 20), y como mucho una referencia catastral con su situación de L6 | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL` |
+| Las líneas de cobro: un valor de la L7 de la orden, con su calificador o sin él, y un solo grupo de retenciones; las retenciones con su suma, su línea de cobro y su concepto de L5; y el QR fiscal, uno como mucho, con su dirección y, si lleva descripción, VERIFACTU o TICKETBAI | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-QR` |
 
-Y dos notas: `SPFE-BORRADOR`, que sale en cada factura que se mide con el
-anexo y dice con qué se ha medido —la orden, y en buena parte todavía el
-borrador de abril—, porque que no salga ninguna queja no quiere decir que
-cumpla la orden; y `SPFE-TOTAL-A-PAGAR`, que sale cuando hay líneas de cobro y
-es lo que sigue.
+Y dos notas: `SPFE-ALCANCE`, que sale en cada factura que se mide con el
+anexo y dice con qué se ha medido y las ocho cosas que la orden pide y aquí
+todavía no se miden (`LO_QUE_TODAVIA_NO_SE_MIDE`, que el glosario copia letra
+a letra), porque que no salga ninguna queja no quiere decir que cumpla la
+orden; y `SPFE-TOTAL-A-PAGAR`, que sale cuando hay líneas de cobro y es lo que
+sigue.
 
 **Una regla europea que daba por mala una factura bien hecha.** El anexo dice
 que el total a pagar suma «los importes correspondientes a los conceptos
 BT-179» junto con el total con IVA. En la orden, `BT-179` es el importe de
 cada grupo `BG-34`: los suplidos (`SUPL`), los impuestos y tasas cobrados en
 nombre de un tercero, como el IEDMT (`IEDMT` y `OTROS`), las minoraciones
-(`MINO`) y las retenciones (`RETE`). Aparte quedan las dos líneas del borrador
-de abril que todavía se aceptan y la orden ya no tiene: el recargo de
-equivalencia (`REEQ`) y el grupo de entidades (`REGE`). Hasta el 07-10-2026
-esta lista era la del borrador: suplidos, minoraciones, recargo y retenciones.
+(`MINO`) y las retenciones (`RETE`). Hasta el 07-10-2026 esta lista era la
+del borrador: suplidos, minoraciones, recargo y retenciones; y hasta el
+11-10-2026 se aceptaban además las dos líneas de abril que la orden ya no
+tiene, el recargo de equivalencia (`REEQ`) y el grupo de entidades (`REGE`),
+que ahora son ERROR.
 BR-CO-16, que es de la edición de 2017, no conoce esos importes: medido el
 14-09-2026, una
 factura del CIUS con un suplido de 50 euros sumado como manda el anexo salía
@@ -3865,25 +3875,31 @@ otras cosas: el importe y la descripción de los cobros (`BT-179`, `BT-180`),
 que la orden tampoco ubica, y todo lo que depende de ellos; la restricción de
 `BT-195` a VATEX-EU y VATEX-ES; que la tipología del tercero sea
 «FacturaciónPorTercero» —«ThirdPartyInvoicing» en el borrador—, obligatoria en
-un caso que no se ve en el documento; y lo que son reglas nuevas de la orden,
-como el número de la autorización de facturación o que la descripción del QR,
-si la lleva, sea «VERIFACTU» o «TICKETBAI».
+un caso que no se ve en el documento. Lo que la orden pide y aquí todavía no
+se mide, aunque se podría, no va ahí sino en `LO_QUE_TODAVIA_NO_SE_MIDE`: la
+fecha efectiva de pago, el número de la autorización de facturación, los
+impuestos y tasas que no son el IVA, los códigos de exención y cuatro cosas
+más, que la nota `SPFE-ALCANCE` dice en cada factura.
 
 **No hay facturas de verdad con las que medir.** La solución pública no está en
 marcha y en el corpus hay cero documentos que declaren el CIUS. Las pruebas
-van sobre dos facturas escritas a mano —una ordinaria con todos los grupos
-españoles y una rectificativa—, que pasan **el validador entero** sin un error:
-forma contra UBL 2.5, norma europea, código único y anexo. De ahí se rompe cada
-regla. Y provocado: 37 roturas del módulo, de su cableado y de la frase de
-alcance, las 37 en rojo.
+van sobre una factura escrita al pie de la letra de la orden y veinte
+variantes (la rectificativa, el tercero, los cobros, las categorías `N`, `D` y
+`F`, la autorización), que pasan **el validador entero** sin un error ni un
+aviso: forma contra UBL 2.5, norma europea, código único y anexo. De ahí se
+rompe cada regla. Hasta el 11-10-2026 la de partida era una escrita con el
+borrador de abril; lo que solo decía el borrador se prueba ahora aparte, para
+ver que sale en ERROR. Provocado al escribir el módulo: 37 roturas, las 37 en
+rojo; al ponerlo al texto de la orden, trece más (en HALLAZGOS).
 
 **La frase de alcance lo dice, y solo cuando toca.** «Sin errores» en una
 factura del CIUS quiere decir también algo del anexo, así que la línea del
 informe que dice qué se ha mirado lo añade cuando en el lote hay una factura
-que lo declara: «lo que se puede comprobar en UBL», no el anexo entero, y
-entre paréntesis «medido en parte todavía con el borrador de abril». Hasta el
+que lo declara: «parte de» lo que el anexo pide, «lo que se puede comprobar en
+UBL», y que lo que todavía no se mide lo dice la nota `SPFE-ALCANCE`. Hasta el
 07-10-2026 decía «el borrador del anexo I», y «sin errores» quería decir que
-cumplía el borrador. En un lote sin ninguna no lo dice.
+cumplía el borrador; hasta el 11-10-2026, que se medía lo que ya pedía el
+borrador. En un lote sin ninguna no lo dice.
 
 ### Lo que contestó la Agencia, y lo que dejó abierto
 
@@ -3910,10 +3926,10 @@ El día que se mida una copia fiel, que le falte un concepto del original no
 puede ser un error: la propia Agencia dice que se puede omitir. Y tampoco puede
 serlo un dato que viaje en una extensión.
 
-**Y los documentos del portal son el contraste que hoy no existe.** Las 24
-reglas `SPFE-` salen todavía, en buena parte, de leer una tabla de un borrador
-—desde el 07-10-2026, con lo que la orden ya admite encima—, y la orden es otra
-tabla que leer, no algo con qué compararlas. Cuando se publiquen esos
+**Y los documentos del portal son el contraste que hoy no existe.** Las
+reglas `SPFE-` salen de leer una tabla, la de la orden desde el 11-10-2026
+(hasta entonces, en buena parte, la de un borrador), y una tabla que se lee no
+es algo con qué comparar lo leído. Cuando se publiquen esos
 documentos habrá por fin con qué, y cubren justo lo español. Por eso el portal
 de desarrolladores entra en la vigilancia mensual de las fuentes.
 
@@ -3969,14 +3985,14 @@ Lo anunciado, y a qué regla le da:
 
 | Novedad del 10-09-2026 | Qué pasa aquí hoy |
 |---|---|
-| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | **Confirmado por escrito el 22-09-2026**. L10 entera —`QR`, `AUT`, `RECT:TIPO`, `RECT:MODALIDAD`, `RECT:IMPORTES`— la repitió el correo del **23**, pero ya estaba en la diapositiva 8 de este seminario, como imagen, y no se vio hasta el 05-10-2026. `SPFE-RECTIFICATIVA` ya no exige la extensión y **reconoce** los calificadores: dice cuáles hay y cuál falta, en una NOTA. Desde el ejemplo del **02-10-2026** comprueba también el **valor**, en `cbc:DocumentTypeCode`, y avisa del que no está en su L2 (ver «El ejemplo del 02-10-2026», abajo). La orden lo confirma: no tiene extensión de rectificativas, y la extensión de abril todavía se acepta |
+| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | **Confirmado por escrito el 22-09-2026**. L10 entera —`QR`, `AUT`, `RECT:TIPO`, `RECT:MODALIDAD`, `RECT:IMPORTES`— la repitió el correo del **23**, pero ya estaba en la diapositiva 8 de este seminario, como imagen, y no se vio hasta el 05-10-2026. `SPFE-RECTIFICATIVA` ya no exige la extensión y **reconoce** los calificadores: dice cuáles hay y cuál falta, en una NOTA. Desde el ejemplo del **02-10-2026** comprueba también el **valor**, en `cbc:DocumentTypeCode`, y avisa del que no está en su L2 (ver «El ejemplo del 02-10-2026», abajo). La orden lo confirma: no tiene extensión de rectificativas. Desde el 11-10-2026 todo esto sale en ERROR, y la extensión de abril ya no cuenta |
 | El indicador de copia pasa a `0..1` | Confirmado por la orden. Desde el 07-10-2026, `SPFE-COPIA` es una NOTA |
 | El **389** para la factura expedida por el destinatario, junto al 471: «La expedición de facturas por el destinatario o por tercero está plenamente contemplada en el Anexo I» | No es nuevo: la L1 de abril ya lo trae, y aquí se escribió que entraba. La de la orden es la misma, `380, 384, 388, 389, 471`, y `SPFE-TIPO-DE-FACTURA` mide con ella |
 | El NIF del vendedor va en `BT-31` o en `BT-32`, este con esquema «LOC» y `@schemeID` «FC» | Confirmado por la orden. Desde el 07-10-2026, `SPFE-NIF` admite las dos formas |
 | L4 gana las categorías de la EN 16931:2026, entre ellas la `N`; y se han pedido códigos VATEX propios de España | La L4 de la orden trae la `N`, la `D` y la `F`. Desde el 07-10-2026 se aceptan en las facturas de la solución pública, con una NOTA |
-| L3A se recorta: fuera el simplificado, el recargo de equivalencia y el de agricultura, ganadería y pesca | Confirmado por la orden: sin la 18, la 19 ni la 20. `SPFE-CLAVE-DE-REGIMEN` las sigue admitiendo hasta la tanda que pone las reglas al texto |
+| L3A se recorta: fuera el simplificado, el recargo de equivalencia y el de agricultura, ganadería y pesca | Confirmado por la orden: sin la 18, la 19 ni la 20. `SPFE-CLAVE-DE-REGIMEN` las dio por buenas hasta el 11-10-2026; desde entonces, ERROR |
 | `BG-34` (`BT-179`, `BT-180`) se usa para el IEDMT | Confirmado por la orden: el grupo «IMPUESTOS Y TASAS», con `IEDMT` u `OTROS` en `cac:CollectionInvoiceLine/cbc:ID`. Desde el 07-10-2026, `SPFE-LINEA-DE-COBRO` acepta los dos. `BT-179` y `BT-180` siguen en `NO_SE_COMPRUEBA`: son términos de la edición de 2026 y la orden tampoco les da ruta UBL |
-| Mensaje de anulación de factura, un `ApplicationResponse` de UBL | Documento nuevo. Desde el 29-09-2026 **se reconoce y se le mide la forma y la firma**. Su contenido está publicado desde el 05-10-2026, en el anexo I de la orden, pero medirlo es una regla nueva y va en la tanda siguiente (ver «Las respuestas: `ApplicationResponse`») |
+| Mensaje de anulación de factura, un `ApplicationResponse` de UBL | Documento nuevo. Desde el 29-09-2026 **se reconoce y se le mide la forma y la firma**. Su contenido está publicado desde el 05-10-2026, en el anexo I de la orden, pero medirlo es una regla nueva, todavía sin escribir (ver «Las respuestas: `ApplicationResponse`») |
 
 **No se tocó ni una regla, y fue a propósito.** Unas transparencias no son
 un texto normativo: dicen qué va a cambiar, no cómo queda redactado. Reescribir
@@ -3984,10 +4000,12 @@ un texto normativo: dicen qué va a cambiar, no cómo queda redactado. Reescribi
 que sí se hizo fue **decirlo donde se ve**: la NOTA `SPFE-BORRADOR` que lleva
 cada factura medida decía, hasta el 07-10-2026, que el anexo cambió el
 10-09-2026 y que el texto no estaba publicado, así que alguna regla podía
-haber quedado vieja; desde ese día dice que el anexo es el de la orden y qué
-se ha puesto ya al día. Y la lista de arriba vive también en la cabecera de
-`validador/solucion_publica.py`: es la lista de lo que había que revisar el
-día que saliera el texto, y salió.
+haber quedado vieja; desde ese día dijo que el anexo es el de la orden y qué
+se había puesto ya al día, y desde el 11-10-2026 se llama `SPFE-ALCANCE` y
+dice qué de la orden falta por medir. La lista de arriba vivió también en la
+cabecera de `validador/solucion_publica.py`, como lo que había que revisar el
+día que saliera el texto. Salió, se revisó, y la cabecera cuenta ahora qué
+cambió en cada paso.
 
 **Y una cosa que la tercera presentación deja escrita.** La técnica, del
 Departamento de Informática Tributaria, dice contra qué valida la solución
@@ -4078,9 +4096,12 @@ Antes salían limpios porque no se miraban, no porque estuvieran bien.
 **Lo que no se hizo.** Un ejemplo no es el BOE, así que lo que enseñaba entró
 como NOTA o AVISO. El texto salió en el BOE el 05-10-2026, y la negativa de L10
 de `solucion_publica.py` salta el día que se regenere `cius_es` desde su XML,
-que trae L10: es la tanda siguiente. Ese día el módulo no se deja importar
+que trae L10: es la tanda siguiente. Ese día el módulo no se dejaría importar
 hasta confirmar el sitio del valor, exigir los importes cuando la modalidad es
-S y pasar a ERROR lo que hoy no lo es. Tampoco se resuelve la regla UBL-SR-43
+S y pasar a ERROR lo que entonces no lo era. Se hizo el 11-10-2026: el sitio
+del valor sale de las filas de la orden, lo que era NOTA o AVISO es ERROR, y
+la modalidad S sin importes quedó en NOTA, porque la orden solo los prevé si
+se optó por una única factura. Tampoco se resuelve la regla UBL-SR-43
 del esquematrón de sintaxis de CEN, de la vinculación de 2017 y de nivel
 fatal, que en un `AdditionalDocumentReference` solo admite el código 130 (o el
 50 en un abono): `R1` y `S` la incumplen. Aquí no se cargan esas reglas, y si
@@ -4088,8 +4109,8 @@ la vinculación de 2026 la mantiene no se sabe; eso queda por preguntar. Las
 otras dos cosas que quedaban las contesta la orden. Los importes rectificados,
 que el ejemplo no enseñaba —es una S—: cada uno en su `BG-24`
 `RECT:IMPORTES`, con el importe en `BT-123`, como texto, y su código de L2.C
-(`Base`, `Cuota`, `CuotaRecargo`) en `cbc:DocumentTypeCode`; leerlos es de la
-tanda siguiente. Y si L7 pierde también el `ubl:`: sí, su calificador es
+(`Base`, `Cuota`, `CuotaRecargo`) en `cbc:DocumentTypeCode`. Se leen desde el
+11-10-2026. Y si L7 pierde también el `ubl:`: sí, su calificador es
 `urn:aeat:names:specification:schema:add:`.
 
 **Y una lección de proceso.** La L10 sin `ubl:` ya estaba en la diapositiva 8
@@ -4133,6 +4154,11 @@ dos avisos de IVA.
 | El registro del comprador (`BT-47`) en un `cac:PartyTaxScheme` con «LOC» y «FC», que es donde lo pone la fila de la orden | `BR-AE-02`, ERROR, en una inversión del sujeto pasivo | Cuenta, en la solución pública. Fuera de ella, `BT-47` es el de la vinculación de 2017 |
 | El calificador de L10 a secas, `QR`, `AUT`, `RECT:TIPO` | No se reconocía: un QR así no se miraba | Se reconoce, como en L7 y L8 |
 | La referencia catastral con el calificador de L8, `…:lin:RCAT` | No se leía: una situación fuera de L6 pasaba | Se lee, como la clave de régimen |
+
+Esta tabla es la del 07-10-2026. La segunda tanda, el 11-10-2026, quitó lo que
+la columna «Ahora» todavía aceptaba de abril (la L7 de abril y el nombre del
+tercero en `cac:PartyName`) y la nota de la que habla el párrafo siguiente, que
+pasó a ser `SPFE-ALCANCE`.
 
 La nota `SPFE-BORRADOR` ya no dice que el anexo no está publicado: dice que es
 el de la orden, que aquí se mide todavía en buena parte con el borrador de
@@ -4223,6 +4249,65 @@ especificación de abril— y medir sus reglas nuevas. Las dos cosas piden
 regenerar `cius_es` desde el XML del BOE y poner cada regla al texto, y van en
 la tanda siguiente. Hasta entonces, la nota lo dice en cada factura.
 
+### La segunda tanda: las reglas, al texto de la orden
+
+El 11-10-2026 `cius_es` se regeneró del XML del BOE, con
+`herramientas/anexo_i.py` reescrito para leer la tabla del XML en vez de las
+coordenadas del PDF: 176 filas, 149 identificadores distintos, 39 grupos y
+catorce listas. No trae la tabla del mensaje de anulación ni el anexo II, que
+son de las reglas nuevas. Las rutas de los campos españoles
+(`RUTAS_CIUS_ES`) salen de ahí, con sus arreglos a la vista.
+
+Medido antes de tocar nada, sobre `5d4f135`: una factura escrita con el
+borrador de abril (su identificador, su proceso, la URN de abril en la
+retención y en el QR, y la clave 18 del IVA) pasaba el validador entero **sin
+un error**. Con las reglas al texto de la orden, sale con cinco.
+
+| Lo que cambió | En `5d4f135` | Ahora |
+|---|---|---|
+| El identificador de especificación del borrador | Era el que se pedía, y el de la orden se aceptaba como «el del ejemplo» | ERROR, que dice que es el de abril; vale el de la orden |
+| El proceso del borrador, `urn:aeat:names:specification:ubl:schema:B2B` | Se aceptaba | ERROR |
+| Las claves 18, 19 y 20 en el IVA | Se aceptaban | ERROR: la L3A de la orden no las tiene |
+| Las líneas de cobro `REEQ` y `REGE` | Se medían con sus reglas, `SPFE-RECARGO-DE-EQUIVALENCIA` y `SPFE-GRUPO-DE-ENTIDADES` | ERROR en `SPFE-LINEA-DE-COBRO`, que dice que eran del borrador: la orden pone los dos regímenes en el desglose, con la `N`. Las dos reglas desaparecen |
+| La 384 con un tipo de rectificativa fuera de L2.A | AVISO | ERROR. La extensión de rectificativas de abril ya no cuenta |
+| La rectificativa bien escrita | NOTA | Nada |
+| El QR con una descripción que no es VERIFACTU ni TICKETBAI | Se aceptaba | ERROR |
+| El QR con la URN de abril | Era el QR | No es el QR de la orden. Como el QR es `0..1`, no llevarlo no es un fallo |
+| El nombre del tercero en `cac:PartyName` | Se aceptaba | ERROR: la orden lo pone en la razón social |
+| La nota de cada factura | `SPFE-BORRADOR`: medida en buena parte con el borrador, y la lista de lo ya admitido | `SPFE-ALCANCE`: la orden, y las ocho cosas que todavía no se miden |
+
+**Lo que todavía no se mide**, y es el paso siguiente: la fecha efectiva de
+pago (`BT-ES-2`); el registro legal del vendedor cuando su NIF va con «LOC»
+(`BT-30`); el prefijo ES del NIF-IVA del vendedor (`BT-31`); el tipo de cada
+entrada del desglose (`BT-119`); los impuestos y tasas que no son el IVA, con
+su lista L9; el número de la autorización de facturación (`BT-ES-26`); la
+información adicional de cada línea (`INFO` de L8); y los códigos de
+exención, que solo pueden ser VATEX-EU o VATEX-ES. Fuera de esa lista, porque
+no son de la factura, el mensaje de anulación y los del anexo II.
+
+**La `N`, la `D` y la `F` fuera de la solución pública.** Lo decidió el
+titular el 11-10-2026: fuera de ella rige la lista de la norma, y `BR-CL-17` y
+`BR-CL-18` las siguen dando por malas. Pero decían «no es de UNCL 5305» y nada
+más, y quien escribió la `N` la sacó de la orden: ahora la queja añade que es
+de la L4 de la orden, que solo rige en las facturas UBL que declaran en `BT-24`
+el identificador de la orden, y lo escribe entero. Solo nombra los códigos que
+son de la orden: una `X` junto a la `N` sale en la misma queja, sin la frase.
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- **El QR con la URN de abril no es el QR**: ni se le pide la dirección ni
+  cuenta para estar repetido. La factura escrita con abril ya sale con su
+  identificador en ERROR, y decirle además que su QR no tiene dirección sería
+  medirle con el borrador.
+- **Lo que no se mide va en la nota, y no en un AVISO.** No son fallos de la
+  factura sino límites del validador, y un AVISO en cada factura de la
+  solución pública diría lo contrario.
+- **El calificador de L10 delante o sin él**, como los de L7 y L8: la orden da
+  el valor en la fila y el calificador en la lista, sin decir cómo se juntan.
+  Está entre lo preguntado al buzón el 07-10-2026.
+
+El detalle de lo medido y las trece roturas provocadas, en HALLAZGOS.
+
 ### La consulta del 07-10-2026, todavía sin respuesta
 
 Con la orden publicada se le escribió otra vez al buzón el **07-10-2026**. Cada
@@ -4236,7 +4321,7 @@ está recogido. Lo que se preguntó, y qué cambia aquí con cada respuesta:
 | La ruta del mensaje de anulación del anexo I (`CANCELINVOICE`; la tabla se titula «Mensaje de anulación» y los artículos 3.5 y 5 lo llaman «mensaje de baja») | Toda la factura anulada cuelga de `cac:Response/cac:DocumentReference`, y en UBL 2.5 `cac:Response` no lo admite, mientras que `cac:DocumentResponse` lo exige: al pie de la letra, el esquema la rechaza. Los ocho mensajes del anexo II cuelgan lo mismo de `cac:DocumentResponse/cac:DocumentReference` | La regla que mida la anulación, que es nueva y va en la tanda de las reglas nuevas |
 | Dónde va el nombre del vendedor en esa misma anulación | `cac:PartyLegalEntity` no puede ir dentro de `cac:PartyTaxScheme`, y caben dos rutas válidas: `cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName`, la del anexo II, y `cac:IssuerParty/cac:PartyTaxScheme/cbc:RegistrationName` | Lo mismo. Mientras no se sepa, no se puede dar por mala ninguna de las dos |
 | Qué `cac:TaxScheme/cbc:ID` lleva el NIF del vendedor en los nueve mensajes de estado —la anulación y los ocho del anexo II—, y si va con «ES» | Va en `cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID`; `cac:PartyTaxScheme` exige `cac:TaxScheme` y ninguna fila lo da: sin él, el esquema rechaza los nueve | La medida de los mensajes del anexo II |
-| Si en `BT-ES-8` va la suma de las cuotas | La fila pide el mismo importe en `cac:AllowanceCharge/cac:TaxTotal/cbc:TaxAmount` y en su `cac:TaxSubtotal`, y `BG-ES-2` es `0..n` dentro de cada cargo; `cac:AllowanceCharge` admite un solo `cac:TaxTotal` con un solo `cbc:TaxAmount`. Con dos impuestos en el mismo cargo no se puede cumplir | Lo que se mida de esos cargos al poner las reglas al texto |
+| Si en `BT-ES-8` va la suma de las cuotas | La fila pide el mismo importe en `cac:AllowanceCharge/cac:TaxTotal/cbc:TaxAmount` y en su `cac:TaxSubtotal`, y `BG-ES-2` es `0..n` dentro de cada cargo; `cac:AllowanceCharge` admite un solo `cac:TaxTotal` con un solo `cbc:TaxAmount`. Con dos impuestos en el mismo cargo no se puede cumplir | Lo que se mida de esos cargos cuando se midan los impuestos y tasas, que es de las reglas nuevas |
 | El `ProfileID`: el de `BT-23`, con `ubl:`, o el del ejemplo del 02-10-2026, sin él | `BT-23` es el único sitio del XML con `specification:ubl:schema:`; los calificadores de L7, L8 y L10 van sin `ubl:`. El `CustomizationID` del ejemplo sí es el de la orden | `SPFE-PROCESO`, que hoy acepta el de la orden y deja el del ejemplo en NOTA |
 | Si el servicio de validación de PRE pedirá certificado | El artículo 11.1 lo exige para «la utilización de la solución pública», y la orden no nombra ningún entorno de pruebas ni servicio de validación aparte del envío | Si PRE puede servir aquí de contraste sin certificado |
 | El formato del código único | El artículo 6 lo remite al anexo I, y el anexo I no lo trae: ni orden, ni separador, ni formato de fecha, ni qué NIF —`BT-31` con «ES» o `BT-32` sin él—, ni si serie y número son el `cbc:ID` entero. El título del artículo habla de su «inserción en la sintaxis de la factura», y no hay campo para él | `codigo_unico.py` y sus reglas `CU-`, que suponen lo de VeriFactu: serie y número pegados sin separador y un tope de 60 caracteres |
@@ -4461,13 +4546,16 @@ unidad de su línea, su medio de pago y su moneda del IVA— y sigue saliendo
 conforme, porque ninguna es un error.
 
 **La tabla se escribe entera, con el porqué de cada fila**, en
-`CORRESPONDENCIAS`: **97 conceptos** que nombran **92 de los 104 términos
-europeos** del anexo de abril, que es el que trae todavía `cius_es`, cada uno
-con lo que le pasa y de dónde sale esa decisión.
-Los 12 que quedan sin nombrar no son un hueco: son **los grupos** —los
-contenedores, `BG-4` a `BG-9`, `BG-22`, `BG-25`, `BG-29` a `BG-31`— y
-`BT-154`, que la tercera familia deja vacío a propósito. Todo lo que lleva un
-dato tiene su fila. Los estados son nueve, y los cuatro que fueron añadiéndose
+`CORRESPONDENCIAS`: **98 conceptos** que nombran **96 de los 116 términos
+europeos** de la orden, cada uno con lo que le pasa y de dónde sale esa
+decisión. Hasta el 11-10-2026, con el anexo de abril, eran 97 que nombraban 92
+de 104. De los 20 que quedan sin nombrar, trece no son un hueco: son **los
+grupos**, contenedores (`BG-4` a `BG-9`, `BG-22`, `BG-25`, `BG-29` a `BG-31` y
+`BG-33`), y `BT-154`, que la tercera familia deja vacío a propósito. Los otros
+siete sí lo son: términos que la orden trae y el borrador no, y que la tabla
+todavía no mira (`BT-30`, `BT-31`, `BT-47`, `BT-130`, `BT-142`, `BT-149` y
+`BT-167`). La fila de la unidad de medida, por ejemplo, apunta todavía a
+`BT-129`, la cantidad, porque abril no tenía `BT-130`. Los estados son nueve, y los cuatro que fueron añadiéndose
 familia a familia son los que no se pueden juntar con ningún otro sin borrar
 justo lo que hay que decidir:
 
@@ -4477,7 +4565,7 @@ justo lo que hay que decidir:
 | llega, pero en la extensión española | el anexo le da grupo propio | las retenciones |
 | llega con otro número | el importe de la copia no es el de la factura | `BT-112` |
 | **llega, pero cortado de otra manera** | el dato viaja entero y los campos no se cortan igual en los dos formatos | la serie, que se junta; el código postal de fuera, que se parte |
-| **llega, pero el anexo no lo pide** | la norma tiene el término y el anexo no lo lista: llega y no lo mira nadie | la persona de contacto; el periodo de facturación, en el anexo de abril y no en la orden |
+| **llega, pero el anexo no lo pide** | la norma tiene el término y el anexo no lo lista: llega y no lo mira nadie | la persona de contacto; el porcentaje del cargo del documento |
 | **llega, pero el código es de otra lista** | el campo existe en los dos sitios y el valor no vale: cada formato lo escribe con su vocabulario | la unidad de medida, `01` frente a `C62` |
 | **no está en la factura: lo pone quien copia** | el anexo pide un campo que Facturae no tiene | el identificador de línea |
 | no tiene sitio | se queda en el original | el idioma |
@@ -4492,16 +4580,17 @@ tenerla:
 
 - si alguien quita una fila de la tabla y deja la regla que la usa, **el
   paquete no se monta** (`TablaIncompleta`);
-- y los `BT-` que cada fila nombra **se comparan con el anexo**, con los 104
+- y los `BT-` que cada fila nombra **se comparan con el anexo**, con los 116
   términos europeos de `cius_es.CAMPOS`: una fila que diga que algo llega a un
   término que el anexo no recoge, o que diga «el anexo no lo pide» de uno que
   sí recoge, deja la suite en rojo. Provocado por los dos lados.
 
-Lo que el segundo cepo no ve todavía es la orden: compara con `cius_es`, que
-sale del borrador de abril, y la orden recoge términos que ese borrador no
-tenía —`BG-14`, `BT-130`, `BT-31`—. Las filas que dicen que no están en el
-anexo son verdad del borrador; que el cepo las señale cuando `cius_es` salga
-del XML del BOE es lo que se espera de él, y eso no se ha provocado.
+El segundo cepo saltó como se esperaba el 11-10-2026, al salir `cius_es` del
+XML del BOE, en dos filas que decían «el anexo no lo pide» de términos que la
+orden sí pide: el periodo de facturación (`BG-14`) y el porcentaje del cargo
+de línea (`BT-143`). Las dos se corrigieron, la segunda partiéndose en dos. Lo
+que el cepo no ve son los términos nuevos que ninguna fila nombra, los siete
+de arriba: esos se miran contra la orden en la tanda de la copia fiel.
 
 Lo que esto **no** es: no convierte nada —aquí no se escribe ninguna copia—, no
 valida la copia, que es otro documento con sus propias reglas `SPFE-`, y no
