@@ -104,7 +104,10 @@
     { "source": "/codigo-BR-Z-6", "destination": "/codigo-BR-Z-06", "permanent": true },
     { "source": "/codigo-BR-Z-7", "destination": "/codigo-BR-Z-07", "permanent": true },
     { "source": "/codigo-BR-Z-8", "destination": "/codigo-BR-Z-08", "permanent": true },
-    { "source": "/codigo-BR-Z-9", "destination": "/codigo-BR-Z-09", "permanent": true }
+    { "source": "/codigo-BR-Z-9", "destination": "/codigo-BR-Z-09", "permanent": true },
+    { "source": "/codigo-SPFE-BORRADOR", "destination": "/codigo-SPFE-ALCANCE", "permanent": true },
+    { "source": "/codigo-SPFE-RECARGO-DE-EQUIVALENCIA", "destination": "/codigo-SPFE-LINEA-DE-COBRO", "permanent": true },
+    { "source": "/codigo-SPFE-GRUPO-DE-ENTIDADES", "destination": "/codigo-SPFE-LINEA-DE-COBRO", "permanent": true }
   ],
   "headers": [
     {

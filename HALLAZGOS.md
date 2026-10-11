@@ -7496,3 +7496,31 @@ AVISO, y la decisión era sobre las dos reglas que condenan.
 `354b6bd` y en verde con el arreglo. Y tres roturas del arreglo, las tres en
 rojo: la frase nombrando todo lo que falla (1), la resta en cualquier lista
 (1) y la frase sin el identificador (3).
+
+### Tres fichas publicadas que se quedaban en un 404
+
+**Lo que había.** La primera tanda quitó tres códigos del glosario:
+`SPFE-BORRADOR`, que pasó a ser `SPFE-ALCANCE`, y `SPFE-RECARGO-DE-EQUIVALENCIA`
+y `SPFE-GRUPO-DE-ENTIDADES`, que la orden ya no tiene. Cada código tiene su
+ficha en el sitio, y el sitio se monta del glosario: sin el código, no hay
+ficha.
+
+**Reproducido** el 11-10-2026: `https://www.glosa-e.com/codigo-SPFE-BORRADOR`
+contestaba 200 y las tres estaban en el `sitemap.xml` de producción. Montado
+el sitio con `6f7f186`, las tres fichas no salen. Publicar así dejaba tres
+direcciones que los buscadores ya tienen apuntando a nada.
+
+**Lo que se hizo.** Tres redirecciones permanentes en `vercel.json`: la del
+borrador a `SPFE-ALCANCE`, y las dos líneas de abril a `SPFE-LINEA-DE-COBRO`,
+que es lo que dan ahora `REEQ` y `REGE`. La prueba salió en rojo antes de
+escribirlas.
+
+**Y que no vuelva a pasar sin enterarse.** El sitemap se construye y no se
+versiona, así que desde una prueba no se sabe qué se publicó. Ahora se sabe:
+`tests/fichas_publicadas.txt` lleva los 390 códigos que tienen o tuvieron
+ficha (los 387 del glosario y los tres retirados). Un código del glosario que
+no esté apuntado deja la suite en rojo, y uno apuntado que ya no esté en el
+glosario también, si su ficha no lleva a otra de forma permanente. La que ya
+había comprueba que ninguna redirección lleve a una ficha que no existe.
+Provocado por los dos lados: quitando una redirección (dos pruebas en rojo) y
+quitando un código de la lista (una).

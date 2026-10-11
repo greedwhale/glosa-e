@@ -272,6 +272,59 @@ class TestLasDireccionesViejas:
             f"{len(faltan)} direcciones viejas sin redirección permanente: "
             + ", ".join(faltan[:6]))
 
+    # Los códigos que tienen o tuvieron ficha publicada, versionados: el
+    # sitemap se construye y no se puede mirar desde aquí.
+    PUBLICADAS = RAIZ / "tests" / "fichas_publicadas.txt"
+
+    # Los tres que se retiraron el 11-10-2026, al poner las reglas del anexo
+    # al texto de la orden, con la ficha que los sustituye: la nota del
+    # borrador pasó a ser la del alcance, y las dos líneas de cobro de abril,
+    # que la orden ya no tiene, dan ahora SPFE-LINEA-DE-COBRO.
+    SUSTITUTOS = {
+        "SPFE-BORRADOR": "SPFE-ALCANCE",
+        "SPFE-RECARGO-DE-EQUIVALENCIA": "SPFE-LINEA-DE-COBRO",
+        "SPFE-GRUPO-DE-ENTIDADES": "SPFE-LINEA-DE-COBRO",
+    }
+
+    def _publicadas(self) -> set[str]:
+        lineas = self.PUBLICADAS.read_text(encoding="utf-8").splitlines()
+        return {l.strip() for l in lineas if l.strip() and not l.startswith("#")}
+
+    def test_cada_codigo_del_glosario_esta_apuntado_como_publicado(self):
+        """Para que el día que se retire se sepa que tenía ficha."""
+        faltan = sorted({c.codigo for c in codigos_del_paquete()} - self._publicadas())
+        assert not faltan, (
+            f"{len(faltan)} códigos sin apuntar en tests/fichas_publicadas.txt: "
+            + ", ".join(faltan[:6]) + ". Al publicarse tendrán ficha: apúntalos.")
+
+    def test_un_codigo_retirado_lleva_a_otra_ficha(self):
+        """Ni un 404 donde los buscadores ya tienen la dirección.
+
+        Medido el 11-10-2026: `/codigo-SPFE-BORRADOR` contestaba 200 en
+        producción y estaba en el sitemap. Con el código fuera del glosario,
+        el sitio se monta sin su ficha y la dirección se queda en nada. Que
+        la redirección lleve a una ficha que existe lo mira la prueba de
+        abajo.
+        """
+        retirados = self._publicadas() - {c.codigo for c in codigos_del_paquete()}
+        redirecciones = self._redirecciones()
+        sin_redireccion = [
+            codigo for codigo in sorted(retirados)
+            if not (r := redirecciones.get(
+                "/" + pagina_incidencias.FICHA.format(codigo).removesuffix(".html")))
+            or r.get("permanent") is not True
+        ]
+        assert not sin_redireccion, (
+            "códigos retirados cuya ficha publicada se queda sin dirección: "
+            + ", ".join(sin_redireccion))
+
+    def test_los_retirados_del_11_10_llevan_a_la_ficha_que_los_sustituye(self):
+        redirecciones = self._redirecciones()
+        for viejo, nuevo in self.SUSTITUTOS.items():
+            origen = "/" + pagina_incidencias.FICHA.format(viejo).removesuffix(".html")
+            destino = "/" + pagina_incidencias.FICHA.format(nuevo).removesuffix(".html")
+            assert redirecciones[origen]["destination"] == destino, origen
+
     def test_ninguna_redireccion_tapa_una_ficha_ni_lleva_a_ninguna_parte(self):
         """Una redirección mal puesta es peor que un 404: se lleva la buena."""
         hay = {"/" + pagina_incidencias.FICHA.format(c.codigo).removesuffix(".html")
