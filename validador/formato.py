@@ -483,8 +483,10 @@ def _detectar_respuesta(raiz: etree._Element, namespace: str) -> Deteccion:
     regla para todo lo que es UBL. Sin `UBLVersionID`, la 2.1, salvo que
     declare una especificación de la AEAT, porque la solución pública solo
     existe sobre UBL 2.5. Que
-    una respuesta de verdad lo declare es una suposición: el texto del mensaje
-    de anulación no está publicado. Con el paquete de hoy da igual, porque de
+    una respuesta de verdad lo declare es una suposición: la tabla del mensaje
+    de anulación, en el anexo I de la orden publicada el 05-10-2026, no dice
+    qué identificador de especificación lleva, ni si lleva alguno. Con el
+    paquete de hoy da igual, porque de
     la 2.1 se sube a la 2.5 (ver `esquema._VERSIONES_UBL`); cambia la versión
     que dice el informe y el nombre del esquema que pide si falta.
     """

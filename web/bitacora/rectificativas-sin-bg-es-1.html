@@ -229,17 +229,26 @@
 
   <h2>Qué hace Glosa-e con esto, hoy</h2>
 
-  <p>Si una rectificativa llega con la extensión de abril, todavía se acepta,
-  aunque la orden ya no la tenga, y se mide contra el anexo de abril. Si llega
-  a la forma nueva, con un <code>BG-24</code>, Glosa-e <b>no la da por
-  mala</b>. Reconoce qué calificadores de <code>L10</code> trae, con
-  cualquiera de los dos esquemas del identificador o sin ninguno, lee el tipo
-  y la modalidad en <code>cbc:DocumentTypeCode</code>, los compara con
-  <code>L2.A</code> y <code>L2.B</code> y dice cuál falta. Un código que no
-  está en su lista sale como <code>AVISO</code>, y que falte el tipo o la
-  modalidad, como <code>NOTA</code>: la orden ya los pide, y todavía no se da
-  por malo porque estas reglas no se han puesto al día del todo con ella. Los
-  importes rectificados <b>todavía no se comprueban</b>. La ficha
+  <p><b>Actualizado el 11 de octubre de 2026.</b> Desde ese día las
+  rectificativas se miden con la orden. Una rectificativa (<code>384</code> o
+  <code>471</code>) tiene que traer un <code>BG-24</code> con el tipo
+  (<code>RECT:TIPO</code>) y otro con la modalidad
+  (<code>RECT:MODALIDAD</code>), y si no los trae es un <code>ERROR</code>,
+  también cuando llega con la extensión de abril, que la orden no tiene. El
+  identificador se reconoce con el valor solo o con el esquema de la orden
+  delante; con el de abril, el que lleva <code>ubl:</code>, no se lee como
+  dato de la rectificativa. El tipo y la modalidad se leen en
+  <code>cbc:DocumentTypeCode</code> y se comparan con <code>L2.A</code> y
+  <code>L2.B</code>: si el código falta o no está en su lista, también es
+  <code>ERROR</code>. De los importes rectificados se comprueba la forma:
+  cada uno con un código de <code>L2.C</code> y su importe en la descripción,
+  cinco como mucho, y en una sustitución. Con cuatro o cinco sale una
+  <code>NOTA</code>, porque la fila <code>BT-3</code> dice «hasta tres»; y con
+  la modalidad <code>I</code>, un <code>AVISO</code>. <b>Que la cifra sea la
+  buena no se comprueba.</b> Y si la
+  modalidad es <code>S</code> y no trae importes, sale una <code>NOTA</code>
+  y no un fallo: la orden solo los pide cuando se opta por una única factura
+  con los importes correctos, y eso no se ve en la factura. La ficha
   <a href="./codigo-SPFE-RECTIFICATIVA.html"><code>SPFE-RECTIFICATIVA</code></a>
   lo explica, y la del
   <a href="./codigo-SPFE-TIPO-DE-FACTURA.html">tipo de factura</a> explica por

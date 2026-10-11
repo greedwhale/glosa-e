@@ -712,10 +712,9 @@ class InformeLote:
         if familias & {UBL, FACTURAE, CII}:
             contenido.append("el código único del RD 238/2026")
         if any(
-            informe.deteccion is not None
-            and informe.deteccion.familia == UBL
-            and solucion_publica.declara_el_cius(informe.deteccion)
+            incidencia.codigo == "SPFE-ALCANCE"
             for _, informe in self.informes
+            for incidencia in informe.incidencias
         ):
             # Solo si alguna factura lo declara: a las demás no se les mide, y
             # decirlo en un lote sin ninguna sería apuntarse lo que no se ha
@@ -735,7 +734,11 @@ class InformeLote:
             # reglas miden la orden, y lo que de ella falta lo enumera la nota
             # SPFE-ALCANCE de cada factura (`LO_QUE_TODAVIA_NO_SE_MIDE`): aquí
             # se manda a ella en vez de copiar la lista, que ya estuvo escrita
-            # dos veces y dejó de decir lo mismo.
+            # dos veces y dejó de decir lo mismo. Y cuelga de esa nota, no de
+            # lo que el documento declara: un abono que declara la orden no se
+            # mide con el anexo, que solo define facturas, y hasta el
+            # 11-10-2026 esta frase lo contaba como medido. Lo vio el revisor
+            # de promesas.
             contenido.append(
                 "parte de lo que el anexo I de la solución pública pide a las "
                 "facturas que la declaran (lo que se puede comprobar en UBL; lo "

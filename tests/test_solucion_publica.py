@@ -371,6 +371,35 @@ def rectificativa_con(*adjuntos: str, tipo: str = "384", base: str = "") -> str:
                   "".join(adjuntos) + "  <cac:AccountingSupplierParty>")
 
 
+def con_la_retencion(importe: str, total: str = "") -> str:
+    """La factura de la orden con otro importe en su retención (BT-ES-19).
+
+    La suma (BT-ES-17) va con el mismo importe, que es lo que cuadra con una
+    sola retención, salvo que se diga otra.
+    """
+    xml = cambia(DEL_BOE, '<cbc:TaxableAmount currencyID="EUR">100.00</cbc:TaxableAmount>\n'
+                          '      <cbc:TaxAmount currencyID="EUR">15.00</cbc:TaxAmount>',
+                 '<cbc:TaxableAmount currencyID="EUR">100.00</cbc:TaxableAmount>\n'
+                 f'      <cbc:TaxAmount currencyID="EUR">{importe}</cbc:TaxAmount>')
+    return cambia(xml, '<cbc:TaxAmount currencyID="EUR">15.00</cbc:TaxAmount>\n    <cac:TaxSubtotal>',
+                  f'<cbc:TaxAmount currencyID="EUR">{total or importe}</cbc:TaxAmount>\n'
+                  '    <cac:TaxSubtotal>')
+
+
+def como_abono(xml: str) -> str:
+    """La misma factura como abono (CreditNote 381), que el anexo no define."""
+    abono = (xml.replace("Invoice-2", "CreditNote-2")
+             .replace("<Invoice ", "<CreditNote ").replace("</Invoice>", "</CreditNote>")
+             .replace("<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>",
+                      "<cbc:CreditNoteTypeCode>381</cbc:CreditNoteTypeCode>")
+             .replace("<cac:InvoiceLine>", "<cac:CreditNoteLine>")
+             .replace("</cac:InvoiceLine>", "</cac:CreditNoteLine>")
+             .replace("<cbc:InvoicedQuantity", "<cbc:CreditedQuantity")
+             .replace("</cbc:InvoicedQuantity>", "</cbc:CreditedQuantity>"))
+    assert "<Invoice " not in abono and "<cac:InvoiceLine>" not in abono
+    return abono
+
+
 # Una rectificativa por diferencias, como pide la fila BT-3: un BG-24 con el
 # tipo y otro con la modalidad, los dos con su código en DocumentTypeCode.
 RECTIFICATIVA_DEL_BOE = rectificativa_con(
@@ -461,6 +490,34 @@ class TestLasBuenas:
         assert frase in la(DEL_BOE, "SPFE-ALCANCE").mensaje
         assert frase in glosario.CODIGOS["SPFE-ALCANCE"]
 
+    def test_la_nota_nombra_tambien_lo_que_no_se_puede_comprobar(self):
+        """La política de privacidad y la portada dicen que lo que no se mide lo
+        dice el informe, y `NO_SE_COMPRUEBA` no llegaba a él: el recargo en la
+        cuota, los códigos de exención de BT-195, las menciones «REG». Lo vio
+        el revisor de promesas el 11-10-2026. La nota los nombra, y la ficha
+        dice el porqué de cada uno letra a letra."""
+        nota = la(DEL_BOE, "SPFE-ALCANCE").mensaje
+        ficha = glosario.CODIGOS["SPFE-ALCANCE"]
+        for que, porque in solucion_publica.NO_SE_COMPRUEBA.items():
+            assert que.lower() in nota.lower(), que
+            assert f"{que}: {porque}" in ficha, que
+
+    def test_la_nota_no_se_limita_a_lo_que_enumera(self):
+        """Decía «no quiere decir que la factura cumpla la orden en eso», y lo
+        que no enumeraba tampoco estaba medido entero."""
+        assert la(DEL_BOE, "SPFE-ALCANCE").mensaje.endswith(
+            "no quiere decir que la factura cumpla la orden.")
+        assert "en eso" not in glosario.CODIGOS["SPFE-ALCANCE"]
+
+    def test_el_prefijo_del_nif_iva_del_comprador_no_se_mide_y_la_nota_lo_dice(self):
+        """La fila BT-48 pide el prefijo de España, y un FR pasaba sin que la
+        nota lo dijera. Lo vio el revisor de promesas el 11-10-2026. Si un día
+        se mide, esta prueba se pone en rojo: hay que sacarlo de la lista."""
+        otro = cambia(DEL_BOE, "<cbc:CompanyID>ESA12345674<", "<cbc:CompanyID>FRA12345674<")
+        assert codigos(otro) == set()
+        assert ("el prefijo ES del NIF-IVA del comprador (BT-48)"
+                in la(otro, "SPFE-ALCANCE").mensaje)
+
     def test_cada_cosa_que_no_se_mide_nombra_una_fila_o_una_lista_de_la_orden(self):
         """Para que la nota no hable de algo que la orden no pide.
 
@@ -496,6 +553,10 @@ class TestLasBuenas:
                                            encoding="utf-8")
         sin = factura.validar_lote([tmp_path / "otra.xml"]).alcance()
         assert "anexo I" not in sin
+        # Ni con un abono que declara la orden: el anexo solo define facturas y
+        # no se le mide con él, y hasta el 11-10-2026 la línea decía que sí.
+        (tmp_path / "abono.xml").write_text(como_abono(DEL_BOE), encoding="utf-8")
+        assert "anexo I" not in factura.validar_lote([tmp_path / "abono.xml"]).alcance()
 
     def test_llevan_la_etiqueta_del_anexo_y_no_la_del_real_decreto(self):
         assert factura.origen(Incidencia("SPFE-NIF", ERROR, "")) == factura.SOLUCION_PUBLICA
@@ -556,6 +617,10 @@ class TestAQuienSeAplica:
                  .replace("</cbc:InvoiceTypeCode>", "</cbc:CreditNoteTypeCode>"))
         assert codigos(abono) == {"SPFE-TIPO-DE-FACTURA"}
         assert la(abono, "SPFE-TIPO-DE-FACTURA").encontrado == "CreditNote 381"
+        # Ni la nota del alcance, que decía «se mide con el anexo I» junto a la
+        # queja que dice que no se ha comprobado. Lo vio el revisor de promesas
+        # el 11-10-2026.
+        assert las(abono, "SPFE-ALCANCE") == []
 
     def test_otro_identificador_de_la_aeat_se_avisa_y_no_se_mide(self, tmp_path):
         """No se le aplica el anexo, porque no dice ser lo que el anexo define.
@@ -642,10 +707,19 @@ class TestLoQueSoloDeciaElBorrador:
         assert "borrador de abril" in queja.mensaje and "categoría N" in queja.mensaje
 
     def test_el_qr_con_la_urn_de_abril_no_es_el_qr(self):
-        """Ni se le pide la dirección ni cuenta para estar repetido."""
+        """Ni se le pide la dirección ni cuenta para estar repetido, pero se dice.
+
+        Con el identificador de la orden y el QR escrito con la URN de abril,
+        sin dirección, no salía nada: la factura parecía llevar un QR bien
+        hecho y para la orden no lleva ninguno. Lo vio el revisor de promesas
+        el 11-10-2026. Es una nota y no un fallo, porque un BG-24 puede llevar
+        cualquier identificador y la orden no obliga al QR.
+        """
         sin_direccion = cambia(cambia(DEL_BOE, f"{L10}QR<", f"{URN_DEL_BORRADOR}QR<"),
                                f"<cbc:UUID>{QR_URL}</cbc:UUID>", "")
-        assert las(sin_direccion, "SPFE-QR") == []
+        nota = la(sin_direccion, "SPFE-QR")
+        assert nota.gravedad == NOTA and nota.encontrado == f"{URN_DEL_BORRADOR}QR"
+        assert "borrador de abril" in nota.mensaje and nota.esperado == f"{L10}QR o QR"
 
     def test_la_extension_de_rectificativas_de_abril_no_dice_que_se_rectifica(self):
         extension = """  <ext:UBLExtensions><ext:UBLExtension>
@@ -761,6 +835,32 @@ class TestRectificativa:
     NOTA o en AVISO, porque el sitio del código lo enseñaba un ejemplo de la
     AEAT y no un texto publicado. La orden lo escribe, y sale en ERROR.
     """
+
+    def test_los_importes_con_la_modalidad_i_son_aviso(self):
+        """El grupo es para «los casos en los que se proceda a la rectificación
+        por sustitución». Con I pasaba sin una palabra: lo midió el auditor el
+        11-10-2026. Aviso y no error, porque la orden lo describe y no lo
+        prohíbe con una regla."""
+        con_i = rectificativa_con(adjunto("RECT:TIPO", "R1"), adjunto("RECT:MODALIDAD", "I"),
+                                  adjunto("RECT:IMPORTES", "Base", "100.00"))
+        aviso = la(con_i, "SPFE-RECTIFICATIVA")
+        assert aviso.gravedad == AVISO and aviso.encontrado == "I"
+        assert "sustitución" in aviso.mensaje
+
+    @pytest.mark.parametrize("cuantos", [4, 5])
+    def test_de_cuatro_a_cinco_importes_es_nota_porque_la_orden_dice_tres_y_cinco(self, cuantos):
+        """La fila BT-3 dice «hasta tres grupos» y el grupo es `0..5`. Se
+        acepta con el grupo, y se dice: pasaba en silencio."""
+        xml = rectificativa_con(adjunto("RECT:TIPO", "R1"), adjunto("RECT:MODALIDAD", "S"),
+                                *[adjunto("RECT:IMPORTES", "Base", "100.00")] * cuantos)
+        nota = la(xml, "SPFE-RECTIFICATIVA")
+        assert nota.gravedad == NOTA and nota.encontrado == str(cuantos)
+        assert "hasta tres grupos" in nota.mensaje and "0..5" in nota.mensaje
+
+    def test_tres_importes_en_una_sustitucion_no_dicen_nada(self):
+        xml = rectificativa_con(adjunto("RECT:TIPO", "R1"), adjunto("RECT:MODALIDAD", "S"),
+                                *[adjunto("RECT:IMPORTES", "Base", "100.00")] * 3)
+        assert las(xml, "SPFE-RECTIFICATIVA") == []
 
     def test_una_384_que_no_dice_que_rectifica(self):
         queja = la(rectificativa_con(), "SPFE-RECTIFICATIVA")
@@ -1159,6 +1259,45 @@ class TestLineasDeCobro:
         malo = cambia(CON_LA_RETENCION_SIN_CALIFICADOR, "<cbc:TaxTypeCode>01<", "<cbc:TaxTypeCode>99<")
         assert "«99»" in la(malo, "SPFE-RETENCION").mensaje
 
+    def test_la_suma_de_retenciones_es_la_suma_de_cada_una(self):
+        """«Sumatorio de todas las retenciones practicadas en factura» (BT-ES-17).
+
+        Hasta el 11-10-2026 se pedía que estuviera y no se sumaba: 999 sobre
+        una retención de 15 salía sin una queja, y la nota del alcance no decía
+        que eso no se miraba. Lo vio el revisor de promesas.
+        """
+        queja = la(con_la_retencion("15.00", total="999.00"), "SPFE-RETENCION")
+        assert queja.gravedad == ERROR and "(BT-ES-17)" in queja.campo
+        assert (queja.esperado, queja.encontrado) == ("15,00", "999.00")
+
+    def test_cada_retencion_es_la_base_por_el_porcentaje(self):
+        """«Resultado de aplicar a la Base imponible de la retención, el
+        porcentaje» (BT-ES-19). 77 sobre 100 al 15 % también pasaba."""
+        queja = la(con_la_retencion("77.00"), "SPFE-RETENCION")
+        assert queja.gravedad == ERROR and "(BT-ES-19)" in queja.campo
+        assert (queja.esperado, queja.encontrado) == ("15,00", "77.00")
+
+    def test_a_menos_de_una_unidad_es_nota_y_dice_con_que_base(self):
+        """La orden no da margen, y aquí se le da el de la cuota del IVA, que
+        es la misma cuenta: se dice en una nota, como IVA-CUOTA-REDONDEO."""
+        nota = la(con_la_retencion("15.40"), "SPFE-RETENCION")
+        assert nota.gravedad == NOTA and "BR-CO-17" in nota.mensaje
+        assert (nota.esperado, nota.encontrado) == ("15,00", "15.40")
+
+    def test_dos_retenciones_se_suman(self):
+        dos = cambia(con_la_retencion("15.00", total="24.50"),
+                     "    </cac:TaxSubtotal>\n  </cac:WithholdingTaxTotal>",
+                     "    </cac:TaxSubtotal>\n    <cac:TaxSubtotal>\n"
+                     '      <cbc:TaxableAmount currencyID="EUR">50.00</cbc:TaxableAmount>\n'
+                     '      <cbc:TaxAmount currencyID="EUR">9.50</cbc:TaxAmount>\n'
+                     "      <cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>19</cbc:Percent>\n"
+                     "        <cac:TaxScheme><cbc:ID>WTH</cbc:ID><cbc:TaxTypeCode>01</cbc:TaxTypeCode>"
+                     "</cac:TaxScheme>\n"
+                     "      </cac:TaxCategory>\n    </cac:TaxSubtotal>\n  </cac:WithholdingTaxTotal>")
+        assert las(dos, "SPFE-RETENCION") == []
+        queja = la(cambia(dos, ">24.50<", ">15.00<"), "SPFE-RETENCION")
+        assert (queja.esperado, queja.encontrado) == ("24,50", "15.00")
+
     def test_el_total_a_pagar_nombra_la_l7_de_la_orden(self):
         nota = la(CON_LOS_COBROS_DEL_BOE, "SPFE-TOTAL-A-PAGAR")
         assert "IEDMT" in nota.mensaje and "BT-115" in nota.mensaje
@@ -1218,6 +1357,9 @@ class TestCategoriasDeLaOrden:
         # que no se mide con el anexo.
         queja = next(i for i in informe.errores if i.codigo == "BR-CL-18")
         assert "La N es de la lista L4" in queja.mensaje
+        # Y dice por qué no vale aquí: decía «las que van en UBL y declaran el
+        # de la orden», y este abono es UBL y lo declara.
+        assert "no como abono (CreditNote)" in queja.mensaje
 
     def test_la_n_no_tapa_un_codigo_que_no_es_de_ninguna_lista(self):
         """La N se añade a la lista; la queja no se borra después."""
@@ -1347,6 +1489,75 @@ class TestLoQueDicenLosMensajes:
                 assert "todavía se acepta" not in texto, codigo
 
 
+class TestLoQueDiceLaBitacora:
+    """El artículo de las rectificativas cuenta qué hace Glosa-e «hoy».
+
+    El 11-10-2026, con las reglas ya al texto de la orden, seguía diciendo que
+    la extensión de abril «todavía se acepta» y que lo que falta sale en AVISO
+    o en NOTA: publicado, y falso desde ese día. Lo vio el revisor de promesas.
+    Cada frase de esa sección va aquí con la factura que la comprueba: si la
+    regla cambia, la prueba se pone en rojo y obliga a reescribir el artículo.
+    """
+
+    ARTICULO = (pathlib.Path(__file__).resolve().parents[1]
+                / "web" / "bitacora" / "rectificativas-sin-bg-es-1.html")
+
+    def hoy(self) -> str:
+        html = self.ARTICULO.read_text(encoding="utf-8")
+        seccion = html.split("Qué hace Glosa-e con esto, hoy</h2>", 1)[1].split("<p>Es gratis", 1)[0]
+        return " ".join(re.sub(r"<[^>]+>", "", seccion).split())
+
+    def rectificativa(self, xml: str) -> list[Incidencia]:
+        return las(xml, "SPFE-RECTIFICATIVA")
+
+    def test_ya_no_dice_lo_de_antes(self):
+        for viejo in ("todavía se acepta", "no la da por mala", "sale como AVISO",
+                      "cualquiera de los dos esquemas", "todavía no se comprueban"):
+            assert viejo not in self.hoy(), viejo
+
+    def test_sin_el_tipo_ni_la_modalidad_es_error(self):
+        assert "y si no los trae es un ERROR" in self.hoy()
+        assert [i.gravedad for i in self.rectificativa(rectificativa_con())] == [ERROR]
+
+    def test_con_el_esquema_de_abril_no_se_lee(self):
+        assert "con el de abril, el que lleva ubl:, no se lee como dato de la rectificativa" in self.hoy()
+        de_abril = rectificativa_con(adjunto("RECT:TIPO", "R1", calificador=URN_DEL_BORRADOR),
+                                     adjunto("RECT:MODALIDAD", "I", calificador=URN_DEL_BORRADOR))
+        queja, = self.rectificativa(de_abril)
+        assert queja.gravedad == ERROR and queja.encontrado.startswith("falta el tipo")
+
+    def test_un_codigo_que_falta_o_no_es_de_su_lista_es_error(self):
+        assert "si el código falta o no está en su lista, también es ERROR" in self.hoy()
+        for tipo in ("R9", ""):
+            quejas = self.rectificativa(rectificativa_con(adjunto("RECT:TIPO", tipo),
+                                                          adjunto("RECT:MODALIDAD", "I")))
+            assert [i.gravedad for i in quejas] == [ERROR], tipo
+
+    def test_de_los_importes_se_mira_la_forma_y_no_la_cifra(self):
+        hoy = self.hoy()
+        assert ("cada uno con un código de L2.C y su importe en la descripción, cinco como "
+                "mucho, y en una sustitución") in hoy
+        assert "Que la cifra sea la buena no se comprueba." in hoy
+        cuatro = rectificativa_con(adjunto("RECT:TIPO", "R1"), adjunto("RECT:MODALIDAD", "S"),
+                                   *[adjunto("RECT:IMPORTES", "Base", "1.00")] * 4)
+        assert "Con cuatro o cinco sale una NOTA" in hoy
+        assert [i.gravedad for i in self.rectificativa(cuatro)] == [NOTA]
+        con_i = rectificativa_con(adjunto("RECT:TIPO", "R1"), adjunto("RECT:MODALIDAD", "I"),
+                                  adjunto("RECT:IMPORTES", "Base", "1.00"))
+        assert "con la modalidad I, un AVISO" in hoy
+        assert [i.gravedad for i in self.rectificativa(con_i)] == [AVISO]
+        assert self.rectificativa(cambia(CON_LOS_IMPORTES, ">100.00</cbc:DocumentDescription>",
+                                         ">999.00</cbc:DocumentDescription>")) == []
+        sin_cifra = rectificativa_con(adjunto("RECT:TIPO", "R1"), adjunto("RECT:MODALIDAD", "S"),
+                                      adjunto("RECT:IMPORTES", "Base"))
+        assert [i.gravedad for i in self.rectificativa(sin_cifra)] == [ERROR]
+
+    def test_la_sustitucion_sin_importes_es_nota(self):
+        assert "si la modalidad es S y no trae importes, sale una NOTA y no un fallo" in self.hoy()
+        sin = rectificativa_con(adjunto("RECT:TIPO", "R1"), adjunto("RECT:MODALIDAD", "S"))
+        assert [i.gravedad for i in self.rectificativa(sin)] == [NOTA]
+
+
 # --- Que salga del anexo, y que se niegue si el anexo cambia -------------------
 
 
@@ -1412,6 +1623,20 @@ class TestSeNiegaSiElAnexoCambia:
     def test_si_el_impuesto_del_nif_cambia_en_una_parte_y_no_en_otra(self, monkeypatch):
         negativa = _recargar_con(monkeypatch, _diciendo("BT-31", "«VAT»", "«IVA»"))
         assert negativa and "comprador" in negativa
+
+    @pytest.mark.parametrize("identificador, viejo, nuevo", [
+        ("BT-ES-17", "Sumatorio de todas", "Suma de algunas"),
+        ("BT-ES-19", "Resultado de aplicar", "Resultado de restar"),
+        ("BT-3", "hasta tres grupos", "hasta dos grupos"),
+        ("BG-24", "rectificación por sustitución de la factura original",
+         "rectificación de la factura original"),
+    ])
+    def test_si_cambia_una_cuenta_o_un_limite_que_se_comprueba(self, monkeypatch, identificador,
+                                                              viejo, nuevo):
+        """Las dos cuentas de las retenciones y lo que se dice de los importes
+        rectificados salen de la descripción de su fila desde el 11-10-2026."""
+        negativa = _recargar_con(monkeypatch, _diciendo(identificador, viejo, nuevo))
+        assert negativa and identificador in negativa
 
     def test_con_la_tabla_de_verdad_no_se_niega(self, monkeypatch):
         assert _recargar_con(monkeypatch, cius_es.CAMPOS) is None

@@ -111,7 +111,7 @@ from __future__ import annotations
 
 import re
 
-from validador import cius_es
+from validador import cifras, cius_es
 from validador.en16931 import _UNCL1001
 from validador.formato import (
     MARCADOR_CIUS_ES,
@@ -123,7 +123,17 @@ from validador.formato import (
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 from validador.listas_de_codigos import lista
 from validador.modelo import grupos
-from validador.sintaxis import NS_CIUS_ES, POR_ID, SIN_MAPA, SINTAXIS_UBL, a_decimal, condiciones
+from validador.sintaxis import (
+    NS_CIUS_ES,
+    POR_ID,
+    SIN_MAPA,
+    SINTAXIS_UBL,
+    a_decimal,
+    a_menos_de_una_unidad,
+    condiciones,
+    cuadra_exacto,
+    redondear,
+)
 
 __all__ = ["AnexoCambiado", "LO_QUE_TODAVIA_NO_SE_MIDE", "NO_SE_COMPRUEBA",
            "bt47_de_la_orden", "categorias_que_la_norma_no_tiene", "declara_el_cius",
@@ -275,6 +285,9 @@ _obligatorio("BT-24")
 ESPECIFICACION_DEL_BORRADOR = "urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0"
 PROCESO_DEL_BORRADOR = "urn:aeat:names:specification:ubl:schema:B2B"
 PROCESO_DEL_EJEMPLO = "urn:aeat:names:specification:schema:profile:B2B"
+# El esquema de los calificadores de abril, con «ubl:», que la orden quitó. Un
+# BG-24 escrito con él no es de la lista L10, y del QR se dice (ver `_qr`).
+ESQUEMA_DEL_BORRADOR = "urn:aeat:names:specification:ubl:schema:"
 if MARCADOR_CIUS_ES not in ESPECIFICACION_DEL_BORRADOR:
     raise AnexoCambiado("el borrador de abril ya no se reconoce por su CIUS")
 
@@ -334,6 +347,15 @@ for _valor_l10, (_nombre, _identificador) in _RECTIFICATIVA.items():
 _MAXIMO_DEL_DOCUMENTO["RECT:TIPO"] = _cuantos(_DOCUMENTOS["RECT:TIPO"], "0..1")
 _MAXIMO_DEL_DOCUMENTO["RECT:MODALIDAD"] = _cuantos(_DOCUMENTOS["RECT:MODALIDAD"], "0..1")
 _MAXIMO_DEL_DOCUMENTO["RECT:IMPORTES"] = _cuantos(_DOCUMENTOS["RECT:IMPORTES"], "0..5")
+# La fila BT-3 dice «hasta tres grupos» de importes rectificados, y el grupo es
+# `0..5`: la orden se contradice. Por encima de cinco es ERROR, porque incumple
+# las dos cifras; con cuatro o cinco se acepta con la del grupo, y una nota lo
+# dice. Hasta el 11-10-2026 se callaba: lo midió el auditor.
+_dice("BT-3", "hasta tres grupos de términos de negocio de importes rectificados")
+_IMPORTES_SEGUN_BT3 = 3
+# Y el grupo es para la sustitución, con una única factura.
+_dice("BG-24", "en los casos en los que se proceda a la rectificación por sustitución",
+      "IMPORTES RECTIFICADOS")
 # El importe rectificado va en la descripción del documento (BT-123), que en
 # este grupo, y solo en este, es obligatoria.
 if not _de(_DOCUMENTOS["RECT:IMPORTES"], "BT-123").obligatorio:
@@ -493,6 +515,10 @@ _RETENCION_TOTAL = _ruta(_obligatorio("BT-ES-17"))
 _RETENCIONES = _padre(_RETENCION_TOTAL, "cbc:TaxAmount")
 _RETENCIONES_APLICADAS = _RETENCIONES + "/cac:TaxSubtotal"
 _dice("BT-ES-21", "tabla L5")
+# Las dos cuentas de las retenciones son definiciones de la orden, y aquí se
+# hacen: si una orden nueva las escribe de otra forma, el módulo no importa.
+_dice("BT-ES-17", "Sumatorio de todas las retenciones practicadas")
+_dice("BT-ES-19", "Resultado de aplicar a la Base imponible de la retención, el porcentaje")
 _RETENCION_HIJOS = {
     identificador: _relativa(_ruta(_obligatorio(identificador)), _RETENCIONES_APLICADAS)
     for identificador in ("BT-ES-18", "BT-ES-19", "BT-ES-20", "BT-ES-21")
@@ -559,6 +585,7 @@ LO_QUE_TODAVIA_NO_SE_MIDE = (
     "la fecha efectiva de pago (BT-ES-2)",
     "el registro legal del vendedor cuando su NIF va con «LOC» (BT-30)",
     "el prefijo ES del NIF-IVA del vendedor (BT-31)",
+    "el prefijo ES del NIF-IVA del comprador (BT-48)",
     "el tipo de cada entrada del desglose del IVA (BT-119)",
     ("los impuestos y tasas que no son el IVA, en el documento (BG-ES-2), en las "
      "líneas (BT-ES-22) y cobrados para un tercero (BG-ES-3), con su lista L9"),
@@ -664,6 +691,12 @@ def _en_una_frase(cosas) -> str:
     return "; ".join(cosas[:-1]) + "; y " + cosas[-1]
 
 
+def _lo_que_no_se_puede() -> str:
+    """Lo de `NO_SE_COMPRUEBA`, nombrado: los campos, y lo que no es un campo al final."""
+    return _y([que if que.startswith(("BT-", "BG-")) else "las " + que.lower()
+               for que in NO_SE_COMPRUEBA])
+
+
 # --- Entrada ----------------------------------------------------------------
 
 
@@ -709,26 +742,12 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
     if raiz is None:
         return []
 
-    incidencias = [
-        # La nota dice con qué se ha medido y qué no. «Ninguna queja» no quiere
-        # decir «cumple la orden», y la lista de lo que falta va entera, de
-        # `LO_QUE_TODAVIA_NO_SE_MIDE`, para que la nota no prometa más de lo
-        # que se ha hecho.
-        Incidencia(
-            "SPFE-ALCANCE",
-            NOTA,
-            "La factura dice ser de la solución pública, y se mide con el anexo "
-            "I de la Orden HAC/1028/2026, publicada en el BOE el 05-10-2026 y en "
-            "vigor desde el 06-10-2026. De lo que la orden pide, todavía no se "
-            f"mide {_en_una_frase(LO_QUE_TODAVIA_NO_SE_MIDE)}. Que no salga "
-            "ninguna queja no quiere decir que la factura cumpla la orden en "
-            "eso.",
-            campo="Identificador de especificación",
-            encontrado=_valor(raiz, SINTAXIS_UBL.perfil),
-        )
-    ]
     if raiz.xpath("local-name()") != "Invoice":
-        incidencias.append(
+        # Sin la nota del alcance: decía «se mide con el anexo I» junto a esta
+        # queja, que dice que el resto no se ha comprobado, y la línea de
+        # alcance del lote, que cuelga de esa nota, contaba el abono como
+        # medido. Lo vio el revisor de promesas el 11-10-2026.
+        return [
             Incidencia(
                 "SPFE-TIPO-DE-FACTURA",
                 ERROR,
@@ -742,15 +761,37 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
                 encontrado=f"{raiz.xpath('local-name()')} "
                            f"{_valor(raiz, './cbc:CreditNoteTypeCode')}".strip(),
             )
-        )
-        return incidencias
+        ]
 
+    incidencias = [
+        # La nota dice con qué se ha medido y qué no. «Ninguna queja» no quiere
+        # decir «cumple la orden», y lo que falta va entero: lo que todavía no
+        # se mide, de `LO_QUE_TODAVIA_NO_SE_MIDE`, y lo que no se puede, de
+        # `NO_SE_COMPRUEBA`, con su porqué en la ficha. Hasta el 11-10-2026 la
+        # segunda lista no llegaba al informe, y la portada y la política de
+        # privacidad dicen que lo que no se mide lo dice el informe; y la nota
+        # acababa «no quiere decir que la factura cumpla la orden en eso», como
+        # si lo demás estuviera medido entero. Lo vio el revisor de promesas.
+        Incidencia(
+            "SPFE-ALCANCE",
+            NOTA,
+            "La factura dice ser de la solución pública, y se mide con el anexo "
+            "I de la Orden HAC/1028/2026, publicada en el BOE el 05-10-2026 y en "
+            "vigor desde el 06-10-2026. De lo que la orden pide, todavía no se "
+            f"mide {_en_una_frase(LO_QUE_TODAVIA_NO_SE_MIDE)}. Y hay cosas que "
+            "no se comprueban, con el porqué en la ficha de esta nota: "
+            f"{_lo_que_no_se_puede()}. Que no salga ninguna queja no quiere "
+            "decir que la factura cumpla la orden.",
+            campo="Identificador de especificación",
+            encontrado=_valor(raiz, SINTAXIS_UBL.perfil),
+        )
+    ]
     for regla in (
         _especificacion, _proceso, _copia, _tipo_de_factura, _rectificativa,
         _moneda_del_iva, _importe_pagado, _nif, _direcciones, _tipo_de_impuesto,
         _tercero, _facturas_referenciadas, _motivos, _categorias,
         _claves_de_regimen, _referencias_catastrales, _lineas_de_cobro,
-        _retenciones, _qr, _total_a_pagar,
+        _retenciones, _cuadre_de_las_retenciones, _qr, _total_a_pagar,
     ):
         incidencias.extend(regla(raiz))
     return incidencias
@@ -1041,6 +1082,39 @@ def _rectificativa(raiz) -> list[Incidencia]:
                 "no se ve en la factura, así que no se da por mala.",
                 campo="Importes rectificados (BG-24 RECT:IMPORTES)",
                 encontrado="(no los trae)",
+            )
+        )
+    # Lo que la orden dice de los importes y aquí se callaba, hasta que el
+    # auditor lo midió el 11-10-2026: que van en una sustitución, y cuántos.
+    importes = presentes.get("RECT:IMPORTES", [])
+    conocidas = modalidades - {""}
+    if importes and conocidas and "S" not in conocidas:
+        incidencias.append(
+            Incidencia(
+                "SPFE-RECTIFICATIVA",
+                AVISO,
+                "La factura trae los importes rectificados y la modalidad no es "
+                "la de sustitución. La orden prevé ese grupo para los casos en "
+                "que se rectifica por sustitución (S) y se opta por una única "
+                "factura con los importes correctos; por diferencias (I) no se "
+                "rectifica así.",
+                campo="Importes rectificados (BG-24 RECT:IMPORTES)",
+                esperado="la modalidad S",
+                encontrado=", ".join(sorted(conocidas)),
+            )
+        )
+    if _IMPORTES_SEGUN_BT3 < len(importes) <= _MAXIMO_DEL_DOCUMENTO["RECT:IMPORTES"]:
+        incidencias.append(
+            Incidencia(
+                "SPFE-RECTIFICATIVA",
+                NOTA,
+                f"Hay {len(importes)} documentos con los importes rectificados, y "
+                "la orden se contradice: la fila BT-3 dice «hasta tres grupos», y "
+                "el grupo de los importes rectificados admite cinco (0..5). Se ha "
+                "aceptado con la cifra del grupo.",
+                campo="Importes rectificados (BG-24 RECT:IMPORTES)",
+                esperado="tres según BT-3, cinco según el grupo",
+                encontrado=str(len(importes)),
             )
         )
     return incidencias
@@ -1695,6 +1769,93 @@ def _retenciones(raiz) -> list[Incidencia]:
     ]
 
 
+def _cuadre_de_las_retenciones(raiz) -> list[Incidencia]:
+    """Las dos cuentas que la orden define: cada retención (BT-ES-19) y su suma (BT-ES-17).
+
+    Cada retención es el «resultado de aplicar a la base imponible de la
+    retención el porcentaje», y la suma, el «sumatorio de todas las retenciones
+    practicadas». Hasta el 11-10-2026 se pedía que estuvieran y no se hacía
+    ninguna de las dos cuentas: una suma de 999 sobre una retención de 15 salía
+    sin una queja, y la nota del alcance no decía que eso no se miraba. Lo vio
+    el revisor de promesas.
+
+    La orden no da margen, y aquí se usan los de la norma para lo mismo. Una
+    retención es la cuenta de la cuota del IVA con otro porcentaje, y se le da
+    el margen de BR-CO-17: hasta una unidad, con una nota que dice cuánto se
+    aparta si no cuadra al céntimo, como IVA-CUOTA-REDONDEO. Sin él, una
+    retención calculada por líneas y sumada sería un ERROR que la norma no
+    pondría en la cuota. La suma es como las de la cabecera (BR-CO-10 a
+    BR-CO-16): exacta. Si falta una cifra o no se deja leer, la cuenta no se
+    hace; que falte ya lo dice `_retenciones`.
+    """
+    incidencias: list[Incidencia] = []
+    importes = []
+    for nombre, subtotal in _nombrados(_nodos(raiz, _RETENCIONES_APLICADAS), "retención"):
+        base = a_decimal(_valor(subtotal, _RETENCION_HIJOS["BT-ES-18"]))
+        importe = a_decimal(_valor(subtotal, _RETENCION_HIJOS["BT-ES-19"]))
+        porcentaje = a_decimal(_valor(subtotal, _RETENCION_HIJOS["BT-ES-20"]))
+        importes.append(importe)
+        if base is None or importe is None or porcentaje is None:
+            continue
+        # Como BR-CO-17: la base en valor absoluto por el porcentaje, y el signo
+        # después, para que en una rectificativa las mitades vayan hacia el
+        # mismo lado que en una factura.
+        exacta = abs(base) * porcentaje / 100
+        if redondear(exacta) == abs(importe):
+            continue
+        calculada = redondear(exacta) * (-1 if base < 0 else 1)
+        cuenta = (f"{cifras.en_castellano(base)} al {cifras.tipo(porcentaje)} da "
+                  f"{cifras.calculada(calculada)}")
+        campo = _donde("Total retención (BT-ES-19)", [nombre])
+        if a_menos_de_una_unidad(exacta, importe):
+            distancia = abs(redondear(exacta) - abs(importe))
+            incidencias.append(
+                Incidencia(
+                    "SPFE-RETENCION",
+                    NOTA,
+                    f"El importe de la retención se aparta {cifras.calculada(distancia)} "
+                    f"de aplicar el porcentaje a la base ({cuenta}). La orden lo "
+                    "define como esa cuenta y no da margen; se ha dado por bueno "
+                    "con el de la cuota del IVA, que es la misma cuenta (hasta una "
+                    "unidad, BR-CO-17). Si no hay redondeo por líneas que lo "
+                    "explique, conviene revisarlo.",
+                    campo=campo,
+                    esperado=cifras.calculada(calculada),
+                    encontrado=cifras.tiene(importe),
+                )
+            )
+        else:
+            incidencias.append(
+                Incidencia(
+                    "SPFE-RETENCION",
+                    ERROR,
+                    "El importe de la retención no sale de aplicar el porcentaje "
+                    f"a la base ({cuenta}), que es como lo define la orden en la "
+                    "fila BT-ES-19.",
+                    campo=campo,
+                    esperado=cifras.calculada(calculada),
+                    encontrado=cifras.tiene(importe),
+                )
+            )
+    total = a_decimal(_valor(raiz, _RETENCION_TOTAL))
+    if total is not None and importes and None not in importes:
+        suma = sum(importes)
+        if not cuadra_exacto(suma, total):
+            incidencias.append(
+                Incidencia(
+                    "SPFE-RETENCION",
+                    ERROR,
+                    "La suma de retenciones no es la suma de las retenciones de "
+                    "la factura, que es como la define la orden en la fila "
+                    "BT-ES-17: el sumatorio de todas las retenciones practicadas.",
+                    campo="Suma de retenciones (BT-ES-17)",
+                    esperado=cifras.calculada(suma),
+                    encontrado=cifras.tiene(total),
+                )
+            )
+    return incidencias
+
+
 def _qr(raiz) -> list[Incidencia]:
     """BG-24 del QR fiscal: uno como mucho, con su dirección y, si la lleva, su descripción.
 
@@ -1725,6 +1886,30 @@ def _qr(raiz) -> list[Incidencia]:
                 campo="QR fiscal (BG-24)",
                 esperado="cbc:UUID",
                 encontrado="(falta)",
+            )
+        )
+    # Un QR escrito con el esquema de abril no es el QR para la orden: ni se le
+    # pide la dirección ni cuenta para estar repetido. Pero se dice. Con el
+    # identificador de la orden y ese QR sin dirección no salía nada, y la
+    # factura parecía llevar un QR que para la orden no lleva. Lo vio el
+    # revisor de promesas el 11-10-2026. Nota y no fallo: un BG-24 puede llevar
+    # cualquier identificador, y la orden no obliga al QR.
+    de_abril = [identificador for adjunto in _nodos(raiz, SINTAXIS_UBL.adjuntos)
+                if (identificador := _valor(adjunto, _ID_DEL_DOCUMENTO))
+                == ESQUEMA_DEL_BORRADOR + "QR"]
+    if de_abril:
+        incidencias.append(
+            Incidencia(
+                "SPFE-QR",
+                NOTA,
+                "Hay un documento identificado como el QR con el esquema del "
+                "borrador de abril, que lleva «ubl:» y la orden ya no tiene. No "
+                "se ha leído como el QR fiscal: para la orden, esta factura no "
+                "lo trae. El QR va con el valor QR de la lista L10, solo o con su "
+                "calificador delante.",
+                campo="QR fiscal (BG-24)",
+                esperado=f"{_ESQUEMA_L10}QR o QR",
+                encontrado=", ".join(dict.fromkeys(de_abril)),
             )
         )
     otros = [d for qr in qrs if (d := _valor(qr, _DESCRIPCION_DEL_DOCUMENTO))

@@ -7524,3 +7524,67 @@ glosario también, si su ficha no lleva a otra de forma permanente. La que ya
 había comprueba que ninguna redirección lleve a una ficha que no existe.
 Provocado por los dos lados: quitando una redirección (dos pruebas en rojo) y
 quitando un código de la lista (una).
+
+### La revisión antes de publicar: lo que el informe callaba
+
+**Lo que había.** Antes de publicar las cuatro tandas, el revisor de promesas y
+un auditor, cada uno por su lado, midieron lo que Glosa dice contra lo que
+hace. La portada y la política de privacidad dicen que lo que de la orden no
+se mide «lo dice cada informe», y había cosas que la orden pide, que no se
+comprobaban y que ningún informe nombraba.
+
+**Reproducido**, todo con `factura.validar` sobre `31e38a7`:
+
+| Qué | Lo que salía | La orden |
+|---|---|---|
+| La suma de retenciones a 999 con una retención de 15 | sin errores | `BT-ES-17`: «sumatorio de todas las retenciones practicadas» |
+| Una retención de 77 sobre 100 al 15 % | sin errores | `BT-ES-19`: «resultado de aplicar a la base imponible de la retención el porcentaje» |
+| El NIF-IVA del comprador con prefijo FR | sin errores, y la nota no lo nombraba | `BT-48`: «con el prefijo correspondiente a España» |
+| Importes rectificados con la modalidad `I` | nada | el grupo es para «los casos en los que se proceda a la rectificación por sustitución» |
+| Cuatro o cinco importes rectificados | nada | `BT-3` dice «hasta tres grupos» y el grupo es `0..5` |
+| Lo de `NO_SE_COMPRUEBA` | de ocho entradas llegaban al informe dos, `BT-115` y `BT-113`, por sus propias notas | |
+| El QR escrito con la URN de abril y sin dirección, con el identificador de la orden | nada | para la orden no es el QR |
+| Un abono que declara la orden | `SPFE-ALCANCE` decía «se mide con el anexo I» junto a `SPFE-TIPO-DE-FACTURA`, que dice que el resto no se ha comprobado, y la línea de alcance del lote lo contaba como medido | el anexo solo define facturas |
+| Ese abono con la `N` | `BR-CL-18` decía que la N vale en las facturas «que van en UBL y declaran» el identificador de la orden, y el abono es UBL y lo declara | |
+
+Y la nota acababa en «no quiere decir que la factura cumpla la orden en eso»,
+como si lo que no enumeraba estuviera medido entero. El artículo de la
+bitácora sobre las rectificativas, publicado, decía que la extensión de abril
+«todavía se acepta» y que lo que falta sale en AVISO o en NOTA, falso desde la
+primera tanda.
+
+**Lo que se hizo.**
+
+- Las dos cuentas de las retenciones se hacen, con los márgenes de la norma
+  para lo mismo: la retención, el de la cuota del IVA (`BR-CO-17`, una unidad,
+  con una NOTA si no cuadra al céntimo); la suma, exacta, como las de la
+  cabecera. Las dos definiciones se leen de su fila al importar.
+- Los importes rectificados con `I` salen en AVISO, y cuatro o cinco en una
+  NOTA que dice que la orden se contradice. Las dos frases, leídas de su fila.
+- `BT-48` entra en la lista de lo que todavía no se mide, como ya estaba
+  `BT-31`. Una prueba lo ata: el día que se mida, se pone en rojo.
+- La nota nombra también lo que no se puede comprobar, y su ficha copia el
+  porqué de cada cosa letra a letra. Acaba en «no quiere decir que la factura
+  cumpla la orden», sin más.
+- El abono no recibe la nota, y la línea de alcance del lote cuelga de la nota
+  y no de lo que el documento declara. La queja de la N dice «como factura
+  (Invoice), no como abono (CreditNote)».
+- El QR con la URN de abril sale en una NOTA: sigue sin ser el QR, y se dice.
+- El artículo, al día. Y una prueba por cada frase de su sección «hoy», con la
+  factura que la comprueba: si una regla cambia, el artículo no se queda atrás
+  sin que nadie se entere.
+
+**Lo que no se hizo.** Que la cifra de cada importe rectificado sea la buena
+sigue sin comprobarse: la factura original no viaja con la rectificativa, y no
+hay con qué compararla. El artículo lo dice. Lo demás que encontró el auditor
+es de precisión y no del informe, y va en la tanda siguiente.
+
+**Provocado.** Veintiuna pruebas nuevas o cambiadas, en rojo contra el código
+de `31e38a7` y en verde con el arreglo. Y catorce roturas del arreglo, las
+catorce en rojo: el cuadre fuera de las reglas (3 pruebas en rojo), la nota de
+la retención convertida en error (1), la nota sin lo que no se puede (1),
+otra vez «en eso» (1), `BT-48` fuera de la lista (1), el abono medido como
+factura (1), la línea del lote por lo que se declara (1), la frase de la N sin
+el abono (1), el QR de abril callado (1), los importes con `I` callados (1),
+cuatro importes callados (2), la definición de `BT-ES-17` sin leer (1), la
+bitácora con otra gravedad (1) y la ficha sin un porqué (1).

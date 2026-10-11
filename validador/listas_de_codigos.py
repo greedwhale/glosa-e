@@ -207,9 +207,10 @@ def _de_donde_salen(codigos: list[str]) -> str:
     return (
         f" {quien[0].upper()}{quien[1:]} {verbo} de la lista L4 de la Orden "
         "HAC/1028/2026, que solo rige en las facturas de la solución pública: "
-        "las que van en UBL y declaran en su identificador de especificación "
-        f"(BT-24) el de la orden, {cius_es.ESPECIFICACION}. En cualquier otra "
-        "rige la lista de la norma."
+        "las que van en UBL como factura (Invoice), no como abono (CreditNote), "
+        "y declaran en su identificador de especificación (BT-24) el de la "
+        f"orden, {cius_es.ESPECIFICACION}. En cualquier otra rige la lista de la "
+        "norma."
     )
 
 

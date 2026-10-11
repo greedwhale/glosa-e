@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2948 tests, todos en verde.
+2969 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3822,19 +3822,22 @@ Lo que se comprueba:
 | Qué | Códigos |
 |---|---|
 | La cabecera: el identificador de la orden en `BT-24`, su proceso `B2B` en `BT-23`, el tipo de factura de L1 y el euro como moneda del IVA; y, en notas, la factura sin indicador de copia, el importe pagado y el proceso del ejemplo del 02-10-2026 | `SPFE-ESPECIFICACION`, `-PROCESO`, `-TIPO-DE-FACTURA`, `-MONEDA-DEL-IVA`, `-COPIA`, `-IMPORTE-PAGADO` |
-| Los datos de la rectificativa en toda 384 y 471: un `BG-24` `RECT:TIPO` y uno `RECT:MODALIDAD`, con su código en `cbc:DocumentTypeCode`, de L2.A y L2.B; y, si los lleva, hasta cinco `RECT:IMPORTES`, cada uno con su código de L2.C y su importe | `SPFE-RECTIFICATIVA` |
+| Los datos de la rectificativa en toda 384 y 471: un `BG-24` `RECT:TIPO` y uno `RECT:MODALIDAD`, con su código en `cbc:DocumentTypeCode`, de L2.A y L2.B; y, si los lleva, los `RECT:IMPORTES`, cada uno con su código de L2.C y su importe: más de cinco es ERROR, cuatro o cinco una NOTA (`BT-3` dice «hasta tres» y el grupo es `0..5`), y con la modalidad `I`, un AVISO, porque el grupo es para la sustitución | `SPFE-RECTIFICATIVA` |
 | Las partes: el NIF de las dos en un esquema «VAT» o en uno «LOC» con «FC», la dirección entera cuando está en España, y el tercero que expide la factura, con su razón social, su NIF y su tipología | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
 | Lo que la norma deja opcional y el anexo no: la fecha de la factura referenciada y el motivo en texto de descuentos y cargos | `SPFE-FACTURA-REFERENCIADA`, `-MOTIVO` |
 | El IVA: «VAT» en los descuentos y cargos, las líneas y el desglose, y la categoría de L4, sin `K` ni `B`; la `N`, la `D` y la `F` de la orden, en una nota | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA` |
 | Cada línea: una o dos claves de régimen en la lista de su impuesto (la L3A de la orden ya no tiene la 18, la 19 ni la 20), y como mucho una referencia catastral con su situación de L6 | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL` |
-| Las líneas de cobro: un valor de la L7 de la orden, con su calificador o sin él, y un solo grupo de retenciones; las retenciones con su suma, su línea de cobro y su concepto de L5; y el QR fiscal, uno como mucho, con su dirección y, si lleva descripción, VERIFACTU o TICKETBAI | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-QR` |
+| Las líneas de cobro: un valor de la L7 de la orden, con su calificador o sin él, y un solo grupo de retenciones; las retenciones con su suma, su línea de cobro y su concepto de L5, y sus dos cuentas: cada una es su base por su porcentaje, y la suma es la de todas; y el QR fiscal, uno como mucho, con su dirección y, si lleva descripción, VERIFACTU o TICKETBAI (el escrito con la URN de abril no es el QR, y una nota lo dice) | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-QR` |
 
 Y dos notas: `SPFE-ALCANCE`, que sale en cada factura que se mide con el
-anexo y dice con qué se ha medido y las ocho cosas que la orden pide y aquí
+anexo y dice con qué se ha medido, las nueve cosas que la orden pide y aquí
 todavía no se miden (`LO_QUE_TODAVIA_NO_SE_MIDE`, que el glosario copia letra
-a letra), porque que no salga ninguna queja no quiere decir que cumpla la
-orden; y `SPFE-TOTAL-A-PAGAR`, que sale cuando hay líneas de cobro y es lo que
-sigue.
+a letra) y, por su nombre, las que no se pueden comprobar (`NO_SE_COMPRUEBA`,
+cuyo porqué copia la ficha de la nota), porque que no salga ninguna queja no
+quiere decir que cumpla la orden; y `SPFE-TOTAL-A-PAGAR`, que sale cuando hay
+líneas de cobro y es lo que sigue. Un abono que declara la orden no recibe
+`SPFE-ALCANCE`: no se le mide con el anexo, y `SPFE-TIPO-DE-FACTURA` ya lo
+dice.
 
 **Una regla europea que daba por mala una factura bien hecha.** El anexo dice
 que el total a pagar suma «los importes correspondientes a los conceptos
@@ -3878,8 +3881,11 @@ que la orden tampoco ubica, y todo lo que depende de ellos; la restricción de
 un caso que no se ve en el documento. Lo que la orden pide y aquí todavía no
 se mide, aunque se podría, no va ahí sino en `LO_QUE_TODAVIA_NO_SE_MIDE`: la
 fecha efectiva de pago, el número de la autorización de facturación, los
-impuestos y tasas que no son el IVA, los códigos de exención y cuatro cosas
-más, que la nota `SPFE-ALCANCE` dice en cada factura.
+impuestos y tasas que no son el IVA, los códigos de exención y cinco cosas
+más. La nota `SPFE-ALCANCE` nombra las dos listas en cada factura, y su ficha
+dice el porqué de cada cosa de la primera. Hasta el 11-10-2026 la primera no
+llegaba al informe, y la portada y la política de privacidad dicen que lo que
+no se mide lo dice el informe (en HALLAZGOS).
 
 **No hay facturas de verdad con las que medir.** La solución pública no está en
 marcha y en el corpus hay cero documentos que declaren el CIUS. Las pruebas
@@ -3899,7 +3905,9 @@ que lo declara: «parte de» lo que el anexo pide, «lo que se puede comprobar e
 UBL», y que lo que todavía no se mide lo dice la nota `SPFE-ALCANCE`. Hasta el
 07-10-2026 decía «el borrador del anexo I», y «sin errores» quería decir que
 cumplía el borrador; hasta el 11-10-2026, que se medía lo que ya pedía el
-borrador. En un lote sin ninguna no lo dice.
+borrador. En un lote sin ninguna no lo dice. Y cuelga de la nota, no de lo que
+el documento declara: un lote con solo un abono que declara la orden lo
+contaba como medido.
 
 ### Lo que contestó la Agencia, y lo que dejó abierto
 
@@ -4272,13 +4280,14 @@ un error**. Con las reglas al texto de la orden, sale con cinco.
 | La 384 con un tipo de rectificativa fuera de L2.A | AVISO | ERROR. La extensión de rectificativas de abril ya no cuenta |
 | La rectificativa bien escrita | NOTA | Nada |
 | El QR con una descripción que no es VERIFACTU ni TICKETBAI | Se aceptaba | ERROR |
-| El QR con la URN de abril | Era el QR | No es el QR de la orden. Como el QR es `0..1`, no llevarlo no es un fallo |
+| El QR con la URN de abril | Era el QR | No es el QR de la orden. Como el QR es `0..1`, no llevarlo no es un fallo; desde la revisión antes de publicar, una NOTA lo dice |
 | El nombre del tercero en `cac:PartyName` | Se aceptaba | ERROR: la orden lo pone en la razón social |
-| La nota de cada factura | `SPFE-BORRADOR`: medida en buena parte con el borrador, y la lista de lo ya admitido | `SPFE-ALCANCE`: la orden, y las ocho cosas que todavía no se miden |
+| La nota de cada factura | `SPFE-BORRADOR`: medida en buena parte con el borrador, y la lista de lo ya admitido | `SPFE-ALCANCE`: la orden, las nueve cosas que todavía no se miden y, por su nombre, las que no se pueden comprobar |
 
 **Lo que todavía no se mide**, y es el paso siguiente: la fecha efectiva de
 pago (`BT-ES-2`); el registro legal del vendedor cuando su NIF va con «LOC»
-(`BT-30`); el prefijo ES del NIF-IVA del vendedor (`BT-31`); el tipo de cada
+(`BT-30`); el prefijo ES del NIF-IVA del vendedor (`BT-31`) y el del
+comprador (`BT-48`); el tipo de cada
 entrada del desglose (`BT-119`); los impuestos y tasas que no son el IVA, con
 su lista L9; el número de la autorización de facturación (`BT-ES-26`); la
 información adicional de cada línea (`INFO` de L8); y los códigos de
@@ -4290,7 +4299,9 @@ titular el 11-10-2026: fuera de ella rige la lista de la norma, y `BR-CL-17` y
 `BR-CL-18` las siguen dando por malas. Pero decían «no es de UNCL 5305» y nada
 más, y quien escribió la `N` la sacó de la orden: ahora la queja añade que es
 de la L4 de la orden, que solo rige en las facturas UBL que declaran en `BT-24`
-el identificador de la orden, y lo escribe entero. Solo nombra los códigos que
+el identificador de la orden, y lo escribe entero; y que son facturas
+(`Invoice`), no abonos (`CreditNote`), porque un abono UBL que declara la orden
+lo leía como si cumpliera. Solo nombra los códigos que
 son de la orden: una `X` junto a la `N` sale en la misma queja, sin la frase.
 
 **Lo que se decidió sin preguntar, y por qué.**
@@ -4298,7 +4309,21 @@ son de la orden: una `X` junto a la `N` sale en la misma queja, sin la frase.
 - **El QR con la URN de abril no es el QR**: ni se le pide la dirección ni
   cuenta para estar repetido. La factura escrita con abril ya sale con su
   identificador en ERROR, y decirle además que su QR no tiene dirección sería
-  medirle con el borrador.
+  medirle con el borrador. Pero se dice en una NOTA: con el identificador de
+  la orden, ese QR sin dirección pasaba sin nada, y la factura parecía llevar
+  un QR que para la orden no lleva.
+- **El margen de las retenciones.** La orden define cada retención (`BT-ES-19`)
+  como la base por el porcentaje y la suma (`BT-ES-17`) como la de todas, y no
+  da margen. Se usan los de la norma para lo mismo: la retención es la cuenta
+  de la cuota del IVA con otro porcentaje, y tiene el de `BR-CO-17`, una
+  unidad, con una NOTA que dice cuánto se aparta si no cuadra al céntimo; la
+  suma va exacta, como las de la cabecera. Sin ese margen, una retención
+  calculada por líneas sería un ERROR que la norma no pondría en la cuota.
+- **Cuántos importes rectificados.** La orden dice tres en `BT-3` y cinco en el
+  grupo. Se acepta con el grupo, que es lo que permite una de sus dos cifras, y
+  con cuatro o cinco una NOTA dice la contradicción. Los importes con la
+  modalidad `I` van en AVISO y no en ERROR: el grupo se describe para la
+  sustitución, pero ninguna frase de la orden lo prohíbe en la otra.
 - **Lo que no se mide va en la nota, y no en un AVISO.** No son fallos de la
   factura sino límites del validador, y un AVISO en cada factura de la
   solución pública diría lo contrario.
