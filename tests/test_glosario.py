@@ -60,6 +60,9 @@ def test_lo_escrito_en_el_fichero_va_entre_comillas_invertidas():
     punto que queda fuera es una versión, y está escrita aquí.
     """
     versiones = {("SPFE-SINTAXIS", "2.5"), ("SPFE-MENSAJE-ALCANCE", "2.5")}
+    # Las del esquematrón del CEN, que la ficha de BR-AG-01 cita para contar
+    # cómo se han llamado las reglas del IPSI en cada una.
+    versiones |= {("BR-AG-01", v) for v in ("1.3.13", "1.3.14", "1.3.16", "1.3.17")}
     con_punto = []
     for clave, texto in [*FAMILIAS.items(), *CODIGOS.items()]:
         fuera = re.sub(r"`[^`]*`", "", texto)

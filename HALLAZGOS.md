@@ -91,6 +91,12 @@ De paso apareció un tercer fallo: los códigos de IGIC e IPSI eran `BR-IG-*` y
 impuesto de Canarias: una factura canaria recibía una regla con un código que
 no existe en ningún reglamento.
 
+**Corregido el 12-10-2026: esto último era falso.** `BR-IG-*` y `BR-IP-*` son
+los nombres que el esquematrón del CEN dio en UBL al IGIC y al IPSI desde 2017
+hasta la 1.3.13. La 1.3.14 los cambió por `BR-AF-*` y `BR-AG-*`, que es lo que
+traía el esquematrón oficial con el que se comprobó, el 26-08-2026, y CII los
+había llamado así siempre. Está en «BR-IG y BR-IP sí existían», más abajo.
+
 ## 3. Lo que hay que decidir: monedas sin céntimos
 
 `cef_huf_example_cii.xml` está en forintos húngaros. Declara base 69.180,00 al
@@ -552,8 +558,9 @@ avisos y no cambian el recuento, así que no se les ha hilado la procedencia.
 
 Ahora sí, pero como **aviso «de la casa» y sin prefijo `CU-`**: el código único
 solo usa el del emisor, así que el RD 238/2026 no firma esta queja y no puede
-salir con su etiqueta. Es el mismo cuidado que falló con unos `BR-IG-*`
-inventados.
+salir con su etiqueta. Es el mismo cuidado que se creyó que había fallado con
+unos `BR-IG-*` inventados; no lo eran (corregido el 12-10-2026, en
+«BR-IG y BR-IP sí existían», más abajo).
 
 Al escribir la guarda de «esta factura no es española» **salió mal a la
 primera**: un `NL999999999B01` recibía la queja igualmente, que es exactamente
@@ -8102,7 +8109,8 @@ cambia los nombres de las reglas en `master`. En UBL el IGIC pasa de `BR-AF`
 a `BR-IG` y el IPSI de `BR-AG` a `BR-IP`, que es como los llama la norma. En
 CII el cambio salió cruzado: `BR-AF` pasó a `BR-IP` y `BR-AG` a `BR-IG`, así
 que allí la regla del IGIC (contexto de la categoría L, texto de IGIC) se
-llama `BR-IP-05`. No está publicado: es del hito 1.3.17, de noviembre de 2026.
+llama `BR-IP-05`. No estaba publicado ese día: era del hito 1.3.17, que salió
+el 12-10-2026 (en «BR-IG y BR-IP sí existían», más abajo).
 La copia fijada aquí es `b6c9e06` y sigue con `BR-AF` y `BR-AG`; el día que
 se traiga la nueva, `test_norma_oficial` lo dirá, y habrá que decidir qué
 código se enseña cuando UBL y CII no llaman igual a la misma regla.
@@ -8257,3 +8265,110 @@ vencimiento: sin errores, con la nota. Y la factura de la orden con «RM Madrid
 T.1 F.2» en `BT-30`: ERROR `SPFE-NIF` y cuatro notas, lo que solo hace la
 tanda de este día, así que la rueda servida es la nueva. Los tres, código a
 código, lo mismo que `factura.validar` en la consola.
+
+## BR-IG y BR-IP sí existían: la página decía que no
+
+**Lo que había.** El 26-08-2026 las reglas del IGIC y del IPSI pasaron aquí
+de `BR-IG-*` y `BR-IP-*` a `BR-AF-*` y `BR-AG-*`, al comprobarlas contra el
+esquematrón oficial (el commit `6ef9804` no dice qué versión; la última
+publicada era la 1.3.16, y la copia fija no llegó hasta el 13-09). El cambio
+era bueno; lo que se contó de él, no. La ficha de `BR-AG-01`, que se publica
+en la página, decía que `BR-IP-*` se había escrito «por analogía con el
+intracomunitario (o sea, inventado)» y que una factura de Ceuta «recibía el
+nombre de una regla que no existe en ninguna norma». La frase se fue copiando:
+el 26-08 en el README, en la cabecera de `facturae.py` y en el comentario de
+`iva.REGLAS`; el 06-09 en otro comentario de `iva.py`; el 12-09 en la ficha.
+Además, en dos pruebas y en dos sitios de este fichero.
+
+**Cómo se vio.** El 12-10-2026 salió la 1.3.17 del CEN, y la auditoría de lo
+que trae miró la historia de los nombres en el repositorio oficial. El commit
+`9995d37`, del 27-01-2017, se titula «Change rule name from BR-L to BR-IG and
+BR-M to BR-IP». Leído en las 26 versiones publicadas, de etiqueta en
+etiqueta:
+
+| Versiones | UBL | CII |
+|---|---|---|
+| de la 1.0.0 (07-02-2018) a la 1.3.13 (08-10-2024) | `BR-IG` el IGIC, `BR-IP` el IPSI | `BR-AF` y `BR-AG` |
+| de la 1.3.14 (15-04-2025) a la 1.3.16 | `BR-AF` y `BR-AG` | `BR-AF` y `BR-AG` |
+| 1.3.17 (12-10-2026) | `BR-IG` y `BR-IP` | cruzados: `BR-IP` el IGIC |
+
+En la 1.3.13, `$VATIG` es la categoría L y el texto de `BR-IG-01` dice
+«IGIC». En EDIFACT el código es `BR-AF` y `BR-AG`, pero el texto de sus
+mensajes dice `[BR-IG-01]` y `[BR-IP-01]` también en la 1.3.16 (en el
+abstracto, que no viene en la copia fijada). Los nombres de la primera versión
+de Glosa coincidían con los de UBL hasta 2024; lo que no salía de ningún sitio
+era decir que no existían.
+
+**Reproducido.** En producción, `/codigo-BR-AG-01` devolvía la frase el
+12-10-2026. Y una prueba nueva, escrita antes de tocar nada, salió en rojo con
+cinco frases en cuatro ficheros: `facturae.py`, `glosario.py`, dos de
+`iva.py` y el README.
+
+**Lo que se hizo.** La ficha dice ahora cómo se han llamado esas reglas en UBL,
+en CII y en EDIFACT, y por qué aquí se usa `BR-AG-*`: es el nombre en la copia
+oficial con la que se compara. La historia completa va en el comentario de
+`iva.REGLAS`, y los demás sitios dejan de repetirla. Lo de `facturae.py` y el
+README sigue diciendo por qué los códigos de Facturae son nuestros, sin el
+ejemplo, que era falso. **No cambia ningún código**: el renombre a `BR-IG` y
+`BR-IP` va con la tanda que traiga la 1.3.17, después de leer Search Console el
+23-10 (para no mover 20 direcciones antes de esa lectura) y antes del 15-11,
+cuando rige la lista VATEX nueva. La suite entera cazó una cosa más: la prueba
+de las cifras con punto de las fichas leyó «1.3.13» como miles. Las cuatro
+versiones que cita la ficha van en su lista, como el 2.5 de UBL.
+
+**Lo que encontró el revisor de promesas**, antes del commit, y se cambió:
+
+| Lo que decía el cambio | Lo que consta |
+|---|---|
+| el comentario de la prueba: el cambio de nombre fue el 13-09-2026 | el 26-08-2026 (`6ef9804`); el 13-09 llegó la copia fija |
+| «al comprobarlo contra la 1.3.16» | el commit no dice la versión: se dice así |
+| «desde 2017» | en el repositorio, desde 2017; en lo publicado, desde la 1.0.0, de 2018 |
+| la ficha: «en CII fueron siempre `BR-AG-*`» | hasta la 1.3.16; en la 1.3.17 el IPSI es `BR-IG` en CII |
+| la ficha y `iva.REGLAS`: UBL y CII | también EDIFACT, que Glosa valida |
+| la ficha: «todavía no se ha traído», sin nada que la ate | fuera; la versión fijada la ata una prueba |
+| el README: la prueba ve «se inventaron» | no lo veía, ni «un invento», ni el nombre y la frase en dos frases, ni lo que va detrás de una comilla de cierre |
+| «en la última entrada», en tres sitios de este fichero | deja de ser cierto con la entrada siguiente: el título |
+| «cada arreglo deshecho de uno en uno» | lo provocado eran frases nuevas: ahora se deshace de verdad (abajo) |
+
+Y de paso, fuera de lo que se miraba: **la ficha de `BR-AF-01`, en
+producción, contaba una «familia entera de seis reglas»**, y la copia trae
+diez, de `BR-AF-01` a `BR-AF-10`, con su ficha cada una. Faltaban las tres que
+piden identificar al vendedor y la de la cuota.
+
+**Lo que hace que no vuelva.** Tres pruebas en `test_documentacion.py`:
+
+- la primera lee cada módulo de `validador/` con `tokenize`, cadenas y
+  comentarios juntos, y el README; los parte en frases sin cortar detrás de
+  una comilla de cierre, y se niega si una frase nombra `BR-IG`, `BR-IP`, «IG
+  e IP» o «IG/IP» y en ella o en la de al lado aparece «no exist…», «nunca
+  exist…», «inexistente», «invent…», «no aparece en ninguna» o «por
+  analogía», salvo que ahí mismo se diga que era falso;
+- la segunda ata la ficha de `BR-AG-01` a la copia: tiene que decir «la
+  1.3.16», y la huella fijada tiene que ser la de la 1.3.16;
+- la tercera cuenta las reglas `BR-AF` de la copia y exige que la ficha de
+  `BR-AF-01` diga ese número.
+
+Las dos últimas se ponen en rojo el día que se traiga la 1.3.17, y eso es lo
+que se quiere: esas fichas cuentan lo que trae la copia.
+
+**Provocado**, con 19 roturas, cada una sola y con el fichero devuelto byte a
+byte:
+
+- **Deshecho de verdad.** Cada trozo cambiado en el validador y en el README,
+  devuelto al texto de `425689d` de uno en uno: ocho trozos. Los seis que
+  llevaban la frase falsa o las seis reglas, en rojo; la ficha de `BR-AG-01`
+  pone en rojo dos pruebas, la de la frase y la de la copia. Los otros dos
+  salen en verde, y es lo que toca: son la cifra de pruebas del README y
+  quitar el párrafo nuevo.
+- **Los huecos del revisor**, escritos donde nadie los había puesto: el nombre
+  detrás de una comilla de cierre (en un módulo y en el README), «no existe»
+  en la frase siguiente, «se inventaron», «un invento», «IG y IP» e «IG/IP».
+  Los siete, en rojo.
+- **Contado como historia falsa** («se dijo que BR-IG no existía, y era
+  falso»): en verde, que es lo que se quiere.
+- **La copia**: otra huella fijada, la ficha nombrando la 1.3.17 y una regla
+  `BR-AF` más en la copia. Las tres, en rojo.
+
+**Lo que no se toca.** Las fichas de `BR-AF-*` y `BR-AG-*` siguen en las
+mismas direcciones hasta la tanda de la 1.3.17. En el corpus no cambia nada:
+solo cambian textos.

@@ -733,3 +733,95 @@ def test_el_validador_no_dice_que_la_orden_este_por_publicar():
     assert not encontradas, (
         "La Orden HAC/1028/2026 está publicada desde el 05-10-2026 y esto "
         "sigue diciendo que no:\n" + "\n".join(encontradas))
+
+
+# --- Lo que se dice de BR-IG y BR-IP ------------------------------------------
+#
+# El 26-08-2026 las reglas del IGIC y del IPSI pasaron aquí de BR-IG y BR-IP a
+# BR-AF y BR-AG, al comprobarlas contra el esquematrón oficial, y se contó
+# diciendo que BR-IG y BR-IP eran un invento de este proyecto que no existía en
+# ninguna norma. Era falso: el esquematrón del CEN los usó en UBL en todas sus
+# versiones publicadas, de la 1.0.0 (2018) a la 1.3.13, y la 1.3.17 vuelve a
+# ellos. La frase acabó en cinco sitios del validador y del README, uno de
+# ellos la ficha de `BR-AG-01`, que sale en la página. Lo destapó la auditoría
+# de la 1.3.17, el 12-10-2026.
+
+_LOS_NOMBRES = re.compile(r"\bBR-I[GP]\b|«I[GP]»|\bIG(?: e | y |/)IP\b")
+_SIN_NORMA = re.compile(
+    r"no exist\w*|nunca exist\w*|inexistent\w*|invent\w*|"
+    r"no aparec\w* en ningun\w*|por analog\w*", re.I)
+_LO_DICE_FALSO = re.compile(r"\bfals[oa]s?\b", re.I)
+
+
+def _en_frases(texto: str) -> list[str]:
+    """Partido en frases, pero no detrás de cualquier «»».
+
+    `_frases_de` corta también detrás de una comilla de cierre, y con eso «una
+    regla «BR-IG-5» que no existe» quedaba en dos frases y no se veía.
+    """
+    return re.split(r"(?<=[.!?])\s+|(?<=[.!?][»)])\s+", " ".join(texto.split()))
+
+
+def test_nadie_dice_que_br_ig_y_br_ip_sean_un_invento_de_aqui():
+    """Ni el validador, que escribe las fichas y viaja en la rueda, ni el README.
+
+    Una frase que nombre BR-IG o BR-IP y en la que, o en la de al lado, se diga
+    que no existen, que se inventaron o que salieron por analogía. La de al
+    lado cuenta porque la ficha de `BR-AG-01` lo decía así: el nombre en una
+    frase y «no existe en ninguna norma» en la siguiente. Contarlo como
+    historia vale si se dice ahí mismo que era falso. Qué nombre les ha dado
+    el CEN en cada versión y en cada sintaxis está en `iva.REGLAS`.
+    """
+    readme = (RAIZ / "README.md").read_text(encoding="utf-8")
+    fuentes = [(modulo.relative_to(RAIZ), _en_frases(" ".join(_frases_de(modulo))))
+               for modulo in sorted((RAIZ / "validador").glob("*.py"))]
+    fuentes.append((Path("README.md"), _en_frases(readme)))
+    encontradas = []
+    for donde, frases in fuentes:
+        for i, frase in enumerate(frases):
+            alrededor = " ".join(frases[max(0, i - 1):i + 2])
+            if (_LOS_NOMBRES.search(frase) and _SIN_NORMA.search(alrededor)
+                    and not _LO_DICE_FALSO.search(alrededor)):
+                encontradas.append(f"{donde}: «{alrededor[:200]}»")
+    assert not encontradas, (
+        "BR-IG y BR-IP son los nombres que el CEN dio en UBL al IGIC y al IPSI "
+        "hasta la 1.3.13, y otra vez en la 1.3.17, y esto dice que no existen:\n"
+        + "\n".join(encontradas))
+
+
+# Lo que las fichas del IGIC y del IPSI cuentan de la copia con la que se
+# comparan. La de `BR-AG-01` nombra la versión fijada, y la de `BR-AF-01`
+# contaba una familia de seis reglas cuando la copia trae diez: las dos cosas
+# quedan viejas en silencio el día que se trae otra copia, y se trae con la
+# 1.3.17, que cambia justo esos nombres.
+
+_HUELLA_DE_LA_1_3_16 = "78001153d1161ba4e003c4bd5e9f9d52030a71b9c4afb78fbe00b293a52e4226"
+
+
+def test_la_ficha_de_br_ag_01_nombra_la_copia_con_la_que_se_compara():
+    """Dice «la 1.3.16», y la huella fijada tiene que ser la de la 1.3.16."""
+    from validador.glosario import CODIGOS
+
+    fijada = re.search(r'^HUELLA = "([0-9a-f]{64})"',
+                       (RAIZ / "tests" / "test_norma_oficial.py").read_text(encoding="utf-8"),
+                       re.M).group(1)
+    assert fijada == _HUELLA_DE_LA_1_3_16, (
+        "La copia oficial ya no es la 1.3.16, y la ficha de BR-AG-01 cuenta los "
+        "nombres del IPSI hasta ella: hay que reescribirla con la versión nueva, "
+        "y esta prueba con ella.")
+    assert "con la que se compara, la 1.3.16." in " ".join(CODIGOS["BR-AG-01"].split())
+
+
+def test_la_ficha_de_br_af_01_cuenta_las_reglas_que_trae_la_copia():
+    """«Familia entera de diez reglas», y la copia trae diez BR-AF."""
+    from validador.glosario import CODIGOS
+
+    reglas = set(re.findall(
+        r'name="(BR-AF-\d+)"',
+        (RAIZ / "tests" / "en16931-oficial" / "EN16931-UBL-model.sch").read_text(encoding="utf-8")))
+    en_letra = {10: "diez"}
+    assert len(reglas) in en_letra, (
+        f"La copia oficial trae {len(reglas)} reglas BR-AF y la ficha de BR-AF-01 "
+        "cuenta diez: hay que reescribirla, y esta prueba con ella.")
+    assert (f"familia entera de {en_letra[len(reglas)]} reglas"
+            in " ".join(CODIGOS["BR-AF-01"].split()))

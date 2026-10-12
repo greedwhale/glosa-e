@@ -1048,11 +1048,12 @@ class TestDondeViveCadaRegla:
         assert "línea 1" in problema.campo, (
             "tiene que sennalar la linea, que es de donde sale la regla")
 
-    def test_el_igic_y_el_ipsi_usan_los_codigos_de_la_norma(self, revisar):
-        """BR-AF-* y BR-AG-*, no los BR-IG-*/BR-IP-* que nos inventamos.
+    def test_el_igic_y_el_ipsi_usan_los_codigos_de_la_copia_fijada(self, revisar):
+        """BR-AF-* y BR-AG-*, los de la copia oficial que se fija (1.3.16).
 
-        Importa mas de lo que parece: IGIC es el impuesto de Canarias, asi que
-        una factura canaria recibia una regla con un codigo inexistente.
+        No son los unicos que han tenido: en UBL fueron BR-IG-* y BR-IP-*
+        hasta la 1.3.13, y la 1.3.17 vuelve a ellos. Cuando se traiga esa
+        copia, test_norma_oficial se pone en rojo y esto cambia con ella.
         """
         assert iva.REGLAS["L"].codigo == "AF"
         assert iva.REGLAS["M"].codigo == "AG"

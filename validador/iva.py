@@ -121,11 +121,19 @@ REGLAS: dict[str, ReglaCategoria] = {
     # esquematrón oficial (v1.3.16), no de ninguna prueba: las pruebas estaban
     # escritas desde la misma suposición que el código.
     #
-    # Los códigos son AF y AG, no IG e IP. Lo de antes se lo inventó quien
-    # escribió esto —o sea, nosotros— por analogía con IC, y da la casualidad
-    # de que IGIC es el impuesto de Canarias: una factura canaria recibía una
-    # regla «BR-IG-5» que no existe en ninguna norma. Comprobado en el
-    # esquematrón oficial: $VATIG lleva BR-AF-* y $VATIP lleva BR-AG-*.
+    # Los códigos son AF y AG porque son los de la copia oficial que se fija,
+    # la 1.3.16: ahí $VATIG lleva BR-AF-* y $VATIP lleva BR-AG-*. No son los
+    # únicos nombres que han tenido. En UBL, el CEN los llamó BR-IG-* (IGIC)
+    # y BR-IP-* (IPSI) en todas sus versiones publicadas, de la 1.0.0 (2018) a
+    # la 1.3.13, y la 1.3.17, del 12-10-2026, vuelve a esos nombres. En CII
+    # fueron BR-AF-* y BR-AG-* hasta la 1.3.16, y en la 1.3.17 salieron
+    # cruzados: el IGIC es BR-IP-* y el IPSI, BR-IG-*. En EDIFACT el código es
+    # BR-AF-* y BR-AG-*, y el texto de sus mensajes dice BR-IG y BR-IP (en el
+    # abstracto de la 1.3.16, que no viene en la copia fijada). Aquí se empezó
+    # con IG e IP y se pasó a AF y AG el 26-08-2026, al comprobarlo contra el
+    # esquematrón oficial; el commit no dice qué versión, y la última
+    # publicada era la 1.3.16. Lo que se escribió entonces de IG e IP, que
+    # eran un invento de este proyecto, era falso, y está en HALLAZGOS.
     "L": ReglaCategoria("AF", NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
     "M": ReglaCategoria("AG", NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
 }
@@ -294,10 +302,10 @@ class Apunte:
 # `TaxTypeCode` contesta a otra pregunta: **qué impuesto es**, no de qué
 # categoría UNCL5305. Aun así, tres de sus valores fijan la categoría sin
 # ambigüedad, porque la norma tiene una familia de reglas para cada uno:
-# el IGIC canario es AF —$VATIG en el esquematrón— y el IPSI de Ceuta y
-# Melilla es AG. Comprobado ahí, no deducido por analogía: la primera versión
-# de esto se inventó «IG» e «IP» y una factura canaria recibía una regla
-# «BR-IG-5» que no existe en ninguna norma.
+# el IGIC canario es la L, con las reglas AF ($VATIG en el esquematrón), y
+# el IPSI de Ceuta y Melilla es la M, con las AG. Son los nombres de la copia
+# oficial que se fija; los que han tenido en otras versiones están en
+# `REGLAS`.
 _IMPUESTO_DE_FACTURAE = {
     "01": "S",   # IVA
     "03": "L",   # IGIC  -> BR-AF-*

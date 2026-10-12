@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3278 tests, todos en verde.
+3281 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -1068,9 +1068,8 @@ van por litro o por kilo, y multiplicar su «tipo» por la base no significa
 nada.
 
 Los códigos (`FE-BASE`, `FE-TOTAL`...) son **nuestros** y se llaman por lo que
-comprueban. Facturae no numera sus reglas como EN 16931 numera las `BR-*`, e
-inventar un «FE-07» que suene a oficial es exactamente el error que ya se
-cometió aquí una vez con unos `BR-IG-*` que no existen en ninguna norma.
+comprueban. Facturae no numera sus reglas como EN 16931 numera las `BR-*`, y
+un «FE-07» sonaría a oficial: quien lo buscara en una norma no lo encontraría.
 
 ### Lo que se factura y no se grava
 
@@ -5959,6 +5958,27 @@ corpus no cambia nada: de las 19 facturas CII, ninguna lleva IGIC. De 394
 códigos a 395. Provocado once veces, las once en rojo (en HALLAZGOS), donde
 está también lo que se vio de paso: en `master` las reglas del IGIC y del IPSI
 cambian de nombre, y en CII el cambio salió cruzado.
+
+**Y lo que se decía de esos nombres era falso.** Al pasar a `BR-AF-*` y
+`BR-AG-*`, el 26-08-2026, se contó que `BR-IG-*` y `BR-IP-*` eran un invento
+de este proyecto y que no existían en ninguna norma, y la frase se fue
+copiando: ese día en este README, en la cabecera de `facturae.py` y en el
+comentario de `iva.REGLAS`; el 06-09, en otro de `iva.py`, y el 12-09, en la
+ficha de `BR-AG-01`, que sale en la página. El esquematrón del CEN los usó en
+UBL en todas sus versiones publicadas, de la 1.0.0 (2018) a la 1.3.13; la
+1.3.14 los cambió por `BR-AF-*` y `BR-AG-*`, que CII había usado siempre, y la
+1.3.17, del 12-10-2026, vuelve a ellos. En EDIFACT, el texto de los mensajes
+dice `BR-IG` y `BR-IP` también en la 1.3.16. Lo encontró la auditoría de la
+1.3.17, el mismo día que salió. Se siguen enseñando `BR-AF-*` y `BR-AG-*`, que
+son los de la copia fijada: cambia lo que se cuenta, no el código. Y la ficha
+de `BR-AF-01` contaba una familia de seis reglas, y son diez.
+
+Una prueba de `test_documentacion.py` lee el validador y el README y se niega
+si una frase nombra esos códigos y, ella o la de al lado, dice que no existen,
+que se inventaron o que salieron por analogía, salvo que diga también que eso
+es falso. Otras dos atan las fichas a la copia: la de `BR-AG-01` tiene que
+nombrar la versión fijada, y la de `BR-AF-01`, contar las reglas `BR-AF` que
+trae. Las dos se ponen en rojo el día que se traiga otra copia.
 
 ## Por qué este y no otro, contestado sin pedir fe
 

@@ -24,9 +24,8 @@ Los códigos son nuestros
 ------------------------
 Facturae no numera sus reglas como hace EN 16931 con las BR-*. Así que estos
 códigos —FE-BASE, FE-TOTAL...— los ponemos aquí y se llaman por lo que
-comprueban, no por un número. Es a propósito: inventar un «FE-07» que suene a
-oficial es exactamente el error que ya se cometió una vez en este proyecto con
-unos BR-IG-* que no existen en ninguna norma.
+comprueban, no por un número. Es a propósito: un «FE-07» sonaría a oficial, y
+quien lo buscara en una norma no lo encontraría.
 
 Por qué no se reutiliza `sintaxis.Sintaxis`
 -------------------------------------------

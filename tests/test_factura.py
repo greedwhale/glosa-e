@@ -693,8 +693,7 @@ class TestElNifDelReceptor:
         """El codigo unico solo usa el NIF del emisor.
 
         Asi que esta queja no puede salir etiquetada «RD 238/2026»: seria
-        firmar con una norma algo que esa norma no dice. Es el mismo error que
-        se cometio aqui con unos BR-IG-* inventados.
+        firmar con una norma algo que esa norma no dice.
         """
         assert factura.origen(Incidencia("NIF-RECEPTOR", AVISO, "")) == factura.CASA
 
