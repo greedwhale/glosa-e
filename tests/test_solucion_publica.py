@@ -592,6 +592,59 @@ CON_UN_IMPUESTO_EN_UN_CARGO = _con_un_impuesto_en_un_cargo()
 CON_EL_DESGLOSE_DEL_IEDMT = _con_el_desglose_del_iedmt()
 CON_LA_INFORMACION_ADICIONAL = _con_la_propiedad("INFO")
 
+
+def _detras_de_los_documentos(*trozos: str, base: str = DEL_BOE) -> str:
+    """La factura con esto detrás de los BG-24, donde UBL pone también la firma."""
+    return cambia(base, "  <cac:AccountingSupplierParty>",
+                  "".join(trozos) + "  <cac:AccountingSupplierParty>")
+
+
+def _contrato(dentro: str) -> str:
+    """Un documento justificativo cualquiera, con lo que se le pegue dentro."""
+    return ("  <cac:AdditionalDocumentReference>\n    <cbc:ID>Contrato-2026-7</cbc:ID>\n"
+            f"    <cac:Attachment>{dentro}</cac:Attachment>\n"
+            "  </cac:AdditionalDocumentReference>\n")
+
+
+def _como_copia_fiel(xml: str) -> str:
+    return cambia(xml, "<cbc:ID>F-2026-0101</cbc:ID>",
+                  "<cbc:ID>F-2026-0101</cbc:ID>\n  <cbc:CopyIndicator>true</cbc:CopyIndicator>")
+
+
+def _con_la_firma_envuelta(xml: str) -> str:
+    """Una firma envuelta en las extensiones, donde la ponen los programas de
+    firma. No se sostiene, y no hace falta: aquí solo cuenta que está."""
+    xml = cambia(xml, 'xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2">',
+                 'xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"\n'
+                 '         xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"\n'
+                 '         xmlns:ds="http://www.w3.org/2000/09/xmldsig#">')
+    return cambia(xml, "  <cbc:UBLVersionID>",
+                  "  <ext:UBLExtensions><ext:UBLExtension><ext:ExtensionContent>\n"
+                  '    <ds:Signature Id="firma"><ds:SignedInfo>\n'
+                  '      <ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>\n'
+                  '      <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>\n'
+                  '      <ds:Reference URI=""><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>\n'
+                  "        <ds:DigestValue>AAAA</ds:DigestValue></ds:Reference>\n"
+                  "    </ds:SignedInfo><ds:SignatureValue>AAAA</ds:SignatureValue></ds:Signature>\n"
+                  "  </ext:ExtensionContent></ext:UBLExtension></ext:UBLExtensions>\n"
+                  "  <cbc:UBLVersionID>")
+
+
+PDF = ('<cbc:EmbeddedDocumentBinaryObject mimeCode="application/pdf" filename="contrato.pdf">'
+       "JVBERi0xLjQK</cbc:EmbeddedDocumentBinaryObject>")
+FIRMA_EN_UN_FICHERO = (
+    "  <cac:Signature>\n    <cbc:ID>firma</cbc:ID>\n"
+    "    <cac:DigitalSignatureAttachment>"
+    '<cbc:EmbeddedDocumentBinaryObject mimeCode="application/pkcs7-signature" '
+    'filename="firma.p7s">MIAGCSqG</cbc:EmbeddedDocumentBinaryObject>'
+    "</cac:DigitalSignatureAttachment>\n  </cac:Signature>\n")
+# Lo que la orden deja ir con la factura sin ser un fichero dentro de ella: un
+# documento por su dirección, y la firma de la interconectada, que puede ir en
+# un fichero dentro de `cac:Signature` (apartado 6 del artículo 3).
+CON_UN_DOCUMENTO_EXTERNO = _detras_de_los_documentos(_contrato(
+    "<cac:ExternalReference><cbc:URI>https://example.org/contrato.pdf</cbc:URI></cac:ExternalReference>"))
+CON_LA_FIRMA_EN_UN_FICHERO = _detras_de_los_documentos(FIRMA_EN_UN_FICHERO)
+
 LAS_DE_LA_ORDEN = {
     "la de la orden": DEL_BOE,
     "con el tercero": CON_EL_TERCERO_DEL_BOE,
@@ -621,6 +674,8 @@ LAS_DE_LA_ORDEN = {
     "un impuesto cobrado como cargo": CON_UN_IMPUESTO_EN_UN_CARGO,
     "el desglose del IEDMT": CON_EL_DESGLOSE_DEL_IEDMT,
     "con información adicional": CON_LA_INFORMACION_ADICIONAL,
+    "un documento por su dirección": CON_UN_DOCUMENTO_EXTERNO,
+    "la firma en un fichero": CON_LA_FIRMA_EN_UN_FICHERO,
 }
 
 
@@ -644,7 +699,7 @@ class TestLasBuenas:
         Del 07-10-2026 al 11-10-2026 se llamaba SPFE-BORRADOR y decía la
         mezcla: la orden publicada, lo que de ella ya se admitía, y que el
         resto seguía midiendo el borrador de abril. Desde ese día se mide con
-        la orden, y la nota dice lo que de ella todavía no se mide.
+        la orden, y la nota dice lo que de ella no se mide.
         """
         nota = la(DEL_BOE, "SPFE-ALCANCE")
         assert nota.gravedad == NOTA
@@ -659,9 +714,15 @@ class TestLasBuenas:
         dejado la clave de régimen. Lo vio el revisor de promesas el 07-10-2026,
         antes de publicar."""
         cosas = solucion_publica.LO_QUE_TODAVIA_NO_SE_MIDE
+        nota = la(DEL_BOE, "SPFE-ALCANCE").mensaje
+        ficha = glosario.CODIGOS["SPFE-ALCANCE"]
+        if not cosas:
+            # Vacía desde el 11-10-2026: ninguna de las dos dice que falte algo.
+            assert "todavía no se mide" not in nota and "todavía no se mide" not in ficha
+            return
         frase = cosas[0] if len(cosas) == 1 else "; ".join(cosas[:-1]) + "; y " + cosas[-1]
-        assert frase in la(DEL_BOE, "SPFE-ALCANCE").mensaje
-        assert frase in glosario.CODIGOS["SPFE-ALCANCE"]
+        assert frase in nota
+        assert frase in ficha
 
     def test_la_nota_nombra_tambien_lo_que_no_se_puede_comprobar(self):
         """La política de privacidad y la portada dicen que lo que no se mide lo
@@ -674,6 +735,15 @@ class TestLasBuenas:
         for que, porque in solucion_publica.NO_SE_COMPRUEBA.items():
             assert que.lower() in nota.lower(), que
             assert f"{que}: {porque}" in ficha, que
+
+    def test_la_nota_dice_que_lo_que_la_orden_deja_a_la_sede_no_se_mide(self):
+        """Con `LO_QUE_TODAVIA_NO_SE_MIDE` vacía, el 11-10-2026, la nota dejaba
+        de decir que faltaba algo, y la orden deja a la Sede las
+        especificaciones técnicas, la volumetría y el tamaño máximo de las
+        copias fieles, que no son el anexo."""
+        nota = la(DEL_BOE, "SPFE-ALCANCE").mensaje
+        assert "las especificaciones técnicas" in nota
+        assert "Sede electrónica" in solucion_publica.NO_SE_COMPRUEBA["Especificaciones técnicas"]
 
     def test_la_nota_no_se_limita_a_lo_que_enumera(self):
         """Decía «no quiere decir que la factura cumpla la orden en eso», y lo
@@ -1264,6 +1334,83 @@ class TestElQr:
         assert queja.encontrado == "VeriFactu" and queja.esperado == "VERIFACTU o TICKETBAI"
 
 
+class TestLaAutorizacion:
+    """BG-24 «AUTORIZACIÓN DE FACTURACIÓN»: las que hagan falta, cada una con su número."""
+
+    @pytest.mark.parametrize("autorizacion", [
+        adjunto("AUT"),
+        adjunto("AUT", calificador=""),
+        adjunto("AUT").replace("</cbc:ID>\n", "</cbc:ID>\n    <cbc:UUID></cbc:UUID>\n"),
+    ], ids=["sin número", "a secas y sin número", "con el número vacío"])
+    def test_sin_el_numero_no_vale(self, autorizacion):
+        queja = la(_detras_de_los_documentos(autorizacion), "SPFE-AUTORIZACION")
+        assert queja.gravedad == ERROR and queja.encontrado == "(falta)"
+        assert queja.campo == "Autorización de facturación (BG-24, BT-ES-26)"
+        assert "cbc:UUID" in queja.mensaje
+
+    def test_con_varias_dice_a_cual_le_falta(self):
+        assert las(_detras_de_los_documentos(adjunto("AUT", uuid="REG01"), adjunto("AUT", uuid="REG02")),
+                   "SPFE-AUTORIZACION") == []
+        dos = _detras_de_los_documentos(adjunto("AUT", uuid="REG01"), adjunto("AUT"))
+        assert la(dos, "SPFE-AUTORIZACION").campo.endswith("· autorización 2")
+
+    def test_un_parecido_no_es_la_autorizacion(self):
+        assert las(_detras_de_los_documentos(adjunto("AUTX")), "SPFE-AUTORIZACION") == []
+
+
+class TestLosFicherosEmbebidos:
+    """Los artículos 3 y 4 de la orden: ni las facturas ni las copias fieles
+    llevan ficheros dentro, y la firma, la interconectada."""
+
+    QR_CON_SU_IMAGEN = cambia(
+        DEL_BOE, "    <cbc:DocumentDescription>VERIFACTU</cbc:DocumentDescription>\n",
+        "    <cbc:DocumentDescription>VERIFACTU</cbc:DocumentDescription>\n"
+        '    <cac:Attachment><cbc:EmbeddedDocumentBinaryObject mimeCode="image/png" '
+        'filename="qr.png">iVBORw0K</cbc:EmbeddedDocumentBinaryObject></cac:Attachment>\n')
+
+    @pytest.mark.parametrize(("xml", "encontrado"), [
+        (_detras_de_los_documentos(_contrato(PDF)), "contrato.pdf en el documento Contrato-2026-7"),
+        (_detras_de_los_documentos(_contrato("<cbc:EmbeddedDocument>Contrato</cbc:EmbeddedDocument>")),
+         "un texto en el documento Contrato-2026-7"),
+        (QR_CON_SU_IMAGEN, f"qr.png en el documento {L10}QR"),
+    ], ids=["un PDF", "un texto", "la imagen del QR"])
+    def test_un_fichero_dentro_no_vale(self, xml, encontrado):
+        queja = la(xml, "SPFE-FICHERO-EMBEBIDO")
+        assert queja.gravedad == ERROR and queja.encontrado == encontrado
+        assert "apartado 6 de su artículo 3" in queja.mensaje and "BT-125" in queja.mensaje
+
+    def test_en_la_copia_fiel_lo_dice_el_articulo_4(self):
+        queja = la(_como_copia_fiel(_detras_de_los_documentos(_contrato(PDF))), "SPFE-FICHERO-EMBEBIDO")
+        assert queja.gravedad == ERROR and "apartado 4 de su artículo 4" in queja.mensaje
+
+    def test_un_documento_por_su_direccion_no_es_un_fichero_dentro(self):
+        assert las(CON_UN_DOCUMENTO_EXTERNO, "SPFE-FICHERO-EMBEBIDO") == []
+
+    @pytest.mark.parametrize("xml", [CON_LA_FIRMA_EN_UN_FICHERO, _con_la_firma_envuelta(DEL_BOE)],
+                             ids=["en un fichero", "envuelta"])
+    def test_la_factura_interconectada_puede_ir_con_la_firma(self, xml):
+        """Segundo párrafo del apartado 6 del artículo 3."""
+        assert las(xml, "SPFE-FICHERO-EMBEBIDO") == []
+
+    @pytest.mark.parametrize(("xml", "encontrado"), [
+        (CON_LA_FIRMA_EN_UN_FICHERO, "la firma en un fichero (cac:Signature)"),
+        (_con_la_firma_envuelta(DEL_BOE), "la firma envuelta (ds:Signature)"),
+    ], ids=["en un fichero", "envuelta"])
+    def test_la_copia_fiel_con_la_firma_es_un_aviso(self, xml, encontrado):
+        """El artículo 4 no hace la salvedad del 3, y la orden no dice si la
+        firma es uno de esos ficheros: aviso, y no error."""
+        queja = la(_como_copia_fiel(xml), "SPFE-FICHERO-EMBEBIDO")
+        assert queja.gravedad == AVISO and queja.encontrado == encontrado
+
+    def test_una_firma_que_solo_se_nombra_no_es_una_firma(self):
+        """`cac:Signature` con la dirección de la firma y sin ella."""
+        nombrada = _detras_de_los_documentos(
+            "  <cac:Signature>\n    <cbc:ID>firma</cbc:ID>\n    <cac:DigitalSignatureAttachment>"
+            "<cac:ExternalReference><cbc:URI>#firma</cbc:URI></cac:ExternalReference>"
+            "</cac:DigitalSignatureAttachment>\n  </cac:Signature>\n")
+        assert las(_como_copia_fiel(nombrada), "SPFE-FICHERO-EMBEBIDO") == []
+
+
 class TestPartes:
 
     def test_el_nif_del_vendedor_con_otro_impuesto(self):
@@ -1419,7 +1566,7 @@ class TestDocumento:
                            "<cbc:AllowanceChargeReason>Descuento de linea</cbc:AllowanceChargeReason>", "")
         assert la(sin_linea, "SPFE-MOTIVO").campo.endswith("descuento 1 de la línea 1")
 
-    @pytest.mark.parametrize(("xml", "viejo", "lugar"), [
+    _SITIOS_DEL_IMPUESTO = pytest.mark.parametrize(("xml", "viejo", "lugar"), [
         (DEL_BOE, "<cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>"
                   "</cac:ClassifiedTaxCategory>", "líneas"),
         (DEL_BOE, "<cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>"
@@ -1427,12 +1574,23 @@ class TestDocumento:
         (CON_DESCUENTOS, "<cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>"
                          "</cac:TaxCategory>\n  </cac:AllowanceCharge>", "descuentos y cargos del documento"),
     ], ids=["la línea", "el desglose", "el descuento"])
+
+    @_SITIOS_DEL_IMPUESTO
     def test_el_impuesto_no_es_vat(self, xml, viejo, lugar):
         """Lo dicen las filas BG-30, BG-23, BT-95 y BT-102, en su columna de la ruta."""
         otro = cambia(xml, viejo, viejo.replace(">VAT<", ">IGIC<"))
         queja = la(otro, "SPFE-TIPO-DE-IMPUESTO")
         assert queja.campo.endswith(lugar) and queja.encontrado == "IGIC"
         assert "BT-95, BT-102, BG-30 y BG-23" in queja.mensaje
+
+    @_SITIOS_DEL_IMPUESTO
+    def test_el_impuesto_que_no_esta_tampoco_es_vat(self, xml, viejo, lugar):
+        """«Su uso implica» que la ruta tome el valor, y sin el elemento no lo
+        toma. Pasaba sin una queja hasta el 11-10-2026: lo destapó quitar, uno
+        a uno, cada elemento de las facturas buenas."""
+        sin = cambia(xml, viejo, viejo.replace("<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>", ""))
+        queja = la(sin, "SPFE-TIPO-DE-IMPUESTO")
+        assert queja.campo.endswith(lugar) and queja.encontrado == "(falta)"
 
     def test_la_k_no_esta_en_la_lista_l4(self):
         con_k = cambia(DEL_BOE, "<cac:ClassifiedTaxCategory><cbc:ID>S<", "<cac:ClassifiedTaxCategory><cbc:ID>K<")
@@ -1548,6 +1706,33 @@ class TestLosImpuestosYTasas:
     def test_la_cuota_del_cobro_es_la_base_por_el_tipo(self):
         queja = la(_con_el_desglose_del_iedmt(cuota="150.00"), "SPFE-IMPUESTO-O-TASA")
         assert queja.esperado == "120,00" and "BT-ES-14" in queja.mensaje
+
+
+class TestLoQueSeQuitabaSinUnaQueja:
+    """Antes de dar por medido todo lo que la orden pide, el 11-10-2026, se
+    quitó cada elemento de las facturas buenas, uno a uno, y se pasó el
+    validador entero. Lo que la orden pide y salía sin una queja está aquí; lo
+    del tipo de impuesto, con las otras pruebas del tipo de impuesto."""
+
+    def test_el_total_del_impuesto_de_un_cargo_sin_su_detalle(self):
+        """La cuota en una sola de sus dos rutas (BT-ES-8), y nada que diga
+        qué impuesto es: le falta el código."""
+        sin_detalle = quita(CON_UN_IMPUESTO_EN_UN_CARGO, "      <cac:TaxSubtotal>", "</cac:TaxSubtotal>\n")
+        queja = la(sin_detalle, "SPFE-IMPUESTO-O-TASA")
+        assert queja.gravedad == ERROR and queja.encontrado == "(falta)"
+        assert "(BT-ES-9)" in queja.campo
+
+    def test_la_suma_de_retenciones_sin_ninguna_es_una_nota(self):
+        """La orden deja el detalle en `0..n`: sin él no hay con qué comparar
+        la suma, y se dice. Con la suma a cero no hay nada que decir."""
+        sin = quita(DEL_BOE, '    <cac:TaxSubtotal>\n      <cbc:TaxableAmount currencyID="EUR">100.00'
+                    '</cbc:TaxableAmount>\n      <cbc:TaxAmount currencyID="EUR">15.00',
+                    "</cac:TaxSubtotal>\n")
+        nota = la(sin, "SPFE-RETENCION")
+        assert nota.gravedad == NOTA and nota.encontrado == "15.00" and "0..n" in nota.mensaje
+        a_cero = cambia(sin, '<cbc:TaxAmount currencyID="EUR">15.00</cbc:TaxAmount>\n  </cac:WithholdingTaxTotal>',
+                        '<cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount>\n  </cac:WithholdingTaxTotal>')
+        assert las(a_cero, "SPFE-RETENCION") == []
 
 
 class TestLineas:
@@ -2081,6 +2266,8 @@ class TestSeNiegaSiElAnexoCambia:
         ("BT-160", "«INFO»", "«INFORMACION»"),
         ("BT-160", "«REGI»", "«REGIX»"),
         ("BT-160", "«RCAT»", "«RCATX»"),
+        ("BT-ES-26", "Número de referencia de la autorización concedida",
+         "Fecha de la autorización concedida"),
     ])
     def test_si_cambia_una_cuenta_o_un_limite_que_se_comprueba(self, monkeypatch, identificador,
                                                               viejo, nuevo):
@@ -2099,6 +2286,9 @@ class TestSeNiegaSiElAnexoCambia:
         ("BG-ES-3", {"cardinalidad": "1..n"}, "1..n"),
         ("BG-32", {"termino": "INFORMACIÓN ADICIONAL", "cardinalidad": "0..1"}, "0..1"),
         ("BT-161", {"termino": "Información adicional", "cardinalidad": "0..1"}, "0..1"),
+        ("BT-ES-26", {"cardinalidad": "0..1"}, "0..1"),
+        ("BG-24", {"termino": "AUTORIZACIÓN DE FACTURACIÓN", "cardinalidad": "0..1"}, "0..1"),
+        ("BG-ES-4", {"cardinalidad": "1..n"}, "1..n"),
     ])
     def test_si_cambia_lo_que_se_lee_de_los_campos_de_la_norma(self, monkeypatch, identificador,
                                                               cambios, dice):
@@ -2148,6 +2338,17 @@ class TestSeNiegaSiElAnexoCambia:
 
 
 class TestDeDondeSale:
+
+    def test_el_readme_dice_cuantos_codigos_hay(self):
+        """La cifra en negrita se quedó en 25 cuando ya eran 27: la tanda que
+        añadió dos cambió la frase de debajo y no esa. Lo vio la tanda
+        siguiente, el 11-10-2026. Se cuentan los códigos que el módulo escribe."""
+        codigo = pathlib.Path(solucion_publica.__file__).read_text(encoding="utf-8")
+        hay = len(set(re.findall(r'"(SPFE-[A-Z-]+)"', codigo)))
+        raiz = pathlib.Path(__file__).resolve().parents[1]
+        readme = " ".join((raiz / "README.md").read_text(encoding="utf-8").split())
+        assert re.findall(r"\*\*(\d+) códigos, todos con el prefijo `SPFE-`\*\*", readme) == [str(hay)]
+        assert re.findall(r"llegaron a (\d+) con lo que la orden pide", readme) == [str(hay)]
 
     @con_esquema
     def test_las_rutas_europeas_que_se_usan_existen_en_ubl_2_5(self):

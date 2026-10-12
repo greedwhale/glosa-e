@@ -47,10 +47,10 @@ solo existían en el borrador —el recargo de equivalencia y el grupo de
 entidades en sus propias líneas de cobro— ya no están. Qué cambió en cada paso
 y por qué está en el README y en HALLAZGOS.md.
 
-Lo que la orden pide y aquí todavía no se mide está en
-`LO_QUE_TODAVIA_NO_SE_MIDE`, y la NOTA `SPFE-ALCANCE` de cada factura lo
-dice: que no salga ninguna queja no quiere decir que la factura cumpla la
-orden.
+Lo que la orden pide y aquí todavía no se mide va en
+`LO_QUE_TODAVIA_NO_SE_MIDE`, vacía desde el 11-10-2026, y la NOTA
+`SPFE-ALCANCE` de cada factura lo dice, con lo que no se puede comprobar: que
+no salga ninguna queja no quiere decir que la factura cumpla la orden.
 
 Lo que la orden no dice y aquí se decide
 ----------------------------------------
@@ -70,6 +70,13 @@ Lo que la orden no dice y aquí se decide
   y hasta entonces no se compara: lo dice una NOTA.
 - **El margen de las cuotas que la orden define como una cuenta**, las
   retenciones y los impuestos y tasas: el de la cuota del IVA (BR-CO-17).
+- **La firma en la copia fiel**, en AVISO. La orden deja ir con la firma a
+  las facturas interconectadas (artículo 3) y no lo dice de las copias fieles
+  (artículo 4), y tampoco dice si la firma es uno de los ficheros integrados o
+  embebidos que prohíbe a las dos.
+- **La suma de retenciones sin ninguna retención detallada**, en NOTA. La
+  orden deja el detalle en `0..n` y define la suma como el sumatorio de lo
+  practicado: sin detalle no hay con qué compararla.
 
 Lo que dijo el buzón y sigue valiendo
 -------------------------------------
@@ -125,6 +132,7 @@ from validador.en16931 import _UNCL1001
 from validador.formato import (
     MARCADOR_CIUS_ES,
     NOMBRA_A_LA_AEAT,
+    NS_FIRMA,
     RESPUESTA,
     UBL,
     declara_la_solucion_publica,
@@ -406,6 +414,25 @@ _QR_URL = _en_el_documento(_obligatorio("BT-ES-25"))
 _TIPOS_DE_QR = _usar(_de(_DOCUMENTOS["QR"], "BT-123"))
 _cuantos(_de(_DOCUMENTOS["QR"], "BT-123"), "0..1")
 
+# La autorización de facturación: tantas como haga falta, y en cada una el
+# número de la autorización, en el mismo cbc:UUID que la dirección del QR.
+_cuantos(_DOCUMENTOS["AUT"], "0..n")
+_NUMERO_DE_AUTORIZACION = _en_el_documento(_obligatorio("BT-ES-26"))
+_dice("BT-ES-26", "Número de referencia de la autorización concedida")
+
+# Los ficheros embebidos. No los prohíbe el anexo sino el articulado de la
+# orden: las facturas emitidas o interconectadas «no podrán incorporar otros
+# ficheros integrados o embebidos» (apartado 6 del artículo 3), salvo la
+# firma en las interconectadas, y las copias fieles tampoco, sin salvedad
+# (apartado 4 del artículo 4). Esos dos textos no están en `cius_es`, que es
+# el anexo, y no hay fila que leer al importar. En UBL un fichero va dentro de
+# la factura en un `cac:Attachment`, en base64 o en texto; la firma, en
+# `cac:Signature` o envuelta en `ds:Signature`.
+_EMBEBIDOS = ".//cbc:EmbeddedDocumentBinaryObject | .//cbc:EmbeddedDocument"
+_DENTRO_DE_LA_FIRMA = "ancestor::cac:Signature"
+_FIRMAS_ENVUELTAS = ".//ds:Signature"
+_NS_CON_LA_FIRMA = dict(NS_CIUS_ES, ds=NS_FIRMA)
+
 # La moneda del IVA: «Valor obligatorio: usar «EUR»».
 _dice("BT-6", "usar EUR")
 _dice("BT-6", "se consignará obligatoriamente como moneda de contabilización del IVA el euro")
@@ -487,6 +514,14 @@ for _identificador, _lugar in (("BT-95", "descuentos y cargos del documento"),
         raise AnexoCambiado(f"{_identificador} ya no pide el impuesto «{_IMPUESTO}»")
     if (_ruta_vat, _lugar) not in _IMPUESTO_EN:
         _IMPUESTO_EN.append((_ruta_vat, _lugar))
+# Y tiene que estar: «su uso implica» que la ruta tome el valor, y sin el
+# elemento no lo toma. Se mira desde la categoría de cada sitio, que la norma
+# pide siempre, para ver también la que no lo lleva. Hasta el 11-10-2026 se
+# miraba solo el valor escrito, y una factura sin un solo «VAT» pasaba sin una
+# queja: lo destapó quitar, uno a uno, cada elemento de las facturas buenas.
+_ESQUEMA_DE_LA_CATEGORIA = "cac:TaxScheme/cbc:ID"
+_CATEGORIAS_CON_IMPUESTO = [(_padre(_ruta_vat, _ESQUEMA_DE_LA_CATEGORIA), _lugar)
+                            for _ruta_vat, _lugar in _IMPUESTO_EN]
 
 # El tercero que expide la factura en lugar del vendedor.
 _TERCERO = _ruta("BG-ES-1")
@@ -618,6 +653,9 @@ _RETENCION_HIJOS = {
     identificador: _relativa(_ruta(_obligatorio(identificador)), _RETENCIONES_APLICADAS)
     for identificador in ("BT-ES-18", "BT-ES-19", "BT-ES-20", "BT-ES-21")
 }
+# Cada retención aplicada es `0..n`: la suma puede llegar sin ninguna, y
+# entonces no hay con qué compararla (ver `_cuadre_de_las_retenciones`).
+_cuantos(_fila("BG-ES-4"), "0..n")
 _ruta_s, _CATEGORIA_DE_LA_RETENCION = _condicion("BG-ES-4", "cac:TaxCategory/cbc:ID")
 _ruta_wth, _ESQUEMA_DE_LA_RETENCION = _condicion("BG-ES-4", "cac:TaxScheme/cbc:ID")
 _RETENCION_CATEGORIA = _relativa(_ruta_s, _RETENCIONES_APLICADAS)
@@ -723,10 +761,12 @@ def _adjuntos(raiz) -> list[tuple[str, object]]:
 # la nota SPFE-ALCANCE de cada factura, y el glosario lo copia letra a letra:
 # la lista estuvo escrita dos veces hasta el 07-10-2026, y ya no decía lo
 # mismo. Cada frase nombra la fila o la lista de la orden de la que sale, y
-# hay prueba de que existe en la tabla.
-LO_QUE_TODAVIA_NO_SE_MIDE = (
-    "el número de la autorización de facturación (BT-ES-26)",
-)
+# hay prueba de que existe en la tabla. Desde el 11-10-2026 no queda nada: lo
+# último fue el número de la autorización (BT-ES-26), y antes de vaciarla se
+# quitó cada elemento de las facturas buenas, uno a uno, para ver qué pasaba
+# en silencio. La tupla se queda, vacía, para lo que traiga una orden nueva, y
+# la nota deja de nombrarla.
+LO_QUE_TODAVIA_NO_SE_MIDE: tuple[str, ...] = ()
 
 
 # Lo que el anexo pide y aquí no se mira porque no se puede, con el porqué. Se
@@ -769,6 +809,13 @@ NO_SE_COMPRUEBA: dict[str, str] = {
         "La nota de la factura lleva el código «REG» cuando es una mención "
         "obligatoria según una normativa específica, y qué menciones lo son no "
         "se ve en la factura."
+    ),
+    "Especificaciones técnicas": (
+        "La orden deja las especificaciones técnicas y la volumetría, y el "
+        "tamaño máximo de las copias fieles, a lo que conste en la Sede "
+        "electrónica de la Agencia (apartado 1 del artículo 3 y apartado 2 del "
+        "artículo 4). No son el anexo, y lo que se publique allí puede cambiar "
+        "sin pasar por el BOE: aquí no se mide."
     ),
     "Cardinalidades máximas": (
         "Que un campo que no se repite no se repita se mira en los grupos donde "
@@ -826,6 +873,14 @@ def _en_una_frase(cosas) -> str:
     if len(cosas) == 1:
         return cosas[0]
     return "; ".join(cosas[:-1]) + "; y " + cosas[-1]
+
+
+def _lo_que_todavia() -> str:
+    """El principio de la frase de lo que falta: lo que no se mide, si queda algo."""
+    if not LO_QUE_TODAVIA_NO_SE_MIDE:
+        return "Hay cosas que "
+    return ("De lo que la orden pide, todavía no se mide "
+            f"{_en_una_frase(LO_QUE_TODAVIA_NO_SE_MIDE)}. Y hay cosas que ")
 
 
 def _lo_que_no_se_puede() -> str:
@@ -914,8 +969,7 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
             NOTA,
             "La factura dice ser de la solución pública, y se mide con el anexo "
             "I de la Orden HAC/1028/2026, publicada en el BOE el 05-10-2026 y en "
-            "vigor desde el 06-10-2026. De lo que la orden pide, todavía no se "
-            f"mide {_en_una_frase(LO_QUE_TODAVIA_NO_SE_MIDE)}. Y hay cosas que "
+            f"vigor desde el 06-10-2026. {_lo_que_todavia()}"
             "no se comprueban, con el porqué en la ficha de esta nota: "
             f"{_lo_que_no_se_puede()}. Que no salga ninguna queja no quiere "
             "decir que la factura cumpla la orden.",
@@ -931,7 +985,8 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
         _exenciones, _impuestos_de_los_cargos_de_linea, _impuestos_de_los_cargos,
         _claves_de_regimen, _referencias_catastrales, _informacion_adicional,
         _lineas_de_cobro, _retenciones, _cuadre_de_las_retenciones,
-        _impuestos_de_los_cobros, _qr, _total_a_pagar,
+        _impuestos_de_los_cobros, _qr, _autorizacion, _ficheros_embebidos,
+        _total_a_pagar,
     ):
         incidencias.extend(regla(raiz))
     return incidencias
@@ -1652,26 +1707,28 @@ def _direcciones(raiz) -> list[Incidencia]:
 def _tipo_de_impuesto(raiz) -> list[Incidencia]:
     """El impuesto es «VAT» en los descuentos, los cargos, las líneas y el desglose.
 
-    Lo dicen las filas BT-95, BT-102, BG-30 y BG-23 en su columna de ruta.
+    Lo dicen las filas BT-95, BT-102, BG-30 y BG-23 en su columna de ruta. Y
+    tiene que estar: una categoría sin `cac:TaxScheme/cbc:ID` no lo dice.
     """
     lugares: list[str] = []
     malos: list[str] = []
-    for ruta, lugar in _IMPUESTO_EN:
-        for nodo in _nodos(raiz, ruta):
-            escrito = _escrito(nodo)
+    for ruta, lugar in _CATEGORIAS_CON_IMPUESTO:
+        for categoria in _nodos(raiz, ruta):
+            escritos = _nodos(categoria, "./" + _ESQUEMA_DE_LA_CATEGORIA)
+            escrito = (_escrito(escritos[0]) or "(vacío)") if escritos else "(falta)"
             if escrito == _IMPUESTO:
                 continue
             if lugar not in lugares:
                 lugares.append(lugar)
-            if (escrito or "(vacío)") not in malos:
-                malos.append(escrito or "(vacío)")
+            if escrito not in malos:
+                malos.append(escrito)
     if not malos:
         return []
     return [
         Incidencia(
             "SPFE-TIPO-DE-IMPUESTO",
             ERROR,
-            f"El tipo de impuesto no es «{_IMPUESTO}». La orden lo fija en "
+            f"El tipo de impuesto no es «{_IMPUESTO}» o no está. La orden lo fija en "
             f"«{_IMPUESTO}» en los descuentos y cargos del documento, en cada "
             "línea y en el desglose (filas BT-95, BT-102, BG-30 y BG-23); el "
             "IGIC y el IPSI tienen su propia categoría en la lista L4, la L y "
@@ -2020,10 +2077,11 @@ def _impuestos_de_los_cargos_de_linea(raiz) -> list[Incidencia]:
 def _impuestos_de_los_cargos(raiz) -> list[Incidencia]:
     """BG-ES-2: el impuesto o tasa que se cobra como un cargo del documento.
 
-    Un cargo lo lleva si trae un `cac:TaxTotal` con su desglose: el código de
-    L9 en cada impuesto (BT-ES-9) y la cuota (BT-ES-8), que es la base por el
-    tipo cuando la factura da los dos y que va también en el total del cargo.
-    Con más de un impuesto en el cargo eso no se puede cumplir, y se dice.
+    Un cargo lo lleva si trae un `cac:TaxTotal`, y con él su desglose: el
+    código de L9 en cada impuesto (BT-ES-9) y la cuota (BT-ES-8), que es la
+    base por el tipo cuando la factura da los dos y que va también en el total
+    del cargo. Con más de un impuesto en el cargo eso no se puede cumplir, y se
+    dice.
     """
     incidencias: list[Incidencia] = []
     sin: list[str] = []
@@ -2032,6 +2090,11 @@ def _impuestos_de_los_cargos(raiz) -> list[Incidencia]:
     varios: list[tuple[str, int]] = []
     for nombre, cargo in grupos(raiz, SINTAXIS_UBL, "cargos_documento"):
         impuestos = _nodos(cargo, _IMPUESTOS_DEL_CARGO)
+        if not impuestos and _nodos(cargo, _CUOTA_DEL_CARGO):
+            # El total del impuesto sin su detalle: la cuota en una sola de sus
+            # dos rutas, y nada que diga qué impuesto es. Pasaba sin una queja
+            # hasta el 11-10-2026; lo destapó quitar cada elemento, uno a uno.
+            sin.append(nombre)
         for numero, impuesto in _nombrados(impuestos, "impuesto"):
             lugar = f"{numero} del {nombre}" if numero else nombre
             codigo = _valor(impuesto, _DEL_IMPUESTO_DEL_CARGO["BT-ES-9"])
@@ -2462,7 +2525,9 @@ def _cuadre_de_las_retenciones(raiz) -> list[Incidencia]:
     retención calculada por líneas y sumada sería un ERROR que la norma no
     pondría en la cuota. La suma es como las de la cabecera (BR-CO-10 a
     BR-CO-16): exacta. Si falta una cifra o no se deja leer, la cuenta no se
-    hace; que falte ya lo dice `_retenciones`.
+    hace; que falte ya lo dice `_retenciones`. Y si la factura da la suma y no
+    detalla ninguna retención, que la orden deja en `0..n`, no hay con qué
+    compararla: una nota lo dice. Pasaba sin una palabra hasta el 11-10-2026.
     """
     incidencias: list[Incidencia] = []
     importes = []
@@ -2506,6 +2571,19 @@ def _cuadre_de_las_retenciones(raiz) -> list[Incidencia]:
                 )
             )
     total = a_decimal(_valor(raiz, _RETENCION_TOTAL))
+    if total and not importes:
+        incidencias.append(
+            Incidencia(
+                "SPFE-RETENCION",
+                NOTA,
+                "La factura da una suma de retenciones y no detalla ninguna "
+                "(BG-ES-4). La orden define la suma como el sumatorio de las "
+                "retenciones practicadas y deja el detalle en 0..n: sin él no "
+                "hay con qué compararla, y no se ha comprobado.",
+                campo="Suma de retenciones (BT-ES-17)",
+                encontrado=cifras.tiene(total),
+            )
+        )
     if total is not None and importes and None not in importes:
         suma = sum(importes)
         if not cuadra_exacto(suma, total):
@@ -2594,6 +2672,104 @@ def _qr(raiz) -> list[Incidencia]:
                 encontrado=", ".join(dict.fromkeys(otros)),
             )
         )
+    return incidencias
+
+
+def _autorizacion(raiz) -> list[Incidencia]:
+    """BG-24 de la autorización de facturación: cada uno con su número (BT-ES-26).
+
+    La orden admite tantos como hagan falta, y en cada uno pide el número de
+    referencia de la autorización en cbc:UUID. La descripción (BT-123) es
+    libre.
+    """
+    autorizaciones = [adjunto for calificador, adjunto in _adjuntos(raiz) if calificador == "AUT"]
+    sin = [nombre for nombre, adjunto in _nombrados(autorizaciones, "autorización")
+           if not _valor(adjunto, _NUMERO_DE_AUTORIZACION)]
+    if not sin:
+        return []
+    return [
+        Incidencia(
+            "SPFE-AUTORIZACION",
+            ERROR,
+            "Falta el número de la autorización de facturación. La orden lo "
+            "pide en cbc:UUID de cada documento de la autorización (fila "
+            "BT-ES-26): el número de referencia de la que concedió la Agencia "
+            "Tributaria, la Administración Tributaria Canaria o la Diputación "
+            "Foral que corresponda.",
+            campo=_donde("Autorización de facturación (BG-24, BT-ES-26)", sin),
+            esperado="cbc:UUID",
+            encontrado="(falta)",
+        )
+    ]
+
+
+def _es_copia(raiz) -> bool:
+    """Si el indicador de copia (BT-ES-1) dice que lo es: «True: copia»."""
+    return _valor(raiz, _COPIA) in ("true", "1")
+
+
+def _fichero(nodo) -> str:
+    """Un fichero embebido, por su nombre y por el documento en el que va."""
+    nombre = nodo.get("filename") or nodo.get("mimeCode") or "un texto"
+    documento = nodo.xpath("ancestor::cac:Attachment/../cbc:ID", namespaces=NS_CIUS_ES)
+    referencia = _escrito(documento[0]) if documento else ""
+    return f"{nombre} en el documento {referencia}" if referencia else nombre
+
+
+def _ficheros_embebidos(raiz) -> list[Incidencia]:
+    """Los ficheros integrados o embebidos, que la orden no deja llevar.
+
+    Ninguno fuera de la firma, sea la factura original o una copia fiel: el
+    apartado 6 del artículo 3 lo dice de las emitidas o interconectadas, y el
+    apartado 4 del artículo 4, de las copias. Con la firma, el artículo 3 deja
+    ir a las interconectadas, y el 4 no dice nada de las copias: si una copia
+    fiel la lleva, un aviso. La firma envuelta en el XML (`ds:Signature`) no
+    es un fichero pegado, pero es la firma que el artículo 3 exceptúa, y se
+    trata igual que la que va en un fichero.
+    """
+    incidencias: list[Incidencia] = []
+    copia = _es_copia(raiz)
+    embebidos = _nodos(raiz, _EMBEBIDOS)
+    fuera = [nodo for nodo in embebidos if not nodo.xpath(_DENTRO_DE_LA_FIRMA, namespaces=NS_CIUS_ES)]
+    if fuera:
+        articulo = ("el apartado 4 de su artículo 4, de las copias fieles" if copia else
+                    "el apartado 6 de su artículo 3, de las facturas emitidas o "
+                    "interconectadas a través de la solución pública")
+        incidencias.append(
+            Incidencia(
+                "SPFE-FICHERO-EMBEBIDO",
+                ERROR,
+                "La factura lleva un fichero dentro, y la orden no lo admite: «no "
+                f"podrán incorporar otros ficheros integrados o embebidos», dice {articulo}. "
+                "La norma europea sí lo admite, como documento adjunto (BT-125), y "
+                "el anexo I no lo recoge.",
+                campo="Fichero embebido (cac:Attachment)",
+                esperado="ningún fichero dentro de la factura",
+                encontrado=", ".join(dict.fromkeys(_fichero(nodo) for nodo in fuera)),
+            )
+        )
+    if copia:
+        firmas = [que for que, hay in (
+            ("la firma envuelta (ds:Signature)", raiz.xpath(_FIRMAS_ENVUELTAS, namespaces=_NS_CON_LA_FIRMA)),
+            ("la firma en un fichero (cac:Signature)", [n for n in embebidos if n not in fuera]),
+        ) if hay]
+        if firmas:
+            incidencias.append(
+                Incidencia(
+                    "SPFE-FICHERO-EMBEBIDO",
+                    AVISO,
+                    "La factura es una copia fiel (BT-ES-1) y lleva la firma "
+                    "electrónica. El apartado 4 del artículo 4 de la orden no deja a "
+                    "las copias fieles incorporar otros ficheros integrados o "
+                    "embebidos, y no hace con la firma la salvedad que el apartado 6 "
+                    "del artículo 3 hace con las facturas interconectadas. La orden "
+                    "no dice si la firma cuenta como uno de esos ficheros: por eso es "
+                    "un aviso y no un error.",
+                    campo="Firma electrónica",
+                    esperado="la copia fiel sin firma",
+                    encontrado=_y(firmas),
+                )
+            )
     return incidencias
 
 

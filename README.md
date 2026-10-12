@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3029 tests, todos en verde.
+3057 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3796,13 +3796,15 @@ por qué; en GitHub no está, y allí se saltan.
 ### Las reglas del anexo, y a quién se le aplican
 
 Leído el anexo, `validador/solucion_publica.py` le pide a la factura lo que el
-anexo pide. **25 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
+anexo pide. **29 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
 I» en el informe, que no es la del real decreto: es el anexo de la Orden
 HAC/1028/2026. Hasta el 07-10-2026 decía «Anexo I (borrador)», y hasta el
 11-10-2026 eran 24 y medían en buena parte el borrador de abril. Ese día
-quedaron en 22 al ponerlos al texto de la orden, y llegaron a 27 con lo que la
+quedaron en 22 al ponerlos al texto de la orden, y llegaron a 29 con lo que la
 orden pide y no se medía (en «La segunda tanda», «Lo que la orden pide y no se
-medía» y «Los impuestos y tasas, y la información de la línea», más abajo).
+medía», «Los impuestos y tasas, y la información de la línea» y «La
+autorización, los ficheros embebidos y lo que se quitaba sin una queja», más
+abajo).
 
 **Solo a las facturas UBL que declaran la solución pública** en su
 `CustomizationID`: con el identificador de la orden, o con el CIUS del
@@ -3827,15 +3829,19 @@ Lo que se comprueba:
 | Los datos de la rectificativa en toda 384 y 471: un `BG-24` `RECT:TIPO` y uno `RECT:MODALIDAD`, con su código en `cbc:DocumentTypeCode`, de L2.A y L2.B; y, si los lleva, los `RECT:IMPORTES`, cada uno con su código de L2.C y su importe: más de cinco es ERROR, cuatro o cinco una NOTA (`BT-3` dice «hasta tres» y el grupo es `0..5`), y con la modalidad `I`, un AVISO, porque el grupo es para la sustitución | `SPFE-RECTIFICATIVA` |
 | Las partes: el NIF de las dos en un esquema «VAT», con el prefijo ES, o en uno «LOC» con «FC», y en ese caso el registro legal del vendedor (`BT-30`); la dirección entera cuando está en España; y el tercero que expide la factura, con su razón social, su NIF y su tipología. El prefijo del comprador va en AVISO: su fila copia la del vendedor hasta en decir «del vendedor» | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
 | Lo que la norma deja opcional y el anexo no: la fecha de la factura referenciada y el motivo en texto de descuentos y cargos | `SPFE-FACTURA-REFERENCIADA`, `-MOTIVO` |
-| El IVA: «VAT» en los descuentos y cargos, las líneas y el desglose, y la categoría de L4, sin `K` ni `B`; el tipo también en la entrada no sujeta (`O`), que la norma deja sin él; el código de exención, solo VATEX-EU o VATEX-ES; y la `N`, la `D` y la `F` de la orden, en una nota | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA`, `-TIPO-DE-IVA`, `-EXENCION` |
+| El IVA: «VAT» en los descuentos y cargos, las líneas y el desglose, y que esté; la categoría de L4, sin `K` ni `B`; el tipo también en la entrada no sujeta (`O`), que la norma deja sin él; el código de exención, solo VATEX-EU o VATEX-ES; y la `N`, la `D` y la `F` de la orden, en una nota | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA`, `-TIPO-DE-IVA`, `-EXENCION` |
 | Cada línea: una o dos claves de régimen en la lista de su impuesto (la L3A de la orden ya no tiene la 18, la 19 ni la 20), como mucho una referencia catastral con su situación de L6, y ninguna otra propiedad del artículo que la información adicional, `INFO` | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL`, `-INFORMACION-ADICIONAL` |
-| Los impuestos y tasas que no son el IVA: el código de L9 en cada cargo de línea y en cada impuesto cobrado como cargo del documento, con su cuota en el impuesto y en el total del cargo, y la misma; el desglose del que se cobra en nombre de un tercero, con «VAT» y «S»; y la cuota de cada uno, la base por el tipo con el margen de la del IVA. Con dos impuestos en un cargo, una nota | `SPFE-IMPUESTO-O-TASA` |
-| Las líneas de cobro: un valor de la L7 de la orden, con su calificador o sin él, y un solo grupo de retenciones; las retenciones con su suma, su línea de cobro y su concepto de L5, y sus dos cuentas: cada una es su base por su porcentaje, y la suma es la de todas; y el QR fiscal, uno como mucho, con su dirección y, si lleva descripción, VERIFACTU o TICKETBAI (el escrito con la URN de abril no es el QR, y una nota lo dice) | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-QR` |
+| Los impuestos y tasas que no son el IVA: el código de L9 en cada cargo de línea y en cada impuesto cobrado como cargo del documento, con su cuota en el impuesto y en el total del cargo, y la misma; el desglose del que se cobra en nombre de un tercero, con «VAT» y «S»; y la cuota de cada uno, la base por el tipo con el margen de la del IVA. Con dos impuestos en un cargo, una nota; y un cargo con el total del impuesto y sin su detalle no dice qué impuesto es | `SPFE-IMPUESTO-O-TASA` |
+| Las líneas de cobro: un valor de la L7 de la orden, con su calificador o sin él, y un solo grupo de retenciones; las retenciones con su suma, su línea de cobro y su concepto de L5, y sus dos cuentas: cada una es su base por su porcentaje, y la suma es la de todas, y si no se detalla ninguna, una nota; y el QR fiscal, uno como mucho, con su dirección y, si lleva descripción, VERIFACTU o TICKETBAI (el escrito con la URN de abril no es el QR, y una nota lo dice) | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-QR` |
+| La autorización de facturación: cada `BG-24` `AUT`, los que haya, con su número (`BT-ES-26`) | `SPFE-AUTORIZACION` |
+| Ningún fichero dentro de la factura, ni en la original ni en la copia fiel, que no lo dice el anexo sino los artículos 3 y 4 de la orden; la firma vale en la original, y en la copia fiel es un aviso | `SPFE-FICHERO-EMBEBIDO` |
 
 Y dos notas: `SPFE-ALCANCE`, que sale en cada factura que se mide con el
-anexo y dice con qué se ha medido, lo que la orden pide y aquí todavía no se
-mide (`LO_QUE_TODAVIA_NO_SE_MIDE`, que el glosario copia letra a letra) y, por su nombre, las que no se pueden comprobar (`NO_SE_COMPRUEBA`,
-cuyo porqué copia la ficha de la nota), porque que no salga ninguna queja no
+anexo y dice con qué se ha medido y, por su nombre, lo que no se puede
+comprobar (`NO_SE_COMPRUEBA`, cuyo porqué copia la ficha de la nota); si
+algún día la orden pide algo que aquí todavía no se mide, va en
+`LO_QUE_TODAVIA_NO_SE_MIDE`, vacía desde el 11-10-2026, y la nota y el
+glosario lo dicen letra a letra, porque que no salga ninguna queja no
 quiere decir que cumpla la orden; y `SPFE-TOTAL-A-PAGAR`, que sale cuando hay
 líneas de cobro y es lo que sigue. Un abono que declara la orden no recibe
 `SPFE-ALCANCE`: no se le mide con el anexo, y `SPFE-TIPO-DE-FACTURA` ya lo
@@ -3883,20 +3889,23 @@ otras cosas: el importe y la descripción de los cobros (`BT-179`, `BT-180`),
 que la orden tampoco ubica, y todo lo que depende de ellos; la restricción de
 `BT-195` a VATEX-EU y VATEX-ES; que la tipología del tercero sea
 «FacturaciónPorTercero» —«ThirdPartyInvoicing» en el borrador—, obligatoria en
-un caso que no se ve en el documento. Lo que la orden pide y aquí todavía no
-se mide, aunque se podría, no va ahí sino en `LO_QUE_TODAVIA_NO_SE_MIDE`: el
-número de la autorización de facturación. La nota `SPFE-ALCANCE` nombra las
-dos listas en cada factura, y su ficha dice el porqué de cada cosa de la
-primera. Hasta el 11-10-2026 la primera no
+un caso que no se ve en el documento; y las especificaciones técnicas que la
+orden deja a la Sede electrónica de la Agencia. Lo que la orden pide y aquí
+todavía no se mide, aunque se podría, no va ahí sino en
+`LO_QUE_TODAVIA_NO_SE_MIDE`, que desde el 11-10-2026 está vacía: lo último
+fue el número de la autorización de facturación. La nota `SPFE-ALCANCE`
+nombra lo que no se comprueba en cada factura, y su ficha dice el porqué de
+cada cosa. Hasta el 11-10-2026 la primera no
 llegaba al informe, y la portada y la política de privacidad dicen que lo que
 no se mide lo dice el informe (en HALLAZGOS).
 
 **No hay facturas de verdad con las que medir.** La solución pública no está en
 marcha y en el corpus hay cero documentos que declaren el CIUS. Las pruebas
-van sobre una factura escrita al pie de la letra de la orden y veintisiete
+van sobre una factura escrita al pie de la letra de la orden y veintinueve
 variantes (la rectificativa, el tercero, los cobros, las categorías `N`, `D`,
 `F`, `O` y `E`, la autorización, la fecha de la operación, los impuestos y
-tasas, la información adicional), que pasan **el validador entero** sin un
+tasas, la información adicional, un documento por su dirección, la firma en
+un fichero), que pasan **el validador entero** sin un
 error ni un aviso: forma contra UBL 2.5, norma europea, código único y anexo. La forma,
 con los esquemas de `web/paquete.zip`: la suite corre sin esquemas, y hasta el
 11-10-2026 esto lo decía sin que se mirara (en HALLAZGOS). De ahí se rompe
@@ -3906,14 +3915,15 @@ ver que sale en ERROR. Provocado al escribir el módulo: 37 roturas, las 37 en
 rojo; al ponerlo al texto de la orden, catorce más (diez y una frase de la
 tabla en la primera tanda, tres en la segunda), en la revisión antes de
 publicar, catorce y luego nueve, y con lo que la orden pide y no se medía,
-dieciocho y diecisiete (en HALLAZGOS).
+dieciocho, diecisiete y diecinueve (en HALLAZGOS).
 
 **La frase de alcance lo dice, y solo cuando toca.** «Sin errores» en una
 factura del CIUS quiere decir también algo del anexo, así que la línea del
 informe que dice qué se ha mirado lo añade cuando en el lote hay una factura
 que lo declara: «parte de» lo que el anexo pide, «lo que se puede comprobar en
-UBL», y que lo que todavía no se mide lo dice la nota `SPFE-ALCANCE`. Hasta el
-07-10-2026 decía «el borrador del anexo I», y «sin errores» quería decir que
+UBL», y que lo que no se mide lo dice la nota `SPFE-ALCANCE` (hasta el
+11-10-2026, «lo que todavía no se mide», que es la lista que ese día se quedó
+vacía). Hasta el 07-10-2026 decía «el borrador del anexo I», y «sin errores» quería decir que
 cumplía el borrador; hasta el 11-10-2026, que se medía lo que ya pedía el
 borrador. En un lote sin ninguna no lo dice. Y cuelga de la nota, no de lo que
 el documento declara: un lote con solo un abono que declara la orden lo
@@ -4463,8 +4473,76 @@ lo dice. Las de `REGI` y `RCAT`, escritas así desde antes, tenían el mismo
 hueco: un `REGIX` en la orden pasaba por `REGI`. Ahora el valor se lee entero,
 entre sus comillas, y las tres roturas salen en rojo.
 
-Lo único que la orden pide y aquí no se mide es ya el número de la
-autorización de facturación (`BT-ES-26`). El detalle y las diecisiete roturas
+Quedaba el número de la autorización de facturación (`BT-ES-26`), que se
+mide desde el mismo día, en la sección siguiente. El detalle y las diecisiete
+roturas provocadas, en HALLAZGOS.
+
+### La autorización, los ficheros embebidos y lo que se quitaba sin una queja
+
+El mismo 11-10-2026 quedaba en `LO_QUE_TODAVIA_NO_SE_MIDE` el número de la
+autorización de facturación (`BT-ES-26`), y fuera del anexo, en el articulado
+de la orden, dos prohibiciones: las facturas emitidas o interconectadas «no
+podrán incorporar otros ficheros integrados o embebidos» (apartado 6 del
+artículo 3), salvo la firma de las interconectadas, y las copias fieles
+tampoco, sin esa salvedad (apartado 4 del artículo 4).
+
+Antes de dar la lista por vacía se quitó cada elemento de las veintiocho
+facturas buenas, uno a uno, y se pasó el validador entero con los esquemas:
+33 rutas salían sin una queja. Casi todas son opcionales en el anexo. Tres
+eran cosas que la orden pide: el número de la autorización, el «VAT» del
+impuesto en las líneas, el desglose y los cargos, y el detalle de un impuesto
+cobrado como cargo. Y la suma de retenciones sin ninguna retención pasaba sin
+una palabra. Medido antes de tocar nada, sobre `cae90d3`:
+
+| Factura | En `cae90d3` | Ahora |
+|---|---|---|
+| una autorización con su número | sin errores | sin errores |
+| sin número, a secas o con el número vacío | sin errores | ERROR `SPFE-AUTORIZACION` |
+| dos, y la segunda sin número | sin errores | ERROR, que dice cuál |
+| un contrato en PDF, o en texto, dentro de un documento | sin errores | ERROR `SPFE-FICHERO-EMBEBIDO` |
+| el QR con su imagen dentro | sin errores | ERROR |
+| un contrato por su dirección | sin errores | sin errores |
+| la original con la firma en un fichero | sin errores | sin errores |
+| la copia fiel con la firma en un fichero | sin errores | AVISO |
+| la copia fiel con la firma envuelta | los de la firma, que en la prueba no se sostiene | los mismos, y un AVISO |
+| la copia fiel con un contrato en PDF | sin errores | ERROR, con el artículo 4 |
+| sin «VAT» en la línea, en el desglose o en un cargo | sin errores | ERROR `SPFE-TIPO-DE-IMPUESTO` |
+| un cargo con el total del impuesto y sin su detalle | sin errores | ERROR `SPFE-IMPUESTO-O-TASA` |
+| la suma de retenciones sin ninguna retención | sin errores | sin errores, y una NOTA |
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- **La firma en la copia fiel, en AVISO.** El artículo 3 deja ir con la firma
+  a las facturas interconectadas; el 4 prohíbe los ficheros a las copias
+  fieles sin esa salvedad, y la orden no dice si la firma es uno de ellos.
+- **La firma envuelta cuenta como firma.** Un `ds:Signature` dentro del XML
+  no es un fichero pegado, pero es la firma que el artículo 3 exceptúa, y se
+  trata como la que va en un fichero. Una `cac:Signature` que solo nombra la
+  firma, sin llevarla, no es una firma.
+- **Un documento por su dirección no es un fichero dentro**, y no se mira: la
+  orden prohíbe incorporar ficheros, no nombrarlos.
+- **El «VAT» que falta es el mismo error que el que no es «VAT».** Las filas
+  dicen que «su uso implica» que la ruta tome el valor, como las del desglose
+  de los cobros y las de las retenciones, donde faltar ya era un error.
+- **La suma de retenciones sin ninguna, en una nota.** La orden deja el
+  detalle en `0..n`: sin él no hay con qué comparar la suma, y darla por mala
+  sería suponer que lo que falta es el detalle y no la cifra.
+- **Lo que la orden deja a la Sede, en lo que no se comprueba.** Las
+  especificaciones técnicas, la volumetría y el tamaño máximo de las copias
+  fieles (apartado 1 del artículo 3 y apartado 2 del 4) no son el anexo. Con
+  `LO_QUE_TODAVIA_NO_SE_MIDE` vacía, la nota tenía que seguir diciendo que eso
+  no se mide.
+
+**Lo que salió al medir.** La cifra en negrita del principio de esta parte
+decía 25 códigos cuando ya eran 27: la tanda anterior cambió la frase de
+debajo y no esa. Ahora una prueba cuenta los códigos que el módulo escribe y
+compara las dos cifras del README.
+
+Desde ese día `LO_QUE_TODAVIA_NO_SE_MIDE` está vacía, y la nota
+`SPFE-ALCANCE` deja de decir que falta algo del anexo: dice lo que no se puede
+comprobar, con su porqué, y que una factura sin quejas no por eso cumple la
+orden. Fuera de la nota quedan el mensaje de anulación y los del anexo II, que
+no son facturas y todavía no se miden. El detalle y las diecinueve roturas
 provocadas, en HALLAZGOS.
 
 ### La consulta del 07-10-2026, todavía sin respuesta

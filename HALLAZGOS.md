@@ -7832,3 +7832,112 @@ sola ruta y `BT-ES-22` fuera de L9 (1 cada una).
 **Lo que queda del paso 7.** El número de la autorización (`BT-ES-26`); los
 ficheros embebidos (artículos 3.6 y 4.4); y el mensaje de anulación y los del
 anexo II.
+
+## La autorización, los ficheros embebidos y lo que se quitaba sin una queja
+
+**Lo que había.** Después de la tanda anterior, `LO_QUE_TODAVIA_NO_SE_MIDE`
+decía una cosa: el número de la autorización de facturación (`BT-ES-26`). Y la
+orden prohíbe en su articulado, no en el anexo, los ficheros integrados o
+embebidos: a las facturas emitidas o interconectadas (apartado 6 del artículo
+3), salvo la firma de las interconectadas, y a las copias fieles (apartado 4
+del artículo 4). Nada de eso se miraba.
+
+**Reproducido** el 11-10-2026 sobre `cae90d3`: dieciocho facturas escritas a
+partir de la de la orden, por el validador entero y con los esquemas de
+`web/paquete.zip`. Ninguna sacaba una queja del anexo, tampoco las ocho que
+la orden da por malas ni las dos copias fieles con la firma, que la orden no
+dice si valen:
+
+| Factura | En `cae90d3` | Ahora |
+|---|---|---|
+| la de la orden, y con una autorización con su número | sin errores | sin errores |
+| la autorización sin número | **sin errores** | `AUTORIZACION` |
+| a secas y sin número | **sin errores** | `AUTORIZACION` |
+| con el número vacío | **sin errores** | `AUTORIZACION` |
+| dos, la segunda sin número | **sin errores** | `AUTORIZACION`, que dice cuál |
+| un contrato en PDF dentro de un documento | **sin errores** | `FICHERO-EMBEBIDO` |
+| un contrato en texto | **sin errores** | `FICHERO-EMBEBIDO` |
+| un contrato por su dirección | sin errores | sin errores |
+| el QR con su imagen dentro | **sin errores** | `FICHERO-EMBEBIDO` |
+| la original con la firma en un fichero, o nombrada | sin errores | sin errores |
+| la original con la firma envuelta | los de la firma | los mismos |
+| la copia fiel sin firma, o con la firma nombrada | sin errores | sin errores |
+| la copia fiel con la firma en un fichero | **sin errores** | AVISO `FICHERO-EMBEBIDO` |
+| con la firma envuelta | los de la firma | los mismos, y el AVISO |
+| con un contrato en PDF | **sin errores** | `FICHERO-EMBEBIDO`, con el artículo 4 |
+
+La firma envuelta de la prueba es de mentira, y las reglas de la firma lo
+dicen igual antes y después.
+
+**Antes de vaciar la lista** había que saber si quedaba algo más. Se quitó
+cada elemento de las veintiocho facturas buenas, uno a uno, y se pasó el
+validador entero: 33 rutas salían sin una queja. Casi todas son opcionales en
+el anexo (el QR, el tercero, los cargos, la fecha de pago, el tipo de la línea
+exenta…). Cuatro no:
+
+| Factura | En `cae90d3` | Ahora |
+|---|---|---|
+| la línea sin «VAT» en el impuesto | **sin errores** | `TIPO-DE-IMPUESTO` |
+| el desglose sin «VAT» | **sin errores** | `TIPO-DE-IMPUESTO` |
+| un cargo sin «VAT» | **sin errores** | `TIPO-DE-IMPUESTO` |
+| un cargo con el total del impuesto y sin su detalle | **sin errores** | `IMPUESTO-O-TASA` |
+| la suma de retenciones sin ninguna retención | sin errores | sin errores, y una NOTA |
+
+El «VAT» se miraba solo cuando estaba escrito: una factura sin un solo «VAT»
+pasaba. Las filas BG-30, BG-23, BT-95 y BT-102 dicen que «su uso implica» que
+la ruta tome el valor, y sin el elemento no lo toma. Y un cargo que lleva el
+total del impuesto sin su detalle tiene la cuota en una sola de sus dos rutas
+(`BT-ES-8`) y nada que diga qué impuesto es.
+
+**Lo que se hizo.**
+
+- `SPFE-AUTORIZACION`, nuevo: cada `BG-24` `AUT`, con el calificador de L10
+  o sin él, con su número en `cbc:UUID`. Se leen al importar la fila
+  `BT-ES-26` (obligatoria y su descripción) y el grupo, `0..n`.
+- `SPFE-FICHERO-EMBEBIDO`, nuevo: un `cbc:EmbeddedDocumentBinaryObject` o un
+  `cbc:EmbeddedDocument` fuera de `cac:Signature` es ERROR, en la original con
+  el artículo 3 y en la copia fiel con el 4. La copia fiel con la firma, en un
+  fichero o envuelta, es AVISO: el artículo 4 no hace la salvedad del 3, y la
+  orden no dice si la firma es uno de esos ficheros. Esos dos textos no están
+  en `cius_es`, y no hay fila que leer al importar.
+- `SPFE-TIPO-DE-IMPUESTO` mira desde la categoría de cada sitio, y la que no
+  lleva `cac:TaxScheme/cbc:ID` sale con «(falta)».
+- `SPFE-IMPUESTO-O-TASA`: el cargo con el total del impuesto y sin su
+  detalle, sin código.
+- `SPFE-RETENCION`: con la suma y sin ninguna retención, una NOTA que dice
+  que no hay con qué compararla. Se lee al importar que `BG-ES-4` siga en
+  `0..n`.
+- `LO_QUE_TODAVIA_NO_SE_MIDE` queda vacía, y la nota y su ficha dejan de
+  nombrarla. `NO_SE_COMPRUEBA` gana lo que la orden deja a la Sede (las
+  especificaciones técnicas, la volumetría y el tamaño máximo de las copias
+  fieles), que no es el anexo. La frase de alcance del informe decía «lo que
+  todavía no se mide lo dice la nota»: ahora, «lo que no se mide».
+- De 27 códigos `SPFE-` se pasa a 29, y de 392 en total, a 394.
+
+**Lo que salió al medir.** El README decía en negrita «25 códigos» y, dos
+líneas más abajo, «llegaron a 27». La tanda anterior cambió la segunda cifra y
+no la primera. Ahora `test_el_readme_dice_cuantos_codigos_hay` cuenta los
+códigos que escribe el módulo y compara las dos: salió en rojo con el 25
+antes de arreglarlo.
+
+**Las pruebas.** Dos facturas buenas más, 30 en total, que pasan el
+validador entero sin un ERROR ni un AVISO: un documento por su dirección y la
+original con la firma en un fichero. `TestLaAutorizacion` (cinco casos),
+`TestLosFicherosEmbebidos` (diez), `TestLoQueSeQuitabaSinUnaQueja` (dos), el
+tipo de impuesto que falta en sus tres sitios, que la nota diga lo de la Sede,
+y las filas del anexo, provocadas una a una al importar.
+
+**Provocado.** Diecinueve roturas, las diecinueve en rojo: la autorización sin
+número vuelve a valer, un fichero dentro vuelve a valer, la firma deja de
+exceptuarse, la copia fiel con la firma deja de avisarse, la firma envuelta
+deja de contar, la copia deja de citar el artículo 4, un documento por su
+dirección pasa por fichero, el tipo de impuesto que falta vuelve a valer, el
+total del impuesto sin su detalle vuelve a valer, la suma sin retenciones deja
+de decirse, la suma a cero también se nota, la autorización vuelve a la lista
+de lo que no se mide, la nota dice que falta algo con la lista vacía, lo de la
+Sede sale de lo que no se comprueba, el README vuelve a decir 27 códigos, y
+cuatro lecturas del anexo que dejan de negarse (el grupo de la autorización,
+`BT-ES-26` obligatoria y su descripción, y `BG-ES-4`).
+
+**Lo que queda del paso 7.** El mensaje de anulación y los del anexo II, que
+no son facturas.

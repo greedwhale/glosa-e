@@ -732,9 +732,12 @@ class InformeLote:
             # proceso de abril, un QR con la descripción equivocada—. Lo midió
             # el revisor de promesas el 07-10-2026. Desde el 11-10-2026 las
             # reglas miden la orden, y lo que de ella falta lo enumera la nota
-            # SPFE-ALCANCE de cada factura (`LO_QUE_TODAVIA_NO_SE_MIDE`): aquí
-            # se manda a ella en vez de copiar la lista, que ya estuvo escrita
-            # dos veces y dejó de decir lo mismo. Y cuelga de esa nota, no de
+            # SPFE-ALCANCE de cada factura (`LO_QUE_TODAVIA_NO_SE_MIDE` y
+            # `NO_SE_COMPRUEBA`): aquí se manda a ella en vez de copiar la
+            # lista, que ya estuvo escrita dos veces y dejó de decir lo mismo.
+            # Decía «lo que todavía no se mide», y desde que esa lista está
+            # vacía lo que queda es lo que no se puede comprobar: «lo que no
+            # se mide» vale para las dos. Y cuelga de esa nota, no de
             # lo que el documento declara: un abono que declara la orden no se
             # mide con el anexo, que solo define facturas, y hasta el
             # 11-10-2026 esta frase lo contaba como medido. Lo vio el revisor
@@ -742,7 +745,7 @@ class InformeLote:
             contenido.append(
                 "parte de lo que el anexo I de la solución pública pide a las "
                 "facturas que la declaran (lo que se puede comprobar en UBL; lo "
-                "que todavía no se mide lo dice la nota SPFE-ALCANCE)"
+                "que no se mide lo dice la nota SPFE-ALCANCE)"
             )
         de_la_firma = mirado[PARTE_FIRMA]
         sin_la_firma = sin_mirar[PARTE_FIRMA]
