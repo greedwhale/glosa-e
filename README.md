@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3125 tests, todos en verde.
+3246 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -525,15 +525,12 @@ Lo que no se hace es tan importante como lo que sí:
   `CU-*`—, y con el CIUS declarado, `SPFE-TIPO-DE-FACTURA` («es un abono») en
   lugar de `BR-01`. Con una familia propia, todo `if familia == X` contesta
   «no me toca».
-- **El mensaje de anulación no se mide con el anexo I.** Su contenido está
-  publicado desde el 05-10-2026, en el anexo I de la orden («Mensaje de
-  anulación»): `cbc:ResponseCode` «CANCELINVOICE», la fecha de la anulación y
-  la factura anulada, con su número, su fecha y el NIF y el nombre del
-  vendedor. Hasta ese día no lo estaba (ver «El anexo cambió antes que el
-  texto»). Medirlo es una regla nueva, y las reglas nuevas de la orden van en
-  su propia tanda, todavía sin hacer; hasta entonces, reconocerlo como
-  respuesta no es saber si un documento concreto es el mensaje de anulación,
-  ni qué exige.
+- **Los mensajes de la orden sí se miden, desde el 12-10-2026.** El de
+  anulación (`cbc:ResponseCode` «CANCELINVOICE», en el anexo I) y los ocho del
+  anexo II se reconocen por su código y se miden con su tabla, además de la
+  forma y la firma (ver «Los mensajes de la orden: la anulación y los ocho
+  estados»). A una respuesta con otro código se le sigue mirando solo lo de
+  aquí.
 - **Sin esquema, no es «correcta».** La forma es lo que se le comprueba a una
   respuesta, así que sin un `UBL-ApplicationResponse-*.xsd` que compile sale
   **SIN COMPROBAR** con código de salida 1, no «correcto» con 0, aunque traiga
@@ -4021,7 +4018,7 @@ Lo anunciado, y a qué regla le da:
 | L4 gana las categorías de la EN 16931:2026, entre ellas la `N`; y se han pedido códigos VATEX propios de España | La L4 de la orden trae la `N`, la `D` y la `F`. Desde el 07-10-2026 se aceptan en las facturas de la solución pública, con una NOTA |
 | L3A se recorta: fuera el recargo de equivalencia, el de agricultura, ganadería y pesca y el simplificado | Confirmado por la orden: sin la 18, la 19 ni la 20. `SPFE-CLAVE-DE-REGIMEN` las dio por buenas hasta el 11-10-2026; desde entonces, ERROR |
 | `BG-34` (`BT-179`, `BT-180`) se usa para el IEDMT | Confirmado por la orden: el grupo «IMPUESTOS Y TASAS», con `IEDMT` u `OTROS` en `cac:CollectionInvoiceLine/cbc:ID`. Desde el 07-10-2026, `SPFE-LINEA-DE-COBRO` acepta los dos. `BT-179` y `BT-180` siguen en `NO_SE_COMPRUEBA`: son términos de la edición de 2026 y la orden tampoco les da ruta UBL |
-| Mensaje de anulación de factura, un `ApplicationResponse` de UBL | Documento nuevo. Desde el 29-09-2026 **se reconoce y se le mide la forma y la firma**. Su contenido está publicado desde el 05-10-2026, en el anexo I de la orden, pero medirlo es una regla nueva, todavía sin escribir (ver «Las respuestas: `ApplicationResponse`») |
+| Mensaje de anulación de factura, un `ApplicationResponse` de UBL | Documento nuevo. Desde el 29-09-2026 **se reconoce y se le mide la forma y la firma**, y desde el 12-10-2026 también su tabla del anexo I de la orden (ver «Los mensajes de la orden: la anulación y los ocho estados») |
 
 **No se tocó ni una regla, y fue a propósito.** Unas transparencias no son
 un texto normativo: dicen qué va a cambiar, no cómo queda redactado. Reescribir
@@ -4543,8 +4540,90 @@ Desde ese día `LO_QUE_TODAVIA_NO_SE_MIDE` está vacía, y la nota
 `SPFE-ALCANCE` deja de decir que falta algo del anexo: dice lo que no se puede
 comprobar, con su porqué, y que una factura sin quejas no por eso cumple la
 orden. Fuera de la nota quedan el mensaje de anulación y los del anexo II, que
-no son facturas y todavía no se miden. El detalle y las diecinueve roturas
-provocadas, en HALLAZGOS.
+no son facturas: se miden desde el 12-10-2026, con su propia nota (en la
+sección siguiente). El detalle y las diecinueve roturas provocadas, en
+HALLAZGOS.
+
+### Los mensajes de la orden: la anulación y los ocho estados
+
+La orden define nueve mensajes `ApplicationResponse`, cada uno con su tabla y
+su `cbc:ResponseCode`: la anulación de una factura o copia fiel
+(`CANCELINVOICE`, la segunda tabla del anexo I) y los ocho del anexo II. Son
+el pago y el rechazo con sus bajas, que manda el destinatario (`PAYMENT`,
+`CANCELPAYMENT`, `REJECTION`, `CANCELREJECTION`), y el cobro y el impago con
+las suyas, que el emisor manda si quiere (`SETTLEMENT`, `CANCELSETTLEMENT`,
+`DEFAULT`, `CANCELDEFAULT`). Hasta el 12-10-2026 a una respuesta se le miraba
+la forma y la firma, y del contenido el informe decía que no se miraba.
+Medido ese día sobre `26e9a5d`, con mensajes escritos aquí y los esquemas de
+`web/paquete.zip`, de nueve rotos ocho salían sin una queja:
+
+| Mensaje | En `26e9a5d` | Ahora |
+|---|---|---|
+| los nueve, bien escritos | sin errores | sin errores, y la NOTA `SPFE-MENSAJE-ALCANCE` |
+| una anulación, un pago o un impago sin su fecha | sin errores | ERROR `SPFE-MENSAJE-FECHA` |
+| un pago sin la fecha de vencimiento | sin errores | ERROR `SPFE-MENSAJE-VENCIMIENTO` |
+| un rechazo sin motivo, o con el `03` | sin errores | ERROR `SPFE-MENSAJE-MOTIVO` |
+| un pago sin el NIF ni el nombre del emisor | sin errores | ERROR `SPFE-MENSAJE-FACTURA` |
+| la baja de un pago sin la fecha de la factura | sin errores | ERROR `SPFE-MENSAJE-FACTURA` |
+| la anulación escrita como dice el BOE | ERROR `XSD-ORDEN` | el mismo, y `SPFE-MENSAJE-FACTURA` |
+
+**Cómo se reconocen.** Por su código, que es lo que dice cuál es cada uno: la
+orden no les da identificador de especificación. Ninguno de los nueve está en
+la lista de códigos de respuesta que usa Peppol (la UNCL 4343: `AP`, `RE`,
+`AB`…), así que una respuesta de otra red sigue como estaba. El código se lee
+letra a letra: `payment` no es `PAYMENT`, y no se mide.
+
+**De dónde sale cada comprobación.** Las tablas se leen del mismo XML del BOE
+que el anexo I, con `herramientas/mensajes.py`, y van a
+`validador/mensajes_es.py` con su huella: nueve mensajes, 59 filas y la L1 de
+motivos de rechazo, que no es la L1 del anexo I. `validador/mensajes.py` las
+lee fila a fila al importar, y una fila que no sepa medir, un dato de la
+factura que deje de ser obligatorio o un mensaje nuevo hacen que no se
+importe. Una prueba vuelve a extraer y exige el mismo fichero, byte a byte.
+
+**Las erratas.** La columna de la ruta trae cuatro clases de errata de
+escritura, que se arreglan al leerla y se cuentan: dos rutas en una celda
+(8), un renglón partido detrás de una barra (16), un espacio donde va una
+barra (1) y una barra doble (1). Si el BOE corrige una, la cuenta cambia y
+una prueba salta. La tabla de la anulación trae además las dos que se le
+preguntaron al buzón el 07-10-2026 (en «La consulta del 07-10-2026», abajo):
+la factura colgada de `cac:Response`, que se lee en `cac:DocumentResponse`
+porque es el único sitio donde cabe, y el nombre del vendedor dentro de
+`cac:PartyTaxScheme`, que se busca en los dos arreglos posibles. Las dice la
+nota de cada anulación, porque un mensaje escrito al pie de la letra no pasa
+el esquema. Que las rutas arregladas andan por UBL 2.5, y las dos de la
+anulación tal cual no, lo comprueba una prueba con el esquema.
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- **El NIF, con el prefijo ES y sin él, y con cualquier `cac:TaxScheme`.** La
+  tabla dice NIF y lo pone donde la factura pone el NIF-IVA, que lo lleva, y
+  el esquema exige un `cac:TaxScheme` que ninguna tabla da. Está preguntado;
+  hasta la respuesta no se da por mala ninguna forma. Uno de otro país sale en
+  AVISO, y uno español con el control mal, en ERROR.
+- **La fecha de vencimiento, en su propia regla.** Es la única fecha
+  obligatoria que va en un `cac:Status`, y es lo que el apartado 1 del
+  artículo 7 obliga a comunicar con el pago. Las demás fechas con condición
+  son opcionales: si van, con su fecha y una vez.
+- **Lo que la tabla no prevé, en AVISO.** Una condición, un
+  `cbc:StatusReason` o un `cbc:ConditionCode` que el mensaje no lleva puede
+  ser una errata (`Duedate` por `DueDate`), y entonces lo que quería decir no
+  se ha leído; pero el mensaje no está mal por llevar algo de más.
+- **Una sola factura en los del anexo II.** Su tabla le da `1..1`; la de la
+  anulación, `1..n`.
+- **Lo que no se mide lo dice la nota**: lo que la orden deja a la Sede
+  electrónica y la Sede todavía no ha sacado, la cabecera de la respuesta
+  (quién la manda, a quién, su número y su fecha), que el esquema exige y las
+  tablas no definen, y que la factura exista o que las fechas sean ciertas.
+
+**En el informe.** La frase del final dice que se ha mirado «lo que la orden
+de la solución pública pide a sus mensajes de anulación y de estado» solo si a
+alguno se le midió, y de las demás respuestas sigue diciendo que su contenido
+no se mira. Sin el esquema de `ApplicationResponse`, una respuesta sigue
+saliendo SIN COMPROBAR aunque se le haya medido la tabla: su comprobación
+principal sigue siendo la forma. Seis códigos nuevos, de 395 a 401. Lo que no
+está medido: el navegador, como con el resto de las respuestas (arriba), y
+ningún mensaje real: los de las pruebas están escritos aquí, con las tablas.
 
 ### La consulta del 07-10-2026, todavía sin respuesta
 
@@ -4556,9 +4635,9 @@ está recogido. Lo que se preguntó, y qué cambia aquí con cada respuesta:
 
 | Se preguntó | Por qué: lo medido | Qué cambia aquí con la respuesta |
 |---|---|---|
-| La ruta del mensaje de anulación del anexo I (`CANCELINVOICE`; la tabla se titula «Mensaje de anulación» y los artículos 3.5 y 5 lo llaman «mensaje de baja») | Toda la factura anulada cuelga de `cac:Response/cac:DocumentReference`, y en UBL 2.5 `cac:Response` no lo admite, mientras que `cac:DocumentResponse` lo exige: al pie de la letra, el esquema la rechaza. Los ocho mensajes del anexo II cuelgan lo mismo de `cac:DocumentResponse/cac:DocumentReference` | La regla que mida la anulación, que es nueva y va en la tanda de las reglas nuevas |
-| Dónde va el nombre del vendedor en esa misma anulación | `cac:PartyLegalEntity` no puede ir dentro de `cac:PartyTaxScheme`, y caben dos rutas válidas: `cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName`, la del anexo II, y `cac:IssuerParty/cac:PartyTaxScheme/cbc:RegistrationName` | Lo mismo. Mientras no se sepa, no se puede dar por mala ninguna de las dos |
-| Qué `cac:TaxScheme/cbc:ID` lleva el NIF del vendedor en los nueve mensajes de estado —la anulación y los ocho del anexo II—, y si va con «ES» | Va en `cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID`; `cac:PartyTaxScheme` exige `cac:TaxScheme` y ninguna fila lo da: sin él, el esquema rechaza los nueve | La medida de los mensajes del anexo II |
+| La ruta del mensaje de anulación del anexo I (`CANCELINVOICE`; la tabla se titula «Mensaje de anulación» y los artículos 3.5 y 5 lo llaman «mensaje de baja») | Toda la factura anulada cuelga de `cac:Response/cac:DocumentReference`, y en UBL 2.5 `cac:Response` no lo admite, mientras que `cac:DocumentResponse` lo exige: al pie de la letra, el esquema la rechaza. Los ocho mensajes del anexo II cuelgan lo mismo de `cac:DocumentResponse/cac:DocumentReference` | `validador/mensajes.py`, que desde el 12-10-2026 la lee en `cac:DocumentResponse`, el único sitio donde cabe, y lo dice en la nota de cada anulación |
+| Dónde va el nombre del vendedor en esa misma anulación | `cac:PartyLegalEntity` no puede ir dentro de `cac:PartyTaxScheme`, y caben dos rutas válidas: `cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName`, la del anexo II, y `cac:IssuerParty/cac:PartyTaxScheme/cbc:RegistrationName` | Lo mismo. Mientras no se sepa, no se puede dar por mala ninguna de las dos, y desde el 12-10-2026 se buscan las dos |
+| Qué `cac:TaxScheme/cbc:ID` lleva el NIF del vendedor en los nueve mensajes de estado —la anulación y los ocho del anexo II—, y si va con «ES» | Va en `cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID`; `cac:PartyTaxScheme` exige `cac:TaxScheme` y ninguna fila lo da: sin él, el esquema rechaza los nueve | La medida de los mensajes, que desde el 12-10-2026 acepta el NIF con «ES» y sin él y no mira el `cac:TaxScheme` |
 | Si en `BT-ES-8` va la suma de las cuotas | La fila pide el mismo importe en `cac:AllowanceCharge/cac:TaxTotal/cbc:TaxAmount` y en su `cac:TaxSubtotal`, y `BG-ES-2` es `0..n` dentro de cada cargo; `cac:AllowanceCharge` admite un solo `cac:TaxTotal` con un solo `cbc:TaxAmount`. Con dos impuestos en el mismo cargo no se puede cumplir | Lo que se mida de esos cargos cuando se midan los impuestos y tasas, que es de las reglas nuevas |
 | El `ProfileID`: el de `BT-23`, con `ubl:`, o el del ejemplo del 02-10-2026, sin él | `BT-23` es el único sitio del XML con `specification:ubl:schema:`; los calificadores de L7, L8 y L10 van sin `ubl:`. El `CustomizationID` del ejemplo sí es el de la orden | `SPFE-PROCESO`, que hoy acepta el de la orden y deja el del ejemplo en NOTA |
 | Si el servicio de validación de PRE pedirá certificado | El artículo 11.1 lo exige para «la utilización de la solución pública», y la orden no nombra ningún entorno de pruebas ni servicio de validación aparte del envío | Si PRE puede servir aquí de contraste sin certificado |

@@ -36,7 +36,8 @@ Lo único que hay que saber del XML:
 - **Lo que no es del anexo I se queda fuera.** El anexo II, con sus propias
   tablas y su propia «L1 – Motivos de rechazo», empieza en el párrafo
   «ANEXO II». La segunda tabla del anexo I, el mensaje de anulación, no tiene
-  columna de identificador y todavía no se genera: es de las reglas nuevas.
+  columna de identificador: la saca `herramientas/mensajes.py`, con las del
+  anexo II, a `validador/mensajes_es.py`.
 
 Esto no viaja en la rueda
 -------------------------
@@ -278,7 +279,7 @@ de alta y listas de códigos.
 
 Qué trae: %(campos)d filas, %(distintos)d identificadores distintos y
 %(listas)d listas de códigos. No trae el mensaje de anulación, que es la otra
-tabla del anexo I, ni el anexo II.
+tabla del anexo I, ni el anexo II: están en `mensajes_es`.
 
 Lo que hay que tener presente al usarlo
 ---------------------------------------

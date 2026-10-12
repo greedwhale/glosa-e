@@ -48,7 +48,10 @@ FAMILIAS: dict[str, str] = {
         "`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, "
         "o el CIUS del borrador de abril, `urn:aeat.es:CIUS-ES-SPFE`, al que se "
         "mide igual para poder decir que ya no vale. Lo que la orden pide y "
-        "aquí no se mide lo dice en cada factura la nota SPFE-ALCANCE."
+        "aquí no se mide lo dice en cada factura la nota SPFE-ALCANCE. Desde "
+        "el 12-10-2026 se miden también los mensajes de la orden, la anulación "
+        "de una factura y los ocho estados del anexo II, que se reconocen por "
+        "su código de respuesta y llevan su propia nota, SPFE-MENSAJE-ALCANCE."
     ),
     "XSD": (
         "La forma del fichero, comprobada contra el esquema oficial de su "
@@ -3572,6 +3575,75 @@ CODIGOS: dict[str, str] = {
         "cuadre del total a pagar (BR-CO-16) no se ha comprobado. Es una nota: "
         "dice lo que no se ha podido mirar, en vez de dar por mal un total que "
         "la orden da por bueno."
+    ),
+    "SPFE-MENSAJE-ALCANCE": (
+        "El documento es uno de los mensajes de la solución pública, y la "
+        "nota dice con qué se ha medido y qué no. Es una nota y no un fallo. "
+        "La Orden HAC/1028/2026 define nueve: la anulación de una factura o "
+        "copia fiel (CANCELINVOICE, en el anexo I) y los ocho del anexo II, "
+        "que son el pago, el rechazo, el cobro y el impago, cada uno con su "
+        "baja. Se reconocen por el cbc:ResponseCode de cada "
+        "cac:DocumentResponse, porque la orden no les da identificador de "
+        "especificación, y se miden con la tabla de cada uno, que sale del "
+        "XML del BOE. No se mide lo que la orden deja a la Sede electrónica "
+        "de la AEAT, que todavía no lo ha sacado (las especificaciones técnicas y la "
+        "volumetría), ni la cabecera de la respuesta, ni que la factura "
+        "exista o que las fechas sean ciertas. El NIF del emisor se acepta "
+        "con el prefijo ES y sin él, y con cualquier impuesto en su "
+        "cac:TaxScheme, que ninguna tabla da. La tabla del mensaje de anulación "
+        "escribe dos rutas que no existen en UBL 2.5 (la factura anulada "
+        "dentro de cac:Response y el nombre del vendedor dentro de "
+        "cac:PartyTaxScheme), y en cada anulación la nota dice cómo se han "
+        "leído. Que no salga ninguna queja SPFE- no quiere decir que el "
+        "mensaje cumpla la orden."
+    ),
+    "SPFE-MENSAJE-FECHA": (
+        "Falta la fecha que el mensaje comunica, en el cbc:EffectiveDate de "
+        "su cac:Response. Cada mensaje de alta tiene la suya: la fecha de la "
+        "anulación, la de efecto del pago, la del rechazo, la del cobro y, en "
+        "el impago, la de vencimiento del pago. Las bajas no llevan ninguna. "
+        "Que la fecha esté bien escrita lo mira el esquema."
+    ),
+    "SPFE-MENSAJE-VENCIMIENTO": (
+        "La comunicación del pago no trae la fecha de vencimiento del plazo "
+        "de pago. Es obligatoria: el apartado 1 del artículo 7 de la orden obliga al "
+        "destinatario a comunicar la fecha del pago efectivo y la del "
+        "vencimiento del plazo, calculada con el artículo 4 de la Ley 3/2004 "
+        "de morosidad. Va en un cac:Status de la respuesta, con la fecha en "
+        "cbc:ReferenceDate y la condición cac:Condition/cbc:AttributeID "
+        "«DueDate». Aquí se mira que esté, no que esté bien calculada."
+    ),
+    "SPFE-MENSAJE-ESTADO": (
+        "Algo de lo que va en cac:Status no es como lo pone la tabla del "
+        "mensaje. Las fechas que acompañan al pago, al cobro y al impago (el "
+        "vencimiento, la recepción de las mercancías y la recepción de la "
+        "factura) van cada una con su condición, «DueDate», «ShipmentDate» o "
+        "«ReceptionDate», y con su fecha en el cbc:ReferenceDate del mismo "
+        "cac:Status: una condición sin fecha, o repetida, es un error. Una "
+        "condición, un cbc:StatusReason o un cbc:ConditionCode que la tabla "
+        "de ese mensaje no prevé sale en aviso: puede ser una errata, y "
+        "entonces lo que quería decir no se ha leído."
+    ),
+    "SPFE-MENSAJE-MOTIVO": (
+        "La comunicación del rechazo no trae su motivo, trae más de uno o "
+        "trae uno que no está en la lista. La orden lo pide en el "
+        "cbc:ConditionCode de un cac:Status, con un valor de la lista L1 del "
+        "anexo II: 01, rechazo comercial, o 02, rechazo por ser un consumo "
+        "particular o no estar afectado a la actividad. Esa L1 no es la del "
+        "anexo I, que es la de los tipos de factura."
+    ),
+    "SPFE-MENSAJE-FACTURA": (
+        "El mensaje no identifica bien la factura de la que informa. La lleva "
+        "en cac:DocumentResponse/cac:DocumentReference con cuatro datos, "
+        "todos obligatorios: el número (cbc:ID), la fecha de expedición "
+        "(cbc:IssueDate), el NIF del emisor "
+        "(cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID) y su nombre o "
+        "razón social "
+        "(cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName). Los "
+        "tres primeros son los del código único de la factura (artículo 6 de "
+        "la orden). Sale también si el NIF no es válido, en aviso si es de "
+        "otro país, y si un mensaje del anexo II, que informa de una sola "
+        "factura, lleva más de una. La anulación sí admite varias."
     ),
     "COPIA-TOTAL": (
         "Cuando la factura lleva retenciones, su total no es el total con "

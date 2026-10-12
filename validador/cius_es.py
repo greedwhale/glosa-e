@@ -17,7 +17,7 @@ de alta y listas de códigos.
 
 Qué trae: 176 filas, 149 identificadores distintos y
 14 listas de códigos. No trae el mensaje de anulación, que es la otra
-tabla del anexo I, ni el anexo II.
+tabla del anexo I, ni el anexo II: están en `mensajes_es`.
 
 Lo que hay que tener presente al usarlo
 ---------------------------------------

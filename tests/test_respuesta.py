@@ -1,5 +1,10 @@
 """Un `ApplicationResponse` de UBL: se reconoce, se le mira la forma, y nada más.
 
+Nada más salvo que sea uno de los mensajes de la orden, por su código: a esos
+se les mide además su tabla desde el 12-10-2026, y eso está en
+`test_mensajes.py`. Las respuestas de aquí llevan `AP`, que no es de la orden,
+y por eso lo de este fichero sigue valiendo tal cual.
+
 Hasta el 29-09-2026 un `ApplicationResponse` salía «No se ha podido validar.
 XML válido, pero su elemento raíz no corresponde a Facturae, UBL, CII ni
 EDIFACT»: igual si estaba bien que si estaba roto. Reconocerlo tiene dos

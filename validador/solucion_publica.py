@@ -912,9 +912,8 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
         # `CustomizationID`, y sin esta línea recibía SPFE-SINTAXIS diciendo
         # que el anexo «solo define» la solución pública sobre UBL, que es
         # falso: la respuesta es UBL. El mensaje de anulación es una respuesta
-        # con sus propios campos en el anexo I («Mensaje de anulación»):
-        # medirlo con las reglas de las facturas sería inventar una regla, y
-        # medirlo con las suyas es una regla nueva, que todavía no está escrita.
+        # con sus propios campos en el anexo I («Mensaje de anulación»), y se
+        # mide con los suyos en `mensajes`, por su código y no por esto.
         return []
     if deteccion.familia != UBL:
         return [

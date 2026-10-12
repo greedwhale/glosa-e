@@ -37,6 +37,7 @@ from validador import (
     esquema,
     facturae,
     firma,
+    mensajes,
     normas,
     revocacion,
     sellos,
@@ -257,6 +258,9 @@ def _reglas_con_cuentas(
         categorias_de_mas=solucion_publica.categorias_que_la_norma_no_tiene(raiz, deteccion),
         comprador_registro_de_mas=solucion_publica.bt47_de_la_orden(raiz, deteccion)))
     incidencias.extend(solucion_publica.reglas(raiz, deteccion))
+    # Los mensajes de la orden, que son respuestas y no facturas: la anulación
+    # y los ocho estados del anexo II. A todo lo demás no le toca.
+    incidencias.extend(mensajes.reglas(raiz, deteccion))
     incidencias.extend(edifact.totales_de_otra_guia(raiz, deteccion))
     incidencias.extend(edifact.iva_fuera_del_desglose(raiz, deteccion))
     incidencias.extend(facturae.reglas(raiz, deteccion))
@@ -747,6 +751,15 @@ class InformeLote:
                 "facturas que la declaran (lo que se puede comprobar en UBL; lo "
                 "que no se mide lo dice la nota SPFE-ALCANCE)"
             )
+        if self._respuestas_medidas():
+            # Cuelga de la nota, como lo del anexo I: solo se apunta si a
+            # alguna respuesta del lote se le midió su tabla, y lo que no se
+            # mide lo dice ella.
+            contenido.append(
+                "lo que la orden de la solución pública pide a sus mensajes de "
+                "anulación y de estado (lo que no se mide lo dice la nota "
+                "SPFE-MENSAJE-ALCANCE)"
+            )
         de_la_firma = mirado[PARTE_FIRMA]
         sin_la_firma = sin_mirar[PARTE_FIRMA]
         if self.firmados:
@@ -827,7 +840,8 @@ class InformeLote:
             sin_mirar[PARTE_CONTENIDO].append(
                 "el código único de las facturas EDIFACT"
             )
-        if RESPUESTA in familias:
+        medidas = self._respuestas_medidas()
+        if RESPUESTA in familias and medidas < self._respuestas():
             # De una respuesta solo se mira la forma y, si la trae, la firma.
             # Sin esta línea, la columna del contenido salía «Sin mirar» sin
             # decir de qué, y la frase de arriba solo hablaba de facturas.
@@ -837,10 +851,37 @@ class InformeLote:
             # que se leía como dos cosas, y lo prometía también sobre una
             # respuesta sin esquema y sin firma. Lo que sí se ha mirado ya lo
             # dicen las otras dos columnas, y lo dicen de este lote.
+            #
+            # Desde el 12-10-2026 a los mensajes de la orden sí se les mide el
+            # contenido, y la frase no puede decir de todas que no: «las
+            # demás» cuando a alguna se le midió, y la de siempre cuando a
+            # ninguna.
             sin_mirar[PARTE_CONTENIDO].append(
+                "el contenido de las demás respuestas (ApplicationResponse)"
+                if medidas else
                 "el contenido de las respuestas (ApplicationResponse)"
             )
         return mirado, sin_mirar
+
+    def _respuestas(self) -> int:
+        return sum(
+            1 for _, informe in self.informes
+            if informe.deteccion is not None
+            and informe.deteccion.familia == RESPUESTA
+        )
+
+    def _respuestas_medidas(self) -> int:
+        """Cuántas respuestas del lote son mensajes de la orden, medidos.
+
+        Se cuentan por la nota SPFE-MENSAJE-ALCANCE, que sale una vez por
+        documento en cuanto uno de sus `cac:DocumentResponse` lleva un código
+        de la orden. Si un documento mezcla mensajes de la orden con otras
+        respuestas, la nota lo dice: la frase del lote lo cuenta como medido.
+        """
+        return sum(
+            1 for _, informe in self.informes
+            if any(i.codigo == "SPFE-MENSAJE-ALCANCE" for i in informe.incidencias)
+        )
 
     def _alguna_respuesta_mirada(self) -> bool:
         """¿Se le pudo pasar su esquema a alguna de las respuestas del lote?

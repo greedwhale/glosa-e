@@ -8104,3 +8104,82 @@ llama `BR-IP-05`. No está publicado: es del hito 1.3.17, de noviembre de 2026.
 La copia fijada aquí es `b6c9e06` y sigue con `BR-AF` y `BR-AG`; el día que
 se traiga la nueva, `test_norma_oficial` lo dirá, y habrá que decidir qué
 código se enseña cuando UBL y CII no llaman igual a la misma regla.
+
+## Los mensajes de la orden: nueve tablas que nadie medía
+
+**Lo que había.** La Orden HAC/1028/2026 define nueve mensajes
+`ApplicationResponse`, cada uno con su tabla y su `cbc:ResponseCode`: la
+anulación de una factura o copia fiel (`CANCELINVOICE`, la segunda tabla del
+anexo I) y los ocho del anexo II, el pago, el rechazo, el cobro y el impago con
+sus bajas. Desde el 29-09-2026 una respuesta se reconocía y se le miraba la
+forma y la firma, y el informe decía que su contenido no se miraba. Era
+verdad, y era el paso 7 del plan.
+
+**Reproducido** el 12-10-2026 sobre `26e9a5d`, con doce mensajes escritos aquí
+y los esquemas de `web/paquete.zip`:
+
+| Mensaje | En `26e9a5d` |
+|---|---|
+| una anulación, un pago y un cobro bien escritos | sin errores |
+| la anulación sin su fecha, el pago sin la de efecto, el impago sin la suya | sin errores |
+| el pago sin la fecha de vencimiento | sin errores |
+| el pago sin el NIF ni el nombre del emisor | sin errores |
+| el rechazo sin motivo, o con el motivo `03` | sin errores |
+| la baja de un pago sin la fecha de la factura | sin errores |
+| la anulación escrita como dice el BOE | `XSD-ORDEN`, y nada más |
+
+De nueve rotos, ocho sin una queja. El informe no mentía, porque la columna
+del contenido decía «Sin mirar», pero un mensaje sin la fecha de vencimiento
+del pago, que es lo que el apartado 1 del artículo 7 obliga a comunicar, salía
+sin una sola queja.
+
+**Lo que se decidió, y por qué.**
+
+- **Se reconocen por el código.** La orden no les da identificador de
+  especificación: ninguna de las nueve tablas tiene fila para
+  `cbc:CustomizationID`. Ninguno de los nueve códigos es de la UNCL 4343, la
+  lista de Peppol, así que una respuesta de otra red sigue como estaba. Se lee
+  letra a letra.
+- **Las tablas salen del XML del BOE**, como el anexo I: `herramientas/mensajes.py`
+  escribe `validador/mensajes_es.py` con la huella del XML, y
+  `validador/mensajes.py` las lee fila a fila al importar. Una fila que no se
+  sepa medir, un dato de la factura que deje de ser obligatorio o un mensaje
+  nuevo hacen que no se importe.
+- **Las erratas de escritura se arreglan y se cuentan**: dos rutas en una
+  celda (8), un renglón partido detrás de una barra (16), un espacio donde va
+  una barra (1) y una barra doble (1). Si el BOE corrige una, la cuenta cambia
+  y una prueba salta. Una celda que ocupa dos filas (`rowspan`) se pone en las
+  dos, que es lo que se ve impreso.
+- **Las dos de la anulación, leídas como el anexo II, y dichas.** La factura
+  colgada de `cac:Response`, que no la admite, se lee en
+  `cac:DocumentResponse`, el único sitio donde cabe. El nombre del vendedor
+  dentro de `cac:PartyTaxScheme/cac:PartyLegalEntity` tiene dos arreglos de
+  un paso, y se buscan los dos. Están preguntadas al buzón desde el
+  07-10-2026, y la nota de cada anulación dice cómo se han leído.
+- **El NIF, con el prefijo ES y sin él, y con cualquier `cac:TaxScheme`.**
+  También está preguntado; hasta la respuesta no se da por mala ninguna forma.
+- **Seis códigos**, de 395 a 401: `SPFE-MENSAJE-ALCANCE` (nota),
+  `-FECHA`, `-VENCIMIENTO`, `-ESTADO`, `-MOTIVO` y `-FACTURA`. Lo que la tabla
+  no prevé (`Duedate` por `DueDate`, un `cbc:StatusReason` libre) sale en
+  aviso: puede ser una errata, pero un mensaje no está mal por llevar algo de
+  más.
+- **La frase del final** dice que se mide lo que la orden pide a sus mensajes
+  solo si a alguno se le midió, y de las demás respuestas sigue diciendo que
+  su contenido no se mira. Sin esquema, una respuesta sigue saliendo SIN
+  COMPROBAR aunque se le haya medido la tabla.
+
+**Ahora**, los nueve rotos tienen su queja, y los nueve bien escritos salen
+sin errores con la nota. En el corpus no cambia nada: de 169 ficheros se leen
+157 y ninguno es una respuesta; 1346 incidencias con las reglas y sin ellas.
+
+**Provocado.** Quince roturas, las quince en rojo: las reglas no corren, el
+código se lee sin mayúsculas, la fecha no se pide, el vencimiento vale sin su
+fecha, cualquier motivo vale, varias facturas en el anexo II, el NIF con ES no
+vale, lo no previsto es un error, el nombre de la anulación en un solo sitio,
+la anulación sin arreglar la factura (no se importa), la frase promete los
+mensajes sin la nota, la frase dice de todas las respuestas que no, la celda
+de dos filas no se arrastra, el BOE corrige la barra doble, y un mensaje sin
+nombre (no se importa).
+
+**Lo que no está medido.** El navegador, como con el resto de las respuestas,
+y ningún mensaje real: los de las pruebas están escritos aquí, con las tablas.

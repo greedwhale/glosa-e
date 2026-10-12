@@ -826,7 +826,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Un
       «válida» a secas no significa nada si no dice contra qué. Cada informe
       empieza diciendo qué se ha mirado de estas tres partes y qué no, antes
-      de ninguna queja, para que no haya que suponerlo. Cada aviso lleva su código, y los 395 están <a
+      de ninguna queja, para que no haya que suponerlo. Cada aviso lleva su código, y los 401 están <a
       href="./incidencias.html">explicados uno a uno</a>, con la norma de la
       que salen.</p>
       <div class="tres">
@@ -1146,8 +1146,11 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             valida, que es distinto de decir que está mal.</p>
             <p>Con una excepción: las respuestas de UBL
             (<code>ApplicationResponse</code>), que no son facturas. Se
-            reconocen y se les mira la forma, y la firma si la traen; lo que
-            dicen, no. La forma se mira con el esquema de UBL 2.5 aunque
+            reconocen y se les mira la forma, y la firma si la traen. Lo que
+            dicen solo se mide en los nueve mensajes de la solución pública,
+            que se reconocen por su código: la anulación de una factura y los
+            estados del anexo II de la orden (el pago, el rechazo, el cobro y
+            el impago, con sus bajas). En las demás, no. La forma se mira con el esquema de UBL 2.5 aunque
             declaren de la 2.1 a la 2.4, porque es el que viaja con la página:
             lo que vale en esas vale en la 2.5, pero no al revés. Una que
             declare la 2.0 sale sin comprobar: entre la 2.0 y la 2.1 el esquema

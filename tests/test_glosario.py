@@ -59,7 +59,7 @@ def test_lo_escrito_en_el_fichero_va_entre_comillas_invertidas():
     punto de miles desde cinco cifras (1163,52, no 1.163,52). Lo único con
     punto que queda fuera es una versión, y está escrita aquí.
     """
-    versiones = {("SPFE-SINTAXIS", "2.5")}
+    versiones = {("SPFE-SINTAXIS", "2.5"), ("SPFE-MENSAJE-ALCANCE", "2.5")}
     con_punto = []
     for clave, texto in [*FAMILIAS.items(), *CODIGOS.items()]:
         fuera = re.sub(r"`[^`]*`", "", texto)
