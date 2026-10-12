@@ -7995,7 +7995,8 @@ era la consecuencia, no la causa.
 - No hay código nuevo ni cambia ninguna gravedad: son las mismas reglas, en
   ERROR, que es su `flag` en la norma.
 
-**En el corpus**, 157 facturas leídas: de 1106 incidencias a 1108. Son dos
+**En el corpus**, 157 facturas leídas, con el motor de la norma europea solo
+(`en16931.validar`): de 1106 incidencias a 1108. Son dos
 `BR-E-05`, en dos facturas EDIFACT con tres líneas exentas sin tipo cada una,
 que ya traían otros nueve códigos de error de la norma (sin desglose, entre
 ellos).
@@ -8087,7 +8088,8 @@ CII sigue con `> 0`.
 - De 394 códigos a 395.
 
 **En el corpus**, 157 facturas, 19 de ellas CII: no cambia nada, 1108
-incidencias antes y después. Ninguna lleva IGIC.
+incidencias antes y después con el motor de la norma europea solo
+(`en16931.validar`). Ninguna lleva IGIC.
 
 **Provocado.** Once roturas, las once en rojo: CII deja de decir el IGIC, UBL
 y EDIFACT lo dicen, Facturae sigue a otro, la nota sale también con el tipo
@@ -8221,3 +8223,27 @@ de factura). Cada una tiene ahora su prueba.
 eran de comportamiento, con la de `cac:Response` al revés (buscarla allí en
 todos los mensajes), sus cuatro negativas de `_plan` y el indicador repetido
 diciendo «cuál vale».
+
+**Y las reglas de la factura**, el mismo día. El auditor rompió
+`solucion_publica.py` sobre una copia, y cuatro roturas pasaban la suite
+entera: solo el primer cargo de cada línea, `BT-119` solo en la primera
+entrada del desglose, la copia fiel con `true` y no con `1`, y `BT-30` pedido
+también con «LOC» sin «FC», que daba dos quejas por lo mismo. Reproducido:
+las cuatro en verde.
+
+Y dos reglas que no decían lo que la orden dice, también reproducidas:
+
+| Lo que pasaba | Ahora |
+|---|---|
+| `BT-30` con «RM Madrid T.1 F.2», o con el NIF del comprador: sin una queja | ERROR con el NIF en `BT-32`, AVISO sin él |
+| una propiedad «Color» en la línea, en ERROR | AVISO: la interconectada admite contenido adicional que cumpla la norma (apartado 3 del artículo 3) |
+| la ficha de `SPFE-IMPUESTO-O-TASA`: «la norma europea no tiene nada de esto» | y el esquematrón de UBL del CEN avisa de la ruta de `BT-ES-22` (`UBL-CR-558`, comprobado en `EN16931-UBL-syntax.sch`: `flag="warning"`) |
+| el comentario de `sintaxis.py`: «hoy es una», el IGIC en CII | el de EDIFACT rechaza también el cero, y no se dice |
+| las cifras de 1106 y 1108 incidencias, sin decir con qué se midieron | con el motor de la norma europea solo, `en16931.validar` |
+| `pyproject.toml`: «los 24 módulos van dentro del `.whl`» | «todos los módulos», que no se queda viejo |
+
+**Provocado.** Once roturas, las once en rojo: las cuatro del auditor; `BT-30`
+aceptando cualquier cosa, cualquier NIF, en ERROR también sin `BT-32`, sin
+leer que la orden lo describe como el NIF y comparado con un NIF-IVA de otro
+país; «INFO» otra vez en ERROR; y la ficha sin `UBL-CR-558`. En el corpus,
+1346 incidencias antes y después: ninguna factura declara la solución pública.

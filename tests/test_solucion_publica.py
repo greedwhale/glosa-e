@@ -1402,6 +1402,13 @@ class TestLosFicherosEmbebidos:
         queja = la(_como_copia_fiel(xml), "SPFE-FICHERO-EMBEBIDO")
         assert queja.gravedad == AVISO and queja.encontrado == encontrado
 
+    def test_la_copia_fiel_tambien_con_un_1(self):
+        """El esquema admite «1» por «true». Lo vio el auditor: aceptando solo
+        «true», la suite pasaba."""
+        con_1 = cambia(_como_copia_fiel(_detras_de_los_documentos(_contrato(PDF))),
+                       "<cbc:CopyIndicator>true<", "<cbc:CopyIndicator>1<")
+        assert "apartado 4 de su artículo 4" in la(con_1, "SPFE-FICHERO-EMBEBIDO").mensaje
+
     def test_una_firma_que_solo_se_nombra_no_es_una_firma(self):
         """`cac:Signature` con la dirección de la firma y sin ella."""
         nombrada = _detras_de_los_documentos(
@@ -1452,6 +1459,39 @@ class TestPartes:
         # Con el NIF-IVA y sin BT-32, la orden no lo pide.
         assert las(cambia(CON_EL_VENDEDOR_EN_BT31, registro + "<cbc:CompanyID>B12345674</cbc:CompanyID>",
                           registro), "SPFE-NIF") == []
+
+    def test_con_loc_y_sin_fc_no_se_pide_ademas_bt30(self):
+        """Sin «FC» el NIF no está en BT-32, y lo dice la queja del NIF: una
+        sola. Lo vio el auditor: sin mirar el atributo, la suite pasaba."""
+        registro = "<cbc:RegistrationName>Talleres Ejemplo SL</cbc:RegistrationName>"
+        sin_fc = cambia(cambia(DEL_BOE, ' schemeID="FC">B12345674', ">B12345674"),
+                        registro + "<cbc:CompanyID>B12345674</cbc:CompanyID>", registro)
+        assert la(sin_fc, "SPFE-NIF").campo == "NIF del vendedor (BT-31 o BT-32)"
+
+    _BT30 = "<cbc:CompanyID>B12345674</cbc:CompanyID></cac:PartyLegalEntity>"
+
+    @pytest.mark.parametrize(("escrito", "dice"), [
+        ("RM Madrid T.1 F.2", "no es un NIF"),
+        ("A12345674", "pero no el del vendedor, que la factura da como B12345674"),
+    ], ids=["un registro mercantil", "el NIF de otro"])
+    def test_bt30_es_el_nif_del_vendedor(self, escrito, dice):
+        """La orden lo describe como «Número de identificación fiscal (NIF) del
+        vendedor». Hasta el 12-10-2026 se miraba que estuviera, y no qué
+        llevaba: lo vio el auditor. Con el NIF en BT-32 es un ERROR, y sin él,
+        un AVISO: la norma admite ahí el de cualquier registro oficial."""
+        nuevo = f"<cbc:CompanyID>{escrito}</cbc:CompanyID></cac:PartyLegalEntity>"
+        queja = la(cambia(DEL_BOE, self._BT30, nuevo), "SPFE-NIF")
+        assert queja.gravedad == ERROR and dice in queja.mensaje
+        assert queja.campo == "Identificador de inscripción legal del vendedor (BT-30)"
+        assert queja.encontrado == escrito and "(BT-32), como aquí" in queja.mensaje
+        sin_bt32 = la(cambia(CON_EL_VENDEDOR_EN_BT31, self._BT30, nuevo), "SPFE-NIF")
+        assert sin_bt32.gravedad == AVISO and dice in sin_bt32.mensaje
+        assert "cualquier registro oficial" in sin_bt32.mensaje
+
+    @pytest.mark.parametrize("xml", [DEL_BOE, CON_EL_VENDEDOR_EN_BT31], ids=["BT-32", "BT-31"])
+    def test_bt30_con_el_prefijo_es_vale(self, xml):
+        con_es = cambia(xml, self._BT30, "<cbc:CompanyID>ESB12345674</cbc:CompanyID></cac:PartyLegalEntity>")
+        assert las(con_es, "SPFE-NIF") == []
 
     def test_el_nif_iva_del_vendedor_lleva_el_prefijo_de_espana(self):
         frances = cambia(CON_EL_VENDEDOR_EN_BT31, ">ESB12345674<", ">FRB12345674<")
@@ -1613,6 +1653,21 @@ class TestElDesglose:
         assert queja.gravedad == ERROR and "BR-48" in queja.mensaje
         assert las(CON_LA_NO_SUJETA, "SPFE-TIPO-DE-IVA") == []
 
+    def test_se_mira_cada_entrada_del_desglose(self):
+        """Una no sujeta sin tipo detrás de una S con el suyo. Lo vio el
+        auditor: mirando solo la primera entrada, la suite pasaba."""
+        con_dos = cambia(
+            DEL_BOE, "    </cac:TaxSubtotal>\n  </cac:TaxTotal>\n  <cac:WithholdingTaxTotal>",
+            "    </cac:TaxSubtotal>\n    <cac:TaxSubtotal>\n"
+            '      <cbc:TaxableAmount currencyID="EUR">0.00</cbc:TaxableAmount>\n'
+            '      <cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount>\n'
+            "      <cac:TaxCategory><cbc:ID>O</cbc:ID>"
+            "<cbc:TaxExemptionReason>Operacion no sujeta</cbc:TaxExemptionReason>"
+            "<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>\n"
+            "    </cac:TaxSubtotal>\n  </cac:TaxTotal>\n  <cac:WithholdingTaxTotal>")
+        queja = la(con_dos, "SPFE-TIPO-DE-IVA")
+        assert queja.gravedad == ERROR and queja.encontrado == "(falta)"
+
     def test_en_las_demas_categorias_lo_dice_br_48(self):
         """Dos quejas por lo mismo no dicen más que una."""
         sin = cambia(DEL_BOE, "<cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent>",
@@ -1651,6 +1706,26 @@ class TestLosImpuestosYTasas:
         queja = la(_con_un_cargo_de_linea(None), "SPFE-IMPUESTO-O-TASA")
         assert queja.gravedad == ERROR and queja.encontrado == "(falta)"
         assert queja.campo.endswith("cargo 1 de la línea 1") and "RESTO" in queja.mensaje
+
+    def test_se_mira_cada_cargo_de_la_linea(self):
+        """Lo vio el auditor: mirando solo el primero, la suite pasaba."""
+        dos = cambia(_con_un_cargo_de_linea(), "    </cac:AllowanceCharge>\n    <cac:Item>",
+                     "    </cac:AllowanceCharge>\n    <cac:AllowanceCharge>\n"
+                     "      <cbc:ChargeIndicator>true</cbc:ChargeIndicator>\n"
+                     "      <cbc:AllowanceChargeReason>Porte</cbc:AllowanceChargeReason>\n"
+                     '      <cbc:Amount currencyID="EUR">5.00</cbc:Amount>\n'
+                     "    </cac:AllowanceCharge>\n    <cac:Item>")
+        queja = la(dos, "SPFE-IMPUESTO-O-TASA")
+        assert queja.encontrado == "(falta)" and queja.campo.endswith("cargo 2 de la línea 1")
+
+    def test_la_ficha_dice_que_el_esquematron_de_ubl_avisa_del_cargo_de_linea(self):
+        """La ruta de BT-ES-22 dispara UBL-CR-558, un aviso del esquematrón de
+        sintaxis de UBL del CEN, que aquí no se corre. La ficha decía que la
+        norma «no tiene nada de esto»: lo vio el auditor."""
+        ruta = solucion_publica._fila("BT-ES-22").ruta
+        assert "cac:InvoiceLine/cac:AllowanceCharge/cac:TaxCategory" in ruta
+        ficha = glosario.CODIGOS["SPFE-IMPUESTO-O-TASA"]
+        assert "UBL-CR-558" in ficha and "no se corren aquí" in ficha
 
     def test_un_cargo_de_linea_con_un_codigo_que_no_es_de_l9(self):
         queja = la(_con_un_cargo_de_linea("XYZ"), "SPFE-IMPUESTO-O-TASA")
@@ -1791,9 +1866,13 @@ class TestLineas:
 
     def test_la_informacion_adicional_se_llama_info(self):
         """BT-160 es libre en la norma, y en la orden tiene tres nombres. Hasta
-        el 11-10-2026 no se medía, y la nota del alcance lo decía."""
+        el 11-10-2026 no se medía, y la nota del alcance lo decía. Hasta el
+        12-10-2026 era un ERROR: la interconectada puede llevar contenido
+        adicional que cumpla la norma (apartado 3 del artículo 3). Lo vio el
+        auditor."""
         queja = la(_con_la_propiedad("Color"), "SPFE-INFORMACION-ADICIONAL")
-        assert queja.gravedad == ERROR and queja.encontrado == "Color"
+        assert queja.gravedad == AVISO and queja.encontrado == "Color"
+        assert "(apartado 3)" in queja.mensaje and "apartado 2 del artículo 3" in queja.mensaje
         assert queja.campo.endswith("línea 1") and "INFO" in queja.esperado
         assert las(_con_la_propiedad(f"{L8}INFO"), "SPFE-INFORMACION-ADICIONAL") == []
         assert las(CON_LA_REFERENCIA_CON_CALIFICADOR, "SPFE-INFORMACION-ADICIONAL") == []
@@ -2256,6 +2335,7 @@ class TestSeNiegaSiElAnexoCambia:
         ("BT-ES-2", "coincidente o posterior", "anterior"),
         ("BT-7", "siempre que sea diferente", "aunque no sea diferente"),
         ("BT-30", "venga informado el campo BT-32", "venga informado el campo BT-31"),
+        ("BT-30", "(NIF) del vendedor", "(NIF) del registro"),
         ("BT-31", "prefijo correspondiente a España", "prefijo del país"),
         ("BT-48", "a efectos de IVA del vendedor", "a efectos de IVA del comprador"),
         ("BT-121", "VATEX-EU o VATEX-ES", "VATEX-EU"),

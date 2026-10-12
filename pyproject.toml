@@ -17,7 +17,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 # AGPL-3.0-only desde el 01-09-2026. Antes era MIT, y MIT no encajaba con lo
 # que este proyecto es: el motor entero viaja al navegador de cualquiera que
-# abra la página —los 24 módulos van dentro del `.whl`, en claro—, así que
+# abra la página —todos los módulos van dentro del `.whl`, en claro—, así que
 # regalarlo con permiso para cerrarlo era regalar el producto. La AGPL no
 # impide llevárselo; impide llevárselo y cerrarlo, incluido el caso que aquí
 # importa: montar un servicio web encima sin devolver la fuente (artículo 13).

@@ -127,7 +127,8 @@ from __future__ import annotations
 import re
 from datetime import date
 
-from validador import cifras, cius_es
+from validador import cifras, cius_es, nif
+from validador.codigo_unico import limpiar_nif
 from validador.en16931 import _UNCL1001
 from validador.formato import (
     MARCADOR_CIUS_ES,
@@ -477,8 +478,11 @@ if (_impuesto, _condicion("BT-47", "cac:TaxScheme/cbc:ID")[1],
 # El registro legal del vendedor (BT-30), obligatorio cuando su NIF va en
 # BT-32. La fila no trae ruta, y se lee donde la pone la vinculación de 2017,
 # como los demás términos de la norma: si un anexo nuevo le da una, este
-# módulo no importa hasta que se mire.
+# módulo no importa hasta que se mire. Y lo describe como el NIF del vendedor,
+# que es de donde sale mirar su contenido como un NIF: si deja de decirlo, la
+# norma admite ahí el de cualquier registro oficial, y hay que volver a decidir.
 _dice("BT-30", "Será obligatorio en los casos en los que venga informado el campo BT-32")
+_dice("BT-30", "Número de identificación fiscal (NIF) del vendedor")
 if _fila("BT-30").ruta:
     raise AnexoCambiado("BT-30 trae ruta en el anexo, y aquí se lee la de 2017")
 
@@ -1593,18 +1597,28 @@ def _nif(raiz) -> list[Incidencia]:
 
 
 def _registro_legal(raiz) -> list[Incidencia]:
-    """BT-30: el registro legal del vendedor, obligatorio si su NIF va en BT-32.
+    """BT-30: el registro legal del vendedor, que la orden describe como su NIF.
 
     La norma pide uno de tres para identificar al vendedor (BR-CO-26): su
     identificador (BT-29), su registro legal (BT-30) o su NIF-IVA (BT-31). La
     orden pide BT-30 en concreto cuando el NIF va con «LOC» y el atributo
     «FC», y lo describe como el NIF del vendedor. Si falta todo, sale también
     BR-CO-26, que dice otra cosa: que no hay ninguno de los tres.
+
+    Hasta el 12-10-2026 se miraba que estuviera y no qué llevaba: un registro
+    mercantil, o el NIF de otro, pasaban sin una queja. Lo vio el auditor.
+    Ahora tiene que ser un NIF, con el prefijo ES o sin él, y el mismo que el
+    vendedor da en BT-31 o en BT-32 si alguno se lee como NIF español. Con el
+    NIF en BT-32 es un ERROR, porque la orden lo pide; sin él, un AVISO: la
+    orden no lo pide, y la norma admite ahí el de cualquier registro oficial.
     """
     con_bt32 = [esquema for esquema in _nodos(raiz, _ESQUEMAS_DEL_VENDEDOR)
                 if _valor(esquema, _IMPUESTO_DEL_ESQUEMA) == _IMPUESTO_LOCAL
                 and _nif_bien_puesto(esquema)]
-    if not con_bt32 or _valor(raiz, SINTAXIS_UBL.vendedor_registro):
+    registro = _valor(raiz, SINTAXIS_UBL.vendedor_registro)
+    if registro:
+        return _que_lleva_el_registro(raiz, registro, bool(con_bt32))
+    if not con_bt32:
         return []
     return [
         Incidencia(
@@ -1619,6 +1633,45 @@ def _registro_legal(raiz) -> list[Incidencia]:
             campo="Identificador de inscripción legal del vendedor (BT-30)",
             esperado="el NIF del vendedor en cac:PartyLegalEntity/cbc:CompanyID",
             encontrado="(falta)",
+        )
+    ]
+
+
+def _que_lleva_el_registro(raiz, registro: str, con_bt32: bool) -> list[Incidencia]:
+    """Que BT-30 sea el NIF del vendedor, como lo describe la orden."""
+    # Los NIF del vendedor que se leen como españoles. Con uno de otro país en
+    # BT-31 no hay con qué comparar, y su prefijo ya lo dice SPFE-NIF.
+    suyos = sorted({limpio for limpio in (limpiar_nif(_valor(esquema, "./cbc:CompanyID"))
+                                          for esquema in _nodos(raiz, _ESQUEMAS_DEL_VENDEDOR)
+                                          if _nif_bien_puesto(esquema))
+                    if nif.validar(limpio)})
+    escrito = limpiar_nif(registro)
+    es_nif = nif.validar(escrito)
+    if es_nif and (not suyos or escrito in suyos):
+        return []
+    gravedad = ERROR if con_bt32 else AVISO
+    if not es_nif:
+        que = (f"El identificador de inscripción legal del vendedor (BT-30) no es un "
+               f"NIF. {es_nif.motivo}")
+    else:
+        que = ("El identificador de inscripción legal del vendedor (BT-30) es un NIF, "
+               f"pero no el del vendedor, que la factura da como {_o(suyos)}.")
+    porque = (" La orden lo describe como el NIF del vendedor, y lo pide cuando su "
+              f"NIF va con «{_IMPUESTO_LOCAL}» y el atributo «{_ESQUEMA_DEL_NIF}» "
+              "(BT-32), como aquí."
+              if con_bt32 else
+              " La orden lo describe como el NIF del vendedor. Es un aviso porque "
+              "solo lo pide cuando el NIF va en BT-32, y la norma europea admite "
+              "ahí el identificador de cualquier registro oficial.")
+    return [
+        Incidencia(
+            "SPFE-NIF",
+            gravedad,
+            que + porque,
+            campo="Identificador de inscripción legal del vendedor (BT-30)",
+            esperado="el NIF del vendedor" + (f", {_o(suyos)}," if suyos else "")
+                     + " con el prefijo ES o sin él",
+            encontrado=registro,
         )
     ]
 
@@ -2196,6 +2249,13 @@ def _informacion_adicional(raiz) -> list[Incidencia]:
     el valor, y las otras dos propiedades que admite son la clave de régimen y
     la referencia catastral. Con el calificador de L8 delante o sin él, como
     las otras dos. Un nombre vacío lo dice BR-54.
+
+    Hasta el 12-10-2026 era un ERROR, y lo vio el auditor: la factura que se
+    emite con la solución pública se ajusta al anexo I (apartado 2 del
+    artículo 3), pero la interconectada lo lleva «como mínimo» y puede
+    incluir contenido adicional que cumpla la norma europea (apartado 3), que
+    deja el nombre libre. Desde el fichero no se sabe por cuál de las dos va:
+    es un aviso.
     """
     otros: list[str] = []
     lugares: list[str] = []
@@ -2211,13 +2271,16 @@ def _informacion_adicional(raiz) -> list[Incidencia]:
     return [
         Incidencia(
             "SPFE-INFORMACION-ADICIONAL",
-            ERROR,
+            AVISO,
             "Hay propiedades del artículo con un nombre que no es de la lista L8. "
             "La orden escribe la información adicional de la línea como una "
             "propiedad llamada «INFO», con el texto en el valor (fila BT-160, "
             "«valor fijo»); las otras dos que admite son la clave de régimen "
-            "(«REGI») y la referencia catastral («RCAT»). La norma europea deja "
-            "el nombre libre.",
+            "(«REGI») y la referencia catastral («RCAT»). Si la factura se emite "
+            "con la solución pública, su contenido se ajusta al anexo I (apartado "
+            "2 del artículo 3) y esto no cabe. Si va interconectada, la orden "
+            "admite contenido adicional que cumpla la norma europea (apartado 3), "
+            "y la norma deja el nombre libre: por eso es un aviso.",
             campo=_donde("Código de la propiedad (BT-160)", lugares),
             esperado=f"{_o(_NOMBRES_L8)}, con el calificador de L8 delante o sin él",
             encontrado=", ".join(dict.fromkeys(otros)),

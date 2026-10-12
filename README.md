@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3268 tests, todos en verde.
+3278 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3825,10 +3825,10 @@ Lo que se comprueba:
 |---|---|
 | La cabecera: el identificador de la orden en `BT-24`, su proceso `B2B` en `BT-23`, el tipo de factura de L1, el euro como moneda del IVA y la fecha efectiva de pago (`BT-ES-2`), una como mucho y del día de la operación al de la expedición; y, en notas, la factura sin indicador de copia, el importe pagado, el proceso del ejemplo del 02-10-2026 y la fecha de pago que no se puede comparar o que no libera de comunicar el pago | `SPFE-ESPECIFICACION`, `-PROCESO`, `-TIPO-DE-FACTURA`, `-MONEDA-DEL-IVA`, `-FECHA-DE-PAGO`, `-COPIA`, `-IMPORTE-PAGADO` |
 | Los datos de la rectificativa en toda 384 y 471: un `BG-24` `RECT:TIPO` y uno `RECT:MODALIDAD`, con su código en `cbc:DocumentTypeCode`, de L2.A y L2.B; y, si los lleva, los `RECT:IMPORTES`, cada uno con su código de L2.C y su importe: más de cinco es ERROR, cuatro o cinco una NOTA (`BT-3` dice «hasta tres» y el grupo es `0..5`), y con la modalidad `I`, un AVISO, porque el grupo es para la sustitución | `SPFE-RECTIFICATIVA` |
-| Las partes: el NIF de las dos en un esquema «VAT», con el prefijo ES, o en uno «LOC» con «FC», y en ese caso el registro legal del vendedor (`BT-30`); la dirección entera cuando está en España; y el tercero que expide la factura, con su razón social, su NIF y su tipología. El prefijo del comprador va en AVISO: su fila copia la del vendedor hasta en decir «del vendedor» | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
+| Las partes: el NIF de las dos en un esquema «VAT», con el prefijo ES, o en uno «LOC» con «FC», y en ese caso el registro legal del vendedor (`BT-30`), que tiene que ser su NIF; la dirección entera cuando está en España; y el tercero que expide la factura, con su razón social, su NIF y su tipología. El prefijo del comprador va en AVISO: su fila copia la del vendedor hasta en decir «del vendedor» | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
 | Lo que la norma deja opcional y el anexo no: la fecha de la factura referenciada y el motivo en texto de descuentos y cargos | `SPFE-FACTURA-REFERENCIADA`, `-MOTIVO` |
 | El IVA: «VAT» en los descuentos y cargos, las líneas y el desglose, y que esté; la categoría de L4, sin `K` ni `B`; el tipo también en la entrada no sujeta (`O`), que la norma deja sin él; el código de exención, solo VATEX-EU o VATEX-ES; y la `N`, la `D` y la `F` de la orden, en una nota | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA`, `-TIPO-DE-IVA`, `-EXENCION` |
-| Cada línea: una o dos claves de régimen en la lista de su impuesto (la L3A de la orden ya no tiene la 18, la 19 ni la 20), como mucho una referencia catastral con su situación de L6, y ninguna otra propiedad del artículo que la información adicional, `INFO` | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL`, `-INFORMACION-ADICIONAL` |
+| Cada línea: una o dos claves de régimen en la lista de su impuesto (la L3A de la orden ya no tiene la 18, la 19 ni la 20), como mucho una referencia catastral con su situación de L6, y ninguna otra propiedad del artículo que la información adicional, `INFO` (en AVISO) | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL`, `-INFORMACION-ADICIONAL` |
 | Los impuestos y tasas que no son el IVA: el código de L9 en cada cargo de línea y en cada impuesto cobrado como cargo del documento, con su cuota en el impuesto y en el total del cargo, y la misma; el desglose del que se cobra en nombre de un tercero, con «VAT» y «S»; y la cuota de cada uno, la base por el tipo con el margen de la del IVA. Con dos impuestos en un cargo, una nota; y un cargo con el total del impuesto y sin su detalle no dice qué impuesto es | `SPFE-IMPUESTO-O-TASA` |
 | Las líneas de cobro: un valor de la L7 de la orden, con su calificador o sin él, y un solo grupo de retenciones; las retenciones con su suma, su línea de cobro y su concepto de L5, y sus dos cuentas: cada una es su base por su porcentaje, y la suma es la de todas, y si no se detalla ninguna, una nota; y el QR fiscal, uno como mucho, con su dirección y, si lleva descripción, VERIFACTU o TICKETBAI (el escrito con la URN de abril no es el QR, y una nota lo dice) | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-QR` |
 | La autorización de facturación: cada `BG-24` `AUT`, los que haya, con su número (`BT-ES-26`) | `SPFE-AUTORIZACION` |
@@ -4443,7 +4443,7 @@ nombre fijo `INFO`. Medido antes de tocar nada, sobre `e51de10`:
 | con «IGIC» o con la categoría `E` en ese desglose | sin errores | ERROR |
 | con una cuota que no sale | sin errores | ERROR |
 | una propiedad `INFO`, con el calificador de L8 o sin él | sin errores | sin errores |
-| una propiedad «Color» | sin errores | ERROR `SPFE-INFORMACION-ADICIONAL` |
+| una propiedad «Color» | sin errores | ERROR `SPFE-INFORMACION-ADICIONAL` (AVISO desde el 12-10-2026, abajo) |
 
 **Lo que se decidió sin preguntar, y por qué.**
 
@@ -4460,10 +4460,11 @@ nombre fijo `INFO`. Medido antes de tocar nada, sobre `e51de10`:
 - **«VAT» y «S» en el desglose de un cobro**, aunque no sea el IVA. Lo dice
   el grupo: «su uso implica» los dos valores. Se lee de la columna de la ruta,
   como los de las retenciones.
-- **Cualquier propiedad que no sea de L8 es un error.** La norma deja el
-  nombre libre, y la orden lo fija: `INFO` para la información adicional,
-  `REGI` y `RCAT` para las otras dos. Un «Color: rojo» se escribe como `INFO`
-  con el texto en el valor.
+- **Cualquier propiedad que no sea de L8 se dice.** La norma deja el nombre
+  libre, y la orden lo fija: `INFO` para la información adicional, `REGI` y
+  `RCAT` para las otras dos. Un «Color: rojo» se escribe como `INFO` con el
+  texto en el valor. Era un error hasta el 12-10-2026, y desde entonces es un
+  aviso (en «Lo que el auditor encontró en las reglas de la factura»).
 
 **Lo que salió al provocar.** La negativa de `BT-160` salió en verde: se
 comprobaba que la fila dijera «valor fijo INFO», y «valor fijo INFORMACION»
@@ -4543,6 +4544,56 @@ orden. Fuera de la nota quedan el mensaje de anulación y los del anexo II, que
 no son facturas: se miden desde el 12-10-2026, con su propia nota (en la
 sección siguiente). El detalle y las diecinueve roturas provocadas, en
 HALLAZGOS.
+
+### Lo que el auditor encontró en las reglas de la factura
+
+El 12-10-2026, antes de publicar, el auditor rompió `solucion_publica.py`
+sobre una copia y miró qué roturas pasaban la suite: pasaban cuatro. Y vio
+dos reglas que decían más o menos de lo que dice la orden. Todo reproducido
+antes de arreglarlo:
+
+| Lo que pasaba | Ahora |
+|---|---|
+| un registro mercantil en `BT-30`, o el NIF de otro, pasaba sin una queja: se miraba que estuviera y no qué llevaba | tiene que ser el NIF del vendedor: ERROR con su NIF en `BT-32`, donde la orden lo pide, y AVISO sin él |
+| una propiedad «Color» en la línea salía en ERROR | AVISO: la factura interconectada puede llevar contenido adicional que cumpla la norma |
+| la ficha de `SPFE-IMPUESTO-O-TASA` decía que la norma «no tiene nada de esto» | dice también que el esquematrón de UBL del CEN avisa de la ruta de `BT-ES-22` (`UBL-CR-558`) |
+
+Las cuatro roturas que la suite no veía: mirar solo el primer cargo de cada
+línea, solo la primera entrada del desglose para `BT-119`, la copia fiel con
+`true` y no con `1`, y pedir `BT-30` también con «LOC» sin «FC». Cada una
+tiene ahora su prueba.
+
+**Lo que se decidió, y por qué.**
+
+- **`BT-30` es el NIF del vendedor**, porque la orden lo describe así:
+  «Número de identificación fiscal (NIF) del vendedor». Esa frase se lee al
+  importar, y si cambia el módulo no se monta. Vale con el prefijo ES o sin
+  él, y se compara con el NIF que el vendedor da en `BT-31` o `BT-32` si
+  alguno se lee como NIF español: con uno de otro país no hay con qué
+  comparar, y su prefijo ya lo dice `SPFE-NIF`.
+- **Sin `BT-32`, un aviso.** Entonces la orden no lo pide, y la norma admite
+  en `BT-30` el identificador de cualquier registro oficial.
+- **«INFO», en AVISO.** La factura que se emite con la solución pública se
+  ajusta al anexo I (apartado 2 del artículo 3), pero la interconectada lo
+  lleva «como mínimo» y puede incluir contenido adicional que cumpla la norma
+  europea (apartado 3), que deja el nombre libre. Desde el fichero no se sabe
+  por cuál de las dos va.
+- **`UBL-CR-558`, en la ficha y no en el informe.** Es un aviso del
+  esquematrón de sintaxis de UBL (`EN16931-UBL-syntax.sch`, `flag="warning"`),
+  y esas reglas no se corren aquí (`test_norma_oficial`): decir una sola haría
+  pensar que se miraron las demás. Con el IGIC a cero en CII es distinto,
+  porque allí el esquematrón rechaza lo que la norma admite.
+
+**Lo que se dejó como estaba.** El margen de una unidad en la cuota de los
+impuestos y tasas, que es el de la cuota del IVA (`BR-CO-17`), y el cero del
+IGIC en EDIFACT, que no se dice como no se dicen los márgenes de ese
+esquematrón. De lo segundo solo se arregló el comentario de `sintaxis.py`, que
+decía «hoy es una».
+
+**En el corpus** no cambia nada: ninguna factura declara la solución pública,
+y salen 1346 incidencias antes y después con el validador entero
+(`factura.validar`) sin esquemas ni anclas. Provocado once veces, las once en
+rojo (en HALLAZGOS).
 
 ### Los mensajes de la orden: la anulación y los ocho estados
 
@@ -5874,7 +5925,8 @@ traducción. Si el comité reescribe alguna para admitir el tipo ausente, se
 pone en rojo. No es correr el esquematrón, que aquí no se corre: es evaluar su
 expresión en el único caso que importa.
 
-**En el corpus**, de 157 facturas leídas: de 1106 incidencias a 1108. Son dos
+**En el corpus**, de 157 facturas leídas y con el motor de la norma europea
+solo (`en16931.validar`): de 1106 incidencias a 1108. Son dos
 `BR-E-05`, en dos facturas EDIFACT con tres líneas exentas sin tipo cada una,
 que ya traían otros nueve códigos de error de la norma. Provocado once veces,
 las once en rojo (en HALLAZGOS).

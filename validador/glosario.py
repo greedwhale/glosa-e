@@ -3405,7 +3405,12 @@ CODIGOS: dict[str, str] = {
         "caso y describe como su NIF; y cuando el NIF-IVA no lleva el prefijo "
         "de España, ES, que la orden pide y la norma no (admite el de cualquier "
         "país). Lo del comprador es un aviso: su fila copia la del vendedor "
-        "hasta en decir «del vendedor», y no se sabe si el prefijo es para él."
+        "hasta en decir «del vendedor», y no se sabe si el prefijo es para él. "
+        "Desde el 12-10-2026 se mira también qué lleva BT-30: el NIF del "
+        "vendedor, con el prefijo ES o sin él. Otra cosa, como un registro "
+        "mercantil o el NIF de otro, es un error con el NIF en BT-32 y un aviso "
+        "sin él, porque entonces la orden no lo pide y la norma admite ahí el "
+        "de cualquier registro oficial."
     ),
     "SPFE-DIRECCION": (
         "A la dirección del vendedor o del comprador le falta algo que el "
@@ -3490,7 +3495,11 @@ CODIGOS: dict[str, str] = {
         "una propiedad llamada «INFO», con el texto en el valor (BT-160 y "
         "BT-161), y las otras dos que admite son la clave de régimen («REGI») y "
         "la referencia catastral («RCAT»): las tres de su lista L8, con el "
-        "calificador de la lista delante o sin él."
+        "calificador de la lista delante o sin él. Es un aviso: la factura que "
+        "se emite con la solución pública se ajusta al anexo I, y la "
+        "interconectada puede llevar contenido adicional que cumpla la norma "
+        "europea (apartados 2 y 3 del artículo 3 de la orden). Hasta el "
+        "12-10-2026 era un error."
     ),
     "SPFE-LINEA-DE-COBRO": (
         "Una línea de cobro (cac:CollectionInvoiceLine) no se identifica con "
@@ -3532,7 +3541,11 @@ CODIGOS: dict[str, str] = {
         "(BG-ES-3) se escribe con «VAT» y «S» aunque no sea el IVA. Y la cuota "
         "de cada uno (BT-ES-8 y BT-ES-14) es la base por el tipo, cuando la "
         "factura da los dos, con el margen de la cuota del IVA: hasta una unidad "
-        "es una nota. La norma europea no tiene nada de esto."
+        "es una nota. La norma europea no tiene nada de esto, y el esquematrón "
+        "de su vinculación con UBL avisa de un cac:TaxCategory en el cargo "
+        "de una línea, que es donde la orden pone BT-ES-22 (UBL-CR-558): quien "
+        "pase la factura por él verá ese aviso. Las reglas de sintaxis de ese "
+        "esquematrón no se corren aquí."
     ),
     "SPFE-QR": (
         "El documento del QR fiscal está repetido, le falta la dirección o su "

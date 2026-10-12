@@ -264,13 +264,16 @@ class Sintaxis:
     comprueba_la_cuota_por_tipo: frozenset[str]
 
     # En qué categorías el esquematrón oficial de esta sintaxis rechaza un
-    # tipo a cero que la norma admite. Hoy es una: el IGIC en CII, cuyas
-    # BR-AF-05 a 07 comparan con `> 0` cuando el texto de la regla dice «0
-    # (zero) or greater than zero», y la vinculación de UBL, `>= 0`. Aquí se
-    # sigue al texto, como con el periodo que el esquematrón de CII no
-    # encuentra, y el motor lo dice en una nota (IVA-CERO-ESQUEMATRON): quien
-    # reciba la factura y la pase por ese esquematrón la verá rechazada. Lo
-    # lee de la vinculación oficial `test_norma_oficial`.
+    # tipo a cero que la norma admite, para decirlo. Hoy se dice una: el IGIC
+    # en CII, cuyas BR-AF-05 a 07 comparan con `> 0` cuando el texto de la
+    # regla dice «0 (zero) or greater than zero», y la vinculación de UBL,
+    # `>= 0`. Aquí se sigue al texto, como con el periodo que el esquematrón
+    # de CII no encuentra, y el motor lo dice en una nota
+    # (IVA-CERO-ESQUEMATRON): quien reciba la factura y la pase por ese
+    # esquematrón la verá rechazada. Lo lee de la vinculación oficial
+    # `test_norma_oficial`. El de EDIFACT rechaza también el cero, en S, O, L
+    # y M, y no se dice: EDIFACT va con UBL, como en los márgenes, porque su
+    # esquematrón se quedó en 2017 (lo prueba `test_norma_oficial`).
     cero_que_rechaza_su_esquematron: frozenset[str]
 
     # Qué medios de pago son una transferencia, que es cuando BR-50 y BR-61
