@@ -18,6 +18,7 @@ from lxml import etree
 
 from validador import en16931, iva
 from validador.formato import parser
+from validador.glosario import CODIGOS
 from validador.incidencias import AVISO, ERROR, NOTA
 from validador.sintaxis import SINTAXIS_CII, SINTAXIS_UBL
 
@@ -1051,6 +1052,96 @@ class TestDondeViveCadaRegla:
         """
         assert iva.REGLAS["L"].codigo == "AF"
         assert iva.REGLAS["M"].codigo == "AG"
+
+
+# El tipo bueno de cada categoría que tiene que llevarlo, para montar al lado
+# del concepto sin tipo una entrada del desglose que no se queje de nada.
+_TIPO_DE_CADA_CATEGORIA = {"S": "21", "Z": "0", "E": "0", "AE": "0", "K": "0",
+                           "G": "0", "L": "7", "M": "4"}
+
+
+def _sin_tipo(categoria, linea=None, ajuste=None):
+    """La factura de una categoría con la línea o el ajuste sin tipo."""
+    tipo = _TIPO_DE_CADA_CATEGORIA[categoria]
+    cuota = f"{Decimal(tipo):.2f}"
+    return dict(
+        lineas=[Linea("1", "100.00", categoria=categoria,
+                      tipo=None if linea is None else tipo)],
+        ajustes=[] if ajuste is None else [
+            Ajuste("10.00", es_cargo=ajuste == "cargo", categoria=categoria, tipo=None)],
+        grupos=[Grupo("100.00", cuota, categoria=categoria, tipo=tipo)],
+        total_iva=cuota,
+    )
+
+
+class TestElTipoQueFalta:
+    """BR-{X}-05, 06 y 07 también cuando el concepto no trae tipo.
+
+    Hasta el 11-10-2026 aquí se callaba, con un comentario: «que el tipo falte
+    lo dice BR-48». BR-48 es del desglose, no de la línea, y una línea exenta
+    sin tipo con su entrada del desglose a cero pasaba sin una queja. En el
+    esquematrón oficial las tres son una comparación con el tipo, y sin tipo
+    la comparación es falsa: saltan en todas las categorías menos en la O, que
+    pide lo contrario. Que eso dice el texto oficial de cada vinculación lo
+    comprueba `test_norma_oficial`.
+    """
+
+    @pytest.mark.parametrize("categoria", sorted(_TIPO_DE_CADA_CATEGORIA))
+    def test_la_linea_sin_tipo(self, revisar, categoria):
+        incidencias = revisar(**_sin_tipo(categoria))
+        codigo = f"BR-{iva.REGLAS[categoria].codigo}-05"
+        assert codigo in codigos(incidencias, ERROR)
+        problema = una(incidencias, codigo)
+        assert problema.encontrado == "(sin tipo)"
+        assert "línea 1" in problema.campo
+
+    @pytest.mark.parametrize("ajuste,sufijo", [("descuento", "06"), ("cargo", "07")])
+    @pytest.mark.parametrize("categoria", sorted(_TIPO_DE_CADA_CATEGORIA))
+    def test_el_descuento_o_el_cargo_sin_tipo(self, revisar, categoria, ajuste, sufijo):
+        incidencias = revisar(**_sin_tipo(categoria, linea="con tipo", ajuste=ajuste))
+        familia = iva.REGLAS[categoria].codigo
+        assert f"BR-{familia}-{sufijo}" in codigos(incidencias, ERROR)
+        assert una(incidencias, f"BR-{familia}-{sufijo}").encontrado == "(sin tipo)"
+        assert f"BR-{familia}-05" not in codigos(incidencias), (
+            "la línea trae su tipo: la queja es del ajuste y solo del ajuste")
+
+    def test_con_su_tipo_no_salta(self, revisar):
+        for categoria in _TIPO_DE_CADA_CATEGORIA:
+            incidencias = revisar(**_sin_tipo(categoria, linea="con tipo"))
+            assert f"BR-{iva.REGLAS[categoria].codigo}-05" not in codigos(incidencias), categoria
+
+    def test_dice_que_falta_y_no_que_esta_mal(self, revisar):
+        problema = una(revisar(**_sin_tipo("E")), "BR-E-05")
+        assert "sin tipo" in problema.mensaje
+        assert "no está a cero" not in problema.mensaje
+        assert problema.esperado == "0"
+
+    def test_el_que_falta_y_el_malo_son_dos_quejas(self, revisar):
+        """Agrupadas por tipo, como siempre: el que falta no se mezcla con el cero."""
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", tipo="0"), Linea("2", "100.00", tipo=None),
+                    Linea("3", "100.00")],
+            grupos=[Grupo("300.00", "21.00")],
+        )
+        salen = sorted((i.encontrado, i.campo) for i in incidencias if i.codigo == "BR-S-05")
+        assert salen == [("(sin tipo)", "Conceptos: línea 2"), ("0", "Conceptos: línea 1")]
+
+    def test_la_no_sujeta_sin_tipo_sigue_valiendo(self, revisar):
+        incidencias = revisar(
+            lineas=[Linea("1", "100.00", categoria="O", tipo=None)],
+            ajustes=[Ajuste("10.00", categoria="O", tipo=None),
+                     Ajuste("10.00", es_cargo=True, categoria="O", tipo=None)],
+            grupos=[Grupo("100.00", "0.00", categoria="O", tipo=None, motivo="Art. 7")],
+            total_iva="0.00",
+        )
+        assert not {"BR-O-05", "BR-O-06", "BR-O-07"} & codigos(incidencias)
+
+    def test_la_ficha_de_cada_una_lo_dice(self):
+        """La de BR-AG-05 decía lo contrario: «la queja no es ésta sino BR-48»."""
+        callan = [f"BR-{iva.REGLAS[c].codigo}-{s}" for c in _TIPO_DE_CADA_CATEGORIA
+                  for s in ("05", "06", "07")
+                  if "solo lo no sujeto va sin" not in CODIGOS[f"BR-{iva.REGLAS[c].codigo}-{s}"]]
+        assert not callan, f"fichas que no dicen que sin tipo también salta: {callan}"
 
 
 class TestPropias:

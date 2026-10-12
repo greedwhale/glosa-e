@@ -1357,12 +1357,22 @@ def _regla_tipo_de_los_conceptos(apuntes: list[Apunte]) -> list[Incidencia]:
         regla = REGLAS.get(apunte.categoria) if apunte.categoria else None
         if regla is None:
             continue  # sin categoría o con una que no es de la norma: otros lo dicen
-        # Que el tipo **falte** lo dice BR-48, una sola vez para toda la
-        # factura. Aquí se mira si el valor es el que le toca a esta categoría.
+        # Que el tipo **falte** también es esto. Hasta el 11-10-2026 aquí ponía
+        # `mal = False`, con un comentario que decía que la falta la cuenta
+        # BR-48. BR-48 es del desglose y no de la línea: una línea exenta sin
+        # tipo con su entrada del desglose a cero pasaba sin una queja. En el
+        # esquematrón oficial, en las tres vinculaciones, estas reglas son una
+        # comparación con el tipo, y sin tipo la comparación es falsa y la
+        # regla salta. Solo la no sujeta va sin tipo, y ahí es al revés.
+        # `test_norma_oficial` evalúa el texto de cada vinculación sobre un
+        # concepto sin tipo y lo compara con esto.
+        #
+        # «Falta» es aquí lo mismo que en BR-48: que no haya un número que
+        # leer. Un tipo escrito que no es un número lo denuncia además el XSD.
         if regla.tipo == SIN_TIPO:
             mal = apunte.tipo is not None
         elif apunte.tipo is None:
-            mal = False
+            mal = True
         elif regla.tipo == POSITIVO:
             mal = apunte.tipo <= 0
         elif regla.tipo == CERO:
@@ -1393,6 +1403,13 @@ def _regla_tipo_de_los_conceptos(apuntes: list[Apunte]) -> list[Incidencia]:
                 "está sujeta, no hay tipo que aplicar."
             )
             esperado = "(sin tipo)"
+        elif tipo is None:
+            esperado = _TIPO_QUE_PIDE[regla.tipo]
+            mensaje = (
+                f"Hay conceptos a {nombre} sin tipo de IVA. Solo lo no sujeto "
+                "(categoría O) va sin tipo: en esta categoría la norma pide "
+                f"{_LO_QUE_PIDE[regla.tipo]}, aunque el desglose ya lo diga."
+            )
         elif regla.tipo == POSITIVO:
             mensaje = (
                 f"Hay conceptos a {nombre} con un tipo que no es mayor que "
@@ -1418,10 +1435,16 @@ def _regla_tipo_de_los_conceptos(apuntes: list[Apunte]) -> list[Incidencia]:
                 mensaje,
                 campo="Conceptos: " + ", ".join(suyos),
                 esperado=esperado,
-                encontrado=cifras.tiene(tipo),
+                encontrado="(sin tipo)" if tipo is None else cifras.tiene(tipo),
             )
         )
     return incidencias
+
+
+# Lo que cada estado pide cuando el tipo falta: en «Debería» y en la frase.
+_TIPO_QUE_PIDE = {POSITIVO: "mayor que 0", CERO: "0", NO_NEGATIVO: "0 o mayor que 0"}
+_LO_QUE_PIDE = {POSITIVO: "un tipo mayor que cero", CERO: "el tipo, a cero",
+                NO_NEGATIVO: "el tipo, a cero o positivo"}
 
 
 def _regla_lineas_con_categoria(

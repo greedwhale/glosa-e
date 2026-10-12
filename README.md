@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3057 tests, todos en verde.
+3115 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -339,7 +339,7 @@ al revés.
 | `BR-CO-17` | Cuota = base × tipo / 100, redondeada a dos decimales |
 | `BR-CO-11` / `BR-CO-12` | El total de descuentos y de cargos es la suma de los detallados |
 | `BR-{X}-8` | La base de cada entrada es la suma de lo que va a ese tipo |
-| `BR-{X}-5` | El tipo que exige cada categoría |
+| `BR-{X}-5` | El tipo que exige cada categoría en cada línea, descuento y cargo, y que esté: solo lo no sujeto va sin tipo |
 | `BR-{X}-10` | El motivo de exención, presente o ausente según toque |
 | `BR-{X}-1` | Cada categoría usada aparece en el desglose |
 | `BR-O-11` | Lo no sujeto no se mezcla con lo sujeto en la misma factura |
@@ -5737,6 +5737,53 @@ seis de esta tanda no hay ni un caso oficial, y sus pruebas están en
 Provocado nueve veces. La primera pasada dejó una en verde: una guarda para
 cuando no se sabe el país no hacía nada que no hiciera ya la ruta vacía, y se
 quitó.
+
+### El tipo que falta en la línea, el descuento y el cargo
+
+**`BR-{X}-05`, `06` y `07` callaban cuando el tipo no estaba.** Piden el tipo
+que toca a cada categoría en cada línea (`BT-152`), descuento (`BT-96`) y
+cargo (`BT-103`) de documento. Aquí se miraba el valor cuando lo había, y si
+faltaba se daba por bueno con un comentario: «que el tipo falte lo dice
+BR-48». BR-48 es del desglose. Una línea exenta sin tipo, con su entrada del
+desglose a cero, pasaba sin una queja. Salió el 11-10-2026, al quitar uno a
+uno los elementos de las facturas buenas de la orden: el anexo deja esos tres
+términos en `0..1`, como la norma, que los necesita opcionales para la O.
+
+**La norma no lo deja ir.** En el esquematrón oficial las tres reglas son una
+comparación con el tipo en las tres vinculaciones (`xs:decimal(cbc:Percent) =
+0` en UBL, `ram:RateApplicablePercent = 0` en CII, `C_C243/D_5278 = 0` en
+EDIFACT), y en XPath una comparación con nada es falsa: la regla salta. En la
+O, que pide `not(...)`, es al revés. Las pruebas unitarias oficiales no lo
+prueban: de los 78 conceptos que montan en sus casos de estas reglas, ninguno
+va sin tipo fuera de la O. Medido antes de tocar nada, sobre `a08a8a3`:
+
+| Factura | En `a08a8a3` | Ahora |
+|---|---|---|
+| el caso bueno de cada prueba oficial `BR-{X}-05`, `06` y `07`, sin el tipo: ocho categorías por tres conceptos | sin la regla, en los 24 | la regla, en los 24 |
+| lo mismo en la O | sin la regla | sin la regla |
+| la de la orden con AE, o la exenta, sin el tipo de la línea | sin errores | `BR-AE-05`, `BR-E-05` |
+| las de la orden a tipo general, sin el tipo de la línea | `BR-S-08` e `IVA-TIPO-SIN-DESGLOSE` | los mismos y `BR-S-05`, que es la causa |
+
+**Lo que se hizo.** En `iva.py` el tipo que falta cuenta como mal en todas las
+categorías menos en la O, con su propio mensaje: dice que falta y no que no
+está a cero, y en «Tiene» pone «(sin tipo)», como BR-48. «Falta» es lo mismo
+que en BR-48, que no haya un número que leer; un tipo escrito que no es un
+número lo denuncia además el XSD. Las fichas de las 24 reglas lo dicen, y la
+de `BR-AG-05`, que decía lo contrario, se reescribió. No hay código nuevo ni
+cambia ninguna gravedad.
+
+**Lo que hace que no vuelva.** `test_norma_oficial` evalúa con lxml el texto
+de las 27 reglas en las tres vinculaciones sobre un concepto sin tipo y lo
+compara con lo que dice el motor. lxml habla XPath 1 y no conoce `xs:decimal`:
+se cambia por `number`, que con el tipo ausente da lo mismo, y es la única
+traducción. Si el comité reescribe alguna para admitir el tipo ausente, se
+pone en rojo. No es correr el esquematrón, que aquí no se corre: es evaluar su
+expresión en el único caso que importa.
+
+**En el corpus**, de 157 facturas leídas: de 1106 incidencias a 1108. Son dos
+`BR-E-05`, en dos facturas EDIFACT con tres líneas exentas sin tipo cada una,
+que ya traían otros nueve códigos de error de la norma. Provocado once veces,
+las once en rojo (en HALLAZGOS).
 
 ## Por qué este y no otro, contestado sin pedir fe
 

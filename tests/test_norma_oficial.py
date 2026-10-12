@@ -398,6 +398,44 @@ def test_el_desglose_de_edifact_es_el_grupo_del_esquematron_oficial():
     assert SINTAXIS_EDIFACT.desglose == "./*[S_TAX][preceding-sibling::S_UNS]" + filtro
 
 
+def test_sin_tipo_saltan_las_del_tipo_salvo_en_la_no_sujeta():
+    """BR-{X}-05, 06 y 07 sobre un concepto sin tipo, con el texto de cada vinculación.
+
+    Las pruebas unitarias oficiales no montan ningún concepto sin tipo: todas
+    traen el tipo, bueno o malo. Lo que la norma hace sin él está en la
+    expresión, que en las tres vinculaciones es una comparación con el tipo, y
+    en XPath una comparación con nada es falsa: la regla salta. Menos en la O,
+    que pide `not(...)`. Aquí se evalúa cada expresión tal cual, con lxml,
+    sobre un concepto vacío, y se compara con lo que dice el motor.
+
+    lxml habla XPath 1 y no conoce `xs:decimal`, que se cambia por `number`:
+    con el tipo ausente las dos dan una comparación falsa (`number` de nada es
+    NaN, que no es igual a nada). Es la única traducción.
+
+    Hasta el 11-10-2026 el motor se callaba: «que el tipo falte lo dice BR-48»,
+    que es del desglose. Si el comité reescribe alguna para admitir el tipo
+    ausente, esto se pone en rojo y hay que volver a decidir.
+    """
+    espacios = {"cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+                "ram": "urn:un:unece:uncefact:data:standard:"
+                       "ReusableAggregateBusinessInformationEntity:100"}
+    vacio = etree.fromstring("<concepto/>")
+    distintos = []
+    for sintaxis in ("UBL", "CII", "EDIFACT"):
+        for familia, categoria in FAMILIAS.items():
+            for sufijo in ("05", "06", "07"):
+                regla = f"BR-{familia}-{sufijo}"
+                expresion = vinculacion(sintaxis)[regla].replace("xs:decimal(", "number(")
+                salta = not vacio.xpath(expresion, namespaces=espacios)
+                apunte = iva.Apunte("concepto", None, categoria, None,
+                                    es_ajuste=sufijo != "05", es_cargo=sufijo == "07")
+                dice = regla in {i.codigo for i in iva._regla_tipo_de_los_conceptos([apunte])}
+                assert salta == (familia != "O"), (sintaxis, regla, expresion)
+                if dice != salta:
+                    distintos.append(f"{sintaxis} {regla}")
+    assert not distintos, "sin tipo, el motor no dice lo que la norma: " + ", ".join(distintos)
+
+
 def test_la_cuota_de_cada_categoria_es_la_de_su_esquematron():
     """BR-{X}-09: cero exacto en seis categorías, y base por tipo en tres.
 

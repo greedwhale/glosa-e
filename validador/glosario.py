@@ -1893,7 +1893,8 @@ CODIGOS: dict[str, str] = {
         'si es tipo cero, E si está exenta, O si no está sujeta), y el '
         'informe lo dice así porque el arreglo no es tocar el número sino '
         'elegir bien la letra. La norma parte esta misma comprobación en tres '
-        'según de qué cuelgue el concepto; ésta es la de la línea.'
+        'según de qué cuelgue el concepto; ésta es la de la línea. '
+        'Salta también si la línea no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-S-06": (
         'Un descuento de los que se aplican a la factura entera dice ser de '
@@ -1904,7 +1905,8 @@ CODIGOS: dict[str, str] = {
         'es un pronto pago copiado de una factura exenta a otra que no lo '
         'está. Es la misma comprobación que BR-S-05 con otro número, y el '
         'informe cita el que toca en vez del primero, porque quien busque la '
-        'regla en el texto de la norma tiene que encontrarla donde está.'
+        'regla en el texto de la norma tiene que encontrarla donde está. '
+        'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-S-07": (
         'Un cargo de los que se aplican a la factura entera dice ser de tipo '
@@ -1914,7 +1916,8 @@ CODIGOS: dict[str, str] = {
         'descuento: un cargo declarado a S con tipo cero añade importe a una '
         'entrada del desglose que no puede recibirlo, y lo que sale es una '
         'factura que cobra algo sin decir a qué tipo tributa. Es el tercero '
-        'de los tres números con los que la norma parte esta comprobación.'
+        'de los tres números con los que la norma parte esta comprobación. '
+        'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-S-08": (
         'La base declarada para el tipo general no cuadra con la suma de los '
@@ -2081,7 +2084,8 @@ CODIGOS: dict[str, str] = {
         'se cambiara, o al revés. Conviene no confundir esta categoría con la '
         'exenta: las dos escriben un cero y no son lo mismo, y de esa '
         'diferencia viven BR-Z-10 y BR-E-10, que a la exenta le exigen motivo '
-        'y al tipo cero se lo prohíben.'
+        'y al tipo cero se lo prohíben. '
+        'Salta también si la línea no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-Z-06": (
         'Un descuento de los que se aplican a la factura entera se declara a '
@@ -2090,7 +2094,8 @@ CODIGOS: dict[str, str] = {
         'impuesto, reduce una que sí paga, y la factura acaba repercutiendo '
         'menos de lo que le toca. Es de los errores que el cuadre de totales '
         'no ve, porque la suma general sigue saliendo; lo único que ha '
-        'cambiado es de qué base sale el descuento.'
+        'cambiado es de qué base sale el descuento. '
+        'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-Z-07": (
         'Un cargo de los que se aplican a la factura entera se declara a tipo '
@@ -2100,7 +2105,8 @@ CODIGOS: dict[str, str] = {
         'tratamiento de aquello a lo que acompaña (unos portes de una entrega '
         'a tipo cero van a tipo cero), así que cuando el tipo del cargo no '
         'coincide con su categoría, lo que suele estar mal es la categoría y '
-        'no el porte.'
+        'no el porte. '
+        'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-Z-08": (
         'La base declarada a tipo cero no es la suma de los conceptos que van '
@@ -2166,7 +2172,8 @@ CODIGOS: dict[str, str] = {
         'un alquiler de vivienda) donde alguien dejó el 21% que venía en la '
         'plantilla. Y hay algo que conviene tener claro al arreglarlo: exenta '
         'no es lo mismo que tipo cero aunque las dos escriban un cero, porque '
-        'no dan el mismo derecho a deducir el impuesto soportado.'
+        'no dan el mismo derecho a deducir el impuesto soportado. '
+        'Salta también si la línea no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-E-06": (
         'Un descuento de los que se aplican a la factura entera se declara '
@@ -2176,7 +2183,8 @@ CODIGOS: dict[str, str] = {
         'sin que ninguna línea haya cambiado. El informe nombra el descuento '
         'por su motivo escrito, que es lo que permite encontrarlo en el '
         'bloque de totales, donde no hay números de línea a los que '
-        'agarrarse.'
+        'agarrarse. '
+        'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-E-07": (
         'Un cargo de los que se aplican a la factura entera se declara exento '
@@ -2185,7 +2193,8 @@ CODIGOS: dict[str, str] = {
         'así que aquí lo probable es que sobre el tipo y la categoría esté '
         'bien, al revés de lo que pasa en la no sujeta. Sea cual sea, la '
         'norma no deja que convivan: si la categoría dice exenta, el tipo es '
-        'cero; y si el tipo no es cero, la categoría es otra.'
+        'cero; y si el tipo no es cero, la categoría es otra. '
+        'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-E-08": (
         'La base declarada como exenta no es la suma de los conceptos '
@@ -2253,7 +2262,8 @@ CODIGOS: dict[str, str] = {
         'factura que dice dos cosas incompatibles: que el impuesto lo ingresa '
         'el receptor y que lo está cobrando el emisor. Cualquiera de las dos '
         'puede ser la buena, y por eso el informe no elige: dice qué línea es '
-        'y qué tipo declara.'
+        'y qué tipo declara. '
+        'Salta también si la línea no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-AE-06": (
         'Un descuento de los que se aplican a la factura entera declara '
@@ -2262,7 +2272,8 @@ CODIGOS: dict[str, str] = {
         'porque suele rellenarlo la parte del programa que no sabe nada del '
         'régimen fiscal de las líneas: pone el tipo general por defecto y la '
         'categoría viene de otro sitio. Lo que sale es un descuento que dice '
-        'ser de un régimen sin cuota y llevar cuota a la vez.'
+        'ser de un régimen sin cuota y llevar cuota a la vez. '
+        'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-AE-07": (
         'Un cargo de los que se aplican a la factura entera declara inversión '
@@ -2270,7 +2281,8 @@ CODIGOS: dict[str, str] = {
         'que en el descuento, y en el cargo pesa más porque suma: la base '
         'sobre la que el receptor tendrá que autorrepercutirse crece con ese '
         'cargo, así que lo que se declare mal aquí le cambia a él la cuenta '
-        'que tiene que hacer en su propia declaración.'
+        'que tiene que hacer en su propia declaración. '
+        'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-AE-08": (
         'La base declarada con inversión del sujeto pasivo no es la suma de '
@@ -2337,7 +2349,8 @@ CODIGOS: dict[str, str] = {
         'tipo positivo suele ser una factura española copiada para un cliente '
         'de otro país de la Unión sin tocar los tipos, y el efecto es doble: '
         'se cobra un IVA que no corresponde y se declara una operación que no '
-        'es la que se está facturando.'
+        'es la que se está facturando. '
+        'Salta también si la línea no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-IC-06": (
         'Un descuento de los que se aplican a la factura entera se declara '
@@ -2346,7 +2359,8 @@ CODIGOS: dict[str, str] = {
         'positivo canta: casi siempre es un valor por defecto del programa '
         'que nadie ha tocado, porque no cambia ningún total (el descuento se '
         'resta igual). Lo que cambia es de qué base se resta, y eso el cuadre '
-        'general no lo ve.'
+        'general no lo ve. '
+        'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-IC-07": (
         'Un cargo de los que se aplican a la factura entera se declara '
@@ -2355,7 +2369,8 @@ CODIGOS: dict[str, str] = {
         'transporte, sobre todo) siguen su misma suerte y van también sin '
         'repercusión. Un cargo de transporte al 21% en una factura '
         'intracomunitaria es la señal de que ese cargo se calculó con las '
-        'reglas del mercado nacional.'
+        'reglas del mercado nacional. '
+        'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-IC-08": (
         'La base declarada como entrega intracomunitaria no es la suma de los '
@@ -2407,7 +2422,8 @@ CODIGOS: dict[str, str] = {
         'caso que en la intracomunitaria (la factura nacional reutilizada) '
         'con una diferencia práctica: en la exportación quien recibe pagará '
         'los impuestos de su país al entrar la mercancía, así que un IVA '
-        'español cobrado de más acaba siendo un impuesto pagado dos veces.'
+        'español cobrado de más acaba siendo un impuesto pagado dos veces. '
+        'Salta también si la línea no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-G-06": (
         'Un descuento de los que se aplican a la factura entera se declara '
@@ -2416,7 +2432,8 @@ CODIGOS: dict[str, str] = {
         'lo suele rellenar un módulo distinto del que factura, y ahí es donde '
         'se quedan los valores por defecto. El informe nombra el descuento '
         'por su motivo escrito para que se pueda encontrar, porque en los '
-        'totales no hay números de línea.'
+        'totales no hay números de línea. '
+        'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-G-07": (
         'Un cargo de los que se aplican a la factura entera se declara como '
@@ -2424,7 +2441,8 @@ CODIGOS: dict[str, str] = {
         'transporte internacional, que acompaña a la mercancía exportada y '
         'sigue su tratamiento. Cuando ese cargo aparece con tipo, lo que '
         'suele haber detrás es un porte calculado con la tarifa nacional y '
-        'pegado a una factura de exportación sin revisarlo.'
+        'pegado a una factura de exportación sin revisarlo. '
+        'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-G-08": (
         'La base declarada como exportación no es la suma de los conceptos '
@@ -2498,7 +2516,8 @@ CODIGOS: dict[str, str] = {
         'suma, el desglose y el total pueden cuadrar al céntimo con el tipo '
         'escrito al revés. La devolución se escribe con el importe en '
         'negativo y el tipo como es. Si varias líneas repiten el mismo tipo '
-        'negativo, salen juntas en una sola queja con todas nombradas.'
+        'negativo, salen juntas en una sola queja con todas nombradas. '
+        'Salta también si la línea no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-AF-06": (
         'Un descuento de los que van al pie de la factura, con IGIC, declara '
@@ -2507,7 +2526,8 @@ CODIGOS: dict[str, str] = {
         'Ponerle además el tipo en negativo es restar dos veces, y la norma '
         'lo corta en el tipo, que para el IGIC tiene que ser cero o positivo. '
         'Un descuento de 10 al 7% está bien escrito; el mismo descuento al '
-        '−7%, no.'
+        '−7%, no. '
+        'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-AF-07": (
         'Un cargo de los que van al pie de la factura (un porte, un embalaje, '
@@ -2515,7 +2535,8 @@ CODIGOS: dict[str, str] = {
         'base de su tipo, y ese tipo tiene que ser cero o positivo como en '
         'cualquier otro concepto de IGIC. Si lo que se quería era restar, lo '
         'que corresponde es un descuento, no un cargo con el tipo en '
-        'negativo.'
+        'negativo. '
+        'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-AF-10": (
         'Una entrada de IGIC en el desglose trae motivo de exención, y la '
@@ -2578,9 +2599,9 @@ CODIGOS: dict[str, str] = {
         'Una línea con IPSI declara un tipo negativo. El IPSI, el impuesto de '
         'Ceuta y Melilla, tiene tipos propios, y la regla sobre su signo es '
         'la del resto: cero o positivo. Conviene no confundirla con la '
-        'vecina. Si la línea no trae tipo ninguno, la queja no es ésta sino '
-        'BR-48, que lo dice una sola vez para toda la factura; ésta mira el '
-        'valor cuando lo hay, y solo se queja si está por debajo de cero.'
+        'vecina: BR-48 pide el tipo en el desglose, y ésta, en la línea. Una '
+        'línea sin tipo salta aquí aunque el desglose traiga el suyo, porque '
+        'solo lo no sujeto va sin tipo.'
     ),
     "BR-AG-06": (
         'Un descuento de documento con IPSI declara un tipo negativo. La '
@@ -2589,7 +2610,8 @@ CODIGOS: dict[str, str] = {
         'el cargo de documento), así que el número ya dice dónde mirar: no en '
         'las líneas, sino en los descuentos que van al pie. El tipo de ese '
         'descuento tiene que ser cero o positivo; el descuento resta por sí '
-        'mismo.'
+        'mismo. '
+        'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-AG-07": (
         'Un cargo de documento con IPSI declara un tipo negativo. El cargo '
@@ -2597,7 +2619,8 @@ CODIGOS: dict[str, str] = {
         'Si hay varios cargos con el mismo tipo negativo (el porte y el '
         'embalaje escritos igual de mal, por ejemplo), salen en una sola '
         'queja con los dos nombrados, en vez de repetir la misma frase por '
-        'cada uno.'
+        'cada uno. '
+        'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-AG-10": (
         'Una entrada de IPSI en el desglose trae motivo de exención, y la '

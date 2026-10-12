@@ -7941,3 +7941,84 @@ cuatro lecturas del anexo que dejan de negarse (el grupo de la autorización,
 
 **Lo que queda del paso 7.** El mensaje de anulación y los del anexo II, que
 no son facturas.
+
+## El tipo que falta en la línea, el descuento y el cargo
+
+**Lo que había.** Las reglas `BR-{X}-05`, `06` y `07` piden el tipo que toca a
+cada categoría en cada línea (`BT-152`), descuento (`BT-96`) y cargo
+(`BT-103`) de documento. `iva._regla_tipo_de_los_conceptos` miraba el valor
+cuando lo había, y si faltaba ponía `mal = False`, con este comentario: «Que
+el tipo **falte** lo dice BR-48, una sola vez para toda la factura». BR-48 es
+del desglose (`BT-119`), no de la línea. Salió al vaciar
+`LO_QUE_TODAVIA_NO_SE_MIDE`: entre los elementos que se quitaban sin una queja
+estaba el tipo de la línea exenta y el de la AE, y se apuntó como opcional en
+el anexo, que lo es. Quedaba mirar si la norma lo deja ir.
+
+**La norma no lo deja ir.** En el esquematrón oficial las tres reglas son, en
+las tres vinculaciones, una comparación con el tipo:
+`xs:decimal(cbc:Percent) = 0` en UBL, `ram:RateApplicablePercent = 0` en CII,
+`C_C243/D_5278 = 0` en EDIFACT (y `> 0` o `>= 0` en la S, el IGIC y el IPSI).
+En XPath una comparación con nada es falsa, así que sin tipo la regla salta. En
+la O es al revés, `not(...)`. Las pruebas unitarias oficiales no lo prueban:
+de los 78 conceptos que montan sus casos de estas reglas, ninguno va sin tipo
+fuera de la O. Aquí no hay un motor de XPath 2 para correr el esquematrón; lo
+que se hizo fue evaluar con lxml la expresión de cada regla sobre un concepto
+vacío, cambiando `xs:decimal` por `number`, que con el tipo ausente da lo
+mismo.
+
+**Reproducido** el 11-10-2026 sobre `a08a8a3`:
+
+| Factura | En `a08a8a3` | Ahora |
+|---|---|---|
+| el caso bueno de cada prueba oficial `BR-{X}-05`, `06` y `07`, sin el tipo: ocho categorías por tres conceptos | **sin la regla**, en los 24 | la regla, en los 24 |
+| lo mismo en la O | sin la regla | sin la regla |
+| la de la orden con AE, sin el tipo de la línea | **sin errores** | `BR-AE-05` |
+| la exenta con VATEX-EU de la orden, sin el tipo de la línea | **sin errores** | `BR-E-05` |
+| las de la orden a tipo general, sin el tipo de la línea | `BR-S-08` e `IVA-TIPO-SIN-DESGLOSE` | los mismos y `BR-S-05`, que es la causa |
+| el motor contra el texto oficial de las 27 reglas en UBL, CII y EDIFACT, sobre un concepto sin tipo: 81 | **distinto en 72**, todas las que no son de la O | lo mismo en las 81 |
+
+En las de tipo general no callaba del todo: la línea sin tipo no casaba con
+ninguna entrada del desglose y saltaban el cuadre y el aviso. Pero la queja
+era la consecuencia, no la causa.
+
+**Lo que se hizo.**
+
+- En `iva.py`, el tipo que falta cuenta como mal en todas las categorías menos
+  en la O. «Falta» es lo mismo que en BR-48: que no haya un número que leer; un
+  tipo escrito que no es número lo denuncia además el XSD.
+- El mensaje es otro: dice que falta, no que no está a cero; «Debería» dice lo
+  que pide la categoría y «Tiene», «(sin tipo)», como BR-48. Se agrupa por
+  tipo como siempre, así que el que falta no se mezcla con el cero.
+- Las fichas de las 24 reglas lo dicen. La de `BR-AG-05` decía lo contrario,
+  «Si la línea no trae tipo ninguno, la queja no es ésta sino BR-48», y se
+  reescribió.
+- No hay código nuevo ni cambia ninguna gravedad: son las mismas reglas, en
+  ERROR, que es su `flag` en la norma.
+
+**En el corpus**, 157 facturas leídas: de 1106 incidencias a 1108. Son dos
+`BR-E-05`, en dos facturas EDIFACT con tres líneas exentas sin tipo cada una,
+que ya traían otros nueve códigos de error de la norma (sin desglose, entre
+ellos).
+
+**Las pruebas.** `TestElTipoQueFalta`, en `tests/test_iva.py`, en UBL y CII:
+la línea, el descuento y el cargo sin tipo en las ocho categorías, que con su
+tipo no salta, el mensaje, las dos quejas separadas, la O sin tipo, y que la
+ficha de cada una lo dice. Y
+`test_sin_tipo_saltan_las_del_tipo_salvo_en_la_no_sujeta`, en
+`tests/test_norma_oficial.py`, que evalúa el texto oficial de cada vinculación
+y lo compara con el motor: si el comité reescribe alguna para admitir el tipo
+ausente, se pone en rojo.
+
+**Provocado.** Once roturas, las once en rojo: el tipo que falta vuelve a
+valer, la O sin tipo salta, la falta solo en la línea, solo en los ajustes, el
+mensaje de «no está a cero», «Tiene» con «(vacío)», «Debería» con otra cifra,
+el que falta y el malo en una sola queja, la ficha de `BR-AG-05` con su texto
+de antes, una ficha sin la frase, y el comité que admite el tipo ausente en
+`BR-E-05`.
+
+**Lo que se vio de paso y no se toca aquí.** El IGIC en CII:
+`BR-AF-05`, `06` y `07` comparan con `> 0`, cuando en UBL es `>= 0` y la norma
+dice «0 (zero) or greater than zero». Una línea de IGIC al 0% en CII es mala
+para su esquematrón y buena aquí. (El de EDIFACT dice `> 0` también en el
+IPSI, pero EDIFACT ya se decidió que va con UBL.) Es otra decisión, la de qué
+vinculación se sigue cuando no dicen lo mismo, y va aparte.
