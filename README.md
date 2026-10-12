@@ -4687,8 +4687,9 @@ contenido no se mira. La norma de cada queja es «Anexo II» en las tres que
 solo miden estados y «Anexos I y II» en las otras tres. Sin el esquema de `ApplicationResponse`, una respuesta sigue
 saliendo SIN COMPROBAR aunque se le haya medido la tabla: su comprobación
 principal sigue siendo la forma. Seis códigos nuevos, de 395 a 401. Lo que no
-está medido: el navegador, como con el resto de las respuestas (arriba), y
-ningún mensaje real: los de las pruebas están escritos aquí, con las tablas.
+está medido: ningún mensaje real, porque los de las pruebas están escritos
+aquí, con las tablas. En el navegador se midió al publicar, en la página de
+producción, y sale lo mismo que en la consola (en HALLAZGOS).
 
 ### La consulta del 07-10-2026, todavía sin respuesta
 

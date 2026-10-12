@@ -8188,8 +8188,8 @@ mensajes sin la nota, la frase dice de todas las respuestas que no, la celda
 de dos filas no se arrastra, el BOE corrige la barra doble, y un mensaje sin
 nombre (no se importa).
 
-**Lo que no está medido.** El navegador, como con el resto de las respuestas,
-y ningún mensaje real: los de las pruebas están escritos aquí, con las tablas.
+**Lo que no está medido.** Ningún mensaje real: los de las pruebas están
+escritos aquí, con las tablas. El navegador se midió al publicar (al final).
 
 **Lo que vieron el revisor de promesas y el auditor**, el mismo día, antes de
 publicar. Todo reproducido antes de arreglarlo:
@@ -8247,3 +8247,13 @@ aceptando cualquier cosa, cualquier NIF, en ERROR también sin `BT-32`, sin
 leer que la orden lo describe como el NIF y comparado con un NIF-IVA de otro
 país; «INFO» otra vez en ERROR; y la ficha sin `UBL-CR-558`. En el corpus,
 1346 incidencias antes y después: ninguna factura declara la solución pública.
+
+**Visto en el navegador**, en www.glosa-e.com después de publicar `65a24ca`,
+pegando el texto en la portada. El pago sin vencimiento: la forma sin errores
+contra el esquema, ERROR `SPFE-MENSAJE-VENCIMIENTO` con la norma «Anexo II», la
+nota con «Anexos I y II» y, en el contenido, «Parte de lo que la orden de la
+solución pública pide a sus mensajes de anulación y de estado». El pago con su
+vencimiento: sin errores, con la nota. Y la factura de la orden con «RM Madrid
+T.1 F.2» en `BT-30`: ERROR `SPFE-NIF` y cuatro notas, lo que solo hace la
+tanda de este día, así que la rueda servida es la nueva. Los tres, código a
+código, lo mismo que `factura.validar` en la consola.
