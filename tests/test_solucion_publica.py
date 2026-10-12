@@ -490,6 +490,108 @@ CON_LA_NO_SUJETA = _sin_cuota(CON_EL_COMPRADOR_EN_BT47, "O", None, "0")
 # Una exenta con un código VATEX-EU, que la fila BT-121 admite.
 CON_LA_EXENTA = _sin_cuota(DEL_BOE, "E", "0", "0", "VATEX-EU-132-1I")
 
+
+# Los impuestos y tasas que no son el IVA, como los escribe la orden: en un
+# cargo de línea (BT-ES-22), en un cargo del documento (BG-ES-2) y en una línea
+# de cobro (BG-ES-3). Medido el 11-10-2026 antes de escribir las reglas: con el
+# código fuera de L9 o sin él, con las dos cuotas del cargo distintas o con
+# «IGIC» en el desglose de un cobro, todas salían sin una queja.
+def _con_un_cargo_de_linea(codigo: str | None = "RESTO") -> str:
+    """Un envase cobrado en la línea, con su código de L9. La línea sigue
+    siendo de 100: 90 de precio y 10 del cargo."""
+    categoria = ("" if codigo is None else
+                 f"<cac:TaxCategory><cac:TaxScheme><cbc:TaxTypeCode>{codigo}</cbc:TaxTypeCode>"
+                 "</cac:TaxScheme></cac:TaxCategory>")
+    xml = cambia(DEL_BOE, "    <cac:Item>\n      <cbc:Name>Asesoria", f"""    <cac:AllowanceCharge>
+      <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
+      <cbc:AllowanceChargeReason>Envase</cbc:AllowanceChargeReason>
+      <cbc:Amount currencyID="EUR">10.00</cbc:Amount>
+      {categoria}
+    </cac:AllowanceCharge>
+    <cac:Item>
+      <cbc:Name>Asesoria""")
+    return cambia(xml, '<cbc:PriceAmount currencyID="EUR">100.00</cbc:PriceAmount>',
+                  '<cbc:PriceAmount currencyID="EUR">90.00</cbc:PriceAmount>')
+
+
+def _impuesto(base: str, cuota: str, tipo: str, codigo: str) -> str:
+    """Un impuesto o tasa de un cargo del documento (BG-ES-2)."""
+    base = f'<cbc:TaxableAmount currencyID="EUR">{base}</cbc:TaxableAmount>' if base else ""
+    tipo = f"<cbc:Percent>{tipo}</cbc:Percent>" if tipo else ""
+    codigo = f"<cbc:TaxTypeCode>{codigo}</cbc:TaxTypeCode>" if codigo else ""
+    return f"""      <cac:TaxSubtotal>
+        {base}
+        <cbc:TaxAmount currencyID="EUR">{cuota}</cbc:TaxAmount>
+        <cac:TaxCategory>{tipo}<cac:TaxScheme>{codigo}</cac:TaxScheme></cac:TaxCategory>
+      </cac:TaxSubtotal>
+"""
+
+
+def _con_un_impuesto_en_un_cargo(total: str = "5.00", *impuestos: str) -> str:
+    """El impuesto sobre la electricidad cobrado como un cargo de 5 euros, que
+    suma al IVA: la base pasa a 105 y la cuota, a 22,05."""
+    impuestos = impuestos or (_impuesto("100.00", "5.00", "5", "IEE"),)
+    xml = cambia(DEL_BOE, '  <cac:TaxTotal>\n    <cbc:TaxAmount currencyID="EUR">21.00', f"""  <cac:AllowanceCharge>
+    <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
+    <cbc:AllowanceChargeReason>Impuesto especial sobre la electricidad</cbc:AllowanceChargeReason>
+    <cbc:Amount currencyID="EUR">5.00</cbc:Amount>
+    <cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="EUR">{total}</cbc:TaxAmount>
+{"".join(impuestos)}    </cac:TaxTotal>
+  </cac:AllowanceCharge>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="EUR">21.00""")
+    for viejo, nuevo in (
+            ('<cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>\n    <cac:TaxSubtotal>\n'
+             '      <cbc:TaxableAmount currencyID="EUR">100.00</cbc:TaxableAmount>\n'
+             '      <cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>',
+             '<cbc:TaxAmount currencyID="EUR">22.05</cbc:TaxAmount>\n    <cac:TaxSubtotal>\n'
+             '      <cbc:TaxableAmount currencyID="EUR">105.00</cbc:TaxableAmount>\n'
+             '      <cbc:TaxAmount currencyID="EUR">22.05</cbc:TaxAmount>'),
+            ('<cbc:TaxExclusiveAmount currencyID="EUR">100.00</cbc:TaxExclusiveAmount>\n'
+             '    <cbc:TaxInclusiveAmount currencyID="EUR">121.00</cbc:TaxInclusiveAmount>',
+             '<cbc:TaxExclusiveAmount currencyID="EUR">105.00</cbc:TaxExclusiveAmount>\n'
+             '    <cbc:TaxInclusiveAmount currencyID="EUR">127.05</cbc:TaxInclusiveAmount>\n'
+             '    <cbc:ChargeTotalAmount currencyID="EUR">5.00</cbc:ChargeTotalAmount>'),
+            ('<cbc:PayableAmount currencyID="EUR">86.00</cbc:PayableAmount>',
+             '<cbc:PayableAmount currencyID="EUR">92.05</cbc:PayableAmount>')):
+        xml = cambia(xml, viejo, nuevo)
+    return xml
+
+
+def _con_el_desglose_del_iedmt(esquema: str = "VAT", categoria: str = "S",
+                               cuota: str = "120.00") -> str:
+    """El impuesto de matriculación cobrado por cuenta del cliente, con su
+    desglose: 6 % sobre 2000."""
+    return cambia(DEL_BOE, "  <cac:InvoiceLine>", f"""  <cac:CollectionInvoiceLine>
+    <cbc:ID>{L7}IEDMT</cbc:ID>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="EUR">{cuota}</cbc:TaxAmount>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="EUR">2000.00</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="EUR">{cuota}</cbc:TaxAmount>
+        <cac:TaxCategory><cbc:ID>{categoria}</cbc:ID><cbc:Percent>6</cbc:Percent><cac:TaxScheme><cbc:ID>{esquema}</cbc:ID></cac:TaxScheme></cac:TaxCategory>
+      </cac:TaxSubtotal>
+    </cac:TaxTotal>
+    <cac:Item><cbc:Name>Impuesto especial sobre determinados medios de transporte</cbc:Name></cac:Item>
+  </cac:CollectionInvoiceLine>
+  <cac:InvoiceLine>""")
+
+
+def _con_la_propiedad(nombre: str) -> str:
+    """Otra propiedad del artículo de la línea, detrás de la clave de régimen."""
+    return cambia(DEL_BOE, "<cbc:ValueQualifier>IVA</cbc:ValueQualifier></cac:AdditionalItemProperty>",
+                  "<cbc:ValueQualifier>IVA</cbc:ValueQualifier></cac:AdditionalItemProperty>\n"
+                  f"      <cac:AdditionalItemProperty><cbc:Name>{nombre}</cbc:Name>"
+                  "<cbc:Value>Lote 12</cbc:Value></cac:AdditionalItemProperty>")
+
+
+CON_UN_CARGO_DE_LINEA = _con_un_cargo_de_linea()
+CON_UN_IMPUESTO_EN_UN_CARGO = _con_un_impuesto_en_un_cargo()
+CON_EL_DESGLOSE_DEL_IEDMT = _con_el_desglose_del_iedmt()
+CON_LA_INFORMACION_ADICIONAL = _con_la_propiedad("INFO")
+
 LAS_DE_LA_ORDEN = {
     "la de la orden": DEL_BOE,
     "con el tercero": CON_EL_TERCERO_DEL_BOE,
@@ -515,6 +617,10 @@ LAS_DE_LA_ORDEN = {
     "con la fecha de la operación": CON_LA_FECHA_DE_LA_OPERACION,
     "lo no sujeto con su tipo": CON_LA_NO_SUJETA,
     "una exenta con VATEX-EU": CON_LA_EXENTA,
+    "un cargo de línea con su código": CON_UN_CARGO_DE_LINEA,
+    "un impuesto cobrado como cargo": CON_UN_IMPUESTO_EN_UN_CARGO,
+    "el desglose del IEDMT": CON_EL_DESGLOSE_DEL_IEDMT,
+    "con información adicional": CON_LA_INFORMACION_ADICIONAL,
 }
 
 
@@ -553,7 +659,7 @@ class TestLasBuenas:
         dejado la clave de régimen. Lo vio el revisor de promesas el 07-10-2026,
         antes de publicar."""
         cosas = solucion_publica.LO_QUE_TODAVIA_NO_SE_MIDE
-        frase = "; ".join(cosas[:-1]) + "; y " + cosas[-1]
+        frase = cosas[0] if len(cosas) == 1 else "; ".join(cosas[:-1]) + "; y " + cosas[-1]
         assert frase in la(DEL_BOE, "SPFE-ALCANCE").mensaje
         assert frase in glosario.CODIGOS["SPFE-ALCANCE"]
 
@@ -588,11 +694,15 @@ class TestLasBuenas:
             assert nombradas, cosa
             for nombre in nombradas:
                 assert nombre in filas or nombre in cius_es.LISTAS, (cosa, nombre)
+        # Los identificadores salen de la propia lista. Hasta el 11-10-2026 iban
+        # escritos aquí, y cada tanda que medía una cosa tenía que acordarse de
+        # quitarla de los dos sitios.
         codigo = pathlib.Path(solucion_publica.__file__).read_text(encoding="utf-8")
         reglas = codigo[codigo.index("# --- Las reglas"):]
-        for identificador in ("BG-ES-2", "BG-ES-3", "BT-ES-22", "BT-ES-26"):
-            assert f'"{identificador}"' not in codigo, identificador
-            assert f"({identificador})" not in reglas, identificador
+        for cosa in solucion_publica.LO_QUE_TODAVIA_NO_SE_MIDE:
+            for identificador in re.findall(r"\bB[GT]-(?:ES-)?\d+\b", cosa):
+                assert f'"{identificador}"' not in codigo, identificador
+                assert f"({identificador})" not in reglas, identificador
 
     def test_el_alcance_dice_el_anexo_solo_si_hay_una_factura_que_lo_declara(self, tmp_path):
         """«Sin errores» en una factura de la solución pública quiere decir
@@ -1371,6 +1481,75 @@ class TestElDesglose:
         assert not any(codigo.startswith("VATEX-ES") for codigo in listas_de_codigos.VATEX)
 
 
+class TestLosImpuestosYTasas:
+    """Los que no son el IVA, con su lista L9: BT-ES-22, BG-ES-2 y BG-ES-3.
+
+    Hasta el 11-10-2026 no se medían, y la nota del alcance lo decía. Medido
+    ese día antes de escribir las reglas: los diez casos que la orden da por
+    malos salían sin una queja.
+    """
+
+    def test_un_cargo_de_linea_sin_codigo(self):
+        queja = la(_con_un_cargo_de_linea(None), "SPFE-IMPUESTO-O-TASA")
+        assert queja.gravedad == ERROR and queja.encontrado == "(falta)"
+        assert queja.campo.endswith("cargo 1 de la línea 1") and "RESTO" in queja.mensaje
+
+    def test_un_cargo_de_linea_con_un_codigo_que_no_es_de_l9(self):
+        queja = la(_con_un_cargo_de_linea("XYZ"), "SPFE-IMPUESTO-O-TASA")
+        assert queja.encontrado == "XYZ" and queja.esperado.endswith("IMPTAS o RESTO")
+        assert las(_con_un_cargo_de_linea("IEE"), "SPFE-IMPUESTO-O-TASA") == []
+
+    def test_un_descuento_no_lo_lleva(self):
+        """El grupo de los descuentos de línea (BG-27) no tiene código de impuesto."""
+        assert las(CON_DESCUENTOS, "SPFE-IMPUESTO-O-TASA") == []
+
+    @pytest.mark.parametrize(("codigo", "encontrado"), [("", "(falta)"), ("XYZ", "XYZ")])
+    def test_el_impuesto_de_un_cargo_del_documento_lleva_su_codigo(self, codigo, encontrado):
+        xml = _con_un_impuesto_en_un_cargo("5.00", _impuesto("100.00", "5.00", "5", codigo))
+        queja = la(xml, "SPFE-IMPUESTO-O-TASA")
+        assert queja.gravedad == ERROR and queja.encontrado == encontrado
+        assert "BT-ES-9" in queja.campo and queja.campo.endswith("cargo 1")
+
+    def test_la_cuota_del_cargo_es_la_misma_en_sus_dos_sitios(self):
+        queja = la(_con_un_impuesto_en_un_cargo("6.00"), "SPFE-IMPUESTO-O-TASA")
+        assert queja.gravedad == ERROR and "«el mismo importe»" in queja.mensaje
+        assert queja.encontrado == "5.00 en el impuesto y 6.00 en el total"
+
+    def test_con_dos_impuestos_en_el_cargo_no_se_compara_y_se_dice(self, catalogo):
+        """La cuota va también en el total del cargo, que es uno: con dos
+        impuestos no se puede. Es la pregunta 4 al buzón, del 07-10-2026."""
+        xml = _con_un_impuesto_en_un_cargo("5.00", _impuesto("50.00", "2.50", "5", "IEE"),
+                                           _impuesto("50.00", "2.50", "5", "IMPTAS"))
+        nota = la(xml, "SPFE-IMPUESTO-O-TASA")
+        assert nota.gravedad == NOTA and "07-10-2026" in nota.mensaje
+        assert nota.encontrado == "2 impuestos"
+        assert limpia(xml, catalogo) == []
+
+    def test_la_cuota_es_la_base_por_el_tipo(self):
+        """Con el margen de la cuota del IVA, como las retenciones."""
+        mala = _con_un_impuesto_en_un_cargo("7.00", _impuesto("100.00", "7.00", "5", "IEE"))
+        queja = la(mala, "SPFE-IMPUESTO-O-TASA")
+        assert queja.gravedad == ERROR and queja.esperado == "5,00" and "BT-ES-8" in queja.mensaje
+        casi = _con_un_impuesto_en_un_cargo("5.01", _impuesto("100.00", "5.01", "5", "IEE"))
+        assert la(casi, "SPFE-IMPUESTO-O-TASA").gravedad == NOTA
+        sin_cuenta = _con_un_impuesto_en_un_cargo("5.00", _impuesto("", "5.00", "", "IEE"))
+        assert las(sin_cuenta, "SPFE-IMPUESTO-O-TASA") == []
+
+    @pytest.mark.parametrize(("cambio", "encontrado"), [
+        ({"esquema": "IGIC"}, "IGIC y S"),
+        ({"categoria": "E"}, "VAT y E"),
+    ])
+    def test_el_desglose_de_un_cobro_lleva_vat_y_s(self, cambio, encontrado):
+        """Aunque no sea el IVA: «su uso implica» los dos valores (BG-ES-3)."""
+        queja = la(_con_el_desglose_del_iedmt(**cambio), "SPFE-IMPUESTO-O-TASA")
+        assert queja.gravedad == ERROR and queja.encontrado == encontrado
+        assert queja.campo.endswith("línea de cobro 2")
+
+    def test_la_cuota_del_cobro_es_la_base_por_el_tipo(self):
+        queja = la(_con_el_desglose_del_iedmt(cuota="150.00"), "SPFE-IMPUESTO-O-TASA")
+        assert queja.esperado == "120,00" and "BT-ES-14" in queja.mensaje
+
+
 class TestLineas:
 
     REGI = _REGI_DEL_BOE
@@ -1424,6 +1603,15 @@ class TestLineas:
     def test_la_referencia_catastral_sin_referencia(self):
         sin = cambia(CON_LA_REFERENCIA_CON_CALIFICADOR, "<cbc:Value>9872023VH5797S0001WX</cbc:Value>", "")
         assert la(sin, "SPFE-REFERENCIA-CATASTRAL").encontrado == "(falta)"
+
+    def test_la_informacion_adicional_se_llama_info(self):
+        """BT-160 es libre en la norma, y en la orden tiene tres nombres. Hasta
+        el 11-10-2026 no se medía, y la nota del alcance lo decía."""
+        queja = la(_con_la_propiedad("Color"), "SPFE-INFORMACION-ADICIONAL")
+        assert queja.gravedad == ERROR and queja.encontrado == "Color"
+        assert queja.campo.endswith("línea 1") and "INFO" in queja.esperado
+        assert las(_con_la_propiedad(f"{L8}INFO"), "SPFE-INFORMACION-ADICIONAL") == []
+        assert las(CON_LA_REFERENCIA_CON_CALIFICADOR, "SPFE-INFORMACION-ADICIONAL") == []
 
     def test_la_referencia_catastral_a_secas_se_lee_igual(self):
         a_secas = cambia(CON_LA_REFERENCIA_CON_CALIFICADOR, f"{L8}RCAT<", "RCAT<")
@@ -1886,6 +2074,13 @@ class TestSeNiegaSiElAnexoCambia:
         ("BT-31", "prefijo correspondiente a España", "prefijo del país"),
         ("BT-48", "a efectos de IVA del vendedor", "a efectos de IVA del comprador"),
         ("BT-121", "VATEX-EU o VATEX-ES", "VATEX-EU"),
+        ("BT-ES-8", "Resultado de aplicar", "Resultado de sumar"),
+        ("BT-ES-8", "El mismo importe debe consignarse en dos rutas distintas",
+         "El importe debe consignarse en una de las rutas"),
+        ("BT-ES-14", "Cuota resultante de aplicar", "Cuota resultante de sumar"),
+        ("BT-160", "«INFO»", "«INFORMACION»"),
+        ("BT-160", "«REGI»", "«REGIX»"),
+        ("BT-160", "«RCAT»", "«RCATX»"),
     ])
     def test_si_cambia_una_cuenta_o_un_limite_que_se_comprueba(self, monkeypatch, identificador,
                                                               viejo, nuevo):
@@ -1898,11 +2093,30 @@ class TestSeNiegaSiElAnexoCambia:
         ("BT-119", {"cardinalidad": "0..1"}, "0..1"),
         ("BT-ES-2", {"cardinalidad": "0..n"}, "0..n"),
         ("BT-30", {"ruta": "/in:Invoice/cac:AccountingSupplierParty/cac:Party/cbc:EndpointID"}, "ruta"),
+        ("BT-ES-22", {"cardinalidad": "0..1"}, "0..1"),
+        ("BT-ES-9", {"tipo": "Código (L8)"}, "L9"),
+        ("BG-ES-2", {"cardinalidad": "0..1"}, "0..1"),
+        ("BG-ES-3", {"cardinalidad": "1..n"}, "1..n"),
+        ("BG-32", {"termino": "INFORMACIÓN ADICIONAL", "cardinalidad": "0..1"}, "0..1"),
+        ("BT-161", {"termino": "Información adicional", "cardinalidad": "0..1"}, "0..1"),
     ])
     def test_si_cambia_lo_que_se_lee_de_los_campos_de_la_norma(self, monkeypatch, identificador,
                                                               cambios, dice):
         negativa = _recargar_con(monkeypatch, _con(identificador, **cambios))
         assert negativa and identificador in negativa and dice in negativa
+
+    @pytest.mark.parametrize(("lista", "cambio"), [
+        ("L9", {"calificador": "urn:aeat:names:specification:schema:tax:"}),
+        ("L8", {"valores": {**cius_es.LISTAS["L8"].valores, "OTRA": "Otra propiedad."}}),
+    ])
+    def test_si_cambia_una_lista_que_se_lee_entera(self, monkeypatch, lista, cambio):
+        """La L9 se compara sin calificador, y la L8 son las tres propiedades
+        de la línea: si una lista nueva cambia eso, el módulo no importa."""
+        listas = dict(cius_es.LISTAS)
+        listas[lista] = replace(listas[lista], **cambio)
+        monkeypatch.setattr(cius_es, "LISTAS", listas)
+        negativa = _recargar_con(monkeypatch, cius_es.CAMPOS)
+        assert negativa and lista in negativa
 
     def test_con_la_tabla_de_verdad_no_se_niega(self, monkeypatch):
         assert _recargar_con(monkeypatch, cius_es.CAMPOS) is None

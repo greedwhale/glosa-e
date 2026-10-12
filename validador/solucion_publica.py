@@ -62,6 +62,14 @@ Lo que la orden no dice y aquí se decide
 - **El `ProfileID` del ejemplo**, `urn:aeat:names:specification:schema:profile:B2B`,
   sin el `ubl:` que lleva el de la orden. Sale en NOTA y no en ERROR mientras
   el buzón no conteste, porque es la AEAT quien lo escribió así.
+- **El prefijo ES del NIF-IVA del comprador**, en AVISO: la fila BT-48 copia la
+  del vendedor hasta en decir «del vendedor», y no se sabe si es para él.
+- **La cuota de un cargo con más de un impuesto.** BT-ES-8 pide la misma
+  cuota en el impuesto y en el total del cargo, que es uno por cargo: con dos
+  impuestos no se puede. Se le preguntó al buzón el 07-10-2026 si va la suma,
+  y hasta entonces no se compara: lo dice una NOTA.
+- **El margen de las cuotas que la orden define como una cuenta**, las
+  retenciones y los impuestos y tasas: el de la cuota del IVA (BR-CO-17).
 
 Lo que dijo el buzón y sigue valiendo
 -------------------------------------
@@ -177,13 +185,18 @@ def _obligatorio(identificador: str, termino: str = "") -> str:
     return identificador
 
 
-def _cuantos(fila: cius_es.Campo, cardinalidad: str) -> int:
-    """El máximo de una fila, después de comprobar que sigue siendo ese."""
+def _cuantos(fila: cius_es.Campo, cardinalidad: str) -> int | None:
+    """El máximo de una fila, después de comprobar que sigue siendo ese.
+
+    Sin máximo («0..n»), nada: lo que se comprueba entonces es que se pueda
+    repetir.
+    """
     if fila.cardinalidad != cardinalidad:
         raise AnexoCambiado(
             f"{fila.id} «{fila.termino}» ya no es {cardinalidad} en el anexo: "
             f"{fila.cardinalidad}")
-    return int(cardinalidad.split("..")[1])
+    maximo = cardinalidad.split("..")[1]
+    return None if maximo == "n" else int(maximo)
 
 
 def _dice(identificador: str, frase: str, termino: str = "") -> None:
@@ -200,6 +213,22 @@ def _usar(fila: cius_es.Campo) -> tuple[str, ...]:
     if not valores:
         raise AnexoCambiado(f"la descripción de {fila.id} «{fila.termino}» ya no dice qué usar")
     return valores
+
+
+def _valor_fijo(identificador: str, termino: str) -> str:
+    """El valor que la fila manda adoptar: «Adoptará el valor fijo «INFO»».
+
+    Entero, y no como un trozo de la frase: «valor fijo INFORMACION» contiene
+    «valor fijo INFO», y hasta el 11-10-2026 las tres de BT-160 se comprobaban
+    así. Un REGIX en la orden pasaba por REGI.
+    """
+    fila = _fila(identificador, termino)
+    _, fijo, resto = fila.descripcion.partition("valor fijo")
+    valores = _ENTRE_COMILLAS.findall(resto) if fijo else []
+    if len(valores) != 1:
+        raise AnexoCambiado(
+            f"la descripción de {identificador} «{fila.termino}» ya no dice qué valor fijo adopta")
+    return valores[0]
 
 
 def _lista(fila: cius_es.Campo) -> str:
@@ -522,8 +551,9 @@ _EXENCIONES = ("VATEX-EU-", "VATEX-ES-")
 # La clave de régimen de cada línea: una propiedad del artículo llamada
 # «REGI», una o dos por línea, con el impuesto en el calificador.
 _LINEAS = "./cac:InvoiceLine"
-_dice("BT-160", "valor fijo REGI", "Régimen")
-_dice("BT-160", "valor fijo RCAT", "Referencia catastral")
+for _termino, _nombre in (("Régimen", "REGI"), ("Referencia catastral", "RCAT")):
+    if _valor_fijo("BT-160", _termino) != _nombre:
+        raise AnexoCambiado(f"BT-160 «{_termino}» ya no adopta «{_nombre}»")
 _cuantos(_fila("BG-32", "CLAVE DE RÉGIMEN"), "1..2")
 _cuantos(_fila("BG-32", "REFERENCIA CATASTRAL"), "0..1")
 _CLAVE = _relativa(_padre(_ruta(_obligatorio("BT-ES-24")), "cbc:ValueQualifier"), _LINEAS)
@@ -543,6 +573,18 @@ if len(_REGIMENES) != 3 or "" in _REGIMENES:
     raise AnexoCambiado("las listas de claves de régimen ya no dicen de qué impuesto son")
 if _lista(_fila("BT-ES-23")) != "L6":
     raise AnexoCambiado("la situación del inmueble ya no es de la lista L6")
+
+# La información adicional de la línea: otra propiedad del artículo, con el
+# nombre fijo «INFO» y el texto en el valor. Con la clave de régimen y la
+# referencia catastral son las tres de L8, y no hay más: la norma deja el
+# nombre libre, y la orden no.
+if _valor_fijo("BT-160", "Información adicional") != "INFO":
+    raise AnexoCambiado("BT-160 «Información adicional» ya no adopta «INFO»")
+_cuantos(_fila("BG-32", "INFORMACIÓN ADICIONAL"), "0..n")
+_obligatorio("BT-161", "Información adicional")
+_NOMBRES_L8 = tuple(_L["L8"].valores)
+if set(_NOMBRES_L8) != {"INFO", "RCAT", "REGI"}:
+    raise AnexoCambiado("la lista L8 ya no son las tres propiedades de la línea de BT-160")
 
 # Las líneas de cobro: cuatro grupos (BG-34), cada uno con su valor de L7 en
 # la fila que lo identifica. Los que el anexo admite una vez por factura salen
@@ -580,6 +622,54 @@ _ruta_s, _CATEGORIA_DE_LA_RETENCION = _condicion("BG-ES-4", "cac:TaxCategory/cbc
 _ruta_wth, _ESQUEMA_DE_LA_RETENCION = _condicion("BG-ES-4", "cac:TaxScheme/cbc:ID")
 _RETENCION_CATEGORIA = _relativa(_ruta_s, _RETENCIONES_APLICADAS)
 _RETENCION_ESQUEMA = _relativa(_ruta_wth, _RETENCIONES_APLICADAS)
+
+# Los impuestos y tasas que no son el IVA, cada uno con su código de la lista
+# L9: en cada cargo de línea (BT-ES-22, obligatorio en todos, y «RESTO» es el
+# de un cargo que no es un impuesto), en el detalle de un cargo del documento
+# (BG-ES-2) y en el desglose de una línea de cobro de impuestos y tasas
+# (BG-ES-3), que se escribe con «VAT» y «S» aunque no sea el IVA. La L9 no
+# trae calificador: el código va solo.
+_L9 = tuple(_L["L9"].valores)
+if _L["L9"].calificador:
+    raise AnexoCambiado("la lista L9 trae calificador, y aquí se compara el código solo")
+for _identificador in ("BT-ES-9", "BT-ES-22"):
+    if _lista(_fila(_identificador)) != "L9":
+        raise AnexoCambiado(f"{_identificador} ya no es de la lista L9")
+_CODIGO_L9 = "cac:TaxCategory/cac:TaxScheme/cbc:TaxTypeCode"
+_CODIGO_DEL_CARGO_DE_LINEA = _relativa(
+    _ruta(_obligatorio("BT-ES-22")), _LINEAS + "/cac:AllowanceCharge[cbc:ChargeIndicator='true']")
+
+_CARGOS_DEL_DOCUMENTO = "./cac:AllowanceCharge[cbc:ChargeIndicator='true']"
+_cuantos(_fila("BG-ES-2"), "0..n")
+_impuestos_del_cargo = _padre(_ruta(_obligatorio("BT-ES-9")), _CODIGO_L9)
+_IMPUESTOS_DEL_CARGO = _relativa(_impuestos_del_cargo, _CARGOS_DEL_DOCUMENTO)
+_DEL_IMPUESTO_DEL_CARGO = {identificador: _relativa(_ruta(identificador), _impuestos_del_cargo)
+                           for identificador in ("BT-ES-6", "BT-ES-7", "BT-ES-9")}
+# La cuota (BT-ES-8) va en dos sitios: «El mismo importe debe consignarse en
+# dos rutas distintas», la del impuesto y la del total del cargo.
+_obligatorio("BT-ES-8")
+_dice("BT-ES-8", "Resultado de aplicar a la base del impuesto o tasa el tipo correspondiente")
+if "El mismo importe debe consignarse en dos rutas distintas" not in " ".join(
+        _fila("BT-ES-8").ruta.split()):
+    raise AnexoCambiado("BT-ES-8 ya no pide el mismo importe en dos rutas")
+_cuotas_del_cargo = [r.ruta for r in POR_ID.get("BT-ES-8", ())]
+_en_el_impuesto = [r for r in _cuotas_del_cargo if r.startswith(_impuestos_del_cargo + "/")]
+_en_el_total = [r for r in _cuotas_del_cargo if r not in _en_el_impuesto]
+if len(_en_el_impuesto) != 1 or len(_en_el_total) != 1:
+    raise AnexoCambiado("BT-ES-8 ya no trae una ruta en el impuesto y otra en el total del cargo")
+_CUOTA_DEL_IMPUESTO_DEL_CARGO = _relativa(_en_el_impuesto[0], _impuestos_del_cargo)
+_CUOTA_DEL_CARGO = _relativa(_en_el_total[0], _CARGOS_DEL_DOCUMENTO)
+
+_cuantos(_fila("BG-ES-3"), "0..n")
+_impuestos_del_cobro = _padre(_ruta(_obligatorio("BT-ES-14")), "cbc:TaxAmount")
+_IMPUESTOS_DEL_COBRO = _relativa(_impuestos_del_cobro, _LINEA_DE_COBRO)
+_DEL_IMPUESTO_DEL_COBRO = {identificador: _relativa(_ruta(identificador), _impuestos_del_cobro)
+                           for identificador in ("BT-ES-12", "BT-ES-13", "BT-ES-14")}
+_dice("BT-ES-14", "Cuota resultante de aplicar a la base del impuesto o tasa el tipo correspondiente")
+_ruta_del_esquema, _ESQUEMA_DEL_COBRO = _condicion("BG-ES-3", "cac:TaxScheme/cbc:ID")
+_ruta_de_la_categoria, _CATEGORIA_DEL_COBRO = _condicion("BG-ES-3", "cac:TaxCategory/cbc:ID")
+_ESQUEMA_DEL_IMPUESTO_DEL_COBRO = _relativa(_ruta_del_esquema, _impuestos_del_cobro)
+_CATEGORIA_DEL_IMPUESTO_DEL_COBRO = _relativa(_ruta_de_la_categoria, _impuestos_del_cobro)
 
 # El total a pagar, que suma los importes de terceros.
 _dice("BT-115", "junto con los importes correspondientes a los conceptos BT-179")
@@ -635,10 +725,7 @@ def _adjuntos(raiz) -> list[tuple[str, object]]:
 # mismo. Cada frase nombra la fila o la lista de la orden de la que sale, y
 # hay prueba de que existe en la tabla.
 LO_QUE_TODAVIA_NO_SE_MIDE = (
-    ("los impuestos y tasas que no son el IVA, en el documento (BG-ES-2), en las "
-     "líneas (BT-ES-22) y cobrados para un tercero (BG-ES-3), con su lista L9"),
     "el número de la autorización de facturación (BT-ES-26)",
-    "la información adicional de cada línea (BT-160, con el valor INFO de L8)",
 )
 
 
@@ -686,8 +773,9 @@ NO_SE_COMPRUEBA: dict[str, str] = {
     "Cardinalidades máximas": (
         "Que un campo que no se repite no se repita se mira en los grupos donde "
         "repetirlo cambia lo que se declara: la clave de régimen y la "
-        "referencia catastral de cada línea, el QR, los documentos de la "
-        "rectificativa y las retenciones. El resto es cosa del esquema."
+        "referencia catastral de cada línea, la fecha efectiva de pago, el QR, "
+        "los documentos de la rectificativa y las retenciones. El resto es cosa "
+        "del esquema."
     ),
 }
 
@@ -735,6 +823,8 @@ def _o(cosas) -> str:
 
 def _en_una_frase(cosas) -> str:
     """Una lista larga en castellano, con punto y coma: sus cosas llevan comas dentro."""
+    if len(cosas) == 1:
+        return cosas[0]
     return "; ".join(cosas[:-1]) + "; y " + cosas[-1]
 
 
@@ -838,9 +928,10 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
         _moneda_del_iva, _importe_pagado, _fecha_de_pago, _nif, _registro_legal,
         _prefijo_del_nif, _direcciones, _tipo_de_impuesto, _tercero,
         _facturas_referenciadas, _motivos, _categorias, _tipo_del_desglose,
-        _exenciones, _claves_de_regimen, _referencias_catastrales,
-        _lineas_de_cobro, _retenciones, _cuadre_de_las_retenciones, _qr,
-        _total_a_pagar,
+        _exenciones, _impuestos_de_los_cargos_de_linea, _impuestos_de_los_cargos,
+        _claves_de_regimen, _referencias_catastrales, _informacion_adicional,
+        _lineas_de_cobro, _retenciones, _cuadre_de_las_retenciones,
+        _impuestos_de_los_cobros, _qr, _total_a_pagar,
     ):
         incidencias.extend(regla(raiz))
     return incidencias
@@ -1874,6 +1965,204 @@ def bt47_de_la_orden(raiz, deteccion) -> tuple[str, ...]:
             f"[normalize-space(cbc:CompanyID/@schemeID)='{_ESQUEMA_DEL_NIF}']/cbc:CompanyID",)
 
 
+def _codigos_l9(sin: list[str], otros: list[tuple[str, str]], fila: str,
+                donde: str, que: str) -> list[Incidencia]:
+    """Lo que falta o no es de L9 en el código de un impuesto o tasa."""
+    incidencias: list[Incidencia] = []
+    campo = f"Código del tipo de impuesto o tasa ({fila})"
+    if sin:
+        incidencias.append(
+            Incidencia(
+                "SPFE-IMPUESTO-O-TASA",
+                ERROR,
+                f"Hay {que} sin el código del impuesto o tasa de la lista L9. La "
+                f"orden lo pide en cada uno (fila {fila}, obligatoria), y para lo "
+                "que no es un impuesto ni una tasa tiene «RESTO». La norma europea "
+                "no lo tiene.",
+                campo=_donde(campo, sin),
+                esperado=f"un código de la lista L9 en {donde}",
+                encontrado="(falta)",
+            )
+        )
+    if otros:
+        incidencias.append(
+            Incidencia(
+                "SPFE-IMPUESTO-O-TASA",
+                ERROR,
+                f"Hay {que} con un código de impuesto o tasa que no es de la lista "
+                f"L9 de la orden (fila {fila}).",
+                campo=_donde(campo, list(dict.fromkeys(lugar for lugar, _ in otros))),
+                esperado=_o(_L9),
+                encontrado=", ".join(dict.fromkeys(codigo for _, codigo in otros)),
+            )
+        )
+    return incidencias
+
+
+def _impuestos_de_los_cargos_de_linea(raiz) -> list[Incidencia]:
+    """BT-ES-22: el código de L9 de cada cargo de línea, obligatorio en todos.
+
+    La norma no lo tiene. Los descuentos de línea no lo llevan: el grupo BG-27
+    de la orden no tiene ningún código de impuesto.
+    """
+    sin: list[str] = []
+    otros: list[tuple[str, str]] = []
+    for nombre, cargo in grupos(raiz, SINTAXIS_UBL, "cargos_linea"):
+        codigos = [codigo for codigo in (_escrito(n) for n in _nodos(cargo, _CODIGO_DEL_CARGO_DE_LINEA))
+                   if codigo]
+        if not codigos:
+            sin.append(nombre)
+        otros.extend((nombre, codigo) for codigo in codigos if codigo not in _L9)
+    return _codigos_l9(sin, otros, "BT-ES-22", "cac:TaxCategory/cac:TaxScheme/cbc:TaxTypeCode",
+                       "cargos de línea")
+
+
+def _impuestos_de_los_cargos(raiz) -> list[Incidencia]:
+    """BG-ES-2: el impuesto o tasa que se cobra como un cargo del documento.
+
+    Un cargo lo lleva si trae un `cac:TaxTotal` con su desglose: el código de
+    L9 en cada impuesto (BT-ES-9) y la cuota (BT-ES-8), que es la base por el
+    tipo cuando la factura da los dos y que va también en el total del cargo.
+    Con más de un impuesto en el cargo eso no se puede cumplir, y se dice.
+    """
+    incidencias: list[Incidencia] = []
+    sin: list[str] = []
+    otros: list[tuple[str, str]] = []
+    distintas: list[tuple[str, str, str]] = []
+    varios: list[tuple[str, int]] = []
+    for nombre, cargo in grupos(raiz, SINTAXIS_UBL, "cargos_documento"):
+        impuestos = _nodos(cargo, _IMPUESTOS_DEL_CARGO)
+        for numero, impuesto in _nombrados(impuestos, "impuesto"):
+            lugar = f"{numero} del {nombre}" if numero else nombre
+            codigo = _valor(impuesto, _DEL_IMPUESTO_DEL_CARGO["BT-ES-9"])
+            if not codigo:
+                sin.append(lugar)
+            elif codigo not in _L9:
+                otros.append((lugar, codigo))
+            incidencias.extend(_cuota_del_impuesto(
+                "BT-ES-8", lugar,
+                a_decimal(_valor(impuesto, _DEL_IMPUESTO_DEL_CARGO["BT-ES-6"])),
+                a_decimal(_valor(impuesto, _DEL_IMPUESTO_DEL_CARGO["BT-ES-7"])),
+                a_decimal(_valor(impuesto, _CUOTA_DEL_IMPUESTO_DEL_CARGO))))
+        if len(impuestos) > 1:
+            varios.append((nombre, len(impuestos)))
+        elif impuestos:
+            cuota = _valor(impuestos[0], _CUOTA_DEL_IMPUESTO_DEL_CARGO)
+            total = _valor(cargo, _CUOTA_DEL_CARGO)
+            if (a_decimal(cuota) is not None and a_decimal(total) is not None
+                    and not cuadra_exacto(a_decimal(cuota), a_decimal(total))):
+                distintas.append((nombre, cuota, total))
+    incidencias[:0] = _codigos_l9(sin, otros, "BT-ES-9",
+                                  "cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:TaxTypeCode",
+                                  "cargos del documento con un impuesto o tasa")
+    for nombre, cuota, total in distintas:
+        incidencias.append(
+            Incidencia(
+                "SPFE-IMPUESTO-O-TASA",
+                ERROR,
+                "La cuota del impuesto o tasa del cargo no es la misma en sus dos "
+                "sitios. La orden pide «el mismo importe» en el impuesto y en el "
+                "total del cargo (fila BT-ES-8): cac:TaxTotal/cac:TaxSubtotal/"
+                "cbc:TaxAmount y cac:TaxTotal/cbc:TaxAmount.",
+                campo=_donde("Cuota del impuesto o tasa (BT-ES-8)", [nombre]),
+                esperado="el mismo importe en los dos",
+                encontrado=f"{cifras.tiene(a_decimal(cuota))} en el impuesto y "
+                           f"{cifras.tiene(a_decimal(total))} en el total",
+            )
+        )
+    for nombre, cuantos in varios:
+        incidencias.append(
+            Incidencia(
+                "SPFE-IMPUESTO-O-TASA",
+                NOTA,
+                f"El cargo lleva {cuantos} impuestos o tasas (BG-ES-2). La orden pide "
+                "la cuota de cada uno (BT-ES-8) también en el total del cargo, "
+                "cac:TaxTotal/cbc:TaxAmount, que es uno por cargo: con más de un "
+                "impuesto no se puede cumplir al pie de la letra. Se le preguntó a "
+                "la Agencia el 07-10-2026 si ahí va la suma, y hasta que conteste "
+                "no se compara.",
+                campo=_donde("Cuota del impuesto o tasa (BT-ES-8)", [nombre]),
+                encontrado=f"{cuantos} impuestos",
+            )
+        )
+    return incidencias
+
+
+def _impuestos_de_los_cobros(raiz) -> list[Incidencia]:
+    """BG-ES-3: el desglose de un impuesto o tasa cobrado en nombre de un tercero.
+
+    Va en la línea de cobro, con «VAT» y «S» aunque no sea el IVA, porque así
+    lo pide el grupo («Su uso implica…»), y con la cuota (BT-ES-14), que es la
+    base por el tipo cuando la factura da los dos.
+    """
+    incidencias: list[Incidencia] = []
+    malos: list[tuple[str, str]] = []
+    for nombre, linea in _nombrados(_nodos(raiz, _LINEA_DE_COBRO), "línea de cobro"):
+        for numero, impuesto in _nombrados(_nodos(linea, _IMPUESTOS_DEL_COBRO), "impuesto"):
+            lugar = " de la ".join(x for x in (numero, nombre) if x)
+            esquema = _valor(impuesto, _ESQUEMA_DEL_IMPUESTO_DEL_COBRO)
+            categoria = _valor(impuesto, _CATEGORIA_DEL_IMPUESTO_DEL_COBRO)
+            if (esquema, categoria) != (_ESQUEMA_DEL_COBRO, _CATEGORIA_DEL_COBRO):
+                malos.append((lugar, f"{esquema or '(falta)'} y {categoria or '(falta)'}"))
+            incidencias.extend(_cuota_del_impuesto(
+                "BT-ES-14", lugar,
+                a_decimal(_valor(impuesto, _DEL_IMPUESTO_DEL_COBRO["BT-ES-12"])),
+                a_decimal(_valor(impuesto, _DEL_IMPUESTO_DEL_COBRO["BT-ES-13"])),
+                a_decimal(_valor(impuesto, _DEL_IMPUESTO_DEL_COBRO["BT-ES-14"]))))
+    if malos:
+        incidencias.insert(0, Incidencia(
+            "SPFE-IMPUESTO-O-TASA",
+            ERROR,
+            "El desglose de un impuesto o tasa cobrado en nombre de un tercero "
+            f"(BG-ES-3) no lleva «{_ESQUEMA_DEL_COBRO}» y «{_CATEGORIA_DEL_COBRO}». "
+            "La orden los pide así aunque no sea el IVA: «su uso implica» que "
+            f"cac:TaxScheme/cbc:ID tome «{_ESQUEMA_DEL_COBRO}» y cac:TaxCategory/"
+            f"cbc:ID, «{_CATEGORIA_DEL_COBRO}».",
+            campo=_donde("Desglose de impuestos y tasas (BG-ES-3)",
+                         [lugar for lugar, _ in malos]),
+            esperado=f"{_ESQUEMA_DEL_COBRO} y {_CATEGORIA_DEL_COBRO}",
+            encontrado=", ".join(dict.fromkeys(escrito for _, escrito in malos)),
+        ))
+    return incidencias
+
+
+def _informacion_adicional(raiz) -> list[Incidencia]:
+    """BT-160: el nombre de cada propiedad del artículo, de la lista L8.
+
+    La norma deja el nombre libre («Color», «Lote»). La orden escribe la
+    información adicional de la línea con el nombre fijo «INFO» y el texto en
+    el valor, y las otras dos propiedades que admite son la clave de régimen y
+    la referencia catastral. Con el calificador de L8 delante o sin él, como
+    las otras dos. Un nombre vacío lo dice BR-54.
+    """
+    otros: list[str] = []
+    lugares: list[str] = []
+    for nombre, linea in grupos(raiz, SINTAXIS_UBL, "lineas"):
+        for propiedad in _nodos(linea, _PROPIEDADES):
+            escrito = _valor(propiedad, "./cbc:Name")
+            if escrito and escrito.removeprefix(_CALIFICADOR_L8) not in _NOMBRES_L8:
+                otros.append(escrito)
+                if nombre not in lugares:
+                    lugares.append(nombre)
+    if not otros:
+        return []
+    return [
+        Incidencia(
+            "SPFE-INFORMACION-ADICIONAL",
+            ERROR,
+            "Hay propiedades del artículo con un nombre que no es de la lista L8. "
+            "La orden escribe la información adicional de la línea como una "
+            "propiedad llamada «INFO», con el texto en el valor (fila BT-160, "
+            "«valor fijo»); las otras dos que admite son la clave de régimen "
+            "(«REGI») y la referencia catastral («RCAT»). La norma europea deja "
+            "el nombre libre.",
+            campo=_donde("Código de la propiedad (BT-160)", lugares),
+            esperado=f"{_o(_NOMBRES_L8)}, con el calificador de L8 delante o sin él",
+            encontrado=", ".join(dict.fromkeys(otros)),
+        )
+    ]
+
+
 def _claves_de_regimen(raiz) -> list[Incidencia]:
     """BG-32 «CLAVE DE RÉGIMEN»: una o dos en cada línea, cada una en su lista.
 
@@ -2101,6 +2390,61 @@ def _retenciones(raiz) -> list[Incidencia]:
     ]
 
 
+def _cuenta_de_la_cuota(base, tipo, cuota) -> tuple[str, str, str, str] | None:
+    """Una cuota que la orden define como la base por el tipo, si no sale.
+
+    La de cada retención (BT-ES-19) y la de cada impuesto o tasa (BT-ES-8 y
+    BT-ES-14), que la orden define igual y sin margen. Se les da el de la
+    cuota del IVA, que es la misma cuenta (BR-CO-17): hasta una unidad es una
+    NOTA que dice cuánto se aparta, y más, un ERROR. Devuelve la gravedad, la
+    cuenta escrita, lo calculado y cuánto se aparta; o nada, si cuadra al
+    céntimo o falta una cifra, porque que falte lo dice la regla de cada sitio.
+    """
+    if base is None or tipo is None or cuota is None:
+        return None
+    # Como BR-CO-17: la base en valor absoluto por el tipo, y el signo después,
+    # para que en una rectificativa las mitades vayan hacia el mismo lado que
+    # en una factura.
+    exacta = abs(base) * tipo / 100
+    if redondear(exacta) == abs(cuota):
+        return None
+    calculada = redondear(exacta) * (-1 if base < 0 else 1)
+    cuenta = (f"{cifras.en_castellano(base)} al {cifras.tipo(tipo)} da "
+              f"{cifras.calculada(calculada)}")
+    if a_menos_de_una_unidad(exacta, cuota):
+        distancia = abs(redondear(exacta) - abs(cuota))
+        return NOTA, cuenta, cifras.calculada(calculada), cifras.calculada(distancia)
+    return ERROR, cuenta, cifras.calculada(calculada), ""
+
+
+def _cuota_del_impuesto(fila: str, lugar: str, base, tipo, cuota) -> list[Incidencia]:
+    """La cuenta de la cuota de un impuesto o tasa (BT-ES-8 o BT-ES-14)."""
+    cuadre = _cuenta_de_la_cuota(base, tipo, cuota)
+    if cuadre is None:
+        return []
+    gravedad, cuenta, calculada, distancia = cuadre
+    if gravedad == NOTA:
+        mensaje = (f"La cuota del impuesto o tasa se aparta {distancia} de aplicar "
+                   f"el tipo a la base ({cuenta}). La orden la define como esa "
+                   "cuenta y no da margen; se ha dado por buena con el de la cuota "
+                   "del IVA, que es la misma cuenta (hasta una unidad, BR-CO-17). "
+                   "Si no hay redondeo que lo explique, conviene revisarlo.")
+    else:
+        mensaje = ("La cuota del impuesto o tasa no sale de aplicar el tipo a la "
+                   f"base ({cuenta}), que es como la define la orden en la fila "
+                   f"{fila}.")
+    return [
+        Incidencia(
+            "SPFE-IMPUESTO-O-TASA",
+            gravedad,
+            mensaje,
+            campo=_donde(f"Cuota del impuesto o tasa ({fila})", [lugar]),
+            esperado=calculada,
+            encontrado=cifras.tiene(cuota),
+        )
+    ]
+
+
 def _cuadre_de_las_retenciones(raiz) -> list[Incidencia]:
     """Las dos cuentas que la orden define: cada retención (BT-ES-19) y su suma (BT-ES-17).
 
@@ -2127,32 +2471,24 @@ def _cuadre_de_las_retenciones(raiz) -> list[Incidencia]:
         importe = a_decimal(_valor(subtotal, _RETENCION_HIJOS["BT-ES-19"]))
         porcentaje = a_decimal(_valor(subtotal, _RETENCION_HIJOS["BT-ES-20"]))
         importes.append(importe)
-        if base is None or importe is None or porcentaje is None:
+        cuadre = _cuenta_de_la_cuota(base, porcentaje, importe)
+        if cuadre is None:
             continue
-        # Como BR-CO-17: la base en valor absoluto por el porcentaje, y el signo
-        # después, para que en una rectificativa las mitades vayan hacia el
-        # mismo lado que en una factura.
-        exacta = abs(base) * porcentaje / 100
-        if redondear(exacta) == abs(importe):
-            continue
-        calculada = redondear(exacta) * (-1 if base < 0 else 1)
-        cuenta = (f"{cifras.en_castellano(base)} al {cifras.tipo(porcentaje)} da "
-                  f"{cifras.calculada(calculada)}")
+        gravedad, cuenta, calculada, distancia = cuadre
         campo = _donde("Total retención (BT-ES-19)", [nombre])
-        if a_menos_de_una_unidad(exacta, importe):
-            distancia = abs(redondear(exacta) - abs(importe))
+        if gravedad == NOTA:
             incidencias.append(
                 Incidencia(
                     "SPFE-RETENCION",
                     NOTA,
-                    f"El importe de la retención se aparta {cifras.calculada(distancia)} "
+                    f"El importe de la retención se aparta {distancia} "
                     f"de aplicar el porcentaje a la base ({cuenta}). La orden lo "
                     "define como esa cuenta y no da margen; se ha dado por bueno "
                     "con el de la cuota del IVA, que es la misma cuenta (hasta una "
                     "unidad, BR-CO-17). Si no hay redondeo por líneas que lo "
                     "explique, conviene revisarlo.",
                     campo=campo,
-                    esperado=cifras.calculada(calculada),
+                    esperado=calculada,
                     encontrado=cifras.tiene(importe),
                 )
             )
@@ -2165,7 +2501,7 @@ def _cuadre_de_las_retenciones(raiz) -> list[Incidencia]:
                     f"a la base ({cuenta}), que es como lo define la orden en la "
                     "fila BT-ES-19.",
                     campo=campo,
-                    esperado=cifras.calculada(calculada),
+                    esperado=calculada,
                     encontrado=cifras.tiene(importe),
                 )
             )

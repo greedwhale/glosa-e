@@ -7741,3 +7741,94 @@ frase de `BT-7` (1 cada una).
 lista L9 (`BG-ES-2`, `BT-ES-22`, `BG-ES-3`); la información adicional de cada
 línea (`INFO` de L8); el número de la autorización (`BT-ES-26`); los ficheros
 embebidos (artículos 3.6 y 4.4); y el mensaje de anulación y los del anexo II.
+
+## Los impuestos y tasas que no son el IVA, y la información de la línea
+
+**Lo que había.** Después de la tanda anterior, la nota `SPFE-ALCANCE` decía
+tres cosas que la orden pide y aquí no se medían: los impuestos y tasas que no
+son el IVA, con su lista L9 (`BT-ES-22`, `BG-ES-2` y `BG-ES-3`); el número de
+la autorización de facturación (`BT-ES-26`); y la información adicional de
+cada línea (`BT-160` con `INFO`).
+
+**Reproducido** el 11-10-2026 sobre `e51de10`: diecinueve facturas escritas a
+partir de la de la orden, por el validador entero y con los esquemas de
+`web/paquete.zip`. Las diecinueve salían **sin un error ni un aviso**, también
+las diez que la orden da por malas:
+
+| Factura | En `e51de10` | Ahora |
+|---|---|---|
+| la de la orden | sin errores | sin errores |
+| un cargo de línea con `RESTO`, o con `IEE` | sin errores | sin errores |
+| un cargo de línea sin código | **sin errores** | `IMPUESTO-O-TASA` |
+| con `XYZ` | **sin errores** | `IMPUESTO-O-TASA` |
+| un impuesto cobrado como cargo del documento, con `IEE` | sin errores | sin errores |
+| sin código | **sin errores** | `IMPUESTO-O-TASA` |
+| con `XYZ` | **sin errores** | `IMPUESTO-O-TASA` |
+| con 5 en el impuesto y 6 en el total del cargo | **sin errores** | `IMPUESTO-O-TASA` |
+| con 7 de cuota sobre 100 al 5 % | **sin errores** | `IMPUESTO-O-TASA` |
+| con dos impuestos en el mismo cargo | sin errores | sin errores, y una NOTA |
+| sin base ni tipo | sin errores | sin errores |
+| el IEDMT cobrado para un tercero, con su desglose | sin errores | sin errores |
+| con «IGIC» en el desglose | **sin errores** | `IMPUESTO-O-TASA` |
+| con la categoría `E` | **sin errores** | `IMPUESTO-O-TASA` |
+| con 150 de cuota sobre 2000 al 6 % | **sin errores** | `IMPUESTO-O-TASA` |
+| una propiedad `INFO`, y con el calificador de L8 | sin errores | sin errores |
+| una propiedad «Color» | **sin errores** | `INFORMACION-ADICIONAL` |
+
+**Lo que se hizo.**
+
+- `SPFE-IMPUESTO-O-TASA`, nuevo: el código de L9 en cada cargo de línea y en
+  cada impuesto de un cargo del documento; en ese cargo, la misma cuota en el
+  impuesto y en el total, y con dos impuestos una NOTA, porque no se puede
+  (la pregunta 4 al buzón, del 07-10-2026); «VAT» y «S» en el desglose de un
+  cobro; y la cuota de cada uno, la base por el tipo.
+- La cuenta de la cuota se saca a `_cuenta_de_la_cuota`, con el margen de la
+  del IVA (hasta una unidad, NOTA), y las retenciones pasan a usarla: la
+  misma cuenta en tres sitios, escrita una vez.
+- `SPFE-INFORMACION-ADICIONAL`, nuevo: el nombre de cada propiedad del
+  artículo, de L8, con su calificador o sin él.
+- Al importar se leen las filas `BT-ES-8`, `BT-ES-9`, `BT-ES-14`, `BT-ES-22`,
+  `BG-ES-2`, `BG-ES-3`, `BG-32` y `BT-161` de la información adicional, que la
+  L9 no traiga calificador y que la L8 sean las tres propiedades. Si cambian,
+  `AnexoCambiado`. `_cuantos` acepta ahora un máximo sin límite, «0..n».
+- `LO_QUE_TODAVIA_NO_SE_MIDE` se queda en una cosa, `BT-ES-26`, y la nota la
+  dice sin el punto y coma de las listas. De 25 códigos `SPFE-` se pasa a 27,
+  y de 390 en total, a 392.
+- `NO_SE_COMPRUEBA` decía dónde se miran las cardinalidades máximas y no
+  nombraba la fecha efectiva de pago, que la tanda anterior mira «una como
+  mucho». Ahora la nombra.
+
+**Lo que salió al provocar.**
+
+- La negativa de `BT-160` salió en **verde**. Se comprobaba que la fila
+  dijera «valor fijo INFO», y una fila que dijera «valor fijo INFORMACION» lo
+  dice también. Las de `REGI` y `RCAT` llevaban el mismo hueco desde que se
+  escribieron: un `REGIX` en la orden pasaba por `REGI`. Ahora `_valor_fijo`
+  lee el valor entero entre sus comillas, y las tres roturas (`INFO`, `REGI`,
+  `RCAT`) salen en rojo.
+- La prueba de que lo que no se mide no lo mida nadie llevaba los
+  identificadores escritos a mano, y cada tanda tenía que acordarse de
+  quitarlos de los dos sitios. Ahora los saca de la propia lista: devolver la
+  información adicional a la lista la pone en rojo.
+
+**Las pruebas.** Cuatro facturas buenas más, 28 en total, que pasan el
+validador entero sin un ERROR ni un AVISO: un cargo de línea con su código, un
+impuesto cobrado como cargo, el desglose del IEDMT y una línea con `INFO`.
+`TestLosImpuestosYTasas` (once casos), uno más en `TestLineas`, y las
+filas y listas del anexo, provocadas una a una al importar.
+
+**Provocado.** Diecisiete roturas, las diecisiete en rojo: el cargo de línea
+sin código vuelve a valer (1 prueba en rojo), con un código fuera de L9 (1),
+el impuesto del cargo sin código (1), fuera de L9 (1), las dos cuotas del
+cargo dejan de compararse (1), con dos impuestos se compara el primero (1),
+la cuota deja de contarse (2), sin el margen de la cuota del IVA (1), el
+desglose del cobro sin «VAT» y «S» vuelve a valer (2), cualquier nombre de
+propiedad vuelve a valer (1), `INFO` con calificador deja de leerse (1), la
+información adicional vuelve a la lista de lo que no se mide (1), el valor
+fijo otra vez como trozo de frase (2), y cuatro lecturas del anexo que dejan
+de negarse: la L9 con calificador, la L8 con otra propiedad, `BT-ES-8` en una
+sola ruta y `BT-ES-22` fuera de L9 (1 cada una).
+
+**Lo que queda del paso 7.** El número de la autorización (`BT-ES-26`); los
+ficheros embebidos (artículos 3.6 y 4.4); y el mensaje de anulación y los del
+anexo II.

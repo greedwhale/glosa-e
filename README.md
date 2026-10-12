@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2999 tests, todos en verde.
+3029 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3800,9 +3800,9 @@ anexo pide. **25 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
 I» en el informe, que no es la del real decreto: es el anexo de la Orden
 HAC/1028/2026. Hasta el 07-10-2026 decía «Anexo I (borrador)», y hasta el
 11-10-2026 eran 24 y medían en buena parte el borrador de abril. Ese día
-quedaron en 22 al ponerlos al texto de la orden, y llegaron a 25 con lo que la
-orden pide y no se medía (en «La segunda tanda» y «Lo que la orden pide y no
-se medía», más abajo).
+quedaron en 22 al ponerlos al texto de la orden, y llegaron a 27 con lo que la
+orden pide y no se medía (en «La segunda tanda», «Lo que la orden pide y no se
+medía» y «Los impuestos y tasas, y la información de la línea», más abajo).
 
 **Solo a las facturas UBL que declaran la solución pública** en su
 `CustomizationID`: con el identificador de la orden, o con el CIUS del
@@ -3828,13 +3828,13 @@ Lo que se comprueba:
 | Las partes: el NIF de las dos en un esquema «VAT», con el prefijo ES, o en uno «LOC» con «FC», y en ese caso el registro legal del vendedor (`BT-30`); la dirección entera cuando está en España; y el tercero que expide la factura, con su razón social, su NIF y su tipología. El prefijo del comprador va en AVISO: su fila copia la del vendedor hasta en decir «del vendedor» | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
 | Lo que la norma deja opcional y el anexo no: la fecha de la factura referenciada y el motivo en texto de descuentos y cargos | `SPFE-FACTURA-REFERENCIADA`, `-MOTIVO` |
 | El IVA: «VAT» en los descuentos y cargos, las líneas y el desglose, y la categoría de L4, sin `K` ni `B`; el tipo también en la entrada no sujeta (`O`), que la norma deja sin él; el código de exención, solo VATEX-EU o VATEX-ES; y la `N`, la `D` y la `F` de la orden, en una nota | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA`, `-TIPO-DE-IVA`, `-EXENCION` |
-| Cada línea: una o dos claves de régimen en la lista de su impuesto (la L3A de la orden ya no tiene la 18, la 19 ni la 20), y como mucho una referencia catastral con su situación de L6 | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL` |
+| Cada línea: una o dos claves de régimen en la lista de su impuesto (la L3A de la orden ya no tiene la 18, la 19 ni la 20), como mucho una referencia catastral con su situación de L6, y ninguna otra propiedad del artículo que la información adicional, `INFO` | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL`, `-INFORMACION-ADICIONAL` |
+| Los impuestos y tasas que no son el IVA: el código de L9 en cada cargo de línea y en cada impuesto cobrado como cargo del documento, con su cuota en el impuesto y en el total del cargo, y la misma; el desglose del que se cobra en nombre de un tercero, con «VAT» y «S»; y la cuota de cada uno, la base por el tipo con el margen de la del IVA. Con dos impuestos en un cargo, una nota | `SPFE-IMPUESTO-O-TASA` |
 | Las líneas de cobro: un valor de la L7 de la orden, con su calificador o sin él, y un solo grupo de retenciones; las retenciones con su suma, su línea de cobro y su concepto de L5, y sus dos cuentas: cada una es su base por su porcentaje, y la suma es la de todas; y el QR fiscal, uno como mucho, con su dirección y, si lleva descripción, VERIFACTU o TICKETBAI (el escrito con la URN de abril no es el QR, y una nota lo dice) | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-QR` |
 
 Y dos notas: `SPFE-ALCANCE`, que sale en cada factura que se mide con el
-anexo y dice con qué se ha medido, las tres cosas que la orden pide y aquí
-todavía no se miden (`LO_QUE_TODAVIA_NO_SE_MIDE`, que el glosario copia letra
-a letra) y, por su nombre, las que no se pueden comprobar (`NO_SE_COMPRUEBA`,
+anexo y dice con qué se ha medido, lo que la orden pide y aquí todavía no se
+mide (`LO_QUE_TODAVIA_NO_SE_MIDE`, que el glosario copia letra a letra) y, por su nombre, las que no se pueden comprobar (`NO_SE_COMPRUEBA`,
 cuyo porqué copia la ficha de la nota), porque que no salga ninguna queja no
 quiere decir que cumpla la orden; y `SPFE-TOTAL-A-PAGAR`, que sale cuando hay
 líneas de cobro y es lo que sigue. Un abono que declara la orden no recibe
@@ -3884,19 +3884,20 @@ que la orden tampoco ubica, y todo lo que depende de ellos; la restricción de
 `BT-195` a VATEX-EU y VATEX-ES; que la tipología del tercero sea
 «FacturaciónPorTercero» —«ThirdPartyInvoicing» en el borrador—, obligatoria en
 un caso que no se ve en el documento. Lo que la orden pide y aquí todavía no
-se mide, aunque se podría, no va ahí sino en `LO_QUE_TODAVIA_NO_SE_MIDE`: los
-impuestos y tasas que no son el IVA, el número de la autorización de
-facturación y la información adicional de cada línea. La nota `SPFE-ALCANCE` nombra las dos listas en cada factura, y su ficha
-dice el porqué de cada cosa de la primera. Hasta el 11-10-2026 la primera no
+se mide, aunque se podría, no va ahí sino en `LO_QUE_TODAVIA_NO_SE_MIDE`: el
+número de la autorización de facturación. La nota `SPFE-ALCANCE` nombra las
+dos listas en cada factura, y su ficha dice el porqué de cada cosa de la
+primera. Hasta el 11-10-2026 la primera no
 llegaba al informe, y la portada y la política de privacidad dicen que lo que
 no se mide lo dice el informe (en HALLAZGOS).
 
 **No hay facturas de verdad con las que medir.** La solución pública no está en
 marcha y en el corpus hay cero documentos que declaren el CIUS. Las pruebas
-van sobre una factura escrita al pie de la letra de la orden y veintitrés
+van sobre una factura escrita al pie de la letra de la orden y veintisiete
 variantes (la rectificativa, el tercero, los cobros, las categorías `N`, `D`,
-`F`, `O` y `E`, la autorización, la fecha de la operación), que pasan **el validador entero** sin un error ni un
-aviso: forma contra UBL 2.5, norma europea, código único y anexo. La forma,
+`F`, `O` y `E`, la autorización, la fecha de la operación, los impuestos y
+tasas, la información adicional), que pasan **el validador entero** sin un
+error ni un aviso: forma contra UBL 2.5, norma europea, código único y anexo. La forma,
 con los esquemas de `web/paquete.zip`: la suite corre sin esquemas, y hasta el
 11-10-2026 esto lo decía sin que se mirara (en HALLAZGOS). De ahí se rompe
 cada regla. Hasta el 11-10-2026 la de partida era una escrita con el
@@ -3905,7 +3906,7 @@ ver que sale en ERROR. Provocado al escribir el módulo: 37 roturas, las 37 en
 rojo; al ponerlo al texto de la orden, catorce más (diez y una frase de la
 tabla en la primera tanda, tres en la segunda), en la revisión antes de
 publicar, catorce y luego nueve, y con lo que la orden pide y no se medía,
-dieciocho (en HALLAZGOS).
+dieciocho y diecisiete (en HALLAZGOS).
 
 **La frase de alcance lo dice, y solo cuando toca.** «Sin errores» en una
 factura del CIUS quiere decir también algo del anexo, así que la línea del
@@ -4404,10 +4405,67 @@ y los esquemas de `web/paquete.zip`:
   ficha con el artículo, que decía que con la fecha no había que comunicarlo,
   sin más.
 
-Lo que sigue sin medirse son los impuestos y tasas que no son el IVA, con su
-lista L9; el número de la autorización de facturación (`BT-ES-26`); y la
-información adicional de cada línea (`INFO` de L8). El detalle y las
+Quedaban sin medirse los impuestos y tasas que no son el IVA, con su lista
+L9; el número de la autorización de facturación (`BT-ES-26`); y la
+información adicional de cada línea (`INFO` de L8). Los primeros y la última
+se miden desde el mismo día, en la sección siguiente. El detalle y las
 dieciocho roturas provocadas, en HALLAZGOS.
+
+### Los impuestos y tasas, y la información de la línea
+
+El mismo 11-10-2026, la orden pide tres cosas de los impuestos y tasas que no
+son el IVA, cada uno con su código de la lista L9 (`IEH`, `IEE`, `IMPTAS`… y
+`RESTO` para lo que no es un impuesto): el código en cada cargo de línea
+(`BT-ES-22`), el detalle de un impuesto cobrado como cargo del documento
+(`BG-ES-2`) y el desglose del que se cobra en nombre de un tercero (`BG-ES-3`).
+Y la información adicional de la línea es una propiedad del artículo con el
+nombre fijo `INFO`. Medido antes de tocar nada, sobre `e51de10`:
+
+| Factura | En `e51de10` | Ahora |
+|---|---|---|
+| un cargo de línea con `RESTO` o con `IEE` | sin errores | sin errores |
+| sin código, o con uno que no es de L9 | sin errores | ERROR `SPFE-IMPUESTO-O-TASA` |
+| un impuesto cobrado como cargo del documento, bien escrito | sin errores | sin errores |
+| sin código, o con uno que no es de L9 | sin errores | ERROR |
+| con una cuota en el impuesto y otra en el total del cargo | sin errores | ERROR |
+| con una cuota que no es la base por el tipo | sin errores | ERROR |
+| con dos impuestos en el mismo cargo | sin errores | NOTA |
+| sin base ni tipo | sin errores | sin errores: no hay cuenta que hacer |
+| el IEDMT cobrado para un tercero, con su desglose | sin errores | sin errores |
+| con «IGIC» o con la categoría `E` en ese desglose | sin errores | ERROR |
+| con una cuota que no sale | sin errores | ERROR |
+| una propiedad `INFO`, con el calificador de L8 o sin él | sin errores | sin errores |
+| una propiedad «Color» | sin errores | ERROR `SPFE-INFORMACION-ADICIONAL` |
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- **Con dos impuestos en un cargo, una nota.** La fila `BT-ES-8` pide «el
+  mismo importe» en el impuesto y en el total del cargo, y un cargo de UBL
+  tiene un solo total: con dos impuestos no se puede cumplir. Es la pregunta 4
+  de la consulta del 07-10-2026, y hasta que la Agencia conteste no se
+  compara. Con un impuesto, sí, y en ERROR.
+- **La cuota es la base por el tipo, con el margen de la del IVA.** Las filas
+  `BT-ES-8` y `BT-ES-14` la definen así, como la de las retenciones, y se le
+  da el mismo trato: hasta una unidad, una nota que dice cuánto se aparta. La
+  cuenta es una sola para las tres cosas, y la de las retenciones pasa a
+  usarla. Sin base o sin tipo, que son `0..1`, no hay cuenta que hacer.
+- **«VAT» y «S» en el desglose de un cobro**, aunque no sea el IVA. Lo dice
+  el grupo: «su uso implica» los dos valores. Se lee de la columna de la ruta,
+  como los de las retenciones.
+- **Cualquier propiedad que no sea de L8 es un error.** La norma deja el
+  nombre libre, y la orden lo fija: `INFO` para la información adicional,
+  `REGI` y `RCAT` para las otras dos. Un «Color: rojo» se escribe como `INFO`
+  con el texto en el valor.
+
+**Lo que salió al provocar.** La negativa de `BT-160` salió en verde: se
+comprobaba que la fila dijera «valor fijo INFO», y «valor fijo INFORMACION»
+lo dice. Las de `REGI` y `RCAT`, escritas así desde antes, tenían el mismo
+hueco: un `REGIX` en la orden pasaba por `REGI`. Ahora el valor se lee entero,
+entre sus comillas, y las tres roturas salen en rojo.
+
+Lo único que la orden pide y aquí no se mide es ya el número de la
+autorización de facturación (`BT-ES-26`). El detalle y las diecisiete roturas
+provocadas, en HALLAZGOS.
 
 ### La consulta del 07-10-2026, todavía sin respuesta
 
