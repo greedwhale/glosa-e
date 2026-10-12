@@ -34,25 +34,31 @@ anexo regenerado no deja reglas que miran lo de antes sin que nadie se entere.
 
 Las erratas de las rutas
 ------------------------
-La columna de la ruta trae cuatro clases de errata de escritura, que se
+La columna de la ruta trae tres clases de errata de escritura, que se
 arreglan al leerla y se cuentan en `ARREGLOS` (si el BOE las corrige, la
 cuenta cambia y una prueba salta):
 
-- **dos rutas en una celda**, una detrás de otra: la de la fecha
-  (`cac:Status/cbc:ReferenceDate`) y la de su condición
-  (`cac:Status/cac:Condition/cbc:AttributeID=DueDate`). Son las dos mitades
-  de un mismo campo, y así se leen;
 - **un renglón partido** detrás de una barra, `DocumentResponse/ cac:Response`;
 - **un espacio donde va una barra**, `DocumentResponse cac:Response`;
 - **una barra doble**, `cac:Response//cac:Status`.
+
+Se cuenta también lo que no es una errata: **las celdas con dos rutas**, cada
+una en su párrafo, la de la fecha (`cac:Status/cbc:ReferenceDate`) y la de su
+condición (`cac:Status/cac:Condition/cbc:AttributeID=DueDate`). Son las dos
+mitades de un mismo campo, y así se leen. Hasta el 12-10-2026 este comentario
+la contaba entre las erratas: al leer la celda los dos párrafos se juntan con
+un espacio, y parecía que el BOE las había escrito seguidas. Lo vio el auditor
+en el XML.
 
 Y la tabla del mensaje de anulación trae dos que no son de escritura, y por
 eso las dice la nota `SPFE-MENSAJE-ALCANCE` en cada anulación:
 
 - **cuelga la factura anulada de `cac:Response`**, que en UBL 2.5 no tiene
   `cac:DocumentReference`. Lo tiene `cac:DocumentResponse`, obligatorio y
-  repetible, que es donde la pone el anexo II. Se lee ahí: es el único sitio
-  donde cabe;
+  repetible, que es donde la pone el anexo II. Se buscan sus datos ahí, y
+  también donde los pone la tabla: un mensaje escrito así no pasa el esquema,
+  y eso lo dice `XSD-ORDEN`, pero los datos están, y decir que faltan sería
+  falso;
 - **pone el nombre del vendedor en `cac:PartyTaxScheme/cac:PartyLegalEntity`**,
   y `cac:PartyTaxScheme` no tiene `cac:PartyLegalEntity`. Hay dos arreglos de
   un paso, y no se sabe cuál quiso la orden: el de quitar `cac:PartyTaxScheme`,
@@ -139,7 +145,7 @@ _CONDICION = re.compile(re.escape(_STATUS) + r"/cac:Condition/cbc:AttributeID=([
 _RAZON = re.compile(re.escape(_STATUS) + r"/cbc:StatusReason=([A-Za-z]+)$")
 _MOTIVO = _STATUS + "/cbc:ConditionCode"
 
-DOS_RUTAS = "dos rutas en una celda"
+DOS_RUTAS = "dos rutas en una celda, cada una en su párrafo"
 RENGLON = "un renglón partido detrás de una barra"
 ESPACIO = "un espacio donde va una barra"
 BARRA_DOBLE = "una barra doble"
@@ -287,8 +293,9 @@ def _plan(codigo: str, mensaje) -> Plan:
 
 
 PLANES = {codigo: _plan(codigo, mensaje) for codigo, mensaje in mensajes_es.MENSAJES.items()}
-# Todas las erratas arregladas, de todas las tablas: una prueba fija cuántas
-# hay de cada clase, y si el BOE corrige alguna, salta.
+# Todo lo que se arregla al leer las rutas, de todas las tablas (las erratas y
+# las celdas con dos rutas): una prueba fija cuántas hay de cada clase, y si el
+# BOE corrige alguna, salta.
 ARREGLOS = sum((plan.arreglos for plan in PLANES.values()), collections.Counter())
 _MOTIVOS = {clave: lista.valores for clave, lista in mensajes_es.LISTAS.items()}
 
@@ -339,6 +346,22 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
     return [_alcance(medidas, len(respuestas) - len(medidas))] + incidencias
 
 
+def medido_entero(raiz, deteccion) -> bool:
+    """¿Son mensajes de la orden todas las respuestas del documento?
+
+    La frase del lote lo necesita para decir lo que no se miró. Con un pago y
+    una respuesta de otra red en el mismo documento, la nota sale y dice que
+    la otra no se mira; la frase contaba documentos con la nota, daba el
+    contenido por mirado y se callaba la segunda. Lo vio el revisor de
+    promesas.
+    """
+    if raiz is None or not deteccion or deteccion.familia != RESPUESTA:
+        return False
+    respuestas = raiz.findall("cac:DocumentResponse", _NS)
+    return bool(respuestas) and all(
+        _texto(r, "cac:Response/cbc:ResponseCode") in PLANES for r in respuestas)
+
+
 def _fecha(respuesta, plan: Plan) -> list[Incidencia]:
     if not plan.fecha or _texto(respuesta, _FECHA):
         return []
@@ -360,12 +383,16 @@ def _estado(respuesta, plan: Plan) -> list[Incidencia]:
     """Lo que va en `cac:Status`: las fechas con su condición y los indicadores."""
     salida = []
     vistas = collections.Counter()
+    razones = collections.Counter()
     estados = respuesta.findall(_STATUS, _NS)
     for estado in estados:
         con_fecha = bool(_texto(estado, "cbc:ReferenceDate"))
+        de_fecha = []
         for condicion in estado.findall("cac:Condition", _NS):
             atributo = _texto(condicion, "cbc:AttributeID")
             vistas[atributo] += 1
+            if atributo in plan.fechas and atributo not in de_fecha:
+                de_fecha.append(atributo)
             if atributo in plan.fechas and not con_fecha:
                 salida.append(Incidencia(
                     "SPFE-MENSAJE-ESTADO",
@@ -379,8 +406,25 @@ def _estado(respuesta, plan: Plan) -> list[Incidencia]:
                 ))
             elif atributo not in plan.fechas and atributo not in plan.indicadores:
                 salida.append(_no_prevista(plan, "la condición", atributo, plan.condiciones))
+        # Una fecha para dos condiciones. El esquema lo admite (un
+        # cbc:ReferenceDate y las cac:Condition que se quiera) y la tabla no,
+        # que pone cada fecha en su cac:Status con su condición. Pasaba sin una
+        # palabra, con el vencimiento y la recepción en la misma fecha sin que
+        # nadie lo dijera. Lo vieron el revisor de promesas y el auditor.
+        if con_fecha and len(de_fecha) > 1:
+            salida.append(Incidencia(
+                "SPFE-MENSAJE-ESTADO",
+                ERROR,
+                f"Un cac:Status {_de(plan.nombre)} lleva las condiciones "
+                f"{_y(de_fecha)} con una sola fecha, y no se sabe de cuál es: la "
+                "orden pone cada fecha en su cac:Status, con su condición.",
+                campo="cac:Status",
+                esperado="un cac:Status por cada fecha",
+                encontrado=_y(de_fecha),
+            ))
         for razon in estado.findall("cbc:StatusReason", _NS):
             valor = " ".join("".join(razon.itertext()).split())
+            razones[valor] += 1
             if valor not in plan.razones:
                 salida.append(_no_prevista(plan, "el cbc:StatusReason", valor, list(plan.razones)))
         if not plan.motivo and _texto(estado, "cbc:ConditionCode"):
@@ -388,12 +432,28 @@ def _estado(respuesta, plan: Plan) -> list[Incidencia]:
                 plan, "el cbc:ConditionCode", _texto(estado, "cbc:ConditionCode"), []))
     for atributo, veces in vistas.items():
         if veces > 1 and atributo in plan.condiciones:
+            # «Cuál vale» solo con una fecha: un indicador repetido dice lo
+            # mismo dos veces, y lo que incumple es el 0..1 de su fila.
             salida.append(Incidencia(
                 "SPFE-MENSAJE-ESTADO",
                 ERROR,
                 f"La condición {atributo} va {veces} veces en {plan.nombre}, y la "
-                "orden la pone una sola vez: con dos no se sabe cuál vale.",
+                "orden la pone una sola vez"
+                + (": con dos no se sabe cuál vale." if atributo in plan.fechas else "."),
                 campo=(plan.fechas.get(atributo) or (plan.indicadores.get(atributo),))[0],
+                esperado="una vez",
+                encontrado=f"{veces} veces",
+            ))
+    # Lo mismo con los indicadores que van en cbc:StatusReason, que la tabla
+    # da 0..1. Un «CorrectedInvoice» repetido pasaba sin una queja.
+    for valor, veces in razones.items():
+        if veces > 1 and valor in plan.razones:
+            salida.append(Incidencia(
+                "SPFE-MENSAJE-ESTADO",
+                ERROR,
+                f"El cbc:StatusReason «{valor}» va {veces} veces en {plan.nombre}, "
+                "y la orden lo pone una sola vez.",
+                campo=plan.razones[valor],
                 esperado="una vez",
                 encontrado=f"{veces} veces",
             ))
@@ -482,7 +542,25 @@ def _motivo(respuesta, plan: Plan) -> list[Incidencia]:
 
 
 def _facturas(respuesta, plan: Plan) -> list[Incidencia]:
-    facturas = respuesta.findall(_FACTURA, _NS)
+    """Cada factura de la que informa el mensaje, con sus cuatro datos.
+
+    Una factura es un `cac:DocumentReference`. En la anulación se buscan sus
+    datos también donde los pone la tabla del BOE, colgados de `cac:Response`,
+    y un nodo de allí con el mismo número es la misma factura. El esquema no lo
+    admite, y eso ya lo dice `XSD-ORDEN`, pero los datos están: hasta el
+    12-10-2026 a una anulación escrita al pie de la letra le salía «le faltan»
+    con los tres datos en el fichero. Lo vio el revisor de promesas.
+    """
+    facturas = [[nodo] for nodo in respuesta.findall(_FACTURA, _NS)]
+    if FACTURA_EN_LA_RESPUESTA in plan.erratas:
+        for nodo in respuesta.findall(_FACTURA_EN_LA_RESPUESTA, _NS):
+            numero = _texto(nodo, "cbc:ID")
+            misma = next((f for f in facturas
+                          if numero and _texto(f[0], "cbc:ID") == numero), None)
+            if misma is None:
+                facturas.append([nodo])
+            else:
+                misma.append(nodo)
     campo = "Factura informada" if not plan.varias_facturas else "Factura anulada"
     if not facturas:
         return [Incidencia(
@@ -506,10 +584,10 @@ def _facturas(respuesta, plan: Plan) -> list[Incidencia]:
             encontrado=f"{len(facturas)}",
         ))
     for factura in facturas:
-        numero = _texto(factura, "cbc:ID")
+        numero = next((n for nodo in factura if (n := _texto(nodo, "cbc:ID"))), "")
         cual = f"la factura {numero}" if numero else "la factura sin número"
         faltan = [dato for dato, rutas in plan.datos.items()
-                  if not any(_texto(factura, r) for r in rutas)]
+                  if not any(_texto(nodo, r) for nodo in factura for r in rutas)]
         if faltan:
             salida.append(Incidencia(
                 "SPFE-MENSAJE-FACTURA",
@@ -523,30 +601,39 @@ def _facturas(respuesta, plan: Plan) -> list[Incidencia]:
                 esperado=_y(list(plan.datos)),
                 encontrado="falta " + _y(faltan),
             ))
-        escrito = _texto(factura, "cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID")
-        if not escrito:
-            continue
-        if parece_de_fuera(escrito):
-            salida.append(Incidencia(
-                "SPFE-MENSAJE-FACTURA",
-                AVISO,
-                f"El emisor de {cual} no lleva un NIF español sino un número de "
-                f"otro país, y la orden pide el NIF del vendedor.",
-                campo="NIF emisor",
-                esperado="un NIF español",
-                encontrado=escrito,
-            ))
-            continue
-        resultado = nif.validar(limpiar_nif(escrito))
-        if not resultado:
-            salida.append(Incidencia(
-                "SPFE-MENSAJE-FACTURA",
-                ERROR,
-                f"El NIF del emisor de {cual} no es válido, y es parte de lo que "
-                f"identifica la factura. {resultado.motivo}",
-                campo="NIF emisor",
-                encontrado=escrito,
-            ))
+        # Cada NIF por separado. El emisor puede llevar dos cac:PartyTaxScheme,
+        # como en la factura el NIF-IVA y el NIF (BT-31 y BT-32), y `_texto`
+        # los juntaba en uno: «ESB12345674 B12345674» no es válido, y salía un
+        # ERROR con los dos buenos. Lo vio el auditor.
+        escritos = list(dict.fromkeys(
+            " ".join("".join(nif_escrito.itertext()).split())
+            for nodo in factura
+            for nif_escrito in nodo.findall(
+                "cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID", _NS)))
+        for escrito in escritos:
+            if not escrito:
+                continue
+            if parece_de_fuera(escrito):
+                salida.append(Incidencia(
+                    "SPFE-MENSAJE-FACTURA",
+                    AVISO,
+                    f"El emisor de {cual} no lleva un NIF español sino un número de "
+                    f"otro país, y la orden pide el NIF del vendedor.",
+                    campo="NIF emisor",
+                    esperado="un NIF español",
+                    encontrado=escrito,
+                ))
+                continue
+            resultado = nif.validar(limpiar_nif(escrito))
+            if not resultado:
+                salida.append(Incidencia(
+                    "SPFE-MENSAJE-FACTURA",
+                    ERROR,
+                    f"El NIF del emisor de {cual} no es válido, y es parte de lo que "
+                    f"identifica la factura. {resultado.motivo}",
+                    campo="NIF emisor",
+                    encontrado=escrito,
+                ))
     return salida
 
 
@@ -565,8 +652,8 @@ def _alcance(medidas: list[Plan], otras: int) -> Incidencia:
     partes = [
         f"Es {_y(nombres)} de la solución pública ({', '.join(codigos)}), y se ha "
         f"medido con {tablas} de la Orden HAC/1028/2026 ({de_anexo}).",
-        "No se mide lo que la orden deja a la Sede electrónica de la AEAT, que "
-        f"todavía no lo ha sacado: las especificaciones técnicas y la volumetría{articulo}, "
+        "No se mide lo que la orden deja a la Sede electrónica de la AEAT: las "
+        f"especificaciones técnicas y la volumetría{articulo}, "
         "y con ellas la cabecera de la respuesta (quién la manda, a quién, su "
         "número y su fecha), que las tablas no definen. Tampoco que la factura "
         "exista y sea esa, ni que las fechas sean ciertas"
@@ -574,8 +661,9 @@ def _alcance(medidas: list[Plan], otras: int) -> Incidencia:
            "el mensaje." if vencimiento else "."),
         "El NIF del emisor se acepta con el prefijo ES y sin él: la tabla dice "
         "NIF y lo pone en cac:PartyTaxScheme/cbc:CompanyID, que en la factura "
-        "es el NIF-IVA del vendedor (BT-31) y lleva el prefijo. Y con cualquier "
-        "impuesto en su cac:TaxScheme, que el esquema exige y ninguna tabla da.",
+        "de la orden es el NIF-IVA del vendedor (BT-31), con el prefijo, o su "
+        "NIF (BT-32), sin él. Y con cualquier impuesto en su cac:TaxScheme, que "
+        "el esquema exige y ninguna tabla da.",
     ]
     erratas = {e for c in codigos for e in PLANES[c].erratas}
     if erratas:
@@ -583,10 +671,12 @@ def _alcance(medidas: list[Plan], otras: int) -> Incidencia:
             "La tabla del mensaje de anulación escribe dos rutas que no existen "
             "en UBL 2.5, y un mensaje escrito así no pasa el esquema: cuelga la "
             "factura anulada de cac:Response y pone el nombre del vendedor en "
-            "cac:PartyTaxScheme/cac:PartyLegalEntity. Se ha leído como el "
-            "anexo II: la factura en cac:DocumentResponse/cac:DocumentReference, "
-            "y el nombre en cac:PartyLegalEntity o en el cbc:RegistrationName "
-            "de cac:PartyTaxScheme, que son los dos arreglos posibles."
+            "cac:PartyTaxScheme/cac:PartyLegalEntity. Los datos de la factura "
+            "se buscan donde los pone el anexo II, en "
+            "cac:DocumentResponse/cac:DocumentReference, y también donde los "
+            "pone esta tabla; el nombre, en cac:PartyLegalEntity o en el "
+            "cbc:RegistrationName de cac:PartyTaxScheme, que son los dos "
+            "arreglos posibles."
         )
     if otras:
         partes.append(

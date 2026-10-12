@@ -309,6 +309,7 @@ def validar(
     )
     informe.incidencias.extend(incidencias)
     informe.mirado = _mirado(deteccion, catalogo)
+    informe.contenido_medido = mensajes.medido_entero(raiz, deteccion)
     return informe
 
 
@@ -754,11 +755,14 @@ class InformeLote:
         if self._respuestas_medidas():
             # Cuelga de la nota, como lo del anexo I: solo se apunta si a
             # alguna respuesta del lote se le midió su tabla, y lo que no se
-            # mide lo dice ella.
+            # mide lo dice ella. Y «parte de», como en el anexo I: la nota
+            # enumera lo que la orden les pide y aquí no se mide. Sin él, la
+            # frase daba por comprobado todo lo que la orden pide a sus
+            # mensajes. Lo vio el revisor de promesas.
             contenido.append(
-                "lo que la orden de la solución pública pide a sus mensajes de "
-                "anulación y de estado (lo que no se mide lo dice la nota "
-                "SPFE-MENSAJE-ALCANCE)"
+                "parte de lo que la orden de la solución pública pide a sus "
+                "mensajes de anulación y de estado (lo que no se mide lo dice la "
+                "nota SPFE-MENSAJE-ALCANCE)"
             )
         de_la_firma = mirado[PARTE_FIRMA]
         sin_la_firma = sin_mirar[PARTE_FIRMA]
@@ -841,7 +845,7 @@ class InformeLote:
                 "el código único de las facturas EDIFACT"
             )
         medidas = self._respuestas_medidas()
-        if RESPUESTA in familias and medidas < self._respuestas():
+        if RESPUESTA in familias and self._respuestas_con_contenido_sin_mirar():
             # De una respuesta solo se mira la forma y, si la trae, la firma.
             # Sin esta línea, la columna del contenido salía «Sin mirar» sin
             # decir de qué, y la frase de arriba solo hablaba de facturas.
@@ -855,7 +859,8 @@ class InformeLote:
             # Desde el 12-10-2026 a los mensajes de la orden sí se les mide el
             # contenido, y la frase no puede decir de todas que no: «las
             # demás» cuando a alguna se le midió, y la de siempre cuando a
-            # ninguna.
+            # ninguna. Y se cuentan respuestas, no documentos: ver
+            # `_respuestas_con_contenido_sin_mirar`.
             sin_mirar[PARTE_CONTENIDO].append(
                 "el contenido de las demás respuestas (ApplicationResponse)"
                 if medidas else
@@ -863,11 +868,19 @@ class InformeLote:
             )
         return mirado, sin_mirar
 
-    def _respuestas(self) -> int:
+    def _respuestas_con_contenido_sin_mirar(self) -> int:
+        """Cuántas respuestas del lote traen algo cuyo contenido no se ha medido.
+
+        Por documento con la nota no basta: uno con un pago y una respuesta de
+        otra red la lleva, y solo se ha medido el pago. Hasta el 12-10-2026 se
+        contaban así, y la frase daba el contenido por mirado y callaba el de
+        la segunda. Lo vio el revisor de promesas.
+        """
         return sum(
             1 for _, informe in self.informes
             if informe.deteccion is not None
             and informe.deteccion.familia == RESPUESTA
+            and not informe.contenido_medido
         )
 
     def _respuestas_medidas(self) -> int:
@@ -875,8 +888,9 @@ class InformeLote:
 
         Se cuentan por la nota SPFE-MENSAJE-ALCANCE, que sale una vez por
         documento en cuanto uno de sus `cac:DocumentResponse` lleva un código
-        de la orden. Si un documento mezcla mensajes de la orden con otras
-        respuestas, la nota lo dice: la frase del lote lo cuenta como medido.
+        de la orden. Un documento que mezcla mensajes de la orden con otras
+        respuestas cuenta aquí, y lo que no se le midió lo cuenta
+        `_respuestas_con_contenido_sin_mirar`.
         """
         return sum(
             1 for _, informe in self.informes
@@ -1143,6 +1157,7 @@ def validar_lote(
                 )
                 informe.incidencias.extend(incidencias)
                 informe.mirado = _mirado(deteccion, catalogo)
+                informe.contenido_medido = mensajes.medido_entero(raiz, deteccion)
         except Exception as error:  # noqa: BLE001 - ver `_se_atraganta`
             lote.informes.append((camino, _se_atraganta(camino, error, nombre)))
             continue

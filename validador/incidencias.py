@@ -103,6 +103,11 @@ class Informe:
     # no había un esquema que se pudiera usar. La firma y las entidades sí se le
     # miran, así que no es «no se ha mirado nada». Ver `validado`.
     mirado: bool = True
+    # Si a una respuesta se le ha medido el contenido de todo lo que trae: que
+    # todos sus `cac:DocumentResponse` sean mensajes de la orden. Lo necesita la
+    # frase del lote para no dar por mirado lo que no se miró. En una factura
+    # no se usa. Ver `mensajes.medido_entero`.
+    contenido_medido: bool = False
 
     @property
     def errores(self) -> list[Incidencia]:

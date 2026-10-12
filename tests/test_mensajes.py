@@ -280,6 +280,26 @@ class TestComoSeLee:
             mensajes._plan("PAYMENT", dataclasses.replace(
                 pago, filas=(*pago.filas[:3], obligatoria, *pago.filas[4:])))
 
+    @pytest.mark.parametrize("codigo,fila,dice", [
+        ("REJECTION", 1, "el motivo ya no es obligatorio"),
+        ("PAYMENT", 0, "la fecha del mensaje ya no es una y obligatoria"),
+        ("CANCELINVOICE", 4, "el vendedor ya no es obligatorio"),
+    ])
+    def test_lo_obligatorio_que_deja_de_serlo_tampoco(self, codigo, fila, dice):
+        """Cada negativa de `_plan`, provocada. El auditor las quitó una a una
+        el 12-10-2026 y la suite seguía en verde."""
+        tabla = mensajes_es.MENSAJES[codigo]
+        relajada = dataclasses.replace(tabla.filas[fila], cardinalidad="0..1")
+        with pytest.raises(AnexoCambiado, match=dice):
+            mensajes._plan(codigo, dataclasses.replace(
+                tabla, filas=(*tabla.filas[:fila], relajada, *tabla.filas[fila + 1:])))
+
+    def test_dos_grupos_de_factura_tampoco(self):
+        tabla = mensajes_es.MENSAJES["PAYMENT"]
+        grupo = next(f for f in tabla.filas if f.termino == "FACTURA INFORMADA")
+        with pytest.raises(AnexoCambiado, match="dos grupos de factura"):
+            mensajes._plan("PAYMENT", dataclasses.replace(tabla, filas=(*tabla.filas, grupo)))
+
     def test_cada_mensaje_tiene_nombre(self):
         assert set(mensajes.NOMBRES) == set(mensajes_es.MENSAJES)
 
@@ -312,6 +332,13 @@ class TestElMensajeBueno:
         """`payment` no es `PAYMENT`: no se mide, y el informe dice que no se mira."""
         informe = medir(mensaje("payment", ""))
         assert not [i for i in informe.incidencias if i.codigo.startswith("SPFE-")]
+
+    def test_se_mide_cada_respuesta_del_documento_y_no_solo_la_primera(self):
+        """Con solo la primera medida, un rechazo sin motivo detrás de un pago
+        bueno pasaba la suite entera. Lo provocó el auditor."""
+        xml = mensaje(respuestas=respuesta("PAYMENT", BUENO["PAYMENT"])
+                      + respuesta("REJECTION", FECHA))
+        assert codigos(medir(xml)) == [("SPFE-MENSAJE-MOTIVO", ERROR)]
 
     def test_a_una_factura_no_le_toca(self):
         datos = (RAIZ / "ejemplos" / "f-0001.xml").read_bytes()
@@ -351,6 +378,14 @@ class TestElVencimiento:
         informe = medir(mensaje("PAYMENT", FECHA + estado("ShipmentDate")))
         assert codigos(informe) == [("SPFE-MENSAJE-VENCIMIENTO", ERROR)]
 
+    def test_la_fecha_de_otro_status_no_le_vale(self):
+        """La fecha de la recepción no es la del vencimiento, aunque estén en
+        el mismo mensaje. Lo provocó el auditor."""
+        informe = medir(mensaje("PAYMENT", FECHA + estado("DueDate", fecha=None)
+                                + estado("ShipmentDate")))
+        assert sorted(codigos(informe)) == [
+            ("SPFE-MENSAJE-ESTADO", ERROR), ("SPFE-MENSAJE-VENCIMIENTO", ERROR)]
+
     def test_en_el_cobro_es_opcional(self):
         assert codigos(medir(mensaje("SETTLEMENT", FECHA))) == []
 
@@ -360,6 +395,31 @@ class TestLoQueVaEnElEstado:
         informe = medir(mensaje("PAYMENT", FECHA + estado("DueDate") + estado("DueDate", "2026-12-01")))
         assert codigos(informe) == [("SPFE-MENSAJE-ESTADO", ERROR)]
         assert "2 veces" in quejas(informe)[0].mensaje
+
+    def test_una_fecha_para_dos_condiciones(self):
+        """El esquema lo admite y la tabla no: pasaba sin una palabra. Lo vieron
+        el revisor de promesas y el auditor."""
+        dos = ("<cac:Status><cbc:ReferenceDate>2026-11-05</cbc:ReferenceDate>"
+               "<cac:Condition><cbc:AttributeID>DueDate</cbc:AttributeID></cac:Condition>"
+               "<cac:Condition><cbc:AttributeID>ShipmentDate</cbc:AttributeID></cac:Condition>"
+               "</cac:Status>")
+        informe = medir(mensaje("PAYMENT", FECHA + dos))
+        assert codigos(informe) == [("SPFE-MENSAJE-ESTADO", ERROR)]
+        assert "DueDate y ShipmentDate con una sola fecha" in quejas(informe)[0].mensaje
+
+    def test_un_status_reason_repetido(self):
+        """Su fila es 0..1. Lo vieron el revisor de promesas y el auditor."""
+        razon = "<cac:Status><cbc:StatusReason>CorrectedInvoice</cbc:StatusReason></cac:Status>"
+        informe = medir(mensaje("PAYMENT", BUENO["PAYMENT"] + razon + razon))
+        assert codigos(informe) == [("SPFE-MENSAJE-ESTADO", ERROR)]
+        assert "«CorrectedInvoice» va 2 veces" in quejas(informe)[0].mensaje
+
+    def test_un_indicador_repetido(self):
+        """Sin «cuál vale»: dice lo mismo dos veces. Lo provocó el auditor."""
+        con = estado("FinancingArrangement", fecha=None)
+        informe = medir(mensaje("SETTLEMENT", FECHA + con + con))
+        assert codigos(informe) == [("SPFE-MENSAJE-ESTADO", ERROR)]
+        assert "cuál vale" not in quejas(informe)[0].mensaje
 
     def test_una_fecha_opcional_sin_su_fecha(self):
         informe = medir(mensaje("SETTLEMENT", FECHA + estado("ReceptionDate", fecha=None)))
@@ -463,21 +523,80 @@ class TestLaFactura:
         assert codigos(medir(mensaje("CANCELPAYMENT", factura_=FACTURA.replace(
             "B12345674", "ESB12345674")))) == []
 
+    def test_con_el_prefijo_es_y_el_control_mal_no_vale(self):
+        """Que valga con ES no es que con ES valga cualquiera. Lo provocó el auditor."""
+        informe = medir(mensaje("CANCELPAYMENT", factura_=FACTURA.replace(
+            "B12345674", "ESB12345678")))
+        assert codigos(informe) == [("SPFE-MENSAJE-FACTURA", ERROR)]
+
+    def test_los_dos_nif_del_emisor_se_miran_por_separado(self, catalogo):
+        """Como en la factura, el NIF-IVA y el NIF (BT-31 y BT-32). Juntos en uno
+        salía «no es válido» con los dos buenos. Lo vio el auditor."""
+        dos = FACTURA.replace(
+            "<cac:PartyTaxScheme><cbc:CompanyID>B12345674</cbc:CompanyID>",
+            "<cac:PartyTaxScheme><cbc:CompanyID>ESB12345674</cbc:CompanyID><cac:TaxScheme>"
+            "<cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>"
+            "<cac:PartyTaxScheme><cbc:CompanyID schemeID=\"FC\">B12345674</cbc:CompanyID>")
+        assert codigos(medir(mensaje("CANCELPAYMENT", factura_=dos), catalogo)) == []
+        informe = medir(mensaje("CANCELPAYMENT", factura_=dos.replace(
+            ">B12345674<", ">B12345678<")), catalogo)
+        assert codigos(informe) == [("SPFE-MENSAJE-FACTURA", ERROR)]
+        assert quejas(informe)[0].encontrado == "B12345678"
+
+    def test_el_nif_de_la_entidad_legal_no_es_el_que_pide(self):
+        """La tabla lo pone en cac:PartyTaxScheme, y no se busca en otro sitio.
+        Lo provocó el auditor."""
+        en_otro = FACTURA.replace("<cbc:CompanyID>B12345674</cbc:CompanyID>", "").replace(
+            "<cbc:RegistrationName>Vendedor SL</cbc:RegistrationName>",
+            "<cbc:RegistrationName>Vendedor SL</cbc:RegistrationName>"
+            "<cbc:CompanyID>B12345674</cbc:CompanyID>")
+        informe = medir(mensaje("CANCELPAYMENT", factura_=en_otro))
+        assert codigos(informe) == [("SPFE-MENSAJE-FACTURA", ERROR)]
+        assert "le falta el NIF del emisor" in quejas(informe)[0].mensaje
+
+    def test_en_la_anulacion_se_mira_cada_factura(self, catalogo):
+        """No solo la primera. Lo provocó el auditor."""
+        segunda = FACTURA.replace("F-2026-0101", "F-2026-0102").replace(
+            "<cbc:IssueDate>2026-10-06</cbc:IssueDate>", "")
+        informe = medir(mensaje("CANCELINVOICE", factura_=FACTURA + segunda), catalogo)
+        assert codigos(informe) == [("SPFE-MENSAJE-FACTURA", ERROR)]
+        assert "F-2026-0102" in quejas(informe)[0].mensaje
+
     def test_uno_de_otro_pais_es_un_aviso(self):
         assert codigos(medir(mensaje("CANCELPAYMENT", factura_=FACTURA.replace(
             "B12345674", "NL123456789B01")))) == [("SPFE-MENSAJE-FACTURA", AVISO)]
 
 
 class TestLaAnulacionComoLaEscribeElBoe:
-    def test_no_pasa_el_esquema_y_la_factura_queda_a_medias(self, catalogo):
+    def test_no_pasa_el_esquema_pero_los_datos_estan(self, catalogo):
         """La factura dentro de `cac:Response`, y en `cac:DocumentResponse` solo
-        lo que el esquema obliga a poner."""
+        lo que el esquema obliga a poner. La forma la dice `XSD-ORDEN`; hasta
+        el 12-10-2026 salía además «le faltan» con los tres datos en el
+        fichero. Lo vio el revisor de promesas."""
         xml = mensaje(respuestas=respuesta(
             "CANCELINVOICE", FECHA + FACTURA,
             "<cac:DocumentReference><cbc:ID>F-2026-0101</cbc:ID></cac:DocumentReference>"))
         informe = medir(xml, catalogo)
         assert ("XSD-ORDEN", ERROR) in [(i.codigo, i.gravedad) for i in informe.incidencias]
+        assert codigos(informe) == []
+
+    def test_sin_nada_fuera_tampoco_dice_que_falta(self):
+        xml = mensaje(respuestas=respuesta("CANCELINVOICE", FECHA + FACTURA, ""))
+        assert codigos(medir(xml)) == []
+
+    def test_lo_que_falta_tambien_alli_si_lo_dice(self):
+        sin_fecha = FACTURA.replace("<cbc:IssueDate>2026-10-06</cbc:IssueDate>", "")
+        xml = mensaje(respuestas=respuesta("CANCELINVOICE", FECHA + sin_fecha, ""))
+        informe = medir(xml)
         assert codigos(informe) == [("SPFE-MENSAJE-FACTURA", ERROR)]
+        assert "le falta la fecha de expedición" in quejas(informe)[0].mensaje
+
+    def test_en_el_anexo_ii_no_se_busca_alli(self):
+        """Allí la ruta está bien escrita: no hay errata que leer."""
+        xml = mensaje(respuestas=respuesta(
+            "PAYMENT", BUENO["PAYMENT"] + FACTURA,
+            "<cac:DocumentReference><cbc:ID>F-2026-0101</cbc:ID></cac:DocumentReference>"))
+        assert codigos(medir(xml)) == [("SPFE-MENSAJE-FACTURA", ERROR)]
 
     def test_la_nota_dice_como_se_ha_leido(self):
         nota = medir(mensaje("CANCELINVOICE")).incidencias[0]
@@ -515,6 +634,31 @@ class TestLaNota:
         assert codigos(informe) == []
         assert "cualquier impuesto en su cac:TaxScheme" in informe.incidencias[0].mensaje
 
+    def test_el_nif_es_el_bt_31_o_el_bt_32(self):
+        """La ruta es la de los dos NIF de la factura. Decía solo BT-31, «y lleva
+        el prefijo». Lo vieron el revisor de promesas y el auditor."""
+        nota = medir(mensaje("CANCELPAYMENT")).incidencias[0].mensaje
+        assert "(BT-31), con el prefijo, o su NIF (BT-32), sin él" in nota
+
+    def test_no_dice_lo_que_ha_hecho_la_sede(self):
+        """Decía «que todavía no lo ha sacado», sin fecha y sin mirarlo, y lo
+        habría seguido diciendo el día que la Sede publicara. Lo vio el revisor
+        de promesas."""
+        from validador.glosario import CODIGOS as FICHAS
+
+        for codigo in CODIGOS:
+            assert "no lo ha sacado" not in medir(mensaje(codigo)).incidencias[0].mensaje
+        assert "no lo ha sacado" not in FICHAS["SPFE-MENSAJE-ALCANCE"]
+
+    def test_la_ficha_del_estado_no_pone_alli_el_vencimiento_del_impago(self):
+        """En el impago es la fecha del mensaje, en cbc:EffectiveDate. Lo vio el
+        revisor de promesas."""
+        from validador.glosario import CODIGOS as FICHAS
+
+        assert mensajes.PLANES["DEFAULT"].fecha == "Fecha de vencimiento del pago"
+        assert "DueDate" not in mensajes.PLANES["DEFAULT"].fechas
+        assert "En el impago el vencimiento no va aquí" in FICHAS["SPFE-MENSAJE-ESTADO"]
+
     def test_el_articulo_de_la_sede_solo_en_el_anexo_ii(self):
         assert "artículo 7" not in medir(mensaje("CANCELINVOICE")).incidencias[0].mensaje
         assert "apartado 3 del artículo 7" in medir(mensaje("CANCELPAYMENT")).incidencias[0].mensaje
@@ -537,9 +681,9 @@ class TestLoQueElInformeDice:
         lote = _lote(tmp_path, catalogo, mensaje("PAYMENT"))
         assert lote.alcance() == (
             "«Sin errores» quiere decir que se ha comprobado la forma contra el "
-            "esquema XSD, lo que la orden de la solución pública pide a sus "
-            "mensajes de anulación y de estado (lo que no se mide lo dice la nota "
-            "SPFE-MENSAJE-ALCANCE).\nNo se comprueba la validez de las firmas "
+            "esquema XSD, parte de lo que la orden de la solución pública pide a "
+            "sus mensajes de anulación y de estado (lo que no se mide lo dice la "
+            "nota SPFE-MENSAJE-ALCANCE).\nNo se comprueba la validez de las firmas "
             "electrónicas, ni si lo que dice la factura es cierto."
         )
         partes = {p.nombre: p for p in lote.partes()}
@@ -552,10 +696,27 @@ class TestLoQueElInformeDice:
         assert "SPFE-MENSAJE-ALCANCE" in frase
         assert "el contenido de las demás respuestas (ApplicationResponse)" in frase
 
+    def test_con_otra_respuesta_en_el_mismo_documento_tambien(self, tmp_path, catalogo):
+        """Se cuentan respuestas, no documentos. Con un pago y un `AP` en uno
+        solo, la frase y la columna daban el contenido por mirado. Lo vio el
+        revisor de promesas."""
+        lote = _lote(tmp_path, catalogo, mensaje(
+            respuestas=respuesta("PAYMENT", BUENO["PAYMENT"]) + respuesta("AP")))
+        assert "el contenido de las demás respuestas (ApplicationResponse)" in lote.alcance()
+        partes = {p.nombre: p for p in lote.partes()}
+        assert "las demás respuestas" in partes["El contenido"].sin_mirar
+
     def test_sin_ningun_mensaje_de_la_orden_como_siempre(self, tmp_path, catalogo):
         frase = _lote(tmp_path, catalogo, mensaje("AP", "")).alcance()
         assert "SPFE-MENSAJE-ALCANCE" not in frase
         assert "el contenido de las respuestas (ApplicationResponse)" in frase
+
+    def test_la_portada_dice_lo_mismo(self):
+        """El panel del contenido: los mensajes, y sin «todavía», que la lista
+        de lo que todavía no se mide está vacía. Lo vio el revisor de promesas."""
+        portada = " ".join((RAIZ / "web" / "index.html").read_text(encoding="utf-8").split())
+        assert "y de sus mensajes de anulación y de estado: lo que no se mide lo dice" in portada
+        assert "todavía no se mide" not in portada
 
     def test_sin_su_esquema_sigue_sin_comprobar(self):
         """Medida la tabla, la comprobación principal sigue siendo la forma."""

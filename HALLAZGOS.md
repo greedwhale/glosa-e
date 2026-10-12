@@ -8145,14 +8145,16 @@ sin una sola queja.
   `validador/mensajes.py` las lee fila a fila al importar. Una fila que no se
   sepa medir, un dato de la factura que deje de ser obligatorio o un mensaje
   nuevo hacen que no se importe.
-- **Las erratas de escritura se arreglan y se cuentan**: dos rutas en una
-  celda (8), un renglón partido detrás de una barra (16), un espacio donde va
-  una barra (1) y una barra doble (1). Si el BOE corrige una, la cuenta cambia
-  y una prueba salta. Una celda que ocupa dos filas (`rowspan`) se pone en las
+- **Las erratas de escritura se arreglan y se cuentan**: un renglón partido
+  detrás de una barra (16), un espacio donde va una barra (1) y una barra
+  doble (1). Se cuentan también las celdas con dos rutas, cada una en su
+  párrafo (8), que no son una errata (abajo). Si el BOE corrige una, la cuenta
+  cambia y una prueba salta. Una celda que ocupa dos filas (`rowspan`) se pone en las
   dos, que es lo que se ve impreso.
 - **Las dos de la anulación, leídas como el anexo II, y dichas.** La factura
-  colgada de `cac:Response`, que no la admite, se lee en
-  `cac:DocumentResponse`, el único sitio donde cabe. El nombre del vendedor
+  colgada de `cac:Response`, que no la admite, se busca en
+  `cac:DocumentResponse`, donde la pone el anexo II, y también donde la pone
+  la tabla (abajo). El nombre del vendedor
   dentro de `cac:PartyTaxScheme/cac:PartyLegalEntity` tiene dos arreglos de
   un paso, y se buscan los dos. Están preguntadas al buzón desde el
   07-10-2026, y la nota de cada anulación dice cómo se han leído.
@@ -8163,14 +8165,17 @@ sin una sola queja.
   no prevé (`Duedate` por `DueDate`, un `cbc:StatusReason` libre) sale en
   aviso: puede ser una errata, pero un mensaje no está mal por llevar algo de
   más.
-- **La frase del final** dice que se mide lo que la orden pide a sus mensajes
-  solo si a alguno se le midió, y de las demás respuestas sigue diciendo que
-  su contenido no se mira. Sin esquema, una respuesta sigue saliendo SIN
+- **La frase del final** dice que se mide parte de lo que la orden pide a sus
+  mensajes solo si a alguno se le midió, y de las demás respuestas sigue
+  diciendo que su contenido no se mira. Sin esquema, una respuesta sigue saliendo SIN
   COMPROBAR aunque se le haya medido la tabla.
 
 **Ahora**, los nueve rotos tienen su queja, y los nueve bien escritos salen
-sin errores con la nota. En el corpus no cambia nada: de 169 ficheros se leen
-157 y ninguno es una respuesta; 1346 incidencias con las reglas y sin ellas.
+sin errores con la nota. En el corpus no cambia nada: de 169 ficheros (los
+`.xml`, `.edi` y `.xsig` de las tres carpetas) se leen 157 y ninguno es una
+respuesta; 1346 incidencias con las reglas y sin ellas, con el validador
+entero (`factura.validar`) sin esquemas ni anclas. Con los esquemas salen
+más, por las de forma, y no es la misma medida.
 
 **Provocado.** Quince roturas, las quince en rojo: las reglas no corren, el
 código se lee sin mayúsculas, la fecha no se pide, el vencimiento vale sin su
@@ -8183,3 +8188,36 @@ nombre (no se importa).
 
 **Lo que no está medido.** El navegador, como con el resto de las respuestas,
 y ningún mensaje real: los de las pruebas están escritos aquí, con las tablas.
+
+**Lo que vieron el revisor de promesas y el auditor**, el mismo día, antes de
+publicar. Todo reproducido antes de arreglarlo:
+
+| Lo que pasaba | Ahora |
+|---|---|
+| un emisor con dos NIF buenos, el NIF-IVA y el NIF, daba «no es válido»: se juntaban en uno | se mira cada uno |
+| una fecha para el vencimiento y la recepción, en el mismo `cac:Status`, pasaba sin queja | ERROR `SPFE-MENSAJE-ESTADO` |
+| un `cbc:StatusReason` repetido en una fila `0..1`, sin queja | ERROR `SPFE-MENSAJE-ESTADO` |
+| la anulación escrita como el BOE recibía «le faltan» con los tres datos en el fichero | se buscan también allí; la forma la dice `XSD-ORDEN` |
+| un pago y un `AP` en un documento: la frase y la columna daban el contenido por mirado | se cuentan respuestas, no documentos |
+| la frase decía «lo que la orden pide a sus mensajes», entero | «parte de», como con el anexo I |
+| las seis quejas salían con la norma «Anexo I», también las del anexo II | «Anexo II» en las tres de estados, «Anexos I y II» en las otras |
+| la nota decía que la Sede «todavía no lo ha sacado», sin fecha y sin mirarlo | dice lo que deja la orden a la Sede, y nada de la Sede |
+| la nota daba el NIF solo como `BT-31`, «y lleva el prefijo» | el `BT-31` con el prefijo, o el `BT-32` sin él |
+| la ficha de `SPFE-MENSAJE-ESTADO` ponía el vencimiento del impago en `cac:Status` | en el impago es la fecha del mensaje |
+| la portada decía «lo que todavía no se mide», con esa lista vacía | «lo que no se mide», y los mensajes |
+| el docstring y esta entrada contaban como errata las celdas con dos rutas | cada ruta va en su párrafo en el XML: no es una errata |
+
+Y el auditor rompió `mensajes.py` sobre una copia, y once roturas pasaban la
+suite entera: solo se medía la primera respuesta del documento,
+solo la primera factura de la anulación, un NIF con `ES` y el control mal, el
+NIF buscado también en `cac:PartyLegalEntity`, la fecha del vencimiento sacada
+de otro `cac:Status`, un indicador repetido, la factura buscada dentro de
+`cac:Response` en todos los mensajes y cuatro negativas de `_plan` (el motivo,
+la fecha del mensaje y el vendedor que dejan de ser obligatorios, y dos grupos
+de factura). Cada una tiene ahora su prueba.
+
+**Provocado.** Veintitrés roturas, las veintitrés en rojo: once de la tabla
+(todas menos la última, que es de un comentario), las siete del auditor que
+eran de comportamiento, con la de `cac:Response` al revés (buscarla allí en
+todos los mensajes), sus cuatro negativas de `_plan` y el indicador repetido
+diciendo «cuál vale».

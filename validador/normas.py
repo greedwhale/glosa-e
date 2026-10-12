@@ -48,6 +48,11 @@ ESPANOLA = "RD 238/2026"
 # quejas que la orden no hace. Desde ese día todas miden la orden, y la ficha
 # la nombra; la etiqueta se queda corta, «Anexo I», como las demás.
 SOLUCION_PUBLICA = "Anexo I"
+# Los mensajes de la orden. La anulación es del anexo I y los estados del
+# anexo II: los tres códigos que solo miden estados llevan el segundo, y los
+# que miden también la anulación, los dos.
+ESTADOS = "Anexo II"
+MENSAJES = "Anexos I y II"
 FORMA = "Esquema XSD"
 NACIONAL = "Formato Facturae"
 SELLO = "Firma electrónica"
@@ -55,8 +60,16 @@ SELLO = "Firma electrónica"
 # y sobre todo las cuentas del sobre.
 SINTAXIS_EDI = "ISO 9735"
 
+_DE_LOS_ESTADOS = (
+    "los mensajes de estado de la factura de la solución pública: el anexo II "
+    "de la Orden HAC/1028/2026"
+)
+
 # Prefijo -> (etiqueta, de qué se trata). El orden importa solo en que el
-# primero que encaja gana; hoy no hay prefijos que se solapen.
+# primero que encaja gana. Desde el 12-10-2026 hay prefijos que se solapan: los
+# de los mensajes van delante de «SPFE-», y los códigos enteros delante de su
+# familia. `test_ningun_prefijo_tapa_a_otro` mira que el orden no esconda
+# ninguno.
 #
 # «REVOCA» y no «REVOCACION-» a propósito: el código de la anulación
 # confirmada es `REVOCADO`, a secas, y sin esto salía en el cajón de por
@@ -72,6 +85,15 @@ NORMAS: tuple[tuple[str, str, str], ...] = (
     # dos líneas por debajo de decir que la orden ya no tiene esa línea. Lo vio
     # el revisor de promesas el 07-10-2026, antes de publicar. Esa regla ya no
     # existe.
+    # Hasta el 12-10-2026 los mensajes salían con el «Anexo I» de las facturas,
+    # y la ficha del motivo del rechazo decía «Esa L1 no es la del anexo I»
+    # justo encima de «Norma: Anexo I». Lo vio el revisor de promesas.
+    ("SPFE-MENSAJE-ESTADO", ESTADOS, _DE_LOS_ESTADOS),
+    ("SPFE-MENSAJE-VENCIMIENTO", ESTADOS, _DE_LOS_ESTADOS),
+    ("SPFE-MENSAJE-MOTIVO", ESTADOS, _DE_LOS_ESTADOS),
+    ("SPFE-MENSAJE-", MENSAJES,
+     "los mensajes de la solución pública: la anulación de una factura, del "
+     "anexo I, y los estados del anexo II de la Orden HAC/1028/2026"),
     ("SPFE-", SOLUCION_PUBLICA,
      "el contenido mínimo de las facturas de la solución pública: el anexo I de la "
      "Orden HAC/1028/2026"),

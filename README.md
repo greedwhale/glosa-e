@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3246 tests, todos en verde.
+3268 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4565,7 +4565,7 @@ Medido ese día sobre `26e9a5d`, con mensajes escritos aquí y los esquemas de
 | un rechazo sin motivo, o con el `03` | sin errores | ERROR `SPFE-MENSAJE-MOTIVO` |
 | un pago sin el NIF ni el nombre del emisor | sin errores | ERROR `SPFE-MENSAJE-FACTURA` |
 | la baja de un pago sin la fecha de la factura | sin errores | ERROR `SPFE-MENSAJE-FACTURA` |
-| la anulación escrita como dice el BOE | ERROR `XSD-ORDEN` | el mismo, y `SPFE-MENSAJE-FACTURA` |
+| la anulación escrita como dice el BOE | ERROR `XSD-ORDEN` | el mismo, y sus datos se leen donde los pone la tabla |
 
 **Cómo se reconocen.** Por su código, que es lo que dice cuál es cada uno: la
 orden no les da identificador de especificación. Ninguno de los nueve está en
@@ -4581,45 +4581,59 @@ lee fila a fila al importar, y una fila que no sepa medir, un dato de la
 factura que deje de ser obligatorio o un mensaje nuevo hacen que no se
 importe. Una prueba vuelve a extraer y exige el mismo fichero, byte a byte.
 
-**Las erratas.** La columna de la ruta trae cuatro clases de errata de
-escritura, que se arreglan al leerla y se cuentan: dos rutas en una celda
-(8), un renglón partido detrás de una barra (16), un espacio donde va una
-barra (1) y una barra doble (1). Si el BOE corrige una, la cuenta cambia y
-una prueba salta. La tabla de la anulación trae además las dos que se le
+**Las erratas.** La columna de la ruta trae tres clases de errata de
+escritura, que se arreglan al leerla y se cuentan: un renglón partido detrás
+de una barra (16), un espacio donde va una barra (1) y una barra doble (1).
+Si el BOE corrige una, la cuenta cambia y una prueba salta. Se cuentan
+también las celdas con dos rutas (8), la de la fecha y la de su condición,
+cada una en su párrafo, que no son una errata: hasta el 12-10-2026 se
+contaban entre ellas, porque al leer la celda los dos párrafos se juntan con
+un espacio. La tabla de la anulación trae además las dos que se le
 preguntaron al buzón el 07-10-2026 (en «La consulta del 07-10-2026», abajo):
-la factura colgada de `cac:Response`, que se lee en `cac:DocumentResponse`
-porque es el único sitio donde cabe, y el nombre del vendedor dentro de
-`cac:PartyTaxScheme`, que se busca en los dos arreglos posibles. Las dice la
-nota de cada anulación, porque un mensaje escrito al pie de la letra no pasa
-el esquema. Que las rutas arregladas andan por UBL 2.5, y las dos de la
+la factura colgada de `cac:Response`, cuyos datos se buscan donde los pone el
+anexo II, en `cac:DocumentResponse`, y también donde los pone la tabla; y el
+nombre del vendedor dentro de `cac:PartyTaxScheme`, que se busca en los dos
+arreglos posibles. Las dice la nota de cada anulación, porque un mensaje
+escrito al pie de la letra no pasa el esquema. Que las rutas arregladas andan por UBL 2.5, y las dos de la
 anulación tal cual no, lo comprueba una prueba con el esquema.
 
 **Lo que se decidió sin preguntar, y por qué.**
 
 - **El NIF, con el prefijo ES y sin él, y con cualquier `cac:TaxScheme`.** La
-  tabla dice NIF y lo pone donde la factura pone el NIF-IVA, que lo lleva, y
-  el esquema exige un `cac:TaxScheme` que ninguna tabla da. Está preguntado;
-  hasta la respuesta no se da por mala ninguna forma. Uno de otro país sale en
-  AVISO, y uno español con el control mal, en ERROR.
+  tabla dice NIF y lo pone donde la factura de la orden pone el NIF-IVA, con
+  el prefijo, y el NIF, sin él (`BT-31` y `BT-32`); si van los dos, se mira
+  cada uno. El esquema exige un `cac:TaxScheme` que ninguna tabla da. Está
+  preguntado; hasta la respuesta no se da por mala ninguna forma. Uno de otro
+  país sale en AVISO, y uno español con el control mal, en ERROR.
 - **La fecha de vencimiento, en su propia regla.** Es la única fecha
   obligatoria que va en un `cac:Status`, y es lo que el apartado 1 del
   artículo 7 obliga a comunicar con el pago. Las demás fechas con condición
   son opcionales: si van, con su fecha y una vez.
+- **Una fecha por `cac:Status`.** El esquema admite un `cbc:ReferenceDate`
+  con varias condiciones, y la tabla pone cada fecha en su `cac:Status`: dos
+  condiciones con una sola fecha salen en ERROR, porque no se sabe de cuál es.
 - **Lo que la tabla no prevé, en AVISO.** Una condición, un
   `cbc:StatusReason` o un `cbc:ConditionCode` que el mensaje no lleva puede
   ser una errata (`Duedate` por `DueDate`), y entonces lo que quería decir no
   se ha leído; pero el mensaje no está mal por llevar algo de más.
 - **Una sola factura en los del anexo II.** Su tabla le da `1..1`; la de la
   anulación, `1..n`.
+- **Cada `cac:DocumentResponse` es un mensaje.** Un `ApplicationResponse`
+  puede traer varias respuestas, y cada una se mide con su tabla: el `1..1`
+  de la factura es de cada una. La orden no dice si cada comunicación va en
+  su documento; el apartado 3 del artículo 8 habla de la «relación de
+  comunicaciones» admitidas, así que un envío puede llevar varias.
 - **Lo que no se mide lo dice la nota**: lo que la orden deja a la Sede
-  electrónica y la Sede todavía no ha sacado, la cabecera de la respuesta
+  electrónica, la cabecera de la respuesta
   (quién la manda, a quién, su número y su fecha), que el esquema exige y las
   tablas no definen, y que la factura exista o que las fechas sean ciertas.
 
-**En el informe.** La frase del final dice que se ha mirado «lo que la orden
-de la solución pública pide a sus mensajes de anulación y de estado» solo si a
-alguno se le midió, y de las demás respuestas sigue diciendo que su contenido
-no se mira. Sin el esquema de `ApplicationResponse`, una respuesta sigue
+**En el informe.** La frase del final dice que se ha mirado «parte de lo que
+la orden de la solución pública pide a sus mensajes de anulación y de estado»
+solo si a alguno se le midió, y de las demás respuestas, también de las que
+van en el mismo documento que un mensaje de la orden, sigue diciendo que su
+contenido no se mira. La norma de cada queja es «Anexo II» en las tres que
+solo miden estados y «Anexos I y II» en las otras tres. Sin el esquema de `ApplicationResponse`, una respuesta sigue
 saliendo SIN COMPROBAR aunque se le haya medido la tabla: su comprobación
 principal sigue siendo la forma. Seis códigos nuevos, de 395 a 401. Lo que no
 está medido: el navegador, como con el resto de las respuestas (arriba), y
@@ -4635,7 +4649,7 @@ está recogido. Lo que se preguntó, y qué cambia aquí con cada respuesta:
 
 | Se preguntó | Por qué: lo medido | Qué cambia aquí con la respuesta |
 |---|---|---|
-| La ruta del mensaje de anulación del anexo I (`CANCELINVOICE`; la tabla se titula «Mensaje de anulación» y los artículos 3.5 y 5 lo llaman «mensaje de baja») | Toda la factura anulada cuelga de `cac:Response/cac:DocumentReference`, y en UBL 2.5 `cac:Response` no lo admite, mientras que `cac:DocumentResponse` lo exige: al pie de la letra, el esquema la rechaza. Los ocho mensajes del anexo II cuelgan lo mismo de `cac:DocumentResponse/cac:DocumentReference` | `validador/mensajes.py`, que desde el 12-10-2026 la lee en `cac:DocumentResponse`, el único sitio donde cabe, y lo dice en la nota de cada anulación |
+| La ruta del mensaje de anulación del anexo I (`CANCELINVOICE`; la tabla se titula «Mensaje de anulación» y los artículos 3.5 y 5 lo llaman «mensaje de baja») | Toda la factura anulada cuelga de `cac:Response/cac:DocumentReference`, y en UBL 2.5 `cac:Response` no lo admite, mientras que `cac:DocumentResponse` lo exige: al pie de la letra, el esquema la rechaza. Los ocho mensajes del anexo II cuelgan lo mismo de `cac:DocumentResponse/cac:DocumentReference` | `validador/mensajes.py`, que desde el 12-10-2026 busca los datos de la factura en `cac:DocumentResponse`, donde los pone el anexo II, y también donde los pone la tabla, y lo dice en la nota de cada anulación |
 | Dónde va el nombre del vendedor en esa misma anulación | `cac:PartyLegalEntity` no puede ir dentro de `cac:PartyTaxScheme`, y caben dos rutas válidas: `cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName`, la del anexo II, y `cac:IssuerParty/cac:PartyTaxScheme/cbc:RegistrationName` | Lo mismo. Mientras no se sepa, no se puede dar por mala ninguna de las dos, y desde el 12-10-2026 se buscan las dos |
 | Qué `cac:TaxScheme/cbc:ID` lleva el NIF del vendedor en los nueve mensajes de estado —la anulación y los ocho del anexo II—, y si va con «ES» | Va en `cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID`; `cac:PartyTaxScheme` exige `cac:TaxScheme` y ninguna fila lo da: sin él, el esquema rechaza los nueve | La medida de los mensajes, que desde el 12-10-2026 acepta el NIF con «ES» y sin él y no mira el `cac:TaxScheme` |
 | Si en `BT-ES-8` va la suma de las cuotas | La fila pide el mismo importe en `cac:AllowanceCharge/cac:TaxTotal/cbc:TaxAmount` y en su `cac:TaxSubtotal`, y `BG-ES-2` es `0..n` dentro de cada cargo; `cac:AllowanceCharge` admite un solo `cac:TaxTotal` con un solo `cbc:TaxAmount`. Con dos impuestos en el mismo cargo no se puede cumplir | Lo que se mida de esos cargos cuando se midan los impuestos y tasas, que es de las reglas nuevas |

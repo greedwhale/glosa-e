@@ -93,3 +93,18 @@ def test_la_familia_spfe_dice_de_que_anexo_sale_cada_regla():
         "el contenido mínimo de las facturas de la solución pública: el anexo I "
         "de la Orden HAC/1028/2026",
     )
+
+
+def test_los_mensajes_de_la_orden_no_son_del_anexo_i():
+    """La anulación es del anexo I y los estados del anexo II.
+
+    Hasta el 12-10-2026 salían todos con el «Anexo I» de las facturas, y la
+    ficha del motivo del rechazo decía «Esa L1 no es la del anexo I» justo
+    encima de «Norma: Anexo I». Lo vio el revisor de promesas. Contra el
+    literal, como la de arriba.
+    """
+    for codigo in ("SPFE-MENSAJE-ESTADO", "SPFE-MENSAJE-VENCIMIENTO", "SPFE-MENSAJE-MOTIVO"):
+        assert normas.norma(codigo)[0] == "Anexo II", codigo
+        assert "el anexo II de la Orden HAC/1028/2026" in normas.norma(codigo)[1]
+    for codigo in ("SPFE-MENSAJE-ALCANCE", "SPFE-MENSAJE-FECHA", "SPFE-MENSAJE-FACTURA"):
+        assert normas.norma(codigo)[0] == "Anexos I y II", codigo
