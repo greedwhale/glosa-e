@@ -448,6 +448,48 @@ CON_LA_AUTORIZACION = cambia(DEL_BOE, "  <cac:AccountingSupplierParty>",
                                      descripcion="Autorización facturación máquina vending")
                              + "  <cac:AccountingSupplierParty>")
 
+# El pago entre la operación (BT-7) y la expedición, que es lo que pide la
+# fila BT-ES-2. `cbc:TaxPointDate` va detrás del tipo de factura en UBL.
+CON_LA_FECHA_DE_LA_OPERACION = cambia(cambia(
+    DEL_BOE, "<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>",
+    "<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>\n  <cbc:TaxPointDate>2026-10-03</cbc:TaxPointDate>"),
+    "<cbc:PaidDate>2026-10-06</cbc:PaidDate>", "<cbc:PaidDate>2026-10-04</cbc:PaidDate>")
+
+
+def _sin_cuota(xml: str, categoria: str, tipo_linea: str | None, tipo_desglose: str | None,
+               exencion: str = "") -> str:
+    """La línea y el desglose en una categoría sin cuota, con los totales a juego.
+
+    Con el motivo de la exención en texto, o con su código si se da uno. Sin
+    tipo en la línea si es `None`, que es lo que pide la norma en lo no sujeto
+    (BR-O-05).
+    """
+    linea = f"<cbc:Percent>{tipo_linea}</cbc:Percent>" if tipo_linea is not None else ""
+    desglose = f"<cbc:Percent>{tipo_desglose}</cbc:Percent>" if tipo_desglose is not None else ""
+    motivo = (f"<cbc:TaxExemptionReasonCode>{exencion}</cbc:TaxExemptionReasonCode>" if exencion
+              else "<cbc:TaxExemptionReason>Operacion no sujeta</cbc:TaxExemptionReason>")
+    xml = cambia(xml, "<cac:ClassifiedTaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent>",
+                 f"<cac:ClassifiedTaxCategory><cbc:ID>{categoria}</cbc:ID>{linea}")
+    xml = cambia(xml, """      <cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent>""",
+                 f"""      <cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:ID>{categoria}</cbc:ID>{desglose}{motivo}""")
+    xml = cambia(xml, '<cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>\n    <cac:TaxSubtotal>',
+                 '<cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount>\n    <cac:TaxSubtotal>')
+    xml = cambia(xml, '<cbc:TaxInclusiveAmount currencyID="EUR">121.00</cbc:TaxInclusiveAmount>',
+                 '<cbc:TaxInclusiveAmount currencyID="EUR">100.00</cbc:TaxInclusiveAmount>')
+    return cambia(xml, '<cbc:PayableAmount currencyID="EUR">86.00</cbc:PayableAmount>',
+                  '<cbc:PayableAmount currencyID="EUR">65.00</cbc:PayableAmount>')
+
+
+# Lo no sujeto con tipo en el desglose, como pide la fila BT-119, y el
+# comprador en BT-47: la norma no deja el NIF-IVA de nadie en una factura con
+# líneas no sujetas (BR-O-02). Medido el 11-10-2026: limpia en el validador
+# entero, también con el tipo.
+CON_LA_NO_SUJETA = _sin_cuota(CON_EL_COMPRADOR_EN_BT47, "O", None, "0")
+# Una exenta con un código VATEX-EU, que la fila BT-121 admite.
+CON_LA_EXENTA = _sin_cuota(DEL_BOE, "E", "0", "0", "VATEX-EU-132-1I")
+
 LAS_DE_LA_ORDEN = {
     "la de la orden": DEL_BOE,
     "con el tercero": CON_EL_TERCERO_DEL_BOE,
@@ -470,6 +512,9 @@ LAS_DE_LA_ORDEN = {
     "con el indicador de copia": CON_COPIA,
     "con la factura referenciada": CON_LA_REFERENCIADA,
     "con la autorización": CON_LA_AUTORIZACION,
+    "con la fecha de la operación": CON_LA_FECHA_DE_LA_OPERACION,
+    "lo no sujeto con su tipo": CON_LA_NO_SUJETA,
+    "una exenta con VATEX-EU": CON_LA_EXENTA,
 }
 
 
@@ -531,15 +576,6 @@ class TestLasBuenas:
             "no quiere decir que la factura cumpla la orden.")
         assert "en eso" not in glosario.CODIGOS["SPFE-ALCANCE"]
 
-    def test_el_prefijo_del_nif_iva_del_comprador_no_se_mide_y_la_nota_lo_dice(self):
-        """La fila BT-48 pide el prefijo de España, y un FR pasaba sin que la
-        nota lo dijera. Lo vio el revisor de promesas el 11-10-2026. Si un día
-        se mide, esta prueba se pone en rojo: hay que sacarlo de la lista."""
-        otro = cambia(DEL_BOE, "<cbc:CompanyID>ESA12345674<", "<cbc:CompanyID>FRA12345674<")
-        assert codigos(otro) == set()
-        assert ("el prefijo ES del NIF-IVA del comprador (BT-48)"
-                in la(otro, "SPFE-ALCANCE").mensaje)
-
     def test_cada_cosa_que_no_se_mide_nombra_una_fila_o_una_lista_de_la_orden(self):
         """Para que la nota no hable de algo que la orden no pide.
 
@@ -554,8 +590,7 @@ class TestLasBuenas:
                 assert nombre in filas or nombre in cius_es.LISTAS, (cosa, nombre)
         codigo = pathlib.Path(solucion_publica.__file__).read_text(encoding="utf-8")
         reglas = codigo[codigo.index("# --- Las reglas"):]
-        for identificador in ("BT-ES-2", "BT-30", "BT-119", "BG-ES-2", "BG-ES-3",
-                              "BT-ES-22", "BT-ES-26", "BT-121"):
+        for identificador in ("BG-ES-2", "BG-ES-3", "BT-ES-22", "BT-ES-26"):
             assert f'"{identificador}"' not in codigo, identificador
             assert f"({identificador})" not in reglas, identificador
 
@@ -850,6 +885,76 @@ class TestCabecera:
         assert las(raro, "SPFE-IMPORTE-PAGADO") == []
 
 
+_PAGO = "<cbc:PaidDate>2026-10-06</cbc:PaidDate>"
+
+
+class TestLaFechaDePago:
+    """BT-ES-2: no después de la expedición, no antes de la operación, y una.
+
+    Hasta el 11-10-2026 no se medía, y la nota del alcance lo decía. Medido ese
+    día antes de escribir la regla: una fecha posterior a la expedición, una
+    anterior a la operación y dos fechas salían sin una queja.
+    """
+
+    def test_la_del_dia_de_la_expedicion_vale(self):
+        assert las(DEL_BOE, "SPFE-FECHA-DE-PAGO") == []
+        del_dia_de_la_operacion = cambia(CON_LA_FECHA_DE_LA_OPERACION, "<cbc:PaidDate>2026-10-04<",
+                                         "<cbc:PaidDate>2026-10-03<")
+        assert las(del_dia_de_la_operacion, "SPFE-FECHA-DE-PAGO") == []
+
+    def test_despues_de_la_operacion_vale_y_no_libera_de_comunicar_el_pago(self):
+        """La fila admite del día de la operación al de la expedición; el
+        apartado 4 del artículo 7 libera de comunicar el pago solo si coincide
+        con la operación. Hasta que se cotejó con el artículo, el 11-10-2026,
+        la ficha decía que con la fecha no había que comunicarlo, sin más."""
+        nota = la(CON_LA_FECHA_DE_LA_OPERACION, "SPFE-FECHA-DE-PAGO")
+        assert nota.gravedad == NOTA and nota.encontrado == "2026-10-04"
+        assert "artículo 7" in nota.mensaje and "comunicar el pago igual" in nota.mensaje
+
+    def test_despues_de_la_expedicion_no(self):
+        queja = la(cambia(DEL_BOE, _PAGO, "<cbc:PaidDate>2026-10-07</cbc:PaidDate>"),
+                   "SPFE-FECHA-DE-PAGO")
+        assert queja.gravedad == ERROR and queja.encontrado == "2026-10-07"
+        assert queja.esperado == "el 06-10-2026 o antes" and "BT-ES-2" in queja.mensaje
+
+    def test_antes_de_la_operacion_no(self):
+        antes = cambia(CON_LA_FECHA_DE_LA_OPERACION, "<cbc:PaidDate>2026-10-04<",
+                       "<cbc:PaidDate>2026-10-02<")
+        queja = la(antes, "SPFE-FECHA-DE-PAGO")
+        assert queja.gravedad == ERROR and queja.esperado == "del 03-10-2026 al 06-10-2026"
+        assert "anticipo" in queja.mensaje
+
+    def test_sin_bt7_la_operacion_es_del_dia_de_la_expedicion(self):
+        """La orden pide BT-7 solo cuando la operación es de otro día."""
+        queja = la(cambia(DEL_BOE, _PAGO, "<cbc:PaidDate>2026-10-05</cbc:PaidDate>"),
+                   "SPFE-FECHA-DE-PAGO")
+        assert queja.gravedad == ERROR and "BT-7" in queja.mensaje
+
+    def test_con_un_periodo_no_se_compara_y_se_dice(self, catalogo):
+        """En una recapitulativa las operaciones son del periodo, y la orden no
+        dice con qué fecha de él se compara: nota, y no fallo."""
+        con_periodo = cambia(cambia(DEL_BOE, _PAGO, "<cbc:PaidDate>2026-10-05</cbc:PaidDate>"),
+                             "  <cac:AdditionalDocumentReference>",
+                             "  <cac:InvoicePeriod><cbc:StartDate>2026-09-01</cbc:StartDate>"
+                             "<cbc:EndDate>2026-09-30</cbc:EndDate></cac:InvoicePeriod>\n"
+                             "  <cac:AdditionalDocumentReference>")
+        nota = la(con_periodo, "SPFE-FECHA-DE-PAGO")
+        assert nota.gravedad == NOTA and "BG-14" in nota.mensaje
+        assert limpia(con_periodo, catalogo) == []
+
+    def test_una_como_mucho(self):
+        dos = cambia(DEL_BOE, "</cac:PrepaidPayment>",
+                     "</cac:PrepaidPayment>\n  <cac:PrepaidPayment>"
+                     '<cbc:PaidAmount currencyID="EUR">0.00</cbc:PaidAmount>'
+                     f"{_PAGO}</cac:PrepaidPayment>")
+        queja = la(dos, "SPFE-FECHA-DE-PAGO")
+        assert queja.esperado == "una como mucho" and queja.encontrado == "2026-10-06, 2026-10-06"
+
+    def test_una_fecha_mal_escrita_es_cosa_del_esquema(self):
+        assert las(cambia(DEL_BOE, _PAGO, "<cbc:PaidDate>06/10/2026</cbc:PaidDate>"),
+                   "SPFE-FECHA-DE-PAGO") == []
+
+
 class TestRectificativa:
     """La fila BT-3 de la orden, y los cinco documentos de la lista L10.
 
@@ -1071,6 +1176,40 @@ class TestPartes:
         otro = cambia(DEL_BOE, ' schemeID="FC">B12345674', ' schemeID="NIF">B12345674')
         assert la(otro, "SPFE-NIF").encontrado == "B12345674 con el impuesto «LOC» y schemeID «NIF»"
 
+    def test_con_el_nif_en_bt32_hace_falta_bt30(self):
+        """Medido el 11-10-2026 antes de escribir la regla: sin BT-30 salía
+        BR-CO-26, que pide uno de tres, y nada de la orden, que pide este. Y
+        con el identificador del vendedor (BT-29) no salía nada: BR-CO-26 se
+        conforma con él."""
+        registro = "<cbc:RegistrationName>Talleres Ejemplo SL</cbc:RegistrationName>"
+        sin = cambia(DEL_BOE, registro + "<cbc:CompanyID>B12345674</cbc:CompanyID>", registro)
+        queja = la(sin, "SPFE-NIF")
+        assert queja.gravedad == ERROR
+        assert queja.campo == "Identificador de inscripción legal del vendedor (BT-30)"
+        con_bt29 = cambia(sin, "<cac:AccountingSupplierParty><cac:Party>\n",
+                          "<cac:AccountingSupplierParty><cac:Party>\n"
+                          "    <cac:PartyIdentification><cbc:ID>T-0001</cbc:ID></cac:PartyIdentification>\n")
+        assert "BR-CO-26" not in {i.codigo for i in factura.validar(con_bt29.encode("utf-8")).errores}
+        assert "BR-CO-26" in {i.codigo for i in factura.validar(sin.encode("utf-8")).errores}
+        assert la(con_bt29, "SPFE-NIF").campo == queja.campo
+        # Con el NIF-IVA y sin BT-32, la orden no lo pide.
+        assert las(cambia(CON_EL_VENDEDOR_EN_BT31, registro + "<cbc:CompanyID>B12345674</cbc:CompanyID>",
+                          registro), "SPFE-NIF") == []
+
+    def test_el_nif_iva_del_vendedor_lleva_el_prefijo_de_espana(self):
+        frances = cambia(CON_EL_VENDEDOR_EN_BT31, ">ESB12345674<", ">FRB12345674<")
+        queja = la(frances, "SPFE-NIF")
+        assert queja.gravedad == ERROR and queja.campo == "NIF-IVA del vendedor (BT-31)"
+        assert queja.encontrado == "FRB12345674" and "BT-32" in queja.mensaje
+
+    def test_el_del_comprador_sale_en_aviso_porque_la_fila_dice_del_vendedor(self):
+        """Hasta el 11-10-2026 no se medía, y la nota del alcance lo decía."""
+        frances = cambia(DEL_BOE, ">ESA12345674<", ">FRA12345674<")
+        queja = la(frances, "SPFE-NIF")
+        assert queja.gravedad == AVISO and queja.campo == "NIF-IVA del comprador (BT-48)"
+        assert "«del vendedor»" in queja.mensaje and "BT-47" in queja.mensaje
+        assert "BT-48" not in la(frances, "SPFE-ALCANCE").mensaje
+
     def test_en_espana_la_direccion_va_entera(self):
         sin_ciudad = cambia(DEL_BOE, "<cbc:CityName>Madrid</cbc:CityName>", "")
         queja = la(sin_ciudad, "SPFE-DIRECCION")
@@ -1195,6 +1334,41 @@ class TestDocumento:
     def test_una_categoria_que_ni_la_norma_admite_se_la_deja_a_br_cl(self):
         assert "SPFE-CATEGORIA" not in codigos(
             cambia(DEL_BOE, "<cac:ClassifiedTaxCategory><cbc:ID>S<", "<cac:ClassifiedTaxCategory><cbc:ID>X<"))
+
+
+class TestElDesglose:
+
+    def test_lo_no_sujeto_tambien_lleva_tipo(self):
+        """La norma lo deja sin tipo (BR-48); la fila BT-119 de la orden, no."""
+        sin = _sin_cuota(CON_EL_COMPRADOR_EN_BT47, "O", None, None)
+        queja = la(sin, "SPFE-TIPO-DE-IVA")
+        assert queja.gravedad == ERROR and "BR-48" in queja.mensaje
+        assert las(CON_LA_NO_SUJETA, "SPFE-TIPO-DE-IVA") == []
+
+    def test_en_las_demas_categorias_lo_dice_br_48(self):
+        """Dos quejas por lo mismo no dicen más que una."""
+        sin = cambia(DEL_BOE, "<cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent>",
+                     "<cac:TaxCategory><cbc:ID>S</cbc:ID>")
+        assert "SPFE-TIPO-DE-IVA" not in codigos(sin)
+        assert "BR-48" in {i.codigo for i in factura.validar(sin.encode("utf-8")).errores}
+
+    def test_un_codigo_de_exencion_de_otro_pais(self):
+        """La norma admite los VATEX-FR (BR-CL-22); la orden, no."""
+        francesa = _sin_cuota(DEL_BOE, "E", "0", "0", "VATEX-FR-CGI261-1")
+        queja = la(francesa, "SPFE-EXENCION")
+        assert queja.gravedad == ERROR and queja.encontrado == "VATEX-FR-CGI261-1"
+        assert "BT-121" in queja.mensaje
+        assert las(CON_LA_EXENTA, "SPFE-EXENCION") == []
+        assert las(cambia(CON_LA_EXENTA, ">VATEX-EU-132-1I<", ">vatex-eu-132-1i<"),
+                   "SPFE-EXENCION") == []
+
+    def test_un_vatex_es_lo_juzga_br_cl_22_con_la_lista(self):
+        """La orden admite los VATEX-ES, y en la lista que lleva Glosa no hay
+        ninguno: si no está en la lista, lo dice BR-CL-22, y no esta regla."""
+        con_es = _sin_cuota(DEL_BOE, "E", "0", "0", "VATEX-ES-20-1")
+        assert "SPFE-EXENCION" not in codigos(con_es)
+        assert "BR-CL-22" in {i.codigo for i in factura.validar(con_es.encode("utf-8")).errores}
+        assert not any(codigo.startswith("VATEX-ES") for codigo in listas_de_codigos.VATEX)
 
 
 class TestLineas:
@@ -1705,6 +1879,13 @@ class TestSeNiegaSiElAnexoCambia:
         ("BT-3", "hasta tres grupos", "hasta dos grupos"),
         ("BG-24", "rectificación por sustitución de la factura original",
          "rectificación de la factura original"),
+        ("BT-ES-2", "o en dicha fecha", "o después"),
+        ("BT-ES-2", "coincidente o posterior", "anterior"),
+        ("BT-7", "siempre que sea diferente", "aunque no sea diferente"),
+        ("BT-30", "venga informado el campo BT-32", "venga informado el campo BT-31"),
+        ("BT-31", "prefijo correspondiente a España", "prefijo del país"),
+        ("BT-48", "a efectos de IVA del vendedor", "a efectos de IVA del comprador"),
+        ("BT-121", "VATEX-EU o VATEX-ES", "VATEX-EU"),
     ])
     def test_si_cambia_una_cuenta_o_un_limite_que_se_comprueba(self, monkeypatch, identificador,
                                                               viejo, nuevo):
@@ -1712,6 +1893,16 @@ class TestSeNiegaSiElAnexoCambia:
         rectificados salen de la descripción de su fila desde el 11-10-2026."""
         negativa = _recargar_con(monkeypatch, _diciendo(identificador, viejo, nuevo))
         assert negativa and identificador in negativa
+
+    @pytest.mark.parametrize("identificador, cambios, dice", [
+        ("BT-119", {"cardinalidad": "0..1"}, "0..1"),
+        ("BT-ES-2", {"cardinalidad": "0..n"}, "0..n"),
+        ("BT-30", {"ruta": "/in:Invoice/cac:AccountingSupplierParty/cac:Party/cbc:EndpointID"}, "ruta"),
+    ])
+    def test_si_cambia_lo_que_se_lee_de_los_campos_de_la_norma(self, monkeypatch, identificador,
+                                                              cambios, dice):
+        negativa = _recargar_con(monkeypatch, _con(identificador, **cambios))
+        assert negativa and identificador in negativa and dice in negativa
 
     def test_con_la_tabla_de_verdad_no_se_niega(self, monkeypatch):
         assert _recargar_con(monkeypatch, cius_es.CAMPOS) is None
@@ -1768,6 +1959,10 @@ class TestDeDondeSale:
             "cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:ID",
             "cac:AdditionalDocumentReference/cbc:ID",
             "cac:AdditionalDocumentReference/cbc:DocumentDescription",
+            "cbc:TaxPointDate", "cac:InvoicePeriod/cbc:StartDate",
+            "cac:AccountingSupplierParty/cac:Party/cac:PartyLegalEntity/cbc:CompanyID",
+            "cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:Percent",
+            "cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReasonCode",
         ]
         for parte in ("StreetName", "CityName", "PostalZone", "CountrySubentity"):
             for quien in ("AccountingSupplierParty", "AccountingCustomerParty"):

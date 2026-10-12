@@ -489,7 +489,11 @@ class TestLoQueEnseniaElFiltro:
         assert self._elegir("br01", datos)[2] == ["BR-01"]
 
     def test_lo_que_no_es_nombre_de_nada_se_busca_en_el_texto(self, datos):
-        por_codigo, por_texto, vistas = self._elegir("fecha", datos)
+        # «Plazo» sale en tres fichas y en el nombre de ningún código. Hasta el
+        # 11-10-2026 era «fecha», y ese día pasó a ser parte de un nombre,
+        # SPFE-FECHA-DE-PAGO: la prueba se puso en rojo, que es lo que tenía
+        # que hacer.
+        por_codigo, por_texto, vistas = self._elegir("plazo", datos)
         assert not por_codigo and por_texto and vistas == por_texto
 
     def test_mientras_se_filtra_el_resumen_se_aparta_y_los_titulos_cuentan(self, pagina):

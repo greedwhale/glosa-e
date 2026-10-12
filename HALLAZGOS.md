@@ -7652,3 +7652,92 @@ pasaban la forma contra UBL 2.5 sin que la suite lo comprobara. Ahora esas
 pruebas cargan los esquemas de `web/paquete.zip`, que se versiona: las
 veintiuna pasan la forma, en 1,16 s medido. Las dos roturas que tocan la forma
 son las dos que se añadieron por esto, y salen en rojo.
+
+## Lo que la orden pide y no se medía: la fecha de pago, el NIF y el desglose
+
+**Lo que había.** Desde el 11-10-2026 la nota `SPFE-ALCANCE` decía nueve cosas
+que la orden pide y aquí no se medían. Seis se podían escribir con lo que el
+anexo ya dice: la fecha efectiva de pago (`BT-ES-2`), el registro legal del
+vendedor cuando su NIF va con «LOC» (`BT-30`), el prefijo ES del NIF-IVA del
+vendedor (`BT-31`) y el del comprador (`BT-48`), el tipo de la entrada no
+sujeta del desglose (`BT-119`) y los códigos de exención (`BT-121`).
+
+**Reproducido** el 11-10-2026 sobre `ab3e4b3`: dieciséis facturas escritas a
+partir de la de la orden, por el validador entero y con los esquemas de
+`web/paquete.zip`, en una copia de `HEAD` y en la de trabajo ya cambiada.
+
+| Factura | En `ab3e4b3` | Ahora |
+|---|---|---|
+| la de la orden | sin errores | sin errores |
+| la fecha de pago posterior a la expedición | **sin errores** | `FECHA-DE-PAGO` |
+| anterior a la operación (`BT-7`) | **sin errores** | `FECHA-DE-PAGO` |
+| posterior a la operación y anterior a la expedición | sin errores | sin errores, y una NOTA |
+| anterior a la expedición, sin `BT-7` | **sin errores** | `FECHA-DE-PAGO` |
+| dos fechas de pago, la segunda del día antes | **sin errores** | dos `FECHA-DE-PAGO` |
+| anterior a la expedición, con un periodo | sin errores | sin errores, y una NOTA |
+| el NIF del vendedor con «LOC» y sin `BT-30` | `BR-CO-26` | `BR-CO-26` y `NIF` |
+| lo mismo, con `BT-29` | **sin errores** | `NIF` |
+| el NIF-IVA del vendedor con FR | `CU-01` | `NIF` y `CU-01` |
+| el del comprador con FR | **sin errores** | `NIF`, en AVISO |
+| la no sujeta sin tipo en el desglose | **sin errores** | `TIPO-DE-IVA` |
+| la no sujeta con tipo 0 | sin errores | sin errores |
+| la exenta con VATEX-EU | sin errores | sin errores |
+| la exenta con VATEX-FR | **sin errores** | `EXENCION` |
+| la exenta con un VATEX-ES | `BR-CL-22` | `BR-CL-22` |
+
+**Lo que se hizo.**
+
+- `SPFE-FECHA-DE-PAGO`, nuevo: una como mucho, no posterior a la expedición
+  ni anterior a la operación. Sin `BT-7` la operación es del día de la
+  expedición, porque la orden pide `BT-7` solo cuando es de otro día; con un
+  periodo de facturación en su lugar, una NOTA dice que no se ha comparado.
+- `SPFE-NIF` pide `BT-30` cuando el NIF del vendedor va en `BT-32`, y el
+  prefijo ES en `BT-31` (ERROR) y en `BT-48` (AVISO).
+- `SPFE-TIPO-DE-IVA`, nuevo: el tipo en la entrada no sujeta del desglose.
+- `SPFE-EXENCION`, nuevo: el código de exención, VATEX-EU o VATEX-ES.
+- Al importar se leen las frases de las filas `BT-ES-2`, `BT-7`, `BT-30`,
+  `BT-31`, `BT-48` y `BT-121` de las que salen las reglas, la cardinalidad de
+  `BT-ES-2`, que `BT-119` sea obligatorio y que `BT-30` siga sin ruta. Si
+  cambian, `AnexoCambiado`.
+- `LO_QUE_TODAVIA_NO_SE_MIDE` se queda en tres, y la ficha de `SPFE-ALCANCE`
+  se regenera de ella. De 22 códigos `SPFE-` se pasa a 25, y de 387 en total,
+  a 390: la portada y la tesis lo dicen.
+
+**Lo que salió al cotejar la ficha con el artículo.** La primera ficha de
+`SPFE-FECHA-DE-PAGO` decía que con esa fecha el destinatario no tiene que
+comunicar el pago (apartado 4 del artículo 7). El artículo lo dice solo de
+una fecha que coincide con la de la operación, y la fila admite también una
+posterior. La ficha dice ahora las dos cosas, y un pago posterior a la
+operación sale con una NOTA que lo explica. La factura está bien; lo que
+cambia es lo que tiene que hacer quien la recibe.
+
+**Lo que salió al medir.** El caso de `BT-30` que se había escrito para la
+prueba ya salía en `BR-CO-26`, porque al quitar el registro legal el vendedor
+se quedaba sin ninguno de los tres identificadores que pide la norma. Con
+`BT-29` la norma se calla: es el caso en que solo habla la orden, y la prueba
+lo mira con el validador entero. La primera versión de esa aserción usaba el
+ayudante `codigos`, que solo devuelve las `SPFE-`: `BR-CO-26` no podía salir,
+y la aserción pasaba sin mirar nada. Ahora mira las dos cosas, que con
+`BT-29` no sale y que sin él sí.
+
+**Las pruebas.** Tres facturas buenas más, 24 en total, que pasan el
+validador entero sin un ERROR ni un AVISO: con la fecha de la operación, la
+no sujeta con su tipo y la exenta con VATEX-EU. `TestLaFechaDePago` (ocho
+pruebas), tres más en `TestPartes`, `TestElDesglose` (cuatro), y las frases
+y cardinalidades del anexo, provocadas una a una al importar.
+
+**Provocado.** Dieciocho roturas, las dieciocho en rojo: el pago posterior a
+la expedición vuelve a valer (1 prueba en rojo), el anterior a la operación
+(1), sin la nota del artículo 7 (1), con un periodo otra vez ERROR (1), sin
+`BT-7` el pago anterior vuelve a valer (1), dos fechas vuelven a valer (1),
+`BT-30` deja de pedirse (1), el prefijo FR vale como el ES (2), lo del
+comprador en ERROR (1), `BT-119` mira otra categoría (1), `BT-119` en todas,
+repitiendo `BR-48` (1), cualquier VATEX vale (1), y seis lecturas del anexo
+que dejan de hacerse: la cardinalidad de `BT-ES-2`, la obligación de `BT-119`,
+la ruta de `BT-30`, la errata de `BT-48`, la restricción de `BT-121` y la
+frase de `BT-7` (1 cada una).
+
+**Lo que queda del paso 7.** Los impuestos y tasas que no son el IVA, con su
+lista L9 (`BG-ES-2`, `BT-ES-22`, `BG-ES-3`); la información adicional de cada
+línea (`INFO` de L8); el número de la autorización (`BT-ES-26`); los ficheros
+embebidos (artículos 3.6 y 4.4); y el mensaje de anulación y los del anexo II.

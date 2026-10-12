@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-2972 tests, todos en verde.
+2999 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3796,11 +3796,13 @@ por qué; en GitHub no está, y allí se saltan.
 ### Las reglas del anexo, y a quién se le aplican
 
 Leído el anexo, `validador/solucion_publica.py` le pide a la factura lo que el
-anexo pide. **22 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
+anexo pide. **25 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
 I» en el informe, que no es la del real decreto: es el anexo de la Orden
 HAC/1028/2026. Hasta el 07-10-2026 decía «Anexo I (borrador)», y hasta el
-11-10-2026 eran 24 y medían en buena parte el borrador de abril (en «La
-segunda tanda», más abajo).
+11-10-2026 eran 24 y medían en buena parte el borrador de abril. Ese día
+quedaron en 22 al ponerlos al texto de la orden, y llegaron a 25 con lo que la
+orden pide y no se medía (en «La segunda tanda» y «Lo que la orden pide y no
+se medía», más abajo).
 
 **Solo a las facturas UBL que declaran la solución pública** en su
 `CustomizationID`: con el identificador de la orden, o con el CIUS del
@@ -3821,16 +3823,16 @@ Lo que se comprueba:
 
 | Qué | Códigos |
 |---|---|
-| La cabecera: el identificador de la orden en `BT-24`, su proceso `B2B` en `BT-23`, el tipo de factura de L1 y el euro como moneda del IVA; y, en notas, la factura sin indicador de copia, el importe pagado y el proceso del ejemplo del 02-10-2026 | `SPFE-ESPECIFICACION`, `-PROCESO`, `-TIPO-DE-FACTURA`, `-MONEDA-DEL-IVA`, `-COPIA`, `-IMPORTE-PAGADO` |
+| La cabecera: el identificador de la orden en `BT-24`, su proceso `B2B` en `BT-23`, el tipo de factura de L1, el euro como moneda del IVA y la fecha efectiva de pago (`BT-ES-2`), una como mucho y del día de la operación al de la expedición; y, en notas, la factura sin indicador de copia, el importe pagado, el proceso del ejemplo del 02-10-2026 y la fecha de pago que no se puede comparar o que no libera de comunicar el pago | `SPFE-ESPECIFICACION`, `-PROCESO`, `-TIPO-DE-FACTURA`, `-MONEDA-DEL-IVA`, `-FECHA-DE-PAGO`, `-COPIA`, `-IMPORTE-PAGADO` |
 | Los datos de la rectificativa en toda 384 y 471: un `BG-24` `RECT:TIPO` y uno `RECT:MODALIDAD`, con su código en `cbc:DocumentTypeCode`, de L2.A y L2.B; y, si los lleva, los `RECT:IMPORTES`, cada uno con su código de L2.C y su importe: más de cinco es ERROR, cuatro o cinco una NOTA (`BT-3` dice «hasta tres» y el grupo es `0..5`), y con la modalidad `I`, un AVISO, porque el grupo es para la sustitución | `SPFE-RECTIFICATIVA` |
-| Las partes: el NIF de las dos en un esquema «VAT» o en uno «LOC» con «FC», la dirección entera cuando está en España, y el tercero que expide la factura, con su razón social, su NIF y su tipología | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
+| Las partes: el NIF de las dos en un esquema «VAT», con el prefijo ES, o en uno «LOC» con «FC», y en ese caso el registro legal del vendedor (`BT-30`); la dirección entera cuando está en España; y el tercero que expide la factura, con su razón social, su NIF y su tipología. El prefijo del comprador va en AVISO: su fila copia la del vendedor hasta en decir «del vendedor» | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
 | Lo que la norma deja opcional y el anexo no: la fecha de la factura referenciada y el motivo en texto de descuentos y cargos | `SPFE-FACTURA-REFERENCIADA`, `-MOTIVO` |
-| El IVA: «VAT» en los descuentos y cargos, las líneas y el desglose, y la categoría de L4, sin `K` ni `B`; la `N`, la `D` y la `F` de la orden, en una nota | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA` |
+| El IVA: «VAT» en los descuentos y cargos, las líneas y el desglose, y la categoría de L4, sin `K` ni `B`; el tipo también en la entrada no sujeta (`O`), que la norma deja sin él; el código de exención, solo VATEX-EU o VATEX-ES; y la `N`, la `D` y la `F` de la orden, en una nota | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA`, `-TIPO-DE-IVA`, `-EXENCION` |
 | Cada línea: una o dos claves de régimen en la lista de su impuesto (la L3A de la orden ya no tiene la 18, la 19 ni la 20), y como mucho una referencia catastral con su situación de L6 | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL` |
 | Las líneas de cobro: un valor de la L7 de la orden, con su calificador o sin él, y un solo grupo de retenciones; las retenciones con su suma, su línea de cobro y su concepto de L5, y sus dos cuentas: cada una es su base por su porcentaje, y la suma es la de todas; y el QR fiscal, uno como mucho, con su dirección y, si lleva descripción, VERIFACTU o TICKETBAI (el escrito con la URN de abril no es el QR, y una nota lo dice) | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-QR` |
 
 Y dos notas: `SPFE-ALCANCE`, que sale en cada factura que se mide con el
-anexo y dice con qué se ha medido, las nueve cosas que la orden pide y aquí
+anexo y dice con qué se ha medido, las tres cosas que la orden pide y aquí
 todavía no se miden (`LO_QUE_TODAVIA_NO_SE_MIDE`, que el glosario copia letra
 a letra) y, por su nombre, las que no se pueden comprobar (`NO_SE_COMPRUEBA`,
 cuyo porqué copia la ficha de la nota), porque que no salga ninguna queja no
@@ -3882,19 +3884,18 @@ que la orden tampoco ubica, y todo lo que depende de ellos; la restricción de
 `BT-195` a VATEX-EU y VATEX-ES; que la tipología del tercero sea
 «FacturaciónPorTercero» —«ThirdPartyInvoicing» en el borrador—, obligatoria en
 un caso que no se ve en el documento. Lo que la orden pide y aquí todavía no
-se mide, aunque se podría, no va ahí sino en `LO_QUE_TODAVIA_NO_SE_MIDE`: la
-fecha efectiva de pago, el número de la autorización de facturación, los
-impuestos y tasas que no son el IVA, los códigos de exención y cinco cosas
-más. La nota `SPFE-ALCANCE` nombra las dos listas en cada factura, y su ficha
+se mide, aunque se podría, no va ahí sino en `LO_QUE_TODAVIA_NO_SE_MIDE`: los
+impuestos y tasas que no son el IVA, el número de la autorización de
+facturación y la información adicional de cada línea. La nota `SPFE-ALCANCE` nombra las dos listas en cada factura, y su ficha
 dice el porqué de cada cosa de la primera. Hasta el 11-10-2026 la primera no
 llegaba al informe, y la portada y la política de privacidad dicen que lo que
 no se mide lo dice el informe (en HALLAZGOS).
 
 **No hay facturas de verdad con las que medir.** La solución pública no está en
 marcha y en el corpus hay cero documentos que declaren el CIUS. Las pruebas
-van sobre una factura escrita al pie de la letra de la orden y veinte
-variantes (la rectificativa, el tercero, los cobros, las categorías `N`, `D` y
-`F`, la autorización), que pasan **el validador entero** sin un error ni un
+van sobre una factura escrita al pie de la letra de la orden y veintitrés
+variantes (la rectificativa, el tercero, los cobros, las categorías `N`, `D`,
+`F`, `O` y `E`, la autorización, la fecha de la operación), que pasan **el validador entero** sin un error ni un
 aviso: forma contra UBL 2.5, norma europea, código único y anexo. La forma,
 con los esquemas de `web/paquete.zip`: la suite corre sin esquemas, y hasta el
 11-10-2026 esto lo decía sin que se mirara (en HALLAZGOS). De ahí se rompe
@@ -3902,8 +3903,9 @@ cada regla. Hasta el 11-10-2026 la de partida era una escrita con el
 borrador de abril; lo que solo decía el borrador se prueba ahora aparte, para
 ver que sale en ERROR. Provocado al escribir el módulo: 37 roturas, las 37 en
 rojo; al ponerlo al texto de la orden, catorce más (diez y una frase de la
-tabla en la primera tanda, tres en la segunda), y en la revisión antes de
-publicar, catorce y luego nueve (en HALLAZGOS).
+tabla en la primera tanda, tres en la segunda), en la revisión antes de
+publicar, catorce y luego nueve, y con lo que la orden pide y no se medía,
+dieciocho (en HALLAZGOS).
 
 **La frase de alcance lo dice, y solo cuando toca.** «Sin errores» en una
 factura del CIUS quiere decir también algo del anexo, así que la línea del
@@ -4299,7 +4301,8 @@ entrada del desglose (`BT-119`); los impuestos y tasas que no son el IVA, con
 su lista L9; el número de la autorización de facturación (`BT-ES-26`); la
 información adicional de cada línea (`INFO` de L8); y los códigos de
 exención, que solo pueden ser VATEX-EU o VATEX-ES. Fuera de esa lista, porque
-no son de la factura, el mensaje de anulación y los del anexo II.
+no son de la factura, el mensaje de anulación y los del anexo II. Seis de las
+nueve se miden desde el mismo día (en la sección siguiente).
 
 **La `N`, la `D` y la `F` fuera de la solución pública.** Lo decidió el
 titular el 11-10-2026: fuera de ella rige la lista de la norma, y `BR-CL-17` y
@@ -4342,6 +4345,69 @@ son de la orden: una `X` junto a la `N` sale en la misma queja, sin la frase.
 
 El detalle de lo medido y las catorce roturas provocadas (diez y una frase de
 la tabla en la primera tanda, tres en la segunda), en HALLAZGOS.
+
+### Lo que la orden pide y no se medía: la fecha de pago, el NIF y el desglose
+
+El 11-10-2026 se miden seis de las nueve cosas que la orden pide y aquí no se
+medían. Medido antes de tocar nada, sobre `ab3e4b3`, con el validador entero
+y los esquemas de `web/paquete.zip`:
+
+| Factura | En `ab3e4b3` | Ahora |
+|---|---|---|
+| la fecha efectiva de pago, posterior a la expedición | sin errores | ERROR `SPFE-FECHA-DE-PAGO` |
+| anterior a la operación (`BT-7`) | sin errores | ERROR |
+| anterior a la expedición, sin `BT-7` | sin errores | ERROR: sin `BT-7`, la operación es del día de la expedición |
+| dos fechas de pago, una del día antes | sin errores | dos ERROR: que son dos, y que la segunda es anterior |
+| posterior a la operación y anterior a la expedición | sin errores | NOTA: la fila la admite, y el apartado 4 del artículo 7 no libera con ella de comunicar el pago |
+| anterior a la expedición, con un periodo (`BG-14`) en vez de `BT-7` | sin errores | NOTA: la orden no dice con qué fecha del periodo se compara |
+| el NIF del vendedor con «LOC» y sin registro legal (`BT-30`) | `BR-CO-26` | `BR-CO-26` y `SPFE-NIF` |
+| lo mismo, con el identificador del vendedor (`BT-29`) | **sin errores** | `SPFE-NIF` |
+| el NIF-IVA del vendedor con FR | `CU-01` | `SPFE-NIF` y `CU-01` |
+| el del comprador con FR | sin errores | AVISO `SPFE-NIF` |
+| la entrada no sujeta (`O`) sin tipo | sin errores | ERROR `SPFE-TIPO-DE-IVA` |
+| la no sujeta con tipo 0 | sin errores | sin errores |
+| la exención con un VATEX-EU | sin errores | sin errores |
+| con un VATEX-FR | sin errores | ERROR `SPFE-EXENCION` |
+| con un VATEX-ES | `BR-CL-22` | `BR-CL-22` |
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- **El prefijo del comprador, en AVISO.** La fila `BT-48` copia la `BT-31`
+  hasta en la descripción, «Número de identificación fiscal a efectos de IVA
+  del vendedor», y no se sabe si el prefijo ES es para el comprador. Esa
+  frase se lee al importar: si la orden la corrige, el módulo no se monta
+  hasta decidirlo otra vez.
+- **`BT-30` sale aunque salga `BR-CO-26`.** No dicen lo mismo: la norma pide
+  uno de tres identificadores del vendedor, y la orden pide este cuando el
+  NIF va con «LOC». Con el identificador del vendedor (`BT-29`) la norma se
+  calla y solo habla la orden. La orden no le da ruta, y se busca donde lo
+  pone la vinculación de 2017, `cac:PartyLegalEntity/cbc:CompanyID`; si un
+  anexo nuevo le da una, el módulo no se monta.
+- **`BT-119` solo en la no sujeta.** En las demás categorías, que falte el
+  tipo ya lo dice `BR-48`, y dos quejas por lo mismo no dicen más que una.
+  Medido: en Glosa, una entrada `O` con tipo 0 no hace saltar ninguna regla
+  de la norma, así que lo que la orden pide se puede cumplir sin romper nada.
+- **Los VATEX-ES los juzga `BR-CL-22`.** La versión de la lista CEF-VATEX que
+  lleva Glosa no tiene ninguno, y uno que no está en la lista ya sale ahí. La
+  regla nueva solo dice lo que la norma admite y la orden no: los de otros
+  países.
+- **La fecha de pago sin `BT-7`.** La orden pide `BT-7` solo cuando la
+  operación es de otro día que la expedición, así que sin él la operación es
+  del día de la expedición, y un pago anterior es anterior a la operación.
+  Salvo con un periodo de facturación: la orden no dice con qué fecha del
+  periodo se compara, y sale una nota en vez de un error.
+- **Lo que la fila admite y el artículo no libera.** La fila `BT-ES-2` pide
+  el pago del día de la operación al de la expedición; el apartado 4 del
+  artículo 7 da por comunicado el pago solo si coincide con la operación. Lo
+  primero es la regla, y lo segundo, una nota: la factura está bien, pero
+  quien la recibe tiene que comunicar el pago igual. Se vio al cotejar la
+  ficha con el artículo, que decía que con la fecha no había que comunicarlo,
+  sin más.
+
+Lo que sigue sin medirse son los impuestos y tasas que no son el IVA, con su
+lista L9; el número de la autorización de facturación (`BT-ES-26`); y la
+información adicional de cada línea (`INFO` de L8). El detalle y las
+dieciocho roturas provocadas, en HALLAZGOS.
 
 ### La consulta del 07-10-2026, todavía sin respuesta
 

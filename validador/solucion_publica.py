@@ -110,6 +110,7 @@ Lo que no se comprueba está en `NO_SE_COMPRUEBA`, con el porqué de cada cosa.
 from __future__ import annotations
 
 import re
+from datetime import date
 
 from validador import cifras, cius_es
 from validador.en16931 import _UNCL1001
@@ -385,6 +386,17 @@ _dice("BT-6", "se consignará obligatoriamente como moneda de contabilización d
 _dice("BT-113", "no debe ser utilizado en el caso de pagos anticipados que hayan "
                 "supuesto el devengo del IVA")
 
+# La fecha efectiva de pago (BT-ES-2): una como mucho, no después de la
+# expedición y no antes de la operación. La fecha de la operación es BT-7, que
+# la orden pide solo «siempre que sea diferente a la fecha de expedición»: sin
+# él, la operación es del día de la expedición.
+_FECHA_DE_PAGO = _ruta("BT-ES-2")
+_cuantos(_fila("BT-ES-2"), "0..1")
+_dice("BT-ES-2", "pagada con anterioridad a la fecha de expedición de la factura o en dicha fecha")
+_dice("BT-ES-2", "deberá ser necesariamente coincidente o posterior a la fecha de "
+                 "realización de las operaciones")
+_dice("BT-7", "siempre que sea diferente a la fecha de expedición")
+
 # El NIF de cada parte: con el impuesto «VAT» (BT-31, BT-48) o con «LOC» y el
 # atributo «FC» en el propio NIF (BT-32, BT-47). Uno de los dos.
 _dice("BT-31", "Será obligatorio consignar un NIF-IVA válido en el caso de que el campo BT-32 no tenga contenido")
@@ -405,6 +417,24 @@ if (_impuesto, _condicion("BT-47", "cac:TaxScheme/cbc:ID")[1],
         _condicion("BT-47", "cbc:CompanyID/@schemeID")[1]) != (
         _IMPUESTO, _IMPUESTO_LOCAL, _ESQUEMA_DEL_NIF):
     raise AnexoCambiado("el NIF del comprador ya no se escribe como el del vendedor")
+
+# El registro legal del vendedor (BT-30), obligatorio cuando su NIF va en
+# BT-32. La fila no trae ruta, y se lee donde la pone la vinculación de 2017,
+# como los demás términos de la norma: si un anexo nuevo le da una, este
+# módulo no importa hasta que se mire.
+_dice("BT-30", "Será obligatorio en los casos en los que venga informado el campo BT-32")
+if _fila("BT-30").ruta:
+    raise AnexoCambiado("BT-30 trae ruta en el anexo, y aquí se lee la de 2017")
+
+# El prefijo de España en el NIF-IVA de las dos partes (BT-31 y BT-48), «según
+# los códigos ISO 3166-1», que para España es ES. La fila del comprador copia
+# la del vendedor hasta en decir «del vendedor»; se le señaló al buzón como
+# errata el 07-10-2026. Por eso lo del comprador sale en AVISO, y si un anexo
+# nuevo corrige la fila, este módulo no importa hasta que se vuelva a decidir.
+_PREFIJO_DE_ESPANA = "ES"
+for _identificador in ("BT-31", "BT-48"):
+    _dice(_identificador, "con el prefijo correspondiente a España, según los códigos ISO 3166-1")
+_dice("BT-48", "Número de identificación fiscal a efectos de IVA del vendedor")
 
 # Las direcciones: la calle siempre, y ciudad, código postal y provincia
 # «cuando la dirección postal esté en España».
@@ -475,6 +505,19 @@ _CATEGORIAS_EN = (
     ("cargos_documento", "cargo_categoria"),
     ("lineas", "linea_categoria"),
 )
+
+# El tipo de cada entrada del desglose (BT-119): la norma lo pide en todas menos
+# en la no sujeta (BR-48), y la orden, en todas.
+_obligatorio("BT-119")
+_NO_SUJETA = "O"
+if _NO_SUJETA not in _CATEGORIAS:
+    raise AnexoCambiado("la L4 de la orden ya no tiene la categoría no sujeta")
+
+# Los códigos de exención (BT-121): «Solo podrán adoptar valores VATEX-EU o
+# VATEX-ES». La lista es la CEF-VATEX, y en la versión que lleva Glosa no hay
+# ningún VATEX-ES: uno que no esté en ella lo dice BR-CL-22.
+_dice("BT-121", "Lista CEF-VATEX. Solo podrán adoptar valores VATEX-EU o VATEX-ES")
+_EXENCIONES = ("VATEX-EU-", "VATEX-ES-")
 
 # La clave de régimen de cada línea: una propiedad del artículo llamada
 # «REGI», una o dos por línea, con el impuesto en el calificador.
@@ -592,16 +635,10 @@ def _adjuntos(raiz) -> list[tuple[str, object]]:
 # mismo. Cada frase nombra la fila o la lista de la orden de la que sale, y
 # hay prueba de que existe en la tabla.
 LO_QUE_TODAVIA_NO_SE_MIDE = (
-    "la fecha efectiva de pago (BT-ES-2)",
-    "el registro legal del vendedor cuando su NIF va con «LOC» (BT-30)",
-    "el prefijo ES del NIF-IVA del vendedor (BT-31)",
-    "el prefijo ES del NIF-IVA del comprador (BT-48)",
-    "el tipo de cada entrada del desglose del IVA (BT-119)",
     ("los impuestos y tasas que no son el IVA, en el documento (BG-ES-2), en las "
      "líneas (BT-ES-22) y cobrados para un tercero (BG-ES-3), con su lista L9"),
     "el número de la autorización de facturación (BT-ES-26)",
     "la información adicional de cada línea (BT-160, con el valor INFO de L8)",
-    "los códigos de exención, que solo pueden ser VATEX-EU o VATEX-ES (BT-121)",
 )
 
 
@@ -798,10 +835,12 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
     ]
     for regla in (
         _especificacion, _proceso, _copia, _tipo_de_factura, _rectificativa,
-        _moneda_del_iva, _importe_pagado, _nif, _direcciones, _tipo_de_impuesto,
-        _tercero, _facturas_referenciadas, _motivos, _categorias,
-        _claves_de_regimen, _referencias_catastrales, _lineas_de_cobro,
-        _retenciones, _cuadre_de_las_retenciones, _qr, _total_a_pagar,
+        _moneda_del_iva, _importe_pagado, _fecha_de_pago, _nif, _registro_legal,
+        _prefijo_del_nif, _direcciones, _tipo_de_impuesto, _tercero,
+        _facturas_referenciadas, _motivos, _categorias, _tipo_del_desglose,
+        _exenciones, _claves_de_regimen, _referencias_catastrales,
+        _lineas_de_cobro, _retenciones, _cuadre_de_las_retenciones, _qr,
+        _total_a_pagar,
     ):
         incidencias.extend(regla(raiz))
     return incidencias
@@ -1195,6 +1234,153 @@ def _importe_pagado(raiz) -> list[Incidencia]:
     return incidencias
 
 
+# Una fecha como la escribe UBL (xs:date): 2026-10-06, con zona o sin ella. Lo
+# que no tenga esa forma no se compara: eso es cosa del esquema.
+_DIA = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
+
+
+def _dia(escrito: str) -> date | None:
+    encontrado = _DIA.match(escrito)
+    if not encontrado:
+        return None
+    try:
+        return date(*map(int, encontrado.groups()))
+    except ValueError:
+        return None
+
+
+def _fecha_de_pago(raiz) -> list[Incidencia]:
+    """BT-ES-2: la fecha efectiva de pago, si está.
+
+    La orden la admite cuando la factura «ha sido pagada con anterioridad a la
+    fecha de expedición de la factura o en dicha fecha», y pide que sea
+    «coincidente o posterior a la fecha de realización de las operaciones».
+    Con ella, si además coincide con la de la operación, el destinatario no
+    tiene que comunicar el pago (apartado 4 del artículo 7), y por eso importa
+    que diga lo que puede decir. La fila admite más que el artículo: un pago
+    posterior a la operación vale, pero no libera de comunicarlo, y una nota
+    lo dice.
+
+    La fecha de la operación es BT-7, y la orden lo pide solo cuando es otra
+    que la de expedición: sin BT-7, la operación es del día de la expedición, y
+    un pago anterior es un pago anterior a la operación. Salvo que la factura
+    dé un periodo (BG-14, la factura recapitulativa): entonces las operaciones
+    son del periodo, la orden no dice con cuál se compara, y se dice en una
+    nota en vez de condenar.
+    """
+    escritas = [e for e in (_escrito(n) for n in _nodos(raiz, _FECHA_DE_PAGO)) if e]
+    if not escritas:
+        return []
+    campo = "Fecha efectiva de pago (BT-ES-2)"
+    incidencias: list[Incidencia] = []
+    if len(escritas) > 1:
+        incidencias.append(
+            Incidencia(
+                "SPFE-FECHA-DE-PAGO",
+                ERROR,
+                f"Hay {len(escritas)} fechas efectivas de pago, y la orden admite "
+                "una por factura.",
+                campo=campo,
+                esperado="una como mucho",
+                encontrado=", ".join(escritas),
+            )
+        )
+    expedicion = _dia(_valor(raiz, SINTAXIS_UBL.fecha))
+    operacion_escrita = _valor(raiz, SINTAXIS_UBL.fecha_devengo)
+    operacion = _dia(operacion_escrita)
+    if expedicion is None:
+        return incidencias
+    despues, antes_de_la_operacion, antes_sin_operacion = [], [], []
+    despues_de_la_operacion: list[str] = []
+    for escrita in escritas:
+        pago = _dia(escrita)
+        if pago is None:
+            continue
+        if pago > expedicion:
+            despues.append(escrita)
+        elif operacion_escrita:
+            if operacion is not None and pago < operacion:
+                antes_de_la_operacion.append(escrita)
+            elif operacion is not None and pago > operacion:
+                despues_de_la_operacion.append(escrita)
+        elif pago < expedicion:
+            antes_sin_operacion.append(escrita)
+    if despues:
+        incidencias.append(
+            Incidencia(
+                "SPFE-FECHA-DE-PAGO",
+                ERROR,
+                "La fecha efectiva de pago es posterior a la de expedición. La "
+                "orden la admite cuando la factura se pagó antes de expedirse o "
+                "ese mismo día (fila BT-ES-2).",
+                campo=campo,
+                esperado=f"el {cifras.fecha(expedicion)} o antes",
+                encontrado=", ".join(despues),
+            )
+        )
+    if antes_de_la_operacion:
+        incidencias.append(
+            Incidencia(
+                "SPFE-FECHA-DE-PAGO",
+                ERROR,
+                "La fecha efectiva de pago es anterior a la de la operación "
+                "(BT-7), y la orden la pide «coincidente o posterior a la fecha "
+                "de realización de las operaciones» (fila BT-ES-2). Un pago "
+                "anterior a la operación es un anticipo.",
+                campo=campo,
+                esperado=f"del {cifras.fecha(operacion)} al {cifras.fecha(expedicion)}",
+                encontrado=", ".join(antes_de_la_operacion),
+            )
+        )
+    if despues_de_la_operacion:
+        incidencias.append(
+            Incidencia(
+                "SPFE-FECHA-DE-PAGO",
+                NOTA,
+                "La fecha efectiva de pago es posterior a la de la operación "
+                "(BT-7) y no a la de expedición, y la orden la admite (fila "
+                "BT-ES-2). Pero el apartado 4 de su artículo 7 da por cumplida la "
+                "comunicación del pago solo cuando la fecha coincide con la de la "
+                "operación o el devengo: con esta, el destinatario tiene que "
+                "comunicar el pago igual.",
+                campo=campo,
+                encontrado=", ".join(despues_de_la_operacion),
+            )
+        )
+    if antes_sin_operacion and _nodos(raiz, SINTAXIS_UBL.periodo_grupo):
+        incidencias.append(
+            Incidencia(
+                "SPFE-FECHA-DE-PAGO",
+                NOTA,
+                "La fecha efectiva de pago es anterior a la de expedición, y la "
+                "factura da un periodo de facturación (BG-14) en vez de la fecha "
+                "de la operación (BT-7). La orden pide el pago «coincidente o "
+                "posterior a la fecha de realización de las operaciones», y no "
+                "dice con qué fecha del periodo se compara: no se ha comprobado.",
+                campo=campo,
+                encontrado=", ".join(antes_sin_operacion),
+            )
+        )
+    elif antes_sin_operacion:
+        incidencias.append(
+            Incidencia(
+                "SPFE-FECHA-DE-PAGO",
+                ERROR,
+                "La fecha efectiva de pago es anterior a la de expedición, y la "
+                "factura no da otra fecha de operación (BT-7). La orden pide BT-7 "
+                "solo cuando la operación es de otro día que la expedición, así "
+                "que la operación es del día de la expedición; y el pago tiene que "
+                "ser «coincidente o posterior a la fecha de realización de las "
+                "operaciones» (fila BT-ES-2). Si la operación fue antes, falta su "
+                "fecha en BT-7.",
+                campo=campo,
+                esperado=f"el {cifras.fecha(expedicion)}, o la fecha de la operación en BT-7",
+                encontrado=", ".join(antes_sin_operacion),
+            )
+        )
+    return incidencias
+
+
 def _nif_bien_puesto(esquema) -> bool:
     """Si un `cac:PartyTaxScheme` lleva el NIF como admite la orden.
 
@@ -1256,6 +1442,76 @@ def _nif(raiz) -> list[Incidencia]:
                          f"«{_IMPUESTO}», o «{_IMPUESTO_LOCAL}» con cbc:CompanyID@schemeID "
                          f"«{_ESQUEMA_DEL_NIF}»",
                 encontrado=encontrado,
+            )
+        )
+    return incidencias
+
+
+def _registro_legal(raiz) -> list[Incidencia]:
+    """BT-30: el registro legal del vendedor, obligatorio si su NIF va en BT-32.
+
+    La norma pide uno de tres para identificar al vendedor (BR-CO-26): su
+    identificador (BT-29), su registro legal (BT-30) o su NIF-IVA (BT-31). La
+    orden pide BT-30 en concreto cuando el NIF va con «LOC» y el atributo
+    «FC», y lo describe como el NIF del vendedor. Si falta todo, sale también
+    BR-CO-26, que dice otra cosa: que no hay ninguno de los tres.
+    """
+    con_bt32 = [esquema for esquema in _nodos(raiz, _ESQUEMAS_DEL_VENDEDOR)
+                if _valor(esquema, _IMPUESTO_DEL_ESQUEMA) == _IMPUESTO_LOCAL
+                and _nif_bien_puesto(esquema)]
+    if not con_bt32 or _valor(raiz, SINTAXIS_UBL.vendedor_registro):
+        return []
+    return [
+        Incidencia(
+            "SPFE-NIF",
+            ERROR,
+            f"El NIF del vendedor va con «{_IMPUESTO_LOCAL}» y el atributo "
+            f"«{_ESQUEMA_DEL_NIF}» (BT-32), y falta su identificador de "
+            "inscripción legal (BT-30). La orden lo hace obligatorio en ese caso "
+            "y lo describe como el NIF del vendedor. No le da ruta: la "
+            "vinculación UBL de la norma lo pone en "
+            "cac:PartyLegalEntity/cbc:CompanyID.",
+            campo="Identificador de inscripción legal del vendedor (BT-30)",
+            esperado="el NIF del vendedor en cac:PartyLegalEntity/cbc:CompanyID",
+            encontrado="(falta)",
+        )
+    ]
+
+
+def _prefijo_del_nif(raiz) -> list[Incidencia]:
+    """BT-31 y BT-48: el NIF-IVA con el prefijo de España.
+
+    La norma admite el prefijo de cualquier país (BR-CO-09), y la orden pide
+    el de España. Lo del comprador sale en AVISO: su fila copia la del
+    vendedor, y no se sabe si el prefijo es para él (ver al importar).
+    """
+    incidencias: list[Incidencia] = []
+    for quien, esquemas, identificador, otro, gravedad, mensaje in (
+        ("vendedor", _ESQUEMAS_DEL_VENDEDOR, "BT-31", "BT-32", ERROR,
+         "La orden lo pide con el prefijo de España (fila BT-31); la norma "
+         "europea admite el de cualquier país."),
+        ("comprador", _ESQUEMAS_DEL_COMPRADOR, "BT-48", "BT-47", AVISO,
+         "La fila BT-48 de la orden lo pide con el prefijo de España, pero copia "
+         "la del vendedor hasta en decir «del vendedor», y no se sabe si el "
+         "prefijo es para el comprador: por eso es un aviso."),
+    ):
+        otros = [nif for esquema in _nodos(raiz, esquemas)
+                 if _valor(esquema, _IMPUESTO_DEL_ESQUEMA) == _IMPUESTO
+                 and (nif := _valor(esquema, "./cbc:CompanyID"))
+                 and not nif.startswith(_PREFIJO_DE_ESPANA)]
+        if not otros:
+            continue
+        incidencias.append(
+            Incidencia(
+                "SPFE-NIF",
+                gravedad,
+                f"El NIF-IVA del {quien} ({identificador}) no lleva el prefijo "
+                f"{_PREFIJO_DE_ESPANA}. {mensaje} Si se identifica con el NIF y no "
+                f"con el NIF-IVA, la orden lo admite con «{_IMPUESTO_LOCAL}» y el "
+                f"atributo «{_ESQUEMA_DEL_NIF}» ({otro}).",
+                campo=f"NIF-IVA del {quien} ({identificador})",
+                esperado=f"el NIF con {_PREFIJO_DE_ESPANA} delante",
+                encontrado=", ".join(otros),
             )
         )
     return incidencias
@@ -1501,6 +1757,65 @@ def _categorias(raiz) -> list[Incidencia]:
             )
         )
     return incidencias
+
+
+def _tipo_del_desglose(raiz) -> list[Incidencia]:
+    """BT-119 en la entrada no sujeta: la norma la deja sin tipo y la orden no.
+
+    En las demás categorías el tipo es obligatorio también en la norma, y que
+    falte lo dice BR-48: dos quejas por lo mismo no dicen más que una. Medido
+    el 11-10-2026: una entrada O con tipo no hace saltar ninguna regla de la
+    norma, así que lo que la orden pide se puede cumplir sin romper nada.
+    """
+    sin_tipo = [nombre or "desglose" for nombre, entrada in grupos(raiz, SINTAXIS_UBL, "desglose")
+                if _valor(entrada, SINTAXIS_UBL.desglose_categoria) == _NO_SUJETA
+                and not _valor(entrada, SINTAXIS_UBL.desglose_tipo)]
+    if not sin_tipo:
+        return []
+    return [
+        Incidencia(
+            "SPFE-TIPO-DE-IVA",
+            ERROR,
+            f"La entrada no sujeta del desglose ({_NO_SUJETA}) no lleva tipo de "
+            "IVA. La norma europea lo deja sin tipo en lo no sujeto (BR-48), y la "
+            "orden lo pide en todas las entradas del desglose (fila BT-119, "
+            "obligatoria).",
+            campo=_donde("Tipo de IVA por categoría (BT-119)", sin_tipo),
+            esperado="un tipo en cac:TaxCategory/cbc:Percent",
+            encontrado="(falta)",
+        )
+    ]
+
+
+def _exenciones(raiz) -> list[Incidencia]:
+    """BT-121: el código de exención, solo VATEX-EU o VATEX-ES.
+
+    La lista CEF-VATEX tiene también los de otros países, como los VATEX-FR, y
+    la norma los admite (BR-CL-22). Mayúsculas o minúsculas como allí: la
+    comparación es en mayúsculas.
+    """
+    otros: list[str] = []
+    lugares: list[str] = []
+    for nombre, entrada in grupos(raiz, SINTAXIS_UBL, "desglose"):
+        codigo = _valor(entrada, SINTAXIS_UBL.desglose_motivo_codigo)
+        if codigo and not codigo.upper().startswith(_EXENCIONES):
+            otros.append(codigo)
+            if nombre:
+                lugares.append(nombre)
+    if not otros:
+        return []
+    return [
+        Incidencia(
+            "SPFE-EXENCION",
+            ERROR,
+            "El código de exención no es de los que admite la orden, que solo "
+            "acepta los VATEX-EU y los VATEX-ES de la lista CEF-VATEX (fila "
+            "BT-121). Los de otros países son de su IVA, no del español.",
+            campo=_donde("Código de razón de exención (BT-121)", lugares),
+            esperado="un código VATEX-EU- o VATEX-ES-",
+            encontrado=", ".join(dict.fromkeys(otros)),
+        )
+    ]
 
 
 def _se_mide_con_el_anexo(raiz, deteccion) -> bool:
