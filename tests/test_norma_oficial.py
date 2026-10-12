@@ -378,9 +378,13 @@ def test_edifact_y_facturae_siguen_a_ubl_y_no_al_esquematron_de_edifact():
     """
     assert _con_margen("EDIFACT") == set()
     assert margen("EDIFACT", "BR-CO-17") == "exacta"
+    # Y rechaza el cero del IGIC y del IPSI, que la norma admite: tampoco se
+    # sigue, ni se avisa, como no se avisa de sus márgenes.
+    assert _rechazan_el_cero("EDIFACT") == {"S", "O", "L", "M"}
     for mapa in (SINTAXIS_EDIFACT, SINTAXIS_FACTURAE):
         assert mapa.base_admite_una_unidad == SINTAXIS_UBL.base_admite_una_unidad
         assert mapa.cuota_admite_la_unidad_justa == SINTAXIS_UBL.cuota_admite_la_unidad_justa
+        assert mapa.cero_que_rechaza_su_esquematron == SINTAXIS_UBL.cero_que_rechaza_su_esquematron
 
 
 def test_el_desglose_de_edifact_es_el_grupo_del_esquematron_oficial():
@@ -434,6 +438,52 @@ def test_sin_tipo_saltan_las_del_tipo_salvo_en_la_no_sujeta():
                 if dice != salta:
                     distintos.append(f"{sintaxis} {regla}")
     assert not distintos, "sin tipo, el motor no dice lo que la norma: " + ", ".join(distintos)
+
+
+def _rechazan_el_cero(sintaxis: str) -> set[str]:
+    """Las categorías cuyo BR-{X}-05 a 07 salta, en esta vinculación, con un 0 escrito."""
+    espacios = {"cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+                "ram": "urn:un:unece:uncefact:data:standard:"
+                       "ReusableAggregateBusinessInformationEntity:100"}
+    con_cero = etree.fromstring(
+        f'<c xmlns:cbc="{espacios["cbc"]}" xmlns:ram="{espacios["ram"]}">'
+        "<cbc:Percent>0</cbc:Percent><ram:RateApplicablePercent>0</ram:RateApplicablePercent>"
+        "<C_C243><D_5278>0</D_5278></C_C243></c>")
+    rechazan = set()
+    for familia, categoria in FAMILIAS.items():
+        saltan = {not con_cero.xpath(vinculacion(sintaxis)[f"BR-{familia}-{s}"]
+                                     .replace("xs:decimal(", "number("), namespaces=espacios)
+                  for s in ("05", "06", "07")}
+        assert len(saltan) == 1, f"{sintaxis} BR-{familia}: el cero no vale igual en las tres"
+        if saltan.pop():
+            rechazan.add(categoria)
+    return rechazan
+
+
+def test_el_cero_que_la_norma_admite_y_cada_esquematron_rechaza():
+    """BR-AF y BR-AG, 05 a 07: el texto admite el cero, y el esquematrón de CII no.
+
+    El texto de la regla dice «0 (zero) or greater than zero» en el IGIC y en
+    el IPSI. La vinculación de UBL lo escribe `>= 0`; la de CII, `> 0` en el
+    IGIC y `>= 0` en el IPSI. Se denunció en el repositorio oficial (issue
+    519, abierta el 07-09-2026) y se cerró el 29-09-2026 cambiando el nombre de
+    las reglas y no la comparación: así seguía en `master` el 12-10-2026. Aquí
+    se sigue al texto, y `sintaxis.py` dice en qué categorías el esquematrón de
+    cada sintaxis rechaza lo que la norma admite, para que el motor lo diga en
+    una nota. Si el comité arregla CII, o rompe UBL, esto se pone en rojo.
+    """
+    texto = {a.get("id"): "".join(a.itertext())
+             for a in etree.parse(str(OFICIAL / "EN16931-model.sch")).getroot().iter(ISO + "assert")}
+    for familia in ("AF", "AG"):
+        for sufijo in ("05", "06", "07"):
+            assert "shall be 0 (zero) or greater than zero" in texto[f"BR-{familia}-{sufijo}"]
+    # Las demás piden lo mismo en el texto y en las dos vinculaciones: el cero
+    # en Z, E, AE, K y G, ningún tipo en la O y uno positivo en la S.
+    assert _rechazan_el_cero("UBL") == {"S", "O"}
+    assert _rechazan_el_cero("CII") == {"S", "O", "L"}
+    assert SINTAXIS_UBL.cero_que_rechaza_su_esquematron == frozenset()
+    assert SINTAXIS_CII.cero_que_rechaza_su_esquematron == frozenset(
+        _rechazan_el_cero("CII") - _rechazan_el_cero("UBL"))
 
 
 def test_la_cuota_de_cada_categoria_es_la_de_su_esquematron():

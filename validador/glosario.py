@@ -690,6 +690,19 @@ CODIGOS: dict[str, str] = {
         'no está donde dice. Un receptor que sume las líneas no llegará a la '
         'cifra declarada.'
     ),
+    "IVA-CERO-ESQUEMATRON": (
+        'Una factura en CII lleva conceptos de IGIC con el tipo a cero. La '
+        'norma lo admite: BR-AF-05, 06 y 07 piden un tipo «0 (zero) or '
+        'greater than zero», y así lo escribe el esquematrón oficial de UBL. '
+        'El de CII compara con «mayor que cero» y lo rechaza, y en el IPSI, '
+        'al lado, no. Se denunció en el repositorio oficial de la norma (la '
+        'issue 519) y el 29 de septiembre de 2026 se cerró cambiando el '
+        'nombre de las reglas, no la comparación. Aquí se sigue al texto de '
+        'la norma, así que en la factura no hay nada que arreglar. La nota '
+        'existe porque quien la reciba y la valide con el esquematrón de CII '
+        'la verá rechazada, y conviene saberlo antes de enviarla. En UBL no '
+        'pasa.'
+    ),
     "EDI-ETIQUETA-IMPOSIBLE": (
         'Hay texto donde tenía que empezar un segmento. Una etiqueta EDIFACT '
         'son tres caracteres, así que lo que hay ahí no es una. Lo que suele '
@@ -2517,7 +2530,9 @@ CODIGOS: dict[str, str] = {
         'escrito al revés. La devolución se escribe con el importe en '
         'negativo y el tipo como es. Si varias líneas repiten el mismo tipo '
         'negativo, salen juntas en una sola queja con todas nombradas. '
-        'Salta también si la línea no trae tipo: solo lo no sujeto va sin él.'
+        'Salta también si la línea no trae tipo: solo lo no sujeto va sin él. '
+        'El esquematrón oficial de CII rechaza también el cero, que la norma '
+        'admite: aquí vale, y lo dice la nota IVA-CERO-ESQUEMATRON.'
     ),
     "BR-AF-06": (
         'Un descuento de los que van al pie de la factura, con IGIC, declara '
@@ -2527,7 +2542,9 @@ CODIGOS: dict[str, str] = {
         'lo corta en el tipo, que para el IGIC tiene que ser cero o positivo. '
         'Un descuento de 10 al 7% está bien escrito; el mismo descuento al '
         '−7%, no. '
-        'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
+        'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él. '
+        'El esquematrón oficial de CII rechaza también el cero, que la norma '
+        'admite: aquí vale, y lo dice la nota IVA-CERO-ESQUEMATRON.'
     ),
     "BR-AF-07": (
         'Un cargo de los que van al pie de la factura (un porte, un embalaje, '
@@ -2536,7 +2553,9 @@ CODIGOS: dict[str, str] = {
         'cualquier otro concepto de IGIC. Si lo que se quería era restar, lo '
         'que corresponde es un descuento, no un cargo con el tipo en '
         'negativo. '
-        'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él.'
+        'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él. '
+        'El esquematrón oficial de CII rechaza también el cero, que la norma '
+        'admite: aquí vale, y lo dice la nota IVA-CERO-ESQUEMATRON.'
     ),
     "BR-AF-10": (
         'Una entrada de IGIC en el desglose trae motivo de exención, y la '

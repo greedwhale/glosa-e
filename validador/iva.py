@@ -1447,6 +1447,49 @@ _LO_QUE_PIDE = {POSITIVO: "un tipo mayor que cero", CERO: "el tipo, a cero",
                 NO_NEGATIVO: "el tipo, a cero o positivo"}
 
 
+def _regla_cero_que_rechaza_su_esquematron(
+    apuntes: list[Apunte], sintaxis: Sintaxis
+) -> list[Incidencia]:
+    """De la casa: el tipo a cero que la norma admite y el esquematrón de la sintaxis no.
+
+    Hoy es el IGIC en CII (`Sintaxis.cero_que_rechaza_su_esquematron`). El
+    texto de BR-AF-05 a 07 dice «0 (zero) or greater than zero», la
+    vinculación de UBL `>= 0` y la de CII `> 0`. Se denunció en el repositorio
+    oficial (issue 519) y el 29-09-2026 se cerró cambiando los nombres de las
+    reglas y no la comparación. Aquí se sigue al texto, y la factura no tiene
+    nada que arreglar; pero quien la reciba y la pase por el esquematrón de
+    CII la verá rechazada, y eso hay que decirlo. Es una nota porque dice qué
+    se dio por bueno y con qué base.
+
+    Una sola por factura, con todos los conceptos y todas las reglas: es una
+    misma discrepancia, no una por línea.
+    """
+    suyos: list[tuple[Apunte, str]] = []
+    for apunte in apuntes:
+        if (apunte.categoria in sintaxis.cero_que_rechaza_su_esquematron
+                and apunte.tipo is not None and apunte.tipo == 0):
+            regla = REGLAS[apunte.categoria]
+            suyos.append((apunte, f"BR-{regla.codigo}-{_sufijo_del_concepto(apunte)}"))
+    if not suyos:
+        return []
+    reglas_ = sorted({regla for _, regla in suyos})
+    nombres = sorted({nombre_categoria(a.categoria) for a, _ in suyos})
+    return [
+        Incidencia(
+            "IVA-CERO-ESQUEMATRON",
+            NOTA,
+            f"Hay conceptos a {' y '.join(nombres)} con el tipo a cero. La norma "
+            "lo admite y aquí vale, pero el esquematrón oficial de "
+            f"{sintaxis.nombre} compara con «mayor que cero» y lo rechaza "
+            f"con {' y '.join(reglas_)}. Quien reciba la factura y la valide "
+            "con ese esquematrón la verá rechazada.",
+            campo="Conceptos: " + ", ".join(a.descripcion for a, _ in suyos),
+            esperado="0 o mayor que 0",
+            encontrado="0",
+        )
+    ]
+
+
 def _regla_lineas_con_categoria(
     apuntes: list[Apunte], sintaxis: Sintaxis
 ) -> list[Incidencia]:
@@ -1525,7 +1568,8 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True,
         # él, una AE de la solución pública sin desglose salía con BR-AE-02
         # por tener al comprador donde lo pone la orden: lo vio la revisión
         # del 07-10-2026, antes de publicar.
-        return _regla_tipo_de_los_conceptos(apuntes) + _regla_identificadores(
+        return _regla_tipo_de_los_conceptos(apuntes) + _regla_cero_que_rechaza_su_esquematron(
+            apuntes, sintaxis) + _regla_identificadores(
             raiz, sintaxis, apuntes, comprador_registro_de_mas) + _regla_hay_desglose(
             grupos, apuntes) + [
             Incidencia(
@@ -1583,6 +1627,7 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True,
             incidencias.extend(_regla_base_por_grupo(grupo, apuntes, sintaxis))
         incidencias.extend(_reglas_cuota(grupo, sintaxis))
     incidencias.extend(_regla_tipo_de_los_conceptos(apuntes))
+    incidencias.extend(_regla_cero_que_rechaza_su_esquematron(apuntes, sintaxis))
     incidencias.extend(_regla_identificadores(
         raiz, sintaxis, apuntes, comprador_registro_de_mas))
     incidencias.extend(_regla_hay_desglose(grupos, apuntes))

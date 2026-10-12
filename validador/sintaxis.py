@@ -263,6 +263,16 @@ class Sintaxis:
     # vinculación oficial `test_norma_oficial`.
     comprueba_la_cuota_por_tipo: frozenset[str]
 
+    # En qué categorías el esquematrón oficial de esta sintaxis rechaza un
+    # tipo a cero que la norma admite. Hoy es una: el IGIC en CII, cuyas
+    # BR-AF-05 a 07 comparan con `> 0` cuando el texto de la regla dice «0
+    # (zero) or greater than zero», y la vinculación de UBL, `>= 0`. Aquí se
+    # sigue al texto, como con el periodo que el esquematrón de CII no
+    # encuentra, y el motor lo dice en una nota (IVA-CERO-ESQUEMATRON): quien
+    # reciba la factura y la pase por ese esquematrón la verá rechazada. Lo
+    # lee de la vinculación oficial `test_norma_oficial`.
+    cero_que_rechaza_su_esquematron: frozenset[str]
+
     # Qué medios de pago son una transferencia, que es cuando BR-50 y BR-61
     # piden la cuenta. En UBL, CII y EDIFACT son los códigos UNCL4461 que nombra
     # la vinculación oficial —30 y 58—; Facturae tiene su propia lista, y en
@@ -461,6 +471,7 @@ SINTAXIS_UBL = Sintaxis(
     cuota_admite_la_unidad_justa=False,  # el esquematrón de UBL: desigualdad estricta
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
+    cero_que_rechaza_su_esquematron=frozenset(),
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset(),
     monedas_de_importes=(
@@ -691,6 +702,7 @@ SINTAXIS_CII = Sintaxis(
     cuota_admite_la_unidad_justa=True,  # el esquematrón de CII: `<=`
     base_admite_una_unidad=frozenset({"Z", "E", "AE", "K", "G"}),
     comprueba_la_cuota_por_tipo=frozenset({"S"}),
+    cero_que_rechaza_su_esquematron=frozenset({"L"}),  # BR-AF-05 a 07: `> 0`
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset({"BR-DEC-13", "BR-DEC-15"}),
     # En CII solo el total del impuesto lleva moneda: los demás importes van
@@ -991,6 +1003,7 @@ SINTAXIS_EDIFACT = Sintaxis(
     cuota_admite_la_unidad_justa=False,
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
+    cero_que_rechaza_su_esquematron=frozenset(),
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset(),
     # Las listas de códigos. El esquematrón de códigos de EDIFACT es de 2017 y
@@ -1356,6 +1369,7 @@ SINTAXIS_FACTURAE = Sintaxis(
     cuota_admite_la_unidad_justa=False,  # Facturae no tiene esquematrón europeo; se sigue el de UBL
     base_admite_una_unidad=frozenset({"S", "L", "M"}),  # también el de UBL
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),  # y aquí
+    cero_que_rechaza_su_esquematron=frozenset(),  # y en esto
     # «04 Transferencia», en `PaymentMeansType` del esquema oficial.
     medios_de_transferencia=frozenset({"04"}),
     # Los importes de Facturae no llevan moneda: la de la factura va una vez.

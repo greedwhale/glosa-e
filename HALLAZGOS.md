@@ -8022,3 +8022,85 @@ dice «0 (zero) or greater than zero». Una línea de IGIC al 0% en CII es mala
 para su esquematrón y buena aquí. (El de EDIFACT dice `> 0` también en el
 IPSI, pero EDIFACT ya se decidió que va con UBL.) Es otra decisión, la de qué
 vinculación se sigue cuando no dicen lo mismo, y va aparte.
+
+## El IGIC a cero en CII: la norma lo admite y su esquematrón no
+
+**Lo que había.** `BR-AF-05`, `06` y `07` (el IGIC, categoría L) dicen en el
+texto de la norma que el tipo «shall be 0 (zero) or greater than zero». La
+vinculación de UBL lo escribe `(cbc:Percent) >= 0`; la de CII,
+`ram:RateApplicablePercent > 0`, y la del IPSI en CII, al lado, `>= 0`. La de
+EDIFACT, `> 0` en las dos. Aquí el IGIC y el IPSI son `NO_NEGATIVO` en todas
+las sintaxis, y nadie había decidido nada sobre la de CII: salió al comparar
+las tres vinculaciones el 11-10-2026, mirando el tipo que falta.
+
+**Reproducido** el 12-10-2026 sobre `2ae7722`, con una línea, un descuento y
+un cargo al 0 %, y evaluando con lxml la expresión de cada vinculación sobre
+un concepto con el tipo a cero:
+
+| | UBL | CII | EDIFACT |
+|---|---|---|---|
+| el esquematrón, IGIC al 0 % | lo admite | **lo rechaza**, `BR-AF-05` a `07` | lo rechaza |
+| el esquematrón, IPSI al 0 % | lo admite | lo admite | lo rechaza |
+| el motor en `2ae7722` | sin nada | sin nada | no se midió |
+| el motor ahora, IGIC al 0 % | sin nada | NOTA `IVA-CERO-ESQUEMATRON` | sin nada |
+
+**En el repositorio oficial ya se sabe.** La issue 519 de
+`ConnectingEurope/eInvoicing-EN16931`, abierta el 07-09-2026, dice que las dos
+reglas del cero no admiten el cero en los artefactos aunque el texto lo
+admita. Se cerró el 29-09-2026, en el hito 1.3.17 (noviembre de 2026), con un
+commit que cambia los **nombres** y no la comparación. Leído en la web del
+repositorio el 12-10-2026, sin descargarlo: en `master` la regla del IGIC en
+CII sigue con `> 0`.
+
+**Lo que se decidió, y por qué.**
+
+- **Se sigue al texto de la norma, no a la vinculación de CII.** Es lo que
+  se hizo con el periodo que el esquematrón de CII no encuentra y con el
+  `D_D4461` de EDIFACT: cuando una vinculación no hace lo que dice el texto de su
+  propia regla, se sigue al texto. Los márgenes son otra cosa: ahí el texto
+  no dice nada y cada vinculación decide, y por eso se siguen las dos. Aquí el
+  texto dice «0 (zero) or greater than zero», la vinculación de UBL lo
+  respeta, la del IPSI en CII también, y el fallo está denunciado. Y el tipo
+  cero del IGIC existe: dar por mala una factura canaria correcta sería
+  prometer de más en la otra dirección.
+- **Y se dice en una nota.** Quien reciba esa factura y la pase por el
+  esquematrón oficial de CII la verá rechazada con `BR-AF-05`, y eso no se
+  calla. Es una nota y no un aviso porque en la factura no hay nada que
+  arreglar: dice qué se dio por bueno y con qué base, que es para lo que están
+  las notas.
+- **EDIFACT no la lleva.** Su esquematrón rechaza también el cero del IPSI,
+  pero EDIFACT ya va con UBL: el de EDIFACT es de 2017 y tampoco se avisa de
+  sus márgenes. Facturae no tiene esquematrón europeo.
+
+**Lo que se hizo.**
+
+- `Sintaxis.cero_que_rechaza_su_esquematron`: `{"L"}` en CII y vacío en las
+  demás. `test_norma_oficial` lo lee de la vinculación de cada sintaxis
+  evaluando la regla con un cero escrito, y comprueba que el texto de las seis
+  reglas sigue diciendo «0 (zero) or greater than zero». Si el comité arregla
+  CII, o rompe UBL, se pone en rojo.
+- `IVA-CERO-ESQUEMATRON`, una NOTA por factura con los conceptos y las reglas
+  que el esquematrón de CII levantaría. Corre también sin desglose, como las
+  del tipo.
+- La ficha nueva, y una frase en las de `BR-AF-05`, `06` y `07`, que es lo que
+  buscará quien vea su CII rechazada.
+- De 394 códigos a 395.
+
+**En el corpus**, 157 facturas, 19 de ellas CII: no cambia nada, 1108
+incidencias antes y después. Ninguna lleva IGIC.
+
+**Provocado.** Once roturas, las once en rojo: CII deja de decir el IGIC, UBL
+y EDIFACT lo dicen, Facturae sigue a otro, la nota sale también con el tipo
+negativo, la nota es un aviso, la nota es el error de CII, solo las líneas, no
+corre con desglose, no corre sin él, una ficha de `BR-AF` sin la frase, y el
+comité que arregla CII.
+
+**Lo que se vio de paso, y no se toca.** El commit que cerró la issue 519
+cambia los nombres de las reglas en `master`. En UBL el IGIC pasa de `BR-AF`
+a `BR-IG` y el IPSI de `BR-AG` a `BR-IP`, que es como los llama la norma. En
+CII el cambio salió cruzado: `BR-AF` pasó a `BR-IP` y `BR-AG` a `BR-IG`, así
+que allí la regla del IGIC (contexto de la categoría L, texto de IGIC) se
+llama `BR-IP-05`. No está publicado: es del hito 1.3.17, de noviembre de 2026.
+La copia fijada aquí es `b6c9e06` y sigue con `BR-AF` y `BR-AG`; el día que
+se traiga la nueva, `test_norma_oficial` lo dirá, y habrá que decidir qué
+código se enseña cuando UBL y CII no llaman igual a la misma regla.

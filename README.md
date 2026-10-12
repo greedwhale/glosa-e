@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3115 tests, todos en verde.
+3125 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -356,6 +356,7 @@ para quien factura en España:
 | `IVA-SIN-CATEGORIA` | Líneas sin categoría de IVA (aviso: no se ha podido comprobar) |
 | `IVA-AJUSTES-SIN-DETALLAR` | Descuentos globales sin decir a qué tipo van |
 | `IVA-SIN-TOTAL` | No hay importe total de impuestos que comprobar |
+| `IVA-CERO-ESQUEMATRON` | El IGIC a cero en CII: la norma lo admite y su esquematrón oficial no (nota) |
 
 La separación es deliberada: **que se vea de un vistazo qué exige la norma y
 qué opinamos nosotros.**
@@ -5784,6 +5785,34 @@ expresión en el único caso que importa.
 `BR-E-05`, en dos facturas EDIFACT con tres líneas exentas sin tipo cada una,
 que ya traían otros nueve códigos de error de la norma. Provocado once veces,
 las once en rojo (en HALLAZGOS).
+
+### El IGIC a cero en CII: se sigue a la norma, y se dice
+
+**`BR-AF-05`, `06` y `07` no dicen lo mismo en cada vinculación.** El texto de
+la regla pide para el IGIC un tipo «0 (zero) or greater than zero». La
+vinculación de UBL lo escribe `>= 0`; la de CII, `> 0`, y la del IPSI en CII,
+al lado, `>= 0`. Una línea de IGIC al 0 % en CII es mala para el esquematrón
+oficial de CII y buena para la norma. Está denunciado en el repositorio
+oficial: la issue 519, abierta el 07-09-2026, se cerró el 29-09-2026 cambiando
+los nombres de las reglas y no la comparación, que el 12-10-2026 seguía igual
+en `master` (leído en la web, no descargado).
+
+**Se sigue al texto.** Es lo que se hizo con el periodo que el esquematrón de
+CII no encuentra y con el `D_D4461` de EDIFACT: cuando una vinculación no hace
+lo que dice el texto de su propia regla, manda el texto. Con los márgenes es al
+revés porque ahí el texto no dice nada. **Y se dice en una nota**,
+`IVA-CERO-ESQUEMATRON`: quien reciba la factura y la pase por el esquematrón
+de CII la verá rechazada, y eso no se calla. No es un aviso porque en la
+factura no hay nada que arreglar.
+
+Qué sintaxis rechaza qué está en `Sintaxis.cero_que_rechaza_su_esquematron`,
+`{"L"}` en CII, y `test_norma_oficial` lo lee de cada vinculación con un cero
+escrito: si el comité arregla CII, se pone en rojo. EDIFACT, cuyo esquematrón
+rechaza también el cero del IPSI, va con UBL, como en los márgenes. En el
+corpus no cambia nada: de las 19 facturas CII, ninguna lleva IGIC. De 394
+códigos a 395. Provocado once veces, las once en rojo (en HALLAZGOS), donde
+está también lo que se vio de paso: en `master` las reglas del IGIC y del IPSI
+cambian de nombre, y en CII el cambio salió cruzado.
 
 ## Por qué este y no otro, contestado sin pedir fe
 

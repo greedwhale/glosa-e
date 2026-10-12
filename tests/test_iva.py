@@ -837,13 +837,17 @@ class TestCategorias:
 
     @pytest.mark.parametrize("categoria", ["L", "M"])
     def test_el_igic_y_el_ipsi_admiten_el_cero(self, revisar, categoria):
-        """«0 (zero) or greater than zero»: el cero no es un error."""
+        """«0 (zero) or greater than zero»: el cero no es un error.
+
+        Ni un aviso. El IGIC en CII sale con una nota, la de que su
+        esquematrón lo rechaza: ver `TestElCeroDelIgicEnCII`.
+        """
         incidencias = revisar(
             lineas=[Linea("1", "100.00", categoria=categoria, tipo="0")],
             grupos=[Grupo("100.00", "0.00", categoria=categoria, tipo="0")],
             total_iva="0.00",
         )
-        assert incidencias == []
+        assert [i.codigo for i in incidencias if i.gravedad != NOTA] == []
 
     @pytest.mark.parametrize("categoria,codigo", [("L", "BR-AF-05"),
                                                   ("M", "BR-AG-05")])
@@ -1142,6 +1146,72 @@ class TestElTipoQueFalta:
                   for s in ("05", "06", "07")
                   if "solo lo no sujeto va sin" not in CODIGOS[f"BR-{iva.REGLAS[c].codigo}-{s}"]]
         assert not callan, f"fichas que no dicen que sin tipo también salta: {callan}"
+
+
+def _igic(nombre, categoria="L", tipo="0", ajuste=None):
+    """Las reglas de IVA de una factura de IGIC (o de IPSI) en una sintaxis."""
+    montar, sintaxis = CONSTRUCTORES[nombre]
+    cuota = f"{Decimal(tipo):.2f}"
+    xml = montar(
+        lineas=[Linea("1", "100.00", categoria=categoria, tipo=tipo)],
+        ajustes=[] if ajuste is None else [
+            Ajuste("10.00", es_cargo=ajuste == "cargo", categoria=categoria, tipo=tipo)],
+        grupos=[Grupo("100.00", cuota, categoria=categoria, tipo=tipo)],
+        total_iva=cuota,
+    )
+    return iva.reglas(etree.fromstring(xml.encode("utf-8"), parser=parser()), sintaxis)
+
+
+class TestElCeroDelIgicEnCII:
+    """El IGIC a tipo cero: la norma lo admite y el esquematrón de CII no.
+
+    BR-AF-05, 06 y 07 dicen «0 (zero) or greater than zero», y así las escribe
+    la vinculación de UBL, `>= 0`. La de CII compara con `> 0`, y en el IPSI,
+    BR-AG, con `>= 0`. Se denunció en el repositorio oficial (issue 519) y se
+    cerró el 29-09-2026 cambiando los nombres, no la comparación. Aquí se sigue
+    a la norma, y una nota dice que el esquematrón de CII la rechaza. Lo que
+    dice cada vinculación lo lee `test_norma_oficial`.
+    """
+
+    def test_en_cii_es_una_nota_y_no_un_error(self):
+        incidencias = _igic("CII")
+        assert "BR-AF-05" not in codigos(incidencias)
+        nota = una(incidencias, "IVA-CERO-ESQUEMATRON")
+        assert nota.gravedad == NOTA
+        assert "BR-AF-05" in nota.mensaje and "CII" in nota.mensaje
+        assert nota.campo == "Conceptos: línea 1"
+
+    @pytest.mark.parametrize("ajuste,regla", [("descuento", "BR-AF-06"), ("cargo", "BR-AF-07")])
+    def test_el_descuento_y_el_cargo_dicen_su_regla(self, ajuste, regla):
+        nota = una(_igic("CII", ajuste=ajuste), "IVA-CERO-ESQUEMATRON")
+        assert "BR-AF-05" in nota.mensaje and regla in nota.mensaje
+        assert nota.campo == f"Conceptos: línea 1, {ajuste} 1"
+
+    def test_en_ubl_no_hay_nada_que_decir(self):
+        assert "IVA-CERO-ESQUEMATRON" not in codigos(_igic("UBL"))
+
+    def test_el_ipsi_a_cero_tampoco(self):
+        assert "IVA-CERO-ESQUEMATRON" not in codigos(_igic("CII", categoria="M"))
+
+    def test_el_igic_con_tipo_no(self):
+        assert "IVA-CERO-ESQUEMATRON" not in codigos(_igic("CII", tipo="7"))
+
+    def test_el_negativo_sigue_siendo_un_error(self):
+        incidencias = _igic("CII", tipo="-7")
+        assert "BR-AF-05" in codigos(incidencias, ERROR)
+        assert "IVA-CERO-ESQUEMATRON" not in codigos(incidencias)
+
+    def test_sin_desglose_tambien(self):
+        """Sin desglose las reglas del tipo siguen corriendo, y esta con ellas."""
+        montar, sintaxis = CONSTRUCTORES["CII"]
+        xml = montar(lineas=[Linea("1", "100.00", categoria="L", tipo="0")], grupos=[])
+        incidencias = iva.reglas(etree.fromstring(xml.encode("utf-8"), parser=parser()), sintaxis)
+        assert "IVA-CERO-ESQUEMATRON" in codigos(incidencias, NOTA)
+
+    def test_las_fichas_de_br_af_lo_dicen(self):
+        """Es lo que buscará quien vea su CII rechazada con BR-AF-05."""
+        for sufijo in ("05", "06", "07"):
+            assert "IVA-CERO-ESQUEMATRON" in CODIGOS[f"BR-AF-{sufijo}"], sufijo
 
 
 class TestPropias:
