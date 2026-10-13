@@ -109,7 +109,7 @@ def test_el_detalle_va_a_la_consola_y_viaja_en_cause():
 SIN_AVERIA = {
     '"no está el zip"': "se caza en la línea siguiente, y deja la página sin "
                         "paquete diciéndolo en la ficha",
-    '"«" + nombre': "lo lanza un botón de la propia página con un nombre que no "
+    '"\\"" + nombre': "lo lanza un botón de la propia página con un nombre que no "
                     "es de las muestras: es un fallo de quien la escribe",
     "paraQuienMira": "el de la propia `averia`",
 }

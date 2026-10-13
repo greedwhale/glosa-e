@@ -838,13 +838,13 @@ def _correcto(sello: Sello, donde: str) -> Incidencia:
     return Incidencia(
         "SELLO-TIEMPO",
         NOTA,
-        f"La firma lleva un sello de tiempo de «{sello.quien}» del "
+        f"La firma lleva un sello de tiempo de \"{sello.quien}\" del "
         f"{_cuando(sello.momento)}{precision}, y el sello cuadra: esa "
         "autoridad vio esta firma ese día, así que la firma ya existía "
         "entonces. Esa es la fecha que se usa para la vigencia y la "
         "revocación, en vez de la que declara quien firma.",
         campo=f"{donde}Sello de tiempo",
-        encontrado=f"sello de «{sello.quien}», serie {sello.serie}",
+        encontrado=f"sello de \"{sello.quien}\", serie {sello.serie}",
     )
 
 
@@ -1029,7 +1029,7 @@ def reglas(firma, cert: Certificado | None = None, donde: str = "") -> list[Inci
                     "Un sello que no cuadra no acredita ninguna fecha.",
                     campo=f"{donde}Sello de tiempo",
                     esperado="un sello coherente y firmado por su autoridad",
-                    encontrado=f"sello de «{sello.quien}»",
+                    encontrado=f"sello de \"{sello.quien}\"",
                 )
             )
             continue
@@ -1044,7 +1044,7 @@ def reglas(firma, cert: Certificado | None = None, donde: str = "") -> list[Inci
                     f"podido comprobar a qué se refiere: {fallo}. No se ha "
                     "dado por buena su fecha.",
                     campo=f"{donde}Sello de tiempo",
-                    encontrado=f"sello de «{sello.quien}»",
+                    encontrado=f"sello de \"{sello.quien}\"",
                 )
             )
             continue
@@ -1055,7 +1055,7 @@ def reglas(firma, cert: Certificado | None = None, donde: str = "") -> list[Inci
                 Incidencia(
                     "SELLO-NO-CUBRE",
                     ERROR,
-                    f"El sello de tiempo está bien y lo firmó «{sello.quien}», "
+                    f"El sello de tiempo está bien y lo firmó \"{sello.quien}\", "
                     f"pero no es de esta firma: {motivo}. Un sello copiado de "
                     "otro documento no acredita nada de este.",
                     campo=f"{donde}Sello de tiempo",

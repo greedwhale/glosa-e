@@ -20,11 +20,11 @@
     tenía en el anexo un grupo propio, aparte de la cuota de IVA, y que por
     eso la cuota de la copia era 210 y no 262. Era el borrador de abril. La
     orden no tiene ese grupo: el desglose del IVA (<code>BG-23</code>)
-    «también proporcionará información sobre el desglose del recargo de
-    equivalencia», con su cuota y su tipo (<code>BT-117</code> y
+    <i>también proporcionará información sobre el desglose del recargo de
+    equivalencia</i>, con su cuota y su tipo (<code>BT-117</code> y
     <code>BT-119</code>). Y como la sintaxis de la solución pública es la
-    norma europea en UBL (artículo 3.1, y el anexo se titula «conforme al
-    modelo UBL y la EN 16931»), donde la cuota total, <code>BT-110</code>, es
+    norma europea en UBL (artículo 3.1, y el anexo se titula <i>conforme al
+    modelo UBL y la EN 16931</i>), donde la cuota total, <code>BT-110</code>, es
     la suma de ese desglose (<code>BR-CO-14</code>), la cuota de la copia lleva
     el recargo: 262, como en Facturae. El total de la copia es 1.262, y al
     copiar campo a campo solo cambia él, por la retención: 150 euros. Las
@@ -41,8 +41,8 @@
 
   <aside class="correccion">
     <b>Corregida el 26 de septiembre de 2026.</b> La primera versión decía
-    que una copia con el total de Facturae «cuadra consigo mismo, pasa las
-    validaciones de la copia». No es cierto, y se ve con las cifras del propio
+    que una copia con el total de Facturae <i>cuadra consigo mismo, pasa las
+    validaciones de la copia</i>. No es cierto, y se ve con las cifras del propio
     ejemplo de abajo. Con 262 de cuota y 1.112 de total, la copia rompe dos
     reglas de la norma europea: <code>BR-CO-14</code>, porque la cuota no es
     la suma del desglose del IVA, que son 210, y <code>BR-CO-15</code>, porque
@@ -59,13 +59,13 @@
   (la SPFE) lo dice así en la presentación que la propia AEAT dio el 10 de
   septiembre de 2026:</p>
 
-  <blockquote><p>«Cuando la emisión y la interconexión de FE NO se haga a
+  <blockquote><p>Cuando la emisión y la interconexión de FE NO se haga a
   través de la SPFE, se debe enviar una COPIA FIEL a la SPFE simultáneamente
-  a la emisión.»</p></blockquote>
+  a la emisión.</p></blockquote>
 
-  <p>Y a continuación, la frase que abre todo lo que viene debajo: «<i>la
-  semántica, sintaxis y especificaciones</i>» de esa copia son «<i>las
-  definidas por la SPFE</i>». Es decir: tu factura puede estar en Facturae, en
+  <p>Y a continuación, la frase que abre todo lo que viene debajo: <i>la
+  semántica, sintaxis y especificaciones</i> de esa copia son <i>las
+  definidas por la SPFE</i>. Es decir: tu factura puede estar en Facturae, en
   CII o en EDIFACT (el <a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-7295">Real
   Decreto 238/2026</a> admite las cuatro sintaxis), pero la copia que reciba la
   Agencia irá en la suya: <b>UBL</b>, con el contenido que describe el
@@ -98,23 +98,23 @@
         <td>Si la Agencia piensa publicar la correspondencia entre Facturae,
         CII o EDIFACT y los elementos del anexo I, o si recae en cada
         plataforma</td>
-        <td>Que «<b>cae en la responsabilidad de las plataformas privadas</b>,
+        <td>Que <i><b>cae en la responsabilidad de las plataformas privadas</b>,
         o en su caso, de la definición por parte del Ministerio de Economía que
-        regula la interconexión entre plataformas privadas y sus formatos»</td>
+        regula la interconexión entre plataformas privadas y sus formatos</i></td>
       </tr>
       <tr>
         <td>Qué hacer en la copia fiel con un concepto del original que no
         tiene equivalente en la sintaxis de la solución pública</td>
-        <td>Que «se pueden omitir o incluirlos en una extensión», y que «si el
+        <td>Que <i>se pueden omitir o incluirlos en una extensión</i>, y que <i>si el
         concepto del original no es equivalente, <b>no se realizará la
-        validación del dato</b>»</td>
+        validación del dato</b></i></td>
       </tr>
       <tr>
         <td>Si los documentos de validación del portal de desarrolladores
         cubrirán las extensiones propias del anexo I o solo las reglas de
         EN 16931</td>
-        <td>Que «cubrirán <b>principalmente las personalizaciones realizadas en
-        el anexo I</b>»</td>
+        <td>Que <i>cubrirán <b>principalmente las personalizaciones realizadas en
+        el anexo I</b></i></td>
       </tr>
     </tbody>
   </table>
@@ -135,17 +135,17 @@
   está escrito en su esquema oficial, en la documentación de cada
   elemento.</p>
 
-  <blockquote><p>«Total impuestos repercutidos. <b>Sumatorio de todas Cuotas y
-  Recargos de Equivalencia</b>.»<br>
-  «Total factura. Resultado de: <b>TotalGrossAmountBeforeTaxes +
-  TotalTaxOutputs − TotalTaxesWithheld</b>.»</p></blockquote>
+  <blockquote><p>Total impuestos repercutidos. <b>Sumatorio de todas Cuotas y
+  Recargos de Equivalencia</b>.<br>
+  Total factura. Resultado de: <b>TotalGrossAmountBeforeTaxes +
+  TotalTaxOutputs − TotalTaxesWithheld</b>.</p></blockquote>
 
   <p>Traducido: el total de impuestos de Facturae <b>lleva dentro el recargo de
   equivalencia</b>, y el total de la factura <b>ya tiene restadas las
   retenciones</b>. El anexo I, en cambio, define sus campos como lo que dice la
-  norma europea: <code>BT-110</code> es la «cuota total del IVA de la factura» y
-  <code>BT-112</code> el «importe total de la factura después de aplicar el
-  IVA». La retención no es un impuesto de la factura para la norma, y va
+  norma europea: <code>BT-110</code> es la <i>cuota total del IVA de la factura</i> y
+  <code>BT-112</code> el <i>importe total de la factura después de aplicar el
+  IVA</i>. La retención no es un impuesto de la factura para la norma, y va
   aparte, en su grupo. El recargo de equivalencia va en el desglose del IVA,
   y con él dentro de la cuota: en eso los dos documentos dicen lo
   mismo.</p>
@@ -190,8 +190,8 @@
   <p>Falta una tercera cifra, y es de las que no se pueden dar por sabidas:
   <b>lo que el cliente paga de verdad</b>. Va en otro campo del anexo, el
   total a pagar (<code>BT-115</code>), y la orden ya dice qué entra en él: el
-  total con IVA, que lleva el recargo, menos lo pagado por adelantado, «junto
-  con los importes correspondientes a los conceptos BT-179» y el redondeo.
+  total con IVA, que lleva el recargo, menos lo pagado por adelantado, <i>junto
+  con los importes correspondientes a los conceptos BT-179</i> y el redondeo.
   Esos importes son los suplidos y demás cargos en nombre de un tercero, sus
   minoraciones y las retenciones. Lo que no dice es dónde se escriben:
   <code>BT-179</code> es un término de la edición de 2026 de la norma y la
@@ -264,7 +264,7 @@
   <p>Cuando lee una factura en Facturae, dice qué le pasaría al copiarse:
   qué importe cambia, cuál es el que iría en la copia, y qué conceptos se
   quedarían fuera. Son <code>NOTA</code>, nunca errores (la factura está
-  bien), y van rotuladas «<b>de la casa</b>»: es la correspondencia de este
+  bien), y van rotuladas <b>de la casa</b>: es la correspondencia de este
   validador, con su porqué escrito al lado, no una tabla oficial que no
   existe. Prometer otra cosa sería justo lo que esta entrada critica.</p>
 

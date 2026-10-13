@@ -99,7 +99,7 @@
           <!-- Facturae la declara opcional y EN 16931 la exige en toda linea
                (BR-23). Sin ella este fichero pasaba el XSD oficial y no
                cumplia la norma que el articulo 7.1 del RD 238/2026 le pide
-               desde el 01-10-2026. El 01 es «unidades». -->
+               desde el 01-10-2026. El 01 son unidades. -->
           <UnitOfMeasure>01</UnitOfMeasure>
           <UnitPriceWithoutTax>50.000000</UnitPriceWithoutTax>
           <TotalCost>100.00</TotalCost>

@@ -97,6 +97,7 @@ from validador.cadena import (
 )
 from validador.firma import Certificado, ClaveNoSoportada, leer_certificado
 from validador.formato import parser
+from validador.incidencias import entre_comillas
 
 __all__ = [
     "Lista",
@@ -494,7 +495,7 @@ def comprobar_firma(lista: Lista, esperados) -> str:
             huellas.add(_huella_normal(str(uno)))
     if _huella_normal(cert.huella()) not in huellas:
         return (
-            f"la firma la hizo «{cert.sujeto or 'un certificado sin nombre'}», "
+            f"la firma la hizo {entre_comillas(cert.sujeto, 'un certificado sin nombre')}, "
             f"con huella SHA-256 {cert.huella()}, que no es ninguno de los "
             f"{len(huellas)} autorizados"
         )
@@ -729,8 +730,8 @@ def _manifiesto(lista: Lista, resumen: Resumen, cuando: datetime) -> str:
         "firmó antes de la fecha que dice ESTADOS.tsv. Sin esa fila no se usan:",
         "una ventana que no se sabe dónde acaba no es una ventana.",
         "",
-        "Las que aquí no se saben usar no están en ninguna de las dos, y sus facturas",
-        "saldrán como «no llega a ninguna autoridad conocida». No es la misma",
+        "Las que aquí no se saben usar no están en ninguna de las dos, y de cada",
+        "factura suya se dirá que no llega a ninguna autoridad conocida. No es la misma",
         "noticia que una retirada: esa autoridad sigue siendo cualificada y el",
         "corto es este validador.",
         "",

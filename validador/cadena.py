@@ -70,7 +70,7 @@ from validador.firma import (
     leer_certificado,
     verificar,
 )
-from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia, entre_comillas
 
 __all__ = ["Almacen", "Cadena", "construir", "reglas", "reglas_de_documento"]
 
@@ -532,7 +532,7 @@ def _eslabon(
     # En un certificado v3, `basicConstraints` es obligatorio en una CA.
     if padre.es_autoridad is False:
         return (
-            f"«{padre.sujeto or 'el emisor'}» no es un certificado de autoridad "
+            f"{entre_comillas(padre.sujeto, 'el emisor')} no es un certificado de autoridad "
             "y aun así aparece emitiendo a otro"
         )
     if not es_ancla and padre.es_autoridad is None:
@@ -543,7 +543,7 @@ def _eslabon(
         # basicConstraints por la puerta de atrás: la cadena subía por él hasta
         # una raíz de verdad y el informe decía que la firma llegaba a la AC.
         return (
-            f"«{padre.sujeto or 'el emisor'}» no dice ser un certificado de "
+            f"{entre_comillas(padre.sujeto, 'el emisor')} no dice ser un certificado de "
             "autoridad (no trae basicConstraints) y aparece emitiendo a otro"
         )
     if not es_ancla:
@@ -553,26 +553,26 @@ def _eslabon(
         if sin_entender:
             cual = _NOMBRE_DE_EXTENSION.get(sin_entender[0], sin_entender[0])
             return (
-                f"«{padre.sujeto or 'el emisor'}» trae una extensión crítica "
+                f"{entre_comillas(padre.sujeto, 'el emisor')} trae una extensión crítica "
                 f"que este validador no sabe aplicar ({cual}), así que no se "
                 "puede decir que la cadena llegue"
             )
     if padre.usos and "firmar_certificados" not in padre.usos:
         return (
-            f"«{padre.sujeto or 'el emisor'}» no tiene permiso para firmar "
+            f"{entre_comillas(padre.sujeto, 'el emisor')} no tiene permiso para firmar "
             "certificados"
         )
     if padre.profundidad_max is not None and hondo > padre.profundidad_max:
         return (
-            f"«{padre.sujeto or 'el emisor'}» solo puede encadenar "
+            f"{entre_comillas(padre.sujeto, 'el emisor')} solo puede encadenar "
             f"{padre.profundidad_max} nivel(es) por debajo"
         )
     if not hijo.algoritmo_firma or not hijo.valor_firma or not hijo.tbs:
         return "no se ha podido leer con qué se firmó"
     if not verificar(hijo.valor_firma, hijo.tbs, padre, hijo.algoritmo_firma):
         return (
-            f"la firma de «{hijo.sujeto or 'el certificado'}» no la hizo "
-            f"«{padre.sujeto or 'su emisor declarado'}»"
+            f"la firma de {entre_comillas(hijo.sujeto, 'el certificado')} no la hizo "
+            f"{entre_comillas(padre.sujeto, 'su emisor declarado')}"
         )
     return None
 
@@ -623,13 +623,13 @@ def construir(
                 return Cadena(
                     eslabones,
                     llega=False,
-                    motivo=f"«{cual.sujeto or quien}» {motivo}",
+                    motivo=f"\"{cual.sujeto or quien}\" {motivo}",
                     caducada=True,
                 )
             return Cadena(
                 eslabones,
                 llega=False,
-                motivo=f"no está el certificado de «{quien}»",
+                motivo=f"no está el certificado de \"{quien}\"",
             )
 
         fallo = None
@@ -663,7 +663,7 @@ def _regla_vigencias(cadena: Cadena, cuando: datetime | None, donde: str,
     # vigente el día que la factura dice» es una pega que se responde diciendo
     # que la fecha es otra; «el día que acredita el sello» no se responde.
     segun = (
-        f"el día que acredita el sello de tiempo de «{sello.quien}»"
+        f"el día que acredita el sello de tiempo de \"{sello.quien}\""
         if sello is not None
         else "el día que la factura dice haberse firmado"
     )
@@ -674,7 +674,7 @@ def _regla_vigencias(cadena: Cadena, cuando: datetime | None, donde: str,
                 Incidencia(
                     "CADENA-CADUCADA",
                     ERROR,
-                    f"«{cert.sujeto or 'un certificado de la cadena'}», que está "
+                    f"{entre_comillas(cert.sujeto, 'un certificado de la cadena')}, que está "
                     f"por encima del que firma, no estaba vigente {segun}.",
                     campo=f"{donde}Cadena de confianza",
                     esperado=(
@@ -711,7 +711,7 @@ def _regla_algoritmos(cadena: Cadena, donde: str):
         Incidencia(
             "CADENA-DEBIL",
             AVISO,
-            f"«{cual.sujeto or 'un certificado de la cadena'}» está firmado con "
+            f"{entre_comillas(cual.sujeto, 'un certificado de la cadena')} está firmado con "
             f"{cual.algoritmo_firma.upper()}, que está roto para firmar "
             "certificados: con una colisión se fabrica uno falso que verifica.",
             campo=f"{donde}Cadena de confianza",
@@ -765,14 +765,14 @@ def _nota_de_confianza(cadena: Cadena, almacen: Almacen, donde: str) -> Incidenc
 
     if len(cadena.eslabones) == 1:
         cuerpo = (
-            f"El certificado que firma, «{quien}», es él mismo un ancla de "
+            f"El certificado que firma, \"{quien}\", es él mismo un ancla de "
             "confianza: no se ha encadenado a nadie porque ya estaba entre "
             "las anclas."
         )
     else:
         arriba = ancla.sujeto or "una autoridad sin nombre común"
         cuerpo = (
-            f"La firma de «{quien}» llega a «{arriba}» en "
+            f"La firma de \"{quien}\" llega a \"{arriba}\" en "
             f"{len(cadena.eslabones)} eslabones."
         )
     # El código escrito aquí y no con `NOTA_DE_CONFIANZA`: el catálogo publicado
@@ -825,7 +825,7 @@ def reglas(
             "Vienen con esta página: si no han llegado, recargarla las "
             "vuelve a pedir."
             if almacen.procedencia
-            else f"Se instalan en «{almacen.carpeta}»."
+            else f"Se instalan en \"{almacen.carpeta}\"."
         )
         return [
             Incidencia(
@@ -946,7 +946,7 @@ def _confianza_del_sello(sello, almacen: Almacen | None, donde: str):
             Incidencia(
                 "SELLO-SIN-CONTRASTAR",
                 AVISO,
-                f"El sello de tiempo de «{quien}» cuadra, pero no hay anclas "
+                f"El sello de tiempo de \"{quien}\" cuadra, pero no hay anclas "
                 "de sellado, así que no se ha comprobado que sea una "
                 "autoridad cualificada. Un sello se puede fabricar entero, "
                 "autoridad incluida, y este pasaría igual: la fecha vale lo "
@@ -972,13 +972,13 @@ def _confianza_del_sello(sello, almacen: Almacen | None, donde: str):
         detalle = (
             cadena.motivo
             if cadena.caducada
-            else f"la cadena se queda en «{arriba}», que no está entre ellas"
+            else f"la cadena se queda en \"{arriba}\", que no está entre ellas"
         )
         return [
             Incidencia(
                 "SELLO-TSA-DESCONOCIDA",
                 AVISO,
-                f"El sello de tiempo de «{quien}» cuadra, pero esa autoridad "
+                f"El sello de tiempo de \"{quien}\" cuadra, pero esa autoridad "
                 f"no llega a ninguna de las anclas de sellado: {detalle}. El "
                 "sello es coherente; lo que no consta es que quien lo firmó "
                 "sea una autoridad de sellado cualificada.",
@@ -992,7 +992,7 @@ def _confianza_del_sello(sello, almacen: Almacen | None, donde: str):
     como = (
         "está publicada como autoridad de sellado"
         if ancla.der == sello.firmante.der
-        else f"lleva a «{ancla.sujeto or 'un ancla sin nombre común'}»"
+        else f"lleva a {entre_comillas(ancla.sujeto, 'un ancla sin nombre común')}"
     )
     retirada = ""
     if almacen.retirada(ancla):
@@ -1006,7 +1006,7 @@ def _confianza_del_sello(sello, almacen: Almacen | None, donde: str):
         Incidencia(
             "SELLO-CONFIANZA",
             NOTA,
-            f"La fecha la acredita «{quien}», que {como} en la lista de "
+            f"La fecha la acredita \"{quien}\", que {como} en la lista de "
             f"confianza del Estado: {almacen.procedencia_de(ancla)}.{retirada}",
             campo=campo,
             encontrado=f"ancla {ancla.huella()[:29]}…",

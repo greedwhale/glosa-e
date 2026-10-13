@@ -43,6 +43,16 @@ def familia_de(codigo: str) -> str:
     return codigo.split("-")[0] if "-" in codigo else codigo
 
 
+def entre_comillas(valor: str | None, si_falta: str) -> str:
+    """Lo que trae el fichero, entre comillas; si no trae nada, el respaldo a secas.
+
+    Las comillas dicen que eso se ha leído del fichero, tal cual. Alrededor de
+    un respaldo, como el emisor cuando el certificado no lleva nombre, decían
+    que había un certificado que se llamaba así.
+    """
+    return f"\"{valor}\"" if valor else si_falta
+
+
 @dataclass(frozen=True)
 class Incidencia:
     """Un incumplimiento concreto, explicado para quien tiene que arreglarlo."""

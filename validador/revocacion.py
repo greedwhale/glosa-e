@@ -100,7 +100,7 @@ from validador.firma import (
     _tlv,
     verificar,
 )
-from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia, entre_comillas
 
 __all__ = [
     "AlmacenDeListas",
@@ -625,14 +625,14 @@ def _sirve(lista: Lista, emisor: Certificado, cert: Certificado) -> str:
         )
     if emisor.usos and "firmar_crl" not in emisor.usos:
         return (
-            f"«{emisor.sujeto or 'el emisor'}» no tiene permiso para firmar "
+            f"{entre_comillas(emisor.sujeto, 'el emisor')} no tiene permiso para firmar "
             "listas de revocación"
         )
     if not lista.algoritmo_firma or not lista.valor_firma or not lista.tbs:
         return "no se ha podido leer con qué se firmó"
     if not verificar(lista.valor_firma, lista.tbs, emisor, lista.algoritmo_firma):
         return (
-            f"no la firmó «{emisor.sujeto or 'el emisor del certificado'}», "
+            f"no la firmó {entre_comillas(emisor.sujeto, 'el emisor del certificado')}, "
             "aunque diga venir de ahí"
         )
     if lista.solo_autoridades and cert.es_autoridad is not True:
@@ -779,7 +779,7 @@ def comprobar_ocsp(
             ocsp=prueba,
             motivo=(
                 "el respondedor contestó que no sabe nada de ese certificado "
-                "(«unknown»), que no es lo mismo que decir que está bien"
+                "(unknown), que no es lo mismo que decir que está bien"
             ),
         )
     if cuando is not None and prueba.mirada is not None and prueba.mirada < cuando:
@@ -894,7 +894,7 @@ def listas_del_documento(firma) -> list[Lista]:
 def _quien(cert: Certificado, primero: bool) -> str:
     if primero:
         return "El certificado que firma"
-    return f"«{cert.sujeto or 'un certificado de la cadena'}», que está por encima"
+    return f"{entre_comillas(cert.sujeto, 'un certificado de la cadena')}, que está por encima"
 
 
 def _donde_buscarla(cert: Certificado, con_carpeta: bool) -> str:
@@ -931,12 +931,12 @@ def _anulado(
             else "una fecha que no se lee"
         )
         segun = (
-            f"según la respuesta OCSP de «{veredicto.ocsp.quien}» que trae el "
+            f"según la respuesta OCSP de \"{veredicto.ocsp.quien}\" que trae el "
             f"propio documento, del {miro}"
         )
     else:
         nombre = veredicto.lista.emisor_nombre if veredicto.lista else ""
-        segun = f"según la lista de «{nombre or 'su autoridad'}»"
+        segun = f"según la lista de {entre_comillas(nombre, 'su autoridad')}"
     encontrado = f"anulado el {fecha} {anulacion.texto_motivo}, {segun}"
 
     if anulacion.compromiso:
@@ -973,7 +973,7 @@ def _anulado(
 
     if cuando is None or (anulacion.cuando and anulacion.cuando <= cuando):
         segun = (
-            f"cuando el sello de tiempo de «{sello.quien}» acredita que ya "
+            f"cuando el sello de tiempo de \"{sello.quien}\" acredita que ya "
             "existía esta firma"
             if sello is not None
             else "el día que la factura dice haberse firmado"
@@ -1000,7 +1000,7 @@ def _anulado(
             NOTA,
             f"{quien} se anuló el {fecha}, después del "
             f"{cifras.fecha(cuando)} en que el sello de tiempo de "
-            f"«{sello.quien}» acredita que esta firma ya existía. La factura "
+            f"\"{sello.quien}\" acredita que esta firma ya existía. La factura "
             "se firmó cuando el certificado aún valía, y eso no depende de lo "
             "que declare quien firma.",
             campo=f"{donde}Revocación",
@@ -1114,7 +1114,7 @@ def reglas(
                         "una lista caducada no es lo mismo que estar vigente.",
                         campo=f"{donde}Revocación",
                         esperado="una lista dentro de su plazo",
-                        encontrado=f"lista de «{lista.emisor_nombre or '?'}» "
+                        encontrado=f"lista de {entre_comillas(lista.emisor_nombre, '?')} "
                         f"vencida el {cifras.fecha(lista.hasta)}",
                     )
                 )
@@ -1171,7 +1171,7 @@ def _nota_de_limpieza(
     for lista in usadas:
         cuando = cifras.fecha(lista.desde) if lista.desde else "fecha ilegible"
         quien = lista.emisor_nombre or "una autoridad sin nombre común"
-        detalles.append(f"«{quien}», publicada el {cuando}")
+        detalles.append(f"\"{quien}\", publicada el {cuando}")
     contados = (
         "se ha comprobado 1 certificado"
         if cuantos == 1
@@ -1197,7 +1197,7 @@ def _nota_de_limpieza(
             else "fecha ilegible"
         )
         detalle = (
-            f"la respuesta OCSP de «{prueba.quien}» que trae el propio "
+            f"la respuesta OCSP de \"{prueba.quien}\" que trae el propio "
             f"documento, del {cuando}"
         )
         if prueba.hueco is not None:

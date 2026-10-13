@@ -308,7 +308,7 @@ _DE_LINEA: tuple[tuple[str, str, str, str], ...] = (
         "linea_id",
         "Identificador de línea",
         "Cada línea debe llevar un identificador que la distinga de las "
-        "demás. Sin él, una queja sobre «la línea 3» no se puede referir a "
+        "demás. Sin él, una queja sobre la línea 3 no se puede referir a "
         "nada concreto del documento.",
     ),
     (

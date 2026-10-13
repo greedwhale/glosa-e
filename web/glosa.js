@@ -169,7 +169,7 @@ const RECARGA = "Recarga la página; si sigue igual, el fallo es de la " +
                 "página y no de tu navegador.";
 
 function averia(paraQuienMira, paraQuienMantiene) {
-  console.error("Glosa: " + paraQuienMantiene);
+  console.error("Glosa-e: " + paraQuienMantiene);
   return new Error(paraQuienMira, { cause: paraQuienMantiene });
 }
 
@@ -711,13 +711,13 @@ async function arrancarDeVerdad(avisar) {
   await Promise.all(EJEMPLOS.map(async (nombre) => {
     const clave = "ejemplos/" + nombre;
     const respuesta = await pedir(conHuella(EJEMPLOS_EN + nombre, clave),
-                                  "El ejemplo «" + nombre + "»");
+                                  "El ejemplo \"" + nombre + "\"");
     const crudo = new Uint8Array(await respuesta.arrayBuffer());
     // Tambien estos. Son las facturas con las que alguien decide si esto le
     // sirve, antes de soltar una suya: un ejemplo servido a medias daria un
     // informe que no es el que esa factura merece, sin que nada pareciera
     // roto.
-    await comprobar(clave, crudo, "El ejemplo «" + nombre + "»");
+    await comprobar(clave, crudo, "El ejemplo \"" + nombre + "\"");
     pyodide.FS.writeFile("/ejemplos/" + nombre, crudo);
   }));
   decir("Facturas de ejemplo", seg(performance.now() - t));
@@ -927,7 +927,7 @@ async function validarEjemplo(nombre) {
   // encolar y quien llama se entera ahora y no cuando le toque el turno.
   if (!EJEMPLOS.includes(nombre)) {
     throw new Error(
-      "«" + nombre + "» no es una de las facturas que trae la página.");
+      "\"" + nombre + "\" no es una de las facturas que trae la página.");
   }
   return enFila(() => _validarEjemploAhora(nombre));
 }

@@ -305,9 +305,9 @@ def _reglas_ajustes(
                 Incidencia(
                     "FE-AJUSTE",
                     AVISO,
-                    f"El importe del {palabra} «{motivo}» no sale de aplicar su "
+                    f"El importe del {palabra} \"{motivo}\" no sale de aplicar su "
                     f"porcentaje a {que}.",
-                    campo=f"{donde}{palabra.capitalize()} «{motivo}»",
+                    campo=f"{donde}{palabra.capitalize()} \"{motivo}\"",
                     esperado=(
                         f"{cifras.calculada(calculado)}  "
                         f"({cifras.en_castellano(sobre)} x {cifras.tipo(tipo)})"
@@ -322,7 +322,7 @@ def _reglas_linea(linea, donde: str, numero: int) -> list[Incidencia]:
     """Lo que el esquema exige de una línea de detalle."""
     incidencias: list[Incidencia] = []
     etiqueta = _texto(linea, "ItemDescription") or f"línea {numero}"
-    donde_linea = f"{donde}Línea {numero} «{etiqueta[:40]}»: "
+    donde_linea = f"{donde}Línea {numero} \"{etiqueta[:40]}\": "
 
     cantidad = _numero(linea, "Quantity")
     precio = _numero(linea, "UnitPriceWithoutTax")
@@ -856,7 +856,7 @@ def _reglas_lote(raiz, facturas: list) -> list[Incidencia]:
                 "FE-MODALIDAD",
                 ERROR,
                 "El fichero se declara individual pero trae más de una factura. "
-                "Con varias, la modalidad es «L» (lote).",
+                "Con varias, la modalidad es L (lote).",
                 campo="Modalidad",
                 esperado="L, porque el fichero trae varias facturas",
                 encontrado="I (individual)",
@@ -935,7 +935,7 @@ def _reglas_paises(raiz) -> list[Incidencia]:
             Incidencia(
                 "FE-PAIS-RETIRADO",
                 AVISO,
-                f"El país «{escrito}» ({_RETIRADOS[escrito]}) sigue en el "
+                f"El país \"{escrito}\" ({_RETIRADOS[escrito]}) sigue en el "
                 "esquema de Facturae pero ISO 3166 lo retiró, así que no hay "
                 "código de dos letras al que corresponda y EN 16931 pide el "
                 "país en dos letras. El documento es válido para su esquema; "

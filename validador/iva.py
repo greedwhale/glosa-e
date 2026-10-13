@@ -1039,7 +1039,7 @@ def _regla_forma_del_grupo(grupo: Grupo) -> list[Incidencia]:
             Incidencia(
                 "IVA-CATEGORIA-RARA",
                 AVISO,
-                f"«{grupo.categoria}» no es una categoría de IVA de la norma. "
+                f"\"{grupo.categoria}\" no es una categoría de IVA de la norma. "
                 "Las admitidas son " + ", ".join(sorted(CATEGORIAS)) + ".",
                 campo="Desglose de IVA",
                 encontrado=grupo.categoria,
@@ -1488,7 +1488,7 @@ def _regla_cero_que_rechaza_su_esquematron(
             NOTA,
             f"Hay conceptos a {' y '.join(nombres)} con el tipo a cero. La norma "
             "lo admite y aquí vale, pero el esquematrón oficial de "
-            f"{sintaxis.nombre} compara con «mayor que cero» y lo rechaza "
+            f"{sintaxis.nombre} exige un tipo mayor que cero y lo rechaza "
             f"con {' y '.join(reglas_)}. Quien reciba la factura y la valide "
             "con ese esquematrón la verá rechazada.",
             campo="Conceptos: " + ", ".join(a.descripcion for a, _ in suyos),
@@ -1670,7 +1670,7 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True,
                     "EN 16931 es: exenta, no sujeta, intracomunitaria, "
                     "exportación o inversión del sujeto pasivo se escriben "
                     "todas igual. La línea puede aclarar parte con la "
-                    "«fiscalidad especial», que separa la exenta de la no "
+                    "fiscalidad especial, que separa la exenta de la no "
                     "sujeta, pero aquí no la traen todas o no dicen lo mismo. "
                     "Las reglas que dependen de la categoría no "
                     "se han comprobado ahí. El resto del IVA sí: las bases, "

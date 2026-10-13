@@ -616,7 +616,7 @@ class TestSobreUnaFacturaDeVerdad:
         [pagina] = [
             i for i in en_la_pagina.incidencias if i.codigo == "CADENA-SIN-ANCLAS"
         ]
-        assert f"Se instalan en «{carpeta}»." in consola.mensaje
+        assert f"Se instalan en \"{carpeta}\"." in consola.mensaje
         assert str(carpeta) not in pagina.mensaje
         assert "instala" not in pagina.mensaje
         assert "recargarla las vuelve a pedir" in pagina.mensaje

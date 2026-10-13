@@ -1141,11 +1141,11 @@ def _contenido_referenciado(raiz, firma, referencia):
 
     hallados = _con_identificador(raiz, uri[1:])
     if not hallados:
-        return None, f"apunta a «{uri}», que no está en el documento", None
+        return None, f"apunta a \"{uri}\", que no está en el documento", None
     if len(hallados) > 1:
         return (
             None,
-            f"apunta a «{uri}» y ese identificador aparece {len(hallados)} veces "
+            f"apunta a \"{uri}\" y ese identificador aparece {len(hallados)} veces "
             "en el documento: no se sabe cuál es el que se firmó",
             None,
         )
@@ -1415,7 +1415,7 @@ def _regla_referencias(examen: Examen, donde: str) -> list[Incidencia]:
                 "FIRMA-VACIA",
                 ERROR,
                 "La firma no cubre nada: no tiene ni una referencia en su "
-                "bloque «SignedInfo». Está puesta, pero no garantiza ninguna "
+                "bloque SignedInfo. Está puesta, pero no garantiza ninguna "
                 "parte del documento.",
                 campo=f"{donde}Firma electrónica",
                 encontrado="0 referencias",
@@ -1424,7 +1424,7 @@ def _regla_referencias(examen: Examen, donde: str) -> list[Incidencia]:
 
     incidencias: list[Incidencia] = []
     for numero, una in enumerate(examen.referencias, start=1):
-        nombre = "el documento entero" if una.uri == "" else f"«{una.uri}»"
+        nombre = "el documento entero" if una.uri == "" else f"\"{una.uri}\""
         if una.estado == "sin_comprobar":
             incidencias.append(
                 Incidencia(
@@ -1836,8 +1836,8 @@ def _sin_firmar(deteccion: Deteccion) -> list[Incidencia]:
             "FIRMA-FALTA",
             AVISO,
             "La factura no está firmada. El esquema de Facturae lo dice de su "
-            "propio bloque de firma: hace falta «para que se considere una "
-            "factura electrónica válida legalmente frente a terceros».",
+            "propio bloque de firma: hace falta para que se considere una "
+            "factura electrónica válida legalmente frente a terceros.",
             campo="Firma electrónica",
             encontrado="(no hay)",
         )

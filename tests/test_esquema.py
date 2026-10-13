@@ -443,7 +443,7 @@ class TestTraduccion:
         )
         problema = una(revisar(roto, catalogo), "XSD-ORDEN")
         assert "cambiados de sitio" in problema.mensaje
-        assert "«ID» tiene que ir antes" in problema.mensaje
+        assert '"ID" tiene que ir antes' in problema.mensaje
 
     def test_un_elemento_repetido_no_se_confunde_con_desorden(self, catalogo):
         """Con <ID/><ID/><IssueDate/>, lo esperado también va detrás.

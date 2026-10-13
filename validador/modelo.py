@@ -306,7 +306,7 @@ _GRUPOS: tuple[tuple[str, str, tuple[str, ...], str, bool, str, str], ...] = (
         "BR-54", "atributos", ("atributo_nombre", "atributo_valor"), "todos", False,
         "el nombre (BT-160) y el valor (BT-161) del atributo",
         "Hay atributos de artículo a los que les falta el nombre o el valor: "
-        "«color» sin decir cuál, o «negro» sin decir de qué.",
+        "un nombre como color sin decir cuál, o un valor como negro sin decir de qué.",
     ),
     (
         "BR-64", "identificadores_estandar", ("linea_id_estandar_esquema",), "alguno", False,

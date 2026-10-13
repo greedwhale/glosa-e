@@ -664,7 +664,7 @@ def _reglas_del_sobre(
             Incidencia(
                 "EDI-NO-ES-FACTURA",
                 ERROR,
-                f"El mensaje es de tipo «{tipo}», no INVOIC. EDIFACT sirve "
+                f"El mensaje es de tipo \"{tipo}\", no INVOIC. EDIFACT sirve "
                 "para muchas cosas (pedidos, albaranes, avisos de pago) y "
                 "solo el INVOIC es una factura.",
                 campo="UNH, tipo de mensaje",
@@ -1002,7 +1002,7 @@ def _quitar_las_imposibles(
 
 
 def _queja_de_etiqueta(imposibles: list[Segmento], servicio: Servicio) -> Incidencia:
-    muestra = _y([f"«{s.etiqueta[:40]}»" for s in imposibles[:3]])
+    muestra = _y([f"\"{s.etiqueta[:40]}\"" for s in imposibles[:3]])
     de_mas = len(imposibles) - 3
     if de_mas > 0:
         muestra += f" y {de_mas} más"
@@ -1011,8 +1011,8 @@ def _queja_de_etiqueta(imposibles: list[Segmento], servicio: Servicio) -> Incide
         ERROR,
         "Hay texto donde tenía que haber una etiqueta de segmento: "
         f"{muestra}. Una etiqueta son tres caracteres, así que eso no lo es. "
-        f"Lo que suele haber detrás es un «{servicio.terminador}» dentro de "
-        f"un dato que se escribió sin el «{servicio.escape}» delante, y el "
+        f"Lo que suele haber detrás es un \"{servicio.terminador}\" dentro de "
+        f"un dato que se escribió sin el \"{servicio.escape}\" delante, y el "
         "segmento se partió por ahí. El trozo se ha dejado fuera para no "
         "arrastrar el error al resto, pero el dato que llevara está perdido.",
         campo="Etiqueta de segmento",

@@ -608,8 +608,8 @@ def _lista(crudo: str | None) -> list[str]:
 
 def _enumerar(nombres: list[str]) -> str:
     if len(nombres) == 1:
-        return f"«{nombres[0]}»"
-    return ", ".join(f"«{n}»" for n in nombres[:-1]) + f" o «{nombres[-1]}»"
+        return f"\"{nombres[0]}\""
+    return ", ".join(f"\"{n}\"" for n in nombres[:-1]) + f" o \"{nombres[-1]}\""
 
 
 def _prefijos(arbol) -> dict[str, str]:
@@ -691,7 +691,7 @@ def _por_que_no_encaja(arbol, entrada, encontrado: str, esperados: list[str]):
     # tantas», y quien leyera eso borraría uno sin arreglar nada.
     if encontrado in hermanos[:donde]:
         return (
-            f"«{encontrado}» aparece {hermanos.count(encontrado)} veces y el "
+            f"\"{encontrado}\" aparece {hermanos.count(encontrado)} veces y el "
             "esquema no admite tantas."
         )
 
@@ -699,7 +699,7 @@ def _por_que_no_encaja(arbol, entrada, encontrado: str, esperados: list[str]):
     desordenado = [nombre for nombre in esperados if nombre in posteriores]
     if desordenado:
         return (
-            f"«{encontrado}» y {_enumerar(desordenado)} están cambiados de "
+            f"\"{encontrado}\" y {_enumerar(desordenado)} están cambiados de "
             f"sitio. En XML el orden de los elementos es parte del formato: "
             f"{_enumerar(desordenado)} tiene que ir antes."
         )
@@ -719,7 +719,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
             ERROR,
             "El documento no cumple el esquema. Esta queja no se ha sabido "
             "traducir, así que va con las palabras del validador de esquemas, "
-            f"que son las de libxml2 y están en inglés: «{_limpiar(entrada.message)}»",
+            f"que son las de libxml2 y están en inglés: \"{_limpiar(entrada.message)}\"",
             campo=f"Línea {entrada.line}",
         )
 
@@ -732,7 +732,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-FALTA",
             ERROR,
-            f"A «{elemento}» le falta un elemento obligatorio dentro.",
+            f"A \"{elemento}\" le falta un elemento obligatorio dentro.",
             campo=donde,
             esperado=_enumerar(esperados) if esperados else "(el esquema no lo dice)",
             encontrado="(no está)",
@@ -743,7 +743,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         explicacion = _por_que_no_encaja(arbol, entrada, elemento, esperados)
         if explicacion is None:
             explicacion = (
-                f"«{elemento}» no puede ir en este sitio. O sobra, o está "
+                f"\"{elemento}\" no puede ir en este sitio. O sobra, o está "
                 "cambiado de orden: en XML la secuencia de elementos es parte "
                 "del formato."
             )
@@ -761,7 +761,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-VALOR",
             ERROR,
-            f"«{m['valor']}» no es un valor admitido para «{elemento}». El "
+            f"\"{m['valor']}\" no es un valor admitido para \"{elemento}\". El "
             "esquema solo acepta una lista cerrada.",
             campo=donde,
             esperado=", ".join(admitidos),
@@ -773,7 +773,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-TIPO",
             ERROR,
-            f"«{m['valor']}» no vale como contenido de «{elemento}». {pista}",
+            f"\"{m['valor']}\" no vale como contenido de \"{elemento}\". {pista}",
             campo=donde,
             encontrado=m["valor"],
         )
@@ -788,7 +788,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-TIPO",
             ERROR,
-            f"«{m['valor']}» no vale como contenido de «{elemento}». {pista}",
+            f"\"{m['valor']}\" no vale como contenido de \"{elemento}\". {pista}",
             campo=donde,
             encontrado=m["valor"],
         )
@@ -797,7 +797,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-LONGITUD",
             ERROR,
-            f"El contenido de «{elemento}» es demasiado largo.",
+            f"El contenido de \"{elemento}\" es demasiado largo.",
             campo=donde,
             esperado=f"{m['tope']} caracteres como mucho",
             encontrado=f"{m['largo']} caracteres",
@@ -807,7 +807,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-LONGITUD",
             ERROR,
-            f"El contenido de «{elemento}» es demasiado corto.",
+            f"El contenido de \"{elemento}\" es demasiado corto.",
             campo=donde,
             esperado=f"{m['tope']} caracteres como mínimo",
             encontrado=f"{m['largo']} caracteres",
@@ -817,8 +817,8 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-PATRON",
             ERROR,
-            f"«{m['valor']}» no tiene la forma que exige el esquema para "
-            f"«{elemento}».",
+            f"\"{m['valor']}\" no tiene la forma que exige el esquema para "
+            f"\"{elemento}\".",
             campo=donde,
             esperado=f"algo que encaje con {m['patron']}",
             encontrado=m["valor"],
@@ -828,7 +828,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-ATRIBUTO",
             ERROR,
-            f"A «{elemento}» le falta el atributo «{m['atributo']}», que es "
+            f"A \"{elemento}\" le falta el atributo \"{m['atributo']}\", que es "
             "obligatorio.",
             campo=donde,
             esperado=f'{elemento} {m["atributo"]}="..."',
@@ -839,7 +839,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-ATRIBUTO",
             ERROR,
-            f"«{elemento}» lleva un atributo «{m['atributo']}» que el esquema "
+            f"\"{elemento}\" lleva un atributo \"{m['atributo']}\" que el esquema "
             "no admite.",
             campo=donde,
             encontrado=m["atributo"],
@@ -849,7 +849,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-RAIZ",
             ERROR,
-            f"El esquema no reconoce «{elemento}» como principio de un "
+            f"El esquema no reconoce \"{elemento}\" como principio de un "
             "documento. O el fichero no es del formato que aparenta, o le "
             "falta la declaración de namespace.",
             campo=donde,
@@ -860,7 +860,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
         return Incidencia(
             "XSD-TEXTO",
             ERROR,
-            f"Dentro de «{elemento}» hay texto suelto. Ahí solo caben otros "
+            f"Dentro de \"{elemento}\" hay texto suelto. Ahí solo caben otros "
             "elementos; suele ser un trozo pegado por error.",
             campo=donde,
         )
@@ -868,7 +868,7 @@ def traducir(entrada, arbol=None) -> Incidencia:
     return Incidencia(
         "XSD-OTRO",
         ERROR,
-        f"«{elemento}» no cumple el esquema. {_limpiar(resto)}",
+        f"\"{elemento}\" no cumple el esquema. {_limpiar(resto)}",
         campo=donde,
     )
 
