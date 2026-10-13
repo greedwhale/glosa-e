@@ -8572,3 +8572,50 @@ fuera de la lista de reglas, sin mirar L8, sin mirar L10, en ERROR, y sin
 apuntar en `tests/fichas_publicadas.txt`; el código repetido callado, sin la
 negativa de la L2.C, y tres códigos distintos tomados por repetidos; y el
 comprador otra vez en AVISO. Trece roturas, trece en rojo.
+
+## La D.93A: dos segmentos que cerraban la línea
+
+Antes de ofrecerle a un proveedor EDI leer sus INVOIC D.93A, había que
+comprobar que Glosa-e los lee enteros. El corpus trae cuatro mensajes D.93A:
+tres EANCOM 93 (`EAN007`) de proveedores de bibliotecas y uno `EDIT30`. Los
+cuatro pasaban: se partían, cuadraba el `UNT` y salían sus once líneas con su
+importe. Eso no dice nada de lo que esos cuatro no usan.
+
+Así que la tabla de grupos se contrastó con la estructura entera del INVOIC
+D.93A, sacada de tres fuentes que coinciden: la gramática D.93A de `bots-edi`
+(leída con `ast`, sin ejecutarla) y el directorio que publican edifactory.de y
+Stylus Studio. El de UNECE no se pudo abrir: pide una verificación contra
+bots. Salieron dos huecos:
+
+| Segmento | Dónde lo pone la D.93A | Qué pone ahí la D.96A |
+|---|---|---|
+| `QVA`, diferencias de cantidad | suelto en la línea | `QVR` |
+| `API`, información adicional del precio | en el grupo del precio | `APR` |
+
+**Reproducido** con una factura D.93A inventada que pasaba limpia. Con un
+`QVA`, la línea se quedaba sin importe y sin IVA, y salían BR-24, BR-26 y
+BR-CO-04. Con un `API`, sin IVA, y salía BR-CO-04. Es el mecanismo del `PAC`:
+lo que no está en la tabla cierra el grupo, y lo de detrás se va a la cabecera.
+
+**Arreglado** con los dos en la tabla. Un segundo lector, que coloca cada
+segmento según la gramática, da el mismo grupo que Glosa-e en los 247
+segmentos de los cuatro mensajes reales y en los 24 de la inventada, salvo dos
+`RFF` de línea (abajo). Las posiciones de los datos que leen las reglas (`BGM`,
+`DTM`, `NAD`, `RFF`, `CUX`, `LIN`, `IMD`, `QTY`, `PRI`, `MOA`, `TAX`, `ALC` y
+`FTX`) son las mismas en la D.93A; lo que cambia está en datos que ninguna
+regla lee.
+
+**Provocado.** Con el arreglo quitado de `edifact.py`, cuatro pruebas en rojo:
+para cada segmento, la línea pierde el importe y el IVA, y la factura da
+ERROR. Los controles, que sacan el segmento de la tabla dentro de la prueba,
+dejan la línea sin importe.
+
+**Lo que queda.** Un `RFF` detrás del `MOA` de una línea se cuelga del `MOA`, y
+no de la línea, porque la tabla no mira el contexto: detrás del `MOA` de los
+totales, el `RFF` sí es suyo. Ninguna regla lee el `RFF` de una línea. Pasa en
+2 de esos 247 segmentos, y en 9 de los 46.949 de los 258 mensajes D.96A.
+
+**Lo que no está probado.** Ninguno de los cuatro mensajes es de un emisor
+español: un EANCOM 93 escrito con la guía de AECOC no se ha visto nunca. Y de
+un intercambio con varias facturas se valida la primera, con el AVISO
+`EDI-VARIOS-MENSAJES`.

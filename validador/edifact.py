@@ -449,6 +449,17 @@ class Grupo:
 # proyecto de EDI que no tiene nada que ver con este, y es la unión de las dos:
 # lo que enseñan los ejemplos de la D.14B y lo que dice esa gramática de la
 # D.96A. Once grupos más de los que había.
+#
+# Y la D.93A, que es la de EANCOM 93 y la que siguen escribiendo proveedores
+# EDI españoles, se contrastó el 13-10-2026 contra la gramática D.93A de
+# `bots-edi` y contra el directorio que publican edifactory.de y Stylus
+# Studio, que dicen lo mismo. Le faltaban dos segmentos que la D.96A ya no
+# tiene: el QVA, las diferencias de cantidad, suelto en la línea donde la D.96A
+# pone el QVR; y el API, la información adicional del precio, en el grupo del
+# precio donde la D.96A pone el APR. Sin ellos un QVA cerraba la línea, y su
+# importe y su IVA pasaban a la cabecera: una factura D.93A correcta salía con
+# BR-24, BR-26 y BR-CO-04. Ningún fichero del corpus trae ninguno de los dos,
+# y por eso los cuatro D.93A que hay pasaban limpios.
 GRUPOS: dict[str, Grupo] = {
     "AJT": Grupo(sueltos=frozenset({"FTX"})),
     "ALC": Grupo(
@@ -464,7 +475,7 @@ GRUPOS: dict[str, Grupo] = {
         sueltos=frozenset(
             {
                 "ALI", "DTM", "EQD", "FTX", "GIN", "GIR", "IMD", "MEA", "PCD",
-                "PIA", "QTY", "QVR"
+                "PIA", "QTY", "QVA", "QVR"
             }
         ),
         dentro=frozenset(
@@ -484,7 +495,7 @@ GRUPOS: dict[str, Grupo] = {
     "PAT": Grupo(sueltos=frozenset({"DTM", "FII", "MOA", "PAI", "PCD"})),
     "PCD": Grupo(sueltos=frozenset({"RNG"})),
     "PCI": Grupo(sueltos=frozenset({"DTM", "GIN", "RFF"})),
-    "PRI": Grupo(sueltos=frozenset({"APR", "CUX", "DTM", "RNG"})),
+    "PRI": Grupo(sueltos=frozenset({"API", "APR", "CUX", "DTM", "RNG"})),
     "PYT": Grupo(sueltos=frozenset({"DTM", "MOA", "PAI", "PCD"})),
     "QTY": Grupo(sueltos=frozenset({"RNG"})),
     "RCS": Grupo(sueltos=frozenset({"DTM", "FTX", "RFF"})),

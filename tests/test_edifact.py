@@ -450,6 +450,61 @@ class TestLosGrupos:
         assert sintaxis.importe(linea, mapa.linea_importe, mapa) is None
 
 
+# Los dos segmentos que la D.93A pone en la línea y la D.96A no: el QVA, suelto
+# en la línea, y el API, dentro del grupo del precio. Salieron al contrastar la
+# tabla con la gramática D.93A de bots-edi, el 13-10-2026; ningún fichero del
+# corpus los trae.
+DE_LA_D93A = {
+    "QVA": ("LIN", "QTY+47:10:H87'", "QTY+47:10:H87'QVA+21:-2'"),
+    "API": ("PRI", "PRI+AAA:100'", "PRI+AAA:100'API+AAH+:1'"),
+}
+
+
+def en_d93a(segmento: str) -> bytes:
+    _, antes, despues = DE_LA_D93A[segmento]
+    return sobre(CUERPO.replace(antes, despues)).replace(
+        b"INVOIC:D:96A:UN", b"INVOIC:D:93A:UN:EAN007"
+    )
+
+
+class TestLaD93A:
+    """La D.93A es la de EANCOM 93, y trae dos segmentos que la D.96A no.
+
+    Sin ellos en la tabla pasaba lo del PAC: el segmento cerraba la línea, y el
+    importe y el IVA de esa línea se iban a la cabecera. Una factura correcta
+    salía con BR-24, BR-26 y BR-CO-04, que dicen que a la línea le falta lo que
+    lleva.
+    """
+
+    @pytest.mark.parametrize("segmento", sorted(DE_LA_D93A))
+    def test_la_linea_se_queda_con_su_importe_y_su_iva(self, segmento):
+        raiz, _ = edifact.convertir(en_d93a(segmento))
+        linea = raiz.xpath(".//*[S_LIN]")[0]
+        mapa = sintaxis.SINTAXIS_EDIFACT
+        assert sintaxis.importe(linea, mapa.linea_importe, mapa) == Decimal("1000")
+        assert linea.xpath("string(./*[S_TAX]/S_TAX/C_C243/D_5278)") == "21"
+
+    @pytest.mark.parametrize("segmento", sorted(DE_LA_D93A))
+    def test_y_la_factura_no_da_ningun_error(self, segmento):
+        assert not codigos(quejas(en_d93a(segmento)), ERROR)
+
+    @pytest.mark.parametrize("segmento", sorted(DE_LA_D93A))
+    def test_y_el_control(self, segmento):
+        """Sacando el segmento de la tabla, la línea se queda sin importe."""
+        grupo = DE_LA_D93A[segmento][0]
+        original = edifact.GRUPOS[grupo]
+        edifact.GRUPOS[grupo] = edifact.Grupo(
+            sueltos=original.sueltos - {segmento}, dentro=original.dentro
+        )
+        try:
+            raiz, _ = edifact.convertir(en_d93a(segmento))
+        finally:
+            edifact.GRUPOS[grupo] = original
+        linea = raiz.xpath(".//*[S_LIN]")[0]
+        mapa = sintaxis.SINTAXIS_EDIFACT
+        assert sintaxis.importe(linea, mapa.linea_importe, mapa) is None
+
+
 class TestElDirectorio:
     """Qué dato hay en cada posición. Se equivoca uno y el número cambia de sitio."""
 

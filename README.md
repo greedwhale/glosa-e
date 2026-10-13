@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3394 tests, todos en verde.
+3400 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3099,6 +3099,23 @@ faltaban, y la tabla de ahora es la unión de las dos: lo que enseñan los
 ejemplos de la D.14B y lo que dice esa gramática de la D.96A. La prueba del
 `PAC` va con su control: quitando ese segmento de la tabla, el importe de la
 línea se pierde.
+
+La D.93A, que es la de EANCOM 93, se contrastó igual el 13-10-2026: contra su
+gramática en `bots-edi` y contra el directorio que publican edifactory.de y
+Stylus Studio, que dicen lo mismo. Faltaban dos segmentos que la D.96A ya no
+tiene: `QVA`, las diferencias de cantidad, suelto en la línea, y `API`, la
+información adicional del precio, en el grupo del precio. Con cualquiera de
+los dos, la línea perdía su importe o su IVA, y una factura correcta salía con
+BR-24, BR-26 y BR-CO-04. Están en la tabla desde ese día, con su prueba y su
+control. Las posiciones de los datos que leen las reglas son las mismas en la
+D.93A que en la D.96A.
+
+Queda un caso que la tabla no sabe distinguir, porque no mira el contexto: un
+`RFF` detrás del `MOA` de una línea se cuelga del `MOA`, y no de la línea. Detrás
+del `MOA` de los totales sí es suyo. Ninguna regla lee el `RFF` de una línea.
+Medido con un segundo lector que coloca cada segmento según la gramática, pasa
+en 2 de los 247 segmentos de los cuatro mensajes D.93A del corpus, y en 9 de
+los 46.949 de los 258 D.96A.
 
 Lo que distingue un dato de otro no es dónde está sino el **cualificador**: el
 total sin impuestos y el importe de una línea son los dos un `MOA`, y lo único
