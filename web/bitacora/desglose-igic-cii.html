@@ -1,0 +1,160 @@
+<article class="entrada"
+  data-fecha="2026-10-12"
+  data-titulo="En CII, el validador oficial no mira el desglose del IGIC ni del IPSI"
+  data-entradilla="Una factura CII con el desglose del IGIC sin base, o con una base que no sale de sus líneas, pasa el esquematrón oficial del CEN sin un solo error. Con IVA, la misma factura no pasa, y en UBL tampoco. La cuota no se mira desde 2018 y la base, desde 2021.">
+
+  <time datetime="2026-10-12">12 de octubre de 2026</time>
+  <h1>En CII, el validador oficial no mira el desglose del IGIC ni del
+  IPSI</h1>
+  <p class="lema">Una factura CII con el desglose del IGIC sin base, o con
+  una base que no sale de sus líneas, pasa el esquematrón oficial del CEN sin
+  un solo error. Con IVA, la misma factura no pasa, y en UBL tampoco. La
+  cuota no se mira desde 2018 y la base, desde 2021.</p>
+
+  <p>Toda factura EN 16931 lleva un <b>desglose de impuestos</b> (el grupo
+  <code>BG-23</code>): una fila por cada categoría y tipo, con la base
+  imponible (<code>BT-116</code>), el tipo (<code>BT-119</code>) y la cuota
+  (<code>BT-117</code>). La norma tiene reglas para que cada fila cuadre: que
+  la base esté (<code>BR-45</code>), que la cuota sea la base por el tipo
+  (<code>BR-CO-17</code>) y que la base sea la suma de las líneas de esa
+  categoría, que es la regla 08 de cada familia (<code>BR-S-08</code> para el
+  IVA general).</p>
+
+  <p>El IGIC canario y el IPSI de Ceuta y Melilla son dos categorías más, con
+  su letra (<code>L</code> y <code>M</code>) y su familia de reglas. Y CII es
+  una de las cuatro sintaxis que admite el RD 238/2026.</p>
+
+  <h2>Lo que se midió</h2>
+
+  <p>Se tomó la factura de ejemplo número 1 que publica el propio CEN, en CII,
+  y se rompió su desglose de tres maneras. Después se cambió la categoría del
+  IVA general (<code>S</code>) por la del IGIC (<code>L</code>) y por la del
+  IPSI (<code>M</code>), y se pasó todo por el validador oficial, en su
+  versión 1.3.17, publicada el 12 de octubre:</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Lo que da el esquematrón oficial de CII, versión 1.3.17</caption>
+    <thead><tr><th>Lo que se rompe</th><th>Con IVA general</th><th>Con IGIC o IPSI</th></tr></thead>
+    <tbody>
+      <tr><td>El desglose no lleva base</td><td><code>BR-45</code>, <code>BR-CO-17</code>, <code>BR-S-08</code> y <code>BR-S-09</code></td><td><b>nada</b></td></tr>
+      <tr><td>La cuota no es la base por el tipo</td><td><code>BR-CO-17</code> y <code>BR-S-09</code>, además de <code>BR-CO-14</code></td><td>solo <code>BR-CO-14</code>, porque el total de impuestos deja de sumar</td></tr>
+      <tr><td>Base y cuota mal, pero cuadrando entre sí y con los totales</td><td><code>BR-S-08</code></td><td><b>nada</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>La tercera fila es la que importa: una factura de IGIC con una base que
+  no sale de sus líneas, y con todo lo demás coherente, pasa limpia. La 1.3.16
+  da exactamente lo mismo. Y en UBL no pasa: las mismas tres roturas sobre el
+  ejemplo gemelo en UBL dan error con IVA, con IGIC y con IPSI, en las dos
+  versiones.</p>
+
+  <h2>Por qué</h2>
+
+  <p>Son dos fallos, y los dos están en la vinculación de CII, no en la
+  norma.</p>
+
+  <p><b>El primero tapa las reglas generales.</b> Un esquematrón agrupa reglas
+  que miran sitios de la factura, y cuando dos reglas del mismo grupo apuntan
+  al mismo elemento, solo corre la primera. En CII, las reglas del IGIC y del
+  IPSI apuntan al elemento del desglose entero, que es justo donde apuntan las
+  generales (<code>BR-45</code> a <code>BR-48</code> y <code>BR-CO-17</code>,
+  entre otras), y van antes. Las del IVA apuntan a otro sitio, el código de
+  categoría, y por eso no tapan nada. Se midió también con la primera
+  versión publicada, de febrero de 2018, y ya pasaba. Las reglas de las
+  operaciones no sujetas
+  (<code>O</code>) apuntan al mismo sitio que las del IGIC, así que
+  probablemente les pasa lo mismo; eso no se ha medido.</p>
+
+  <p>Con eso, la cuota ya quedaba sin mirar: la regla 09 del IGIC, la de la
+  cuota, está escrita a propósito para no hacer nada, con una nota que dice
+  que de eso ya se encarga <code>BR-CO-17</code>. Y en CII,
+  <code>BR-CO-17</code> no llega a correr.</p>
+
+  <p><b>El segundo deja muda la regla de la base.</b> Hasta 2021, la regla 08
+  del IGIC y la del IPSI saltaban, pero de más: con el mismo ejemplo del CEN,
+  que lleva dos tipos, daban error también con la factura bien hecha. Es el
+  falso positivo de la
+  <a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/290">incidencia
+  #290</a>, y para arreglarlo, en octubre de 2021, se copió la fórmula de la
+  regla del IVA. Esa fórmula busca el
+  tipo un nivel por encima de donde empieza a mirar; en la del IVA funciona
+  porque empieza más abajo, en el código de categoría. En las del IGIC y del
+  IPSI no encuentra nada, y una condición que se aplica «a cada tipo» de una
+  lista vacía se da por cumplida.</p>
+
+  <h2>Quién lo hereda</h2>
+
+  <p>Muchas herramientas no escriben sus reglas: usan los artefactos del CEN,
+  que es lo razonable. Se comprobaron dos. La copia de la 1.3.16 que
+  distribuye <b>phive</b> es idéntica a la del CEN, y las reglas
+  CII que publica <b>Peppol</b> en su repositorio, que van sobre la 1.3.15,
+  dan exactamente los mismos resultados. No es un fallo suyo: es el del
+  original, bien copiado. Las herramientas que no publican sus reglas no se
+  han podido comprobar.</p>
+
+  <h2>A quién le importa, y cuándo</h2>
+
+  <p>A quien emita facturas con IGIC o IPSI en CII y se fíe del validador
+  oficial para saber si el desglose está bien. Hoy no obliga a nadie: el
+  RD 238/2026 empieza a aplicarse el 6 de octubre de 2027 para quien facture
+  más de 8 M€, y el 6 de octubre de 2028 para el resto. Hay tiempo para que
+  se arregle, y se ha avisado al CEN en la
+  <a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/534">issue
+  #534</a>.</p>
+
+  <h2>Qué hace Glosa-e</h2>
+
+  <p>Glosa-e no ejecuta el esquematrón del CEN: escribe cada regla aparte y la
+  compara con los casos de prueba oficiales. Con las mismas facturas de
+  prueba da <code>BR-45</code> cuando falta la base, <code>BR-CO-17</code>
+  cuando la cuota no cuadra y la regla de la base de su categoría cuando la
+  base no sale de las líneas (hoy <code>BR-AF-08</code> para el IGIC y
+  <code>BR-AG-08</code> para el IPSI, que son los nombres de la 1.3.16; la
+  1.3.17 los cambia).</p>
+
+  <p>Eso no hace de Glosa-e el validador bueno y del oficial el malo. Es una
+  segunda lectura de la misma norma, y aquí las dos no coinciden: cuando eso
+  pasa, lo que toca es mirar por qué y decirlo donde se escriben las
+  reglas.</p>
+
+  <p>Glosa-e es gratis, es código abierto (AGPL-3.0-only) y <b>corre entero en
+  tu navegador</b>: la factura no sale de tu ordenador. Está <b>en desarrollo
+  y en pruebas</b>. Si encuentras algo mal,
+  <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20">escríbeme</a>.</p>
+
+  <footer class="fuentes">
+    <h2>De dónde sale</h2>
+    <ul>
+      <li><a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/tree/validation-1.3.17">Artefactos
+      EN 16931 del CEN, versión 1.3.17</a>: el esquematrón de CII, los XSLT
+      con que se midió y los ejemplos <code>CII_example1.xml</code> y
+      <code>ubl-tc434-example1.xml</code>. La 1.3.16, en la etiqueta
+      <code>validation-1.3.16</code> del mismo repositorio.</li>
+      <li><a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/commit/e8c303c">Commit
+      <code>e8c303c</code></a>, del 24-09-2021: la fórmula de la regla 08 del
+      IGIC y del IPSI, copiada de la del IVA para cerrar la incidencia
+      #290. Entró en la versión 1.3.7.</li>
+      <li><a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/534">Issue
+      #534</a>: el aviso al CEN.</li>
+      <li><a href="https://github.com/phax/phive-rules">phive-rules</a>: la
+      copia de la 1.3.16 en <code>phive-rules-en16931</code>.</li>
+      <li><a href="https://github.com/OpenPEPPOL/peppol-bis-invoice-3">Peppol
+      BIS Billing 3.0</a>: las reglas CII en <code>rules/sch</code>.</li>
+      <li><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-7295">Real
+      Decreto 238/2026</a>, artículo 7.1 (las cuatro sintaxis), y
+      <a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-20587">Orden
+      HAC/1028/2026</a>, de la que cuentan los plazos.</li>
+    </ul>
+    <p class="metodo"><b>Cómo se midió.</b> El 12 de octubre de 2026, con los
+    XSLT oficiales del CEN de las versiones 1.3.16 y 1.3.17, ejecutados con
+    Saxon, y con los de la 1.0.0, la 1.3.6 y la 1.3.7 para fechar los dos
+    fallos. Las reglas de Peppol, que se publican solo como esquematrón, se
+    compilaron con el esqueleto ISO de referencia; compilada igual, la 1.3.16
+    del CEN da lo mismo que su XSLT oficial en todas las pruebas. Las facturas
+    son los ejemplos del CEN con las roturas descritas: ninguna factura de
+    terceros.</p>
+  </footer>
+
+</article>
