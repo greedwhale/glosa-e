@@ -6564,7 +6564,9 @@ Ninguna rotura pasó sin que la cazara una prueba.
 - **UBL-SR-43**, del esquematrón de sintaxis de CEN (2017, nivel fatal), solo
   admite 130, o 50 en un abono, en el `DocumentTypeCode` de un
   `AdditionalDocumentReference`, y el ejemplo pone `R1` y `S`. Aquí no se
-  cargan las reglas de sintaxis de CEN. Queda por preguntar.
+  cargan las reglas de sintaxis de CEN. Queda por preguntar. Preguntado, y
+  contestado el 13-10-2026: la solución pública se basa en la semántica de
+  la EN 16931, que no impone esa restricción.
 - **L7 sin `ubl:`**. Si las líneas de cobro pierden el `ubl:` como L10, Glosa
   daría ERROR falso: medido con `SUPL` sin `ubl:`. No se ha tocado porque nada
   publicado lo dice.
@@ -8535,3 +8537,38 @@ contaba `BT-30` y `BT-47` entre los identificadores que el anexo no recoge,
 cuando la orden los recoge para el NIF desde el 05-10-2026; la comprobación
 de los destinos no lo veía porque los nombraba en el porqué y no en el
 destino. La base de «las 14» sigue sin rehacer en las filas viejas.
+
+## La respuesta del buzón del 13-10-2026: lo que cambia, y una frase de más
+
+Dos correos de la AEAT el mismo día contestaron las dos consultas pendientes
+(el detalle, en el README, en la sección de la consulta del 07-10-2026). Seis
+reglas cambian de gravedad o nacen:
+
+| Qué | Antes | Desde el 13-10-2026 |
+|---|---|---|
+| `ProfileID` del BOE, con `ubl:` | limpio | AVISO de `SPFE-PROCESO` |
+| `ProfileID` del ejemplo, sin `ubl:` | NOTA | limpio |
+| Valor de L7, L8 o L10 sin su calificador | limpio | AVISO de `SPFE-CALIFICADOR`, código nuevo |
+| NIF-IVA del comprador sin ES | AVISO | ERROR de `SPFE-NIF` |
+| Un código de L2.C repetido en `RECT:IMPORTES` | NOTA con cuatro o cinco, nada con dos o tres | AVISO de `SPFE-RECTIFICATIVA` |
+| Nombre del emisor de una anulación solo en `cac:PartyTaxScheme/cbc:RegistrationName` | limpio | AVISO de `SPFE-MENSAJE-FACTURA` |
+
+Las facturas de prueba se escribieron de nuevo con el calificador delante,
+que es la forma que vale: con el valor solo, 40 pruebas salían en rojo por el
+AVISO nuevo, y casi todas por la misma `REGI` de la factura base.
+
+**La frase de más.** El primer borrador de estos mensajes decía que la AEAT
+corrige el `ProfileID` en el anexo que publicará en su Portal de
+Desarrolladores. No lo dijo: dijo que vale sin `ubl:`, y el anexo 2.0 que
+mandó ese mismo día todavía lo lleva con él. Se vio al medir el PDF, y la
+prueba del AVISO comprueba ahora que el mensaje no nombra el Portal. Es el
+mismo cuidado que pide la tesis: lo que se atribuye a otro tiene que ser lo
+que dijo.
+
+**Provocado.** Cada regla, rota a mano y con su prueba en rojo: el `ProfileID`
+del BOE otra vez limpio; sin la negativa de la fila `BT-23`; el nombre de la
+anulación callado, y el aviso aunque el nombre esté donde va; `SPFE-CALIFICADOR`
+fuera de la lista de reglas, sin mirar L8, sin mirar L10, en ERROR, y sin
+apuntar en `tests/fichas_publicadas.txt`; el código repetido callado, sin la
+negativa de la L2.C, y tres códigos distintos tomados por repetidos; y el
+comprador otra vez en AVISO. Trece roturas, trece en rojo.

@@ -1310,8 +1310,9 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "especificación sigue el documento, "
         "`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, "
         "y BT-23 qué proceso es, "
-        "`urn:aeat:names:specification:ubl:schema:profile:B2B` -fijo, así que "
-        "ni siquiera distingue el B2G-. Una factura no dice eso de sí misma; "
+        "`urn:aeat:names:specification:schema:profile:B2B`, fijo (ni siquiera "
+        "distingue el B2G). La orden lo escribe con `ubl:` y la AEAT contestó "
+        "el 13-10-2026 que el bueno es sin él. Una factura no dice eso de sí misma; "
         "lo dice quien la copia. Y de paso deja escrito que la copia se mide "
         "con la edición **2026** de la norma, que es la que trae términos como "
         "BT-179 y BT-180, a los que la orden pone sitio y no ruta. Hasta el "
@@ -1671,11 +1672,11 @@ def _de_las_lineas(factura, etiqueta: str) -> list[Incidencia]:
             Incidencia(
                 "COPIA-LINEA-NETO",
                 NOTA,
-                "El importe neto de una línea de la copia es «GrossAmount» y "
-                "no «TotalCost», y en esta factura los dos no valen lo mismo. "
-                "El esquema define «TotalCost» como cantidad por precio y "
-                "«GrossAmount» como «TotalCost - DiscountAmount + "
-                "ChargeAmount»; BT-131 es el importe de la línea después de "
+                "El importe neto de una línea de la copia es GrossAmount y "
+                "no TotalCost, y en esta factura los dos no valen lo mismo. "
+                "El esquema define TotalCost como cantidad por precio y "
+                "GrossAmount como TotalCost - DiscountAmount + "
+                "ChargeAmount; BT-131 es el importe de la línea después de "
                 "sus descuentos y cargos, que es el que cuadra con la suma de "
                 "líneas. Copiar el otro no deja un hueco: deja un número que "
                 "parece bueno.",
@@ -1723,14 +1724,14 @@ def _del_pago(factura, etiqueta: str) -> tuple[list[Incidencia], list[str]]:
         if conocidos:
             esperado = ", ".join(
                 f"{_MEDIOS_DE_PAGO[m][1]} en la copia "
-                f"(«{_MEDIOS_DE_PAGO[m][2]}» en UNCL4461)" for m in conocidos
+                f"(en UNCL4461, {_MEDIOS_DE_PAGO[m][2]})" for m in conocidos
             )
         else:
             esperado = ("un código de UNCL4461 elegido a mano: para éste no "
                         "hay equivalente que se pueda sostener")
         encontrado = ", ".join(
             f"{m} en esta factura"
-            + (f", que aquí es «{_MEDIOS_DE_PAGO[m][0]}»"
+            + (f", que aquí es {_MEDIOS_DE_PAGO[m][0]}"
                if m in _MEDIOS_DE_PAGO else "")
             for m in medios
         )
@@ -1992,7 +1993,7 @@ def _del_desglose(factura, etiqueta: str) -> list[Incidencia]:
     dice, categoria = _FISCALIDAD_ESPECIAL.get(unica, ("", ""))
     if categoria:
         esperado = (f"{categoria} en la copia, que es la categoría de "
-                    f"UNCL5305 para «{dice}»")
+                    f"UNCL5305 para {dice}")
         encontrado = (f"{', '.join(a_cero)} al 0 % en esta factura, y la "
                       f"fiscalidad especial {unica} en las líneas")
     else:
@@ -2023,7 +2024,7 @@ def _del_desglose(factura, etiqueta: str) -> list[Incidencia]:
                   f"(BT-118 en la copia)",
             esperado=esperado,
             encontrado=encontrado + (
-                f", y el motivo escrito «{motivos[0]}»" if motivos else ""
+                f", y el motivo escrito \"{motivos[0]}\"" if motivos else ""
             ),
         )
     ]
@@ -2103,15 +2104,15 @@ def _de_los_nombres(raiz) -> list[Incidencia]:
                     "Facturae -nombre, primer apellido y segundo apellido- y "
                     "en la copia va en uno solo, que además es obligatorio. "
                     "Hay que juntarlos, y ni el esquema ni el anexo dicen en "
-                    "qué orden ni con qué separador: no es lo mismo «Juana "
-                    "Mauriño» que «Mauriño, Juana» para quien después busque "
-                    "esta factura por su titular. Quedarse solo con el nombre "
+                    "qué orden ni con qué separador: para quien después busque "
+                    "esta factura por su titular, no es lo mismo poner primero "
+                    "el nombre que primero los apellidos. Quedarse solo con el nombre "
                     "tampoco vale aquí: en la copia se perderían los "
                     "apellidos.",
                     campo=f"Nombre {quien} ({destino} en la copia)",
                     esperado="un solo campo en la copia",
                     encontrado=f"{len(escritos)} de 3 campos en esta factura: "
-                               + ", ".join(f"«{t}»" for t in escritos),
+                               + ", ".join(f"\"{t}\"" for t in escritos),
                 )
             )
     return incidencias
@@ -2134,8 +2135,8 @@ def _de_una_factura(
                 NOTA,
                 "En la copia, el número de esta factura no es el que lleva "
                 "aquí. Facturae guarda la serie y el número en dos campos, y "
-                "el anexo tiene uno solo (BT-1, «número y serie de la "
-                "factura»). Nadie dice cómo se juntan: aquí se pegan sin "
+                "el anexo tiene uno solo (BT-1, número y serie de la "
+                "factura). Nadie dice cómo se juntan: aquí se pegan sin "
                 "separador, que es como los trata Verifactu y como los junta "
                 "el código único. Si la copia llevara solo el número, la copia "
                 "y el original no identificarían la misma factura.",

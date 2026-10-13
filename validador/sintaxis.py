@@ -1766,10 +1766,11 @@ _ARREGLOS: tuple[Arreglo, ...] = (
 # sustituye, y **en qué fila del anexo está escrito el valor** que se mete en
 # el predicado. Lo tercero es lo que impide que esto se convierta en opinión.
 #
-# Los valores de L7, L8 y L10 se aceptan solos o con el calificador de su
-# lista delante: la orden da el valor en la fila y el calificador aparte, sin
-# decir cómo se juntan, y la AEAT escribió los de L10 con el calificador en su
-# ejemplo del 02-10-2026. Se le preguntó al buzón el 07-10-2026.
+# Los valores de L7, L8 y L10 se reconocen solos o con el calificador de su
+# lista delante. La orden da el valor en la fila y el calificador aparte, sin
+# decir cómo se juntan, y el buzón contestó el 13-10-2026 que con el
+# calificador seguido del valor. Aquí se reconocen los dos para encontrar el
+# elemento; que vaya sin él lo dice `SPFE-CALIFICADOR`.
 
 
 def _uno_de(elemento: str, hijo: str, valores: tuple[str, ...], lista: str) -> str:

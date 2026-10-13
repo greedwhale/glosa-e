@@ -60,7 +60,7 @@ def test_la_prueba_sin_red_solo_se_ofrece_con_el_validador_cargado():
 def test_quien_invita_a_desconectar_dice_cuando(pagina):
     for parrafo in _parrafos(pagina):
         if re.search(r"desconecta la red", parrafo, re.I):
-            assert "«Listo»" in parrafo, (
+            assert "<i>Listo</i>" in parrafo, (
                 f"{pagina} invita a desconectar la red sin decir que es con la "
                 f"página ya cargada: «{parrafo[:120]}…»")
 

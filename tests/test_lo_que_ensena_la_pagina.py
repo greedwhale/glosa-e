@@ -188,7 +188,7 @@ class TestSinRutasDeDentro:
         salida = la_pagina({"factura ñ.xml": (RAIZ / "ejemplos" / "f-0001.xml").read_bytes()})
         documento = json.loads(salida)["documentos"][0]
         assert documento["resumen"] == (
-            "No se ha podido validar. El validador ha fallado con «factura ñ.xml»."
+            "No se ha podido validar. El validador ha fallado con \"factura ñ.xml\"."
         )
         [caida] = _incidencias(salida, "VALIDADOR-SE-ATRAGANTA")
         assert caida["encontrado"] == "factura ñ.xml"
@@ -224,7 +224,7 @@ class TestEnConsolaLaCarpetaSiSirve:
         camino.write_bytes((RAIZ / "ejemplos" / "f-0001.xml").read_bytes())
         informe = factura.validar_archivo(camino)
         assert informe.resumen() == (
-            "No se ha podido validar. El validador ha fallado con «f.xml»."
+            "No se ha podido validar. El validador ha fallado con \"f.xml\"."
         )
 
 

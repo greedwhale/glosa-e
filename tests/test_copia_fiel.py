@@ -911,7 +911,7 @@ def test_el_nombre_de_una_persona_fisica_va_en_tres_campos():
     nota = notas(persona=("Juana", "Mauriño", "Pérez"))["COPIA-NOMBRE"]
     assert nota.gravedad == NOTA
     assert "3 de 3 campos" in nota.encontrado
-    assert "«Juana»" in nota.encontrado and "«Mauriño»" in nota.encontrado
+    assert '"Juana"' in nota.encontrado and '"Mauriño"' in nota.encontrado
     # No se propone un orden: eso es justo lo que nadie ha fijado.
     assert nota.esperado == "un solo campo en la copia"
 

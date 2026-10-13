@@ -20,17 +20,21 @@ Lo que aquí se comprueba va en dos niveles:
 
 Sobre los límites concretos: la orden técnica del RD 238/2026, la Orden
 HAC/1028/2026, salió en el BOE el 05-10-2026 y no fija ninguno. Su anexo I
-describe `BT-1` como «Serie y número que identifican la factura emitida», sin
+describe `BT-1` como la serie y número que identifican la factura emitida, sin
 longitud, y su artículo 6 define el código único como la concatenación del NIF
-del emisor, la serie y número y la fecha de expedición «según lo especificado
-en el anexo I», que no lo especifica: ni separador ni formato. Las
-especificaciones técnicas las deja a la Sede electrónica de la AEAT (artículo
-3.1), y al buzón se le preguntó el 07-10-2026 (en el README, «La consulta del
-07-10-2026»). Hasta que alguna de las dos lo fije, el tope está tomado del
-esquema de Verifactu (RD 1007/2023), donde el campo equivalente admite 60
-caracteres, y la serie y el número se pegan sin separador, como allí. Si se
-fija otra cosa, se cambian esta constante y `CodigoUnico.numero_completo`, y
-ya está.
+del emisor, la serie y número y la fecha de expedición según lo especificado
+en el anexo I, que no lo especifica: ni separador ni formato.
+
+Se le preguntó al buzón el 07-10-2026, y contestó el 13-10-2026 (en el README,
+en la sección de esa consulta). La concatenación no es literal: el
+identificador son los tres datos por separado. La fecha va en AAAA-MM-DD. El
+NIF, sin ES, y si viene el sistema lo trata igual sin él. Y `BT-1` es la serie
+seguida del número, sin separador. Es lo que aquí ya se hacía: los tres datos
+se comparan por separado, el NIF con `limpiar_nif`, y la serie y el número se
+pegan sin separador, como en Verifactu. La longitud no la dijo, y el tope
+sigue tomado del esquema de Verifactu (RD 1007/2023), donde el campo
+equivalente admite 60 caracteres. Si se fija otro, se cambia esta constante,
+y ya está.
 """
 
 from __future__ import annotations
@@ -138,8 +142,9 @@ class CodigoUnico:
         """Serie y número tal y como identifican la factura.
 
         Facturae los guarda en dos campos y UBL en uno solo. Se concatenan sin
-        separador, que es como los trata Verifactu: si la serie necesita un
-        guion, ya lo lleva dentro.
+        separador, que es como los trata Verifactu y como contestó el buzón el
+        13-10-2026 que es `BT-1`: si la serie necesita un guion, ya lo lleva
+        dentro.
         """
         return f"{self.serie or ''}{self.numero}"
 

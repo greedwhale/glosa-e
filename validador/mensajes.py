@@ -60,11 +60,16 @@ eso las dice la nota `SPFE-MENSAJE-ALCANCE` en cada anulación:
   y eso lo dice `XSD-ORDEN`, pero los datos están, y decir que faltan sería
   falso;
 - **pone el nombre del vendedor en `cac:PartyTaxScheme/cac:PartyLegalEntity`**,
-  y `cac:PartyTaxScheme` no tiene `cac:PartyLegalEntity`. Hay dos arreglos de
-  un paso, y no se sabe cuál quiso la orden: el de quitar `cac:PartyTaxScheme`,
-  que es como lo escribe el anexo II, o el de quitar `cac:PartyLegalEntity`,
-  porque `cac:PartyTaxScheme` tiene su propio `cbc:RegistrationName`. Se
-  buscan los dos, y solo falta si no está en ninguno.
+  y `cac:PartyTaxScheme` no tiene `cac:PartyLegalEntity`. Había dos arreglos de
+  un paso: quitar `cac:PartyTaxScheme`, que es como lo escribe el anexo II, o
+  quitar `cac:PartyLegalEntity`, porque `cac:PartyTaxScheme` tiene su propio
+  `cbc:RegistrationName`. Se buscan los dos, y solo falta si no está en
+  ninguno; pero en el segundo es un AVISO.
+
+El buzón contestó el 13-10-2026 las dos: sobra `cac:Response`, y el nombre va
+en `cac:PartyLegalEntity`, como en el anexo II. La AEAT lo corrige en el anexo
+que publicará en su Portal de Desarrolladores. Contestó también lo que ninguna
+tabla decía: el NIF del emisor va sin ES, y su `cac:TaxScheme` puede ir vacío.
 
 Lo que no se mide
 -----------------
@@ -130,11 +135,12 @@ _NUMERO = "el número"
 _FECHA_DE_EXPEDICION = "la fecha de expedición"
 _NIF = "el NIF del emisor"
 _NOMBRE = "el nombre o razón social del emisor"
+_RUTA_DEL_NOMBRE = "cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName"
 _DATOS = {
     "cbc:ID": _NUMERO,
     "cbc:IssueDate": _FECHA_DE_EXPEDICION,
     "cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID": _NIF,
-    "cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName": _NOMBRE,
+    _RUTA_DEL_NOMBRE: _NOMBRE,
 }
 _NOMBRE_EN_EL_IMPUESTO = "cac:IssuerParty/cac:PartyTaxScheme/cbc:RegistrationName"
 
@@ -232,7 +238,7 @@ def _plan(codigo: str, mensaje) -> Plan:
     arreglos = collections.Counter()
     for fila in mensaje.filas:
         rutas = _rutas(fila.ruta, arreglos)
-        donde = f"{codigo}, «{fila.termino}»"
+        donde = f"{codigo}, {fila.termino}"
         if not rutas or rutas == [_FACTURA]:
             # El grupo de la factura: sin ruta en el anexo II, con la de
             # `cac:Response` (ya arreglada) en la anulación.
@@ -270,8 +276,7 @@ def _plan(codigo: str, mensaje) -> Plan:
             relativa = rutas[0][len(_FACTURA) + 1:]
             if rutas[0] == _NOMBRE_DENTRO_DEL_IMPUESTO:
                 arreglos[NOMBRE_EN_EL_IMPUESTO] += 1
-                datos[_NOMBRE] = ("cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName",
-                                  _NOMBRE_EN_EL_IMPUESTO)
+                datos[_NOMBRE] = (_RUTA_DEL_NOMBRE, _NOMBRE_EN_EL_IMPUESTO)
             elif relativa in _DATOS:
                 datos[_DATOS[relativa]] = (relativa,)
             else:
@@ -312,7 +317,7 @@ def _y(cosas: list[str]) -> str:
 
 
 def _o(cosas) -> str:
-    cosas = [f"«{c}»" for c in cosas]
+    cosas = [str(c) for c in cosas]
     return cosas[0] if len(cosas) == 1 else ", ".join(cosas[:-1]) + " o " + cosas[-1]
 
 
@@ -451,7 +456,7 @@ def _estado(respuesta, plan: Plan) -> list[Incidencia]:
             salida.append(Incidencia(
                 "SPFE-MENSAJE-ESTADO",
                 ERROR,
-                f"El cbc:StatusReason «{valor}» va {veces} veces en {plan.nombre}, "
+                f"El cbc:StatusReason \"{valor}\" va {veces} veces en {plan.nombre}, "
                 "y la orden lo pone una sola vez.",
                 campo=plan.razones[valor],
                 esperado="una vez",
@@ -479,14 +484,14 @@ def _estado(respuesta, plan: Plan) -> list[Incidencia]:
 
 def _no_prevista(plan: Plan, que: str, valor: str, previstas: list[str]) -> Incidencia:
     if previstas:
-        cuales = (f"allí solo están {_y([f'«{p}»' for p in previstas])}"
-                  if len(previstas) > 1 else f"allí solo está «{previstas[0]}»")
+        cuales = (f"allí solo están {_y(previstas)}"
+                  if len(previstas) > 1 else f"allí solo está {previstas[0]}")
     else:
         cuales = "allí no hay ninguno" if que != "la condición" else "allí no hay ninguna"
     return Incidencia(
         "SPFE-MENSAJE-ESTADO",
         AVISO,
-        f"{_mayuscula(plan.nombre)} lleva {que} «{valor}», que su "
+        f"{_mayuscula(plan.nombre)} lleva {que} \"{valor}\", que su "
         f"tabla de la orden no prevé: {cuales}. Si es una errata, lo que "
         "quería decir no se ha leído.",
         campo="cac:Status",
@@ -532,7 +537,7 @@ def _motivo(respuesta, plan: Plan) -> list[Incidencia]:
             salida.append(Incidencia(
                 "SPFE-MENSAJE-MOTIVO",
                 ERROR,
-                f"«{escrito}» no es un motivo de rechazo de la lista "
+                f"\"{escrito}\" no es un motivo de rechazo de la lista "
                 f"{plan.motivo} del anexo II: {lista}.",
                 campo=campo,
                 esperado=_o(valores),
@@ -601,6 +606,25 @@ def _facturas(respuesta, plan: Plan) -> list[Incidencia]:
                 esperado=_y(list(plan.datos)),
                 encontrado="falta " + _y(faltan),
             ))
+        # El nombre, en la anulación, solo en el sitio que el buzón descartó el
+        # 13-10-2026. No falta, porque está y el esquema lo admite; pero no es
+        # donde la AEAT dice que va.
+        if (NOMBRE_EN_EL_IMPUESTO in plan.erratas
+                and not any(_texto(nodo, _RUTA_DEL_NOMBRE) for nodo in factura)
+                and any(_texto(nodo, _NOMBRE_EN_EL_IMPUESTO) for nodo in factura)):
+            salida.append(Incidencia(
+                "SPFE-MENSAJE-FACTURA",
+                AVISO,
+                f"El nombre del emisor de {cual} va en el cbc:RegistrationName de "
+                "cac:PartyTaxScheme. La tabla de la anulación lo pone en un sitio "
+                "que no existe en UBL 2.5, y la AEAT contestó por escrito el "
+                "13-10-2026 que va en cac:PartyLegalEntity, como en el anexo II, "
+                "y que lo corrige en el anexo que publicará en su Portal de "
+                "Desarrolladores.",
+                campo="Nombre o razón social del emisor",
+                esperado=_RUTA_DEL_NOMBRE,
+                encontrado="en cac:PartyTaxScheme/cbc:RegistrationName",
+            ))
         # Cada NIF por separado. El emisor puede llevar dos cac:PartyTaxScheme,
         # como en la factura el NIF-IVA y el NIF (BT-31 y BT-32), y `_texto`
         # los juntaba en uno: «ESB12345674 B12345674» no es válido, y salía un
@@ -659,11 +683,10 @@ def _alcance(medidas: list[Plan], otras: int) -> Incidencia:
         "exista y sea esa, ni que las fechas sean ciertas"
         + (": la de vencimiento se calcula con la Ley 3/2004, y eso no se ve en "
            "el mensaje." if vencimiento else "."),
-        "El NIF del emisor se acepta con el prefijo ES y sin él: la tabla dice "
-        "NIF y lo pone en cac:PartyTaxScheme/cbc:CompanyID, que en la factura "
-        "de la orden es el NIF-IVA del vendedor (BT-31), con el prefijo, o su "
-        "NIF (BT-32), sin él. Y con cualquier impuesto en su cac:TaxScheme, que "
-        "el esquema exige y ninguna tabla da.",
+        "El NIF del emisor va sin el prefijo ES, y su cac:TaxScheme, que el "
+        "esquema exige y ninguna tabla da, puede ir vacío: lo contestó la AEAT "
+        "por escrito el 13-10-2026. Con el prefijo también se acepta, porque "
+        "del código único dijo que, si viene, el sistema lo trata igual.",
     ]
     erratas = {e for c in codigos for e in PLANES[c].erratas}
     if erratas:
@@ -671,12 +694,15 @@ def _alcance(medidas: list[Plan], otras: int) -> Incidencia:
             "La tabla del mensaje de anulación escribe dos rutas que no existen "
             "en UBL 2.5, y un mensaje escrito así no pasa el esquema: cuelga la "
             "factura anulada de cac:Response y pone el nombre del vendedor en "
-            "cac:PartyTaxScheme/cac:PartyLegalEntity. Los datos de la factura "
-            "se buscan donde los pone el anexo II, en "
+            "cac:PartyTaxScheme/cac:PartyLegalEntity. La AEAT contestó el "
+            "13-10-2026 que sobra cac:Response y que el nombre va en "
+            "cac:PartyLegalEntity, como en el anexo II, y lo corrige en el anexo "
+            "que publicará en su Portal de Desarrolladores. Los datos de la "
+            "factura se buscan donde los pone el anexo II, en "
             "cac:DocumentResponse/cac:DocumentReference, y también donde los "
-            "pone esta tabla; el nombre, en cac:PartyLegalEntity o en el "
-            "cbc:RegistrationName de cac:PartyTaxScheme, que son los dos "
-            "arreglos posibles."
+            "pone esta tabla, para no decir que faltan cuando están; el nombre, "
+            "en cac:PartyLegalEntity, y si solo está en el cbc:RegistrationName "
+            "de cac:PartyTaxScheme sale un aviso."
         )
     if otras:
         partes.append(

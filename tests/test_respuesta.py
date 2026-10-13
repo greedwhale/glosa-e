@@ -207,7 +207,10 @@ class TestSeReconoce:
         """Decirle que la raíz no es de nada que se valide manda a otro sitio."""
         motivo = detectar(raiz).motivo
         assert "namespace" in motivo
-        assert f"tendría que ser «{esperado}»" in motivo
+        if "xmlns" in raiz:
+            assert f"y tendría que ser {esperado}." in motivo
+        else:
+            assert f"no lleva namespace, y tendría que llevar {esperado}." in motivo
 
     def test_la_firma_se_ve(self):
         firmada = respuesta(
@@ -613,8 +616,8 @@ class TestLoQueElInformeDice:
             [escribir(tmp_path, "r.xml", respuesta())], catalogo=catalogo
         )
         assert lote.alcance() == (
-            "«Sin errores» quiere decir que se ha comprobado la forma contra el "
-            "esquema XSD.\nNo se comprueba la validez de las firmas "
+            "Que no haya errores quiere decir que se ha comprobado la forma "
+            "contra el esquema XSD.\nNo se comprueba la validez de las firmas "
             "electrónicas, ni el contenido de las respuestas (ApplicationResponse), "
             "ni si lo que dice la factura es cierto."
         )

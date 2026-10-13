@@ -275,3 +275,119 @@ def test_el_informe_el_banco_y_la_consola_llevan_sus_tildes(fuente):
         f"«{fuente.name}» tiene cadenas sin tilde: {', '.join(encontradas)}. "
         "Si es algo que se copia tal cual de otro sitio, va a TAL_CUAL con su "
         "motivo.")
+
+
+# --- Las comillas angulares y la marca ---------------------------------------
+#
+# Hasta el 13-10-2026 lo publicado citaba con comillas angulares todo lo que
+# no era la frase: lo que traía la factura, los valores fijos de la orden, y
+# hasta dos palabras de una fila del BOE. Quien lo leía veía signos alrededor
+# de una frase y no sabía por qué, y el titular pidió quitarlos de todo lo
+# publicado. Desde entonces lo que trae la factura va entre comillas normales,
+# porque hace falta ver dónde empieza y dónde acaba un valor que puede llevar
+# espacios; lo fijo va a secas, o como código donde lo hay; y una cita se
+# reescribe, o en la bitácora va en cursiva.
+#
+# Y la marca es Glosa-e, como el dominio. Glosa a secas es el nombre corto
+# que se cuela al escribir deprisa.
+#
+# Lo que no se publica se queda fuera: comentarios y docstrings; lo que solo lee
+# quien monta el sitio, que es `paquete.py`, `__main__.py` y las negativas que
+# van en un `raise`; el texto del BOE tal y como viene, en `cius_es.py`, que se
+# limpia antes de enseñarse; las expresiones regulares que buscan esas
+# comillas en el BOE; y la tabla de la copia fiel, que es documentación en
+# forma de datos y no sale en ningún informe.
+ANGULARES = re.compile(r"[«»]")
+# `window.Glosa` y `Glosa.validar(...)` son el nombre de la interfaz de la
+# página en JavaScript, no la marca escrita para nadie.
+MARCA_A_MEDIAS = re.compile(r"\bGlosa\b(?!-e|\.\w|\s*=)")
+SOLO_PARA_QUIEN_MONTA = {"paquete.py", "__main__.py", "cius_es.py"}
+
+
+def _mensajes(fuente: Path) -> list[str]:
+    """Las cadenas que pueden acabar en un informe o en una página."""
+    arbol = ast.parse(fuente.read_text(encoding="utf-8"))
+    fuera: set[int] = set()
+    for nodo in ast.walk(arbol):
+        cuerpo = getattr(nodo, "body", None)
+        if (isinstance(nodo, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+                and cuerpo and isinstance(cuerpo[0], ast.Expr)
+                and isinstance(cuerpo[0].value, ast.Constant)):
+            fuera.add(id(cuerpo[0].value))
+        if (isinstance(nodo, ast.Raise)
+                or isinstance(nodo, ast.Call) and isinstance(nodo.func, ast.Attribute)
+                and getattr(nodo.func.value, "id", "") == "re"
+                or isinstance(nodo, ast.AnnAssign)
+                and getattr(nodo.target, "id", "") == "CORRESPONDENCIAS"):
+            fuera |= {id(n) for n in ast.walk(nodo)}
+    return [n.value for n in ast.walk(arbol)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str)
+            and id(n) not in fuera]
+
+
+def _signos(textos: list[str]) -> list[str]:
+    """Cada sitio con su contexto, para que la queja diga dónde mirar."""
+    return sorted({" ".join(t[max(0, m.start() - 40):m.end() + 20].split())
+                   for t in textos for m in ANGULARES.finditer(t)})
+
+
+def _marca(textos: list[str]) -> list[str]:
+    return sorted({" ".join(t[max(0, m.start() - 40):m.end() + 20].split())
+                   for t in textos for m in MARCA_A_MEDIAS.finditer(t)})
+
+
+def test_la_red_de_comillas_y_marca_caza_lo_que_ya_se_colo():
+    for frase in ("Se instalan en «anclas».",
+                  "copia la del vendedor hasta en llamarlo «del vendedor»",
+                  "con la categoría «S» y el esquema «WTH»"):
+        assert _signos([frase]), frase
+    for frase in ("en la lista que lleva Glosa no hay", "Glosa traduce las cinco",
+                  "lo hace Glosa."):
+        assert _marca([frase]), frase
+    for frase in ("Glosa-e traduce las cinco", "window.Glosa = {",
+                  "Glosa.validarEjemplo(nombre)", 'con el impuesto "LOC"'):
+        assert not _signos([frase]) and not _marca([frase]), frase
+
+
+@pytest.mark.parametrize("pagina", PAGINAS + [WEB / "404.html"], ids=lambda p: p.name)
+def test_las_paginas_sin_comillas_angulares_y_con_la_marca_entera(pagina):
+    textos = _lo_que_se_lee_de_la_pagina(pagina)
+    assert not _signos(textos), (
+        f"{pagina.name} lleva comillas angulares: {_signos(textos)}. Lo que "
+        "trae la factura, entre comillas normales; lo fijo, a secas o en "
+        "<code>; una cita, reescrita o en <i>.")
+    assert not _marca(textos), f"{pagina.name} dice Glosa sin el -e: {_marca(textos)}"
+
+
+def test_glosa_js_sin_comillas_angulares_y_con_la_marca_entera():
+    textos = _lo_que_se_lee_de_glosa_js()
+    assert not _signos(textos), f"glosa.js lleva comillas angulares: {_signos(textos)}"
+    assert not _marca(textos), f"glosa.js dice Glosa sin el -e: {_marca(textos)}"
+
+
+@pytest.mark.parametrize(
+    "fuente", [p for p in sorted((RAIZ / "validador").glob("*.py"))
+               if p.name not in SOLO_PARA_QUIEN_MONTA] + [WEB / "prueba.py"],
+    ids=lambda p: p.name)
+def test_el_informe_y_el_banco_sin_comillas_angulares_y_con_la_marca_entera(fuente):
+    textos = _mensajes(fuente)
+    assert not _signos(textos), (
+        f"{fuente.name} tiene mensajes con comillas angulares: {_signos(textos)}. "
+        "Lo que trae la factura va entre comillas normales; lo fijo, a secas, "
+        "o entre acentos graves en el glosario, que lo pinta como código.")
+    assert not _marca(textos), f"{fuente.name} dice Glosa sin el -e: {_marca(textos)}"
+
+
+def test_el_respaldo_de_un_valor_que_falta_va_a_secas():
+    """Un certificado sin nombre salía como "el emisor", con comillas."""
+    from validador.incidencias import entre_comillas
+    assert entre_comillas("CN=Juan Pérez", "el emisor") == '"CN=Juan Pérez"'
+    assert entre_comillas("", "el emisor") == entre_comillas(None, "el emisor") == "el emisor"
+
+
+@pytest.mark.parametrize("fuente", sorted((RAIZ / "validador").glob("*.py")), ids=lambda p: p.name)
+def test_ningun_respaldo_entre_comillas(fuente):
+    respaldos = re.findall(r"""\\"\{[\w.]+ or '[^']*'\}\\\"""", fuente.read_text(encoding="utf-8"))
+    assert not respaldos, (
+        f"{fuente.name} pone entre comillas lo que sustituye a un valor que "
+        f"falta: {respaldos}. Va con entre_comillas(valor, respaldo).")

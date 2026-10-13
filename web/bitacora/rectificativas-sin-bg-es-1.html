@@ -30,13 +30,13 @@
     delante o va solo: cada fila da el valor, <code>RECT:TIPO</code>, y la
     lista da el esquema aparte. En los importes rectificados dice menos que la
     respuesta del 23: no van en toda sustitución. El grupo es
-    <code>0..5</code>, y su descripción lo limita a cuando «se proceda a la
+    <code>0..5</code>, y su descripción lo limita a cuando <i>se proceda a la
     rectificación por sustitución de la factura original, y se opte por la
-    emisión de una única factura con los importes correctos». Cada importe
+    emisión de una única factura con los importes correctos</i>. Cada importe
     lleva un código de una lista nueva, <code>L2.C</code> (<code>Base</code>,
     <code>Cuota</code> o <code>CuotaRecargo</code>), y la cifra va en la
     descripción (<code>BT-123</code>). Y el texto no casa consigo mismo: la
-    fila <code>BT-3</code> habla de «hasta tres grupos» de importes
+    fila <code>BT-3</code> habla de hasta tres grupos de importes
     rectificados, y el grupo admite cinco. Las frases de abajo que decían que
     nada de esto estaba publicado ya dicen lo que hay.
   </aside>
@@ -78,14 +78,14 @@
   datos rectificados a un grupo de la norma. La respuesta llegó el <b>22 de
   septiembre de 2026</b>:</p>
 
-  <blockquote><p>«el grupo de extensión nacional BG-ES-1 para datos
+  <blockquote><p>el grupo de extensión nacional BG-ES-1 para datos
   rectificados (presente en el borrador de abril) <b>deja de existir de forma
-  definitiva</b>»</p></blockquote>
+  definitiva</b></p></blockquote>
 
   <p>Las rectificativas se estructuran, dice, con el grupo estándar
   <code>BG-24</code> de la EN 16931, el de los documentos justificativos
-  adicionales, «haciendo uso de los calificadores de las listas <b>L10</b>
-  (Documentos justificativos adicionales) y <b>L2</b>». La finalidad que
+  adicionales, <i>haciendo uso de los calificadores de las listas <b>L10</b>
+  (Documentos justificativos adicionales) y <b>L2</b></i>. La finalidad que
   declara es quitar extensiones nacionales para que las facturas sean
   interoperables.</p>
 
@@ -122,8 +122,8 @@
 
   <p>Y viene con una regla que <b>es más estricta que la de abril</b>:</p>
 
-  <blockquote><p>«Todas deben llevar tipo y modalidad, y las rectificativas por
-  sustitución (S) deben llevar importe rectificados»</p></blockquote>
+  <blockquote><p>Todas deben llevar tipo y modalidad, y las rectificativas por
+  sustitución (S) deben llevar importe rectificados</p></blockquote>
 
   <p>En abril, los importes eran opcionales y solo obligaban a la base
   <i>si</i> se informaban. Con esta respuesta, en una rectificativa por
@@ -156,7 +156,7 @@
     <caption>Los dos BG-24 que el anexo de abril publica</caption>
     <thead><tr><th>BG-24</th><th>En el identificador</th><th>En la descripción</th></tr></thead>
     <tbody>
-      <tr><td>El del QR</td><td>la URN fija, terminada en <code>QR</code></td><td>«VERIFACTU»</td></tr>
+      <tr><td>El del QR</td><td>la URN fija, terminada en <code>QR</code></td><td><code>VERIFACTU</code></td></tr>
       <tr><td>El de la autorización</td><td><b>el número de la autorización</b></td><td>un texto libre</td></tr>
     </tbody>
   </table>
@@ -176,8 +176,8 @@
   <p>La misma respuesta del 23 confirmó algo que ya se leía en el borrador y
   que conviene tener delante al programar rectificativas:</p>
 
-  <blockquote><p>«No se aceptan InvoiceType de tipo 381 en L1. Tampoco se
-  aceptará la categoría K en L4.»</p></blockquote>
+  <blockquote><p>No se aceptan InvoiceType de tipo 381 en L1. Tampoco se
+  aceptará la categoría K en L4.</p></blockquote>
 
   <p>El 381 es el <b>abono</b> de la norma europea. Quien venga de Peppol, o de
   un programa pensado para Europa, está acostumbrado a corregir una factura
@@ -197,14 +197,14 @@
 
   <ul>
     <li>Los documentos de validación del portal de desarrolladores describirán
-    las reglas «de forma escrita y simplificada (con un formato similar al de
+    las reglas <i>de forma escrita y simplificada (con un formato similar al de
     la norma EN 16931), <b>sin incluir ficheros ejecutables
-    Schematron</b>». No va a haber un fichero oficial que ejecutar: cada uno
+    Schematron</b></i>. No va a haber un fichero oficial que ejecutar: cada uno
     tendrá que convertir la prosa en reglas.</li>
-    <li>A cambio, en el entorno de pruebas habrá «un servicio específico de
-    validación de facturas individuales». En cuanto a cuándo, la respuesta
-    dice que «será durante el mes de Octubre pero dependerá de la publicación
-    de la Orden Ministerial y el texto final con el que se publique».</li>
+    <li>A cambio, en el entorno de pruebas habrá <i>un servicio específico de
+    validación de facturas individuales</i>. En cuanto a cuándo, la respuesta
+    dice que <i>será durante el mes de Octubre pero dependerá de la publicación
+    de la Orden Ministerial y el texto final con el que se publique</i>.</li>
   </ul>
 
   <h2>Qué hacer hoy, si estás programando rectificativas</h2>
@@ -229,7 +229,7 @@
 
   <h2>Qué hace Glosa-e con esto, hoy</h2>
 
-  <p><b>Actualizado el 11 de octubre de 2026.</b> Desde ese día las
+  <p><b>Actualizado el 13 de octubre de 2026.</b> Desde el 11 de octubre las
   rectificativas se miden con la orden. Una rectificativa (<code>384</code> o
   <code>471</code>) tiene que traer un <code>BG-24</code> con el tipo
   (<code>RECT:TIPO</code>) y otro con la modalidad
@@ -242,9 +242,9 @@
   <code>L2.B</code>: si el código falta o no está en su lista, también es
   <code>ERROR</code>. De los importes rectificados se comprueba la forma:
   cada uno con un código de <code>L2.C</code> y su importe en la descripción,
-  cinco como mucho, y en una sustitución. Con cuatro o cinco sale una
-  <code>NOTA</code>, porque la fila <code>BT-3</code> dice «hasta tres»; y con
-  la modalidad <code>I</code>, un <code>AVISO</code>. <b>Que la cifra sea la
+  cinco como mucho, y en una sustitución. Con un código repetido sale un
+  <code>AVISO</code>: la AEAT contestó el 13 de octubre que va uno por código;
+  y con la modalidad <code>I</code>, otro <code>AVISO</code>. <b>Que la cifra sea la
   buena no se comprueba.</b> Y si la
   modalidad es <code>S</code> y no trae importes, sale una <code>NOTA</code>
   y no un fallo: la orden solo los pide cuando se opta por una única factura

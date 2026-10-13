@@ -662,7 +662,7 @@ _NOMBRE_DE_CODIFICACION = re.compile(r"Unsupported encoding (\S+)")
 # elemento si el mensaje lo trae)
 _NO_ABRE: dict[str, tuple[str, "re.Pattern[str] | None"]] = {
     "ERR_DOCUMENT_EMPTY": (
-        "el fichero no empieza por «<», así que donde tenía que ir la primera "
+        "el fichero no empieza por el signo <, así que donde tenía que ir la primera "
         "etiqueta hay otra cosa. Un PDF, un ZIP, un correo o un texto suelto "
         "no son una factura en XML.", None),
     "ERR_TAG_NOT_FINISHED": (
@@ -674,17 +674,17 @@ _NO_ABRE: dict[str, tuple[str, "re.Pattern[str] | None"]] = {
     # código y no de la frase, y de que haya remate: se vio soltándole los
     # veintidós ficheros rotos a la página, no leyendo el código.
     "ERR_LTSLASH_REQUIRED": (
-        "se esperaba el cierre de una etiqueta (un «</») y no está. Suele ser "
+        "se esperaba el cierre de una etiqueta (un </) y no está. Suele ser "
         "una copia o una descarga a medias.", None),
     "ERR_GT_REQUIRED": (
-        "una etiqueta{nombre} se queda sin su «>».", _NOMBRE_EN_INICIO),
+        "una etiqueta{nombre} se queda sin su signo de cierre, >.", _NOMBRE_EN_INICIO),
     "ERR_TAG_NAME_MISMATCH": (
         "una etiqueta{nombre} se cierra con un nombre distinto del que se "
         "abrió. En XML las dos tienen que decir lo mismo.", _NOMBRE_EN_CIERRE),
     "ERR_NAME_REQUIRED": (
-        "después de un «&» o de un «<» tiene que venir un nombre, y aquí no lo "
-        "hay. Si forman parte del texto de la factura, van escritos «&amp;» y "
-        "«&lt;».", None),
+        "después de un signo & o < tiene que venir un nombre, y aquí no lo "
+        "hay. Si forman parte del texto de la factura, van escritos &amp; y "
+        "&lt;.", None),
     "ERR_ATTRIBUTE_NOT_STARTED": (
         "el valor de un atributo va entre comillas y aquí no las lleva.", None),
     "ERR_ATTRIBUTE_REDEFINED": (
@@ -700,10 +700,10 @@ _NO_ABRE: dict[str, tuple[str, "re.Pattern[str] | None"]] = {
         "se usa un prefijo de espacio de nombres{nombre} que no se declara en "
         "ninguna parte.", _NOMBRE_DE_PREFIJO),
     "ERR_COMMENT_NOT_FINISHED": (
-        "hay un comentario que se abre con «<!--» y no se cierra con «-->».",
+        "hay un comentario que se abre con <!-- y no se cierra con -->.",
         None),
     "ERR_CDATA_NOT_FINISHED": (
-        "hay una sección CDATA que se abre y no se cierra con «]]>».", None),
+        "hay una sección CDATA que se abre y no se cierra con ]]>.", None),
     "ERR_INVALID_CHAR": (
         "hay un carácter que XML no admite: o el fichero no está en la "
         "codificación que declara, o lleva dentro un carácter de control.",
@@ -712,7 +712,7 @@ _NO_ABRE: dict[str, tuple[str, "re.Pattern[str] | None"]] = {
         "el prólogo declara una codificación{nombre} que no se reconoce.",
         _NOMBRE_DE_CODIFICACION),
     "ERR_VERSION_MISSING": (
-        "el prólogo «<?xml …?>» está mal escrito: le falta la versión.", None),
+        "el prólogo <?xml …?> está mal escrito: le falta la versión.", None),
 }
 
 
@@ -744,7 +744,7 @@ def por_que_no_abre(error: etree.XMLSyntaxError) -> str:
         # No se inventa una traducción de lo que no se ha medido: se pasan las
         # palabras de libxml2 **diciendo que son suyas**, que es distinto de
         # colarlas como si fueran las de este validador.
-        return f"el analizador de XML lo describe así: «{error.msg}».{donde}"
+        return f"el analizador de XML lo describe así: \"{error.msg}\".{donde}"
     plantilla, saca_nombre = _POR_CODIGO[error.code]
     cual = ""
     if saca_nombre is not None and (casa := saca_nombre.search(error.msg or "")):
@@ -752,7 +752,7 @@ def por_que_no_abre(error: etree.XMLSyntaxError) -> str:
         # libxml2 separa el nombre de la posición —«Unsupported encoding
         # PEPE-9, line 1»—, y sin quitarla el informe dice «PEPE-9,».
         if apodo := casa[1].strip(" ,.:;"):
-            cual = f" «{apodo}»"
+            cual = f" \"{apodo}\""
     return plantilla.format(nombre=cual) + donde
 
 
@@ -808,10 +808,12 @@ def detectar(datos: bytes | str) -> Deteccion:
         return Deteccion(
             namespace=namespace,
             motivo=(
-                f"XML válido, y su elemento raíz se llama «{nombre}», pero su "
-                f"namespace es «{namespace or 'ninguno'}» y tendría que ser "
-                f"«{esperado}». Sin ese namespace no es el documento de UBL o "
-                "de CII que parece, y no se valida."
+                f"XML válido, y su elemento raíz se llama \"{nombre}\", pero "
+                + (f"su namespace es \"{namespace}\" y tendría que ser {esperado}"
+                   if namespace else
+                   f"no lleva namespace, y tendría que llevar {esperado}")
+                + ". Sin ese namespace no es el documento de UBL o de CII que "
+                "parece, y no se valida."
             ),
         )
     # La lista de lo que sí se valida, entera: decía «no corresponde a
@@ -820,7 +822,7 @@ def detectar(datos: bytes | str) -> Deteccion:
     return Deteccion(
         namespace=namespace,
         motivo=(
-            f"XML válido, pero su elemento raíz «{nombre}» no es de ningún "
+            f"XML válido, pero su elemento raíz \"{nombre}\" no es de ningún "
             "documento que se valide aquí: facturas Facturae, UBL, CII o "
             "EDIFACT, y respuestas ApplicationResponse de UBL."
         ),

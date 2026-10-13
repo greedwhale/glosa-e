@@ -378,7 +378,7 @@ def _se_atraganta(camino: Path, error: Exception, nombre: str | None = None) -> 
     """
     nombre = nombre or camino.name
     informe = Informe(
-        deteccion=Deteccion(motivo=f"El validador ha fallado con «{nombre}».")
+        deteccion=Deteccion(motivo=f"El validador ha fallado con \"{nombre}\".")
     )
     informe.incidencias.append(
         Incidencia(
@@ -951,7 +951,7 @@ class InformeLote:
         # que es el orden en que se escribió la frase y en el que se lee.
         callado = sin_mirar[PARTE_FIRMA] + sin_mirar[PARTE_CONTENIDO] + [EN_NINGUNA]
         return (
-            "«Sin errores» quiere decir que se ha comprobado "
+            "Que no haya errores quiere decir que se ha comprobado "
             + ", ".join(dicho)
             + ".\nNo se comprueba "
             + ", ni ".join(callado)

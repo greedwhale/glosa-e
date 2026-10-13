@@ -775,7 +775,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
                 <summary>O pégala como texto, si la tienes copiada</summary>
                 <textarea id="pegado" rows="7" spellcheck="false" autocomplete="off"
                           autocapitalize="off" aria-label="El texto de la factura"
-                          placeholder="La factura entera: el XML desde «&lt;?xml», o el EDIFACT desde «UNA» o «UNB»."></textarea>
+                          placeholder="La factura entera: el XML desde &lt;?xml, o el EDIFACT desde UNA o UNB."></textarea>
                 <div class="acciones">
                   <button type="button" id="validar-pegado" disabled>Validar lo pegado</button>
                   <span>Se lee aquí, como el fichero: no se sube.</span>
@@ -823,10 +823,10 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
     <section id="que-mira">
       <p class="rotulo">Qué mira</p>
       <h2 class="titulo">Tres comprobaciones, y se dice cuáles se han hecho.</h2>
-      <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Un
-      «válida» a secas no significa nada si no dice contra qué. Cada informe
+      <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Decir
+      que es válida, a secas, no significa nada si no dice contra qué. Cada informe
       empieza diciendo qué se ha mirado de estas tres partes y qué no, antes
-      de ninguna queja, para que no haya que suponerlo. Cada aviso lleva su código, y los 401 están <a
+      de ninguna queja, para que no haya que suponerlo. Cada aviso lleva su código, y los 402 están <a
       href="./incidencias.html">explicados uno a uno</a>, con la norma de la
       que salen.</p>
       <div class="tres">
@@ -865,7 +865,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
           no se sale a la red.</span>
         </li>
         <li>
-          <b>No dice «válida» a secas</b>
+          <b>No se limita a decir que es válida</b>
           <span>Dice qué comprobaciones ha pasado y cuáles no se han podido
           hacer.</span>
         </li>
@@ -1081,7 +1081,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             y de dominios de terceros. Al arrancar la página sí se descargan
             ficheros (el intérprete, los esquemas, las anclas), todos desde este
             mismo sitio y ninguno de un tercero.</p>
-            <p>Y se comprueba sin herramientas: cuando la página diga «Listo»,
+            <p>Y se comprueba sin herramientas: cuando la página diga <i>Listo</i>,
             <b>desconecta la red</b> (el wifi, o el modo avión) y suelta la
             factura. El informe sale igual, porque no tiene a dónde ir.</p>
           </div>
@@ -1089,7 +1089,7 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 
         <details id="no-comprobado">
           <summary>
-            <h3>¿Por qué dice «no se ha comprobado» en vez de decir si está bien?</h3>
+            <h3>¿Por qué dice que no se ha comprobado, en vez de decir si está bien?</h3>
             <span class="a"><span class="corta depende">Porque no lo sabe</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
           </summary>
           <div class="r">
@@ -1125,11 +1125,11 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             podría salir otra cosa: eso es un aviso. Si la regla pide un dato que
             tu formato no tiene dónde guardar (<code>BR-01</code> pide el código
             del pedido y Facturae no tiene ese elemento), no hay nada pendiente
-            ni nada que arreglar, y sale como nota. Por eso leerás «no se ha
-            podido comprobar» en las dos: lo que cambia no es si se miró, sino si
+            ni nada que arreglar, y sale como nota. Por eso las dos dicen que no se
+            ha podido comprobar: lo que cambia no es si se miró, sino si
             te queda algo por hacer.</p>
-            <p>La nota es la que más se ignora y la que sostiene el resto. «No
-            consta anulado ningún certificado» no significa nada si no dice
+            <p>La nota es la que más se ignora y la que sostiene el resto. Que no
+            conste anulado ningún certificado no significa nada si no dice
             según qué lista y de qué día, y eso es lo que va en la nota.</p>
           </div>
         </details>
@@ -1867,7 +1867,7 @@ function comoFichero(pegado) {
   const firmada = /<([\w.-]+:)?Signature[\s>]/.test(texto);
   const aclaracion = "<p class='es-pegado'>Este informe es del <b>texto pegado</b>, " +
     "no de un fichero." +
-    (otra ? " Su declaración decía «" + escapar(otra) + "», pero el " +
+    (otra ? " Su declaración decía \"" + escapar(otra) + "\", pero el " +
             "portapapeles da letras y no bytes: se ha leído en UTF-8." : "") +
     (firmada ? " Si algo cambió al copiarlo (un salto de línea, un espacio), " +
                "la firma no cuadrará aunque el fichero esté bien: para " +

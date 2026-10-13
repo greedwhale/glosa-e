@@ -335,7 +335,7 @@ class TestUnXmlQueNoAbre:
         dicho = formato.por_que_no_abre(self._falso(
             "ERR_TAG_NOT_FINISHED",
             "Premature end of data in tag FileHeader line 3", lineno=4))
-        assert "«FileHeader»" in dicho, dicho
+        assert '"FileHeader"' in dicho, dicho
 
     def test_y_el_nombre_viene_sin_la_puntuacion_de_libxml2(self):
         """«Unsupported encoding PEPE-9, line 1» -> «PEPE-9», no «PEPE-9,».
@@ -346,7 +346,7 @@ class TestUnXmlQueNoAbre:
         dicho = formato.por_que_no_abre(self._falso(
             "ERR_UNSUPPORTED_ENCODING",
             "Unsupported encoding PEPE-9, line 1, column 38", offset=37))
-        assert "«PEPE-9»" in dicho, dicho
+        assert '"PEPE-9"' in dicho, dicho
 
     def test_y_si_el_mensaje_no_trae_nombre_queda_la_explicacion(self):
         """La degradación correcta, y no una prueba en rojo en otro sistema.
@@ -375,7 +375,7 @@ class TestUnXmlQueNoAbre:
 
         dicho = formato.por_que_no_abre(Falso())
         assert "el analizador de XML lo describe así" in dicho
-        assert "«Something nobody translated»" in dicho
+        assert '"Something nobody translated"' in dicho
         assert "Línea 7, columna 4." in dicho
 
     def test_la_tabla_se_traduce_a_los_numeros_de_esta_version(self):

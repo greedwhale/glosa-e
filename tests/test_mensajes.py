@@ -412,7 +412,7 @@ class TestLoQueVaEnElEstado:
         razon = "<cac:Status><cbc:StatusReason>CorrectedInvoice</cbc:StatusReason></cac:Status>"
         informe = medir(mensaje("PAYMENT", BUENO["PAYMENT"] + razon + razon))
         assert codigos(informe) == [("SPFE-MENSAJE-ESTADO", ERROR)]
-        assert "«CorrectedInvoice» va 2 veces" in quejas(informe)[0].mensaje
+        assert '"CorrectedInvoice" va 2 veces' in quejas(informe)[0].mensaje
 
     def test_un_indicador_repetido(self):
         """Sin «cuál vale»: dice lo mismo dos veces. Lo provocó el auditor."""
@@ -428,7 +428,7 @@ class TestLoQueVaEnElEstado:
     def test_una_condicion_con_otra_mayuscula_es_un_aviso(self):
         informe = medir(mensaje("PAYMENT", FECHA + estado("DueDate") + estado("Duedate")))
         assert codigos(informe) == [("SPFE-MENSAJE-ESTADO", AVISO)]
-        assert "«Duedate»" in quejas(informe)[0].mensaje
+        assert '"Duedate"' in quejas(informe)[0].mensaje
 
     def test_la_financiacion_es_del_cobro_y_no_del_pago(self):
         con = estado("FinancingArrangement", fecha=None)
@@ -490,17 +490,32 @@ class TestLaFactura:
         assert "le faltan la fecha de expedición y el NIF del emisor" in quejas(
             medir(mensaje("CANCELPAYMENT", factura_=sin)))[0].mensaje
 
-    def test_en_la_anulacion_el_nombre_vale_en_los_dos_sitios(self, catalogo):
+    def test_en_la_anulacion_el_nombre_en_el_impuesto_es_un_aviso(self, catalogo):
+        """Era uno de los dos arreglos de la errata, y hasta el 13-10-2026 se
+        aceptaba sin decir nada. Ese día la AEAT contestó que va en
+        cac:PartyLegalEntity: no falta, pero no está donde va."""
         en_el_impuesto = FACTURA.replace(
             "<cbc:CompanyID>B12345674</cbc:CompanyID>",
             "<cbc:RegistrationName>Vendedor SL</cbc:RegistrationName>"
             "<cbc:CompanyID>B12345674</cbc:CompanyID>").replace(
             "<cac:PartyLegalEntity><cbc:RegistrationName>Vendedor SL</cbc:RegistrationName>"
             "</cac:PartyLegalEntity>", "")
-        assert codigos(medir(mensaje("CANCELINVOICE", factura_=en_el_impuesto), catalogo)) == []
+        informe = medir(mensaje("CANCELINVOICE", factura_=en_el_impuesto), catalogo)
+        assert codigos(informe) == [("SPFE-MENSAJE-FACTURA", AVISO)]
+        aviso = quejas(informe)[0]
+        assert "13-10-2026" in aviso.mensaje and "F-2026-0101" in aviso.mensaje
+        assert aviso.esperado == "cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName"
         # En el anexo II la ruta está bien escrita, y no se busca en otro sitio.
         assert codigos(medir(mensaje("CANCELPAYMENT", factura_=en_el_impuesto))) == [
             ("SPFE-MENSAJE-FACTURA", ERROR)]
+
+    def test_en_la_anulacion_con_el_nombre_donde_va_no_hay_aviso(self, catalogo):
+        """Aunque esté también en el otro sitio: lo que se pide está."""
+        en_los_dos = FACTURA.replace(
+            "<cbc:CompanyID>B12345674</cbc:CompanyID>",
+            "<cbc:RegistrationName>Vendedor SL</cbc:RegistrationName>"
+            "<cbc:CompanyID>B12345674</cbc:CompanyID>")
+        assert codigos(medir(mensaje("CANCELINVOICE", factura_=en_los_dos), catalogo)) == []
 
     def test_la_anulacion_admite_varias_y_el_anexo_ii_una(self, catalogo):
         assert codigos(medir(mensaje("CANCELINVOICE", factura_=FACTURA * 2), catalogo)) == []
@@ -519,7 +534,8 @@ class TestLaFactura:
         assert "debería ser 4" in quejas(informe)[0].mensaje
 
     def test_con_el_prefijo_es_vale(self):
-        """La nota lo dice: la ruta es la del NIF-IVA, que lo lleva."""
+        """La AEAT contestó el 13-10-2026 que va sin él, y del código único, que
+        si viene se trata igual. La nota lo dice."""
         assert codigos(medir(mensaje("CANCELPAYMENT", factura_=FACTURA.replace(
             "B12345674", "ESB12345674")))) == []
 
@@ -627,18 +643,25 @@ class TestLaNota:
         con = {c for c in CODIGOS if "Ley 3/2004" in medir(mensaje(c)).incidencias[0].mensaje}
         assert con == {"PAYMENT", "SETTLEMENT", "DEFAULT"}
 
-    def test_el_tax_scheme_del_nif_no_se_mira_y_se_dice(self):
-        """Preguntado al buzón el 07-10-2026: ninguna tabla dice cuál."""
-        sin_vat = FACTURA.replace("<cbc:ID>VAT</cbc:ID>", "<cbc:ID>LOC</cbc:ID>")
-        informe = medir(mensaje("CANCELPAYMENT", factura_=sin_vat))
-        assert codigos(informe) == []
-        assert "cualquier impuesto en su cac:TaxScheme" in informe.incidencias[0].mensaje
+    def test_el_tax_scheme_del_nif_puede_ir_vacio(self, catalogo):
+        """Preguntado al buzón el 07-10-2026, porque ninguna tabla dice cuál, y
+        contestado el 13-10-2026: puede ir vacío. El esquema lo admite."""
+        vacio = FACTURA.replace("<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>",
+                                "<cac:TaxScheme/>")
+        assert vacio != FACTURA
+        informe = medir(mensaje("CANCELPAYMENT", factura_=vacio), catalogo)
+        assert [i for i in informe.incidencias if i.gravedad == ERROR] == []
+        assert "puede ir vacío" in informe.incidencias[0].mensaje
+        # Con otro impuesto tampoco se dice nada: el NIF es el mismo.
+        con_loc = FACTURA.replace("<cbc:ID>VAT</cbc:ID>", "<cbc:ID>LOC</cbc:ID>")
+        assert codigos(medir(mensaje("CANCELPAYMENT", factura_=con_loc))) == []
 
-    def test_el_nif_es_el_bt_31_o_el_bt_32(self):
-        """La ruta es la de los dos NIF de la factura. Decía solo BT-31, «y lleva
-        el prefijo». Lo vieron el revisor de promesas y el auditor."""
+    def test_el_nif_va_sin_el_prefijo(self):
+        """Hasta el 13-10-2026 decía que valían los dos, el NIF-IVA (BT-31) y el
+        NIF (BT-32), porque la ruta es la de los dos en la factura. Ese día la
+        AEAT contestó que va sin ES."""
         nota = medir(mensaje("CANCELPAYMENT")).incidencias[0].mensaje
-        assert "(BT-31), con el prefijo, o su NIF (BT-32), sin él" in nota
+        assert "va sin el prefijo ES" in nota and "13-10-2026" in nota
 
     def test_no_dice_lo_que_ha_hecho_la_sede(self):
         """Decía «que todavía no lo ha sacado», sin fecha y sin mirarlo, y lo
@@ -680,8 +703,8 @@ class TestLoQueElInformeDice:
     def test_la_frase_entera_de_un_pago(self, tmp_path, catalogo):
         lote = _lote(tmp_path, catalogo, mensaje("PAYMENT"))
         assert lote.alcance() == (
-            "«Sin errores» quiere decir que se ha comprobado la forma contra el "
-            "esquema XSD, parte de lo que la orden de la solución pública pide a "
+            "Que no haya errores quiere decir que se ha comprobado la forma "
+            "contra el esquema XSD, parte de lo que la orden de la solución pública pide a "
             "sus mensajes de anulación y de estado (lo que no se mide lo dice la "
             "nota SPFE-MENSAJE-ALCANCE).\nNo se comprueba la validez de las firmas "
             "electrónicas, ni si lo que dice la factura es cierto."

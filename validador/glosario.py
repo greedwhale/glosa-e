@@ -122,8 +122,9 @@ FAMILIAS: dict[str, str] = {
     ),
     "CONFIANZA": (
         "Notas que declaran **con qué** se ha comprobado algo: qué ancla, de "
-        "qué lista, de qué día. No son quejas. Existen porque «no consta "
-        "anulado» sin decir según qué prueba es un tic verde con más letras."
+        "qué lista, de qué día. No son quejas. Existen porque decir que no "
+        "consta anulado, sin decir según qué prueba, es un tic verde con más "
+        "letras."
     ),
     "ANCLAS": (
         "El estado del conjunto de anclas de confianza que trae la página. Una "
@@ -132,7 +133,7 @@ FAMILIAS: dict[str, str] = {
     ),
     "SIN": (
         "No se ha podido mirar el documento: no se reconoce el formato, o el "
-        "fichero no es una factura. Es distinto de «está mal», y se dice "
+        "fichero no es una factura. Es distinto de que esté mal, y se dice "
         "aparte para que no se confunda con un aprobado."
     ),
     "VALIDADOR": (
@@ -191,8 +192,8 @@ CODIGOS: dict[str, str] = {
     "REVOCACION-OCSP-NO-VALE": (
         "El documento traía respuestas OCSP y ninguna sirve para este "
         "certificado, y se dice por qué: porque no habla de él, porque no la "
-        "firma quien puede firmarla, porque el respondedor contestó «unknown» "
-        "(que no es «está bien») o porque se miró antes de la firma y su "
+        "firma quien puede firmarla, porque el respondedor contestó `unknown` "
+        "(que no quiere decir que esté bien) o porque se miró antes de la firma y su "
         "propio plazo no llegaba hasta ella."
     ),
     "REVOCACION-LISTA-VIEJA": (
@@ -236,7 +237,7 @@ CODIGOS: dict[str, str] = {
         'CustomizationID en UBL, el '
         'GuidelineSpecifiedDocumentContextParameter en CII. La regla pide que '
         'esté, y nada más: una prueba oficial de la norma da por bueno un '
-        'identificador que dice «123». Aquí sirvió durante meses también para '
+        'identificador que dice `123`. Aquí sirvió durante meses también para '
         'avisar de que el campo no nombra a EN 16931, que es una opinión con '
         'el código de una regla que no la sostiene; desde el 13 de septiembre '
         'de 2026 eso sale como PERFIL-SIN-EN16931. En Facturae sale como nota '
@@ -385,7 +386,7 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-21": (
         'Cada línea debe llevar un identificador que la distinga de las '
-        'demás. No es burocracia: sin él, una queja sobre «la línea 3» no se '
+        'demás. No es burocracia: sin él, una queja sobre la línea 3 no se '
         'refiere a nada que exista dentro del documento, y este validador '
         'tiene que nombrar las líneas por su posición, que es lo primero que '
         'se descuadra en cuanto alguien reordena el fichero. En Facturae '
@@ -472,8 +473,8 @@ CODIGOS: dict[str, str] = {
         'suman los cargos que detalla. Es la pareja de BR-CO-11, que hace lo '
         'mismo con los descuentos, y las dos se saltan enteras si el '
         'documento no detalla ningún ajuste: de esa factura ya se queja otra '
-        'regla, y ahí el consejo útil es «detállalos» y no «la resta no '
-        'cuadra». Basta con que haya alguno detallado, de cualquiera de los '
+        'regla, y ahí el consejo útil es que los detalle, y no que la resta '
+        'no cuadra. Basta con que haya alguno detallado, de cualquiera de los '
         'dos lados, y esa decisión tiene motivo: una factura que detalla sus '
         'cargos y además declara un total de descuentos que no detalla deja '
         'ese total fantasma a la vista de esta regla y de ninguna otra.'
@@ -498,8 +499,8 @@ CODIGOS: dict[str, str] = {
         'en una web) y lo dejó escrito dentro. Es aviso y no error por lo '
         'mismo que FIRMA-DEBIL: lo que falla es para qué vale, no si cuadra. '
         'Un certificado que no declara usos no sale aquí: en X.509 esa '
-        'extensión es opcional y no ponerla significa «sin restricción», no '
-        '«para nada».'
+        'extensión es opcional y no ponerla significa que vale sin '
+        'restricción, no que no vale para nada.'
     ),
     "FIRMA-DEBIL": (
         'La firma está hecha con SHA-1, retirado para firma electrónica desde '
@@ -695,9 +696,10 @@ CODIGOS: dict[str, str] = {
     ),
     "IVA-CERO-ESQUEMATRON": (
         'Una factura en CII lleva conceptos de IGIC con el tipo a cero. La '
-        'norma lo admite: BR-AF-05, 06 y 07 piden un tipo «0 (zero) or '
-        'greater than zero», y así lo escribe el esquematrón oficial de UBL. '
-        'El de CII compara con «mayor que cero» y lo rechaza, y en el IPSI, '
+        'norma lo admite: BR-AF-05, 06 y 07 piden un tipo `0 (zero) or '
+        'greater than zero` (cero o mayor que cero), y así lo escribe el '
+        'esquematrón oficial de UBL. El de CII exige un tipo mayor que cero y '
+        'lo rechaza, y en el IPSI, '
         'al lado, no. Se denunció en el repositorio oficial de la norma (la '
         'issue 519) y el 29 de septiembre de 2026 se cerró cambiando el '
         'nombre de las reglas, no la comparación. Aquí se sigue al texto de '
@@ -792,8 +794,8 @@ CODIGOS: dict[str, str] = {
         'La factura declara un total de descuentos o de cargos de documento '
         'pero no dice cuáles son. Sin saber a qué tipo va cada ajuste no se '
         'puede repartir la base entre los tipos, y comprobarla entonces sería '
-        'inventarse un error: este aviso existe para decir «no se ha podido '
-        'comprobar» y para que se callen, esa vez, las reglas que cuadran la '
+        'inventarse un error: este aviso existe para decir que no se ha '
+        'podido comprobar, y para que se callen, esa vez, las reglas que cuadran la '
         'base de cada categoría. Los dos totales se miran por separado y no '
         'sumados, que es un detalle que costó una comprobación: sumándolos, '
         'un descuento y un cargo del mismo importe se anulan y la factura '
@@ -988,16 +990,16 @@ CODIGOS: dict[str, str] = {
         'incumplimiento de forma más corriente y el más fácil de arreglar, '
         'siempre que el informe diga qué falta: el esquema lleva escritos los '
         'nombres de los hijos que esperaba en ese punto, así que se sacan de '
-        'ahí y se enumeran en vez de decir «falta algo». Va con la línea del '
+        'ahí y se enumeran en vez de decir que falta algo. Va con la línea del '
         'documento donde está el elemento incompleto, porque en un XML de mil '
-        'líneas «falta el identificador» sin decir dónde sirve casi tan poco '
+        'líneas decir que falta el identificador, sin decir dónde, sirve casi tan poco '
         'como no decir nada.'
     ),
     "XSD-VALOR": (
         'El contenido de un elemento no es ninguno de los que el esquema '
         'admite. Hay sitios donde el formato no acepta texto libre sino una '
         'lista cerrada (el código de país, el de moneda, el de la unidad de '
-        'medida, el del medio de pago), y ahí escribir «Euro» donde iba «EUR» '
+        'medida, el del medio de pago), y ahí escribir `Euro` donde iba `EUR` '
         'es un fallo de forma y no de contenido. El informe pone la lista '
         'entera de valores admitidos, y la saca del propio esquema y no de lo '
         'que nadie recuerde: es de los pocos errores que se arreglan sin '
@@ -1007,7 +1009,7 @@ CODIGOS: dict[str, str] = {
         'El contenido de un elemento no vale para lo que el esquema espera '
         'ahí: un texto donde iba un número, un decimal con coma, una fecha '
         'que no existe. La pista que acompaña al error depende del valor y no '
-        'sólo del tipo, y eso se hizo por un caso concreto: a «2012-02-31» '
+        'sólo del tipo, y eso se hizo por un caso concreto: a `2012-02-31` '
         'contestarle que una fecha se escribe AAAA-MM-DD es no haber mirado '
         'el valor, porque ya está escrita así; quien lo lea comprobará el '
         'formato, lo verá bien y no encontrará el fallo. Lo que pasa es que '
@@ -1054,8 +1056,8 @@ CODIGOS: dict[str, str] = {
         'cuadra la firma misma. Lleva un detalle que se paga caro si se pasa '
         'por alto: en XML-DSig una firma de curva elíptica son los dos '
         'números pegados y rellenos con ceros, no el DER que llevan los '
-        'certificados, y comprobarla como si fuera DER da «no verifica» en '
-        'firmas perfectamente buenas.'
+        'certificados, y comprobarla como si fuera DER dice que no verifica '
+        'en firmas perfectamente buenas.'
     ),
     "FIRMA-ALTERADA": (
         'El documento se ha modificado después de firmarlo. Es la '
@@ -1118,8 +1120,8 @@ CODIGOS: dict[str, str] = {
         'tampoco se comprueba contra el esquema: libxml2 se niega a validar '
         'un árbol con referencias sin expandir, y antes del 21-09-2026 esa '
         'negativa se llevaba por delante el informe entero (una factura con '
-        'una entidad salía con una sola línea, «Internal error in XML Schema '
-        'validation», en inglés, y ninguna de las demás comprobaciones).'
+        'una entidad salía con una sola línea, `Internal error in XML Schema '
+        'validation`, en inglés, y ninguna de las demás comprobaciones).'
     ),
     "VALIDADOR-SE-ATRAGANTA": (
         'Este fichero ha hecho fallar al validador. No es una queja sobre la '
@@ -1128,8 +1130,8 @@ CODIGOS: dict[str, str] = {
         'propósito, y el porqué está medido: apuntar a una carpeta de '
         'quinientas facturas y que la séptima estuviera mal terminaba en una '
         'traza de Python y ninguna de las otras cuatrocientas noventa y nueve '
-        'revisada, con un código de salida idéntico al de «hay facturas con '
-        'errores». Ahora el lote sigue, el fichero que se atragantó se cuenta '
+        'revisada, con el mismo código de salida que cuando hay facturas con '
+        'errores. Ahora el lote sigue, el fichero que se atragantó se cuenta '
         'como no revisado, y se dice de quién es la culpa.'
     ),
     "CU-00": (
@@ -1179,7 +1181,7 @@ CODIGOS: dict[str, str] = {
     "CU-05": (
         'El número de factura tiene espacios de más: al principio, al final o '
         'repetidos en medio. Invisibles al ojo y letales al comparar, que es '
-        'todo lo que hace el código único. «F-001» y «F-001 » son la misma '
+        'todo lo que hace el código único. `F-001` y `F-001` con un espacio detrás son la misma '
         'factura para cualquiera que las lea, y dos facturas distintas para '
         'dos sistemas que traten los espacios de forma distinta. Va como '
         'aviso porque no incumple nada escrito, y el informe pone el número '
@@ -1222,7 +1224,7 @@ CODIGOS: dict[str, str] = {
         'Es peor que un duplicado y por eso se dice aparte: en un duplicado '
         'los dos sistemas ven lo mismo dos veces y alguien acaba dándose '
         'cuenta; aquí cada sistema cree tener una factura diferente, y a cada '
-        'uno le cuadran las cuentas por separado. «f-001» y «F-001 » son la '
+        'uno le cuadran las cuentas por separado. `f-001` y `F-001` con un espacio detrás son la '
         'misma factura para una persona y dos códigos únicos para una '
         'máquina. El informe pone las dos formas entre comillas, porque sin '
         'comillas la diferencia no se ve.'
@@ -1233,7 +1235,7 @@ CODIGOS: dict[str, str] = {
         'numeración correlativa dentro de cada serie, pero un hueco no es '
         'automáticamente una infracción (puede ser una factura anulada), así '
         'que va como aviso. El número se parte por donde acaban los dígitos: '
-        '«F-2026-001» es la serie «F-2026-» y el ordinal 1, y eso es lo que '
+        '`F-2026-001` es la serie `F-2026-` y el ordinal 1, y eso es lo que '
         'permite ver los saltos. El informe enumera los tramos que faltan, y '
         'si son muchos dice los cinco primeros y cuántos quedan, porque una '
         'lista de doscientos huecos no la lee nadie.'
@@ -1249,8 +1251,8 @@ CODIGOS: dict[str, str] = {
         'que sí sabe lo que es: un número reutilizado.'
     ),
     "CU-15": (
-        'El mismo ordinal escrito con distinto relleno de ceros. «F-001» y '
-        '«F-1» son la misma factura para una persona y dos códigos únicos '
+        'El mismo ordinal escrito con distinto relleno de ceros. `F-001` y '
+        '`F-1` son la misma factura para una persona y dos códigos únicos '
         'para una máquina, y en una serie donde conviven las dos formas la '
         'correlatividad deja de poder comprobarse. Se comparan las formas ya '
         'normalizadas, sin espacios y en mayúsculas, y eso es deliberado: si '
@@ -1261,14 +1263,14 @@ CODIGOS: dict[str, str] = {
         'Dos facturas distintas que producen el mismo código único. El código '
         'pega la serie y el número sin nada en medio (así los trata '
         'Verifactu, y si la serie necesita un guion ya lo lleva dentro), así '
-        'que la serie «A» con el número «12» y la serie «A1» con el número '
-        '«2» dan los dos «A12». No es un duplicado: son dos facturas, con dos '
+        'que la serie `A` con el número `12` y la serie `A1` con el número '
+        '`2` dan los dos `A12`. No es un duplicado: son dos facturas, con dos '
         'números distintos, y quien las emitió no ha hecho nada raro. Lo que '
         'pasa es que cualquier registro que las indexe por su código único '
         'verá una sola, y la segunda tapará a la primera. La queja enseña las '
         'dos particiones al lado, porque sin verlas no se entiende. Hasta el '
-        '22-09-2026 esto salía como CU-10, «es la misma factura dos veces», '
-        'que manda a buscar una copia que no existe. Sólo puede salir cuando '
+        '22-09-2026 esto salía como CU-10, que dice que es la misma factura '
+        'dos veces y manda a buscar una copia que no existe. Sólo puede salir cuando '
         'la serie viaja en un campo suyo, y de las tres sintaxis eso sólo '
         'pasa en Facturae: UBL y CII llevan el número entero en uno solo. Dos '
         'UBL con el mismo número son un duplicado de verdad y salen como '
@@ -1331,8 +1333,8 @@ CODIGOS: dict[str, str] = {
     "SELLO-ROTO": (
         'El sello de tiempo no se sostiene: se ha mirado por dentro y no '
         'cuadra consigo mismo o con la firma de su autoridad. Un sello es un '
-        'documento firmado por un tercero que viene a decir «yo vi este '
-        'resumen este día»; si esa firma no verifica o el token está mal '
+        'documento firmado por un tercero que viene a decir: yo vi este '
+        'resumen este día. Si esa firma no verifica o el token está mal '
         'formado, no acredita nada, y el informe dice por dónde falla. Es '
         'error y no aviso porque aquí no hay ambigüedad que conceder: no es '
         'que no se haya podido comprobar, es que se ha comprobado y sale mal.'
@@ -1453,7 +1455,7 @@ CODIGOS: dict[str, str] = {
         'cambiara y el importe se quedara. La comprobación se hace en los dos '
         'niveles: sobre el coste de la línea para los ajustes de línea, y '
         'sobre el importe bruto total para los generales. El informe llama al '
-        'ajuste por su motivo escrito («pronto pago», «portes») y no por su '
+        'ajuste por su motivo escrito (por ejemplo, pronto pago o portes) y no por su '
         'posición.'
     ),
     "FE-CUOTA": (
@@ -1563,7 +1565,7 @@ CODIGOS: dict[str, str] = {
         'cobrado; ninguna de las dos cambia lo facturado, las dos cambian lo '
         'que queda por cobrar. El informe sólo menciona en la cuenta los '
         'conceptos que de verdad existen en esa factura, para que no haya que '
-        'leer «menos cero de subvenciones» en las nueve facturas de cada diez '
+        'leer una resta de cero euros de subvenciones en las nueve facturas de cada diez '
         'que no llevan ninguna.'
     ),
     "FE-EJECUTAR": (
@@ -1770,8 +1772,8 @@ CODIGOS: dict[str, str] = {
         'nombre europeo que le toca (BR-S-08, BR-E-08, el que sea), y este '
         'código es lo que queda cuando no hay regla que citar. Hay dos formas '
         'de fallar: que la suma no dé, o que no haya ningún concepto detrás '
-        'de esa base. La segunda se dice aparte, porque contestar «debería '
-        'ser 0,00» no ayuda a nadie: lo que pasa es que el desglose cobra '
+        'de esa base. La segunda se dice aparte, porque contestar que debería '
+        'ser 0,00 no ayuda a nadie: lo que pasa es que el desglose cobra '
         'sobre algo que no está en ninguna parte.'
     ),
     "IVA-CATEGORIA-SIN-DESGLOSE": (
@@ -1844,9 +1846,9 @@ CODIGOS: dict[str, str] = {
         'el del firmante: aquí el problema está más arriba (en la autoridad '
         'que lo emitió o en una intermedia) y quien firmó no tiene por qué '
         'haberse enterado. El peso de la queja cambia según de dónde salga la '
-        'fecha, y el informe lo dice con esas palabras: «el día que la '
-        'factura dice haberse firmado» se responde diciendo que la fecha es '
-        'otra; «el día que acredita el sello de tiempo» no se responde.'
+        'fecha, y el informe dice de cuál se trata: el día que la factura '
+        'dice haberse firmado se puede discutir diciendo que la fecha es '
+        'otra; el día que acredita el sello de tiempo, no.'
     ),
     "CADENA-DEBIL": (
         'Algún certificado de la cadena está firmado con un algoritmo roto '
@@ -1904,7 +1906,7 @@ CODIGOS: dict[str, str] = {
     "BR-S-05": (
         'Una línea dice ser de tipo general y su tipo no es mayor que cero. '
         'Es una contradicción, no un descuadre: la categoría S significa '
-        '«sujeta y no exenta», o sea que lleva impuesto, y un cero dice que '
+        'sujeta y no exenta, o sea que lleva impuesto, y un cero dice que '
         'no lo lleva. Cuando de verdad no lo lleva, la categoría es otra (Z '
         'si es tipo cero, E si está exenta, O si no está sujeta), y el '
         'informe lo dice así porque el arreglo no es tocar el número sino '
@@ -1941,11 +1943,11 @@ CODIGOS: dict[str, str] = {
         'las líneas, y va por categoría y tipo a la vez: material al 21% y '
         'comida al 10% son dos entradas aunque las dos sean S. Suman las '
         'líneas y también los descuentos y cargos de documento que declaren '
-        'esa combinación, y el informe nombra los sumandos uno a uno («la '
-        'línea 1, la línea 2 y el cargo 2»), que es lo que hace falta para '
+        'esa combinación, y el informe nombra los sumandos uno a uno (la '
+        'línea 1, la línea 2 y el cargo 2), que es lo que hace falta para '
         'ver cuál baila. Hay una segunda forma de fallar: que no haya ningún '
         'concepto detrás de esa base, y entonces se dice así, porque '
-        'contestar «debería ser 0,00» no ayuda a nadie. Cuánto margen hay '
+        'contestar que debería ser 0,00 no ayuda a nadie. Cuánto margen hay '
         'depende de la sintaxis, porque los dos esquematrones oficiales no '
         'coinciden: el de UBL deja pasar menos de una unidad y el de CII la '
         'exige exacta. Aquí se sigue a cada uno, y EDIFACT y Facturae van con '
@@ -1957,8 +1959,8 @@ CODIGOS: dict[str, str] = {
         'esquematrón oficial repite para el tipo general, y casi siempre '
         'salen las dos juntas: son dos reglas de la norma y el validador '
         'oficial dice las dos. Hay un caso en que no coinciden, en CII: una '
-        'cuota a exactamente una unidad pasa BR-CO-17, que admite «hasta» una '
-        'unidad, y no pasa ésta, que admite «menos de». Ahí no sale la nota '
+        'cuota a exactamente una unidad pasa BR-CO-17, que admite hasta una '
+        'unidad, y no pasa ésta, que admite menos de una. Ahí no sale la nota '
         'de redondeo, porque no se puede decir a la vez que la norma lo '
         'admite y que no.'
     ),
@@ -1969,7 +1971,7 @@ CODIGOS: dict[str, str] = {
         'motivo y conviene verlas juntas: lo exige en la exenta, la inversión '
         'del sujeto pasivo, la intracomunitaria, la exportación y la no '
         'sujeta, y lo prohíbe en el tipo general, el tipo cero, el IGIC y el '
-        'IPSI. Que «no lo exige» y «lo prohíbe» sean cosas distintas es lo '
+        'IPSI. Que no exigirlo y prohibirlo sean cosas distintas es lo '
         'que hace que esta regla exista: si fueran lo mismo, una entrada al '
         '21% con un artículo de exención pegado pasaría sin que nadie mirara.'
     ),
@@ -2008,7 +2010,7 @@ CODIGOS: dict[str, str] = {
     "BR-O-05": (
         'Una línea declarada como no sujeta trae tipo de IVA. Si la operación '
         'no está sujeta no hay tipo que aplicarle, ni siquiera cero: la '
-        'diferencia entre «no sujeta» y «tipo cero» es que en la primera el '
+        'diferencia entre no sujeta y tipo cero es que en la primera el '
         'impuesto no entra en juego y en la segunda entra y vale cero. '
         'Escribir un 0,00 aquí parece inofensivo y no lo es, porque hace que '
         'la línea y la entrada del desglose caigan en cubos distintos al '
@@ -2056,7 +2058,7 @@ CODIGOS: dict[str, str] = {
         'Una entrada no sujeta sin explicar por qué no lleva IVA. Es la '
         'exigencia que la norma pone a las cinco categorías que no pagan, y '
         'en ésta es donde más falta hace: exenta, intracomunitaria o '
-        'exportación dicen bastante de sí mismas, mientras que «no sujeta» '
+        'exportación dicen bastante de sí mismas, mientras que no sujeta, a secas, '
         'sólo dice que la operación queda fuera del impuesto, sin decir por '
         'qué queda fuera. Quien recibe necesita ese motivo para justificar '
         'ante su Administración que ahí no hay IVA que deducir, y un artículo '
@@ -2235,8 +2237,8 @@ CODIGOS: dict[str, str] = {
         'Una entrada exenta sin decir por qué lo está. La norma no se '
         'conforma con la etiqueta: exige el artículo o la razón, y no por '
         'burocracia (quien recibe la factura tiene que poder justificar ante '
-        'su Administración por qué ahí no hay IVA que deducir, y «exenta» a '
-        'secas no justifica nada). Es con diferencia la más incumplida de las '
+        'su Administración por qué ahí no hay IVA que deducir, y decir exenta, '
+        'a secas, no justifica nada). Es con diferencia la más incumplida de las '
         'reglas por categoría: sale en once de las 179 facturas medidas aquí, '
         'repartidas entre cuatro de los cinco montones, y son facturas que '
         'por lo demás están bien escritas.'
@@ -2331,7 +2333,7 @@ CODIGOS: dict[str, str] = {
         'Hay conceptos declarados como entrega intracomunitaria y el desglose '
         'no recoge esa categoría, o la recoge más de una vez. Primero, un '
         'detalle que despista: la letra de la categoría es K y el código de '
-        'sus reglas es IC, así que quien busque «BR-K-01» en la norma no '
+        'sus reglas es IC, así que quien busque `BR-K-01` en la norma no '
         'encontrará nada. Y lo de fondo: una entrega intracomunitaria va sin '
         'IVA porque lo declara el comprador en su país, y la entrada del '
         'desglose, que tiene que ser una, es donde eso queda escrito con su '
@@ -2569,8 +2571,8 @@ CODIGOS: dict[str, str] = {
         'que una operación a IGIC cero se declara con su 0% y sin artículo '
         'pegado. Esta comprobación estuvo mal aquí hasta el 13 de septiembre '
         'de 2026: se creía que la norma no se pronunciaba sobre el motivo en '
-        'IGIC e IPSI, una entrada como «IGIC al 7%, Régimen especial de '
-        'Canarias» pasaba limpia, y la ficha de este código ni siquiera '
+        'IGIC e IPSI, una entrada como `IGIC al 7%, Régimen especial de '
+        'Canarias` pasaba limpia, y la ficha de este código ni siquiera '
         'existía.'
     ),
     "BR-AG-01": (
@@ -2820,7 +2822,7 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-54": (
         'Un atributo de artículo al que le falta el nombre o el valor: '
-        '«color» sin decir cuál, o «negro» sin decir de qué. Los dos van '
+        '`color` sin decir cuál, o `negro` sin decir de qué. Los dos van '
         'juntos o no dicen nada.'
     ),
     "BR-55": (
@@ -3274,13 +3276,13 @@ CODIGOS: dict[str, str] = {
         "admite códigos VATEX-EU o VATEX-ES, dice la orden, pero es un "
         "término de la edición de 2026 de la norma sin ruta en la vinculación "
         "de 2017, y la de 2026 no se ha podido leer aquí. BT-ES-5: La "
-        "tipología del tercero tiene que ser «FacturaciónPorTercero» cuando "
+        "tipología del tercero tiene que ser FacturaciónPorTercero cuando "
         "el tercero expide materialmente la factura, y eso no se ve en el "
         "documento. Se comprueba que la tipología esté, no cuál es. BT-113: "
         "El importe pagado no puede usarse para anticipos que hayan devengado "
         "el IVA (artículo 75.Dos de la Ley del IVA), y eso no se ve en la "
         "factura. SPFE-IMPORTE-PAGADO lo dice en una nota cuando lo hay. "
-        "BT-21: La nota de la factura lleva el código «REG» cuando es una "
+        "BT-21: La nota de la factura lleva el código REG cuando es una "
         "mención obligatoria según una normativa específica, y qué menciones "
         "lo son no se ve en la factura. Especificaciones técnicas: La orden "
         "deja las especificaciones técnicas y la volumetría, y el tamaño "
@@ -3320,31 +3322,45 @@ CODIGOS: dict[str, str] = {
     ),
     "SPFE-PROCESO": (
         "Falta el tipo de proceso de negocio (cbc:ProfileID) o no es el que "
-        "fija la orden publicada en el BOE el 05-10-2026, que admite uno solo: "
-        "urn:aeat:names:specification:ubl:schema:profile:B2B. En la norma "
-        "europea este campo es opcional. El del borrador de abril, "
-        "urn:aeat:names:specification:ubl:schema:B2B, ya no vale. Sale como "
-        "nota, y no como error, si es el del ejemplo que la AEAT mandó por "
-        "correo el 02-10-2026, urn:aeat:names:specification:schema:profile:B2B, "
-        "sin «ubl:»: la nota dice que la orden fija otro, y que es el que vale."
+        "vale, que es uno solo: urn:aeat:names:specification:schema:profile:B2B. "
+        "En la norma europea este campo es opcional, y la orden lo hace "
+        "obligatorio. La orden publicada en el BOE el 05-10-2026 lo escribe con "
+        "`ubl:`, urn:aeat:names:specification:ubl:schema:profile:B2B, y la AEAT "
+        "contestó por escrito el 13-10-2026 que el bueno es sin él, como el "
+        "resto de campos y como en su ejemplo del 02-10-2026. El del BOE sale "
+        "como aviso, y no como error, porque es lo que dice el texto publicado. "
+        "El del borrador de abril, urn:aeat:names:specification:ubl:schema:B2B, "
+        "sale como error."
+    ),
+    "SPFE-CALIFICADOR": (
+        "Un valor de las listas L7, L8 o L10 va sin el calificador de su lista "
+        "delante: una línea de cobro RETE en vez de "
+        "urn:aeat:names:specification:schema:add:RETE, una propiedad REGI en vez "
+        "de urn:aeat:names:specification:schema:lin:REGI, un documento QR en "
+        "vez de urn:aeat:names:specification:schema:QR. Las filas de la orden "
+        "dan solo el valor, y cada lista trae su calificador aparte; la AEAT "
+        "contestó por escrito el 13-10-2026 que se escribe el calificador "
+        "seguido del valor, en las tres listas, como en su ejemplo del "
+        "02-10-2026. Es un aviso y no un error porque lo que dice el BOE es el "
+        "valor solo. El valor se reconoce igual de las dos maneras, y lo demás "
+        "se mide: sale un aviso por factura, con todos los que van sin él."
     ),
     "SPFE-COPIA": (
         "La factura no dice si es el original o una copia. En UBL es el campo "
         "cbc:CopyIndicator, que la norma europea no usa. El borrador de abril "
         "lo hacía obligatorio; la orden publicada en el BOE el 05-10-2026 lo "
-        "deja opcional, y sin él la factura es el original: «False (o sin "
-        "informar): original». Sale como nota, porque una copia fiel sí tiene "
+        "deja opcional, y sin él la factura es el original. Sale como nota, porque una copia fiel sí tiene "
         "que identificarse ahí, con true (apartado 3 del artículo 4 de la orden). "
         "En UBL se escribe en minúsculas, true o false, aunque la orden lo "
-        "escriba «True» y «False»: con mayúscula no pasa el esquema."
+        "escriba `True` y `False`: con mayúscula no pasa el esquema."
     ),
     "SPFE-TIPO-DE-FACTURA": (
         "El tipo de factura no está en la lista L1 de la orden: 380, 384, 388, "
         "389 o 471. El caso típico es el 381, el abono de la norma europea, "
         "que en la solución pública no existe: una rectificativa es un Invoice "
         "de tipo 384, o 471 si la expide el destinatario. La AEAT lo confirmó "
-        "por escrito el 23-09-2026: «No se aceptan InvoiceType de tipo 381 en "
-        "L1». También sale si el documento es un CreditNote."
+        "por escrito el 23-09-2026: no se aceptan InvoiceType de tipo 381 en "
+        "L1. También sale si el documento es un CreditNote."
     ),
     "SPFE-RECTIFICATIVA": (
         "Una factura rectificativa (384 o 471) no dice qué rectifica, o lo dice "
@@ -3359,8 +3375,10 @@ CODIGOS: dict[str, str] = {
         "Cuota o CuotaRecargo de la L2.C y el importe en su descripción "
         "(BT-ES-29 y BT-123). Que falte cualquiera de esas cosas, o que sobre "
         "un documento, es un error. Cuántos importes caben lo dice la orden de "
-        "dos formas: «hasta tres grupos» en la fila BT-3 y cinco en el grupo. "
-        "Más de cinco es un error, y cuatro o cinco, una nota. Los importes con "
+        "dos formas: hasta tres grupos en la fila BT-3 y cinco en el grupo. La "
+        "AEAT contestó el 13-10-2026 que el grupo pasa a 0..1, y en el ejemplo "
+        "que mandó ese día lleva uno por código de L2.C. Más de cinco es un "
+        "error, y un código repetido, un aviso. Los importes con "
         "la modalidad I son un aviso, porque el grupo es para la sustitución. "
         "Sale como nota cuando la modalidad es S y no trae los importes: la "
         "orden solo los pide si se optó por una única factura, y eso no se ve. "
@@ -3399,9 +3417,9 @@ CODIGOS: dict[str, str] = {
     "SPFE-NIF": (
         "Falta el NIF del vendedor o del comprador donde lo pide la orden, o "
         "está sin lo que la orden le pide. Admite dos sitios: un "
-        "cac:PartyTaxScheme con cac:TaxScheme/cbc:ID «VAT» (BT-31 del vendedor, "
-        "BT-48 del comprador), o uno con «LOC» y el atributo schemeID «FC» en "
-        "el NIF (BT-32, BT-47). El borrador de abril solo admitía «VAT». La "
+        "cac:PartyTaxScheme con cac:TaxScheme/cbc:ID `VAT` (BT-31 del vendedor, "
+        "BT-48 del comprador), o uno con `LOC` y el atributo schemeID `FC` en "
+        "el NIF (BT-32, BT-47). El borrador de abril solo admitía `VAT`. La "
         "norma europea deja opcional el identificador fiscal; la orden lo hace "
         "obligatorio para las dos partes. Si el NIF está con otro impuesto o "
         "sin el atributo, el informe dice qué hay. Desde el 11-10-2026 sale "
@@ -3409,8 +3427,9 @@ CODIGOS: dict[str, str] = {
         "identificador de inscripción legal (BT-30), que la orden pide en ese "
         "caso y describe como su NIF; y cuando el NIF-IVA no lleva el prefijo "
         "de España, ES, que la orden pide y la norma no (admite el de cualquier "
-        "país). Lo del comprador es un aviso: su fila copia la del vendedor "
-        "hasta en decir «del vendedor», y no se sabe si el prefijo es para él. "
+        "país). Lo del comprador es un error desde el 13-10-2026: su fila lo "
+        "llama NIF del vendedor, y la AEAT contestó ese día que es una errata y "
+        "que el prefijo es para él; hasta entonces era un aviso. "
         "Desde el 12-10-2026 se mira también qué lleva BT-30: el NIF del "
         "vendedor, con el prefijo ES o sin él. Otra cosa, como un registro "
         "mercantil o el NIF de otro, es un error con el NIF en BT-32 y un aviso "
@@ -3425,15 +3444,15 @@ CODIGOS: dict[str, str] = {
     ),
     "SPFE-TIPO-DE-IMPUESTO": (
         "El tipo de impuesto (cac:TaxScheme/cbc:ID) de un descuento o un cargo "
-        "del documento, de una línea o del desglose no es «VAT», o no está. La "
-        "orden lo fija en «VAT» en esos cuatro sitios (filas BT-95, BT-102, "
+        "del documento, de una línea o del desglose no es `VAT`, o no está. La "
+        "orden lo fija en `VAT` en esos cuatro sitios (filas BT-95, BT-102, "
         "BG-30 y BG-23); el IGIC y el IPSI se distinguen por la categoría, L o "
         "M, no por este campo."
     ),
     "SPFE-TERCERO": (
         "La factura lleva los datos de un tercero (el que la expide en lugar "
         "del vendedor) y le falta algo que la orden pide dentro: su NIF, con el "
-        "impuesto «VAT» o con «LOC» y el atributo «FC»; su nombre o razón "
+        "impuesto `VAT` o con `LOC` y el atributo `FC`; su nombre o razón "
         "social, en cac:PartyLegalEntity/cbc:RegistrationName; o la tipología "
         "del tercero. El borrador de abril ponía el nombre en cac:PartyName, y "
         "ahí ya no se lee."
@@ -3462,7 +3481,7 @@ CODIGOS: dict[str, str] = {
         "VATEX-EU ni un VATEX-ES, que son los únicos que admite la orden. La "
         "lista CEF-VATEX trae también los de otros países, como los VATEX-FR "
         "de Francia, y la norma europea los admite (BR-CL-22): son de su IVA, "
-        "no del español. En la versión de la lista que lleva Glosa no hay "
+        "no del español. En la versión de la lista que lleva Glosa-e no hay "
         "ningún VATEX-ES; uno que no esté en ella lo dice BR-CL-22, y no esta "
         "regla."
     ),
@@ -3480,7 +3499,7 @@ CODIGOS: dict[str, str] = {
     "SPFE-CLAVE-DE-REGIMEN": (
         "A una línea le falta la clave de régimen, lleva más de dos, o la que "
         "lleva no es válida. La orden la pide en cada línea como una propiedad "
-        "del artículo llamada «REGI», sola o con el calificador de la lista L8 "
+        "del artículo llamada `REGI`, sola o con el calificador de la lista L8 "
         "delante (urn:aeat:names:specification:schema:lin:): la clave en "
         "cbc:Value y el impuesto (IVA, IGIC o IPSI) en cbc:ValueQualifier. Cada "
         "impuesto tiene su lista, L3A, L3B o L3C, y no son iguales. Las claves "
@@ -3490,16 +3509,16 @@ CODIGOS: dict[str, str] = {
     "SPFE-REFERENCIA-CATASTRAL": (
         "La referencia catastral de una línea está mal: hay más de una, falta "
         "la referencia, o la situación del inmueble no es de la lista L6, del "
-        "01 al 04. Va como una propiedad del artículo llamada «RCAT», sola o "
+        "01 al 04. Va como una propiedad del artículo llamada `RCAT`, sola o "
         "con el calificador de la lista L8 delante."
     ),
     "SPFE-INFORMACION-ADICIONAL": (
         "Una propiedad del artículo de una línea se llama de una forma que la "
-        "orden no admite. La norma europea deja el nombre libre («Color», "
-        "«Lote»); la orden escribe la información adicional de la línea como "
-        "una propiedad llamada «INFO», con el texto en el valor (BT-160 y "
-        "BT-161), y las otras dos que admite son la clave de régimen («REGI») y "
-        "la referencia catastral («RCAT»): las tres de su lista L8, con el "
+        "orden no admite. La norma europea deja el nombre libre (`Color`, "
+        "`Lote`); la orden escribe la información adicional de la línea como "
+        "una propiedad llamada `INFO`, con el texto en el valor (BT-160 y "
+        "BT-161), y las otras dos que admite son la clave de régimen (`REGI`) y "
+        "la referencia catastral (`RCAT`): las tres de su lista L8, con el "
         "calificador de la lista delante o sin él. Es un aviso: la factura que "
         "se emite con la solución pública se ajusta al anexo I, y la "
         "interconectada puede llevar contenido adicional que cumpla la norma "
@@ -3512,8 +3531,8 @@ CODIGOS: dict[str, str] = {
         "05-10-2026 tiene cinco: suplido (SUPL), minoración (MINO), retención "
         "(RETE), el impuesto especial sobre determinados medios de transporte "
         "(IEDMT) y otros impuestos o tasas (OTROS), con su calificador "
-        "urn:aeat:names:specification:schema:add: delante o sin él, porque la "
-        "orden no dice cómo se juntan. Las líneas del recargo de equivalencia "
+        "urn:aeat:names:specification:schema:add: delante, que es como se "
+        "escribe, o sin él, y entonces lo dice SPFE-CALIFICADOR. Las líneas del recargo de equivalencia "
         "(REEQ) y del grupo de entidades (REGE) eran del borrador de abril y ya "
         "no valen: la orden pone los dos regímenes en el desglose del IVA, con "
         "la categoría N. Sale también si hay más de un grupo de retenciones, "
@@ -3522,7 +3541,7 @@ CODIGOS: dict[str, str] = {
     "SPFE-RETENCION": (
         "A las retenciones les falta algo que la orden pide: la línea de cobro "
         "RETE que las identifica, la suma de retenciones, y en cada una la "
-        "base, el importe, la categoría «S», el porcentaje, el esquema «WTH» y "
+        "base, el importe, la categoría `S`, el porcentaje, el esquema `WTH` y "
         "el concepto de la lista L5. La línea RETE se reconoce sola o con el "
         "calificador de la lista L7 delante. Y se hacen las dos cuentas que la "
         "orden define: cada retención (BT-ES-19) es su base por su porcentaje, "
@@ -3543,7 +3562,7 @@ CODIGOS: dict[str, str] = {
         "del cargo, y tiene que ser la misma; con dos impuestos en el mismo "
         "cargo eso no se puede, se le preguntó a la Agencia el 07-10-2026 y sale "
         "una nota. El desglose de un impuesto cobrado en nombre de un tercero "
-        "(BG-ES-3) se escribe con «VAT» y «S» aunque no sea el IVA. Y la cuota "
+        "(BG-ES-3) se escribe con `VAT` y `S` aunque no sea el IVA. Y la cuota "
         "de cada uno (BT-ES-8 y BT-ES-14) es la base por el tipo, cuando la "
         "factura da los dos, con el margen de la cuota del IVA: hasta una unidad "
         "es una nota. La norma europea no tiene nada de esto, y el esquematrón "
@@ -3606,13 +3625,17 @@ CODIGOS: dict[str, str] = {
         "XML del BOE. No se mide lo que la orden deja a la Sede electrónica "
         "de la AEAT (las especificaciones técnicas y la volumetría), ni la "
         "cabecera de la respuesta, ni que la factura "
-        "exista o que las fechas sean ciertas. El NIF del emisor se acepta "
-        "con el prefijo ES y sin él, y con cualquier impuesto en su "
-        "cac:TaxScheme, que ninguna tabla da. La tabla del mensaje de anulación "
+        "exista o que las fechas sean ciertas. El NIF del emisor va sin el "
+        "prefijo ES, y su cac:TaxScheme, que el esquema exige y ninguna tabla "
+        "da, puede ir vacío: lo contestó la AEAT por escrito el 13-10-2026. "
+        "Con el prefijo también se acepta. La tabla del mensaje de anulación "
         "escribe dos rutas que no existen en UBL 2.5 (la factura anulada "
         "dentro de cac:Response y el nombre del vendedor dentro de "
-        "cac:PartyTaxScheme), y en cada anulación la nota dice cómo se han "
-        "leído. Que no salga ninguna queja SPFE- no quiere decir que el "
+        "cac:PartyTaxScheme). La AEAT contestó el 13-10-2026 que sobra "
+        "cac:Response y que el nombre va en cac:PartyLegalEntity, como en el "
+        "anexo II, y lo corrige en el anexo que publicará en su Portal de "
+        "Desarrolladores. En cada anulación la nota dice cómo se han leído. "
+        "Que no salga ninguna queja SPFE- no quiere decir que el "
         "mensaje cumpla la orden."
     ),
     "SPFE-MENSAJE-FECHA": (
@@ -3629,14 +3652,14 @@ CODIGOS: dict[str, str] = {
         "vencimiento del plazo, calculada con el artículo 4 de la Ley 3/2004 "
         "de morosidad. Va en un cac:Status de la respuesta, con la fecha en "
         "cbc:ReferenceDate y la condición cac:Condition/cbc:AttributeID "
-        "«DueDate». Aquí se mira que esté, no que esté bien calculada."
+        "`DueDate`. Aquí se mira que esté, no que esté bien calculada."
     ),
     "SPFE-MENSAJE-ESTADO": (
         "Algo de lo que va en cac:Status no es como lo pone la tabla del "
         "mensaje. Las fechas que acompañan al pago, al cobro y al impago (el "
         "vencimiento del plazo en el pago y en el cobro, la recepción de las "
         "mercancías y la de la factura) van cada una en su cac:Status, con su "
-        "condición, «DueDate», «ShipmentDate» o «ReceptionDate», y con su "
+        "condición, `DueDate`, `ShipmentDate` o `ReceptionDate`, y con su "
         "fecha en el cbc:ReferenceDate del mismo cac:Status. Es un error una "
         "condición sin fecha, repetida o que comparte la fecha con otra, y un "
         "cbc:StatusReason repetido. En el impago el vencimiento no va aquí: es "
@@ -3667,7 +3690,10 @@ CODIGOS: dict[str, str] = {
         "factura, lleva más de una. Si el emisor lleva dos NIF, el NIF-IVA y "
         "el NIF, se mira cada uno. La anulación admite varias facturas, y sus "
         "datos se buscan también dentro de cac:Response, donde los pone su "
-        "tabla."
+        "tabla, aunque la AEAT contestó el 13-10-2026 que ahí sobran. Si el "
+        "nombre del emisor de una anulación solo está en el cbc:RegistrationName "
+        "de cac:PartyTaxScheme, sale un aviso: va en cac:PartyLegalEntity, "
+        "contestó también la AEAT."
     ),
     "COPIA-TOTAL": (
         "Cuando la factura lleva retenciones, su total no es el total con "
@@ -3711,8 +3737,8 @@ CODIGOS: dict[str, str] = {
     ),
     "COPIA-SERIE": (
         "Facturae guarda la serie y el número de la factura en dos campos, y "
-        "el anexo tiene uno solo para los dos: BT-1, que llama «número y serie "
-        "de la factura». En la copia van juntos, y ningún texto dice cómo se "
+        "el anexo tiene uno solo para los dos: BT-1, que llama número y serie "
+        "de la factura. En la copia van juntos, y ningún texto dice cómo se "
         "juntan. Aquí se pegan sin separador, que es como los trata Verifactu "
         "y como los junta el código único del RD 238/2026: si la copia llevara "
         "solo el número, la copia y el original no identificarían la misma "
@@ -3723,19 +3749,19 @@ CODIGOS: dict[str, str] = {
         "categoría** es. `BT-118` es obligatorio en el anexo y el código de "
         "impuesto de Facturae no lo dice: dice qué impuesto es (01 IVA, 02 "
         "IPSI, 03 IGIC), que es otra pregunta. A tipo positivo la deducción "
-        "está forzada, porque IVA a tipo positivo es «sujeta y no exenta», la "
+        "está forzada, porque IVA a tipo positivo es sujeta y no exenta, la "
         "`S`. Un cero, no: puede ser una exenta, una no sujeta, un tipo cero, "
         "una entrega intracomunitaria, una exportación o una inversión del "
         "sujeto pasivo (`E`, `O`, `Z`, `K`, `G` o `AE`).\n\n"
         "Lo único que lo estrecha es la fiscalidad especial de las líneas, y "
-        "solo a dos: el `01` de Facturae es «operación sujeta y exenta», que "
-        "en UNCL5305 es la `E`, y el `02` es «operación no sujeta», que es la "
+        "solo a dos: el `01` de Facturae es operación sujeta y exenta, que "
+        "en UNCL5305 es la `E`, y el `02` es operación no sujeta, que es la "
         "`O`. Vive en la línea y no en el impuesto, así que hace falta que "
         "todas digan lo mismo.\n\n"
         "Y si es exenta, en la copia el motivo deja de ser opcional: lo exige "
         "`BR-E-10`. Facturae lo guarda en texto libre dentro de la línea, y su "
-        "esquema manda escribirlo precedido del código del impuesto («07 "
-        "exenta por…»), aunque la muestra oficial del Ministerio no lo hace. "
+        "esquema manda escribirlo precedido del código del impuesto (`07 "
+        "exenta por…`), aunque la muestra oficial del Ministerio no lo hace. "
         "Hay que leer esa prosa: no hay otro sitio de donde sacarlo, porque la "
         "nota de línea, `BT-127`, no está en el anexo."
     ),
@@ -3759,7 +3785,7 @@ CODIGOS: dict[str, str] = {
         "solo, `BT-27` del vendedor o `BT-44` del comprador, que además es "
         "obligatorio. Hay que juntarlos, y ni el esquema ni el anexo dicen en "
         "qué orden ni con qué separador: para quien después busque la factura "
-        "por su titular no es lo mismo «Juana Mauriño» que «Mauriño, Juana».\n\n"
+        "por su titular no es lo mismo `Juana Mauriño` que `Mauriño, Juana`.\n\n"
         "Quedarse solo con el nombre (que es lo que hace el validador para "
         "**leer** la factura, porque pegar los apellidos sería inventar un "
         "formato) aquí no vale: en la copia se perderían dos apellidos, y eso "
@@ -3776,8 +3802,8 @@ CODIGOS: dict[str, str] = {
         "y no las valida nadie.\n\n"
         "Dos avisos, que es la razón de que esto salga escrito. El primero es "
         "el hueco: el anexo sí conserva una referencia de documento, `BT-10`, "
-        "«un identificador asignado por el comprador para especificar rutas "
-        "internas de la factura». Es el único sitio libre y **no es el del "
+        "que la norma describe como un identificador asignado por el comprador "
+        "para especificar rutas internas de la factura. Es el único sitio libre y **no es el del "
         "pedido**: meter ahí el número del pedido deja una copia válida que "
         "dice otra cosa, igual que copiar el dígito del medio de pago. Hasta "
         "el 07-10-2026 aquí se añadía que lo que en Facturae encamina (los "
@@ -3808,13 +3834,13 @@ CODIGOS: dict[str, str] = {
         "donde un código de otra lista se ve al validar: los **19 códigos de "
         "Facturae existen los 19** en UNCL4461 queriendo decir otra cosa "
         "(diez tal cual, y los nueve que empiezan por cero en cuanto se les "
-        "quita). Copiar el dígito, o «normalizarlo» quitándole el cero, no da "
+        "quita). Copiar el dígito, o normalizarlo quitándole el cero, no da "
         "un error: da una factura válida que dice que se paga de otra manera. "
         "El `19` de Facturae es el pago con tarjeta y el `19` europeo es un "
         "adeudo de cámara de compensación; el `04` es la transferencia y el "
         "`4` europeo es la reversión de un adeudo. Ninguna etiqueta del "
         "esquema trae el código europeo, así que la tabla se escribe a mano: "
-        "Glosa traduce las cinco que se sostienen por nombre (al contado, "
+        "Glosa-e traduce las cinco que se sostienen por nombre (al contado, "
         "recibo domiciliado, transferencia, cheque y tarjeta) y de las demás "
         "dice que hay que elegirlas, en vez de poner una parecida."
     ),
@@ -3847,7 +3873,7 @@ CODIGOS: dict[str, str] = {
         "europeo dentro de la etiqueta y valen tal cual, 16 lo llevan pero "
         "necesitan una `X` delante (son los de embalaje, que salen de la "
         "recomendación 21), uno solo cuadra en mayúsculas y **seis no lo "
-        "llevan**. Entre esos seis está `01`, «Units», que es el que escriben "
+        "llevan**. Entre esos seis está `01`, `Units`, que es el que escriben "
         "todas las líneas medidas aquí: en la copia se escribe `C62`. Y va en "
         "un atributo de la cantidad (`unitCode`), que es `BT-130`: el "
         "borrador de abril no lo recogía y la orden sí."
@@ -3856,7 +3882,7 @@ CODIGOS: dict[str, str] = {
         "El importe neto de una línea, BT-131, es `GrossAmount` y no "
         "`TotalCost`, aunque el nombre invite a lo contrario. El esquema de "
         "Facturae define `TotalCost` como cantidad por precio y `GrossAmount` "
-        "como «TotalCost - DiscountAmount + ChargeAmount», y lo que la norma "
+        "como `TotalCost - DiscountAmount + ChargeAmount`, y lo que la norma "
         "pide es el importe de la línea **después** de sus descuentos y "
         "cargos: es el que tiene que cuadrar con la suma de líneas. La nota "
         "sale cuando los dos campos no valen lo mismo, que es cuando copiar "
