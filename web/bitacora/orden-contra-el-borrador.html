@@ -9,7 +9,7 @@
   <p class="lema">Quien programó para la solución pública con el borrador de
   abril delante tiene que rehacer casi todo lo español, y no puede fiarse del texto
   publicado al pie de la letra. Esto es lo que cambió, dónde falla la orden y
-  qué mide Glosa desde que salió.</p>
+  qué mide Glosa-e desde que salió.</p>
 
   <h2>Lo que se anunció y lo que salió</h2>
 
@@ -49,7 +49,7 @@
   <ul>
     <li><b>El NIF tiene dos sitios.</b> Como NIF-IVA, con el prefijo ES
     (<code>BT-31</code> del vendedor, <code>BT-48</code> del comprador), o
-    como NIF, con «LOC» y el atributo «FC» (<code>BT-32</code> y
+    como NIF, con <code>LOC</code> y el atributo <code>FC</code> (<code>BT-32</code> y
     <code>BT-47</code>). Por la segunda vía, el del vendedor va dos veces,
     porque la orden pide también <code>BT-30</code>.</li>
     <li><b>El indicador de copia deja de ser obligatorio</b>: sin él, la
@@ -67,7 +67,7 @@
     <li><b>Los otros impuestos y tasas</b> tienen grupo propio en los cargos
     del documento (<code>BG-ES-2</code>), y todo cargo de línea lleva ahora un
     código obligatorio de una lista nueva, la <code>L9</code>: los impuestos
-    especiales uno por uno, y «RESTO» para lo que no es un impuesto.</li>
+    especiales uno por uno, y <code>RESTO</code> para lo que no es un impuesto.</li>
     <li><b>Lo pagado por adelantado</b> (<code>BT-113</code>) ya no tiene que
     ser cero: solo quedan fuera los anticipos que devengaron el IVA. Y hay
     campo para la fecha efectiva de pago (<code>BT-ES-2</code>): la factura
@@ -112,24 +112,24 @@
   </table>
   </div>
 
-  <p>Las siete de la factura tienen una sola corrección posible, y Glosa las
+  <p>Las siete de la factura tienen una sola corrección posible, y Glosa-e las
   lee corregidas. Las del mensaje de anulación, no. Tal como está publicado,
   ese mensaje no pasa el esquema de UBL. Y escribe el nombre del vendedor
   dentro de una <code>cac:PartyLegalEntity</code> colgada de
   <code>cac:PartyTaxScheme</code>, que no la admite: sobra uno de los dos, y el
   texto no dice cuál. Una anulación escrita al pie de la letra
-  sale en Glosa con el error del esquema, que es lo que tiene. Y los datos de
+  sale en Glosa-e con el error del esquema, que es lo que tiene. Y los datos de
   la factura anulada se buscan en los sitios donde podrían estar, y la nota
   de cada anulación lo dice.</p>
 
   <p>Hay fallos que no son de ruta. La descripción de <code>BT-48</code>, el
-  NIF-IVA del comprador, dice «del vendedor». La fila <code>BT-3</code> habla
-  de «hasta tres» grupos de importes rectificados, y el grupo admite cinco.
-  Los dos anexos tienen una lista «L1», y son distintas: la de tipos de
+  NIF-IVA del comprador, lo llama NIF del vendedor. La fila <code>BT-3</code> habla
+  de hasta tres grupos de importes rectificados, y el grupo admite cinco.
+  Los dos anexos tienen una lista <code>L1</code>, y son distintas: la de tipos de
   factura y la de motivos de rechazo. Y el identificador del proceso
   (<code>BT-23</code>) no es el que escribió la propia AEAT en el ejemplo que
-  mandó por correo el 2 de octubre: el de la orden lleva «ubl:» y el del
-  ejemplo no. Glosa acepta el de la orden y deja el del ejemplo en una nota,
+  mandó por correo el 2 de octubre: el de la orden lleva <code>ubl:</code> y el del
+  ejemplo no. Glosa-e acepta el de la orden y deja el del ejemplo en una nota,
   porque los dos vienen de la Agencia.</p>
 
   <p>Ocho preguntas, entre ellas las dos de la anulación y la del
@@ -138,9 +138,9 @@
   han contestado, y el BOE no ha publicado ninguna corrección de errores.
   Cuando contesten, se dirá aquí.</p>
 
-  <h2>Lo que mide Glosa desde que salió</h2>
+  <h2>Lo que mide Glosa-e desde que salió</h2>
 
-  <p>Cuando salió la orden, Glosa medía el borrador de abril, y el 6 de
+  <p>Cuando salió la orden, Glosa-e medía el borrador de abril, y el 6 de
   octubre se midió lo que eso suponía: <b>seis de sus reglas daban por mala una factura
   escrita como manda la orden</b> (el identificador del proceso, el
   indicador de copia, el NIF, lo pagado por adelantado, las líneas de cobro y
