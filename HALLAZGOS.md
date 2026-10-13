@@ -8441,3 +8441,97 @@ de terceros, uno repetido (12 facturas distintas), más el ejemplo publicado
 salen las 11 que traen unidad y las 18 líneas que la escriben, como dice la
 fila. Las cifras de las filas nuevas no dependen de esa base. Rehacer las
 demás es otra tanda.
+
+## La copia fiel, contra la orden: los 33 campos españoles
+
+**Lo que había.** Después de los siete términos, la tabla de la copia fiel
+nombraba 102 de los 116 términos europeos y **ninguno de los 33 campos
+españoles** de la orden (`BT-ES-` y `BG-ES-`). Cinco los citaba alguna fila en
+su porqué (`BT-ES-10`, `BT-ES-16`, `BT-ES-17`, `BT-ES-22` y `BT-ES-25`), y
+ninguno en su destino. Los dos cepos contaban con `B[TG]-\d+`, que no ve un
+`BT-ES-`, y el de los destinos no miraba las filas de «la extensión
+española». La cabecera del módulo decía que dónde se escriben en Facturae no
+se adivinaba. Y la fila de los anticipos decía «llega igual» a `BT-113`.
+
+**Reproducido** el 13-10-2026. El cepo de los términos, con la expresión
+nueva y contra la tabla de `aa50e90`, sale en rojo con 35 sin fila: los 33
+españoles, `BT-149` y `BT-154`.
+
+**Lo que se hizo.** Cada campo, contra el esquema de Facturae 3.2.2 y el texto
+de la orden:
+
+| Campos | Qué son en la orden | De dónde salen en Facturae | Fila |
+|---|---|---|---|
+| `BT-ES-1` | el indicador de copia | de ninguno: `InvoiceClass` tiene su propia «copia», y es otra cosa | nueva, «lo pone quien copia»: siempre «true» |
+| `BT-ES-2` | la fecha efectiva de pago, si se pagó antes de expedir o ese día | la de un anticipo, si la paga entera | la de los anticipos, que deja «llega igual» |
+| `BG-ES-1` (`BT-ES-3` a `BT-ES-5`) | el tercero que expide la factura | `ThirdParty`, con `TE` | nueva, «cortado de otra manera», como el NIF y el nombre |
+| `BG-ES-2` (`BT-ES-6` a `BT-ES-9`) | un impuesto que no es IVA, como cargo del documento | `TaxesOutputs` con otro código que 01, 02 o 03 | la del impuesto que no es IVA, que ahora da las dos maneras |
+| `BT-ES-22` | el código de la L9 en un cargo de línea | el mismo impuesto; el código no se copia | la misma |
+| `BT-ES-10` a `BT-ES-14` y `BG-ES-3` | la línea de un suplido, o la de un impuesto o tasa con su desglose | `ReimbursableExpenses`, que no distingue | la de los suplidos |
+| `BT-ES-15` | la minoración en nombre de un tercero | de ninguno; las subvenciones no lo son | la de los huecos |
+| `BT-ES-16` y `BT-ES-17` | la línea de la retención y su suma | `TotalTaxesWithheld` | la de las retenciones |
+| `BG-ES-4` (`BT-ES-18` a `BT-ES-20`) | cada retención | `TaxesWithheld` | nueva, «en la extensión española» |
+| `BT-ES-21` | el concepto de la retención, de la L5 | de ninguno: Facturae dice qué impuesto se retiene, no por qué | nueva, «lo pone quien copia» |
+| `BT-ES-23` | la situación del inmueble, de la L6 | de ninguno | la de los huecos |
+| `BT-ES-24` | el calificador de la clave de régimen: IVA, IGIC o IPSI | `TaxTypeCode` de la línea: 01, 03 y 02 | la de la categoría de la línea |
+| `BT-ES-25` y `BT-ES-26` | la dirección del QR y el número de la autorización | de ninguno | la del QR y la autorización |
+| `BT-ES-27` | el tipo de rectificativa, de la L2.A | `ReasonCode`, en parte | nueva, «de otra lista» |
+| `BT-ES-28` | la modalidad, de la L2.B | `CorrectionMethod`, el 01 y el 02 | nueva, «de otra lista» |
+| `BT-ES-29` | los importes rectificados, de la L2.C | de ninguno | nueva, «lo pone quien copia» |
+
+Quedan 107 filas que nombran los 33 españoles y 104 de los 116 europeos; los
+doce que no nombran son los grupos. Los cepos cuentan desde hoy con
+`B[TG]-(?:ES-)?\d+`, y el de los destinos mira también las filas de «la
+extensión española».
+
+Medido antes de escribirlo, sobre los ficheros Facturae de terceros que hay
+aquí y solo en recuentos: ninguno trae tercero, rectificativa, anticipos ni
+subvenciones; seis retienen, y los seis lo escriben en las líneas y en el
+documento, con el código 04 dos veces, el 05 tres y el 03 (el IGIC) una; dos
+traen suplidos y dos importes retenidos; ninguno, un impuesto que no sea el
+01 o el 02; y todos son `OO`.
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- **`BT-ES-1` tiene fila aunque sea siempre lo mismo.** La trampa es
+  `InvoiceClass`, que distingue el original de la copia de la factura: quien
+  copie campo a campo escribirá «false» para un `OO`.
+- **El tercero, «cortado de otra manera» y no «llega igual».** Lleva el NIF y
+  el nombre, y a los dos les pasa lo mismo que en las partes.
+- **Las subvenciones no son una minoración.** La orden tiene un grupo que
+  resta del total a pagar, y es el sitio donde un conversor las metería;
+  minora lo que se cobró en nombre de otro, y eso la factura no lo dice. La
+  fila de las subvenciones sigue en «no tiene sitio» y dice por qué.
+- **`BT-149` y `BT-154` pasan a la fila de los huecos.** Por la mañana se
+  dejaron sin fila, con la prueba apartándolos en una lista; con los huecos
+  españoles en la misma fila, el cepo se queda sin excepciones. Lo que se
+  decidió entonces (dejarlos vacíos) no cambia.
+- **Del motivo de la rectificativa se traduce solo lo que el código dice.**
+  El 82, el 83 y el 84 son el artículo 80, apartados uno y dos (R1), y el 85
+  el concurso del 80.3 (R2). Del 01 al 16, el 80 y el 81 dicen qué dato o
+  qué cálculo estaba mal y no por qué, que es lo que separa el R1 del R4.
+- **Los importes retenidos siguen en «no se sabe»**, ahora apuntando a
+  `BG-ES-4`: su lista de conceptos acaba en «Otros», y no dice si eso abarca
+  lo que no es una retención fiscal.
+
+**Provocado.** Contra la tabla de `aa50e90`, en rojo nueve de las diez
+pruebas; la de los destinos sigue en verde, y es lo esperado: aquella tabla
+no nombraba ningún campo español con número, así que no había nada mal que
+cazar. Por eso se rompió aparte: una fila de la extensión española que nombra
+un `BT-ES-99`, en rojo. Y quince roturas más, en memoria: sin la fila del
+tercero; sin la del indicador de copia; `BT-149` fuera de los huecos; el
+calificador fuera de la categoría de la línea; esa fila sin «IPSI»; el
+impuesto que no es IVA sin decir que se cuenta dos veces; los anticipos otra
+vez «llega igual»; el motivo de la rectificativa sin el R3; el método que
+traduce el 02 por una D; las subvenciones sin decir por qué no son «MINO»; el
+tercero confundido con el destinatario; y tres listas del anexo movidas (la
+L5 con un supuesto más del IRPF, la L2.A con un R5 y la L3C con otro
+calificador). Todas en rojo, y las diez en verde sin romper nada.
+
+**Lo que se vio de paso, y se arregló aquí.** Dos frases de la tabla que ya
+no eran verdad. La del tipo de factura decía que las 14 de aquí son 380, y
+una la expide el destinatario (`RE`): es una 389. Y la del nombre comercial
+contaba `BT-30` y `BT-47` entre los identificadores que el anexo no recoge,
+cuando la orden los recoge para el NIF desde el 05-10-2026; la comprobación
+de los destinos no lo veía porque los nombraba en el porqué y no en el
+destino. La base de «las 14» sigue sin rehacer en las filas viejas.

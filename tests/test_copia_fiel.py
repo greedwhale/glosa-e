@@ -927,22 +927,30 @@ def test_una_persona_juridica_no_saca_esa_nota():
     assert "COPIA-NOMBRE" not in notas()
 
 
+# Un término del anexo, europeo o español: BT-31, BG-34, BT-ES-22, BG-ES-4.
+# Hasta el 13-10-2026 era `B[TG]-\d+`, y los españoles no se contaban.
+_TERMINO = r"B[TG]-(?:ES-)?\d+"
+
+
 def test_el_destino_de_cada_fila_existe_en_el_anexo():
     """El cepo de verdad de esta tabla: los BT- se comparan con el anexo.
 
     `cius_es.CAMPOS` es la lista de contenido mínimo del anexo I, y de ahí
     salen los destinos. Si una fila dice que algo llega a un término que el
     anexo no recoge, o si una fila dice «el anexo no lo pide» de un término
-    que sí recoge, es que la tabla ya no describe el anexo que hay.
+    que sí recoge, es que la tabla ya no describe el anexo que hay. Desde el
+    13-10-2026 se miran también los campos españoles (`BT-ES-`, `BG-ES-`) y
+    las filas de «la extensión española», que hasta entonces no nombraban
+    ninguno con número.
     """
     from validador import cius_es
 
     del_anexo = {campo.id for campo in cius_es.CAMPOS}
     for fila in copia_fiel.CORRESPONDENCIAS:
-        nombrados = re.findall(r"B[TG]-\d+", fila.destino)
+        nombrados = re.findall(_TERMINO, fila.destino)
         if fila.efecto in (copia_fiel.IGUAL, copia_fiel.CAMBIA,
                            copia_fiel.OTRO_CORTE, copia_fiel.OTRA_LISTA,
-                           copia_fiel.SE_INVENTA):
+                           copia_fiel.SE_INVENTA, copia_fiel.APARTE):
             assert nombrados, fila.concepto
             for uno in nombrados:
                 assert uno in del_anexo, f"{fila.concepto}: {uno}"
@@ -972,11 +980,6 @@ def test_el_anexo_sigue_teniendo_los_terminos_que_dice_la_cabecera():
     )
 
 
-# Lo que la tabla deja sin nombrar a propósito, además de los grupos, que son
-# contenedores: dos campos opcionales que Facturae no tiene.
-_VACIOS_A_PROPOSITO = {"BT-149", "BT-154"}
-
-
 def test_ningun_termino_del_anexo_se_queda_sin_mirar():
     """El cepo que faltaba: el término que ninguna fila nombra.
 
@@ -984,23 +987,23 @@ def test_ningun_termino_del_anexo_se_queda_sin_mirar():
     lo que ninguna nombra. Así pasaron del 11 al 13-10-2026 siete términos de
     la orden sin que saltara nada: el NIF (BT-30, BT-31 y BT-47), la unidad de
     medida (BT-130), la base del impuesto de la línea (BT-142), la cantidad del
-    precio (BT-149) y el tipo de cambio (BT-167). Y los que se dejan vacíos a
-    propósito tienen que decir por qué en alguna fila.
+    precio (BT-149) y el tipo de cambio (BT-167). Y los 33 campos españoles,
+    que este cepo no miraba hasta que tuvieron fila, el mismo día.
+
+    Sin excepciones: lo único que puede quedarse sin nombrar es un grupo
+    europeo, que es un contenedor. Lo que se deja vacío a propósito se nombra
+    en la fila de los huecos, que dice por qué; hasta el 13-10-2026 `BT-149` y
+    `BT-154` se apartaban aquí, en una lista de la prueba.
     """
     from validador import cius_es
 
     nombrados = set()
     for fila in copia_fiel.CORRESPONDENCIAS:
-        nombrados |= set(re.findall(r"B[TG]-\d+", fila.destino))
+        nombrados |= set(re.findall(_TERMINO, fila.destino))
     sueltos = {campo.id for campo in cius_es.CAMPOS
-               if not campo.espanol and not campo.grupo
-               and campo.id not in nombrados}
-    assert sueltos == _VACIOS_A_PROPOSITO, (
-        f"sin fila: {sorted(sueltos - _VACIOS_A_PROPOSITO)}; nombrados aunque "
-        f"se dicen vacíos: {sorted(_VACIOS_A_PROPOSITO - sueltos)}"
-    )
-    for vacio in _VACIOS_A_PROPOSITO:
-        assert any(vacio in fila.porque for fila in copia_fiel.CORRESPONDENCIAS), vacio
+               if campo.id not in nombrados
+               and not (campo.grupo and not campo.espanol)}
+    assert not sueltos, f"sin fila: {sorted(sueltos)}"
 
 
 def test_lo_que_las_reglas_miran_tiene_que_estar_en_la_tabla(monkeypatch):
@@ -1091,7 +1094,13 @@ def test_la_tabla_sabe_donde_van_los_suplidos_y_las_retenciones():
 
 
 def _nombrados(fila: copia_fiel.Correspondencia) -> set[str]:
-    return set(re.findall(r"B[TG]-\d+", fila.destino))
+    return set(re.findall(_TERMINO, fila.destino))
+
+
+def _concepto(nombre: str) -> copia_fiel.Correspondencia:
+    """Para las filas que no se distinguen por el elemento de Facturae."""
+    (fila,) = [f for f in copia_fiel.CORRESPONDENCIAS if f.concepto == nombre]
+    return fila
 
 
 def test_el_nif_va_donde_lo_pone_la_orden():
@@ -1114,24 +1123,141 @@ def test_la_unidad_de_medida_es_bt_130_en_la_fila_y_en_la_nota():
     assert "BT-130" in unidad.mensaje
 
 
-def test_un_impuesto_de_la_linea_que_no_es_iva_va_como_cargo():
-    """Con su base en BT-142, que es para lo que la orden la recoge.
+def test_un_impuesto_que_no_es_iva_va_como_cargo_y_en_un_solo_sitio():
+    """En la línea, con su base en BT-142, o en el documento, con BG-ES-2.
 
     El código no se copia: Facturae tiene un solo 07 para los impuestos
     especiales y la L9 uno por impuesto. Lo que la fila dice de la L9 se mira
-    contra la lista del anexo, no contra la memoria.
+    contra la lista del anexo, no contra la memoria. Provocado: hasta el
+    13-10-2026 la fila solo daba la línea.
     """
     from validador import cius_es
 
     impuesto = _fila("TaxesOutputs")
-    assert _nombrados(impuesto) == {"BG-28", "BT-141", "BT-142", "BT-143"}
+    assert _nombrados(impuesto) == {
+        "BG-28", "BT-141", "BT-142", "BT-143", "BT-ES-22",
+        "BG-21", "BT-99", "BG-ES-2", "BT-ES-6", "BT-ES-7", "BT-ES-8", "BT-ES-9",
+    }
     assert impuesto.efecto == copia_fiel.OTRA_LISTA
-    assert "BT-ES-22" in impuesto.porque and "07" in impuesto.porque
+    assert "07" in impuesto.porque
+    # Las dos maneras suman a la base: las dos a la vez, la cuentan dos veces.
+    assert "BT-109" in impuesto.porque and "dos veces" in impuesto.porque
     l9 = cius_es.LISTAS["L9"].valores
     especiales = [c for c, d in l9.items() if d.startswith("Impuesto especial")]
     assert len(especiales) > 1, especiales
     # Y el cargo de Facturae, que no es un impuesto, va con «RESTO».
     assert "RESTO" in l9 and "RESTO" in _fila("Charges").porque
+
+
+def test_los_anticipos_no_van_enteros_a_bt_113():
+    """La orden aparta los que devengaron el IVA, y la fecha va en BT-ES-2.
+
+    Provocado: hasta el 13-10-2026 la fila decía «llega igual» a BT-113. Lo
+    que se cita de la orden se mira en el anexo, no en la memoria.
+    """
+    from validador import cius_es
+
+    anticipos = _fila("TotalPaymentsOnAccount")
+    assert _nombrados(anticipos) == {"BT-113", "BT-ES-2"}
+    assert anticipos.efecto == copia_fiel.OTRO_CORTE
+    assert "75.Dos" in anticipos.porque
+    (pagado,) = [c for c in cius_es.CAMPOS if c.id == "BT-113"]
+    assert "75.Dos" in pagado.descripcion
+    (fecha,) = [c for c in cius_es.CAMPOS if c.id == "BT-ES-2"]
+    assert "con anterioridad a la fecha de expedición" in fecha.descripcion
+
+
+def test_las_retenciones_van_en_el_grupo_de_la_orden():
+    """El total en BG-34 y en BT-ES-17, cada una en BG-ES-4 y el concepto aparte.
+
+    El concepto no se copia: Facturae dice qué impuesto se retiene y la L5 por
+    qué. Lo que la fila cuenta de la L5 se cuenta en la lista del anexo.
+    """
+    from validador import cius_es
+
+    total = _fila("TotalTaxesWithheld")
+    assert _nombrados(total) == {"BG-34", "BT-ES-16", "BT-179", "BT-180", "BT-ES-17"}
+    cada = _fila("TaxesWithheld")
+    assert _nombrados(cada) == {"BG-ES-4", "BT-ES-18", "BT-ES-19", "BT-ES-20"}
+    concepto = _concepto("concepto de la retención")
+    assert concepto.destino == "BT-ES-21"
+    assert concepto.efecto == copia_fiel.SE_INVENTA
+    l5 = cius_es.LISTAS["L5"].valores
+    cuantos = {7: "siete", 3: "tres"}
+    irpf = sum(1 for d in l5.values() if "RIRPF" in d)
+    sociedades = sum(1 for d in l5.values() if "RIS " in d)
+    assert f"{cuantos.get(irpf, irpf)} supuestos del reglamento del IRPF" in concepto.porque
+    assert f"{cuantos.get(sociedades, sociedades)} del de Sociedades" in concepto.porque
+    assert l5["11"].startswith("Otros") and "11, «Otros»" in concepto.porque
+    assert irpf + sociedades + 1 == len(l5)
+
+
+def test_la_copia_fiel_dice_siempre_que_es_copia():
+    """BT-ES-1 no sale de InvoiceClass, que tiene su propia copia."""
+    copia = _concepto("original o copia")
+    assert copia.destino == "BT-ES-1"
+    assert copia.efecto == copia_fiel.SE_INVENTA
+    assert "4.3" in copia.porque and "«true»" in copia.porque
+    assert "InvoiceClass" in copia.porque and "`CO`" in copia.porque
+
+
+def test_el_tercero_que_expide_no_es_el_destinatario():
+    """BG-ES-1 es el TE de Facturae; el RE es el comprador, y va en BT-3."""
+    from validador import cius_es
+
+    tercero = _fila("ThirdParty")
+    assert _nombrados(tercero) == {"BG-ES-1", "BT-ES-3", "BT-ES-4", "BT-ES-5"}
+    assert "«FacturaciónPorTercero»" in tercero.porque
+    (tipologia,) = [c for c in cius_es.CAMPOS if c.id == "BT-ES-5"]
+    assert "«FacturaciónPorTercero»" in tipologia.descripcion
+    assert "`TE`" in tercero.porque and "`RE`" in tercero.porque
+    assert "389" in tercero.porque
+
+
+def test_la_rectificativa_dice_su_tipo_su_modalidad_y_sus_importes():
+    """Tres usos de BG-24, y los códigos de Facturae no son los de la orden.
+
+    Lo que las filas traducen se comprueba contra las listas del anexo: un R5
+    o una modalidad que la L2.B no tenga dejarían la suite en rojo.
+    """
+    from validador import cius_es
+
+    motivo = _fila("ReasonCode")
+    assert _nombrados(motivo) == {"BG-24", "BT-ES-27"}
+    assert motivo.efecto == copia_fiel.OTRA_LISTA
+    l2a = cius_es.LISTAS["L2.A"].valores
+    assert set(re.findall(r"\bR\d\b", motivo.porque)) == set(l2a)
+    assert "80.3" in l2a["R2"] and "concurso del 80.3" in motivo.porque
+    metodo = _fila("CorrectionMethod")
+    assert _nombrados(metodo) == {"BG-24", "BT-ES-28"}
+    assert set(cius_es.LISTAS["L2.B"].valores) == {"I", "S"}
+    assert "la S de sustitución" in metodo.porque and "es la I" in metodo.porque
+    importes = _concepto("importes rectificados")
+    assert _nombrados(importes) == {"BG-24", "BT-123", "BT-ES-29"}
+    assert importes.efecto == copia_fiel.SE_INVENTA
+    assert len(cius_es.LISTAS["L2.C"].valores) == 3
+
+
+def test_el_calificador_de_la_clave_sale_del_codigo_del_impuesto():
+    """BT-ES-24 dice IVA, IGIC o IPSI, y eso Facturae sí lo tiene."""
+    from validador import cius_es
+
+    categoria = _concepto("categoría de IVA de la línea")
+    assert _nombrados(categoria) == {"BT-151", "BT-ES-24"}
+    for lista in ("L3A", "L3B", "L3C"):
+        calificador = cius_es.LISTAS[lista].calificador
+        assert f"«{calificador}»" in categoria.porque, calificador
+
+
+def test_lo_que_no_sale_de_ninguna_parte_va_a_la_fila_de_los_huecos():
+    """La minoración, la situación del inmueble y los dos vacíos europeos.
+
+    Y la de las subvenciones dice por qué no son una minoración: es el sitio
+    donde un conversor las metería.
+    """
+    huecos = _concepto("los huecos que el anexo deja abiertos")
+    assert {"BT-149", "BT-154", "BT-ES-15", "BT-ES-23"} <= _nombrados(huecos)
+    assert "MINO" in _fila("Subsidies").porque
 
 
 def test_el_tipo_de_cambio_tiene_fila_y_espera_a_la_especificacion():

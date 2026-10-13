@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3289 tests, todos en verde.
+3296 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4928,14 +4928,16 @@ unidad de su línea, su medio de pago y su moneda del IVA— y sigue saliendo
 conforme, porque ninguna es un error.
 
 **La tabla se escribe entera, con el porqué de cada fila**, en
-`CORRESPONDENCIAS`: **100 conceptos** que nombran **102 de los 116 términos
-europeos** de la orden, cada uno con lo que le pasa y de dónde sale esa
-decisión. Hasta el 11-10-2026, con el anexo de abril, eran 97 que nombraban 92
-de 104; ese día, 98 que nombraban 96 de 116. Los 14 que quedan sin nombrar no
-son un hueco: doce son **los grupos**, contenedores (`BG-4` a `BG-9`, `BG-22`,
-`BG-25`, `BG-29` a `BG-31` y `BG-33`), y dos son campos opcionales que
-Facturae no tiene y se dejan vacíos a propósito: `BT-154`, la descripción del
-artículo, y `BT-149`, la cantidad a la que se aplica el precio.
+`CORRESPONDENCIAS`: **107 conceptos** que nombran **los 33 campos españoles y
+104 de los 116 términos europeos** de la orden, cada uno con lo que le pasa y
+de dónde sale esa decisión. Hasta el 11-10-2026, con el anexo de abril, eran
+97 que nombraban 92 de 104 europeos; ese día, 98 que nombraban 96 de 116; y el
+13-10-2026, antes de mirar los españoles, 100 que nombraban 102. Los 12
+europeos que quedan sin nombrar no son un hueco: son **los grupos**,
+contenedores (`BG-4` a `BG-9`, `BG-22`, `BG-25`, `BG-29` a `BG-31` y `BG-33`).
+Lo que se deja vacío a propósito sí tiene fila, la de los huecos: `BT-154`, la
+descripción del artículo, `BT-149`, la cantidad a la que se aplica el precio,
+y siete campos más que Facturae no tiene.
 
 Los siete términos que la orden trae y el borrador no se miraron el
 13-10-2026. El NIF va como NIF-IVA (`BT-31`), con el prefijo ES que Facturae
@@ -4946,8 +4948,34 @@ La base de un impuesto de la línea que no es IVA es `BT-142`: en la copia ese
 impuesto va como cargo de la línea, con un código de la L9 que Facturae no
 tiene (su 07 vale para todos los impuestos especiales). Y el tipo de cambio es
 `BT-167`, que se queda en «no se sabe»: en qué elemento va y en qué sentido se
-lee lo dice `UNE-CEN/TS 16931-3-2:2026`, que aquí no está. Los estados son
-nueve, y los cuatro que fueron añadiéndose
+lee lo dice `UNE-CEN/TS 16931-3-2:2026`, que aquí no está.
+
+Los 33 campos españoles (`BT-ES-` y `BG-ES-`) se miraron el mismo día. Casi
+todos tienen origen en la factura, y muy pocos llegan tal cual:
+
+- **las retenciones** van en su grupo, pero el concepto de cada una
+  (`BT-ES-21`, de la L5: siete supuestos del reglamento del IRPF, tres del de
+  Sociedades y «Otros») no está en Facturae, que dice qué impuesto se retiene
+  y no por qué;
+- **un impuesto que no es IVA** va como cargo, en la línea o en el documento y
+  nunca en los dos sitios, porque los dos suman a la base;
+- **los anticipos** no van enteros a `BT-113`: la orden aparta los que
+  devengaron el IVA, y la fecha de pago (`BT-ES-2`) es una sola, y solo si la
+  factura quedó pagada;
+- **la rectificativa**: el motivo de Facturae dice qué dato estaba mal, y la
+  L2.A al amparo de qué artículo. Se traducen el 82, el 83 y el 84 (R1) y el
+  85 (R2); el R3, los créditos incobrables, no tiene código en Facturae;
+- **el indicador de copia** (`BT-ES-1`) es siempre «true» en una copia fiel, y
+  no sale de `InvoiceClass`, que tiene su propia «copia» y habla de otra cosa.
+
+Dos no salen de ninguna parte, la minoración en nombre de un tercero y la
+situación del inmueble, y van a la fila de los huecos. Al mirarlos salieron
+dos frases de la tabla que ya no eran verdad: la del tipo de factura contaba
+las 14 de aquí como 380, y una la expide el destinatario (389); y la del
+nombre comercial daba `BT-30` y `BT-47` por no recogidos, cuando la orden los
+recoge para el NIF.
+
+Los estados son nueve, y los cuatro que fueron añadiéndose
 familia a familia son los que no se pueden juntar con ningún otro sin borrar
 justo lo que hay que decidir:
 
@@ -4972,14 +5000,16 @@ tenerla:
 
 - si alguien quita una fila de la tabla y deja la regla que la usa, **el
   paquete no se monta** (`TablaIncompleta`);
-- y los `BT-` que cada fila nombra **se comparan con el anexo**, con los 116
-  términos europeos de `cius_es.CAMPOS`: una fila que diga que algo llega a un
-  término que el anexo no recoge, o que diga «el anexo no lo pide» de uno que
-  sí recoge, deja la suite en rojo. Provocado por los dos lados;
-- y ningún término del anexo se queda sin fila, salvo los grupos y los dos
-  que se dejan vacíos a propósito: uno que ninguna fila nombre, o uno de esos
-  dos que alguna empiece a nombrar, deja la suite en rojo. Provocado por los
-  dos lados.
+- y los términos que cada fila nombra **se comparan con el anexo**, con los
+  116 europeos y los 33 españoles de `cius_es.CAMPOS`: una fila que diga que
+  algo llega a un término que el anexo no recoge, o que diga «el anexo no lo
+  pide» de uno que sí recoge, deja la suite en rojo. Provocado por los dos
+  lados;
+- y ningún término del anexo se queda sin fila, europeo o español, salvo los
+  grupos europeos: uno que ninguna fila nombre deja la suite en rojo. Hasta el
+  13-10-2026 apartaba además los dos campos que se dejan vacíos; desde
+  entonces tienen fila, la de los huecos, y el cepo no tiene excepciones.
+  Provocado.
 
 El segundo cepo saltó como se esperaba el 11-10-2026, al salir `cius_es` del
 XML del BOE, en dos filas que decían «el anexo no lo pide» de términos que la
@@ -4989,10 +5019,11 @@ que ese cepo no veía eran los términos nuevos que ninguna fila nombra: así
 pasaron dos días los siete de arriba sin que nada saltara. Para eso es el
 tercero, del 13-10-2026.
 
-Lo que esto **no** es: no convierte nada —aquí no se escribe ninguna copia—, no
-valida la copia, que es otro documento con sus propias reglas `SPFE-`, y no
-adivina dónde se escriben en Facturae los campos españoles del anexo, que con
-la orden han cambiado de número y, algunos, de sitio.
+Lo que esto **no** es: no convierte nada (aquí no se escribe ninguna copia) y
+no valida la copia, que es otro documento con sus propias reglas `SPFE-`. Hasta
+el 13-10-2026 decía también que no adivinaba de dónde salen en Facturae los
+campos españoles del anexo. Ahora la tabla lo dice, con su porqué, y es
+lectura de aquí: la orden los describe en UBL y de Facturae no dice nada.
 
 ## Que a esto se llegue desde fuera
 
