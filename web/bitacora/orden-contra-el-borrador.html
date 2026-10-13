@@ -1,15 +1,15 @@
 <article class="entrada"
   data-fecha="2026-10-13"
-  data-titulo="La orden renumera los campos españoles del anexo, y su mensaje de anulación no se puede escribir válido"
-  data-entradilla="La Orden HAC/1028/2026, en el BOE desde el 5 de octubre, trae el anexo definitivo de la factura electrónica, y cambió mucho más de lo que se anunció en septiembre: los campos españoles pasan de 52 filas a 33, y de sus 33 números solo dos dicen lo mismo que en el borrador de abril. El texto tiene además erratas que se pueden medir: 13 de las 61 rutas de sus anexos no existen en UBL, y entre ellas están todas las del mensaje para anular una factura.">
+  data-titulo="La orden renumera los campos españoles del anexo, y la AEAT confirma sus erratas"
+  data-entradilla="La Orden HAC/1028/2026, en el BOE desde el 5 de octubre, trae el anexo definitivo de la factura electrónica, y cambió mucho más de lo que se anunció en septiembre: los campos españoles pasan de 52 filas a 33, y de sus 33 números solo dos dicen lo mismo que en el borrador de abril. El texto tiene además erratas que se pueden medir: 13 de las 61 rutas de sus anexos no existen en UBL, y entre ellas están todas las del mensaje para anular una factura. La AEAT contestó el 13 de octubre que las corrige.">
 
   <time datetime="2026-10-13">13 de octubre de 2026</time>
-  <h1>La orden renumera los campos españoles del anexo, y su mensaje de
-  anulación no se puede escribir válido</h1>
+  <h1>La orden renumera los campos españoles del anexo, y la AEAT confirma
+  sus erratas</h1>
   <p class="lema">Quien programó para la solución pública con el borrador de
   abril delante tiene que rehacer casi todo lo español, y no puede fiarse del texto
-  publicado al pie de la letra. Esto es lo que cambió, dónde falla la orden y
-  qué mide Glosa-e desde que salió.</p>
+  publicado al pie de la letra. Esto es lo que cambió, dónde falla la orden,
+  qué contestó la AEAT y qué mide Glosa-e desde que salió.</p>
 
   <h2>Lo que se anunció y lo que salió</h2>
 
@@ -113,14 +113,11 @@
   </div>
 
   <p>Las siete de la factura tienen una sola corrección posible, y Glosa-e las
-  lee corregidas. Las del mensaje de anulación, no. Tal como está publicado,
-  ese mensaje no pasa el esquema de UBL. Y escribe el nombre del vendedor
-  dentro de una <code>cac:PartyLegalEntity</code> colgada de
-  <code>cac:PartyTaxScheme</code>, que no la admite: sobra uno de los dos, y el
-  texto no dice cuál. Una anulación escrita al pie de la letra
-  sale en Glosa-e con el error del esquema, que es lo que tiene. Y los datos de
-  la factura anulada se buscan en los sitios donde podrían estar, y la nota
-  de cada anulación lo dice.</p>
+  lee corregidas. Las del mensaje de anulación, no. Tal
+  como está publicado, ese mensaje no pasa el esquema de UBL. Y escribe el
+  nombre del vendedor dentro de una <code>cac:PartyLegalEntity</code> colgada
+  de <code>cac:PartyTaxScheme</code>, que no la admite: sobra uno de los dos,
+  y el texto no dice cuál.</p>
 
   <p>Hay fallos que no son de ruta. La descripción de <code>BT-48</code>, el
   NIF-IVA del comprador, lo llama NIF del vendedor. La fila <code>BT-3</code> habla
@@ -129,14 +126,71 @@
   factura y la de motivos de rechazo. Y el identificador del proceso
   (<code>BT-23</code>) no es el que escribió la propia AEAT en el ejemplo que
   mandó por correo el 2 de octubre: el de la orden lleva <code>ubl:</code> y el del
-  ejemplo no. Glosa-e acepta el de la orden y deja el del ejemplo en una nota,
-  porque los dos vienen de la Agencia.</p>
+  ejemplo no.</p>
 
-  <p>Ocho preguntas, entre ellas las dos de la anulación y la del
-  identificador del proceso, se mandaron al buzón técnico de la AEAT el
-  <b>7 de octubre</b>, con las erratas menores. Al publicar esta entrada no
-  han contestado, y el BOE no ha publicado ninguna corrección de errores.
-  Cuando contesten, se dirá aquí.</p>
+  <h2>Lo que contestó la AEAT</h2>
+
+  <p>Ocho preguntas, con las erratas menores, se mandaron al buzón técnico de
+  la AEAT el <b>7 de octubre</b>. Contestó el <b>13</b>, punto por punto, y
+  dijo que corrige el anexo y que lo publicará en su portal para
+  desarrolladores. Mientras no esté publicado, Glosa-e mide el texto del BOE
+  con lo que contestó por escrito, y donde las dos cosas no casan, lo que
+  dice el BOE sale con un aviso y no con un error. Esto es lo que contestó de
+  lo que toca al anexo:</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Lo que se preguntó el 7 de octubre, y lo que contestó el 13</caption>
+    <thead><tr><th>Se preguntó</th><th>Contestó</th><th>En Glosa-e</th></tr></thead>
+    <tbody>
+      <tr><td>Dónde va la factura anulada en el mensaje de anulación</td><td>Sobra
+      <code>cac:Response</code>: va en <code>cac:DocumentResponse</code>, como
+      en el anexo II</td><td>La anulación escrita al pie de la letra sale con
+      el error del esquema, que es lo que tiene. Los datos de la factura
+      anulada se buscan en los dos sitios, y la nota de cada anulación dice lo
+      que contestó</td></tr>
+      <tr><td>Dónde va el nombre del vendedor en la anulación</td><td>En
+      <code>cac:PartyLegalEntity</code>, como en el anexo II</td><td>Si va
+      donde lo escribe la orden, se encuentra y sale un aviso</td></tr>
+      <tr><td>Qué esquema de impuesto lleva el NIF de los mensajes, que ninguna
+      fila da, y si va con ES</td><td><code>cac:TaxScheme</code> puede ir
+      vacío, y el NIF va sin ES</td><td>Con ES también se acepta, porque del
+      código único contestó que, si viene, se trata igual</td></tr>
+      <tr><td>Qué identificador del proceso vale (<code>BT-23</code>)</td><td>El
+      del ejemplo, sin <code>ubl:</code>, como el resto de campos</td><td>El del
+      ejemplo pasa limpio, y el de la orden sale con un aviso. Hasta el 13, el
+      de la orden pasaba limpio y el del ejemplo salía en una nota</td></tr>
+      <tr><td>Si el calificador de las listas <code>L7</code>, <code>L8</code>
+      y <code>L10</code> va delante del valor, porque las filas dan solo el
+      valor</td><td>Sí: el calificador seguido del valor, como en su
+      ejemplo</td><td>Un valor sin su calificador sale con un aviso, que es
+      una regla nueva, <code>SPFE-CALIFICADOR</code>, y se sigue leyendo para
+      medir lo demás</td></tr>
+      <tr><td>Cómo se forma el código único, que la orden remite a un anexo que
+      no lo dice</td><td>Son los tres datos por separado: el NIF sin ES, la
+      serie seguida del número sin separador y la fecha en
+      AAAA-MM-DD</td><td>Nada: ya se comparaban así</td></tr>
+      <tr><td>Qué cuota lleva <code>BT-ES-8</code> cuando un cargo tiene dos
+      impuestos, que la sintaxis no admite</td><td>Lo están estudiando, y
+      piden el caso concreto</td><td>Sigue saliendo una nota</td></tr>
+      <tr><td>Las siete rutas de la factura que tienen una sola
+      corrección</td><td>Corregidas</td><td>Nada: ya se leían así</td></tr>
+      <tr><td>Los grupos de importes rectificados: cinco en la tabla y hasta
+      tres en <code>BT-3</code></td><td>Corregido a <code>0..1</code>. El
+      ejemplo que mandó ese día lleva tres, uno por cada importe de la lista
+      <code>L2.C</code> (base, cuota y cuota del recargo)</td><td>Se lee como
+      uno por cada importe, que es la lectura en la que casan la fila, la
+      respuesta y el ejemplo: un importe repetido sale con un aviso</td></tr>
+      <tr><td>La descripción de <code>BT-48</code>, que llama al comprador
+      vendedor</td><td>Corregida</td><td>El NIF-IVA del comprador sin el
+      prefijo de España salía con un aviso, porque no se sabía si la fila era
+      suya. Ahora sale con un error, como el del vendedor</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>De la cuota de <code>BT-ES-8</code> se les mandará el caso que piden, y
+  lo que contesten se dirá aquí.</p>
 
   <h2>Lo que mide Glosa-e desde que salió</h2>
 
@@ -146,11 +200,11 @@
   indicador de copia, el NIF, lo pagado por adelantado, las líneas de cobro y
   las retenciones), y la categoría <code>N</code>, nueva, la tumbaba además la
   capa europea. Se corrigió al día siguiente. Desde el 11 de octubre, lo que
-  se mide sale de las tablas del XML del BOE y no del PDF del borrador.
-  Hoy son tres cosas:</p>
+  se mide sale de las tablas del XML del BOE y no del PDF del borrador, y
+  desde el 13, con lo que contestó la AEAT. Hoy son tres cosas:</p>
 
   <ul>
-    <li><b>La factura de la solución pública</b>, contra el anexo I: 29
+    <li><b>La factura de la solución pública</b>, contra el anexo I: 30
     reglas propias, las <code>SPFE-</code>, además de las de la norma
     europea.</li>
     <li><b>Los mensajes de anulación y de estado</b>: los nueve, con 6 reglas
@@ -163,16 +217,18 @@
   </ul>
 
   <p>Y lo que no mide se dice en cada informe. La orden deja a la Sede
-  electrónica de la AEAT las especificaciones técnicas, la volumetría, los
-  servicios web y el formato del código único, y eso aquí no se mide. Y hay
-  tres campos que son términos de la edición de 2026 de la norma europea: el
-  importe y la descripción de las líneas de cobro (<code>BT-179</code> y
-  <code>BT-180</code>), que es donde van los suplidos, los otros impuestos,
-  las minoraciones y las retenciones, y el código del motivo de exención de
-  la línea (<code>BT-195</code>). La orden no les da ruta: remite a la
-  vinculación UBL de esa edición, la UNE-CEN/TS 16931-3-2:2026, que aquí no
-  se ha podido leer. Que el informe no saque ninguna
-  queja no quiere decir que la factura cumpla la orden, y lo dice la nota
+  electrónica de la AEAT las especificaciones técnicas, la volumetría y los
+  servicios web, y eso aquí no se mide. Del código único, la AEAT contestó
+  cómo se forma, pero no cuánto puede medir la serie y número: aquí se toma
+  el tope de VeriFactu, 60 caracteres. Y hay tres campos que son términos de
+  la edición de 2026 de la norma europea: el importe y la descripción de las
+  líneas de cobro (<code>BT-179</code> y <code>BT-180</code>), que es donde
+  van los suplidos, los otros impuestos, las minoraciones y las retenciones,
+  y el código del motivo de exención de la línea (<code>BT-195</code>). La
+  orden no les da ruta: remite a la vinculación UBL de esa edición, la
+  UNE-CEN/TS 16931-3-2:2026, que aquí no se ha podido leer. Que el informe no
+  saque ninguna queja no quiere decir que la factura cumpla la orden, y lo
+  dice la nota
   <a href="./codigo-SPFE-ALCANCE.html"><code>SPFE-ALCANCE</code></a> en cada
   factura de la solución pública.</p>
 
@@ -197,8 +253,9 @@
       de OASIS: los esquemas de <code>Invoice</code> y de
       <code>ApplicationResponse</code> por los que se recorrieron las
       rutas.</li>
-      <li>El ejemplo de la AEAT del 02-10-2026 y la consulta al buzón técnico
-      del 07-10-2026 son correo, y no tienen dirección pública.</li>
+      <li>El ejemplo de la AEAT del 02-10-2026, la consulta al buzón técnico
+      del 07-10-2026 y sus respuestas del 13-10-2026 son correo, y no tienen
+      dirección pública.</li>
     </ul>
     <p class="metodo"><b>Cómo se midió.</b> El 6 de octubre de 2026 se leyeron
     las tablas de los dos anexos del XML del BOE y se compararon fila a fila
@@ -207,7 +264,9 @@
     el mismo resultado. Ese mismo día se compararon los 33 números españoles
     de la orden con los de abril, uno por uno. Las seis reglas que daban por
     mala una factura buena se midieron cambiando una sola cosa cada vez en
-    una factura escrita aquí. Ninguna factura de terceros.</p>
+    una factura escrita aquí, y cada regla que cambió con las respuestas del
+    13 de octubre se rompió a propósito para ver que las pruebas lo detectan.
+    Ninguna factura de terceros.</p>
   </footer>
 
 </article>
