@@ -198,16 +198,29 @@ en dos filas: el periodo de facturación, que la orden recoge como el de la
 factura recapitulativa, y el porcentaje del cargo, que la orden recoge en la
 línea (`BT-143`, junto con su base, `BT-142`, para los impuestos y tasas de
 cada línea) y no en el documento (`BT-101`). Esa fila se partió en dos, y la
-tabla tiene desde entonces 98, que nombran 96 de los 116 términos europeos.
-Sin nombrar quedan los doce grupos (los once de antes y `BG-33`), `BT-154` y
-siete términos que la orden trae y el borrador no: `BT-30`, `BT-31`, `BT-47`,
-`BT-130`, `BT-142`, `BT-149` y `BT-167`. Esos, y las demás filas, se vuelven
-a mirar contra la orden en su propia tanda.
+tabla tuvo desde entonces 98, que nombraban 96 de los 116 términos europeos.
+Sin nombrar quedaban los doce grupos (los once de antes y `BG-33`), `BT-154` y
+siete términos que la orden trae y el borrador no.
 
-Y esperan **los campos españoles del anexo**, **el lote** y las dos filas
-que están en `POR_DECIDIR`; eran tres hasta el 07-10-2026, y la de los
-suplidos salió al leer la orden. **Los centros administrativos** ya no
-esperan nada: el anexo de la orden no los recoge.
+Los siete se miraron el 13-10-2026, contra el esquema de Facturae y el texto
+de la orden. Seis tienen origen en la factura: el NIF va como NIF-IVA
+(`BT-31`) o como NIF, y entonces el del vendedor dos veces (`BT-32` y
+`BT-30`), y el del comprador en `BT-48` o en `BT-47`; la unidad de medida es
+`BT-130`; la base de un impuesto de la línea que no es IVA es `BT-142`; y el
+tipo de cambio es `BT-167`, que se queda en «no se sabe» porque cómo se
+escribe lo dice una especificación de 2026 que aquí no está. El séptimo,
+`BT-149`, la cantidad a la que se aplica el precio, no tiene origen y es
+opcional: se queda vacío, como `BT-154`. La tabla tiene desde entonces **100
+filas, que nombran 102 de los 116 términos**, y los catorce que no nombra son
+los doce grupos y esos dos. Lo fija
+`test_ningun_termino_del_anexo_se_queda_sin_mirar`: si el anexo trae un
+término que ninguna fila nombra, la suite se pone en rojo.
+
+Y esperan **los campos españoles del anexo**, **el lote** y las tres filas
+que están en `POR_DECIDIR`. Eran tres hasta el 07-10-2026, cuando la de los
+suplidos salió al leer la orden, y el 13-10-2026 entró la del tipo de cambio.
+**Los centros administrativos** ya no esperan nada: el anexo de la orden no
+los recoge.
 
 **No todas las filas sacan una nota**, y es a propósito: lo que llega igual no
 se dice. Un informe que celebre cada campo que sí viaja no lo lee nadie. Sale
@@ -528,12 +541,11 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "mismo dato y obligatorio en los dos esquemas",
     ),
     Correspondencia(
-        "unidad de medida", "UnitOfMeasure",
-        "BT-129 (el atributo de la cantidad)", OTRA_LISTA,
-        "dos cosas a la vez, y las dos hay que hacerlas. En la copia va en un "
-        "atributo de la cantidad -el borrador de abril, contra el que se mide "
-        "la tabla, no tiene BT-130 y la mete en BT-129; la orden sí lo "
-        "recoge, y en UBL es ese mismo atributo-, y el código **no es el "
+        "unidad de medida", "UnitOfMeasure", "BT-130", OTRA_LISTA,
+        "dos cosas a la vez, y las dos hay que hacerlas. En la copia es "
+        "`BT-130`, que en UBL va en el atributo `unitCode` de la cantidad "
+        "(hasta el 13-10-2026 esta fila decía BT-129, porque el borrador de "
+        "abril no tenía BT-130 y la orden sí), y el código **no es el "
         "mismo vocabulario**: "
         "Facturae tiene su lista de 36 valores de dos dígitos y la norma pide "
         "UN/ECE, recomendaciones 20 y 21. Medido el 21-09-2026 sobre el propio "
@@ -542,11 +554,21 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "delante -son códigos de embalaje, de la 21-, 1 solo cuadra en "
         "mayúsculas (`KWh`) y **6 no lo llevan en absoluto**. Entre esos seis "
         "está `01`, «Units», que es justo el que escriben las 18 líneas "
-        "medidas aquí: en la copia es `C62`, y eso lo decide quien copia",
+        "medidas aquí: en la copia es `C62`, y eso lo decide quien copia. "
+        "Y una tercera cuando falta: `BT-130` es obligatorio y "
+        "`UnitOfMeasure` no, así que una línea sin unidad no se copia sin que "
+        "quien copia le ponga una. Eso ya lo dice `BR-23` de la propia "
+        "factura, y por eso no hay nota aquí. Medido: 3 de las facturas de "
+        "aquí traen alguna línea sin unidad",
     ),
     Correspondencia(
         "precio unitario", "UnitPriceWithoutTax", "BT-146", IGUAL,
-        "el precio neto del artículo, sin impuestos, en los dos sitios",
+        "el precio neto del artículo, sin impuestos, en los dos sitios, y el "
+        "de una unidad: «precio de la unidad de bien o servicio», dice el "
+        "esquema de Facturae. La orden recoge además `BT-149`, el número de "
+        "unidades a las que se aplica el precio, que es opcional y Facturae "
+        "no tiene, así que se queda vacío, como `BT-154`: un campo opcional "
+        "sin origen",
     ),
     Correspondencia(
         "importe neto de la línea", "GrossAmount", "BT-131", IGUAL,
@@ -658,7 +680,12 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "la orden recoge en la línea el porcentaje del cargo y su base (BT-143 "
         "y BT-142), que el borrador de abril no tenía, para los impuestos y "
         "tasas de cada línea. El porcentaje llega igual. Hasta el 11-10-2026 "
-        "esta fila iba junto con la del documento, «el anexo no lo pide»",
+        "esta fila iba junto con la del documento, «el anexo no lo pide». La "
+        "base no llega: Facturae no la escribe en sus cargos (su esquema dice "
+        "que el porcentaje es «sobre el TIB», y ese importe no va en el "
+        "cargo), así que `BT-142`, que es opcional, se queda vacío. Donde sí "
+        "hay base es en los impuestos de la línea que no son IVA, en su "
+        "propia fila",
     ),
     Correspondencia(
         "motivo del descuento", "DiscountReason",
@@ -683,8 +710,34 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     ),
     Correspondencia(
         "cargos de la línea", "Charges", "BG-28 (BT-141 y BT-144)", IGUAL,
-        "lo mismo que los descuentos de línea, sumando en vez de restar. "
+        "lo mismo que los descuentos de línea, sumando en vez de restar. Con "
+        "una cosa más que poner: la orden hace obligatorio en cada cargo de "
+        "línea `BT-ES-22`, un código de la L9, que es la lista de impuestos y "
+        "tasas, y un cargo de Facturae no es ninguna de las dos cosas. Para "
+        "él la L9 tiene «RESTO», otros cargos, y lo pone quien copia, siempre "
+        "el mismo; sin él, `SPFE-IMPUESTO-O-TASA` acusa la copia. Los cargos "
+        "del documento no lo piden: allí el código va solo con un impuesto. "
         "Medido: 6 de 14",
+    ),
+    Correspondencia(
+        "impuesto de la línea que no es IVA", "TaxesOutputs",
+        "BG-28 (BT-141, BT-142 y BT-143)", OTRA_LISTA,
+        "Facturae escribe en los impuestos repercutidos de cada línea, junto "
+        "al IVA, cualquier otro de su lista (el 05 «otro», el 07 de los "
+        "impuestos especiales y los demás), con su base, su tipo y su cuota. "
+        "En la copia, lo que no es IVA, IGIC ni IPSI no tiene categoría en la "
+        "L4 y va como cargo de la línea, que es para lo que la orden recoge "
+        "la base y el tipo: la cuota en `BT-141`, la base en `BT-142` y el "
+        "tipo en `BT-143`. Lo que no se copia es el código. `BT-ES-22` es "
+        "obligatorio y sale de la L9, que tiene uno por cada impuesto "
+        "especial (hidrocarburos, cerveza, electricidad, carbón...) donde "
+        "Facturae tiene un solo 07 para todos: cuál es no lo dice la factura, "
+        "y lo pone quien copia sabiendo qué impuesto cobró. Tampoco tiene "
+        "Facturae la razón del cargo, `BT-144`, que también es obligatoria. Y "
+        "como cargo suma: el importe neto de la línea (`BT-131`) lo lleva "
+        "dentro, y deja de ser el `GrossAmount` de Facturae. Medido: ninguna "
+        "de las facturas de aquí lo trae; en sus líneas escriben el 01 o el "
+        "02",
     ),
     Correspondencia(
         "suma de las líneas", "TotalGrossAmount", "BT-106", IGUAL,
@@ -1096,6 +1149,20 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "escrito BT-6. Medido: ninguna de las 14 trae tipo de cambio",
     ),
     Correspondencia(
+        "tipo de cambio", "ExchangeRate", "BT-167", POR_DECIDIR,
+        "el dato es el mismo: Facturae lo define como el cambio vendedor del "
+        "Banco de España vigente en el devengo (artículo 79.once de la ley "
+        "del IVA), y la orden pide en `BT-167` el tipo de cambio aplicado "
+        "para contabilizar el IVA cuando la factura no va en euros. Lo que no "
+        "se sabe es cómo se escribe. `BT-167` es de la edición de 2026 de la "
+        "norma, la orden no le da ruta y lo declara «Importe», y en qué "
+        "elemento de UBL va y en qué sentido se lee (euros por unidad de la "
+        "otra moneda, o al revés) lo dice `UNE-CEN/TS 16931-3-2:2026`, que "
+        "aquí no está. La fecha del cambio, `ExchangeRateDate`, no tiene "
+        "término en el anexo. Medido: ninguna de las facturas de aquí trae "
+        "tipo de cambio",
+    ),
+    Correspondencia(
         "descripción de la factura", "InvoiceDescription", "BG-1 (BT-22)",
         OTRO_CORTE,
         "la norma tiene **un grupo repetible** de notas y Facturae reparte lo "
@@ -1169,16 +1236,24 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
     ),
     Correspondencia(
         "NIF", "TaxIdentificationNumber",
-        "BT-32 del vendedor, BT-48 del comprador", IGUAL,
-        "el mismo dato, y el destino está escrito contra el borrador de "
-        "abril, donde el del vendedor va en BT-32 con «VAT» y el del "
-        "comprador en BT-48. La orden lo movió, "
-        "como había anunciado la AEAT el 10-09-2026: el del vendedor va en "
-        "`BT-31`, el NIF-IVA con «VAT», o en `BT-32`, el NIF con «LOC» y "
-        "`@schemeID` «FC»; y el del comprador, en `BT-48` o en `BT-47` de la "
-        "misma manera. `BT-31` y `BT-47` no están en el anexo de abril, así "
-        "que la fila cambia de destino el día que `cius_es.CAMPOS` se "
-        "regenere desde el BOE, y hasta entonces se queda marcada",
+        "BT-31, o BT-32 y BT-30, del vendedor; BT-48 o BT-47 del comprador",
+        OTRO_CORTE,
+        "el mismo número, y la orden le da dos sitios: como NIF-IVA, con "
+        "«VAT» (`BT-31` del vendedor, `BT-48` del comprador), o como NIF, con "
+        "«LOC» y el atributo `@schemeID` «FC» (`BT-32` y `BT-47`). En "
+        "ninguno de los dos va tal cual. Como NIF-IVA lleva delante el "
+        "prefijo ES, que la orden pide y que Facturae solo escribe en las "
+        "operaciones intracomunitarias. Como NIF, el del vendedor va **dos "
+        "veces**: la orden pide además `BT-30`, el identificador de "
+        "inscripción legal, y lo describe como su NIF. `SPFE-NIF` acusa las "
+        "dos cosas en la copia. Ojo a que `BT-47` es un término reutilizado: "
+        "en la norma es el registro legal del comprador, en "
+        "`cac:PartyLegalEntity`, y la orden lo pone en el mismo "
+        "`cac:PartyTaxScheme` que el NIF. Hasta el 13-10-2026 esta fila "
+        "decía «llega igual» a `BT-32` y `BT-48`, que es como lo tenía el "
+        "borrador de abril, solo con «VAT». Medido: ninguna de las facturas "
+        "de aquí escribe el prefijo de país, así que el número copiado tal "
+        "cual en `BT-31` sale con `SPFE-NIF`",
     ),
     Correspondencia(
         "nombre comercial", "TradeName", "BT-28", NO_LO_PIDEN,
@@ -1412,9 +1487,9 @@ def _de_las_lineas(factura, etiqueta: str) -> list[Incidencia]:
                 "20 y 21. Hay que traducirlo, y el propio esquema de Facturae "
                 "solo ayuda a medias: de sus 36 códigos, 13 llevan el europeo "
                 "en la etiqueta, 16 lo llevan pero hay que ponerle una X "
-                "delante, y 6 no lo llevan. En la copia tampoco tiene campo "
-                "propio: va en un atributo de la cantidad.",
-                campo=f"{etiqueta}Unidad de medida (el atributo de BT-129 en la copia)",
+                "delante, y 6 no lo llevan. En la copia es BT-130, que en UBL "
+                "va en un atributo de la cantidad.",
+                campo=f"{etiqueta}Unidad de medida (BT-130 en la copia)",
                 esperado=(
                     "C62 en la copia, que es la unidad suelta en UN/ECE Rec 20"
                     if "01" in unidades

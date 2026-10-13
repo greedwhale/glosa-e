@@ -8372,3 +8372,72 @@ byte:
 **Lo que no se toca.** Las fichas de `BR-AF-*` y `BR-AG-*` siguen en las
 mismas direcciones hasta la tanda de la 1.3.17. En el corpus no cambia nada:
 solo cambian textos.
+
+## La copia fiel, contra la orden: siete términos sin fila
+
+**Lo que había.** El 11-10-2026, al salir `cius_es` del XML del BOE, la tabla
+de la copia fiel se quedó en 98 filas que nombraban 96 de los 116 términos
+europeos de la orden. Siete términos que el borrador de abril no tenía no los
+nombraba ninguna fila, y nada lo decía en rojo: el cepo de los destinos
+compara con el anexo lo que cada fila nombra, y no ve lo que no nombra
+ninguna. Dos filas seguían además con abril. La del NIF decía «llega igual» a
+`BT-32` y `BT-48`, y la de la unidad de medida apuntaba a `BT-129`, que es la
+cantidad. La nota `COPIA-LINEA-UNIDAD` lo repetía en su campo («el atributo de
+BT-129 en la copia») y decía que en la copia la unidad no tiene campo propio;
+la orden le da `BT-130`.
+
+**Reproducido** el 13-10-2026. La prueba nueva, corrida contra la tabla de
+`527ff7f`, sale en rojo con seis términos sin fila: `BT-30`, `BT-31`, `BT-47`,
+`BT-130`, `BT-142` y `BT-167`. El séptimo, `BT-149`, es el que se deja vacío a
+propósito, y en `527ff7f` ninguna fila decía por qué.
+
+**Lo que se hizo.** Cada término, contra el esquema de Facturae 3.2.2 y el
+texto de la orden:
+
+| Término | Qué es en la orden | De dónde sale en Facturae | Fila |
+|---|---|---|---|
+| `BT-31` | el NIF-IVA del vendedor, con «VAT» y el prefijo ES | `TaxIdentificationNumber`, que solo lleva prefijo en las operaciones intracomunitarias | la del NIF, que pasa a «cortado de otra manera» |
+| `BT-30` | el identificador de inscripción legal del vendedor; la orden lo describe como su NIF y lo pide cuando el NIF va en `BT-32` | el mismo `TaxIdentificationNumber`: por esa vía el número va dos veces | la del NIF |
+| `BT-47` | el NIF del comprador, con «LOC» y «FC»; en la norma es su registro legal, y la orden lo reutiliza | `TaxIdentificationNumber` | la del NIF |
+| `BT-130` | la unidad de medida, obligatoria | `UnitOfMeasure`, opcional y de otra lista | la de la unidad, que deja `BT-129` |
+| `BT-142` | la base de un cargo, una tasa o un impuesto de la línea | la base de un impuesto de la línea que no es IVA; los cargos de Facturae no la llevan | nueva: ese impuesto va como cargo de la línea, con un código de la L9 que Facturae no tiene (su 07 vale para todos los impuestos especiales) |
+| `BT-149` | la cantidad a la que se aplica el precio, opcional | ninguno: el precio de Facturae es el de una unidad | ninguna, a propósito, como `BT-154` |
+| `BT-167` | el tipo de cambio para contabilizar el IVA, de la edición de 2026, sin ruta | `ExchangeRate` | nueva, en «no se sabe»: en qué elemento va y en qué sentido se lee lo dice `UNE-CEN/TS 16931-3-2:2026`, que aquí no está |
+
+Quedan 100 filas que nombran 102 de los 116 términos. La fila de los cargos
+de la línea dice además que la orden les pide `BT-ES-22`, un código de la L9,
+y que para un cargo de Facturae, que no es un impuesto, es «RESTO».
+
+Medido antes de escribirlo, sobre los ficheros Facturae de terceros que hay
+aquí y solo en recuentos: ninguno escribe el prefijo de país en el NIF; tres
+tienen alguna línea sin unidad, y en los tres sale `BR-23`; ninguno trae tipo
+de cambio, ni en sus líneas otro impuesto que el 01 o el 02. Y el NIF copiado
+tal cual en `BT-31` sale con `SPFE-NIF` en ERROR, medido con la factura de la
+orden de las pruebas.
+
+**Lo que se decidió sin preguntar, y por qué.**
+
+- **`BT-149` se queda vacío y no tiene fila.** Es la regla que ya se aplicó a
+  `BT-154`: un campo opcional sin origen no se rellena. La fila del precio
+  dice por qué, y la prueba exige que alguna fila lo diga.
+- **`BT-167` tiene fila aunque no se sepa escribir.** El dato está en
+  Facturae; lo que falta es la especificación. Con la fila en «no se sabe»
+  queda escrito qué falta, en vez de un hueco.
+- **El NIF no saca nota.** Saldría en todas las facturas, y lo que puede salir
+  mal (el prefijo, el `BT-30`) lo acusa `SPFE-NIF` en la copia.
+
+**Provocado.** Nueve roturas de la tabla, en memoria: la unidad otra vez en
+`BT-129`; el NIF otra vez con abril; sin la fila del tipo de cambio; sin la
+del impuesto de la línea; `BT-149` nombrado en el precio; `BT-149` vacío sin
+que ninguna fila diga por qué; el cargo de la línea sin «RESTO»; el tipo de
+cambio sin la especificación que lo decide; y un término inventado en el
+anexo. Las nueve, en rojo, y en verde sin romper nada. En disco, la nota con
+`BT-129` en su campo: en rojo, y el fichero restaurado con la misma huella.
+
+**Lo que se vio de paso, y no se toca aquí.** Las filas citan «las 14
+facturas de aquí», y no son 14 facturas de terceros: son 13 ficheros Facturae
+de terceros, uno repetido (12 facturas distintas), más el ejemplo publicado
+`ejemplos/fe-0001.xml`, que es de aquí. Se reconstruyó contando: con esos 14
+salen las 11 que traen unidad y las 18 líneas que la escriben, como dice la
+fila. Las cifras de las filas nuevas no dependen de esa base. Rehacer las
+demás es otra tanda.

@@ -972,6 +972,37 @@ def test_el_anexo_sigue_teniendo_los_terminos_que_dice_la_cabecera():
     )
 
 
+# Lo que la tabla deja sin nombrar a propósito, además de los grupos, que son
+# contenedores: dos campos opcionales que Facturae no tiene.
+_VACIOS_A_PROPOSITO = {"BT-149", "BT-154"}
+
+
+def test_ningun_termino_del_anexo_se_queda_sin_mirar():
+    """El cepo que faltaba: el término que ninguna fila nombra.
+
+    El de los destinos compara lo que cada fila nombra con el anexo, y no ve
+    lo que ninguna nombra. Así pasaron del 11 al 13-10-2026 siete términos de
+    la orden sin que saltara nada: el NIF (BT-30, BT-31 y BT-47), la unidad de
+    medida (BT-130), la base del impuesto de la línea (BT-142), la cantidad del
+    precio (BT-149) y el tipo de cambio (BT-167). Y los que se dejan vacíos a
+    propósito tienen que decir por qué en alguna fila.
+    """
+    from validador import cius_es
+
+    nombrados = set()
+    for fila in copia_fiel.CORRESPONDENCIAS:
+        nombrados |= set(re.findall(r"B[TG]-\d+", fila.destino))
+    sueltos = {campo.id for campo in cius_es.CAMPOS
+               if not campo.espanol and not campo.grupo
+               and campo.id not in nombrados}
+    assert sueltos == _VACIOS_A_PROPOSITO, (
+        f"sin fila: {sorted(sueltos - _VACIOS_A_PROPOSITO)}; nombrados aunque "
+        f"se dicen vacíos: {sorted(_VACIOS_A_PROPOSITO - sueltos)}"
+    )
+    for vacio in _VACIOS_A_PROPOSITO:
+        assert any(vacio in fila.porque for fila in copia_fiel.CORRESPONDENCIAS), vacio
+
+
 def test_lo_que_las_reglas_miran_tiene_que_estar_en_la_tabla(monkeypatch):
     """El cepo, provocado: una regla sin su fila no se monta.
 
@@ -1057,6 +1088,58 @@ def test_la_tabla_sabe_donde_van_los_suplidos_y_las_retenciones():
     assert suplidos.efecto != copia_fiel.POR_DECIDIR
     assert "SUPL" in suplidos.destino
     assert "RETE" in _fila("TotalTaxesWithheld").destino
+
+
+def _nombrados(fila: copia_fiel.Correspondencia) -> set[str]:
+    return set(re.findall(r"B[TG]-\d+", fila.destino))
+
+
+def test_el_nif_va_donde_lo_pone_la_orden():
+    """Provocado: hasta el 13-10-2026 la fila decía BT-32 y BT-48, «llega igual».
+
+    Era el borrador de abril, solo con «VAT». La orden da dos sitios, y por el
+    del NIF el del vendedor va dos veces: en BT-32 y en BT-30.
+    """
+    nif = _fila("TaxIdentificationNumber")
+    assert _nombrados(nif) == {"BT-30", "BT-31", "BT-32", "BT-47", "BT-48"}
+    assert nif.efecto == copia_fiel.OTRO_CORTE
+    assert "prefijo ES" in nif.porque and "SPFE-NIF" in nif.porque
+
+
+def test_la_unidad_de_medida_es_bt_130_en_la_fila_y_en_la_nota():
+    """Provocado: hasta el 13-10-2026 las dos decían BT-129, que es la cantidad."""
+    assert _fila("UnitOfMeasure").destino == "BT-130"
+    unidad = notas(unidad="01")["COPIA-LINEA-UNIDAD"]
+    assert "BT-130" in unidad.campo and "BT-129" not in unidad.campo
+    assert "BT-130" in unidad.mensaje
+
+
+def test_un_impuesto_de_la_linea_que_no_es_iva_va_como_cargo():
+    """Con su base en BT-142, que es para lo que la orden la recoge.
+
+    El código no se copia: Facturae tiene un solo 07 para los impuestos
+    especiales y la L9 uno por impuesto. Lo que la fila dice de la L9 se mira
+    contra la lista del anexo, no contra la memoria.
+    """
+    from validador import cius_es
+
+    impuesto = _fila("TaxesOutputs")
+    assert _nombrados(impuesto) == {"BG-28", "BT-141", "BT-142", "BT-143"}
+    assert impuesto.efecto == copia_fiel.OTRA_LISTA
+    assert "BT-ES-22" in impuesto.porque and "07" in impuesto.porque
+    l9 = cius_es.LISTAS["L9"].valores
+    especiales = [c for c, d in l9.items() if d.startswith("Impuesto especial")]
+    assert len(especiales) > 1, especiales
+    # Y el cargo de Facturae, que no es un impuesto, va con «RESTO».
+    assert "RESTO" in l9 and "RESTO" in _fila("Charges").porque
+
+
+def test_el_tipo_de_cambio_tiene_fila_y_espera_a_la_especificacion():
+    """BT-167 es de 2026: el dato está en Facturae y cómo se escribe, no aquí."""
+    cambio = _fila("ExchangeRate")
+    assert cambio.destino == "BT-167"
+    assert cambio.efecto == copia_fiel.POR_DECIDIR
+    assert "UNE-CEN/TS 16931-3-2:2026" in cambio.porque
 
 
 def test_nada_en_el_modulo_da_la_orden_por_no_publicada():

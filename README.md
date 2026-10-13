@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3284 tests, todos en verde.
+3289 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4928,16 +4928,26 @@ unidad de su línea, su medio de pago y su moneda del IVA— y sigue saliendo
 conforme, porque ninguna es un error.
 
 **La tabla se escribe entera, con el porqué de cada fila**, en
-`CORRESPONDENCIAS`: **98 conceptos** que nombran **96 de los 116 términos
+`CORRESPONDENCIAS`: **100 conceptos** que nombran **102 de los 116 términos
 europeos** de la orden, cada uno con lo que le pasa y de dónde sale esa
 decisión. Hasta el 11-10-2026, con el anexo de abril, eran 97 que nombraban 92
-de 104. De los 20 que quedan sin nombrar, trece no son un hueco: son **los
-grupos**, contenedores (`BG-4` a `BG-9`, `BG-22`, `BG-25`, `BG-29` a `BG-31` y
-`BG-33`), y `BT-154`, que la tercera familia deja vacío a propósito. Los otros
-siete sí lo son: términos que la orden trae y el borrador no, y que la tabla
-todavía no mira (`BT-30`, `BT-31`, `BT-47`, `BT-130`, `BT-142`, `BT-149` y
-`BT-167`). La fila de la unidad de medida, por ejemplo, apunta todavía a
-`BT-129`, la cantidad, porque abril no tenía `BT-130`. Los estados son nueve, y los cuatro que fueron añadiéndose
+de 104; ese día, 98 que nombraban 96 de 116. Los 14 que quedan sin nombrar no
+son un hueco: doce son **los grupos**, contenedores (`BG-4` a `BG-9`, `BG-22`,
+`BG-25`, `BG-29` a `BG-31` y `BG-33`), y dos son campos opcionales que
+Facturae no tiene y se dejan vacíos a propósito: `BT-154`, la descripción del
+artículo, y `BT-149`, la cantidad a la que se aplica el precio.
+
+Los siete términos que la orden trae y el borrador no se miraron el
+13-10-2026. El NIF va como NIF-IVA (`BT-31`), con el prefijo ES que Facturae
+no escribe, o como NIF, y entonces el del vendedor va dos veces (`BT-32` y
+`BT-30`); el del comprador, en `BT-48` o en `BT-47`, que la orden reutiliza.
+La unidad de medida es `BT-130`, y no `BT-129` como decía la fila con abril.
+La base de un impuesto de la línea que no es IVA es `BT-142`: en la copia ese
+impuesto va como cargo de la línea, con un código de la L9 que Facturae no
+tiene (su 07 vale para todos los impuestos especiales). Y el tipo de cambio es
+`BT-167`, que se queda en «no se sabe»: en qué elemento va y en qué sentido se
+lee lo dice `UNE-CEN/TS 16931-3-2:2026`, que aquí no está. Los estados son
+nueve, y los cuatro que fueron añadiéndose
 familia a familia son los que no se pueden juntar con ningún otro sin borrar
 justo lo que hay que decidir:
 
@@ -4953,11 +4963,11 @@ justo lo que hay que decidir:
 | no tiene sitio | se queda en el original | el idioma |
 | no se sabe todavía | lo desbloquearía una ruta para `BT-179`, que tampoco da la orden publicada | el total a pagar |
 
-Tres filas siguen en «no se sabe» a propósito: el total a pagar —la misma duda
-de `SPFE-TOTAL-A-PAGAR`—, los suplidos y los importes retenidos que no son de
-impuestos.
+Tres filas siguen en «no se sabe» a propósito: el total a pagar (la misma duda
+de `SPFE-TOTAL-A-PAGAR`), los importes retenidos que no son de impuestos y el
+tipo de cambio. Los suplidos salieron de aquí el 07-10-2026, al leer la orden.
 
-Y dos cepos, porque una nota cuyo porqué ya no está escrito es peor que no
+Y tres cepos, porque una nota cuyo porqué ya no está escrito es peor que no
 tenerla:
 
 - si alguien quita una fila de la tabla y deja la regla que la usa, **el
@@ -4965,14 +4975,19 @@ tenerla:
 - y los `BT-` que cada fila nombra **se comparan con el anexo**, con los 116
   términos europeos de `cius_es.CAMPOS`: una fila que diga que algo llega a un
   término que el anexo no recoge, o que diga «el anexo no lo pide» de uno que
-  sí recoge, deja la suite en rojo. Provocado por los dos lados.
+  sí recoge, deja la suite en rojo. Provocado por los dos lados;
+- y ningún término del anexo se queda sin fila, salvo los grupos y los dos
+  que se dejan vacíos a propósito: uno que ninguna fila nombre, o uno de esos
+  dos que alguna empiece a nombrar, deja la suite en rojo. Provocado por los
+  dos lados.
 
 El segundo cepo saltó como se esperaba el 11-10-2026, al salir `cius_es` del
 XML del BOE, en dos filas que decían «el anexo no lo pide» de términos que la
 orden sí pide: el periodo de facturación (`BG-14`) y el porcentaje del cargo
 de línea (`BT-143`). Las dos se corrigieron, la segunda partiéndose en dos. Lo
-que el cepo no ve son los términos nuevos que ninguna fila nombra, los siete
-de arriba: esos se miran contra la orden en la tanda de la copia fiel.
+que ese cepo no veía eran los términos nuevos que ninguna fila nombra: así
+pasaron dos días los siete de arriba sin que nada saltara. Para eso es el
+tercero, del 13-10-2026.
 
 Lo que esto **no** es: no convierte nada —aquí no se escribe ninguna copia—, no
 valida la copia, que es otro documento con sus propias reglas `SPFE-`, y no
