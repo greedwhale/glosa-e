@@ -44,6 +44,7 @@ PLURAL = re.compile(
 # Palabras que caen en la red sin ser de nadie. Cada una con su motivo.
 NO_SON_VERBOS = {
     "tramos": "sustantivo: los tramos de una numeración que faltan",
+    "céntimos": "sustantivo: los céntimos del redondeo, en la entrada de los precios con IVA",
 }
 
 

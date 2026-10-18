@@ -1,0 +1,170 @@
+<article class="entrada"
+  data-fecha="2026-10-19"
+  data-titulo="Precios con el IVA dentro: los céntimos que la factura electrónica no sabe repartir"
+  data-entradilla="La norma europea de factura electrónica solo admite precios sin IVA. El libro, el ticket que se pasa a factura y el comercio fijan el precio con el IVA dentro, y al pasarlo a la norma el redondeo se multiplica por la cantidad. Medido con siete facturas de libros: con 25.000 ejemplares, la base se queda 27,69 € corta.">
+
+  <time datetime="2026-10-19">19 de octubre de 2026</time>
+  <h1>Precios con el IVA dentro: los céntimos que la factura electrónica no
+  sabe repartir</h1>
+  <p class="lema">La norma europea de factura electrónica solo admite precios
+  sin IVA. El libro, el ticket que se pasa a factura y el comercio fijan el
+  precio con el IVA dentro, y al pasarlo a la norma el redondeo se multiplica
+  por la cantidad. Medido con siete facturas de libros: con 25.000
+  ejemplares, la base se queda 27,69 € corta.</p>
+
+  <p>En la norma EN 16931, que es la base de la factura electrónica española,
+  cada línea lleva un <b>precio neto</b> (<code>BT-146</code>), la cantidad y
+  el importe de la línea, que es una cosa por la otra. El IVA no va en la
+  línea: se calcula después, una vez por cada tipo, sobre la suma de las
+  líneas. La Orden HAC/1028/2026 lo repite en su anexo: el precio neto es el
+  precio <i>excluido el IVA</i>.</p>
+
+  <p>Pero hay precios que en España se fijan con el IVA dentro:</p>
+
+  <ul>
+    <li><b>El libro.</b> Quien lo edita está obligado a fijarle un precio de
+    venta al público (Ley 10/2007, artículo 9), y al público el precio se le
+    da con los impuestos incluidos (Ley de consumidores, artículo 20.1.c). Es
+    el precio impreso en el libro, con el 4 % dentro.</li>
+    <li><b>El ticket que se pasa a factura.</b> La factura simplificada puede
+    llevar la expresión <i>IVA incluido</i> (Reglamento de facturación,
+    artículo 7.1.f), y cuando el cliente pide la completa, se expide en
+    canje de la simplificada (artículo 15.6). El precio de partida es el del
+    ticket.</li>
+    <li><b>La tienda y el marketplace</b>, que anuncian el precio final.</li>
+  </ul>
+
+  <p>Para escribir uno de esos precios en la norma hay que dividirlo por
+  (1 + tipo) y redondear. Un libro de 19,90 € al 4 % da 19,134615… €, que se
+  queda en 19,13 con dos decimales o en 19,1346 con cuatro. Y el redondeo no
+  se queda en la línea: <b>se multiplica por la cantidad</b>. Con 5.000
+  ejemplares, 19,13 por 5.000 son 95.650,00 €, y lo cobrado sin IVA es
+  99.500,00 / 1,04 = 95.673,08 €. Esa línea sola ya se queda 23,08 € corta.</p>
+
+  <h2>Lo que se midió</h2>
+
+  <p>Se escribieron siete facturas de libros al 4 % sobre la factura de
+  ejemplo de la solución pública que usa Glosa-e en sus pruebas, cada una
+  con los precios fijados con IVA y pasados a la norma de una manera, y se
+  pasaron por el validador. Hay dos formas de cerrar la factura: a la letra de
+  la norma (la cuota es la base por el 4 %) o como suele hacerlo quien factura
+  con precios fijos, que cuadra el total con lo cobrado y saca la cuota por
+  diferencia.</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Facturas de libros al 4 %, con el precio de cada libro fijado
+    con IVA</caption>
+    <thead><tr><th>La factura</th><th>Cómo cierra</th><th>Qué pasa</th></tr></thead>
+    <tbody>
+      <tr><td>157 libros en 5 líneas, precio sin IVA a 4 decimales</td><td>A la letra de la norma</td><td>Limpia, pero el total es 2.626,76 € y lo cobrado, 2.626,75 €</td></tr>
+      <tr><td>La misma</td><td>A la letra, con un importe de redondeo de -0,01 € (<code>BT-114</code>)</td><td>Limpia, y cobra justo el precio fijado</td></tr>
+      <tr><td>La misma</td><td>Cuota por diferencia</td><td>Limpia: la cuota se aparta un céntimo</td></tr>
+      <tr><td>400 libros en 400 líneas, a 4 decimales</td><td>A la letra de la norma</td><td>Limpia, pero el total pasa 0,55 € de lo cobrado</td></tr>
+      <tr><td>La misma</td><td>Cuota por diferencia</td><td>Se admite, con una nota: la cuota se aparta 0,55 € de la base por el tipo</td></tr>
+      <tr><td>25.000 libros en 3 líneas, a 4 decimales</td><td>Cuota por diferencia</td><td>Se admite, con una nota: 0,30 €</td></tr>
+      <tr><td>La misma, a 2 decimales</td><td>Cuota por diferencia</td><td><b>Error</b> <code>BR-CO-17</code> y <code>BR-S-09</code>: la cuota pasa 28,80 € de la base por el tipo</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>La norma admite que la cuota se aparte de la base por el tipo <b>menos
+  de una unidad</b>, justo porque redondear línea a línea produce eso. Por
+  eso las notas: no hay nada que arreglar, y la nota dice qué se ha dado por
+  bueno. En la última fila la diferencia ya no es un redondeo, y el error es
+  justo: lo cobrado son 398.900,00 €, que al 4 % son 383.557,69 € de base y
+  15.342,31 € de cuota, y la factura declara 383.530,00 € de base. <b>La base
+  se queda 27,69 € corta</b>, y es la que el cliente anota en su libro de
+  facturas recibidas.</p>
+
+  <h2>Lo que cambió en Glosa-e</h2>
+
+  <p>Hasta el 18 de octubre, ese error decía que la cuota no salía de aplicar el tipo a la
+  base, y nada más. Quien lo recibía buscaba un error de cuentas que no
+  había. Ahora Glosa-e mira si las líneas cuadran con precios con IVA: si
+  cada precio por 1,04, redondeado al céntimo, da un precio con IVA, y esos
+  precios suman <b>justo</b> la base más la cuota, eso no es casualidad. El
+  mensaje lo dice así:</p>
+
+  <blockquote><p>Las líneas cuadran con precios con el IVA incluido: pasados
+  a precio con IVA suman 398.900,00, justo la base más la cuota. Repartido al
+  4%, eso son 383.557,69 de base y 15.342,31 de cuota: la base declarada se
+  queda corta en 27,69, por redondear el precio sin IVA antes de
+  multiplicarlo por la cantidad.</p></blockquote>
+
+  <p>En las notas, la frase dice que esa es la explicación de la diferencia.
+  Si la entrada tiene descuentos o cargos, si algún precio no es por unidad o
+  si una línea no es su precio por su cantidad, no se dice nada: la pista es
+  para cuando se puede afirmar. En EDIFACT y Facturae tampoco, porque Glosa-e
+  no lee ahí la cantidad a la que se refiere el precio.</p>
+
+  <h2>Qué hacer hoy</h2>
+
+  <ul>
+    <li><b>Más decimales en el precio sin IVA.</b> La norma no limita los
+    decimales del precio. Con cuatro, los 25.000 libros se quedan en una
+    diferencia de 0,30 €, dentro de lo que la norma admite.</li>
+    <li><b>Si hay que cobrar el precio exacto, el importe de redondeo.</b> El
+    campo <code>BT-114</code> está en el anexo de la orden y sirve para eso:
+    la factura cuadra a la letra de la norma y el total a pagar es lo
+    pactado.</li>
+    <li><b>No sacar la cuota por diferencia si la base está mal.</b> Cuadrar
+    el total pasando el desfase a la cuota no arregla la base: la esconde.</li>
+  </ul>
+
+  <h2>Lo que se discute en Europa</h2>
+
+  <p>Svante Schubert lo ha llevado al comité de la norma, el CEN TC 434, con
+  dos propuestas para la revisión de la EN 16931-1: un modelo de precio con
+  IVA, en el que el IVA se extrae una vez por cada tipo (#164), y redondear
+  una sola vez, al final (#163). Según cuenta, la edición de 2026 de la norma
+  lo empeora: redondea también el precio neto, a cuatro decimales en euros, y
+  con cantidades grandes la diferencia vuelve a crecer.</p>
+
+  <p>Cuenta también que en Alemania el Ministerio de Hacienda lo reconoce en
+  una carta del 15 de octubre: con precios con IVA, como el precio fijo del
+  libro, la norma y la regla fiscal de redondeo no se pueden cumplir a la
+  vez, y hasta el 31 de diciembre de 2027 la parte estructurada de la
+  factura puede llevar solo los totales por tipo, con las líneas en un
+  adjunto. La orden española no dice nada de precios con IVA.</p>
+
+  <p>Glosa-e es gratis, es código abierto (AGPL-3.0-only) y <b>corre entero en
+  tu navegador</b>: la factura no sale de tu ordenador. Está <b>en desarrollo
+  y en pruebas</b>. Si encuentras algo mal,
+  <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20">escríbeme</a>.</p>
+
+  <footer class="fuentes">
+    <h2>De dónde sale</h2>
+    <ul>
+      <li><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-20587">Orden
+      HAC/1028/2026</a>, anexo I: las filas <code>BT-146</code> (precio neto,
+      excluido el IVA) y <code>BT-114</code> (importe de redondeo).</li>
+      <li><a href="https://www.boe.es/buscar/act.php?id=BOE-A-2007-12351">Ley
+      10/2007, de la lectura, del libro y de las bibliotecas</a>, artículo 9:
+      el precio fijo de venta al público.</li>
+      <li><a href="https://www.boe.es/buscar/act.php?id=BOE-A-2007-20555">Texto
+      refundido de la Ley General para la Defensa de los Consumidores y
+      Usuarios</a>, artículo 20.1.c: el precio final completo, incluidos los
+      impuestos.</li>
+      <li><a href="https://www.boe.es/buscar/act.php?id=BOE-A-2012-14696">Reglamento
+      de facturación, Real Decreto 1619/2012</a>, artículos 7.1.f (la
+      expresión <i>IVA incluido</i>) y 15.6 (el canje de la factura
+      simplificada).</li>
+      <li><a href="https://github.com/ConnectingEurope/CEN-TC434-WG1/issues/163">Issue
+      #163</a> del CEN TC 434, de Svante Schubert: redondear una sola vez, el
+      importe a pagar. Solo pueden leerla los miembros del CEN.</li>
+      <li><a href="https://github.com/ConnectingEurope/CEN-TC434-WG1/issues/164">Issue
+      #164</a> del CEN TC 434, de Svante Schubert: el modelo de precio con IVA,
+      con el IVA extraído una vez por cada tipo. Solo pueden leerla los
+      miembros del CEN.</li>
+    </ul>
+    <p class="metodo"><b>Cómo se midió.</b> El 18 de octubre de 2026, con el
+    validador de Glosa-e. Las facturas son de libros al 4 %, escritas a mano
+    sobre la factura de ejemplo de la solución pública que Glosa-e usa en sus
+    pruebas, sin anticipo ni retención: el precio de cada libro fijado con
+    IVA, dividido por 1,04 y redondeado a cuatro o a dos decimales. Las
+    mismas facturas están en las pruebas del repositorio. Ninguna factura de
+    terceros.</p>
+  </footer>
+
+</article>
