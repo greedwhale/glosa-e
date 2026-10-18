@@ -1821,3 +1821,14 @@ class TestLaEntregaIntracomunitaria:
         grupo = iva.Grupo("K", Decimal(0), Decimal(100), Decimal(0), "Art. 25")
         assert iva._regla_intracomunitaria(
             etree.Element("Invoice"), SINTAXIS_FACTURAE, [grupo]) == []
+
+
+def test_la_s_no_se_llama_tipo_general():
+    """En España la S lleva el 21 %, el 10 % y el 4 %, y el tipo general es
+    solo el 21 %. Hasta el 18-10-2026 un libro salía como "S (tipo general) al
+    4%". El nombre es el de la lista L4 de la Orden HAC/1028/2026."""
+    from validador import glosario
+
+    assert iva.nombre_categoria("S") == "S (régimen general)"
+    assert not [codigo for codigo, ficha in glosario.CODIGOS.items()
+                if "tipo general" in ficha.lower()]

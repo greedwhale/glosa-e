@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3412 tests, todos en verde.
+3425 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5743,6 +5743,41 @@ tiene.
 Cada pieza se provocó rompiéndola —quitar el UNS, quitar el filtro de IVA, dar
 a UBL el margen de CII, poner a EDIFACT el de 2017, volver al céntimo, volver
 a la clave con tipo— y cada una se puso en rojo en su prueba.
+
+**Los precios con el IVA dentro, desde el 18-10-2026.** La norma solo conoce
+precios sin IVA, y el libro, el ticket que se canjea por factura y la tienda
+los fijan con el IVA incluido. Para escribirlos hay que dividir por (1 + tipo)
+y redondear, y el redondeo se multiplica por la cantidad. Quien factura así
+suele cuadrar el total con lo cobrado y sacar la cuota por diferencia, y la
+cuota se aparta de la base por el tipo: la nota `IVA-CUOTA-REDONDEO` si es
+menos de una unidad, `BR-CO-17` si no. Medido con siete facturas de libros al
+4%:
+
+| La factura | Cómo cierra | Qué da |
+|---|---|---|
+| 157 libros, precio sin IVA a 4 decimales | a la letra de la norma, con o sin `BT-114` | limpia |
+| 400 líneas de un ejemplar, a 4 decimales | cuota por diferencia | nota, 0,55 |
+| 25.000 ejemplares en 3 líneas, a 4 decimales | cuota por diferencia | nota, 0,30 |
+| los mismos, a 2 decimales | cuota por diferencia | `BR-CO-17` y `BR-S-09`, 28,80 de cuota de más |
+
+El ERROR es justo, porque la base se queda 27,69 corta de lo cobrado sin IVA.
+Lo que faltaba era decir por qué. Ahora, si cada precio por (1 + tipo),
+redondeado al céntimo, da un precio con IVA y esos precios por sus cantidades
+suman **justo** la base más la cuota, el mensaje lo dice y reparte el total en
+base y cuota. Con precios sin IVA de verdad y un error cualquiera, que eso
+cuadre al céntimo sería casualidad. No se dice nada si la entrada tiene
+cargos o descuentos, si un precio no es por unidad (`BT-149`) o si una línea
+no es su precio por su cantidad, ni en EDIFACT y Facturae, donde no se lee la
+cantidad base del precio. En el corpus local (172 facturas) no sale en
+ninguna: las cuatro con `BR-CO-17` o la nota no cuadran con precios con IVA.
+Cada condición se provocó quitándola, y su prueba se puso en rojo. Está en
+`tests/test_precios_con_iva.py` y en HALLAZGOS.
+
+**La S se llama régimen general, y no tipo general**, desde el mismo día. En
+España la S lleva el 21 %, el 10 % y el 4 %, y el tipo general es solo el
+21 %: un libro salía como "S (tipo general) al 4%". El nombre es el de la
+lista L4 de la Orden HAC/1028/2026, "Operaciones en régimen general", y una
+prueba recorre el glosario para que no vuelva.
 
 ### Las reglas pendientes, por grupos: la cuota de cada categoría
 

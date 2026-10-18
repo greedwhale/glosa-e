@@ -8648,3 +8648,50 @@ pública lo acepta y basta quitar el atributo. El glosario, lo mismo.
 
 **Provocado.** Con la frase quitada del mensaje, la prueba que la pide sale en
 rojo. Se le pregunta al buzón.
+
+## Los precios con el IVA dentro: un ERROR justo que no decía por qué
+
+**Cómo salió.** Svante Schubert publicó el 15-10-2026 que la EN 16931 solo
+conoce precios sin IVA, que el libro, el ticket y el comercio los fijan con
+el IVA dentro y que al pasarlos el redondeo se multiplica por la cantidad
+(propuestas #163 y #164 al CEN). En España pasa con el libro, que tiene precio
+fijo de venta al público (Ley 10/2007, art. 9), y con el ticket que se canjea
+por factura completa (RD 1619/2012, arts. 7.1.f y 15.6).
+
+**Reproducido** el 18-10-2026 con siete facturas de libros al 4% escritas
+sobre la factura de la orden de las pruebas, sin anticipo ni retención. A la
+letra de la norma, limpias. Con la cuota sacada por diferencia y el precio sin
+IVA a cuatro decimales, la nota de redondeo (0,55 en 400 líneas, 0,30 en
+25.000 ejemplares). Con 25.000 ejemplares y el precio a dos decimales,
+`BR-CO-17` y `BR-S-09` en ERROR: la cuota pasa 28,80 de la base por el tipo.
+El error es justo, porque lo cobrado son 398.900,00, que al 4% son 383.557,69
+de base, y la factura declara 383.530,00. Pero el mensaje solo decía que la
+cuota no salía de la base, y quien lo recibe busca un error de cuentas que no
+hay.
+
+**Lo que se hizo.** `iva._total_con_iva_de_las_lineas` mira si las líneas de
+la entrada cuadran con precios con IVA: cada precio por (1 + tipo), redondeado
+al céntimo, por su cantidad, y la suma igual al céntimo a la base más la
+cuota. Si cuadra, la primera queja de la cuota lo dice: en el error, el
+reparto y cuánto se queda corta la base; en la nota, que esa es la
+explicación. No se dice nada con cargos o descuentos en la entrada, con un
+precio que no es por unidad, con una línea que no es su precio por su
+cantidad, ni en EDIFACT y Facturae.
+
+**Lo que destapó la prueba.** La primera versión no miraba la cantidad base
+del precio (`BT-149`): con un precio por cada diez y la línea escrita como si
+fuera por unidad, la pista salía. Lo cazó la prueba hecha para eso, en rojo a
+la primera; la cantidad base se lee de la misma ruta que su unidad.
+
+**Provocado.** Quitando cada condición (la suma exacta, la cantidad base, el
+precio por la cantidad, los descuentos) y la pista misma, su prueba sale en
+rojo. En el corpus local, 172 facturas, la pista no sale en ninguna.
+
+**Y de paso, el nombre de la S.** Las facturas de libros salían como "S (tipo
+general) al 4%". En España la S lleva el 21 %, el 10 % y el 4 %, y el tipo
+general es solo el 21 %. Ahora se llama como en la lista L4 de la orden,
+régimen general, en los mensajes y en las fichas. La prueba que recorre el
+glosario encontró dos fichas que la búsqueda a mano no vio, porque tenían
+la expresión partida entre dos líneas del código (BR-S-07 y BR-AF-10).
+Provocado: con el nombre viejo, la prueba sale en rojo.
+

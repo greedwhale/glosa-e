@@ -24,7 +24,7 @@ haya duda de qué exige la norma y qué opinamos nosotros.
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 
 from validador import cifras
@@ -46,8 +46,14 @@ from validador.sintaxis import (
 # con reglas propias, igual que las demás: BR-CL-18 las admite y el esquematrón
 # tiene una familia BR-AF-* para el IGIC y otra BR-AG-* para el IPSI. Aquí se
 # llegó a escribir lo contrario, y de ahí salió el fallo que cuenta `REGLAS`.
+#
+# La S se llamó aquí "tipo general" hasta el 18-10-2026, y no lo es: en España
+# la S lleva el 21 %, el 10 % y el 4 %, y el tipo general es solo el 21 %. Un
+# libro al 4 % salía como "S (tipo general) al 4%", que es una contradicción
+# escrita por el propio validador. El nombre es el de la lista L4 de la Orden
+# HAC/1028/2026: "Operaciones en régimen general".
 CATEGORIAS: dict[str, str] = {
-    "S": "tipo general",
+    "S": "régimen general",
     "Z": "tipo cero",
     "E": "operación exenta",
     "AE": "inversión del sujeto pasivo",
@@ -457,6 +463,122 @@ def _leer_apuntes(raiz, sintaxis: Sintaxis) -> list[Apunte]:
     return apuntes
 
 
+@dataclass(frozen=True)
+class PrecioDeLinea:
+    """Lo que hace falta de una línea para ver si su precio llevaba el IVA."""
+
+    clave: tuple[str | None, Decimal | None]
+    precio: Decimal | None
+    cantidad: Decimal | None
+    importe: Decimal | None
+    # La cantidad a la que se refiere el precio (BT-149), si la trae.
+    por_cada: Decimal | None
+
+
+def _leer_precios(raiz, sintaxis: Sintaxis) -> list[PrecioDeLinea] | None:
+    """Precio, cantidad e importe de cada línea; None si no se puede afirmar.
+
+    Sin la cantidad base del precio (BT-149) no se sabe si el precio es por
+    unidad: un precio por cada diez, con la línea escrita como si fuera por
+    unidad, pasaba por bueno. Lo cazó la prueba hecha para eso el 18-10-2026,
+    que salió en rojo a la primera. La cantidad base se lee de la misma ruta
+    que su unidad; en las sintaxis donde esa ruta no está mapeada (EDIFACT y
+    Facturae), no se da la pista.
+    """
+    if sintaxis.linea_precio_unidad == SIN_MAPA:
+        return None
+    ruta_por_cada = sintaxis.linea_precio_unidad.removesuffix("/@unitCode")
+    precios = []
+    for nodo in raiz.xpath(sintaxis.lineas, namespaces=sintaxis.espacios):
+        tipo = importe(nodo, sintaxis.linea_tipo, sintaxis)
+        precios.append(PrecioDeLinea(
+            clave=_clave(_categoria(nodo, sintaxis.linea_categoria, sintaxis, tipo), tipo),
+            precio=importe(nodo, sintaxis.linea_precio, sintaxis),
+            cantidad=importe(nodo, sintaxis.linea_cantidad, sintaxis),
+            importe=importe(nodo, sintaxis.linea_importe, sintaxis),
+            por_cada=importe(nodo, ruta_por_cada, sintaxis),
+        ))
+    return precios
+
+
+def _total_con_iva_de_las_lineas(
+    grupo: Grupo, precios: list[PrecioDeLinea] | None, apuntes: list[Apunte]
+) -> Decimal | None:
+    """Lo que suman las líneas de la entrada si sus precios llevaban el IVA.
+
+    La norma europea solo conoce precios sin IVA (BT-146), y hay precios que se
+    fijan con el IVA dentro: el del libro, que es un precio de venta al público
+    (Ley 10/2007, art. 9), el de un ticket que se pasa a factura, el de una
+    tienda. Para escribirlos hay que dividir por (1 + tipo) y redondear, y al
+    multiplicar por la cantidad el redondeo se multiplica con ella. Quien
+    factura así suele cuadrar el total con lo cobrado y sacar la cuota por
+    diferencia, y entonces la cuota se aparta de la base por el tipo: es la
+    nota de redondeo, o BR-CO-17 si pasa de la unidad. Lo midió el 18-10-2026
+    un pedido de 25.000 libros con el precio sin IVA a dos decimales: 28,80
+    de cuota de más, ERROR, y un mensaje que no decía por qué.
+
+    La señal es exacta y no una sospecha: cada precio por (1 + tipo),
+    redondeado al céntimo, da un precio con IVA, y esos precios por sus
+    cantidades suman **justo** la base más la cuota. Con precios sin IVA de
+    verdad y un error cualquiera en la cuota, que eso cuadre al céntimo sería
+    casualidad. Se exige además que el precio sea por unidad (sin cantidad
+    base, BT-149, o con 1), que cada línea sea su precio por su cantidad y
+    que la entrada no tenga cargos ni descuentos, que no tienen precio.
+    Si algo de eso falta, no se dice nada: la pista es para cuando se puede
+    afirmar.
+    """
+    if precios is None:
+        return None
+    if grupo.tipo is None or grupo.tipo <= 0 or grupo.base is None or grupo.cuota is None:
+        return None
+    if any(a.es_ajuste and a.clave == grupo.clave for a in apuntes):
+        return None
+    suyas = [p for p in precios if p.clave == grupo.clave]
+    if not suyas:
+        return None
+    factor = 1 + grupo.tipo / Decimal(100)
+    total = Decimal(0)
+    for linea in suyas:
+        if linea.precio is None or linea.cantidad is None or linea.importe is None:
+            return None
+        if linea.por_cada is not None and linea.por_cada != 1:
+            return None
+        if redondear(linea.precio * linea.cantidad) != linea.importe:
+            return None
+        total += redondear(linea.precio * factor) * linea.cantidad
+    if total != grupo.base + grupo.cuota:
+        return None
+    return total
+
+
+def _pista_del_precio_con_iva(grupo: Grupo, total: Decimal, error: bool) -> str:
+    """La frase que se añade a la queja de la cuota cuando las líneas cuadran
+    con precios con IVA. En el error dice cuánto se pierde y de dónde; en la
+    nota, que esa es la explicación que la nota pide."""
+    if not error:
+        return (
+            " Las líneas cuadran con precios con el IVA incluido: pasados a "
+            f"precio con IVA suman {cifras.calculada(total)}, justo la base "
+            "más la cuota. El redondeo de esos precios al quitarles el IVA "
+            "explica la diferencia."
+        )
+    base = redondear(total * 100 / (100 + grupo.tipo))
+    cuota = total - base
+    diferencia = base - grupo.base
+    return (
+        " Las líneas cuadran con precios con el IVA incluido: pasados a "
+        f"precio con IVA suman {cifras.calculada(total)}, justo la base más "
+        f"la cuota. Repartido al {cifras.tipo(grupo.tipo)}, eso son "
+        f"{cifras.calculada(base)} de base y {cifras.calculada(cuota)} de "
+        "cuota: la base declarada se queda "
+        + ("corta" if diferencia > 0 else "larga")
+        + f" en {cifras.calculada(abs(diferencia))}, por redondear el precio "
+        "sin IVA antes de multiplicarlo por la cantidad. La norma europea "
+        "solo admite precios sin IVA; con más decimales en ese precio, la "
+        "diferencia baja."
+    )
+
+
 # --- Reglas ----------------------------------------------------------------
 
 
@@ -778,7 +900,8 @@ def _regla_cuota_de_la_categoria(
     ]
 
 
-def _reglas_cuota(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]:
+def _reglas_cuota(grupo: Grupo, sintaxis: Sintaxis,
+                  con_iva: Decimal | None = None) -> list[Incidencia]:
     """BR-CO-17 y BR-{X}-09 sobre una entrada, dichas juntas.
 
     Juntas por un borde. En CII, una cuota a exactamente una unidad pasa
@@ -786,12 +909,26 @@ def _reglas_cuota(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidencia]:
     separado saldrían la nota «la norma lo admite» y el error «la norma no lo
     admite» sobre la misma cifra. Cuando BR-{X}-09 falla, la nota se retira:
     el error ya lo dice, y lo dice bien.
+
+    `con_iva` es lo que suman las líneas si sus precios llevaban el IVA
+    (`_total_con_iva_de_las_lineas`). La pista va en la primera queja y no en
+    las dos: BR-CO-17 y BR-{X}-09 salen juntas casi siempre, y repetir el
+    párrafo en las dos es ruido. Si la base sale bien repartida, no hay pista
+    que dar: lo que falla es otra cosa.
     """
     de_la_categoria = _regla_cuota_de_la_categoria(grupo, sintaxis)
     de_la_cuota = _regla_cuota_por_grupo(grupo, sintaxis)
     if de_la_categoria:
         de_la_cuota = [i for i in de_la_cuota if i.codigo != "IVA-CUOTA-REDONDEO"]
-    return de_la_cuota + de_la_categoria
+    todas = de_la_cuota + de_la_categoria
+    if con_iva is not None and todas:
+        primera = todas[0]
+        error = primera.gravedad == ERROR
+        base = redondear(con_iva * 100 / (100 + grupo.tipo))
+        if not error or base != grupo.base:
+            todas[0] = replace(primera, mensaje=primera.mensaje
+                               + _pista_del_precio_con_iva(grupo, con_iva, error))
+    return todas
 
 
 # --- Los identificadores fiscales de cada categoría (BR-{X}-02 a 04) ----------
@@ -1004,7 +1141,7 @@ def _reglas_campos_del_grupo(grupo: Grupo, sintaxis: Sintaxis) -> list[Incidenci
                 "BR-47",
                 ERROR,
                 "Hay una entrada del desglose sin categoría de IVA. Sin ella no "
-                "se sabe si es tipo general, exenta o no sujeta.",
+                "se sabe si es de régimen general, exenta o no sujeta.",
                 campo="Desglose de IVA",
                 encontrado="(sin categoría)",
             )
@@ -1598,6 +1735,7 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True,
 
     incidencias: list[Incidencia] = []
     incidencias.extend(_regla_total(raiz, sintaxis, grupos))
+    precios = _leer_precios(raiz, sintaxis)
 
     a_ciegas = _ajustes_sin_detallar(raiz, sintaxis, apuntes)
     if a_ciegas:
@@ -1633,7 +1771,8 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True,
         # cuota con su base y su tipo, y BR-CO-14, la suma de las cuotas.
         if not a_ciegas and grupo.categoria not in categorias_de_mas:
             incidencias.extend(_regla_base_por_grupo(grupo, apuntes, sintaxis))
-        incidencias.extend(_reglas_cuota(grupo, sintaxis))
+        incidencias.extend(_reglas_cuota(
+            grupo, sintaxis, _total_con_iva_de_las_lineas(grupo, precios, apuntes)))
     incidencias.extend(_regla_tipo_de_los_conceptos(apuntes))
     incidencias.extend(_regla_cero_que_rechaza_su_esquematron(apuntes, sintaxis))
     incidencias.extend(_regla_identificadores(

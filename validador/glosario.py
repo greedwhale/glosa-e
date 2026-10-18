@@ -481,7 +481,7 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-47": (
         'Una entrada del desglose sin categoría de IVA: sin ella no se sabe '
-        'si es tipo general, exenta, no sujeta o inversión del sujeto pasivo, '
+        'si es de régimen general, exenta, no sujeta o inversión del sujeto pasivo, '
         'y de eso depende todo lo demás que se compruebe sobre esa entrada. '
         'Lo que hay que saber de este código es cuándo no salta: cuando es la '
         'sintaxis la que no tiene dónde escribirla. Facturae es ese caso (su '
@@ -671,7 +671,11 @@ CODIGOS: dict[str, str] = {
         'nota. Un detalle del borde: a exactamente una unidad, el esquematrón '
         'de UBL dice error y el de CII no, y aquí se sigue a cada uno en su '
         'sintaxis. A tipo cero la base no cuenta: la cuota tiene que ser '
-        'cero.'
+        'cero. Un caso que lo provoca sin error de cuentas: precios fijados '
+        'con el IVA incluido (un libro, un ticket que se pasa a factura) y '
+        'pasados a precio sin IVA con pocos decimales. Al multiplicar por la '
+        'cantidad, el redondeo crece con ella. Cuando las líneas cuadran con '
+        'esos precios, el mensaje lo dice y reparte el total en base y cuota.'
     ),
     "IVA-CUOTA-REDONDEO": (
         'La cuota de una entrada del desglose no es base por tipo al céntimo, '
@@ -681,12 +685,14 @@ CODIGOS: dict[str, str] = {
         'para decir qué se ha dado por bueno y con qué base, que es para lo '
         'que existen las notas aquí. Si la factura no redondea por líneas, la '
         'diferencia no tiene explicación y conviene mirarla: un 21,50 sobre '
-        '100 al 21% pasa la norma y no sale de ninguna cuenta.'
+        '100 al 21% pasa la norma y no sale de ninguna cuenta. Con precios '
+        'fijados con el IVA incluido sí la tiene, y si las líneas cuadran con '
+        'ellos, la nota lo dice.'
     ),
     "IVA-BASE-TOLERADA": (
         'La base de una entrada del desglose no es la suma de sus conceptos, '
         'pero se aparta menos de una unidad y el esquematrón oficial de esa '
-        'sintaxis lo deja pasar: el de UBL en el tipo general, el IGIC y el '
+        'sintaxis lo deja pasar: el de UBL en el régimen general, el IGIC y el '
         'IPSI, y el de CII en las cinco categorías de tipo cero. Por eso no '
         'sale como error. Sale como aviso, y no como nota como la cuota, '
         'porque aquí no hay redondeo que lo explique: una base es una suma de '
@@ -1831,7 +1837,7 @@ CODIGOS: dict[str, str] = {
     "BR-O-13": (
         'El desglose declara operaciones no sujetas y hay un descuento de '
         'documento de otra categoría. Lo mismo que BR-O-12 para los '
-        'descuentos: un descuento a tipo general en una factura no sujeta '
+        'descuentos: un descuento en régimen general en una factura no sujeta '
         'rebaja una base gravada que la factura dice no tener.'
     ),
     "BR-O-14": (
@@ -1874,7 +1880,7 @@ CODIGOS: dict[str, str] = {
         'escrita a mano.'
     ),
     "BR-S-01": (
-        'Hay conceptos a tipo general y el desglose no trae ninguna entrada '
+        'Hay conceptos en régimen general y el desglose no trae ninguna entrada '
         'de esa categoría. Pasa precisamente por ser la corriente: alguien '
         'añade una línea al 21% a una factura que hasta entonces iba entera '
         'exenta, y el desglose se queda como estaba. El informe enumera los '
@@ -1884,7 +1890,7 @@ CODIGOS: dict[str, str] = {
         'entrada que cuadrar, así que no hay nada que descuadre.'
     ),
     "BR-S-02": (
-        'Hay líneas al tipo general y la factura no identifica fiscalmente al '
+        'Hay líneas en régimen general y la factura no identifica fiscalmente al '
         'vendedor. Quien repercute IVA tiene que decir con qué identidad lo '
         'hace, y la norma acepta tres formas: su identificador de IVA '
         '(BT-31), otro identificador fiscal suyo (BT-32) o el de IVA de su '
@@ -1894,17 +1900,17 @@ CODIGOS: dict[str, str] = {
         'identificación fiscal de las dos partes.'
     ),
     "BR-S-03": (
-        'Lo mismo que BR-S-02, cuando lo que va a tipo general es un '
+        'Lo mismo que BR-S-02, cuando lo que va en régimen general es un '
         'descuento de documento y no una línea. Da igual de qué cuelgue la '
         'categoría: la identificación que pide es la misma.'
     ),
     "BR-S-04": (
-        'Lo mismo que BR-S-02, cuando lo que va a tipo general es un cargo de '
+        'Lo mismo que BR-S-02, cuando lo que va en régimen general es un cargo de '
         'documento (un porte, un embalaje) y no una línea. Suma a la misma '
         'base, y la factura tiene que identificar a las mismas partes.'
     ),
     "BR-S-05": (
-        'Una línea dice ser de tipo general y su tipo no es mayor que cero. '
+        'Una línea dice ser de régimen general y su tipo no es mayor que cero. '
         'Es una contradicción, no un descuadre: la categoría S significa '
         'sujeta y no exenta, o sea que lleva impuesto, y un cero dice que '
         'no lo lleva. Cuando de verdad no lo lleva, la categoría es otra (Z '
@@ -1916,7 +1922,7 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-S-06": (
         'Un descuento de los que se aplican a la factura entera dice ser de '
-        'tipo general y no lleva tipo positivo. Un descuento de documento no '
+        'régimen general y no lleva tipo positivo. Un descuento de documento no '
         'es neutro para el impuesto: resta de la base de la categoría y el '
         'tipo que declare, así que decir S y poner un cero manda ese '
         'descuento a una entrada del desglose que no existe. El caso típico '
@@ -1927,8 +1933,8 @@ CODIGOS: dict[str, str] = {
         'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-S-07": (
-        'Un cargo de los que se aplican a la factura entera dice ser de tipo '
-        'general y no lleva tipo positivo. Los cargos de documento (portes, '
+        'Un cargo de los que se aplican a la factura entera dice ser de '
+        'régimen general y no lleva tipo positivo. Los cargos de documento (portes, '
         'gastos financieros, recargo por pedido mínimo) suman a la base en '
         'vez de restar, así que el error se paga más caro que en el '
         'descuento: un cargo declarado a S con tipo cero añade importe a una '
@@ -1938,7 +1944,7 @@ CODIGOS: dict[str, str] = {
         'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él.'
     ),
     "BR-S-08": (
-        'La base declarada para el tipo general no cuadra con la suma de los '
+        'La base declarada para el régimen general no cuadra con la suma de los '
         'conceptos que van a ese tipo. Es el cuadre que ata el desglose con '
         'las líneas, y va por categoría y tipo a la vez: material al 21% y '
         'comida al 10% son dos entradas aunque las dos sean S. Suman las '
@@ -1954,9 +1960,9 @@ CODIGOS: dict[str, str] = {
         'el de UBL. Lo que pasa por el margen sale como IVA-BASE-TOLERADA.'
     ),
     "BR-S-09": (
-        'La cuota de una entrada a tipo general se aparta una unidad o más de '
+        'La cuota de una entrada de régimen general se aparta una unidad o más de '
         'aplicar el tipo a la base. Es la cuenta de BR-CO-17, que el '
-        'esquematrón oficial repite para el tipo general, y casi siempre '
+        'esquematrón oficial repite para el régimen general, y casi siempre '
         'salen las dos juntas: son dos reglas de la norma y el validador '
         'oficial dice las dos. Hay un caso en que no coinciden, en CII: una '
         'cuota a exactamente una unidad pasa BR-CO-17, que admite hasta una '
@@ -1965,12 +1971,12 @@ CODIGOS: dict[str, str] = {
         'admite y que no.'
     ),
     "BR-S-10": (
-        'Una entrada a tipo general trae motivo de exención, y la norma no lo '
+        'Una entrada de régimen general trae motivo de exención, y la norma no lo '
         'permite: el motivo es justamente lo que justifica una exención, y el '
-        'tipo general no es ninguna. La norma tiene dos posturas sobre el '
+        'régimen general no es ninguna. La norma tiene dos posturas sobre el '
         'motivo y conviene verlas juntas: lo exige en la exenta, la inversión '
         'del sujeto pasivo, la intracomunitaria, la exportación y la no '
-        'sujeta, y lo prohíbe en el tipo general, el tipo cero, el IGIC y el '
+        'sujeta, y lo prohíbe en el régimen general, el tipo cero, el IGIC y el '
         'IPSI. Que no exigirlo y prohibirlo sean cosas distintas es lo '
         'que hace que esta regla exista: si fueran lo mismo, una entrada al '
         '21% con un artículo de exención pegado pasaría sin que nadie mirara.'
@@ -2096,7 +2102,7 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-Z-05": (
         'Una línea dice ser de tipo cero y declara un tipo que no es cero. Es '
-        'la contradicción del tipo general leída al revés: allí se declara '
+        'la contradicción del régimen general leída al revés: allí se declara '
         'impuesto y no se pone, aquí se declara que no lo hay y se pone. Lo '
         'corriente es que la categoría se quedara de una plantilla y el tipo '
         'se cambiara, o al revés. Conviene no confundir esta categoría con la '
@@ -2134,7 +2140,7 @@ CODIGOS: dict[str, str] = {
         'error aquí no descuadra el total de la factura y ninguna de las '
         'reglas aritméticas de arriba lo ve (las de los totales miran la base '
         'del documento, no la de cada categoría). Ésta es la única que lo '
-        'dice. El margen va al revés que en el tipo general: exacta en UBL, y '
+        'dice. El margen va al revés que en el régimen general: exacta en UBL, y '
         'en CII menos de una unidad, que sale como IVA-BASE-TOLERADA.'
     ),
     "BR-Z-09": (
@@ -2288,7 +2294,7 @@ CODIGOS: dict[str, str] = {
         'inversión del sujeto pasivo y trae un tipo que no es cero. En las '
         'facturas con inversión el bloque de totales es donde más se cuela, '
         'porque suele rellenarlo la parte del programa que no sabe nada del '
-        'régimen fiscal de las líneas: pone el tipo general por defecto y la '
+        'régimen fiscal de las líneas: pone la S por defecto y la '
         'categoría viene de otro sitio. Lo que sale es un descuento que dice '
         'ser de un régimen sin cuota y llevar cuota a la vez. '
         'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
@@ -2511,7 +2517,7 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-AF-02": (
         'Hay líneas con IGIC y la factura no identifica fiscalmente al '
-        'vendedor. Es la misma exigencia que en el tipo general: el IGIC '
+        'vendedor. Es la misma exigencia que en el régimen general: el IGIC '
         'sustituye al IVA en Canarias, y quien lo repercute tiene que constar '
         'con su identificador de IVA (BT-31), otro identificador fiscal suyo '
         '(BT-32) o el de IVA de su representante fiscal (BT-63). En Facturae '
@@ -2566,8 +2572,8 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-AF-10": (
         'Una entrada de IGIC en el desglose trae motivo de exención, y la '
-        'norma no lo permite: para el IGIC dice lo mismo que para el tipo '
-        'general, que el motivo sobra. Lo que sí admite es el tipo cero, así '
+        'norma no lo permite: para el IGIC dice lo mismo que para el '
+        'régimen general, que el motivo sobra. Lo que sí admite es el tipo cero, así '
         'que una operación a IGIC cero se declara con su 0% y sin artículo '
         'pegado. Esta comprobación estuvo mal aquí hasta el 13 de septiembre '
         'de 2026: se creía que la norma no se pronunciaba sobre el motivo en '
@@ -3257,7 +3263,7 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-B-02": (
         'La factura mezcla la categoría de IVA B, el pago fraccionado '
-        'italiano, con la S, el tipo general, en sus líneas, descuentos, '
+        'italiano, con la S, la de régimen general, en sus líneas, descuentos, '
         'cargos o desglose. La norma no deja llevar las dos: en una factura '
         'con pago fraccionado, la B ocupa el sitio de la S.'
     ),

@@ -805,7 +805,7 @@ def _regla_pago_fraccionado(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                 "BR-B-02",
                 ERROR,
                 "La factura mezcla la categoría B, el pago fraccionado del IVA "
-                "italiano, con la S, el tipo general. La norma no deja llevar "
+                "italiano, con la S, la de régimen general. La norma no deja llevar "
                 "las dos: en una factura con pago fraccionado, la B ocupa el "
                 "sitio de la S.",
                 campo="Categoría de IVA",
