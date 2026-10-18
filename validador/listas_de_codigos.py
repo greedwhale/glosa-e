@@ -221,6 +221,27 @@ def _de_donde_salen(codigos: list[str]) -> str:
     )
 
 
+# El FC en el registro legal (BR-CL-11). El ejemplo UBL de la AEAT, el del
+# 14-10-2026 y el del 15-10-2026, pone schemeID="FC" también en
+# cac:PartyLegalEntity/cbc:CompanyID, y no solo en el NIF de
+# cac:PartyTaxScheme, que es donde la orden lo pide (BT-32 y su par del
+# comprador). Al registro legal (BT-30) la orden no le da ni ruta ni esquema, y
+# la norma pide que el esquema, si va, sea de ISO 6523. La queja se queda en
+# ERROR, como BR-G-02: el anexo es un mínimo y nada deroga la regla. Pero un "no es
+# de ISO 6523" a secas no le dice nada a quien copió el ejemplo oficial, y por
+# eso se le dice de dónde sale y cómo se arregla. Si la solución pública lo
+# rechaza no se sabe: su validación de la norma es una implementación propia
+# que la AEAT no publica. Lo vio el auditor el 18-10-2026.
+_EL_FC_DE_LA_AEAT = (
+    " FC es el código que la Orden HAC/1028/2026 pone al NIF en el "
+    "identificador fiscal (BT-32 del vendedor y su par del comprador, en "
+    "cac:PartyTaxScheme), no en el registro legal (cac:PartyLegalEntity), al "
+    "que no le da esquema. El ejemplo UBL de la AEAT lo pone también aquí, y no "
+    "se sabe si la solución pública lo acepta. La norma admite el registro "
+    "legal sin esquema: basta quitar el atributo schemeID."
+)
+
+
 def reglas(raiz, sintaxis: Sintaxis,
            de_mas: dict[str, frozenset[str]] | None = None) -> list[Incidencia]:
     """Las BR-CL sobre un documento ya parseado.
@@ -263,7 +284,8 @@ def reglas(raiz, sintaxis: Sintaxis,
                 f"El código no es de {_NOMBRES[cual]}, que es la lista de la que "
                 "tiene que salir. Un código que no está en la lista no lo entiende "
                 "quien recibe la factura, aunque se lea bien."
-                + (_de_donde_salen(de_la_orden) if de_la_orden else ""),
+                + (_de_donde_salen(de_la_orden) if de_la_orden else "")
+                + (_EL_FC_DE_LA_AEAT if codigo == "BR-CL-11" and "FC" in malos else ""),
                 campo=que + (f" · {', '.join(lugares)}" if lugares else ""),
                 esperado=f"un código de {_NOMBRES[cual]}, como {ejemplo}",
                 encontrado=", ".join(m or "(vacío)" for m in malos),

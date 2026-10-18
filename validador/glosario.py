@@ -3145,8 +3145,12 @@ CODIGOS: dict[str, str] = {
     ),
     "BR-CL-11": (
         'El esquema del registro legal de una parte (BT-30, BT-47, BT-61) no es '
-        'de ISO 6523, la lista de esquemas de identificación. Solo se mira en '
-        'UBL y en CII: EDIFACT y Facturae no lo escriben.'
+        'de ISO 6523, la lista de esquemas de identificación. Si es FC: la '
+        'Orden HAC/1028/2026 lo pone al NIF del '
+        'identificador fiscal (BT-32), no al registro legal, y el ejemplo UBL '
+        'de la AEAT lo pone en los dos sitios. La norma admite el registro '
+        'legal sin esquema. Solo se mira en UBL y en CII: EDIFACT y Facturae no '
+        'lo escriben.'
     ),
     "BR-CL-13": (
         'La lista de la clasificación de un artículo (BT-158), la que dice de '

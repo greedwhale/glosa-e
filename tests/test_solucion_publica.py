@@ -2592,3 +2592,58 @@ class TestDeDondeSale:
         assert len(solucion_publica.NO_SE_COMPRUEBA) >= 5
         cortos = [k for k, v in solucion_publica.NO_SE_COMPRUEBA.items() if len(v) < 80]
         assert cortos == []
+
+
+# --- El FC en el registro legal, como lo pone el ejemplo de la AEAT -----------------
+
+
+_REGISTRO_SIN_ESQUEMA = "<cbc:CompanyID>B12345674</cbc:CompanyID></cac:PartyLegalEntity>"
+_REGISTRO_CON_FC = '<cbc:CompanyID schemeID="FC">B12345674</cbc:CompanyID></cac:PartyLegalEntity>'
+
+
+class TestElFcEnElRegistroLegal:
+    """El ejemplo UBL de la AEAT pone schemeID="FC" en cac:PartyLegalEntity/cbc:CompanyID.
+
+    La orden pone el «FC» en el NIF del identificador fiscal (BT-32, en
+    cac:PartyTaxScheme) y al registro legal (BT-30) no le da ni ruta ni
+    esquema. La norma, BR-CL-11, pide que ese esquema, si va, sea de ISO 6523,
+    y FC no lo es. El ERROR se queda, como BR-G-02: el anexo es un mínimo y
+    nada deroga la regla. Lo que faltaba era decir de dónde sale el FC y cómo
+    se arregla: hasta el 18-10-2026 la queja era la genérica, «no es de ISO
+    6523», y a quien había copiado el ejemplo oficial no le decía nada. Lo vio
+    el auditor el 18-10-2026, con el ejemplo del 14-10 y con el del 15-10.
+    """
+
+    def test_el_fc_en_el_registro_sigue_en_error(self):
+        con_fc = cambia(DEL_BOE, _REGISTRO_SIN_ESQUEMA, _REGISTRO_CON_FC)
+        queja = next(i for i in factura.validar(con_fc.encode("utf-8")).errores
+                     if i.codigo == "BR-CL-11")
+        assert queja.gravedad == ERROR
+        assert queja.encontrado == "FC"
+
+    def test_dice_de_donde_sale_el_fc_y_como_se_arregla(self):
+        con_fc = cambia(DEL_BOE, _REGISTRO_SIN_ESQUEMA, _REGISTRO_CON_FC)
+        queja = next(i for i in factura.validar(con_fc.encode("utf-8")).errores
+                     if i.codigo == "BR-CL-11")
+        assert "BT-32" in queja.mensaje and "cac:PartyTaxScheme" in queja.mensaje
+        assert "ejemplo" in queja.mensaje and "AEAT" in queja.mensaje
+        assert "schemeID" in queja.mensaje
+        # No promete lo que no se sabe: ni que la solución pública lo rechace
+        # ni que lo acepte.
+        assert "no se sabe" in queja.mensaje
+
+    def test_sin_el_atributo_no_sale(self):
+        """La norma admite el registro legal sin esquema, que es como lo dejan
+        las facturas de la orden de estas pruebas."""
+        assert "BR-CL-11" not in {i.codigo for i in factura.validar(DEL_BOE.encode("utf-8")).errores}
+
+    def test_otro_codigo_que_no_es_de_la_lista_no_lleva_la_frase(self):
+        con_otro = cambia(DEL_BOE, _REGISTRO_SIN_ESQUEMA,
+                          '<cbc:CompanyID schemeID="NIF">B12345674</cbc:CompanyID></cac:PartyLegalEntity>')
+        queja = next(i for i in factura.validar(con_otro.encode("utf-8")).errores
+                     if i.codigo == "BR-CL-11")
+        assert "BT-32" not in queja.mensaje
+
+    def test_el_glosario_lo_dice_tambien(self):
+        assert "FC" in glosario.CODIGOS["BR-CL-11"]
+        assert "BT-32" in glosario.CODIGOS["BR-CL-11"]

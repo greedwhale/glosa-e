@@ -8619,3 +8619,32 @@ totales, el `RFF` sí es suyo. Ninguna regla lee el `RFF` de una línea. Pasa en
 español: un EANCOM 93 escrito con la guía de AECOC no se ha visto nunca. Y de
 un intercambio con varias facturas se valida la primera, con el AVISO
 `EDI-VARIOS-MENSAJES`.
+
+## El FC en el registro legal: el ejemplo de la AEAT y BR-CL-11
+
+**Qué se vio.** El 18-10-2026, un auditor pasó por Glosa-e el ejemplo UBL de
+la AEAT y salió un ERROR de `BR-CL-11`: el ejemplo pone `schemeID="FC"` en
+`cac:PartyLegalEntity/cbc:CompanyID`, el registro legal (BT-30), del vendedor
+y del comprador. **Reproducido** con las dos versiones del ejemplo: la del
+14-10-2026 (5.390 bytes) y la del 15-10-2026 (5.325 bytes, SHA-256
+`2440226853f596fb5b20b9e917a3a51eb5a8c2c93ac6755758f909877f638a21`).
+
+**De quién es el fallo.** No de la medida:
+- la orden pone el FC en el NIF del identificador fiscal, BT-32, en
+  `cac:PartyTaxScheme` (fila BT-32 del BOE), y al registro legal, BT-30, no
+  le da ni ruta ni esquema;
+- la norma, `BR-CL-11`, pide que ese esquema, si va, sea de ISO 6523, y FC no
+  lo es. El esquematrón oficial lo marca `fatal`;
+- el ejemplo de la AEAT es el único sitio que pone FC ahí.
+
+El ERROR se queda, por lo mismo que `BR-G-02`: el anexo es un mínimo y nada
+deroga la regla.
+
+**Lo que estaba mal** era el mensaje. Decía "no es de ISO 6523" y nada más, y
+a quien había copiado el ejemplo oficial no le decía ni de dónde salía el FC
+ni cómo quitárselo. Desde ahora lo dice: FC es el código del NIF en BT-32, el
+ejemplo de la AEAT lo pone también en el registro, no se sabe si la solución
+pública lo acepta y basta quitar el atributo. El glosario, lo mismo.
+
+**Provocado.** Con la frase quitada del mensaje, la prueba que la pide sale en
+rojo. Se le pregunta al buzón.

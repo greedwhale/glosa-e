@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3407 tests, todos en verde.
+3412 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4418,6 +4418,14 @@ y los esquemas de `web/paquete.zip`:
   calla y solo habla la orden. La orden no le da ruta, y se busca donde lo
   pone la vinculación de 2017, `cac:PartyLegalEntity/cbc:CompanyID`; si un
   anexo nuevo le da una, el módulo no se monta.
+- **El FC en el registro legal sigue en ERROR, y se dice por qué.** El
+  ejemplo UBL de la AEAT pone `schemeID="FC"` en
+  `cac:PartyLegalEntity/cbc:CompanyID` (BT-30), y `BR-CL-11` lo da por malo:
+  la norma pide un esquema de ISO 6523 o ninguno, y la orden pone el FC en el
+  NIF de BT-32, en `cac:PartyTaxScheme`, sin darle esquema a BT-30. Como
+  `BR-G-02`, la regla de la norma se queda. Desde el 18-10-2026 el mensaje dice
+  de dónde sale el FC, que no se sabe si la solución pública lo acepta y que
+  basta quitar el atributo. Está en HALLAZGOS y se le pregunta al buzón.
 - **`BT-119` solo en la no sujeta.** En las demás categorías, que falte el
   tipo ya lo dice `BR-48`, y dos quejas por lo mismo no dicen más que una.
   Medido: en Glosa, una entrada `O` con tipo 0 no hace saltar ninguna regla
