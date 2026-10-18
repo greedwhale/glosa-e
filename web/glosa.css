@@ -296,7 +296,17 @@ h2.titulo { font: 400 var(--t4)/1.2 var(--serif); letter-spacing: -.012em; margi
 /* --- Pie ----------------------------------------------------------------- */
 footer { border-top: 1px solid var(--borde); margin-top: 3rem; padding: 2rem 0 3rem; font-size: var(--t1); color: var(--tenue); }
 footer .aviso-legal { border: 1px solid var(--borde); border-radius: 10px; padding: 1rem 1.15rem; background: var(--panel); margin-bottom: 1.5rem; color: var(--tinta-2); }
-footer nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+footer nav { display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: center; }
+/* Las dos cuentas, como iconos y en el color del pie, no en el de cada red:
+   en el papel de la página, el azul de LinkedIn y el negro de X gritarían más
+   que el aviso legal que tienen encima. Se van a la derecha para no mezclarse
+   con los enlaces de casa, y en el móvil bajan solas a su línea. El nombre lo
+   lleva el enlace (aria-label); el dibujo no dice nada a un lector de pantalla. */
+footer .redes { display: flex; gap: .9rem; margin-left: auto; }
+footer .redes a { display: inline-flex; color: var(--tenue); padding: .2rem; border-radius: 4px; }
+footer .redes a:hover { color: var(--acento); }
+footer .redes a:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+footer .redes svg { width: 1.15rem; height: 1.15rem; fill: currentColor; }
 footer .firma-pie { margin-top: 1.1rem; }
 
 @media (max-width: 34rem) {

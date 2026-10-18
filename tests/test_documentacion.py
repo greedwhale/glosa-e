@@ -837,6 +837,11 @@ def test_cada_pie_enlaza_las_dos_cuentas():
 
     `rel="me"` dice que la cuenta es de quien firma la página. No cuesta nada
     y algunos sitios lo usan para comprobarlo en sentido contrario.
+
+    Desde el 18-10-2026 van como iconos, sin texto: el nombre lo lleva el
+    `aria-label`, y sin él un lector de pantalla diría solo "enlace". Y el
+    icono va dentro de la página, nunca como imagen de la red: pedirla
+    rompería el "cero dominios de terceros" de la política de privacidad.
     """
     from validador import paquete
 
@@ -848,5 +853,10 @@ def test_cada_pie_enlaza_las_dos_cuentas():
         pies += 1
         pie = texto[texto.index("<footer>"):texto.index("</footer>")]
         for cuenta in (paquete.CUENTA_DE_LA_MARCA, paquete.PERFIL_DEL_TITULAR):
-            assert f'<a href="{cuenta}" rel="me">' in pie, (pagina.name, cuenta)
+            enlace = re.search(
+                rf'<a href="{re.escape(cuenta)}" rel="me" aria-label="([^"]+)"[^>]*>(.*?)</a>',
+                pie, re.S)
+            assert enlace, (pagina.name, cuenta)
+            assert enlace.group(2).startswith("<svg"), (pagina.name, cuenta)
+            assert "<img" not in enlace.group(2) and "src=" not in enlace.group(2)
     assert pies >= 7, "han desaparecido pies: esta prueba ya no mira lo que creía"
