@@ -335,7 +335,7 @@ class TestElPaqueteDeVerdad:
 # importan aquí. Son las que dicen dónde busca el wheel y los ejemplos, y las
 # comparten las dos páginas.
 CARGADOR = """const VERSION_PYODIDE = "{}";
-const TITULAR = {{ nombre: "Glosa-e", correo: "contacto@glosa-e.com" }};
+const TITULAR = {{ nombre: "Fulano de Tal", marca: "Glosa-e", correo: "contacto@glosa-e.com" }};
 const DIST = "../dist/";
 const EJEMPLOS_EN = "../ejemplos/";
 const PYODIDE_EN = "../vendor/pyodide/";
@@ -1786,6 +1786,75 @@ class TestLaPoliticaSeMiraAntesDeTocarNada:
         _montar(repositorio)
         texto = (repositorio / "sitio" / "index.html").read_text(encoding="utf-8")
         assert 'http-equiv="Content-Security-Policy"' in texto
+
+
+class TestLaFichaDeLaPortada:
+    """El bloque `sameAs` de la portada: qué es Glosa-e y dónde está fuera.
+
+    Lo leen los buscadores y no las personas, así que si falta o sale mal no
+    lo ve nadie al abrir la página. Por eso se prueba, y sobre el sitio montado:
+    es el montaje el que lo pone.
+    """
+
+    _RE_FICHA = re.compile(r'<script type="application/ld\+json">(.*?)</script>', re.S)
+
+    def _fichas(self, pagina):
+        return self._RE_FICHA.findall(pagina.read_text(encoding="utf-8"))
+
+    def test_la_portada_lleva_la_marca_con_su_cuenta_y_al_titular_con_la_suya(
+            self, repositorio):
+        sitio = _montar(repositorio).carpeta
+        fichas = self._fichas(sitio / "index.html")
+        assert len(fichas) == 1, fichas
+        ficha = json.loads(fichas[0])
+        assert ficha["@context"] == "https://schema.org"
+        assert ficha["@type"] == "Organization"
+        assert ficha["name"] == "Glosa-e"
+        assert ficha["url"] == paquete.DOMINIO + "/"
+        # `sameAs` dice "esta cuenta es esta misma cosa". La de X es de la
+        # marca; el perfil de LinkedIn es de una persona, y colgarlo de la
+        # organización sería decir que son la misma.
+        assert ficha["sameAs"] == [paquete.CUENTA_DE_LA_MARCA]
+        assert ficha["founder"] == {
+            "@type": "Person",
+            "name": "Fulano de Tal",
+            "sameAs": [paquete.PERFIL_DEL_TITULAR],
+        }
+
+    def test_solo_la_lleva_la_portada(self, repositorio):
+        sitio = _montar(repositorio).carpeta
+        for pagina in sorted(sitio.glob("*.html")):
+            if pagina.name != "index.html":
+                assert not self._fichas(pagina), pagina.name
+
+    def test_la_politica_la_deja_pasar_sin_huella_porque_no_se_ejecuta(self):
+        politica = paquete.politica_de_contenido(
+            '<script type="application/ld+json">{"a": 1}</script>')
+        assert "sha256-" not in politica
+
+    def test_otro_tipo_de_script_en_linea_sigue_sin_montarse(self):
+        """La puerta se abre para los datos, no para cualquier atributo."""
+        for etiqueta in ('<script type="module">', '<script type="application/ld+json" defer>',
+                         "<script type='application/ld+json'>"):
+            with pytest.raises(paquete.SinPolitica):
+                paquete.politica_de_contenido(etiqueta + "hacer();</script>")
+
+    def test_sin_el_nombre_del_titular_no_se_monta(self, repositorio):
+        (repositorio / "web" / "glosa.js").write_text(
+            CARGADOR.replace('nombre: "Fulano de Tal", ', ""), encoding="utf-8")
+        with pytest.raises(paquete.SinPagina, match="nombre"):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+    def test_un_nombre_con_un_cierre_de_script_no_sale_del_bloque(self, repositorio):
+        """Si el nombre llevara `</script>`, el HTML cerraría el bloque ahí."""
+        raro = "Fulano </script><script>alert(1)</script>"
+        (repositorio / "web" / "glosa.js").write_text(
+            CARGADOR.replace("Fulano de Tal", raro), encoding="utf-8")
+        sitio = _montar(repositorio).carpeta
+        fichas = self._fichas(sitio / "index.html")
+        assert len(fichas) == 1
+        assert json.loads(fichas[0])["founder"]["name"] == raro
 
 
 class TestUnInterpreteEstropeadoNoSePublica:

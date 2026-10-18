@@ -543,8 +543,8 @@ def test_el_aviso_legal_dice_bajo_que_licencia_se_publica():
 # texto. Cambiar una palabra de la página, o de la ficha que la página pinta,
 # sin cambiar esto deja la suite en rojo.
 
-FECHA_DE_LA_POLITICA = "13 de octubre de 2026"
-HUELLA_DE_LA_POLITICA = "69c2403237adf29558be13504923974aaa244335d8b933024c99cef5637dca33"
+FECHA_DE_LA_POLITICA = "18 de octubre de 2026"
+HUELLA_DE_LA_POLITICA = "211f099f696c31640dc721e8fa372dd5c5a6314e5e2e081abe51e062e9eb6493"
 
 
 def _texto_de_la_politica() -> str:
@@ -825,3 +825,28 @@ def test_la_ficha_de_br_af_01_cuenta_las_reglas_que_trae_la_copia():
         "cuenta diez: hay que reescribirla, y esta prueba con ella.")
     assert (f"familia entera de {en_letra[len(reglas)]} reglas"
             in " ".join(CODIGOS["BR-AF-01"].split()))
+
+
+def test_cada_pie_enlaza_las_dos_cuentas():
+    """El pie de cada página lleva la cuenta de X y el perfil de LinkedIn.
+
+    Los pies están escritos a mano, uno por página, y no se parecen: por eso
+    se mira cada uno. Las direcciones salen de `paquete`, que es de donde sale
+    también la ficha de la portada: si cambia una cuenta, cambia en un sitio y
+    esta prueba avisa de los pies que se quedaron con la vieja.
+
+    `rel="me"` dice que la cuenta es de quien firma la página. No cuesta nada
+    y algunos sitios lo usan para comprobarlo en sentido contrario.
+    """
+    from validador import paquete
+
+    pies = 0
+    for pagina in sorted((RAIZ / "web").glob("*.html")):
+        texto = pagina.read_text(encoding="utf-8")
+        if "<footer>" not in texto:
+            continue
+        pies += 1
+        pie = texto[texto.index("<footer>"):texto.index("</footer>")]
+        for cuenta in (paquete.CUENTA_DE_LA_MARCA, paquete.PERFIL_DEL_TITULAR):
+            assert f'<a href="{cuenta}" rel="me">' in pie, (pagina.name, cuenta)
+    assert pies >= 7, "han desaparecido pies: esta prueba ya no mira lo que creía"

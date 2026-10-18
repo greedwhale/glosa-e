@@ -627,6 +627,18 @@ _ESTILO = "glosa.css"
 # dirección que le va a contestar con una mudanza.
 DOMINIO = "https://www.glosa-e.com"
 
+# Las cuentas fuera del sitio, desde el 18-10-2026. Salen de aquí dos cosas:
+# el bloque `sameAs` de la portada, que lo pone el montaje, y los enlaces del
+# pie de cada página, que están escritos a mano y que una prueba compara con
+# estas dos direcciones. Si cambia una cuenta se cambia aquí, y la prueba
+# señala los pies que se quedaron con la vieja.
+#
+# Son de dos dueños distintos y no se mezclan: la de X es de la marca; el
+# perfil de LinkedIn es de la persona que la lleva. Por eso en la ficha la
+# primera cuelga de la organización y el segundo de su fundador.
+CUENTA_DE_LA_MARCA = "https://x.com/glosa_e"
+PERFIL_DEL_TITULAR = "https://www.linkedin.com/in/dunior-hernandez-martinez"
+
 # La tarjeta que se enseña cuando alguien pega el enlace en un sitio ajeno.
 # La genera `herramientas/tarjeta.py` y va versionada, como la marca: no se
 # arma al montar porque haría falta una biblioteca de imágenes en el
@@ -1026,6 +1038,8 @@ def _sitemap(paginas: list[str]) -> str:
 # los de hoy y se olvidan los de mañana. Hoy son ocho —dos en la portada, uno
 # en el aviso legal, cinco en una entrada de la bitácora— y cada entrada nueva
 # trae los suyos, porque la bitácora **exige** un pie de fuentes con un enlace.
+# Desde el 18-10-2026 se suman los dos de las redes, en el pie de cada página;
+# esos llevan `rel="me"`, y aquí se le añaden los otros dos sin quitárselo.
 #
 # `noopener` no es cosmética: sin él la página que se abre recibe un puntero a
 # esta por `window.opener` y puede cambiarla de sitio desde su pestaña. Y
@@ -1141,6 +1155,7 @@ def _de_casa_con_html(texto: str) -> list[str]:
 _RE_SCRIPT = re.compile(r"<script\b([^>]*)>(.*?)</script>", re.S | re.I)
 _RE_MANEJADOR = re.compile(r"<[a-z][^>]*?\son[a-z]+\s*=", re.I)
 _CHARSET = '<meta charset="utf-8">'
+_ATRIBUTOS_DE_LOS_DATOS = ' type="application/ld+json"'
 
 
 class SinPolitica(NoSeMonta):
@@ -1157,6 +1172,12 @@ def politica_de_contenido(texto: str) -> str:
     huellas = []
     for atributos, cuerpo in _RE_SCRIPT.findall(texto):
         if "src=" in atributos:
+            continue
+        # Un bloque de datos no se ejecuta, así que la política no lo toca y
+        # no necesita huella: el navegador lo deja ahí para quien lo lea. Se
+        # admite escrito exactamente así y de ninguna otra forma, para que esta
+        # puerta no la use un `type="module"` ni un `defer` colado al lado.
+        if atributos == _ATRIBUTOS_DE_LOS_DATOS:
             continue
         if atributos.strip():
             raise SinPolitica(
@@ -1230,11 +1251,62 @@ _INVESTIGADORES = ".well-known"
 _SEGURIDAD = "security.txt"
 
 
-def _correo_del_titular(pagina: Path) -> str:
+def _ficha_del_titular(pagina: Path) -> dict[str, str]:
     codigo = (pagina / _CARGADOR).read_text(encoding="utf-8")
     dentro = codigo[codigo.index("const TITULAR = {"):]
     dentro = dentro[: dentro.index("};")]
-    return dict(re.findall(r'(\w+):\s*"([^"]*)"', dentro)).get("correo", "")
+    return dict(re.findall(r'(\w+):\s*"([^"]*)"', dentro))
+
+
+def _correo_del_titular(pagina: Path) -> str:
+    return _ficha_del_titular(pagina).get("correo", "")
+
+
+def _nombre_del_titular(pagina: Path) -> str:
+    """El nombre de la ficha de `glosa.js`, la misma del aviso legal.
+
+    No se escribe aquí otra vez: dos copias del nombre de una persona acaban
+    diciendo cosas distintas.
+    """
+    nombre = _ficha_del_titular(pagina).get("nombre", "")
+    if not nombre:
+        raise SinPagina(
+            "La ficha de `glosa.js` no tiene nombre, y el perfil de LinkedIn "
+            "de la portada es de una persona: sin su nombre, la ficha diría "
+            "que el perfil es de nadie."
+        )
+    return nombre
+
+
+def _con_ficha_de_la_portada(destino: Path, nombre_del_titular: str) -> None:
+    """Le pone a la portada quién es Glosa-e y dónde está fuera del sitio.
+
+    Es lo que usa un buscador para saber que la cuenta de X y el sitio son la
+    misma cosa, en vez de adivinarlo. Va solo en la portada porque es la página
+    de la organización; repetido en cada página no añade nada.
+    """
+    ficha = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Glosa-e",
+        "url": DOMINIO + "/",
+        "sameAs": [CUENTA_DE_LA_MARCA],
+        "founder": {
+            "@type": "Person",
+            "name": nombre_del_titular,
+            "sameAs": [PERFIL_DEL_TITULAR],
+        },
+    }
+    # `<` escrito como `<`: el JSON lo lee igual, y así nada de lo que
+    # vaya dentro puede escribir un `</script>` y cerrar el bloque antes de
+    # tiempo.
+    datos = json.dumps(ficha, ensure_ascii=False).replace("<", "\\u003c")
+    bloque = f"<script{_ATRIBUTOS_DE_LOS_DATOS}>{datos}</script>\n"
+    portada = destino / "index.html"
+    texto = portada.read_text(encoding="utf-8")
+    portada.write_text(
+        texto.replace(_FIN_DE_LA_CABECERA, bloque + _FIN_DE_LA_CABECERA, 1),
+        encoding="utf-8")
 
 
 def _para_investigadores(destino: Path, correo: str, hoy: date) -> Path:
@@ -1409,6 +1481,9 @@ def montar_sitio(
     # escribir el primer byte. Se mira dos veces a propósito, como la bitácora.
     for html in sorted(pagina.glob("*.html")):
         _lo_que_la_politica_bloquearia(html.name, html.read_text(encoding="utf-8"))
+    # Y el nombre de la ficha de la portada, por lo mismo: se sabe ya si falta,
+    # y si se descubre al final queda media carpeta montada.
+    nombre_del_titular = _nombre_del_titular(pagina)
 
     _se_puede_borrar(destino)
     if destino.exists():
@@ -1646,6 +1721,7 @@ def montar_sitio(
     # de las huellas a propósito, porque las huellas tienen que ser las del
     # fichero que de verdad se publica.
     _para_buscadores(destino)
+    _con_ficha_de_la_portada(destino, nombre_del_titular)
     _para_investigadores(destino, _correo_del_titular(pagina), date.today())
     # La política, después de todo lo que reescribe una página: las huellas de
     # los scripts tienen que ser las del texto que se publica.
