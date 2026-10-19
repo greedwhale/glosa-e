@@ -3624,7 +3624,12 @@ CODIGOS: dict[str, str] = {
         "anexo I no lo recoge. Las interconectadas pueden ir con la firma; de "
         "las copias fieles la orden no lo dice, y si una la lleva sale un aviso "
         "y no un error. La dirección de un documento externo no mete el "
-        "fichero dentro, y no se mira."
+        "fichero dentro, y no se mira. El PDF que durante los doce primeros "
+        "meses tienen que mandar con cada factura quienes facturan más de 8 "
+        "millones tampoco va dentro: se manda aparte, por cualquier medio, y "
+        "nunca a la solución pública (disposición transitoria segunda del Real "
+        "Decreto 238/2026). Basta no mandarlo si el cliente acepta recibir la "
+        "factura solo en su formato original."
     ),
     "SPFE-GARANTIA": (
         "Un descuento cuyo motivo dice garantía: la retención de garantía de "

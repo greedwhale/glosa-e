@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3456 tests, todos en verde.
+3462 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4623,6 +4623,14 @@ una palabra. Medido antes de tocar nada, sobre `cae90d3`:
   firma, sin llevarla, no es una firma.
 - **Un documento por su dirección no es un fichero dentro**, y no se mira: la
   orden prohíbe incorporar ficheros, no nombrarlos.
+- **Si lo que va dentro es un PDF, el error dice dónde va el del primer
+  año** (añadido el 19-10-2026, al leer la sección de la Sede). Durante doce
+  meses, quien factura más de 8 millones tiene que acompañar cada factura con
+  un PDF legible, y lo natural es pegarlo dentro; el Real Decreto 238/2026 lo
+  manda por cualquier medio y nunca a la solución pública (disposición
+  transitoria segunda, apartado 2). Se reconoce por el tipo
+  (`application/pdf`, sin mirar mayúsculas) o por el nombre, y no se dice en
+  la copia fiel.
 - **El «VAT» que falta es el mismo error que el que no es «VAT».** Las filas
   dicen que «su uso implica» que la ruta tome el valor, como las del desglose
   de los cobros y las de las retenciones, donde faltar ya era un error.

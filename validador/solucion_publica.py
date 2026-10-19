@@ -2968,6 +2968,19 @@ def _fichero(nodo) -> str:
     return f"{nombre} en el documento {referencia}" if referencia else nombre
 
 
+_PDF_DEL_PRIMER_ANO = (
+    " Si es el PDF que durante los doce primeros meses tienen que mandar con "
+    "la factura quienes facturan más de 8 millones, ese va aparte, por "
+    "cualquier medio, y nunca a la solución pública (disposición transitoria "
+    "segunda del Real Decreto 238/2026, apartado 2)."
+)
+
+
+def _es_un_pdf(nodo) -> bool:
+    return ((nodo.get("mimeCode") or "").strip().lower() == "application/pdf"
+            or (nodo.get("filename") or "").strip().lower().endswith(".pdf"))
+
+
 def _ficheros_embebidos(raiz) -> list[Incidencia]:
     """Los ficheros integrados o embebidos, que la orden no deja llevar.
 
@@ -2978,6 +2991,13 @@ def _ficheros_embebidos(raiz) -> list[Incidencia]:
     fiel la lleva, un aviso. La firma envuelta en el XML (`ds:Signature`) no
     es un fichero pegado, pero es la firma que el artículo 3 exceptúa, y se
     trata igual que la que va en un fichero.
+
+    Cuando lo que va dentro es un PDF, el mensaje dice dónde va el PDF del
+    primer año. El Real Decreto obliga a los de más de 8 millones a mandarlo
+    con cada factura durante doce meses, y la tentación es pegarlo dentro, que
+    es justo lo que la orden no deja: el apartado 2 de su disposición
+    transitoria segunda lo manda por cualquier medio y nunca a la solución
+    pública. No se dice en la copia fiel, que no la emite nadie con ese PDF.
     """
     incidencias: list[Incidencia] = []
     copia = _es_copia(raiz)
@@ -2994,7 +3014,8 @@ def _ficheros_embebidos(raiz) -> list[Incidencia]:
                 "La factura lleva un fichero dentro, y la orden no lo admite: dice "
                 f"que no podrán incorporar otros ficheros integrados o embebidos ({articulo}). "
                 "La norma europea sí lo admite, como documento adjunto (BT-125), y "
-                "el anexo I no lo recoge.",
+                "el anexo I no lo recoge."
+                + (_PDF_DEL_PRIMER_ANO if not copia and any(map(_es_un_pdf, fuera)) else ""),
                 campo="Fichero embebido (cac:Attachment)",
                 esperado="ningún fichero dentro de la factura",
                 encontrado=", ".join(dict.fromkeys(_fichero(nodo) for nodo in fuera)),

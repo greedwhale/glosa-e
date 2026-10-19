@@ -1469,6 +1469,22 @@ class TestLosFicherosEmbebidos:
         assert queja.gravedad == ERROR and queja.encontrado == encontrado
         assert "apartado 6 de su artículo 3" in queja.mensaje and "BT-125" in queja.mensaje
 
+    @pytest.mark.parametrize(("dentro", "lo_dice"), [
+        (PDF, True),
+        (PDF.replace('application/pdf" filename="contrato.pdf"', 'APPLICATION/PDF" filename="contrato"'), True),
+        (PDF.replace(' mimeCode="application/pdf"', ""), True),
+        (PDF.replace('application/pdf" filename="contrato.pdf"', 'image/png" filename="plano.png"'), False),
+        ("<cbc:EmbeddedDocument>Contrato</cbc:EmbeddedDocument>", False),
+    ], ids=["por su tipo", "en mayúsculas", "solo por el nombre", "una imagen", "un texto"])
+    def test_si_es_un_pdf_dice_donde_va_el_del_primer_ano(self, dentro, lo_dice):
+        """Disposición transitoria segunda del RD 238/2026, apartado 2."""
+        queja = la(_detras_de_los_documentos(_contrato(dentro)), "SPFE-FICHERO-EMBEBIDO")
+        assert ("transitoria segunda" in queja.mensaje) is lo_dice
+
+    def test_en_la_copia_fiel_no_se_habla_del_pdf_del_primer_ano(self):
+        queja = la(_como_copia_fiel(_detras_de_los_documentos(_contrato(PDF))), "SPFE-FICHERO-EMBEBIDO")
+        assert "transitoria segunda" not in queja.mensaje
+
     def test_en_la_copia_fiel_lo_dice_el_articulo_4(self):
         queja = la(_como_copia_fiel(_detras_de_los_documentos(_contrato(PDF))), "SPFE-FICHERO-EMBEBIDO")
         assert queja.gravedad == ERROR and "apartado 4 de su artículo 4" in queja.mensaje
