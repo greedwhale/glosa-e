@@ -2992,10 +2992,14 @@ def _total_a_pagar(raiz) -> list[Incidencia]:
     if solo_retenciones and None not in (retenido, con_iva, pagar, pagado, redondeo):
         sin_retener = con_iva - pagado + redondeo
         esperado = sin_retener - retenido
-        cuenta = (f"{cifras.en_castellano(con_iva)} con IVA, menos "
-                  f"{cifras.en_castellano(pagado)} pagado, más "
-                  f"{cifras.en_castellano(redondeo)} de redondeo y menos "
-                  f"{cifras.en_castellano(retenido)} retenido")
+        # Lo pagado y el redondeo solo se nombran si los hay: un «más 0,00
+        # de redondeo» en cada factura es ruido.
+        partes = [f"{cifras.en_castellano(con_iva)} con IVA"]
+        if pagado:
+            partes.append(f"menos {cifras.en_castellano(pagado)} pagado")
+        if redondeo:
+            partes.append(f"más {cifras.en_castellano(redondeo)} de redondeo")
+        cuenta = ", ".join(partes) + f" y menos {cifras.en_castellano(retenido)} retenido"
         if cuadra_exacto(esperado, pagar):
             return [
                 Incidencia(

@@ -2017,7 +2017,8 @@ class TestElTotalConRetenciones:
     def test_la_de_la_orden_cuadra_restando_la_retencion(self):
         nota = la(DEL_BOE, "SPFE-TOTAL-A-PAGAR")
         assert nota.gravedad == NOTA and "cuadra restando las retenciones" in nota.mensaje
-        assert "121,00 con IVA, menos 20,00 pagado" in nota.mensaje
+        assert "121,00 con IVA, menos 20,00 pagado y menos 15,00 retenido" in nota.mensaje
+        assert "redondeo" not in nota.mensaje.split(")")[0]
 
     def test_un_total_que_no_cuadra_es_un_aviso(self):
         informe = factura.validar(self._a_pagar(DEL_BOE, "500.00").encode("utf-8"))
