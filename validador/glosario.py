@@ -1214,7 +1214,7 @@ CODIGOS: dict[str, str] = {
         'un duplicado hay que saber cuál de los dos sobra. Es una '
         'comprobación que sólo tiene sentido sobre un montón de facturas; un '
         'fichero suelto no la dispara nunca. Hay un caso en que el número '
-        'se repite a propósito: los duplicados del artículo 14.2 del '
+        'se repite a propósito: los duplicados del artículo 14, apartado 2, del '
         'Reglamento de facturación, uno por destinatario cuando una misma '
         'operación tiene varios. También salen aquí, porque llevan el mismo '
         'emisor, número y fecha, que es lo que identifica la factura en la '
@@ -3646,7 +3646,7 @@ CODIGOS: dict[str, str] = {
         "simplificadas (el canje de un ticket), que no cita ninguna en el "
         "grupo de facturas anteriores (BG-3). La orden no lo exige, porque el "
         "grupo es opcional, y el Reglamento de facturación tampoco: solo dice "
-        "que el canje no es una rectificativa (art. 15.6). Por eso es una "
+        "que el canje no es una rectificativa (artículo 15, apartado 6). Por eso es una "
         "nota. Citar cada ticket con su número y su fecha deja dicho qué se "
         "sustituye."
     ),
