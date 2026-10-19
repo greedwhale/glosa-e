@@ -269,6 +269,13 @@ class Deteccion:
     familia: str | None = None
     version: str | None = None
     tipo_documento: str | None = None  # "factura" o "abono"; ninguno en una respuesta
+    # El código del tipo, tal cual lo trae el documento: el BT-3 (380, 381,
+    # 384...) en UBL, CII y EDIFACT; en Facturae, el tipo y la clase ("FC OO"),
+    # si todas las facturas del fichero llevan los mismos. "factura" no basta
+    # para leer un lote: una rectificativa 384 es "factura" en UBL, y es justo
+    # la que hay que separar. Va crudo; quien lo enseñe fuera lo filtra (ver
+    # `factura._tipo_que_se_cuenta`).
+    codigo_tipo: str | None = None
     perfil: str | None = None
     conforme_en16931: bool = False
     firmado: bool = False
@@ -415,11 +422,19 @@ def _detectar_facturae(raiz: etree._Element, namespace: str | None) -> Deteccion
     if raiz.xpath("//*[local-name()='InvoiceDocumentType']"):
         tipos = raiz.xpath("//*[local-name()='InvoiceDocumentType']/text()")
         tipo = "abono" if any("RECTIFICATIVA" in t.upper() for t in tipos) else "factura"
+    parejas = {
+        " ".join(
+            (cabecera.xpath(f"string(./*[local-name()='{hijo}'])") or "").strip()
+            for hijo in ("InvoiceDocumentType", "InvoiceClass")
+        )
+        for cabecera in raiz.xpath("//*[local-name()='InvoiceHeader']")
+    }
 
     return Deteccion(
         familia=FACTURAE,
         version=version,
         tipo_documento=tipo,
+        codigo_tipo=parejas.pop() if len(parejas) == 1 else None,
         perfil=None,
         conforme_en16931=False,  # Facturae es formato nacional, no CIUS de EN 16931
         firmado=_tiene_firma(raiz),
@@ -463,6 +478,7 @@ def _detectar_ubl(raiz: etree._Element, namespace: str, nombre: str) -> Deteccio
         familia=UBL,
         version=version,
         tipo_documento="abono" if nombre == "CreditNote" else "factura",
+        codigo_tipo=_texto(raiz, "./cbc:InvoiceTypeCode | ./cbc:CreditNoteTypeCode", espacios),
         perfil=perfil,
         conforme_en16931=bool(perfil and perfil.startswith(MARCADORES_EN16931)),
         firmado=_tiene_firma(raiz),
@@ -534,6 +550,7 @@ def _detectar_cii(raiz: etree._Element, namespace: str) -> Deteccion:
         familia=CII,
         version="D16B",
         tipo_documento=tipo,
+        codigo_tipo=codigo,
         perfil=perfil,
         conforme_en16931=bool(perfil and perfil.startswith(MARCADORES_EN16931)),
         firmado=_tiene_firma(raiz),
@@ -590,6 +607,7 @@ def _detectar_edifact(datos: bytes) -> Deteccion | None:
         tipo_documento=_TIPOS_EDIFACT.get(
             (re_bgm.search(datos) or _VACIO).group(1) or b"", None
         ),
+        codigo_tipo=((re_bgm.search(datos) or _VACIO).group(1) or b"").decode("latin-1") or None,
         conforme_en16931=any(m in datos for m in _MARCADORES_EDIFACT),
         motivo="Formato reconocido.",
     )
@@ -620,6 +638,7 @@ def _detectar_edifact_xml(raiz: etree._Element, nombre: str) -> Deteccion:
         familia=EDIFACT,
         version=_version_edifact((directorio or "").encode("latin-1")),
         tipo_documento=_TIPOS_EDIFACT.get((codigo or "").encode("latin-1")),
+        codigo_tipo=codigo,
         perfil=perfil,
         conforme_en16931=bool(perfil and perfil.startswith(MARCADORES_EN16931)),
         firmado=_tiene_firma(raiz),

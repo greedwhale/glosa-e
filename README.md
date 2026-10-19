@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3465 tests, todos en verde.
+3473 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -94,6 +94,37 @@ en los formatos, el valor de la incidencia en su línea, contar las veces por
 documento y que la consola imprima el informe normal. La tercera no mordía con
 los ejemplos, donde ningún código sale dos veces en la misma factura, y por eso
 hay una prueba con un lote hecho a mano.
+
+**Con las combinaciones, también desde el 19-10-2026.** El recuento dice además
+cuántos documentos llevan exactamente los mismos códigos, y en los formatos, el
+código del tipo de factura (380, 381, 384...; en Facturae, el tipo y la clase,
+como FC OO). Lo pidió la prueba del informe de ejemplo (paso 14b): con solo las
+cuentas, que las 18 facturas de `SPFE-RETENCION` fueran las mismas 18 de
+`BR-CO-16` se deducía de que los números coincidían, y el informe tenía que
+decirlo como deducción. Con las combinaciones se lee: una línea de 18
+documentos con los dos códigos juntos, y otra con las 3 rectificativas (384),
+que son las que sí cuadran el total. Lo que llevan todos los documentos se
+dice una vez arriba y no se repite en cada línea, porque las dos notas que
+lleva cualquier factura de la solución pública tapaban lo demás; con un solo
+documento no se saca nada en común. El tipo es texto del documento, así que
+solo sale si es un código: tres cifras, o los de las listas cerradas de
+Facturae; si trae otra cosa, dice "tipo sin código" y no lo copia. Seis
+roturas provocadas lo ponen en rojo: contar lo que contiene en vez de lo
+exacto, sacar lo común de un documento solo, quitar el filtro del tipo, poner
+el formato en cada línea con un formato solo, y perder el tipo en Facturae o en
+los abonos de UBL; y dos más, el tipo en CII y en EDIFACT.
+
+Y antes de las combinaciones, **los códigos que van siempre juntos**: los que
+salen exactamente en los mismos documentos, ni uno más ni uno menos, que casi
+siempre son el mismo fallo visto por dos reglas. Las combinaciones lo dicen
+también, pero en un lote desordenado no se ve. Medido el 19-10-2026 sobre las
+146 muestras públicas de `muestras/` (de decenas de emisores y formatos):
+89 combinaciones, 70 de un solo documento y alguna con más de veinte códigos;
+y 10 grupos de códigos juntos, el primero de 73 documentos (`BR-13` y `BR-14`,
+los dos totales del documento) y el segundo de 31 (`BR-07` y `BR-10`, el
+nombre y la dirección del comprador). Se agrupa por el conjunto de documentos y
+no por la cuenta: dos códigos con 18 cada uno en facturas distintas no van
+juntos, y la prueba lo provoca. Lo que sale en todos no se repite aquí.
 
 **Y en la web, desde el mismo día.** Al pie de cada informe hay un desplegable,
 cerrado, con el mismo recuento y un botón para copiarlo. Lo escribe la misma

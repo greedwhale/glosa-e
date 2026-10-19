@@ -22,6 +22,8 @@ Este módulo hace tres cosas que no salen gratis de sumar las dos listas:
 
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -1073,17 +1075,31 @@ class InformeLote:
         del equipo. Lo vigila una prueba que pasa por aquí facturas de ejemplo
         y falla si cualquier texto de dentro, o el nombre de un fichero,
         aparece en la salida.
+
+        Desde el 19-10-2026 lleva además las combinaciones: cuántos documentos
+        tienen exactamente los mismos códigos. Sin ellas, que las 18 facturas de
+        un código fueran las mismas 18 de otro había que deducirlo de que las
+        cuentas coincidían, y el informe de brecha lo decía como deducción (lo
+        vio la prueba del informe de ejemplo, paso 14b). Lo que sale en todos
+        los documentos se dice una vez arriba y no se repite en cada línea:
+        si no, las dos notas que lleva cualquier factura de la solución pública
+        tapaban lo que distingue a unas de otras. Y en los formatos va el
+        código del tipo de factura (380, 384...), que es lo que separa una
+        rectificativa de las demás; solo si es un código, ver
+        `_tipo_que_se_cuenta`.
         """
         orden = {ERROR: 0, AVISO: 1, NOTA: 2}
         formatos: dict[str, int] = {}
         en_documentos: dict[tuple[str, str], int] = {}
         veces: dict[tuple[str, str], int] = {}
+        de_cada_uno: list[tuple[str, frozenset[tuple[str, str]]]] = []
         for _, informe in self.informes:
             deteccion = informe.deteccion
             if deteccion:
                 formato = " ".join(x for x in (deteccion.familia, deteccion.version) if x)
-                if deteccion.tipo_documento:
-                    formato += f" ({deteccion.tipo_documento})"
+                tipo = " ".join(x for x in (deteccion.tipo_documento, _tipo_que_se_cuenta(deteccion)) if x)
+                if tipo:
+                    formato += f" ({tipo})"
             else:
                 formato = "sin reconocer o sin leer"
             formatos[formato] = formatos.get(formato, 0) + 1
@@ -1094,6 +1110,7 @@ class InformeLote:
                 if clave not in vistas:
                     vistas.add(clave)
                     en_documentos[clave] = en_documentos.get(clave, 0) + 1
+            de_cada_uno.append((formato, frozenset(vistas)))
         cruzadas: dict[tuple[str, str], int] = {}
         for incidencia in self.cruzadas:
             clave = (incidencia.gravedad, incidencia.codigo)
@@ -1128,6 +1145,12 @@ class InformeLote:
                 )
         else:
             lineas.append("  Ninguno.")
+        if len(de_cada_uno) > 1:
+            lineas.append("")
+            lineas.extend(_siempre_juntos(de_cada_uno, orden))
+        if de_cada_uno:
+            lineas.append("")
+            lineas.extend(_combinaciones(de_cada_uno, orden))
         if cruzadas:
             lineas.append("")
             lineas.append("Entre ficheros (cuántas veces):")
@@ -1144,6 +1167,96 @@ class InformeLote:
         if not anclas and self.firmados:
             lineas.append("No se ha comprobado de quién son las firmas: no había anclas de confianza.")
         return "\n".join(lineas)
+
+
+# Lo único del tipo que el recuento enseña: un código de tres cifras (el BT-3
+# de UBL, CII y EDIFACT) o los de las listas cerradas de Facturae. El tipo es
+# texto del documento, y el recuento no lleva texto del documento: una factura
+# mal hecha que traiga ahí otra cosa (un nombre, una referencia) no la saca.
+_TIPOS_DE_FACTURAE = {"FC", "FA", "AF"}
+_CLASES_DE_FACTURAE = {"OO", "OR", "OC", "CO", "CR", "CC"}
+
+
+def _tipo_que_se_cuenta(deteccion: Deteccion) -> str | None:
+    codigo = (deteccion.codigo_tipo or "").strip()
+    if re.fullmatch(r"[0-9]{3}", codigo):
+        return codigo
+    partes = codigo.split()
+    if len(partes) == 2 and partes[0] in _TIPOS_DE_FACTURAE and partes[1] in _CLASES_DE_FACTURAE:
+        return codigo
+    return "tipo sin código" if codigo else None
+
+
+def _siempre_juntos(de_cada_uno: list[tuple[str, frozenset[tuple[str, str]]]],
+                    orden: dict[str, int]) -> list[str]:
+    """Los códigos que salen exactamente en los mismos documentos.
+
+    Es la prueba de "una causa, varios códigos": dos códigos que van juntos en
+    las mismas 18 facturas, ni una más ni una menos, casi siempre son el mismo
+    fallo visto por dos reglas. Las combinaciones lo dicen también, pero en un
+    lote desordenado no se ve: medido el 19-10-2026 sobre las 146 muestras
+    públicas de `muestras/`, salían 89 combinaciones, 70 de un solo documento,
+    y alguna con más de veinte códigos en la línea. Se agrupa por el conjunto
+    de documentos y no por la cuenta: dos códigos con 18 cada uno en facturas
+    distintas no van juntos. Lo que sale en todos no va aquí, porque ya lo dice
+    la primera línea de las combinaciones.
+    """
+    donde: dict[tuple[str, str], set[int]] = {}
+    for indice, (_, codigos) in enumerate(de_cada_uno):
+        for clave in codigos:
+            donde.setdefault(clave, set()).add(indice)
+    grupos: dict[frozenset[int], list[tuple[str, str]]] = {}
+    for clave, documentos in donde.items():
+        if len(documentos) < len(de_cada_uno):
+            grupos.setdefault(frozenset(documentos), []).append(clave)
+    juntos = [(len(documentos), sorted(claves, key=lambda c: (orden.get(c[0], 9), c[1])))
+              for documentos, claves in grupos.items() if len(claves) > 1]
+    lineas = ["Códigos que van siempre juntos (salen en los mismos documentos, ni uno más ni uno menos):"]
+    if not juntos:
+        lineas.append("  Ninguno.")
+    for cuantos, claves in sorted(juntos, key=lambda j: (-j[0], orden.get(j[1][0][0], 9), j[1])):
+        lineas.append(f"  {cuantos:>5} doc.  " + " + ".join(f"{g.upper()} {c}" for g, c in claves))
+    return lineas
+
+
+def _combinaciones(de_cada_uno: list[tuple[str, frozenset[tuple[str, str]]]],
+                   orden: dict[str, int]) -> list[str]:
+    """Cuántos documentos llevan exactamente lo mismo.
+
+    Con un solo documento no se saca nada en común: todo lo suyo sería "en
+    todos", y la línea de abajo diría "nada más" de un documento con errores.
+    El formato va en cada línea solo si el lote tiene más de uno; con uno, es
+    el mismo en todas y no dice nada.
+    """
+    en_todos: frozenset[tuple[str, str]] = frozenset()
+    if len(de_cada_uno) > 1:
+        en_todos = frozenset.intersection(*(codigos for _, codigos in de_cada_uno))
+
+    def escritos(codigos) -> str:
+        ordenados = sorted(codigos, key=lambda c: (orden.get(c[0], 9), c[1]))
+        return " + ".join(f"{gravedad.upper()} {codigo}" for gravedad, codigo in ordenados)
+
+    cuentas: dict[tuple[str, frozenset[tuple[str, str]]], int] = {}
+    for formato, codigos in de_cada_uno:
+        clave = (formato, codigos - en_todos)
+        cuentas[clave] = cuentas.get(clave, 0) + 1
+    varios_formatos = len({formato for formato, _ in de_cada_uno}) > 1
+    ancho = max(len(formato) for formato, _ in de_cada_uno)
+    lineas = ["Combinaciones (cuántos documentos llevan exactamente lo mismo):"]
+    if en_todos:
+        lineas.append(f"  En todos, y por eso no se repite abajo: {escritos(en_todos)}.")
+    resto = "nada más" if en_todos else "ningún código"
+
+    def peso(clave):
+        formato, codigos = clave
+        peor = min((orden.get(g, 9) for g, _ in codigos), default=9)
+        return (-cuentas[clave], peor, formato, escritos(codigos))
+
+    for clave in sorted(cuentas, key=peso):
+        formato, codigos = clave
+        columna = f"{formato:<{ancho}}  " if varios_formatos else ""
+        lineas.append(f"  {cuentas[clave]:>5}  {columna}{escritos(codigos) or resto}")
+    return lineas
 
 
 def _veces(cuantas: int) -> str:
