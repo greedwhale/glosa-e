@@ -8695,3 +8695,30 @@ glosario encontró dos fichas que la búsqueda a mano no vio, porque tenían
 la expresión partida entre dos líneas del código (BR-S-07 y BR-AF-10).
 Provocado: con el nombre viejo, la prueba sale en rojo.
 
+## El total a pagar con retención no se miraba
+
+**Cómo salió.** Al estudiar las operaciones españolas que no caben bien en la
+factura de la orden (19-10-2026), la retención de garantía de una obra se
+escribió como retención de concepto 11, que es como cabe. Un total a pagar
+disparatado pasó sin una queja.
+
+**Reproducido** el 19-10-2026 sobre `7c0f79d`, con la factura de la orden de
+las pruebas: 121,00 con IVA, 20,00 pagados y 15,00 retenidos. Con 500,00 a
+pagar, y con 101,00 (sin restar la retención), solo la nota
+`SPFE-TOTAL-A-PAGAR`; lo mismo con IRPF y con el concepto 11. No era nuevo:
+desde el 14-09 el README, este fichero y `NO_SE_COMPRUEBA` decían que con
+líneas de cobro el total no se comprueba. Lo que cambió es la lectura: el
+`BT-179` de las retenciones es, palabra por palabra, `BT-ES-17`, y ese sí
+tiene ruta.
+
+**Lo que se hizo.** Con retenciones solas, el total se cuadra restándolas; si
+cuadra, una nota lo dice y dice que el signo se ha leído como resta; si no, un
+AVISO con lo esperado, y la frase de que parece no haberse restado si el total
+es justo el de sin retener. Con cualquier otra línea de cobro, la nota de
+siempre. Cambian con ello `NO_SE_COMPRUEBA["BT-115"]`, la ficha del alcance que
+lo copia, la ficha de la nota y la fila del total en la copia fiel.
+
+**Provocado.** El signo cambiado, la condición de solo retenciones quitada, la
+frase de la retención olvidada quitada y el AVISO cambiado a ERROR: cada uno
+pone en rojo su prueba en `TestElTotalConRetenciones`.
+

@@ -1977,6 +1977,65 @@ class TestLineas:
                   "SPFE-REFERENCIA-CATASTRAL").encontrado == "05"
 
 
+class TestElTotalConRetenciones:
+    """BT-115 cuando las únicas líneas de cobro son retenciones.
+
+    Hasta el 19-10-2026, con cualquier línea de cobro el total a pagar no se
+    miraba: 500,00 a pagar en una factura de 121,00 salía con una nota. La
+    suma de retenciones sí tiene ruta (BT-ES-17), y se resta. Las facturas son
+    de las pruebas, no ejemplos oficiales: el de la AEAT no trae totales.
+    """
+
+    @staticmethod
+    def _a_pagar(xml: str, importe: str) -> str:
+        return cambia(xml, '<cbc:PayableAmount currencyID="EUR">86.00</cbc:PayableAmount>',
+                      f'<cbc:PayableAmount currencyID="EUR">{importe}</cbc:PayableAmount>')
+
+    def test_la_de_la_orden_cuadra_restando_la_retencion(self):
+        nota = la(DEL_BOE, "SPFE-TOTAL-A-PAGAR")
+        assert nota.gravedad == NOTA and "cuadra restando las retenciones" in nota.mensaje
+        assert "121,00 con IVA, menos 20,00 pagado" in nota.mensaje
+
+    def test_un_total_que_no_cuadra_es_un_aviso(self):
+        informe = factura.validar(self._a_pagar(DEL_BOE, "500.00").encode("utf-8"))
+        queja = next(i for i in informe.incidencias if i.codigo == "SPFE-TOTAL-A-PAGAR")
+        assert queja.gravedad == AVISO
+        assert (queja.esperado, queja.encontrado) == ("86,00", "500.00")
+        assert "parece que no" not in queja.mensaje
+        assert "BR-CO-16" not in {i.codigo for i in informe.incidencias}
+
+    def test_dice_si_falta_restar_la_retencion(self):
+        queja = la(self._a_pagar(DEL_BOE, "101.00"), "SPFE-TOTAL-A-PAGAR")
+        assert queja.gravedad == AVISO and "parece que no se ha restado" in queja.mensaje
+
+    def test_sin_anticipo_lo_pagado_cuenta_cero(self):
+        sin = quita(DEL_BOE, "  <cac:PrepaidPayment>", "</cac:PrepaidPayment>\n")
+        sin = cambia(sin, '    <cbc:PrepaidAmount currencyID="EUR">20.00</cbc:PrepaidAmount>\n', "")
+        assert la(self._a_pagar(sin, "106.00"), "SPFE-TOTAL-A-PAGAR").gravedad == NOTA
+        assert la(sin, "SPFE-TOTAL-A-PAGAR").esperado == "106,00"
+
+    def test_la_garantia_como_retencion_de_otros_tambien(self):
+        """La retención de garantía de una obra escrita con el concepto 11:
+        es el artificio que cabe, y el total se cuadra igual."""
+        otros = cambia(DEL_BOE, "<cbc:TaxTypeCode>01</cbc:TaxTypeCode>", "<cbc:TaxTypeCode>11</cbc:TaxTypeCode>")
+        assert la(self._a_pagar(otros, "500.00"), "SPFE-TOTAL-A-PAGAR").gravedad == AVISO
+
+    def test_con_otras_lineas_de_cobro_no_se_cuadra(self):
+        """Un suplido no tiene ruta para su importe: medio cuadre sería un
+        aviso falso, y se queda la nota de siempre."""
+        nota = la(self._a_pagar(CON_LOS_COBROS_DEL_BOE, "500.00"), "SPFE-TOTAL-A-PAGAR")
+        assert nota.gravedad == NOTA and "no se ha comprobado" in nota.mensaje
+
+    def test_sin_la_suma_de_retenciones_no_se_cuadra(self):
+        sin = quita(DEL_BOE, "  <cac:WithholdingTaxTotal>", "</cac:WithholdingTaxTotal>\n")
+        nota = la(self._a_pagar(sin, "500.00"), "SPFE-TOTAL-A-PAGAR")
+        assert nota.gravedad == NOTA and "no se ha comprobado" in nota.mensaje
+
+    def test_la_ficha_lo_cuenta(self):
+        ficha = glosario.CODIGOS["SPFE-TOTAL-A-PAGAR"]
+        assert "BT-ES-17" in ficha and "aviso" in ficha
+
+
 class TestLineasDeCobro:
 
     @pytest.mark.parametrize("identificador", [

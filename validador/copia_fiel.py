@@ -343,8 +343,9 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "total a pagar", "TotalExecutableAmount", "BT-115", POR_DECIDIR,
         "es el que más se le parece (descuenta retenciones y suma suplidos y "
         "gastos financieros), pero el anexo manda sumar los importes de "
-        "terceros «junto con» el total con IVA y esa cuenta no se puede "
-        "comprobar todavía: es la misma duda de SPFE-TOTAL-A-PAGAR",
+        "terceros «junto con» el total con IVA, y esa cuenta solo se "
+        "comprueba cuando no hay más que retenciones: es la misma duda de "
+        "SPFE-TOTAL-A-PAGAR",
     ),
     Correspondencia(
         "retenciones de impuestos", "TotalTaxesWithheld",

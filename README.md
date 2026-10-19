@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3429 tests, todos en verde.
+3437 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3859,7 +3859,8 @@ algún día la orden pide algo que aquí todavía no se mide, va en
 `LO_QUE_TODAVIA_NO_SE_MIDE`, vacía desde el 11-10-2026, y la nota y el
 glosario lo dicen letra a letra, porque que no salga ninguna queja no
 quiere decir que cumpla la orden; y `SPFE-TOTAL-A-PAGAR`, que sale cuando hay
-líneas de cobro y es lo que sigue. Un abono que declara la orden no recibe
+líneas de cobro y es lo que sigue (con retenciones solas, en AVISO si el
+total no cuadra). Un abono que declara la orden no recibe
 `SPFE-ALCANCE`: no se le mide con el anexo, y `SPFE-TIPO-DE-FACTURA` ya lo
 dice.
 
@@ -3881,6 +3882,24 @@ borrador ni la orden dicen dónde se escriben: son `BT-179`, un término de la
 edición de 2026 sin ruta. Así que con líneas de cobro la nota dice que el
 cuadre no se ha comprobado, y BR-CO-16 no sale. Sin líneas de cobro se
 comprueba como siempre.
+
+**Las retenciones sí tienen cifra, desde el 19-10-2026.** La orden define el
+`BT-179` de su grupo y `BT-ES-17` con la misma frase ("sumatorio de todas las
+retenciones practicadas en factura"), y `BT-ES-17` tiene ruta. Así que, si las
+únicas líneas de cobro son retenciones, el total a pagar se cuadra: total con
+IVA, menos lo pagado, más el redondeo, menos lo retenido. La orden no escribe
+el signo ("junto con"), y se resta porque eso es una retención y porque
+Facturae hace lo mismo (`TotalExecutableAmount`); por no estar escrito, lo que
+no cuadra es un AVISO y no un ERROR, y si el total es justo el que saldría sin
+restar, lo dice. Con suplidos, minoraciones o impuestos y tasas se queda la
+nota: su importe no tiene ruta o el desglose es opcional, y medio cuadre sería
+un aviso falso. Medido antes del arreglo: una factura de 121,00 con su
+retención y 500,00 a pagar salía con la nota y sin una queja, con IRPF y con
+la retención de concepto 11, que es como cabe la retención de garantía de una
+obra. Las pruebas usan la factura de la orden de las pruebas, que escribió el
+proyecto: el ejemplo de la AEAT no trae totales. Cuatro roturas provocadas (el
+signo, la condición de solo retenciones, la frase de la retención olvidada y
+la gravedad) ponen en rojo su prueba.
 
 **Qué sale del anexo y qué no.** Las rutas de los campos españoles vienen de
 `RUTAS_CIUS_ES`, y las de dentro de un grupo se piden relativas a él. Los

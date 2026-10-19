@@ -810,9 +810,11 @@ NO_SE_COMPRUEBA: dict[str, str] = {
         "no se ha podido leer aquí."
     ),
     "BT-115": (
-        "El total a pagar suma los importes de BT-179, que no tienen ruta. Con "
-        "líneas de cobro, el cuadre del total a pagar (BR-CO-16) no se "
-        "comprueba, y SPFE-TOTAL-A-PAGAR lo dice en el informe."
+        "El total a pagar suma los importes de BT-179, que no tienen ruta. Si "
+        "las únicas líneas de cobro son retenciones, se cuadra restando su "
+        "suma (BT-ES-17); con suplidos, minoraciones o impuestos y tasas, el "
+        "cuadre del total a pagar (BR-CO-16) no se comprueba, y "
+        "SPFE-TOTAL-A-PAGAR lo dice en el informe."
     ),
     "BT-111": (
         "Con recargo de equivalencia, la cuota del IVA en euros suma también "
@@ -2913,14 +2915,76 @@ def _ficheros_embebidos(raiz) -> list[Incidencia]:
 
 
 def _total_a_pagar(raiz) -> list[Incidencia]:
-    """BT-115 con líneas de cobro: no se puede cuadrar, y se dice.
+    """BT-115 con líneas de cobro: se cuadra si solo hay retenciones, y si no, se dice.
 
     El anexo suma al total a pagar los importes de BT-179, que no tienen ruta.
     BR-CO-16, que es de la edición de 2017, no los conoce y daba por mal una
-    factura bien hecha. `factura._SOBRA_SI` lo quita cuando sale esta nota.
+    factura bien hecha. `factura._SOBRA_SI` lo quita cuando sale esta queja,
+    sea nota o aviso.
+
+    Con las retenciones sí hay cifra: la orden define el BT-179 de su grupo y
+    BT-ES-17 con la misma frase, «sumatorio de todas las retenciones
+    practicadas en factura», y BT-ES-17 tiene ruta. Hasta el 19-10-2026 no se
+    usaba, y un total a pagar de 500,00 en una factura de 121,00 con su
+    retención pasaba con la nota y sin una queja (medido ese día, con IRPF y
+    con el concepto 11). La orden no escribe el signo, dice «junto con»; se
+    resta, porque eso es una retención (lo que el pagador no paga) y porque
+    Facturae lo hace igual (`TotalExecutableAmount`, `facturae.py`). Por no
+    estar escrito, lo que no cuadra es un AVISO y no un ERROR. Con suplidos,
+    minoraciones o impuestos y tasas, cuyo importe no tiene ruta o puede no
+    traer el desglose (BG-ES-3 es 0..n), se queda la nota de siempre: medio
+    cuadre sería un aviso falso.
     """
-    if not _nodos(raiz, _LINEA_DE_COBRO):
+    lineas = _nodos(raiz, _LINEA_DE_COBRO)
+    if not lineas:
         return []
+    a_pagar = _valor(raiz, SINTAXIS_UBL.a_pagar)
+    solo_retenciones = {_cobro(_valor(linea, "./cbc:ID")) for linea in lineas} == {"RETE"}
+    retenido = a_decimal(_valor(raiz, _RETENCION_TOTAL))
+    con_iva = a_decimal(_valor(raiz, SINTAXIS_UBL.con_impuestos))
+    pagar = a_decimal(a_pagar)
+    # Lo pagado y el redondeo son 0..1: si faltan, cuentan cero; si están y no
+    # se dejan leer, la cuenta no se hace.
+    pagado = a_decimal(_valor(raiz, SINTAXIS_UBL.anticipos) or "0")
+    redondeo = a_decimal(_valor(raiz, SINTAXIS_UBL.redondeo) or "0")
+    if solo_retenciones and None not in (retenido, con_iva, pagar, pagado, redondeo):
+        sin_retener = con_iva - pagado + redondeo
+        esperado = sin_retener - retenido
+        cuenta = (f"{cifras.en_castellano(con_iva)} con IVA, menos "
+                  f"{cifras.en_castellano(pagado)} pagado, más "
+                  f"{cifras.en_castellano(redondeo)} de redondeo y menos "
+                  f"{cifras.en_castellano(retenido)} retenido")
+        if cuadra_exacto(esperado, pagar):
+            return [
+                Incidencia(
+                    "SPFE-TOTAL-A-PAGAR",
+                    NOTA,
+                    "El total a pagar cuadra restando las retenciones "
+                    f"({cuenta}). La orden lo suma \"junto con\" ellas y no "
+                    "escribe el signo; se ha leído como resta, que es lo que "
+                    "hace Facturae. La regla europea del total (BR-CO-16), de "
+                    "2017, no conoce las retenciones y no se ha aplicado.",
+                    campo="Total a pagar (BT-115)",
+                    encontrado=a_pagar,
+                )
+            ]
+        olvidada = (" Es justo lo que daría sin la retención: parece que no se "
+                    "ha restado." if cuadra_exacto(sin_retener, pagar) else "")
+        return [
+            Incidencia(
+                "SPFE-TOTAL-A-PAGAR",
+                AVISO,
+                "El total a pagar no cuadra con el total con IVA, lo pagado, "
+                f"el redondeo y las retenciones ({cuenta} dan "
+                f"{cifras.calculada(esperado)}).{olvidada} La orden suma las "
+                "retenciones al total a pagar \"junto con\" lo demás y no "
+                "escribe el signo; se han restado, como hace Facturae, y por "
+                "eso es un aviso y no un error.",
+                campo="Total a pagar (BT-115)",
+                esperado=cifras.calculada(esperado),
+                encontrado=cifras.tiene(pagar),
+            )
+        ]
     return [
         Incidencia(
             "SPFE-TOTAL-A-PAGAR",
@@ -2930,8 +2994,8 @@ def _total_a_pagar(raiz) -> list[Incidencia]:
             "como el IEDMT), y la orden suma sus importes al total a pagar "
             "(BT-115). La norma de 2017 no los conoce y la orden no dice dónde "
             "se escriben, así que el cuadre del total a pagar (BR-CO-16) no se "
-            "ha comprobado.",
+            "ha comprobado. Con retenciones solas sí se comprueba.",
             campo="Total a pagar (BT-115)",
-            encontrado=_valor(raiz, SINTAXIS_UBL.a_pagar),
+            encontrado=a_pagar,
         )
     ]
