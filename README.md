@@ -118,8 +118,9 @@ Y antes de las combinaciones, **los códigos que van siempre juntos**: los que
 salen exactamente en los mismos documentos, ni uno más ni uno menos, que casi
 siempre son el mismo fallo visto por dos reglas. Las combinaciones lo dicen
 también, pero en un lote desordenado no se ve. Medido el 19-10-2026 sobre las
-146 muestras públicas de `muestras/` (de decenas de emisores y formatos):
-89 combinaciones, 70 de un solo documento y alguna con más de veinte códigos;
+146 muestras públicas de `muestras/`, de 11 formatos y con los esquemas (sin
+ellos sale una combinación menos): 89 combinaciones, 70 de un solo documento y
+diez con más de veinte códigos;
 y 10 grupos de códigos juntos, el primero de 73 documentos (`BR-13` y `BR-14`,
 los dos totales del documento) y el segundo de 31 (`BR-07` y `BR-10`, el
 nombre y la dirección del comprador). Se agrupa por el conjunto de documentos y
