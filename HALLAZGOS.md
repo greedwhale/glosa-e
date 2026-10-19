@@ -8722,3 +8722,23 @@ lo copia, la ficha de la nota y la fila del total en la copia fiel.
 frase de la retención olvidada quitada y el AVISO cambiado a ERROR: cada uno
 pone en rojo su prueba en `TestElTotalConRetenciones`.
 
+## Los impuestos por unidad: un error sin causa, y por debajo de un euro, ni eso
+
+**Cómo salió.** En el mismo estudio del 19-10-2026, el impuesto sobre los
+envases de plástico (0,45 euros por kilo) escrito con los kilos en la base y
+los euros por kilo en el tipo. Lo amplió el auditor de ese informe.
+
+**Reproducido** el 19-10-2026 con la factura de la orden de las pruebas: 11,11
+kilos a 0,45 con cuota 5,00 daban ERROR `SPFE-IMPUESTO-O-TASA` con la cuenta
+("11,11 al 0,45% da 0,05") y sin decir por qué; 1,11 kilos con cuota 0,50
+daban una NOTA que la daba por buena, por el margen de una unidad; y un 5,11 %
+escrito como 0,0511 daba lo mismo que el plástico.
+
+**Lo que se hizo.** Si la cuota es justo la base por el tipo sin dividir por
+cien, ERROR aunque se aparte menos de una unidad, con las dos causas posibles
+y lo que cabe en la orden: dar solo la cuota. Vale para el cargo del documento
+(`BT-ES-8`) y para el cobro en nombre de un tercero (`BT-ES-14`).
+
+**Provocado.** Sin la detección, cuatro pruebas en rojo; sin el paso a ERROR,
+la de por debajo de una unidad.
+

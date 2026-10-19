@@ -2621,13 +2621,55 @@ def _cuenta_de_la_cuota(base, tipo, cuota) -> tuple[str, str, str, str] | None:
     return ERROR, cuenta, cifras.calculada(calculada), ""
 
 
+def _sin_dividir_por_cien(base, tipo, cuota) -> str:
+    """La cuenta de base por tipo sin dividir por cien, si es justo la cuota.
+
+    Pasa de dos maneras, y desde la factura no se distinguen: el tipo escrito
+    como fracción (0,0511 por un 5,11 %) o un impuesto por unidad, con la
+    cantidad en la base y el importe por unidad en el tipo. La segunda es la
+    de casi toda la lista L9: hidrocarburos, alcohol y tabaco van por litro o
+    por mil unidades, y el plástico, a 0,45 euros por kilo (art. 78 de la Ley
+    7/2022). La orden define la base como un importe y el tipo como un
+    porcentaje, así que ninguna de las dos es como la orden la escribe.
+    """
+    if base is None or tipo is None or cuota is None:
+        return ""
+    if redondear(abs(base) * tipo) != abs(cuota):
+        return ""
+    return (f"{cifras.en_castellano(base)} por {cifras.en_castellano(tipo)} da "
+            f"{cifras.calculada(redondear(abs(base) * tipo))}")
+
+
 def _cuota_del_impuesto(fila: str, lugar: str, base, tipo, cuota) -> list[Incidencia]:
-    """La cuenta de la cuota de un impuesto o tasa (BT-ES-8 o BT-ES-14)."""
+    """La cuenta de la cuota de un impuesto o tasa (BT-ES-8 o BT-ES-14).
+
+    Si la cuota es justo la base por el tipo sin dividir por cien, es ERROR
+    aunque se aparte menos de una unidad, y dice las dos causas posibles. Hasta
+    el 19-10-2026 el mensaje daba la cuenta y no la causa, y por debajo de una
+    unidad era una NOTA que la daba por buena: 1,11 kilos de plástico a 0,45
+    euros, con cuota 0,50, salían «dados por buenos» con un error del cien por
+    cien (lo midió el auditor del informe de ese día). El margen de BR-CO-17
+    es para el redondeo, y esto no lo es.
+    """
     cuadre = _cuenta_de_la_cuota(base, tipo, cuota)
     if cuadre is None:
         return []
     gravedad, cuenta, calculada, distancia = cuadre
-    if gravedad == NOTA:
+    sin_cien = _sin_dividir_por_cien(base, tipo, cuota)
+    if sin_cien:
+        gravedad = ERROR
+        mensaje = ("La cuota del impuesto o tasa no sale de aplicar el tipo a la "
+                   f"base ({cuenta}), y sí de multiplicarlos sin dividir por cien "
+                   f"({sin_cien}). O el tipo está escrito como fracción (0,0511 "
+                   "por un 5,11 %), o es un impuesto por unidad, con la cantidad "
+                   "en la base y el importe por unidad en el tipo. La orden "
+                   f"define la cuota como esa cuenta (fila {fila}), la base como "
+                   "un importe y el tipo como un porcentaje: en un impuesto por "
+                   "litro, por kilo o por unidad, lo que cabe es dar solo la "
+                   "cuota, sin base ni tipo. La cantidad (los kilos de plástico "
+                   "no reciclado que pide la Ley 7/2022, por ejemplo) no tiene "
+                   "campo en la orden y solo cabe como texto.")
+    elif gravedad == NOTA:
         mensaje = (f"La cuota del impuesto o tasa se aparta {distancia} de aplicar "
                    f"el tipo a la base ({cuenta}). La orden la define como esa "
                    "cuenta y no da margen; se ha dado por buena con el de la cuota "

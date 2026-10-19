@@ -1860,6 +1860,29 @@ class TestLosImpuestosYTasas:
         sin_cuenta = _con_un_impuesto_en_un_cargo("5.00", _impuesto("", "5.00", "", "IEE"))
         assert las(sin_cuenta, "SPFE-IMPUESTO-O-TASA") == []
 
+    @pytest.mark.parametrize(("base", "cuota", "tipo"), [
+        ("11.11", "5.00", "0.45"),
+        ("1.11", "0.50", "0.45"),
+        ("100.00", "5.00", "0.05"),
+    ], ids=["plástico por kilo", "por debajo de una unidad", "tipo como fracción"])
+    def test_la_cuota_sin_dividir_por_cien_es_un_error_que_dice_por_que(self, base, cuota, tipo):
+        """Medido el 19-10-2026: el plástico a 0,45 euros por kilo daba un
+        ERROR con la cuenta y sin la causa, y con 1,11 kilos, una NOTA que lo
+        daba por bueno."""
+        xml = _con_un_impuesto_en_un_cargo(cuota, _impuesto(base, cuota, tipo, "IEP"))
+        queja = la(xml, "SPFE-IMPUESTO-O-TASA")
+        assert queja.gravedad == ERROR
+        assert "sin dividir por cien" in queja.mensaje and "solo la cuota" in queja.mensaje
+        assert "fracción" in queja.mensaje and "Ley 7/2022" in queja.mensaje
+
+    def test_la_del_cobro_tambien(self):
+        queja = la(_con_el_desglose_del_iedmt(cuota="12000.00"), "SPFE-IMPUESTO-O-TASA")
+        assert queja.gravedad == ERROR and "sin dividir por cien" in queja.mensaje
+
+    def test_un_error_cualquiera_no_dice_lo_del_cien(self):
+        mala = _con_un_impuesto_en_un_cargo("7.00", _impuesto("100.00", "7.00", "5", "IEE"))
+        assert "sin dividir por cien" not in la(mala, "SPFE-IMPUESTO-O-TASA").mensaje
+
     @pytest.mark.parametrize(("cambio", "encontrado"), [
         ({"esquema": "IGIC"}, "IGIC y S"),
         ({"categoria": "E"}, "VAT y E"),

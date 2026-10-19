@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3437 tests, todos en verde.
+3442 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4510,6 +4510,19 @@ nombre fijo `INFO`. Medido antes de tocar nada, sobre `e51de10`:
   da el mismo trato: hasta una unidad, una nota que dice cuánto se aparta. La
   cuenta es una sola para las tres cosas, y la de las retenciones pasa a
   usarla. Sin base o sin tipo, que son `0..1`, no hay cuenta que hacer.
+- **Sin dividir por cien, error y con la causa, desde el 19-10-2026.** Si la
+  cuota es justo la base por el tipo sin dividir por cien, o el tipo va como
+  fracción (0,0511 por un 5,11 %) o es un impuesto por unidad, con la cantidad
+  en la base y el importe por unidad en el tipo. Es el caso de casi toda la
+  L9: hidrocarburos, alcohol y tabaco por litro o por mil unidades, el
+  plástico a 0,45 euros por kilo. La orden define la base como un importe y el
+  tipo como un porcentaje, así que lo que cabe es dar solo la cuota, y el
+  mensaje lo dice con las dos causas; los kilos que pide la Ley 7/2022 (art.
+  82.9.a) no tienen campo. Antes daba la cuenta y no la causa, y por debajo de
+  una unidad era una nota que la daba por buena: 1,11 kilos a 0,45 euros con
+  cuota 0,50 salían así con un error del cien por cien. Ahora es ERROR aunque
+  se aparte menos de una unidad, porque eso no es redondeo. Quitar la
+  detección o el paso a ERROR pone en rojo su prueba.
 - **«VAT» y «S» en el desglose de un cobro**, aunque no sea el IVA. Lo dice
   el grupo: «su uso implica» los dos valores. Se lee de la columna de la ruta,
   como los de las retenciones.
