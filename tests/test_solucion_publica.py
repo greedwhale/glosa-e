@@ -1682,6 +1682,52 @@ CON_DESCUENTOS = cambia(cambia(DEL_BOE, "  <cac:TaxTotal>", _DESCUENTO + "  <cac
                         + "    <cac:Item>\n      <cbc:Name>Asesoria")
 
 
+class TestLaGarantiaYElCanje:
+    """La retención de garantía escrita como descuento y el 388 sin BG-3.
+
+    Las dos pasaban sin una palabra el 19-10-2026, y ninguna es un error: la
+    garantía depende del contrato, que la factura no trae, y el BG-3 es
+    opcional. Por eso son notas.
+    """
+
+    _GARANTIA = cambia(CON_DESCUENTOS,
+                       "<cbc:AllowanceChargeReason>Descuento por pronto pago</cbc:AllowanceChargeReason>",
+                       "<cbc:AllowanceChargeReason>Retención de GARANTÍA 5 %</cbc:AllowanceChargeReason>")
+
+    def test_un_descuento_de_garantia_da_las_tres_lecturas(self):
+        nota = la(self._GARANTIA, "SPFE-GARANTIA")
+        assert nota.gravedad == NOTA
+        assert nota.encontrado == "Retención de GARANTÍA 5 %"
+        for lectura in ("pago anticipado", "V2823-23", "de la entrega", "inversión del sujeto pasivo"):
+            assert lectura in nota.mensaje
+
+    def test_un_descuento_cualquiera_no_la_da(self):
+        assert las(CON_DESCUENTOS, "SPFE-GARANTIA") == []
+
+    def test_un_cargo_de_garantia_no_la_da(self):
+        """Un cargo sube la base: no es la retención."""
+        cargo = cambia(self._GARANTIA, "<cbc:ChargeIndicator>false</cbc:ChargeIndicator>\n    <cbc:AllowanceChargeReason>Ret",
+                       "<cbc:ChargeIndicator>true</cbc:ChargeIndicator>\n    <cbc:AllowanceChargeReason>Ret")
+        assert las(cargo, "SPFE-GARANTIA") == []
+
+    def test_tambien_en_la_linea(self):
+        linea = cambia(CON_DESCUENTOS, "<cbc:AllowanceChargeReason>Descuento de linea</cbc:AllowanceChargeReason>",
+                       "<cbc:AllowanceChargeReason>Garantia de obra</cbc:AllowanceChargeReason>")
+        assert la(linea, "SPFE-GARANTIA").encontrado == "Garantia de obra"
+
+    def test_un_388_sin_referencia_es_una_nota(self):
+        nota = la(cambia(DEL_BOE, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>388<"), "SPFE-CANJE")
+        assert nota.gravedad == NOTA and "no lo exige" in nota.mensaje
+        assert nota.encontrado == "ninguna"
+
+    def test_con_la_simplificada_citada_no_sale(self):
+        assert las(cambia(CON_LA_REFERENCIADA, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>388<"),
+                   "SPFE-CANJE") == []
+
+    def test_otro_tipo_sin_referencia_no_la_da(self):
+        assert las(DEL_BOE, "SPFE-CANJE") == []
+
+
 class TestDocumento:
 
     def test_la_factura_referenciada_sin_fecha(self):

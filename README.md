@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3442 tests, todos en verde.
+3450 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -159,8 +159,10 @@ ejemplos\r-0001.xml
 Entre ficheros:
 
   [CU-10 · RD 238/2026] Esta factura ya estaba registrada: mismo emisor,
-  mismo número y misma fecha. Es la misma factura dos veces. La primera viene
-  en f-0002-bis.xml y esta en f-0002.xml.
+  mismo número y misma fecha. Es la misma factura dos veces, salvo que sean
+  los duplicados de una operación con varios destinatarios (art. 14.2 del
+  Reglamento de facturación), que repiten el número a propósito. La primera
+  viene en f-0002-bis.xml y esta en f-0002.xml.
     Campo: Código único
     Tiene: B12345674|F-2026-0002|2026-03-05
 
@@ -3810,16 +3812,18 @@ por qué; en GitHub no está, y allí se saltan.
 ### Las reglas del anexo, y a quién se le aplican
 
 Leído el anexo, `validador/solucion_publica.py` le pide a la factura lo que el
-anexo pide. **30 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
+anexo pide. **32 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
 I» en el informe, que no es la del real decreto: es el anexo de la Orden
 HAC/1028/2026. Hasta el 07-10-2026 decía «Anexo I (borrador)», y hasta el
 11-10-2026 eran 24 y medían en buena parte el borrador de abril. Ese día
-quedaron en 22 al ponerlos al texto de la orden, y llegaron a 30 con lo que la
+quedaron en 22 al ponerlos al texto de la orden, y llegaron a 32 con lo que la
 orden pide y no se medía (en «La segunda tanda», «Lo que la orden pide y no se
 medía», «Los impuestos y tasas, y la información de la línea» y «La
 autorización, los ficheros embebidos y lo que se quitaba sin una queja», más
 abajo) y con `SPFE-CALIFICADOR`, que sale de la respuesta del buzón del
-13-10-2026 (en la sección de la consulta del 07-10-2026, más abajo).
+13-10-2026 (en la sección de la consulta del 07-10-2026, más abajo), y con
+`SPFE-GARANTIA` y `SPFE-CANJE`, dos notas del 19-10-2026 (en la lista de lo
+que se comprueba, más abajo).
 
 **Solo a las facturas UBL que declaran la solución pública** en su
 `CustomizationID`: con el identificador de la orden, o con el CIUS del
@@ -4523,6 +4527,20 @@ nombre fijo `INFO`. Medido antes de tocar nada, sobre `e51de10`:
   cuota 0,50 salían así con un error del cien por cien. Ahora es ERROR aunque
   se aparte menos de una unidad, porque eso no es redondeo. Quitar la
   detección o el paso a ERROR pone en rojo su prueba.
+- **La retención de garantía escrita como descuento, una nota desde el
+  19-10-2026** (`SPFE-GARANTIA`). Ni la norma europea ni la orden tienen campo
+  para ella, y un descuento rebaja la base. Lo correcto depende del contrato,
+  que la factura no trae: si la certificación es un pago anticipado, lo
+  retenido no entra en su base (consulta V2823-23 de la DGT); si es la
+  factura de la entrega, la base es el importe entero; y la obra para un
+  promotor o un contratista va por inversión del sujeto pasivo, sin cuota. La
+  nota da las tres lecturas y no decide. Se reconoce por el texto del motivo,
+  que es lo único que hay: un descuento de garantía con otro motivo no se ve.
+  Antes pasaba sin una palabra.
+- **El canje sin la simplificada que sustituye, una nota desde el 19-10-2026**
+  (`SPFE-CANJE`). Un 388 sin BG-3 no dice qué tickets sustituye. La orden no
+  lo exige (el grupo es opcional) y el Reglamento tampoco (art. 15.6), así que
+  no es un error. Antes pasaba sin una palabra.
 - **«VAT» y «S» en el desglose de un cobro**, aunque no sea el IVA. Lo dice
   el grupo: «su uso implica» los dos valores. Se lee de la columna de la ruta,
   como los de las retenciones.

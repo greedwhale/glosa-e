@@ -271,6 +271,15 @@ class TestRegistro:
         incidencias = registro.anotar(cu())
         assert "CU-10" in codigos(incidencias, ERROR)
 
+    def test_el_duplicado_dice_lo_del_14_2(self):
+        """Los duplicados de una operación con varios destinatarios repiten
+        número y fecha a propósito (art. 14.2 del Reglamento de facturación):
+        el mensaje lo dice, para que no se lean como un reenvío."""
+        registro = Registro()
+        registro.anotar(cu())
+        queja = next(i for i in registro.anotar(cu()) if i.codigo == "CU-10")
+        assert "art. 14.2" in queja.mensaje and "varios destinatarios" in queja.mensaje
+
     def test_mismo_numero_distinta_fecha(self):
         registro = Registro()
         registro.anotar(cu(fecha=date(2026, 9, 7)))

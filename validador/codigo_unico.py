@@ -442,7 +442,10 @@ class Registro:
                         ERROR,
                         "Esta factura ya estaba registrada: mismo emisor, "
                         "mismo número y misma fecha. Es la misma factura dos "
-                        "veces." + _de_donde(de_antes, procedencia),
+                        "veces, salvo que sean los duplicados de una operación "
+                        "con varios destinatarios (art. 14.2 del Reglamento de "
+                        "facturación), que repiten el número a propósito."
+                        + _de_donde(de_antes, procedencia),
                         campo="Código único",
                         encontrado=canonico,
                         ficheros=_implicados(de_antes, procedencia),

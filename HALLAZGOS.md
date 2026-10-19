@@ -8742,3 +8742,27 @@ y lo que cabe en la orden: dar solo la cuota. Vale para el cargo del documento
 **Provocado.** Sin la detección, cuatro pruebas en rojo; sin el paso a ERROR,
 la de por debajo de una unidad.
 
+## La garantía, el canje y los duplicados para varios destinatarios, sin una palabra
+
+**Cómo salió.** En el mismo estudio de las operaciones que no caben
+(19-10-2026). Tres casos pasaban la validación sin que el informe dijera nada,
+y en los tres había algo que decir aunque no fuera un error.
+
+**Reproducido** el 19-10-2026 sobre `bf6a487`, con la factura de la orden de
+las pruebas: un descuento del documento con motivo «Retención de garantía 5 %»
+salía sin una nota; un 388 sin BG-3, igual que con él; y dos veces el mismo
+emisor, número y fecha daban CU-10, «la misma factura dos veces», que es lo
+que parecen los duplicados del art. 14.2 del Reglamento de facturación.
+
+**Lo que se hizo.** `SPFE-GARANTIA`, una nota con las tres lecturas posibles
+(pago anticipado, entrega, inversión del sujeto pasivo), y `SPFE-CANJE`, una
+nota para el 388 sin referencia. Ninguna es error: lo primero depende de un
+contrato que la factura no trae, y el BG-3 es opcional. CU-10 sigue siendo un
+error, porque la solución pública identifica la factura por emisor, número y
+fecha, y su mensaje y su ficha dicen ahora lo del 14.2; qué hace la Agencia con
+esos duplicados no está publicado, y no se afirma.
+
+**Provocado.** La condición de descuento cambiada a cargo, la del 388 quitada,
+la de la referencia invertida y la frase del 14.2 quitada: cada una pone en
+rojo su prueba.
+

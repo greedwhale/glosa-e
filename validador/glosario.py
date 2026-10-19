@@ -1213,7 +1213,12 @@ CODIGOS: dict[str, str] = {
         'en cuál está ésta, que es lo primero que uno pregunta: para quitar '
         'un duplicado hay que saber cuál de los dos sobra. Es una '
         'comprobación que sólo tiene sentido sobre un montón de facturas; un '
-        'fichero suelto no la dispara nunca.'
+        'fichero suelto no la dispara nunca. Hay un caso en que el número '
+        'se repite a propósito: los duplicados del artículo 14.2 del '
+        'Reglamento de facturación, uno por destinatario cuando una misma '
+        'operación tiene varios. También salen aquí, porque llevan el mismo '
+        'emisor, número y fecha, que es lo que identifica la factura en la '
+        'solución pública. Qué hace la Agencia con ellos no está publicado.'
     ),
     "CU-11": (
         'El mismo número de factura con otra fecha. Dentro de una serie, un '
@@ -3620,6 +3625,30 @@ CODIGOS: dict[str, str] = {
         "las copias fieles la orden no lo dice, y si una la lleva sale un aviso "
         "y no un error. La dirección de un documento externo no mete el "
         "fichero dentro, y no se mira."
+    ),
+    "SPFE-GARANTIA": (
+        "Un descuento cuyo motivo dice garantía: la retención de garantía de "
+        "una obra, que el cliente se queda hasta la recepción. Ni la norma "
+        "europea ni la orden tienen campo para ella (Facturae sí, "
+        "AmountsWithheld), y un descuento es una de las formas en que cabe. "
+        "Rebaja la base, y eso es lo correcto si la certificación es un pago "
+        "anticipado: la DGT dice que lo retenido no entra en la base de cada "
+        "certificación y entra al entregar la obra (consulta V2823-23, que "
+        "cita la V0053-13 y la V0846-07). Si la factura es la de la entrega, "
+        "la base es el importe entero; y la obra para un promotor o un "
+        "contratista va por inversión del sujeto pasivo, sin cuota. La factura "
+        "no dice cuál es el caso, así que es una nota con las tres lecturas y "
+        "no una regla. Se reconoce por el texto del motivo: un descuento de "
+        "garantía con otro motivo no se ve."
+    ),
+    "SPFE-CANJE": (
+        "Una factura de tipo 388, la que se emite en sustitución de facturas "
+        "simplificadas (el canje de un ticket), que no cita ninguna en el "
+        "grupo de facturas anteriores (BG-3). La orden no lo exige, porque el "
+        "grupo es opcional, y el Reglamento de facturación tampoco: solo dice "
+        "que el canje no es una rectificativa (art. 15.6). Por eso es una "
+        "nota. Citar cada ticket con su número y su fecha deja dicho qué se "
+        "sustituye."
     ),
     "SPFE-TOTAL-A-PAGAR": (
         "La factura lleva líneas de cobro (suplidos, minoraciones, "

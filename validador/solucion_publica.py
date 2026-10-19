@@ -1016,7 +1016,7 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
         _claves_de_regimen, _referencias_catastrales, _informacion_adicional,
         _lineas_de_cobro, _retenciones, _cuadre_de_las_retenciones,
         _impuestos_de_los_cobros, _qr, _autorizacion, _ficheros_embebidos,
-        _total_a_pagar, _calificadores,
+        _total_a_pagar, _calificadores, _garantia, _canje,
     ):
         incidencias.extend(regla(raiz))
     return incidencias
@@ -1939,6 +1939,75 @@ def _facturas_referenciadas(raiz) -> list[Incidencia]:
             campo="Fecha de expedición de la factura referenciada (BT-26)",
             esperado="cbc:IssueDate en cada factura referenciada",
             encontrado="sin fecha: " + ", ".join(sin_fecha),
+        )
+    ]
+
+
+def _garantia(raiz) -> list[Incidencia]:
+    """Un descuento que dice ser la retención de garantía de una obra.
+
+    La norma europea no tiene campo para ella, ni la orden, y una de las formas
+    en que cabe es un descuento del documento, que rebaja la base. Medido el
+    19-10-2026: pasa sin una palabra. Que sea correcto depende del contrato,
+    que la factura no trae: la DGT dice que, si la certificación es un pago
+    anticipado, lo retenido no entra en su base y entra al entregar la obra
+    (consulta V2823-23, que cita la V0053-13 y la V0846-07); si la factura es
+    la de la entrega, la base es el importe entero; y la obra para un promotor
+    o un contratista va por inversión del sujeto pasivo (art. 84.Uno.2º.f de
+    la Ley del IVA), sin cuota. Por eso es una nota que da las tres lecturas,
+    y no una regla. Se reconoce por el motivo en texto, que es lo único que
+    hay: un descuento de garantía con otro motivo no se ve.
+    """
+    motivos = [
+        _escrito(n) for n in _nodos(
+            raiz, ".//cac:AllowanceCharge[cbc:ChargeIndicator='false']/cbc:AllowanceChargeReason")
+        if "garant" in _escrito(n).lower()
+    ]
+    if not motivos:
+        return []
+    return [
+        Incidencia(
+            "SPFE-GARANTIA",
+            NOTA,
+            "Un descuento dice ser una retención de garantía. Ni la norma "
+            "europea ni la orden tienen campo para ella, y un descuento rebaja "
+            "la base. Eso es lo correcto si la certificación es un pago "
+            "anticipado: la DGT dice que lo retenido no entra en la base de "
+            "cada certificación y entra al entregar la obra (consulta "
+            "V2823-23). Si esta factura es la de la entrega, la base es el "
+            "importe entero y lo retenido es solo un cobro aplazado; y la obra "
+            "para un promotor o un contratista va por inversión del sujeto "
+            "pasivo, sin cuota. La factura no dice cuál es el caso, y no se ha "
+            "comprobado.",
+            campo="Motivo del descuento (BT-97 o BT-139)",
+            encontrado=", ".join(dict.fromkeys(motivos)),
+        )
+    ]
+
+
+def _canje(raiz) -> list[Incidencia]:
+    """Un 388 que no cita las simplificadas que sustituye.
+
+    La orden no lo pide: BG-3 es 0..n, y el Reglamento de facturación tampoco
+    exige la referencia (art. 15.6 del RD 1619/2012, que solo dice que el canje
+    no es una rectificativa). Por eso es una nota. Medido el 19-10-2026: un 388
+    sin referencia pasaba sin una palabra, igual que con ella.
+    """
+    if _valor(raiz, "./cbc:InvoiceTypeCode") != "388":
+        return []
+    if _nodos(raiz, SINTAXIS_UBL.facturas_previas + "/cac:InvoiceDocumentReference"):
+        return []
+    return [
+        Incidencia(
+            "SPFE-CANJE",
+            NOTA,
+            "La factura es de tipo 388, la que sustituye a facturas "
+            "simplificadas, y no cita ninguna (BG-3). La orden no lo exige, "
+            "porque el grupo es opcional; citar cada ticket con su número y su "
+            "fecha deja dicho qué se sustituye.",
+            campo="Referencia de una factura anterior (BG-3)",
+            esperado="las simplificadas que se sustituyen",
+            encontrado="ninguna",
         )
     ]
 
