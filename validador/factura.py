@@ -1057,6 +1057,98 @@ class InformeLote:
         lineas.append(self.alcance(forma, anclas))
         return "\n".join(lineas)
 
+    def recuento(self, forma: bool = True, anclas: bool = False) -> str:
+        """El lote contado, para mandárselo a otra persona.
+
+        Es lo que hace falta para el informe de brecha: quien factura pasa
+        Glosa-e en su ordenador y manda solo esto. `detalle` no vale para eso,
+        porque se hizo para quien tiene las facturas delante: dice el nombre de
+        cada fichero, el valor que está mal («Tiene:») y, entre ficheros, el
+        código único, que es el NIF, el número y la fecha (medido el
+        25-09-2026 sobre `ejemplos/`: `B12345674|F-2026-0002|2026-03-05`).
+
+        Aquí solo salen códigos, gravedades, normas, formatos y cuentas. Ni el
+        mensaje de cada incidencia, que a veces cita el valor, ni su campo, ni
+        las rutas de los esquemas y las anclas, que llevan el nombre de usuario
+        del equipo. Lo vigila una prueba que pasa por aquí facturas de ejemplo
+        y falla si cualquier texto de dentro, o el nombre de un fichero,
+        aparece en la salida.
+        """
+        orden = {ERROR: 0, AVISO: 1, NOTA: 2}
+        formatos: dict[str, int] = {}
+        en_documentos: dict[tuple[str, str], int] = {}
+        veces: dict[tuple[str, str], int] = {}
+        for _, informe in self.informes:
+            deteccion = informe.deteccion
+            if deteccion:
+                formato = " ".join(x for x in (deteccion.familia, deteccion.version) if x)
+                if deteccion.tipo_documento:
+                    formato += f" ({deteccion.tipo_documento})"
+            else:
+                formato = "sin reconocer o sin leer"
+            formatos[formato] = formatos.get(formato, 0) + 1
+            vistas: set[tuple[str, str]] = set()
+            for incidencia in informe.incidencias:
+                clave = (incidencia.gravedad, incidencia.codigo)
+                veces[clave] = veces.get(clave, 0) + 1
+                if clave not in vistas:
+                    vistas.add(clave)
+                    en_documentos[clave] = en_documentos.get(clave, 0) + 1
+        cruzadas: dict[tuple[str, str], int] = {}
+        for incidencia in self.cruzadas:
+            clave = (incidencia.gravedad, incidencia.codigo)
+            cruzadas[clave] = cruzadas.get(clave, 0) + 1
+
+        def ordenadas(cuentas: dict[tuple[str, str], int]) -> list[tuple[str, str]]:
+            return sorted(cuentas, key=lambda c: (orden.get(c[0], 9), -cuentas[c], c[1]))
+
+        def norma(codigo: str) -> str:
+            return normas.norma(codigo)[0]
+
+        lineas = [
+            "Recuento de Glosa-e",
+            "Solo códigos y cuentas: no lleva nombres de fichero, NIF, números de "
+            "factura, fechas, importes ni nombres. Léelo antes de enviarlo.",
+            "",
+            self.resumen(),
+            "",
+            "Formatos:",
+        ]
+        for formato in sorted(formatos, key=lambda f: (-formatos[f], f)):
+            lineas.append(f"  {formatos[formato]:>5}  {formato}")
+        lineas.append("")
+        lineas.append("Códigos de cada documento (en cuántos documentos sale y cuántas veces):")
+        if en_documentos:
+            ancho = max(len(c[1]) for c in en_documentos)
+            for gravedad, codigo in ordenadas(en_documentos):
+                clave = (gravedad, codigo)
+                lineas.append(
+                    f"  {gravedad.upper():<5}  {codigo:<{ancho}}  {en_documentos[clave]:>5} doc.  "
+                    f"{_veces(veces[clave])}  · {norma(codigo)}"
+                )
+        else:
+            lineas.append("  Ninguno.")
+        if cruzadas:
+            lineas.append("")
+            lineas.append("Entre ficheros (cuántas veces):")
+            ancho = max(len(c[1]) for c in cruzadas)
+            for gravedad, codigo in ordenadas(cruzadas):
+                lineas.append(
+                    f"  {gravedad.upper():<5}  {codigo:<{ancho}}  {_veces(cruzadas[(gravedad, codigo)])}"
+                    f"  · {norma(codigo)}"
+                )
+        lineas.append("")
+        lineas.append(self.alcance(forma, anclas))
+        if not forma:
+            lineas.append("No se ha comprobado la forma: no había esquemas XSD.")
+        if not anclas and self.firmados:
+            lineas.append("No se ha comprobado de quién son las firmas: no había anclas de confianza.")
+        return "\n".join(lineas)
+
+
+def _veces(cuantas: int) -> str:
+    return f"{cuantas:>5} {'vez' if cuantas == 1 else 'veces':<5}"
+
 
 def _sangrar(texto: str, margen: str) -> str:
     return "\n".join(margen + linea for linea in texto.splitlines())

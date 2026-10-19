@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3450 tests, todos en verde.
+3456 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -75,6 +75,25 @@ Con `--esquemas CARPETA` comprueba además la forma, con `--anclas CARPETA` de
 quién es la firma y con `--revocaciones CARPETA` si el certificado sigue vivo;
 ver más abajo. `--ver-anclas` y `--ver-revocaciones` enseñan lo que hay
 instalado y no validan nada.
+
+**`--recuento`, para mandar el resultado a otra persona, desde el 19-10-2026.**
+En vez del informe de cada fichero saca cuántas veces sale cada código y en
+cuántos documentos, con su gravedad y su norma, y cuántos documentos hay de
+cada formato. Es lo que pide el informe de brecha: quien factura lo pasa en su
+equipo y manda solo eso. El informe normal no vale para mandarlo, porque se
+hizo para quien tiene las facturas delante: dice el nombre de cada fichero, el
+valor que está mal y, entre ficheros, el código único, que es el NIF, el
+número y la fecha. El recuento no lleva mensajes ni campos (un mensaje puede
+citar el valor), ni las carpetas de los esquemas y las anclas, que pueden
+llevar el nombre de usuario del equipo. Lo vigila
+`tests/test_recuento.py`, que no mira una lista de datos escrita a mano: saca
+todos los textos de las facturas de `ejemplos/` (cada valor y cada atributo
+del XML, cada elemento del EDIFACT) y los nombres de los ficheros, y falla si
+alguno sale. Cuatro roturas provocadas la ponen en rojo: el nombre del fichero
+en los formatos, el valor de la incidencia en su línea, contar las veces por
+documento y que la consola imprima el informe normal. La tercera no mordía con
+los ejemplos, donde ningún código sale dos veces en la misma factura, y por eso
+hay una prueba con un lote hecho a mano.
 
 **Cada fichero cae en uno de tres estados, no de dos:** correcto, con errores,
 o **sin comprobar**. Lo tercero es el fichero que no existe, no se puede leer o

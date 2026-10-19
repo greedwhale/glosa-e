@@ -231,6 +231,14 @@ def main(argumentos: list[str] | None = None) -> int:
         action="store_true",
         help="calla los avisos y deja solo lo que impide cobrar",
     )
+    analizador.add_argument(
+        "--recuento",
+        action="store_true",
+        help="en vez del informe de cada fichero, solo cuántas veces sale cada "
+        "código y en cuántos documentos, y los formatos. No lleva nombres de "
+        "fichero, NIF, números, fechas, importes ni nombres: es lo que se puede "
+        "mandar a otra persona.",
+    )
     opciones = analizador.parse_args(argumentos)
 
     almacen = Almacen.por_defecto(opciones.anclas)
@@ -279,6 +287,13 @@ def main(argumentos: list[str] | None = None) -> int:
         for _, informe in lote.informes:
             informe.incidencias = informe.errores
         lote.cruzadas = [i for i in lote.cruzadas if i.gravedad == ERROR]
+
+    if opciones.recuento:
+        # Sin las líneas de abajo: llevan la carpeta de los esquemas y de las
+        # anclas, y una carpeta puede llevar el nombre de usuario del equipo.
+        # `recuento` dice lo mismo sin la ruta.
+        print(lote.recuento(forma=not catalogo.vacio, anclas=not almacen.vacio))
+        return 0 if lote.conforme else 1
 
     print(lote.detalle(forma=not catalogo.vacio, anclas=not almacen.vacio))
     if catalogo.vacio:
