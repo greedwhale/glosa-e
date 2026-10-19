@@ -735,6 +735,12 @@ async function arrancarDeVerdad(avisar) {
 // manifiesto. El manifiesto dice de que lista salen, que es verdad y no es
 // suficiente: lo que quien valida aqui no puede saber es que **no las ha
 // elegido el**. Esa frase acaba en el informe, al lado de la huella.
+//
+// Va en una plantilla de JavaScript, y dentro no cabe una comilla invertida
+// (la cierra), ni una barra invertida ni un dolar con llave (JavaScript los
+// interpreta antes de que llegue a Python). Paso el 19-10-2026: un comentario
+// con una orden entre comillas invertidas dejo la pagina sin arrancar, con
+// la suite en verde. Lo vigila test_lo_que_ensena_la_pagina.
 const INFORME = `
 import dataclasses
 import json
@@ -817,6 +823,13 @@ json.dumps({
                _lote.partes(forma=not _c.vacio, anclas=not _a.vacio)],
     "en_ninguna": "En ninguna de las tres se comprueba " + factura.EN_NINGUNA + ".",
     "cruzadas": [_inc(i) for i in _lote.cruzadas],
+    # Lo mismo que --recuento en consola, y de la misma funcion: solo codigos
+    # y cuentas, para que quien factura se lo pueda mandar a otra persona sin
+    # mandarle las facturas. Sale de Python y no se monta aqui con lo de
+    # arriba porque arriba va todo lo que no tiene que salir: el nombre de
+    # cada fichero, el valor que esta mal y, entre ficheros, el codigo unico.
+    # Con las mismas banderas que el alcance, por lo mismo que las partes.
+    "recuento": _lote.recuento(forma=not _c.vacio, anclas=not _a.vacio),
     "documentos": _docs,
 }, ensure_ascii=False)
 `;

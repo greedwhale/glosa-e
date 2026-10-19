@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3462 tests, todos en verde.
+3465 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -94,6 +94,17 @@ en los formatos, el valor de la incidencia en su línea, contar las veces por
 documento y que la consola imprima el informe normal. La tercera no mordía con
 los ejemplos, donde ningún código sale dos veces en la misma factura, y por eso
 hay una prueba con un lote hecho a mano.
+
+**Y en la web, desde el mismo día.** Al pie de cada informe hay un desplegable,
+cerrado, con el mismo recuento y un botón para copiarlo. Lo escribe la misma
+función de Python (`InformeLote.recuento`), y la página solo lo pinta, así que
+no puede llevar algo que la consola no lleve; la prueba de los textos de las
+facturas se repite con el Python de `glosa.js` tal cual corre allí. Si el
+navegador no deja usar el portapapeles, el texto queda seleccionado y se dice
+que se copie con Ctrl+C: medido el 19-10-2026 en el navegador de Claude, que
+no lo deja ni con un clic de verdad. Para un fabricante pequeño, que antes
+tenía que instalar Python y el programa para sacarlo, es la diferencia entre
+probarlo y no probarlo.
 
 **Cada fichero cae en uno de tres estados, no de dos:** correcto, con errores,
 o **sin comprobar**. Lo tercero es el fichero que no existe, no se puede leer o

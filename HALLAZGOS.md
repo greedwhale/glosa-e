@@ -8766,3 +8766,30 @@ esos duplicados no está publicado, y no se afirma.
 la de la referencia invertida y la frase del 14.2 quitada: cada una pone en
 rojo su prueba.
 
+## Una comilla invertida en el Python de la página la dejaba sin arrancar, en verde
+
+**Cómo salió.** Al llevar `--recuento` a la web (19-10-2026). El Python que
+corre la página vive en `glosa.js` dentro de una plantilla de JavaScript, entre
+comillas invertidas, y el comentario nuevo citaba la orden entre comillas
+invertidas, como se escriben en el resto del repositorio.
+
+**Reproducido** en el sitio montado en local, con la suite entera en verde: la
+página se quedaba en «Descargando el validador», y la consola decía
+«Invalid left-hand side expression in postfix operation» (la plantilla se
+cerraba antes de `--recuento`, y JavaScript leía `--` como un decremento) y
+«Glosa is not defined».
+
+**Por qué no lo vio ninguna prueba.** Las que corren ese Python lo sacaban con
+`const INFORME = `(.*?)`;`, que busca la primera comilla invertida seguida de
+punto y coma. JavaScript corta en la primera, a secas. Las pruebas leían el
+Python entero, y el navegador, la mitad.
+
+**Lo que se hizo.** La comilla, fuera. La extracción corta ahora donde corta
+JavaScript y se niega si lo que queda no acaba la sentencia, y también si
+dentro hay una barra invertida o un dólar con llave, que JavaScript interpreta
+antes de que lleguen a Python. Una prueba aparte lo comprueba sin la fixture, y
+un comentario encima de `INFORME` dice por qué.
+
+**Provocado.** Con la comilla devuelta a su sitio, una prueba en rojo y nueve
+errores, todas las que usan la fixture de la página.
+

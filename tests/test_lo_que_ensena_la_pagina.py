@@ -51,8 +51,29 @@ GLOSA_JS = RAIZ / "web" / "glosa.js"
 
 
 def _informe_de_la_pagina() -> str:
+    """El Python de `INFORME`, cortado donde lo corta JavaScript.
+
+    Hasta el 19-10-2026 se sacaba con `const INFORME = `(.*?)`;`, que busca la
+    primera comilla invertida **seguida de punto y coma**. JavaScript corta en
+    la primera, a secas: un comentario con `--recuento` entre comillas
+    invertidas cerraba la plantilla en el navegador, la página no arrancaba
+    («Invalid left-hand side expression in postfix operation») y aquí todas
+    las pruebas que corren este Python seguían en verde, porque leían el
+    fichero entero. Ahora se corta igual que allí, y si lo que queda no acaba
+    la sentencia, no hay Python que probar.
+    """
     codigo = GLOSA_JS.read_text(encoding="utf-8")
-    return re.search(r"const INFORME = `(.*?)`;", codigo, re.S).group(1)
+    apertura = "const INFORME = `"
+    inicio = codigo.index(apertura) + len(apertura)
+    fin = codigo.index("`", inicio)
+    assert codigo[fin:fin + 2] == "`;", (
+        "una comilla invertida dentro del Python de la página cierra la plantilla "
+        f"de JavaScript antes de tiempo: {codigo[fin - 60:fin + 20]!r}")
+    python = codigo[inicio:fin]
+    # Lo otro que JavaScript se come antes de que llegue a Python.
+    for que in ("\\", "${"):
+        assert que not in python, f"{que!r} dentro de INFORME: JavaScript lo interpreta"
+    return python
 
 
 @pytest.fixture
@@ -133,6 +154,12 @@ def _incidencias(salida: str, codigo: str) -> list[dict]:
         for i in d["incidencias"]
         if i["codigo"] == codigo
     ]
+
+
+def test_el_python_de_la_pagina_es_una_plantilla_entera():
+    """La guardia de arriba, provocada sola: sin ella, una prueba que no usa la
+    fixture no se enteraría de que la plantilla está rota."""
+    assert _informe_de_la_pagina().lstrip().startswith("import ")
 
 
 class TestSinRutasDeDentro:

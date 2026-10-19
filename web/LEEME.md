@@ -150,6 +150,16 @@ Al final hay una zona donde soltar una factura de verdad. Esa parte es
 exactamente la interacción del producto: leer el fichero en el navegador,
 validarlo ahí y enseñar el informe. La red no se toca.
 
+## El recuento, al pie del informe
+
+Desde el 19-10-2026, cada informe acaba con un desplegable cerrado que lleva el
+mismo texto que `--recuento` en consola: los códigos, en cuántos documentos sale
+cada uno y cuántas veces, y los formatos, sin nombres de fichero ni nada de
+dentro de las facturas. El botón lo copia al portapapeles, y si el navegador no
+lo deja, lo deja seleccionado y lo dice. Copiar no pide nada a la red (medido el
+19-10-2026: 24 peticiones antes del clic y 24 después), y el
+testigo no cambia.
+
 ## Resultados medidos
 
 En Chrome, sobre esta máquina, con Pyodide 314.0.6:

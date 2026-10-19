@@ -331,6 +331,23 @@ main > .envoltorio > .ficha {
 .documento > header .nombre { font-family: var(--mono); font-size: var(--t1); color: var(--tinta); overflow-wrap: anywhere; }
 .documento > header .estado { font-size: var(--t1); color: var(--tinta-2); margin-top: .15rem; }
 
+/* El recuento, al pie del informe y cerrado: es para mandarlo, no para leerlo
+   aquí, y quien solo quiere saber qué falla no tiene por qué tropezar con él.
+   El texto va tal cual sale de Python, en la letra fija, porque las cuentas
+   van en columnas; y con su barra de desplazamiento, porque en el móvil una
+   línea de código y norma no cabe y partirla descuadra las columnas. */
+.recuento { margin: 1.5rem 0 1rem; border-top: 1px solid var(--borde); padding-top: .9rem; }
+.recuento summary { cursor: pointer; color: var(--acento); font-size: var(--t2); font-weight: 600; }
+.recuento summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 3px; }
+.recuento > p { font-size: var(--t1); line-height: 1.5; color: var(--tinta-2); max-width: 40rem; margin: .6rem 0; }
+.recuento pre {
+  margin: .6rem 0; padding: .8rem 1rem; max-height: 22rem; overflow: auto;
+  background: var(--panel-2); border: 1px solid var(--borde); border-radius: 8px;
+  font: var(--t0)/1.55 var(--mono); color: var(--tinta); font-variant-numeric: tabular-nums;
+}
+.recuento .copiar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; }
+.recuento .copiar span { font-size: var(--t1); color: var(--tenue); }
+
 /* La glosa: la nota al margen. En el margen, la gravedad, el código y la
    norma, contra un filete neutro; y el cuerpo abre con un corchete del color
    de la gravedad, que es el signo de la marca hecho maqueta.
@@ -380,14 +397,16 @@ main > .envoltorio > .ficha {
 /* --- Ver un informe sin soltar nada -------------------------------------- */
 .probar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; margin: 1rem 0 0; }
 .probar span { font-size: var(--t1); color: var(--tenue); }
-.probar button, .pegar button {
+.probar button, .pegar button, .recuento button {
   font: 600 var(--t1)/1 var(--sans); color: var(--acento);
   background: var(--acento-flojo); border: 1px solid var(--acento);
   border-radius: 8px; padding: .55rem .95rem; cursor: pointer;
 }
-.probar button:hover:not(:disabled), .pegar button:hover:not(:disabled) { background: var(--panel); }
+.probar button:hover:not(:disabled), .pegar button:hover:not(:disabled),
+.recuento button:hover { background: var(--panel); }
 .probar button:disabled, .pegar button:disabled { color: var(--tenue); border-color: var(--borde); background: var(--panel-2); cursor: default; }
-.probar button:focus-visible, .pegar button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.probar button:focus-visible, .pegar button:focus-visible,
+.recuento button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
 /* La aclaración va con el mismo gesto que una NOTA del informe: el
    corchete a la izquierda y texto sobrio. No es una queja, es contexto —de
    quién es esta factura—, y en este producto eso tiene una forma concreta. */
@@ -1636,9 +1655,50 @@ function pintarInforme(datos) {
     );
   }
 
+  // El recuento, para quien quiera enseñarle a otra persona qué falla sin
+  // enseñarle las facturas. Es el de `--recuento` en consola, escrito en
+  // Python: aquí solo se pinta, así que no puede llevar algo que allí no
+  // lleve. Hasta el 19-10-2026 había que instalar Python y el programa para
+  // sacarlo, y para un fabricante pequeño eso era no sacarlo.
+  if (datos.recuento) {
+    partes.push(
+      "<details class='recuento'>" +
+        "<summary>Para mandárselo a otra persona: el recuento</summary>" +
+        "<p>Solo los códigos, en cuántos documentos sale cada uno y cuántas " +
+        "veces, y los formatos. No lleva nombres de fichero, NIF, números de " +
+        "factura, fechas, importes ni nombres. Se copia aquí, en tu navegador, " +
+        "y no se manda a ningún sitio: lo mandas tú, si quieres. Léelo antes.</p>" +
+        "<pre id='recuento-texto'>" + escapar(datos.recuento) + "</pre>" +
+        "<p class='copiar'><button type='button' id='copiar-recuento'>Copiar el recuento</button>" +
+        "<span id='recuento-copiado' role='status'></span></p>" +
+      "</details>"
+    );
+  }
+
   $("informe").innerHTML = partes.join("");
+  if (datos.recuento) $("copiar-recuento").addEventListener("click", copiarRecuento);
   pintarLectura();
   $("informe").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Al portapapeles, y si el navegador no deja, el texto seleccionado para que
+// lo copie quien mira. No deja, por ejemplo, en una página servida sin https,
+// y algunos navegadores tampoco dentro de un marco: en ninguno de esos casos
+// hay que dejar el botón sin respuesta.
+function copiarRecuento() {
+  const texto = $("recuento-texto").textContent;
+  const dice = (frase) => { $("recuento-copiado").textContent = frase; };
+  const aMano = () => {
+    const rango = document.createRange();
+    rango.selectNodeContents($("recuento-texto"));
+    const seleccion = window.getSelection();
+    seleccion.removeAllRanges();
+    seleccion.addRange(rango);
+    dice("Este navegador no deja copiarlo desde aquí. Ya está seleccionado: cópialo con Ctrl+C.");
+  };
+  if (!navigator.clipboard || !navigator.clipboard.writeText) { aMano(); return; }
+  navigator.clipboard.writeText(texto).then(
+    () => dice("Copiado. Pégalo donde lo vayas a mandar."), aMano);
 }
 
 // --- Arranque --------------------------------------------------------------
