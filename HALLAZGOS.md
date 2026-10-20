@@ -8830,3 +8830,13 @@ vacío porque el lote viejo tenía 200. Ahora es uno para toda la página.
 
 **Provocado.** Sin el `await`, la prueba del turno en rojo; con el banco fuera
 de la fila, la suya; con un segundo escuchador, la suya.
+
+**Con 10.000, el mismo día.** Todo en proporción: cada tramo de 1.000 tarda lo
+mismo de principio a fin, y las reglas entre ficheros y el recuento, 0,2 s.
+Pero al final la página se quedaba 11,6 s quieta (con la máquina lenta):
+juntar el informe de cada fichero es otra vuelta entera al lote, y no cedía el
+turno. Ahora cede, y la pausa es de 4,8 s, con la máquina aún más lenta. Lo que
+queda es convertir el informe a texto y pintarlo, de un golpe. Provocado:
+quitando el `await` de esa vuelta, la prueba del turno en rojo. Y la fase de
+leer los ficheros decía solo "10.000 ficheros." durante 9 s; ahora dice
+"Preparando".

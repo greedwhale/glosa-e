@@ -422,7 +422,9 @@ class TestLoteEnMarcha:
         *cuerpo, ultima = informe.strip().rsplit("\n\njson.dumps", 1)
         correr_como_la_pagina(cuerpo[0], espacio)
         datos = json.loads(eval("json.dumps" + ultima, espacio))
-        assert llamadas == [(1, 3), (2, 3), (3, 3)]
+        # Uno por fichero validado, y luego uno por fichero al juntar el
+        # informe, que es otra vuelta al lote y con 10.000 tambien se notaba.
+        assert llamadas == [(1, 3), (2, 3), (3, 3), (3, 3), (3, 3), (3, 3)]
         # Y se lo queda esta validación: la siguiente no hereda el de esta.
         assert "_ceder" not in espacio
         assert len(datos["documentos"]) == 3

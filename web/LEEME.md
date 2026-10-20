@@ -369,9 +369,21 @@ los esquemas dentro, el panel del navegador oculto y la máquina en reposo:
 | 1.000 | 10,7 s | 0,22 s | 5,4 s |
 | 3.000 | 31,4 s | 0,65 s | 15,4 s |
 
-Más de 3.000 no se ha medido, ni con el panel a la vista, ni la memoria del
-propio intérprete (solo la de JavaScript). Con 3.000 sale un solo recuento,
-el de todo el lote, de 32 líneas.
+Con 3.000 sale un solo recuento, el de todo el lote, de 32 líneas.
+
+**Con 10.000**, el mismo día y con la máquina mucho más lenta (en ese momento
+3.000 tardaban 67 s en consola, no 15,4; un bucle de Python, de tres a cinco
+veces más): 6 min 27 s en el navegador y 3 min en consola, sin un solo error y
+con un solo recuento. Lo que crece lo hace en proporción: cada tramo de 1.000
+facturas tardó lo mismo de principio a fin (de 12,8 a 14,5 s en consola), y
+las reglas entre ficheros y el recuento de las 10.000, 0,2 s cada uno. La
+pausa más larga, al juntar el informe: 11,6 s, que bajaron a 4,8 cediendo el
+turno también ahí. Después de validar, JavaScript vuelve a 38 MB, el disco
+virtual queda vacío y el intérprete ocupa 136 MB, que no devuelve.
+
+Una primera pasada de 10.000 en consola salió en 7 min 44 s: era el antivirus
+leyendo los ficheros recién escritos, 26 ms por fichero al abrirlo (medido con
+el perfilador). Más de 10.000 no se ha medido, ni con el panel a la vista.
 
 Hasta ese día la página validaba el lote de un tirón: Python corre en el mismo
 hilo que pinta, así que se quedaba quieta, sin atender un clic ni decir cómo

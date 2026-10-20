@@ -811,7 +811,15 @@ def _inc(i):
 
 _senialados = _lote.senialados
 _docs = []
+# Y aqui tambien se cede. Juntar el informe de cada fichero es otra vuelta
+# entera al lote: con 10.000 facturas, la pagina se quedaba 11,6 s quieta al
+# final, con la maquina lenta (medido el 20-10-2026), y esta vuelta era la
+# mayor parte. El aviso sigue siendo el del final, que es lo que esta pasando.
+_desde = time.monotonic()
 for _camino, _informe, _nombre in _lote.nombrados:
+    if _cede is not None and time.monotonic() - _desde > 0.1:
+        await _cede(_marcha.total, _marcha.total)
+        _desde = time.monotonic()
     _docs.append({
         "nombre": _nombre,
         "resumen": _informe.resumen(),

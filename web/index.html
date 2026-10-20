@@ -1934,7 +1934,7 @@ async function soltar(ficheros, aclaracion = "") {
   const total = enMiles(ficheros.length);
   $("informe").innerHTML =
     "<div class='veredicto'><h3>Leyendo…</h3><p id='leyendo-cuantas' role='status'>" +
-    total + (ficheros.length === 1 ? " fichero." : " ficheros.") + "</p>" +
+    "Preparando " + (ficheros.length === 1 ? "el fichero." : "los " + total + " ficheros.") + "</p>" +
     "<p id='leyendo-espera'></p></div>";
   const avance = (hechas) => {
     const linea = $("leyendo-cuantas");
