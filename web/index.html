@@ -515,6 +515,8 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 /* --- El escalon de pago -------------------------------------------------- */
 .escalon { background: var(--panel-2); border: 1px solid var(--borde); border-radius: 12px; padding: 2rem; }
 .escalon h2 { font: 400 var(--t4)/1.2 var(--serif); margin-bottom: .7rem; }
+.escalon h3 { font-size: var(--t2); font-weight: 600; margin: 1.4rem 0 .5rem; }
+.escalon-lista { margin: 0 0 1rem; padding-left: 1.3rem; display: grid; gap: .45rem; max-width: 44rem; color: var(--tinta-2); }
 .boton {
   display: inline-block; background: var(--acento); color: #fff; text-decoration: none;
   padding: .7rem 1.4rem; border-radius: 8px; font-weight: 600; font-size: var(--t2);
@@ -1251,15 +1253,55 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       </div>
     </section>
 
+    <!-- El informe de un mes, que es lo único de pago. Tres cosas a propósito:
+
+         - No dice "auditoría". En España suena a auditor de cuentas, que es
+           una profesión regulada, y promete más de lo que se entrega. El texto
+           anterior la usaba, hasta el 20-10-2026.
+         - No dice el precio. Si la página nombra precios, el art. 10.1.f de la
+           LSSI pide la cifra exacta y si lleva impuestos; el precio va por
+           escrito antes de empezar.
+         - Dice cómo se pasa un mes entero: la zona invita a soltar "tu
+           factura", en singular, y quien no sabe que acepta muchas a la vez
+           pasaría una y mandaría el recuento de una. Que el recuento es el de
+           todo lo soltado lo prueba `test_la_pagina_trae_el_mismo_recuento`. -->
     <section id="escalon" hidden>
       <div class="escalon">
-        <h2>Cuando hace falta mirar más de una.</h2>
-        <p class="texto" style="color:var(--tinta-2)">Esta herramienta mira las
-        facturas de una en una y no guarda nada. Para lo otro (revisar la
-        facturación de un periodo entero, entender por qué un cliente rechaza
-        lo que emites, o preparar la entrada del RD 238/2026) hay auditorías
-        de facturación con el mismo criterio que ves aquí: lo que se ha mirado,
-        con qué, y lo que se ha quedado fuera.</p>
+        <h2>Cuando hace falta mirar un mes entero.</h2>
+        <p class="texto" style="color:var(--tinta-2)">Esta página mira tus
+        facturas y te dice qué falla en cada una. El informe mira el conjunto:
+        por qué falla, qué arreglar primero y a quién le toca.</p>
+        <h3>Qué recibes, por escrito</h3>
+        <ul class="escalon-lista">
+          <li><b>Las causas, en orden.</b> Cuántos errores salen de cada una, y si
+          le toca arreglarla a tu proveedor del programa, a tu empresa o a tu
+          asesoría.</li>
+          <li><b>Lo que no has probado.</b> Los tipos de factura que emites y no
+          venían en el lote, con lo que pide la orden de cada uno.</li>
+          <li><b>Tus fechas,</b> según lo que facturas, cada una con su artículo.</li>
+          <li><b>Una hoja para tu proveedor del programa,</b> técnica, para
+          reenviarla tal cual.</li>
+          <li><b>Una segunda pasada</b> cuando tu proveedor tenga los cambios: qué
+          se ha arreglado y qué queda.</li>
+        </ul>
+        <h3>Cómo se hace</h3>
+        <ol class="escalon-lista">
+          <li>Pasas un mes de facturas por esta página, en tu ordenador: todas a
+          la vez, arrastrándolas juntas o eligiéndolas todas en la ventana de
+          elegir fichero. Al pie del informe sale un solo recuento de todas, con
+          códigos y cuentas y sin nombres, NIF, importes ni números de factura.
+          Léelo antes de mandarlo.</li>
+          <li>Me lo mandas, con las respuestas a siete preguntas que te paso yo.</li>
+          <li>Antes de empezar te digo por escrito qué se entrega, en qué plazo y
+          a qué precio.</li>
+        </ol>
+        <p class="texto" style="color:var(--tinta-2)">Ninguna factura sale de tu
+        empresa, y no hace falta acceso a tu programa.</p>
+        <p class="texto" style="color:var(--tinta-2)"><b>Lo que no hace:</b> no
+        certifica nada ni dice cómo responderá la solución pública, porque la
+        AEAT no lo ha publicado. No es asesoría fiscal ni comprueba si lo que
+        dicen las facturas es cierto. Y Glosa-e no es de la AEAT ni de ningún
+        organismo.</p>
         <a class="boton" id="escalon-boton" href="#">Escríbeme</a>
       </div>
     </section>
@@ -1954,7 +1996,7 @@ validarPegado.addEventListener("click", () => {
 if (Glosa.puedeVender()) {
   $("escalon").hidden = false;
   $("escalon-boton").href = "mailto:" + Glosa.titular.correo + "?subject=" +
-    encodeURIComponent("Auditoría de facturación");
+    encodeURIComponent("Informe de un mes de facturas");
 }
 
 // Una pregunta enlazada desde fuera tiene que abrirse sola. El ancla existe
