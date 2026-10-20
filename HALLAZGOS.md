@@ -8793,3 +8793,40 @@ un comentario encima de `INFORME` dice por qué.
 **Provocado.** Con la comilla devuelta a su sitio, una prueba en rojo y nueve
 errores, todas las que usan la fixture de la página.
 
+## Un mes de facturas dejaba la página quieta, y pintarlo costaba más que validarlo
+
+**Cómo salió.** Al escribir en la portada cómo se pasa un mes entero de
+facturas (20-10-2026), se midió qué pasa con miles: un lote sintético de la
+solución pública (UBL 2.5; de cada diez, siete correctas, dos con retención y
+una rectificativa), soltado en la página montada en local.
+
+**Reproducido.** La página validaba el lote de un tirón en el hilo que pinta:
+mientras duraba no atendía un clic ni decía cómo iba. Y después pintaba cada
+informe abierto: con 1.000 ficheros, 50.000 elementos y 2,2 s; con 3.000,
+21,6 s. Contar las incidencias con `reduce` y `concat` copiaba lo acumulado en
+cada paso, 335 ms con 1.000.
+
+**La primera medida era falsa.** Dio 108 s para 3.000 en el navegador y 101 s
+en consola, y eran las dos a la vez, quitándose la máquina. De una en una: 27 s
+y 15 s. Es el mismo fallo que la fila de los ejemplos del 06-09, contado en
+`web/LEEME.md`, y no se vio hasta que la cifra sin ceder salió cuatro veces más
+rápida que la de la mañana.
+
+**Lo que se hizo.** `LoteEnMarcha` valida un fichero cada vez y dice cuántos
+van; `validar_lote` es eso sin pararse, así que el lote sale igual. El Python
+de la página cede el turno cada décima de segundo y después del último, y la
+página dice cuántas van. Pasados 50 ficheros, cada uno sale cerrado y lo suyo
+se pinta al abrirlo. Mientras se lee no se puede soltar otro lote encima ni
+correr el banco de pruebas, que además pasa por la fila: en el hueco del turno
+el Python del lote está a medias.
+
+**Un fallo de la primera versión, provocado.** El escuchador que pinta un
+fichero al abrirlo se ponía uno por informe. Tras tres lotes había tres, el
+más viejo contestaba primero, y el fichero 500 de un lote de 3.000 se abría
+vacío porque el lote viejo tenía 200. Ahora es uno para toda la página.
+
+**Medido después**, de una en una y con el panel oculto: 3.000 facturas en
+31,4 s de principio a fin, y la página nunca más de 0,65 s sin contestar.
+
+**Provocado.** Sin el `await`, la prueba del turno en rojo; con el banco fuera
+de la fila, la suya; con un segundo escuchador, la suya.

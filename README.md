@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3473 tests, todos en verde.
+3488 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3466,7 +3466,10 @@ es 2.9.10 y en local 2.11.9. Veintisiete son críticas: dos de curva elíptica, 
 de la lista de confianza y tres de sellos de tiempo: que se verifique y se monte allí, y que una lista manipulada no
 monte nada. Esa parte depende de la canonicalización, que es lo más frágil de
 esa compilación. Medido: 42 s el primer arranque, 4,8 s con la caché caliente,
-10 ms por factura, y un lote de 200 en 2 segundos.
+10 ms por factura, y un lote de 200 en 2 segundos. Con facturas de la
+solución pública, medido el 20-10-2026 de principio a fin con el informe
+pintado: 200 en 2,7 s, 1.000 en 10,7 s y 3.000 en 31,4 s, con la página
+contestando mientras tanto (el detalle, en `web/LEEME.md`).
 
 ```
 python -m build --wheel --outdir dist

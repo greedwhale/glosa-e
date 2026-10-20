@@ -30,6 +30,12 @@ Lo que no cambia
 Encolar no hace esperar mas de lo que ya se esperaba: Pyodide corre Python en
 el hilo principal, asi que dos validaciones nunca fueron simultaneas de
 verdad. Lo unico que hacian a la vez era corromperse.
+
+Desde el 20-10-2026 la fila importa mas. Un lote cede el turno al navegador
+cada decima de segundo, para que la pagina no se congele, y en ese hueco el
+Python del lote esta a medias con sus globales puestas. Cualquier cosa que
+corra Python ahi sin pasar por la fila, el banco de pruebas incluido, se mete
+en medio. Por eso el banco tambien va por la fila.
 """
 
 import pathlib
@@ -78,6 +84,8 @@ class TestNadieEscribeRutasFueraDeLaFila:
     """
 
     LAS_DE_DENTRO = ("_validarAhora", "_validarEjemploAhora")
+    # Las que corren Python asincrono: las dos de arriba y el banco.
+    LAS_QUE_CORREN_PYTHON = LAS_DE_DENTRO + ("_correrBancoAhora",)
 
     def test_solo_las_dos_de_dentro_tocan_las_globales(self):
         codigo = _codigo()
@@ -120,3 +128,31 @@ class TestNadieEscribeRutasFueraDeLaFila:
         assert "validar," in exporta and "validarEjemplo," in exporta
         for dentro in self.LAS_DE_DENTRO:
             assert dentro not in exporta
+
+    def test_solo_las_de_dentro_corren_python_que_cede(self):
+        """Todo `runPythonAsync`, dentro de la fila: es donde el lote cede el turno."""
+        codigo = _codigo()
+        quienes = set()
+        for casa in re.finditer(r"runPythonAsync\(", codigo):
+            cabeceras = re.findall(r"function (\w+)\(", codigo[:casa.start()])
+            quienes.add(cabeceras[-1] if cabeceras else "(suelta)")
+        assert quienes and quienes <= set(self.LAS_QUE_CORREN_PYTHON), (
+            f"«{quienes - set(self.LAS_QUE_CORREN_PYTHON)}» corre Python fuera "
+            "de la fila: se meteria en medio de un lote que ha cedido el turno"
+        )
+
+    def test_el_banco_pasa_por_la_fila(self):
+        codigo = _codigo()
+        assert "enFila(" in _cuerpo(codigo, "correrBanco")
+        exporta = codigo[codigo.index("window.Glosa = {"):]
+        exporta = exporta[:exporta.index("}")]
+        assert "correrBanco," in exporta and "_correrBancoAhora" not in exporta
+
+    def test_el_turno_se_cede_solo_desde_dentro(self):
+        """`_ceder` es una global de Pyodide como `_rutas`, y por lo mismo."""
+        codigo = _codigo()
+        quienes = set()
+        for casa in re.finditer(r'pyodide\.globals\.set\("_ceder"', codigo):
+            cabeceras = re.findall(r"function (\w+)\(", codigo[:casa.start()])
+            quienes.add(cabeceras[-1] if cabeceras else "(suelta)")
+        assert quienes == {"_validarAhora"}

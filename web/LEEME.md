@@ -182,7 +182,9 @@ En Chrome, sobre esta máquina, con Pyodide 314.0.6:
 | Verificar una firma ECDSA (P-256 / P-384 / P-521) | 10 / 16 / 29 ms |
 | Verificar una lista de confianza y montar el ancla | 20,8 ms |
 | Rechazar una lista de confianza manipulada | 14,1 ms |
-| Validar un lote de 200 | 2,05 s · 10,3 ms cada una · 23 MB de memoria |
+| Validar un lote de 200 | 2,05 s · 10,3 ms cada una · 23 MB de memoria (sin anotar con qué facturas) |
+| Lote de la solución pública, de principio a fin, informe pintado (20-10-2026) | 200: 2,7 s · 1.000: 10,7 s · 3.000: 31,4 s |
+| Lo más que la página pasa sin contestar durante ese lote | 0,65 s (antes del 20-10, el lote entero) |
 | Lo que descomprime el navegador | 17,07 MB (15-09-2026; eran 14,71) |
 | Lo que baja por el cable la primera vez | 9,86 MB en 25 peticiones, todas a `www.glosa-e.com` (15-09-2026; eran 24: desde el 20-09 la rueda se pide dos veces y la segunda sale de la caché, 0 bytes medidos) |
 
@@ -355,3 +357,33 @@ WebAssembly, sin que el fichero salga del ordenador.
 Un lote de 200 facturas sí se ha medido: 2 segundos y 23 MB. Eso significa que
 la parte de pago —el lote del mes de una gestoría— también cabe en el
 navegador, sin servidor que mantener ni datos que custodiar.
+
+Esa fila no dice con qué facturas se midió, y el 20-10-2026 se volvió a medir
+con miles, de las que pide la solución pública (UBL 2.5; de cada diez, siete
+correctas, dos con retención y una rectificativa, todas con su número), con
+los esquemas dentro, el panel del navegador oculto y la máquina en reposo:
+
+| Facturas | De principio a fin, informe pintado | Lo más que la página pasa sin contestar | En consola |
+|---|---|---|---|
+| 200 | 2,7 s | 0,67 s | 1,6 s |
+| 1.000 | 10,7 s | 0,22 s | 5,4 s |
+| 3.000 | 31,4 s | 0,65 s | 15,4 s |
+
+Más de 3.000 no se ha medido, ni con el panel a la vista, ni la memoria del
+propio intérprete (solo la de JavaScript). Con 3.000 sale un solo recuento,
+el de todo el lote, de 32 líneas.
+
+Hasta ese día la página validaba el lote de un tirón: Python corre en el mismo
+hilo que pinta, así que se quedaba quieta, sin atender un clic ni decir cómo
+iba, todo lo que durase. Ahora el lote cede el turno cada décima de segundo
+(`LoteEnMarcha` en `factura.py`, el `await` de `INFORME`) y la página dice
+cuántas van. Ceder cuesta: 1.000 facturas, 10,4 s cediendo y 8,2 s sin ceder,
+en la misma pestaña, porque en cada pausa se espera a que el navegador pinte
+(hasta 20 ms). Es el precio de que se vea cómo va. Y pintar cada informe abierto costaba más que
+validar (con 3.000, 21,6 s y 50.000 elementos por cada 1.000): pasados 50
+ficheros cada uno sale cerrado, y lo suyo se pinta al abrirlo.
+
+**La primera medida de ese día salió de cuatro a siete veces más lenta, y era
+falsa**: la consola y el navegador corrían a la vez y se quitaban la máquina el
+uno al otro. Es lo mismo que pasó el 06-09 con la fila de los ejemplos, aquí
+arriba. Las de la tabla se tomaron de una en una.

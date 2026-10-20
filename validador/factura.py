@@ -1330,27 +1330,97 @@ def validar_lote(
     `nombres` es cómo se llama cada fichero para quien lee, si no es el de su
     ruta: en el navegador la ruta es la del disco virtual y el nombre, el que
     tenía en el ordenador de quien lo soltó.
-    """
-    caminos = [Path(ruta) for ruta in rutas]
-    lote = InformeLote(nombres=nombres_unicos(caminos, nombres))
-    # Un solo catalogo para todo el lote: asi el esquema se compila una vez y
-    # no una por fichero, que es lo que de verdad cuesta.
-    catalogo = catalogo or Catalogo.por_defecto()
-    # Un solo almacen para todo el lote, por lo mismo que el catalogo: leer y
-    # parsear las anclas una vez, no una por fichero.
-    almacen = almacen if almacen is not None else Almacen.por_defecto()
-    listas = listas if listas is not None else AlmacenDeListas.por_defecto()
-    todos: list[codigo_unico.CodigoUnico] = []
-    procedencias: list[str] = []
 
-    for camino, nombre in zip(caminos, lote.nombres, strict=True):
+    Es `LoteEnMarcha` recorrido de un tirón: en consola no hay nadie a quien
+    ceder el turno.
+    """
+    marcha = LoteEnMarcha(rutas, hoy=hoy, catalogo=catalogo, almacen=almacen,
+                          listas=listas, nombres=nombres)
+    for _ in marcha:
+        pass
+    return marcha.lote
+
+
+class LoteEnMarcha:
+    """`validar_lote`, un fichero cada vez.
+
+    Existe por el navegador. Allí Python corre en el mismo hilo que pinta la
+    página, y mientras valida no se pinta nada ni se atiende un clic. Medido el
+    20-10-2026 con 3.000 facturas de la solución pública: 108 segundos con la
+    pestaña congelada y sin decir cómo iba, que es exactamente lo que hace que
+    alguien la cierre creyendo que se ha colgado.
+
+    Recorrerlo da, después de cada fichero, cuántos van. Quien lo recorre
+    decide cuándo parar a pintar; el lote es el mismo que saldría de un tirón,
+    porque es el mismo código: `validar_lote` no es otra cosa que esto sin
+    pararse. Las reglas entre ficheros corren al final, con todos dentro, y
+    `lote` no existe hasta entonces.
+    """
+
+    def __init__(
+        self,
+        rutas: list[str | Path],
+        hoy: date | None = None,
+        catalogo: Catalogo | None = None,
+        almacen: Almacen | None = None,
+        listas: AlmacenDeListas | None = None,
+        nombres: list[str] | None = None,
+    ) -> None:
+        self._caminos = [Path(ruta) for ruta in rutas]
+        # Los nombres se resuelven aquí y no al recorrerlo: si no cuadran con
+        # las rutas, quien llama se entera al crearlo, como con validar_lote.
+        self._nombres = nombres_unicos(self._caminos, nombres)
+        self._hoy = hoy
+        # Un solo catalogo para todo el lote: asi el esquema se compila una vez
+        # y no una por fichero, que es lo que de verdad cuesta.
+        self._catalogo = catalogo or Catalogo.por_defecto()
+        # Un solo almacen para todo el lote, por lo mismo que el catalogo: leer
+        # y parsear las anclas una vez, no una por fichero.
+        self._almacen = almacen if almacen is not None else Almacen.por_defecto()
+        self._listas = listas if listas is not None else AlmacenDeListas.por_defecto()
+        self.total = len(self._caminos)
+        self.lote: InformeLote | None = None
+        self._empezado = False
+
+    def __iter__(self):
+        # Una vez y no más. Recorrerlo dos veces validaría dos veces y dejaría
+        # en `lote` el segundo; mejor que se note.
+        if self._empezado:
+            raise RuntimeError("este lote ya se ha recorrido")
+        self._empezado = True
+        lote = InformeLote(nombres=self._nombres)
+        todos: list[codigo_unico.CodigoUnico] = []
+        procedencias: list[str] = []
+
+        for hechas, (camino, nombre) in enumerate(
+            zip(self._caminos, lote.nombres, strict=True), start=1
+        ):
+            informe, codigos = self._uno(camino, nombre)
+            lote.informes.append((camino, informe))
+            todos.extend(codigos)
+            procedencias.extend([nombre] * len(codigos))
+            yield hechas
+
+        # Solo interesa lo que cruza ficheros. Lo que ya dijo el informe de un
+        # fichero sobre sus propias facturas no se repite aquí.
+        dentro_de_uno = {
+            _senia(i) for _, informe in lote.informes for i in informe.incidencias
+        }
+        lote.cruzadas = [
+            i
+            for i in codigo_unico.reglas_de_lote(todos, procedencias=procedencias)
+            if _senia(i) not in dentro_de_uno
+        ]
+        self.lote = lote
+
+    def _uno(
+        self, camino: Path, nombre: str
+    ) -> tuple[Informe, list[codigo_unico.CodigoUnico]]:
+        """El informe de un fichero, y sus facturas para las reglas de conjunto."""
         try:
             datos = camino.read_bytes()
         except OSError as error:
-            lote.informes.append(
-                (camino, Informe(deteccion=_no_se_puede_leer(camino, error)))
-            )
-            continue
+            return Informe(deteccion=_no_se_puede_leer(camino, error)), []
 
         try:
             deteccion = detectar(datos)
@@ -1358,15 +1428,14 @@ def validar_lote(
             informe = Informe(deteccion=deteccion)
             if deteccion:
                 incidencias, informe.firma, informe.firmas_verificadas = _reglas(
-                    raiz, deteccion, hoy, catalogo, almacen, listas, sintacticas
+                    raiz, deteccion, self._hoy, self._catalogo, self._almacen,
+                    self._listas, sintacticas
                 )
                 informe.incidencias.extend(incidencias)
-                informe.mirado = _mirado(deteccion, catalogo)
+                informe.mirado = _mirado(deteccion, self._catalogo)
                 informe.contenido_medido = mensajes.medido_entero(raiz, deteccion)
         except Exception as error:  # noqa: BLE001 - ver `_se_atraganta`
-            lote.informes.append((camino, _se_atraganta(camino, error, nombre)))
-            continue
-        lote.informes.append((camino, informe))
+            return _se_atraganta(camino, error, nombre), []
 
         # Al montón del lote solo van las facturas sujetas al reglamento
         # español. Comparar series y duplicados entre una factura holandesa y
@@ -1374,18 +1443,5 @@ def validar_lote(
         # qué. Sin este filtro salían «duplicados» entre dos suites de prueba
         # que solo tenían en común el número de ejemplo.
         if codigo_unico.obligado_en_espania(raiz, deteccion):
-            for codigo in codigo_unico.extraer_de(raiz, deteccion):
-                todos.append(codigo)
-                procedencias.append(nombre)
-
-    # Solo interesa lo que cruza ficheros. Lo que ya dijo el informe de un
-    # fichero sobre sus propias facturas no se repite aquí.
-    dentro_de_uno = {
-        _senia(i) for _, informe in lote.informes for i in informe.incidencias
-    }
-    lote.cruzadas = [
-        i
-        for i in codigo_unico.reglas_de_lote(todos, procedencias=procedencias)
-        if _senia(i) not in dentro_de_uno
-    ]
-    return lote
+            return informe, list(codigo_unico.extraer_de(raiz, deteccion))
+        return informe, []

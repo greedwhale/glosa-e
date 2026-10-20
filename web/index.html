@@ -330,6 +330,18 @@ main > .envoltorio > .ficha {
 }
 .documento > header .nombre { font-family: var(--mono); font-size: var(--t1); color: var(--tinta); overflow-wrap: anywhere; }
 .documento > header .estado { font-size: var(--t1); color: var(--tinta-2); margin-top: .15rem; }
+/* Con muchos ficheros, cada uno cerrado: la cabecera es lo que se pulsa. */
+details.documento > summary { list-style: none; cursor: pointer; }
+details.documento > summary::-webkit-details-marker { display: none; }
+details.documento > summary > header {
+  background: var(--panel-2); padding: .8rem 1.15rem; display: grid;
+  grid-template-columns: 1fr auto; gap: 0 1rem; align-items: start;
+}
+details.documento[open] > summary > header { border-bottom: 1px solid var(--borde); }
+details.documento > summary > header::after { content: "Ver"; grid-column: 2; grid-row: 1; font-size: var(--t1); color: var(--acento); font-weight: 600; }
+details.documento[open] > summary > header::after { content: "Cerrar"; }
+details.documento > summary:focus-visible { outline: 2px solid var(--acento); outline-offset: -2px; }
+details.documento > summary > header .estado { grid-column: 1; }
 
 /* El recuento, al pie del informe y cerrado: es para mandarlo, no para leerlo
    aquí, y quien solo quiere saber qué falla no tiene por qué tropezar con él.
@@ -1597,11 +1609,42 @@ function pintarGlosa(inc) {
   );
 }
 
+// Hasta cuántos ficheros cada uno sale abierto, con todo lo que dice.
+//
+// Pasado esto, cada fichero sale cerrado y lo suyo se pinta al abrirlo.
+// Medido el 20-10-2026 con 1.000 facturas: 50.000 elementos y 2,2 segundos
+// de pintar, con la página quieta; con 3.000, 21,6. Y nadie lee 3.000
+// informes seguidos: busca los que fallan, y para el conjunto está el
+// recuento. Cincuenta es una pantalla larga, no una cifra medida.
+const ABIERTOS_HASTA = 50;
+
+// Lo de cada fichero cerrado, la primera vez que se abre.
+//
+// Un solo escuchador para toda la vida de la página, y los documentos del
+// informe que está pintado en una variable. Estuvo puesto dentro de
+// `pintarInforme`, uno por informe: al tercer lote había tres, el más viejo
+// contestaba primero con los documentos de su lote, y el fichero 500 de un
+// lote de 3.000 se abría vacío porque el lote viejo tenía 200 (provocado el
+// 20-10-2026). `toggle` no burbujea, así que se coge en la fase de captura.
+let documentosCerrados = null;
+
+$("informe").addEventListener("toggle", (evento) => {
+  const caja = evento.target;
+  if (!documentosCerrados || !caja.matches || !caja.matches("details.documento") ||
+      !caja.open || caja.dataset.pintado) return;
+  const doc = documentosCerrados[Number(caja.dataset.n)];
+  if (!doc) return;
+  caja.dataset.pintado = "1";
+  caja.insertAdjacentHTML("beforeend", doc.incidencias.map(pintarGlosa).join(""));
+}, true);
+
 function pintarInforme(datos) {
   const partes = [];
 
+  // Con flatMap y no con reduce y concat: así, cada concat copiaba lo
+  // acumulado, y con 1.000 ficheros eran 335 ms solo en contar.
   const todas = datos.documentos
-    .reduce((acc, d) => acc.concat(d.incidencias), [])
+    .flatMap((d) => d.incidencias)
     .concat(datos.cruzadas);
   const cuenta = (g) => todas.filter((i) => i.gravedad === g).length;
   const errores = cuenta("error");
@@ -1675,17 +1718,27 @@ function pintarInforme(datos) {
     "</div>"
   );
 
-  for (const doc of datos.documentos) {
+  const cerrados = datos.documentos.length > ABIERTOS_HASTA;
+  if (cerrados) {
+    partes.push(
+      "<p class='texto' style='color:var(--tinta-2)'>Son " +
+      enMiles(datos.documentos.length) + " ficheros, así que cada uno sale " +
+      "cerrado: se abre pulsando su nombre." +
+      (datos.recuento ? " El recuento de todo el lote, para mandarlo, está " +
+                        "<a href='#recuento-lote'>al final</a>." : "") + "</p>");
+  }
+  datos.documentos.forEach((doc, n) => {
     let estado = escapar(doc.resumen);
     if (doc.choca && doc.conforme) estado += " Choca con otro fichero (ver abajo).";
-    partes.push(
-      "<div class='documento'>" +
-        "<header><div class='nombre'>" + escapar(doc.nombre) + "</div>" +
-        "<div class='estado'>" + estado + "</div></header>" +
-        doc.incidencias.map(pintarGlosa).join("") +
-      "</div>"
-    );
-  }
+    const cabecera =
+      "<header><div class='nombre'>" + escapar(doc.nombre) + "</div>" +
+      "<div class='estado'>" + estado + "</div></header>";
+    partes.push(cerrados
+      ? "<details class='documento' data-n='" + n + "'><summary>" + cabecera +
+        "</summary></details>"
+      : "<div class='documento'>" + cabecera +
+        doc.incidencias.map(pintarGlosa).join("") + "</div>");
+  });
 
   if (datos.cruzadas.length) {
     partes.push(
@@ -1704,7 +1757,7 @@ function pintarInforme(datos) {
   // sacarlo, y para un fabricante pequeño eso era no sacarlo.
   if (datos.recuento) {
     partes.push(
-      "<details class='recuento'>" +
+      "<details class='recuento' id='recuento-lote'>" +
         "<summary>Para mandárselo a otra persona: el recuento</summary>" +
         "<p>Solo los códigos, en cuántos documentos sale cada uno y cuántas " +
         "veces, y los formatos. No lleva nombres de fichero, NIF, números de " +
@@ -1719,6 +1772,7 @@ function pintarInforme(datos) {
 
   $("informe").innerHTML = partes.join("");
   if (datos.recuento) $("copiar-recuento").addEventListener("click", copiarRecuento);
+  documentosCerrados = cerrados ? datos.documentos : null;
   pintarLectura();
   $("informe").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1832,10 +1886,28 @@ async function verElEjemplo(boton) {
   }
 }
 
+// Mientras se lee un lote la página contesta, y por eso hace falta esto:
+// antes estaba congelada y no se podía soltar nada encima. Lo que se suelte
+// mientras tanto no se lee, y se dice: encolarlo dejaba dos lecturas pintando
+// en el mismo hueco, la una encima de la otra.
+let leyendo = false;
+
+function ocuparse(si) {
+  leyendo = si;
+  muestras.forEach((b) => { b.disabled = si; });
+  $("correr-banco").disabled = si;
+}
+
 // `aclaracion` va encima del informe, como la de las muestras: de dónde sale
 // lo que se ha leído, cuando no es un fichero sin más.
 async function soltar(ficheros, aclaracion = "") {
   if (fallo || !ficheros.length) return;
+  if (leyendo) {
+    const espera = $("leyendo-espera");
+    if (espera) espera.textContent = "Lo que acabas de soltar no se ha leído: " +
+      "espera a que termine este lote y suéltalo después.";
+    return;
+  }
 
   if (!listo) {
     $("informe").innerHTML =
@@ -1859,17 +1931,29 @@ async function soltar(ficheros, aclaracion = "") {
 
   empezarLectura(ficheros.length === 1 ? ficheros[0].name
                                        : plural(ficheros.length, "fichero", "ficheros"));
+  const total = enMiles(ficheros.length);
   $("informe").innerHTML =
-    "<div class='veredicto'><h3>Leyendo…</h3><p>" +
-    ficheros.length + " fichero(s).</p></div>";
+    "<div class='veredicto'><h3>Leyendo…</h3><p id='leyendo-cuantas' role='status'>" +
+    total + (ficheros.length === 1 ? " fichero." : " ficheros.") + "</p>" +
+    "<p id='leyendo-espera'></p></div>";
+  const avance = (hechas) => {
+    const linea = $("leyendo-cuantas");
+    if (!linea) return;
+    linea.textContent = hechas < ficheros.length
+      ? "Van " + enMiles(hechas) + " de " + total + "."
+      : "Leídos los " + total + ". Ahora se comparan entre sí y se junta el informe.";
+  };
+  ocuparse(true);
   try {
-    pintarInforme(await Glosa.validar(ficheros));
+    pintarInforme(await Glosa.validar(ficheros, avance));
     if (aclaracion) $("informe").insertAdjacentHTML("afterbegin", aclaracion);
   } catch (error) {
     $("informe").innerHTML =
       "<div class='veredicto no'><h3>No se ha podido leer</h3><p>" +
       escapar(motivo(error)) + "</p></div>";
     console.error(error);
+  } finally {
+    ocuparse(false);
   }
 }
 

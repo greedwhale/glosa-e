@@ -325,11 +325,117 @@ class TestCadaFicheroPorSuNombre:
                             classmethod(lambda cls, *a, **k: Catalogo(tmp_path / "nada")))
         espacio = {"_rutas": rutas, "_nombres": ["factura ñ.xml", "factura ç.xml"]}
         *cuerpo, ultima = informe.strip().rsplit("\n\njson.dumps", 1)
-        exec(cuerpo[0], espacio)
+        from test_lo_que_ensena_la_pagina import correr_como_la_pagina
+        correr_como_la_pagina(cuerpo[0], espacio)
         datos = json.loads(eval("json.dumps" + ultima, espacio))
         assert [d["nombre"] for d in datos["documentos"]] == ["factura ñ.xml",
                                                               "factura ç.xml"]
         assert datos["cruzadas"] == []
+
+
+class TestLoteEnMarcha:
+    """`validar_lote` a pasos, para que la página pueda pintar entre fichero y fichero.
+
+    Medido el 20-10-2026 con 3.000 facturas de la solución pública: de un
+    tirón, la pestaña se quedaba 108 segundos sin pintar ni atender un clic.
+    """
+
+    def _rutas(self, tmp_path):
+        rutas = []
+        for orden, numero in enumerate(("F-2026-0001", "F-2026-0001", "F-2026-0002")):
+            (tmp_path / str(orden)).mkdir()
+            rutas.append(escribir(tmp_path / str(orden), "factura.xml",
+                                  ubl(numero=numero)))
+        return rutas
+
+    def test_dice_cuantas_van_despues_de_cada_una(self, tmp_path):
+        marcha = factura.LoteEnMarcha(self._rutas(tmp_path), hoy=HOY)
+        assert marcha.total == 3
+        assert list(marcha) == [1, 2, 3]
+
+    def test_el_lote_no_existe_hasta_el_final(self, tmp_path):
+        """Las reglas entre ficheros necesitan todos dentro: a medias no hay lote."""
+        marcha = factura.LoteEnMarcha(self._rutas(tmp_path), hoy=HOY)
+        pasos = iter(marcha)
+        next(pasos)
+        assert marcha.lote is None
+        for _ in pasos:
+            pass
+        assert marcha.lote is not None
+
+    def test_sale_lo_mismo_que_de_un_tiron(self, tmp_path):
+        rutas = self._rutas(tmp_path)
+        marcha = factura.LoteEnMarcha(rutas, hoy=HOY)
+        for _ in marcha:
+            pass
+        entero = factura.validar_lote(rutas, hoy=HOY)
+        assert marcha.lote.detalle() == entero.detalle()
+        assert marcha.lote.recuento() == entero.recuento()
+        # Y el duplicado entre ficheros sigue saliendo, que es lo que obliga a
+        # esperar al final.
+        assert [i.codigo for i in marcha.lote.cruzadas] == ["CU-10"]
+
+    def test_no_se_recorre_dos_veces(self, tmp_path):
+        marcha = factura.LoteEnMarcha(self._rutas(tmp_path), hoy=HOY)
+        list(marcha)
+        with pytest.raises(RuntimeError):
+            list(marcha)
+
+    def test_los_nombres_que_no_cuadran_se_dicen_al_crearlo(self, tmp_path):
+        a = escribir(tmp_path, "a.xml", ubl())
+        with pytest.raises(ValueError):
+            factura.LoteEnMarcha([a], hoy=HOY, nombres=["a.xml", "b.xml"])
+
+    def test_la_pagina_cede_el_turno_y_dice_cuantas_van(self, tmp_path, monkeypatch):
+        """El Python de `glosa.js`, con un `_ceder` que apunta cuándo lo llaman.
+
+        El reloj se adelanta medio segundo en cada vistazo, así que toca ceder
+        después de cada fichero. Sin el `await`, o sin mirar el reloj, esto se
+        queda sin llamadas: provocado quitando la línea del `await`.
+        """
+        import json
+        import re
+        import time
+
+        from test_lo_que_ensena_la_pagina import correr_como_la_pagina
+        from validador.cadena import Almacen
+        from validador.esquema import Catalogo
+
+        codigo = (Path(__file__).resolve().parent.parent / "web" / "glosa.js").read_text(
+            encoding="utf-8")
+        informe = re.search(r"const INFORME = `(.*?)`;", codigo, re.S).group(1)
+        monkeypatch.setattr(Almacen, "por_defecto",
+                            classmethod(lambda cls, *a: Almacen(tmp_path / "nada")))
+        monkeypatch.setattr(Catalogo, "por_defecto",
+                            classmethod(lambda cls, *a, **k: Catalogo(tmp_path / "nada")))
+        reloj = iter(range(0, 10_000, 1))
+        monkeypatch.setattr(time, "monotonic", lambda: next(reloj) * 0.5)
+
+        llamadas = []
+
+        async def ceder(hechas, total):
+            llamadas.append((hechas, total))
+
+        rutas = [str(r) for r in self._rutas(tmp_path)]
+        espacio = {"_rutas": rutas, "_nombres": ["a.xml", "b.xml", "c.xml"],
+                   "_ceder": ceder}
+        *cuerpo, ultima = informe.strip().rsplit("\n\njson.dumps", 1)
+        correr_como_la_pagina(cuerpo[0], espacio)
+        datos = json.loads(eval("json.dumps" + ultima, espacio))
+        assert llamadas == [(1, 3), (2, 3), (3, 3)]
+        # Y se lo queda esta validación: la siguiente no hereda el de esta.
+        assert "_ceder" not in espacio
+        assert len(datos["documentos"]) == 3
+        assert [i["codigo"] for i in datos["cruzadas"]] == ["CU-10"]
+
+        # Con el reloj quieto no se cede por tiempo, pero sí al acabar el
+        # último: lo que queda es comparar entre ficheros, y se dice.
+        monkeypatch.setattr(time, "monotonic", lambda: 0.0)
+        llamadas.clear()
+        espacio = {"_rutas": rutas, "_nombres": ["a.xml", "b.xml", "c.xml"],
+                   "_ceder": ceder}
+        correr_como_la_pagina(cuerpo[0], espacio)
+        assert llamadas == [(3, 3)]
 
 
 class TestValidarLote:

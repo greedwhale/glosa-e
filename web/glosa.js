@@ -744,6 +744,7 @@ async function arrancarDeVerdad(avisar) {
 const INFORME = `
 import dataclasses
 import json
+import time
 from validador import factura
 from validador.cadena import Almacen
 from validador.esquema import Catalogo
@@ -776,8 +777,30 @@ if "_c" not in globals():
     # mandaba a «ponla en la carpeta de revocaciones». Visto el 05-10-2026.
     _l = AlmacenDeListas.sin_carpeta()
 
-_lote = factura.validar_lote(list(_rutas), catalogo=_c, almacen=_a,
-                             listas=_l, nombres=list(_nombres))
+# Un fichero cada vez, y cada decima de segundo se le devuelve el turno al
+# navegador. Aqui Python corre en el mismo hilo que pinta la pagina: de un
+# tiron, 3.000 facturas la dejaban 108 segundos congelada y sin decir como iba
+# (medido el 20-10-2026), y quien suelta un mes entero la cierra creyendo que
+# se ha colgado. La decima es lo que tarda en notarse que algo no contesta.
+#
+# Y se cede tambien despues del ultimo, haya pasado la decima o no: lo que
+# queda (comparar los ficheros entre si y juntar el informe) son otros dos
+# segundos con 3.000, y sin esto se pasaban con el "van 2.993" puesto.
+#
+# _ceder lo deja quien llama, una vez por validacion, y aqui se saca para que
+# no quede puesto para la siguiente. Sin el (las pruebas, el ejemplo) el lote
+# se valida de un tiron, que es lo mismo: validar_lote es LoteEnMarcha sin
+# pararse.
+_cede = globals().pop("_ceder", None)
+_marcha = factura.LoteEnMarcha(list(_rutas), catalogo=_c, almacen=_a,
+                               listas=_l, nombres=list(_nombres))
+_desde = time.monotonic()
+for _hechas in _marcha:
+    if _cede is not None and (_hechas == _marcha.total
+                              or time.monotonic() - _desde > 0.1):
+        await _cede(_hechas, _marcha.total)
+        _desde = time.monotonic()
+_lote = _marcha.lote
 
 def _inc(i):
     return {
@@ -871,11 +894,47 @@ function enFila(faena) {
 
 // Valida ficheros del disco de quien mira. No salen de su ordenador: se
 // escriben en el disco virtual del navegador, que vive en su memoria.
-async function validar(ficheros) {
-  return enFila(() => _validarAhora(ficheros));
+//
+// `avance(hechas, total)`, si se pasa, se llama cada decima de segundo
+// mientras dura: es lo que deja decir "van 1.200 de 3.000" en vez de una
+// pagina quieta.
+async function validar(ficheros, avance) {
+  return enFila(() => _validarAhora(ficheros, avance));
 }
 
-async function _validarAhora(ficheros) {
+// Lo que Python espera para seguir: se dice cuantas van y se suelta el hilo.
+//
+// Se espera al siguiente fotograma y se sigue justo despues: requestAnimationFrame
+// salta antes de pintar, y el setTimeout de dentro, despues. Con un setTimeout
+// a secas el navegador atiende los clics en el hueco, pero nada le obliga a
+// pintar en uno tan corto, y el "van 1.200" podia no llegar a verse.
+//
+// Con la pestaña en segundo plano requestAnimationFrame no salta nunca, y el
+// lote se quedaria parado hasta que alguien volviera a mirarla: ahi no hay
+// nada que pintar y se sigue en cuanto se puede. Y el setTimeout de 20 ms,
+// por si el fotograma no llega: un fotograma son 16,7 ms a 60 por segundo, y
+// hay paneles que no estan ocultos para la pagina y no pintan nunca. Medido el
+// 20-10-2026 en uno de esos, con 50 ms: 3.000 facturas pasaban de 25 a 42 s.
+function cederCon(avance) {
+  return (hechas, total) => {
+    if (avance) {
+      try { avance(hechas, total); } catch (error) { console.error(error); }
+    }
+    return new Promise((seguir) => {
+      let ido = false;
+      const sigue = () => {
+        if (ido) return;
+        ido = true;
+        setTimeout(seguir, 0);
+      };
+      if (document.hidden) return sigue();
+      requestAnimationFrame(sigue);
+      setTimeout(sigue, 20);
+    });
+  };
+}
+
+async function _validarAhora(ficheros, avance) {
   const rutas = [];
   const nombres = [];
   let orden = 0;
@@ -895,6 +954,7 @@ async function _validarAhora(ficheros) {
   }
   pyodide.globals.set("_rutas", rutas);
   pyodide.globals.set("_nombres", nombres);
+  pyodide.globals.set("_ceder", cederCon(avance));
   try {
     return JSON.parse(await pyodide.runPythonAsync(INFORME));
   } finally {
@@ -956,7 +1016,16 @@ async function _validarEjemploAhora(nombre) {
 // version vieja y el banco correria sus comprobaciones de ayer contra el
 // codigo de hoy, saliendo todo verde. Paso: se anadieron tres, se recargo, y
 // la pagina siguio diciendo «las 33 comprobaciones pasan» tan contenta.
+//
+// Y va por la fila como las validaciones. Mientras un lote cede el turno, el
+// Python del lote esta a medias, con sus globales puestas; el banco corre en
+// el mismo interprete, y arrancarlo en ese hueco es lo que la fila existe
+// para impedir.
 async function correrBanco() {
+  return enFila(_correrBancoAhora);
+}
+
+async function _correrBancoAhora() {
   await leerElManifiesto();
   const respuesta = await pedir(conHuella("./prueba.py", "prueba.py"),
                                 "El fichero de comprobaciones");

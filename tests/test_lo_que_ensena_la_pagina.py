@@ -36,6 +36,8 @@ Linux: así la guardia se ejercita con ella en GitHub, y no solo donde la hay.
 """
 
 import json
+import ast
+import asyncio
 import re
 import zipfile
 from pathlib import Path
@@ -76,6 +78,19 @@ def _informe_de_la_pagina() -> str:
     return python
 
 
+def correr_como_la_pagina(codigo: str, espacio: dict) -> None:
+    """El Python de la página, como lo corre `runPythonAsync`: con `await` arriba.
+
+    Desde el 20-10-2026 el informe cede el turno al navegador entre fichero y
+    fichero con un `await`, y `exec` a secas lo rechaza fuera de una función.
+    Compilado así devuelve una corrutina, que se corre hasta el final.
+    """
+    hecho = eval(compile(codigo, "INFORME", "exec",
+                         flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT), espacio)
+    if hecho is not None:
+        asyncio.run(hecho)
+
+
 @pytest.fixture
 def la_pagina(tmp_path, monkeypatch):
     """El paquete descomprimido como en el navegador, y el Python del informe.
@@ -111,7 +126,7 @@ def la_pagina(tmp_path, monkeypatch):
             rutas.append(str(camino))
             nombres.append(nombre)
         espacio = {"_rutas": rutas, "_nombres": nombres}
-        exec(cuerpo[0], espacio)
+        correr_como_la_pagina(cuerpo[0], espacio)
         soltar.espacio = espacio
         return eval("json.dumps" + ultima, espacio)
 
