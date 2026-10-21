@@ -100,6 +100,11 @@ NORMAS: tuple[tuple[str, str, str], ...] = (
     ("XSD-", FORMA, "el esquema oficial del formato"),
     ("FE-", NACIONAL, "la especificación española de Facturae"),
     ("EDI-", SINTAXIS_EDI, "la sintaxis de EDIFACT"),
+    # La nota del art. 7.3 no sale de eIDAS: lo que dice es que el real
+    # decreto pide la firma, no cómo se comprueba.
+    ("FIRMA-POR-FUERA", ESPANOLA,
+     "el real decreto español: la firma de las facturas que emiten las "
+     "plataformas privadas, en su artículo 7, apartado 3"),
     ("FIRMA-", SELLO, "eIDAS y las normas ETSI de firma"),
     ("CADENA-", SELLO, "eIDAS y las normas ETSI de firma"),
     ("REVOCA", SELLO, "eIDAS y las normas ETSI de firma"),

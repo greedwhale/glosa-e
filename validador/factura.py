@@ -270,7 +270,7 @@ def _reglas_con_cuentas(
     # es lo que le va a pasar al copiarse a la solución pública.
     incidencias.extend(copia_fiel.reglas(raiz, deteccion))
     examenes = firma.examinar_todas(raiz) if raiz is not None else ()
-    incidencias.extend(firma.reglas(raiz, deteccion, examenes))
+    incidencias.extend(firma.reglas(raiz, deteccion, examenes, espanola=espanola))
     incidencias.extend(sellos.reglas_de_documento(raiz, deteccion))
     incidencias.extend(
         cadena.reglas_de_documento(raiz, deteccion, almacen, listas, hoy)

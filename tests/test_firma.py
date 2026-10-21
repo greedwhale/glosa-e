@@ -21,10 +21,10 @@ from pathlib import Path
 import pytest
 from lxml import etree
 
-from validador import cadena, factura, firma
+from validador import cadena, codigo_unico, factura, firma
 from validador.cadena import Almacen
 from validador.formato import detectar, parser
-from validador.incidencias import AVISO, ERROR
+from validador.incidencias import AVISO, ERROR, NOTA
 
 # Un par de claves RSA de 512 bits, generado una vez y escrito aquí para que
 # las pruebas den siempre lo mismo.
@@ -261,9 +261,9 @@ def documento(
     return etree.tostring(raiz, xml_declaration=True, encoding="UTF-8")
 
 
-def quejas(datos: bytes):
+def quejas(datos: bytes, espanola: bool = True):
     raiz = etree.fromstring(datos, parser=parser())
-    return firma.reglas(raiz, detectar(datos))
+    return firma.reglas(raiz, detectar(datos), espanola=espanola)
 
 
 def codigos(incidencias, gravedad=None) -> set[str]:
@@ -670,12 +670,16 @@ class TestAQuienSeLePide:
 
     def test_un_ubl_sin_firmar_no(self):
         """En UBL y CII la firma no es parte del formato: se firma por fuera,
-        en el sobre del envío. Pedirla aquí sería inventarse un requisito."""
+        en el sobre del envío. Pedirla aquí sería inventarse un requisito.
+        Desde el 21-10-2026 una factura española lleva la NOTA del art. 7.3
+        (ver `TestLaFirmaDeLasPlataformas`), que no pide nada: ni un aviso ni
+        un error, y a una extranjera, nada."""
         ubl = (
             '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">'
             "</Invoice>"
-        )
-        assert quejas(ubl.encode()) == []
+        ).encode()
+        assert not codigos(quejas(ubl), AVISO) | codigos(quejas(ubl), ERROR)
+        assert quejas(ubl, espanola=False) == []
 
     def test_una_firma_sin_propiedades_xades(self):
         salta = [i for i in quejas(documento(con_xades=False)) if i.codigo == "FIRMA-NO-XADES"]
@@ -685,6 +689,91 @@ class TestAQuienSeLePide:
         sin_xades = codigos(quejas(documento(con_xades=False)))
         assert "FIRMA-ALTERADA" not in sin_xades
         assert "FIRMA-NO-CUADRA" not in sin_xades
+
+
+# --- La firma de las facturas de las plataformas privadas ------------------
+#
+# El art. 7.3 del RD 238/2026: "Todas las facturas electrónicas emitidas por
+# medio de plataformas privadas de intercambio de facturas electrónicas deberán
+# estar firmadas con firma electrónica avanzada". Hasta el 21-10-2026 un UBL,
+# un CII o un EDIFACT español sin firma dentro salía sin una palabra sobre ello,
+# y ni el código ni el README citaban el artículo. Es una NOTA y no un AVISO:
+# mirando el fichero no se sabe si pasó por una plataforma privada, ni si la
+# firma viaja aparte, en el envío.
+
+EJEMPLOS = Path(__file__).resolve().parent.parent / "ejemplos"
+POR_FUERA = "FIRMA-POR-FUERA"
+
+
+def _del_informe(datos: bytes):
+    return factura.validar(datos).incidencias
+
+
+class TestLaFirmaDeLasPlataformas:
+    @pytest.mark.parametrize(
+        "nombre", ["f-0001.xml", "r-0001.xml", "cii-A-0001.xml", "edi-0001.edi"]
+    )
+    def test_una_factura_espanola_sin_firma_dentro_lleva_la_nota(self, nombre):
+        datos = (EJEMPLOS / nombre).read_bytes()
+        salta = [i for i in _del_informe(datos) if i.codigo == POR_FUERA]
+        assert len(salta) == 1, nombre
+        assert salta[0].gravedad == NOTA
+        for trozo in ("artículo 7, apartado 3", "plataforma privada",
+                      "firma electrónica avanzada", "aparte"):
+            assert trozo in salta[0].mensaje, trozo
+
+    def test_no_dice_que_falte(self):
+        """La nota no puede leerse como un fallo: la firma puede ir en el
+        envío, y la factura puede no pasar por ninguna plataforma privada."""
+        datos = (EJEMPLOS / "f-0001.xml").read_bytes()
+        salta = next(i for i in _del_informe(datos) if i.codigo == POR_FUERA)
+        assert "no se sabe" in salta.mensaje
+        assert "FIRMA-FALTA" not in codigos(_del_informe(datos))
+
+    def test_a_una_extranjera_no(self):
+        """El 7.3 es del real decreto español: a una factura holandesa no le
+        toca, como no le tocan las demás reglas del RD."""
+        datos = (EJEMPLOS / "f-0001.xml").read_bytes()
+        datos = datos.replace(
+            b"<cbc:IdentificationCode>ES<", b"<cbc:IdentificationCode>NL<"
+        ).replace(b"ESB12345674", b"NL123456789B01")
+        raiz = etree.fromstring(datos, parser=parser())
+        assert not codigo_unico.obligado_en_espania(raiz, detectar(datos))
+        assert POR_FUERA not in codigos(_del_informe(datos))
+
+    def test_con_la_firma_dentro_no(self):
+        """Si la trae, se comprueba con las reglas de siempre, y la nota no
+        tiene nada que decir."""
+        ubl = (
+            '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">'
+            '<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"/>'
+            "</Invoice>"
+        ).encode()
+        assert POR_FUERA not in codigos(quejas(ubl))
+
+    def test_a_un_facturae_no_le_toca(self):
+        """En Facturae la firma la pide su propio esquema, y lo dice
+        FIRMA-FALTA, que es un aviso."""
+        sin_firmar = codigos(quejas(CUERPO.format(total="121.00").encode()))
+        assert "FIRMA-FALTA" in sin_firmar
+        assert POR_FUERA not in sin_firmar
+
+    def test_a_una_respuesta_no_le_toca(self):
+        """El 7.3 habla de facturas. Un mensaje de estado o la anulación no lo
+        son."""
+        respuesta = (
+            '<ApplicationResponse xmlns="urn:oasis:names:specification:ubl:schema:'
+            'xsd:ApplicationResponse-2"/>'
+        ).encode()
+        assert quejas(respuesta) == []
+
+    def test_quien_llama_tiene_que_decir_si_es_espanola(self):
+        """Sin el dato no hay respuesta por defecto: una que callara dejaría
+        sin la nota a todas las facturas el día que un caller nuevo se olvide
+        de pasarlo, y una que hablara se la pondría a las extranjeras."""
+        raiz = etree.fromstring((EJEMPLOS / "f-0001.xml").read_bytes(), parser=parser())
+        with pytest.raises(TypeError):
+            firma.reglas(raiz, detectar((EJEMPLOS / "f-0001.xml").read_bytes()))
 
 
 # --- Firmas que no son de quien dicen, o no de lo que dicen ----------------

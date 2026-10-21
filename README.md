@@ -30,7 +30,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3500 tests, todos en verde.
+3510 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -1514,6 +1514,37 @@ anotación de su bloque `Signature`:
 > fichero. No obstante, debe cumplimentarse este bloque de firma electrónica
 > para que se considere una factura electrónica válida legalmente frente a
 > terceros.»
+
+### Y en UBL, CII y EDIFACT, la nota del art. 7.3
+
+En esas tres sintaxis la firma no es parte del formato: se pone por fuera, en
+el sobre del envío, y en EDIFACT no hay manera de llevarla dentro. Por eso a un
+UBL sin firma no se le da `FIRMA-FALTA`, que sería inventarse un requisito que
+la sintaxis no tiene. Pero el requisito existe, y lo pone el real decreto:
+
+> "Todas las facturas electrónicas emitidas por medio de plataformas privadas
+> de intercambio de facturas electrónicas deberán estar firmadas con firma
+> electrónica avanzada, ya sea directamente por el emisor o mediante firma
+> delegada autorizada [...]" (RD 238/2026, art. 7.3)
+
+Desde el 21-10-2026, una factura española en UBL, CII o EDIFACT que no trae la
+firma dentro lleva la **NOTA `FIRMA-POR-FUERA`**, con esa base. Es nota y no
+aviso porque el fichero no dice las dos cosas que decidirían si falta: si pasó
+por una plataforma privada (la solución pública y el envío directo entre dos
+empresas no están en el artículo) y si la firma viaja aparte. Si la factura sí
+trae la firma, la nota no sale y la firma se comprueba como se cuenta abajo. A
+una factura extranjera no se le pone, porque el artículo es del real decreto,
+ni a una respuesta (`ApplicationResponse`), porque no es una factura.
+
+`firma.reglas` exige que quien la llama diga si el documento es español, sin
+valor por defecto: callar por defecto dejaría sin la nota a todas las facturas
+el día que alguien la llame sin pasarlo, y hablar por defecto se la pondría a
+las extranjeras.
+
+Lo que falta es el segundo paso: aceptar la firma en un fichero aparte, junto
+a la factura, y comprobarla con lo que ya existe. Espera a que la Sede diga
+cómo viaja; la orden solo dice que las facturas interconectadas "podrán
+remitirse junto con la firma electrónica" (art. 3.6).
 
 ### Qué se comprueba
 

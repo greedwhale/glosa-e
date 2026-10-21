@@ -690,8 +690,11 @@ class TestLasBuenas:
 
     def test_dice_en_notas_lo_que_ha_aceptado_y_con_que_base(self):
         informe = factura.validar(DEL_BOE.encode("utf-8"))
+        # FIRMA-POR-FUERA, desde el 21-10-2026: va sin firma dentro, y si se
+        # emitiera por una plataforma privada el art. 7.3 del RD la pediría.
         assert {i.codigo for i in informe.notas} == {
-            "SPFE-ALCANCE", "SPFE-COPIA", "SPFE-IMPORTE-PAGADO", "SPFE-TOTAL-A-PAGAR"}
+            "SPFE-ALCANCE", "SPFE-COPIA", "SPFE-IMPORTE-PAGADO", "SPFE-TOTAL-A-PAGAR",
+            "FIRMA-POR-FUERA"}
 
     def test_la_nota_del_alcance_sale_siempre_y_dice_con_que_se_ha_medido(self):
         """Hasta el 07-10-2026 decía que el anexo «no está publicado en el BOE».
@@ -1383,7 +1386,7 @@ class TestElEjemploDeLaAEAT:
         assert limpia(EJEMPLO) == []
         assert {i.codigo for i in informe.notas} == {
             "SPFE-ALCANCE", "SPFE-COPIA", "SPFE-IMPORTE-PAGADO", "SPFE-TOTAL-A-PAGAR",
-            "SPFE-RECTIFICATIVA"}
+            "SPFE-RECTIFICATIVA", "FIRMA-POR-FUERA"}
 
     def test_una_384_que_no_dice_que_rectifica_ya_no_sale_limpia(self):
         """El caso que se midió el 05-10-2026 con «sin errores» y exit 0."""

@@ -62,16 +62,24 @@ HOY = datetime.date(2026, 9, 20)
 # esa sintaxis no tiene dónde escribir, y cinco de lo que le pasaría al
 # copiarse a la solución pública- y dos son AVISO de una firma de juguete.
 # Ninguna es ERROR, y `conforme` mira los errores.
+#
+# Los demás, que son UBL, CII y EDIFACT españoles sin firma dentro, sacan
+# desde el 21-10-2026 la NOTA del art. 7.3 del RD 238/2026, `FIRMA-POR-FUERA`:
+# si la factura se emite por una plataforma privada tiene que ir firmada, y
+# desde el fichero no se sabe si la firma viaja aparte. No cambia ningún
+# `conforme`, porque es una nota.
 ESPERADO: dict[str, tuple[bool, tuple[str, ...]]] = {
-    "cii-A-0001.xml": (False, ("BR-S-08", "IVA-TIPO-SIN-DESGLOSE")),
-    "edi-0001.edi": (True, ()),
+    "cii-A-0001.xml": (False, ("BR-S-08", "FIRMA-POR-FUERA",
+                                "IVA-TIPO-SIN-DESGLOSE")),
+    "edi-0001.edi": (True, ("FIRMA-POR-FUERA",)),
     "edi-0002-cortado.edi": (False, ("EDI-MENSAJE-DESCONTADO",
+                                     "FIRMA-POR-FUERA",
                                      "IVA-AJUSTES-SIN-DETALLAR")),
-    "edi-0003-una-de-cinco.edi": (True, ("EDI-UNA-DE-CINCO",)),
-    "f-0001.xml": (True, ()),
-    "f-0002.xml": (True, ()),
-    "f-0002-bis.xml": (True, ()),
-    "f-0006.xml": (False, ("BR-CO-10", "BR-S-08")),
+    "edi-0003-una-de-cinco.edi": (True, ("EDI-UNA-DE-CINCO", "FIRMA-POR-FUERA")),
+    "f-0001.xml": (True, ("FIRMA-POR-FUERA",)),
+    "f-0002.xml": (True, ("FIRMA-POR-FUERA",)),
+    "f-0002-bis.xml": (True, ("FIRMA-POR-FUERA",)),
+    "f-0006.xml": (False, ("BR-CO-10", "BR-S-08", "FIRMA-POR-FUERA")),
     # BR-21 es la cuarta nota del binding: Facturae no tiene identificador de
     # linea (BT-126), asi que la regla no se puede comprobar y se dice.
     # `IVA-CATEGORIA-SIN-MAPA` ya no sale: desde que la categoria se deduce
@@ -89,7 +97,7 @@ ESPERADO: dict[str, tuple[bool, tuple[str, ...]]] = {
                            "COPIA-LINEA-UNIDAD", "COPIA-MONEDA-DEL-IVA",
                            "COPIA-PAGO-MEDIO", "COPIA-SERIE",
                            "COPIA-SIN-SITIO", "FIRMA-DEBIL", "SELLO-FALTA")),
-    "r-0001.xml": (True, ()),
+    "r-0001.xml": (True, ("FIRMA-POR-FUERA",)),
 }
 
 

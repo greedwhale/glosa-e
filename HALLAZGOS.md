@@ -8863,3 +8863,33 @@ queda es convertir el informe a texto y pintarlo, de un golpe. Provocado:
 quitando el `await` de esa vuelta, la prueba del turno en rojo. Y la fase de
 leer los ficheros decía solo "10.000 ficheros." durante 9 s; ahora dice
 "Preparando".
+
+## La firma que pide el art. 7.3, sin una palabra en UBL, CII y EDIFACT
+
+**Cómo salió.** En el plan del 25-09-2026, al preguntar el titular por qué la
+firma solo se exigía en Facturae. El código acertaba sobre la sintaxis: en UBL
+y CII la firma va por fuera, en el sobre, y pedirla como parte del formato
+sería inventarse un requisito. Pero se quedaba corto sobre la ley: el art. 7.3
+del RD 238/2026 pide firma electrónica avanzada a toda factura emitida por una
+plataforma privada, y ni el código ni el README lo citaban.
+
+**Reproducido** el 21-10-2026 sobre `516b03c`: los nueve ejemplos de
+`ejemplos/` en UBL, CII y EDIFACT, todos españoles y sin firma dentro, salían
+sin ningún código `FIRMA-*` y sin mencionar el artículo.
+
+**Lo que se hizo.** `FIRMA-POR-FUERA`, una NOTA para la factura española en
+UBL, CII o EDIFACT que no trae la firma dentro, con la norma del real decreto y
+no la de eIDAS: lo que dice es que la ley pide la firma, no cómo se comprueba.
+Es nota porque desde el fichero no se sabe si pasó por una plataforma privada
+ni si la firma viaja aparte. No sale con la firma dentro, ni en una factura
+extranjera, ni en un `ApplicationResponse`, ni en Facturae, donde sigue
+`FIRMA-FALTA`. `firma.reglas` pide ahora `espanola` sin valor por defecto, y lo
+calcula una sola vez `factura._reglas_con_cuentas`, el mismo dato que ya
+decidía las demás reglas del real decreto. La ficha de `FIRMA-FALTA` remite a
+la nueva.
+
+**Provocado.** La nota quitada pone en rojo cinco pruebas (los cuatro ejemplos
+y la que mira que no hable de fallo); sin mirar si la factura es española, dos
+(la holandesa y la de `firma.reglas` con `espanola=False`); y como AVISO en vez
+de NOTA, otra vez las cinco. Antes del arreglo, con el parámetro ya puesto y
+sin la regla, las cinco salían en rojo y ninguna más.

@@ -787,14 +787,29 @@ CODIGOS: dict[str, str] = {
     ),
     "FIRMA-FALTA": (
         'La factura de Facturae no está firmada. Sólo se echa de menos en '
-        'Facturae, y no es un olvido con UBL y CII: en esas dos la firma no '
-        'es parte del formato (se pone por fuera, en el sobre del envío), y '
+        'Facturae, y no es un olvido con UBL, CII y EDIFACT: en esas la firma '
+        'no es parte del formato (se pone por fuera, en el sobre del envío), y '
         'pedirla aquí sería inventarse un requisito que esas sintaxis no '
-        'tienen. Que en Facturae sí haga falta no lo decide este validador: '
+        'tienen; a una factura española de esas sintaxis sin firma dentro le '
+        'sale en su lugar la nota FIRMA-POR-FUERA, con lo que pide el real '
+        'decreto. Que en Facturae sí haga falta no lo decide este validador: '
         'lo dice el propio esquema en la documentación de su bloque de firma. '
         'De las nueve facturas de ejemplo que publica la Administración, '
         'cuatro vienen sin firmar, que es lo corriente en un ejemplo hecho '
         'para enseñar la forma del XML y no para valer frente a nadie.'
+    ),
+    "FIRMA-POR-FUERA": (
+        'Una factura española en UBL, CII o EDIFACT que no lleva la firma '
+        'dentro. En esas sintaxis la firma no es parte del formato, pero el '
+        'artículo 7, apartado 3, del RD 238/2026 dice que todas las facturas '
+        'emitidas por medio de plataformas privadas deben ir firmadas con firma '
+        'electrónica avanzada, del emisor o delegada. Es una nota y no un '
+        'aviso porque el fichero no dice las dos cosas que decidirían si '
+        'falta: si pasó por una plataforma privada y si la firma viaja aparte, '
+        'junto al envío. En EDIFACT no se puede llevar dentro, así que allí va '
+        'siempre aparte. Si la factura trae la firma, no sale esta nota: se '
+        'comprueba la firma con las reglas de siempre. A una factura '
+        'extranjera no se le aplica, porque el artículo es del real decreto.'
     ),
     "IVA-AJUSTES-SIN-DETALLAR": (
         'La factura declara un total de descuentos o de cargos de documento '

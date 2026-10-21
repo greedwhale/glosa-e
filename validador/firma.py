@@ -88,14 +88,17 @@ from lxml import etree
 
 from validador import cifras
 from validador.formato import (
+    CII,
+    EDIFACT,
     FACTURAE,
     FIRMA_EN_PIE,
     FIRMA_ROTA,
     FIRMA_SIN_COMPROBAR,
     NS_FIRMA,
+    UBL,
     Deteccion,
 )
-from validador.incidencias import AVISO, ERROR, Incidencia
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
 __all__ = ["reglas", "hay_firma", "certificados_de", "momento_de_firma",
            "leer_certificado", "Certificado", "ALGORITMOS_ROTOS",
@@ -1825,11 +1828,51 @@ def _regla_es_xades(firma, examen: Examen, donde: str) -> list[Incidencia]:
     ]
 
 
-def _sin_firmar(deteccion: Deteccion) -> list[Incidencia]:
+# Las sintaxis en las que la firma no es parte del formato. ApplicationResponse
+# no está, a propósito: el art. 7.3 habla de facturas, y un mensaje de estado o
+# la anulación no lo son.
+_FIRMA_FUERA_DEL_FORMATO = (UBL, CII, EDIFACT)
+
+
+def _sin_firmar(deteccion: Deteccion, espanola: bool) -> list[Incidencia]:
+    if deteccion.familia in _FIRMA_FUERA_DEL_FORMATO:
+        # En UBL, CII y EDIFACT la firma no es parte del formato: se firma por
+        # fuera, en el sobre del envío, y echarla de menos como un fallo sería
+        # inventarse un requisito que esas sintaxis no tienen. Pero el
+        # requisito existe, y no lo pone la sintaxis: el art. 7.3 del RD
+        # 238/2026 pide firma electrónica avanzada a toda factura emitida por
+        # una plataforma privada. Hasta el 21-10-2026 esto se callaba, y ni el
+        # código ni el README citaban el artículo; el comentario acertaba sobre
+        # el formato y se quedaba corto sobre la ley.
+        #
+        # Es una NOTA, no un AVISO, porque mirando el fichero no se pueden
+        # saber las dos cosas que decidirían si falta: si la factura pasó por
+        # una plataforma privada (la solución pública y la factura entre dos
+        # empresas sin intermediario no están en el 7.3) y si la firma viaja
+        # aparte, junto al envío. En EDIFACT no hay manera de llevarla dentro,
+        # así que allí siempre viaja aparte.
+        #
+        # Solo a las españolas: el artículo es del real decreto, y a una
+        # factura holandesa no se le aplica, como no se le aplica el resto.
+        if not espanola:
+            return []
+        return [
+            Incidencia(
+                "FIRMA-POR-FUERA",
+                NOTA,
+                "La factura no lleva la firma dentro. En esta sintaxis no es "
+                "parte del formato, pero si la factura se emite por una "
+                "plataforma privada, el RD 238/2026 exige que vaya firmada con "
+                "firma electrónica avanzada del emisor o de quien firme por "
+                "él (artículo 7, apartado 3). Puede viajar aparte, junto al envío; "
+                "desde el fichero no se sabe si va, ni si la factura pasa por una "
+                "plataforma privada.",
+                campo="Firma electrónica",
+                esperado="firma electrónica avanzada, dentro o junto al envío",
+                encontrado="(no viene dentro)",
+            )
+        ]
     if deteccion.familia != FACTURAE:
-        # En UBL y CII la firma no es parte del formato: se firma por fuera, en
-        # el sobre del envío. Echarla de menos aquí sería inventarse un
-        # requisito que esas sintaxis no tienen.
         return []
     return [
         Incidencia(
@@ -1872,19 +1915,27 @@ def _regla_certificado_presente(examen: Examen, donde: str) -> list[Incidencia]:
     return []
 
 
-def reglas(raiz, deteccion: Deteccion, examenes=None) -> list[Incidencia]:
+def reglas(
+    raiz, deteccion: Deteccion, examenes=None, *, espanola: bool
+) -> list[Incidencia]:
     """Lo que se puede decir de la firma de un documento sin salir a la red.
 
     `examenes` lo trae quien ya los tiene hechos —`factura._reglas`, que
     también los necesita para la línea de estado— y así se comprueba una vez en
     lugar de dos. Sin él se hacen aquí, que es como lo llaman las pruebas.
+
+    `espanola` es si al documento le aplica el RD 238/2026, y decide la nota
+    del art. 7.3 (`FIRMA-POR-FUERA`). Es obligatorio y sin valor por defecto a
+    propósito: callar por defecto dejaría sin la nota a las facturas españolas
+    el día que alguien llame sin pasarlo, y hablar por defecto se la pondría a
+    las extranjeras. Lo calcula una vez `factura._reglas_con_cuentas`.
     """
     if raiz is None or not deteccion:
         return []
 
     firmas = hay_firma(raiz)
     if not firmas:
-        return _sin_firmar(deteccion)
+        return _sin_firmar(deteccion, espanola)
     if examenes is None:
         examenes = examinar_todas(raiz)
 
