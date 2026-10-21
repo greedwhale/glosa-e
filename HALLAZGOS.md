@@ -3721,6 +3721,14 @@ protección clásica como a los rulesets. Medido con un pull request de
 provocación con la comprobación en rojo: GitHub lo daba por `MERGEABLE`. Hoy el
 rojo de GitHub avisa, y a la vista, pero no impide.
 
+**Cerrado el 21-10-2026**, al hacer público el repositorio. La protección de
+`main` exige `suite` por la aplicación de GitHub Actions y no solo por el
+nombre, para que otra no pueda pintar un verde que se llame igual; la exige
+también al dueño, con la rama al día, y no admite pushes forzados ni que se
+borre. Provocado ese día con el commit que cuenta esto: empujado directo a
+`main` antes de que GitHub lo probara, se rechazó con `GH006`; empujado a una
+rama, verde allí, y después el mismo commit a `main`, entró.
+
 ### Lo que se probó
 
 - **27 roturas provocadas**, las 27 en rojo: 16 del flujo y sus versiones, 7 de

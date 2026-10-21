@@ -132,12 +132,16 @@ fuera de su carpeta temporal o que dependa de cómo ordena rutas el sistema pasa
 aquí y falla allí (lo que destapó al montarla está en HALLAZGOS).
 `tests/test_pruebas_en_github.py` vigila que allí corra la suite entera, con el
 Python del flujo, las versiones de `requisitos-pruebas.txt` y la comprobación
-llamada `suite`. **No está enganchado a Vercel, a propósito**, así que por sí
-solo avisa y no impide: lo que la convierte en puerta es que la protección de
-`main` exija `suite`, y **GitHub no la ofrece en un repositorio privado con el
-plan gratuito** —medido: la API contesta 403, «Upgrade to GitHub Pro or make
-this repository public»—. Si se activa, un push directo a `main` se rechaza y
-se publica con rama y pull request.
+llamada `suite`. **No está enganchado a Vercel, a propósito**: lo que la
+convierte en puerta es la **protección de `main`**, que exige `suite` de la
+aplicación de GitHub Actions (no basta otra que pinte un verde con el mismo
+nombre), también al dueño, y no admite pushes forzados ni que se borre. Se
+activó el 21-10-2026, al hacer público el repositorio, porque en privado y con
+el plan gratuito GitHub no la ofrece (la API contestaba 403). Medido ese día:
+un push directo a `main` con un commit que GitHub no ha probado se rechaza con
+`GH006`. **Se publica en dos pasos**: primero a una rama, `git push origin
+HEAD:refs/heads/<rama>`, y cuando `suite` sale verde allí, el mismo commit a
+`main` con `git push origin HEAD:main`, que ya lo encuentra probado.
 
 **Nada de esto viaja entero con el repositorio.** Los guiones sí; el cableado
 no:
@@ -210,7 +214,8 @@ tampoco prueba que corran: prueba que están escritos.
   enlace, **el sitio no se monta**. Lo que se publique ahí no lleva datos de
   terceros ni nada que perjudique el negocio: recuentos agregados, nunca un
   nombre, un NIF ni un GLN.
-- **Un push a `main` despliega a producción** (Vercel lee `vercel.json`).
+- **Un push a `main` despliega a producción** (Vercel lee `vercel.json`), y
+  solo entra lo que ya pasó `suite` en GitHub: los dos pasos, arriba.
   La dirección es **`glosa-e.com`**, registrada en Vercel el 31-08-2026. El
   dominio canónico es **`www.glosa-e.com`** y el ápice redirige a él con un
   308; <https://glosa-dhm7.vercel.app> sigue sirviendo lo mismo. El porqué del

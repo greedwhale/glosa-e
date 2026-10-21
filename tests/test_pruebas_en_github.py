@@ -20,9 +20,10 @@ Es el disfraz de siempre en este repositorio —sale todo verde y no es lo que
 crees que has probado—, así que se vigila en vez de recordarlo.
 
 Lo que no puede vigilar: que GitHub exija de verdad esta comprobación. Eso es
-configuración de GitHub, no vive en el repositorio, y en un repositorio privado
-con el plan gratuito GitHub no la ofrece (medido el 16-09-2026: la API contesta
-403, «Upgrade to GitHub Pro or make this repository public»).
+configuración de GitHub y no vive en el repositorio. Desde el 21-10-2026, con
+el repositorio público, la protección de `main` la exige; hasta entonces, en
+privado y con el plan gratuito, GitHub no la ofrecía (medido el 16-09-2026: la
+API contestaba 403).
 """
 from __future__ import annotations
 
