@@ -215,6 +215,14 @@ tampoco prueba que corran: prueba que están escritos.
   dominio canónico es **`www.glosa-e.com`** y el ápice redirige a él con un
   308; <https://glosa-dhm7.vercel.app> sigue sirviendo lo mismo. El porqué del
   nombre y los vecinos, en `MARCA.md`.
+- **El repositorio es `greedwhale/glosa-e`** desde el 21-10-2026. Se rehízo la
+  historia para poder abrirla sin datos personales (el porqué, en el commit
+  `7e9eff8`), y el de antes, `greedwhale/factura-e`, ya no se usa.
+- **Cada commit va a nombre del titular**, `greedwhale
+  <318060669+greedwhale@users.noreply.github.com>`, y sin línea de coautoría.
+  Una sesión de Claude Code en la nube firma con su propia identidad, y así
+  entraron en octubre cuatro commits a nombre de Claude: allí, antes del
+  primer commit, se ponen `user.name` y `user.email` con esos dos valores.
 
 ## Las dos puertas de la ficha del titular
 
