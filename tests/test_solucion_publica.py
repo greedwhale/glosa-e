@@ -2757,6 +2757,8 @@ class TestElFcEnElRegistroLegal:
     se arregla: hasta el 18-10-2026 la queja era la genérica, «no es de ISO
     6523», y a quien había copiado el ejemplo oficial no le decía nada. Lo vio
     el auditor el 18-10-2026, con el ejemplo del 14-10 y con el del 15-10.
+    El 21-10-2026 la AEAT contestó que lo quita, para no ir contra la norma, y
+    su ejemplo nuevo va sin él; no dijo si la solución pública lo rechaza.
     """
 
     def test_el_fc_en_el_registro_sigue_en_error(self):
@@ -2773,9 +2775,10 @@ class TestElFcEnElRegistroLegal:
         assert "BT-32" in queja.mensaje and "cac:PartyTaxScheme" in queja.mensaje
         assert "ejemplo" in queja.mensaje and "AEAT" in queja.mensaje
         assert "schemeID" in queja.mensaje
-        # No promete lo que no se sabe: ni que la solución pública lo rechace
-        # ni que lo acepte.
-        assert "no se sabe" in queja.mensaje
+        # Dice lo que contestó la AEAT y no promete lo que no dijo: ni que la
+        # solución pública lo rechace ni que lo acepte.
+        assert "21-10-2026" in queja.mensaje and "no ir contra la norma" in queja.mensaje
+        assert "no dijo si la solución pública lo rechaza" in queja.mensaje
 
     def test_sin_el_atributo_no_sale(self):
         """La norma admite el registro legal sin esquema, que es como lo dejan

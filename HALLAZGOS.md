@@ -8657,6 +8657,21 @@ pública lo acepta y basta quitar el atributo. El glosario, lo mismo.
 **Provocado.** Con la frase quitada del mensaje, la prueba que la pide sale en
 rojo. Se le pregunta al buzón.
 
+**Contestado el 21-10-2026.** La AEAT dio la razón a la norma: no quiere ir
+contra ella y quita el `schemeID` del BT-30. Mandó el ejemplo nuevo,
+`factura_v0.1.xml` (5.295 bytes, SHA-256
+`d4bbdf58012a5b29e91c4efb3105483c0e07785fb2472192049aa6c4ee2d5099`), con el
+FC solo en `cac:PartyTaxScheme`. Medido ese día: tal cual llega, Glosa-e ya
+no saca `BR-CL-11`, y los dos errores que quedan salen de los huecos de la
+plantilla (`xxxx` donde va el NIF). Con un NIF de prueba en cada hueco, sale
+sin errores. No dijo si la solución pública rechazará el FC en el registro
+legal, así que el ERROR se queda como estaba y el mensaje cuenta la
+respuesta sin prometer más.
+
+En el mismo correo contestó la otra errata, que no toca al validador: los dos
+documentos que se contradecían sobre SOAP se corrigen a lo mismo, SOAP 1.2 en
+modo Document, salvo el `SoapFault`, que va en SOAP 1.1.
+
 ## Los precios con el IVA dentro: un ERROR justo que no decía por qué
 
 **Cómo salió.** Svante Schubert publicó el 15-10-2026 que la EN 16931 solo

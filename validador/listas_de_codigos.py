@@ -229,16 +229,19 @@ def _de_donde_salen(codigos: list[str]) -> str:
 # la norma pide que el esquema, si va, sea de ISO 6523. La queja se queda en
 # ERROR, como BR-G-02: el anexo es un mínimo y nada deroga la regla. Pero un "no es
 # de ISO 6523" a secas no le dice nada a quien copió el ejemplo oficial, y por
-# eso se le dice de dónde sale y cómo se arregla. Si la solución pública lo
-# rechaza no se sabe: su validación de la norma es una implementación propia
-# que la AEAT no publica. Lo vio el auditor el 18-10-2026.
+# eso se le dice de dónde sale y cómo se arregla. Lo vio el auditor el
+# 18-10-2026. Se le preguntó al buzón técnico, y el 21-10-2026 la AEAT contestó
+# que no quiere ir contra la norma y quita el schemeID del BT-30: su ejemplo
+# nuevo, factura_v0.1.xml, ya va sin él. Lo que no dijo es si la solución
+# pública rechaza el FC ahí, y el mensaje no lo promete.
 _EL_FC_DE_LA_AEAT = (
     " FC es el código que la Orden HAC/1028/2026 pone al NIF en el "
     "identificador fiscal (BT-32 del vendedor y su par del comprador, en "
     "cac:PartyTaxScheme), no en el registro legal (cac:PartyLegalEntity), al "
-    "que no le da esquema. El ejemplo UBL de la AEAT lo pone también aquí, y no "
-    "se sabe si la solución pública lo acepta. La norma admite el registro "
-    "legal sin esquema: basta quitar el atributo schemeID."
+    "que no le da esquema. El ejemplo UBL de la AEAT lo ponía también aquí, y "
+    "la AEAT contestó el 21-10-2026 que lo quita para no ir contra la norma; no "
+    "dijo si la solución pública lo rechaza. La norma admite el registro legal "
+    "sin esquema: basta quitar el atributo schemeID."
 )
 
 
