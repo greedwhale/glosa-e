@@ -1,7 +1,7 @@
 """Los mensajes de la orden: la anulación y los ocho estados del anexo II.
 
 Hasta el 12-10-2026 a un `ApplicationResponse` solo se le miraba la forma y la
-firma. Medido ese día sobre `26e9a5d` con nueve mensajes rotos escritos aquí
+firma. Medido ese día sobre `9ce8c0e` con nueve mensajes rotos escritos aquí
 (sin la fecha, sin el vencimiento del pago, sin el NIF de la factura, un
 rechazo con el motivo 03): ocho salían sin una queja, y el noveno, una
 anulación escrita como dice el BOE, solo por la forma. Está en HALLAZGOS.md.

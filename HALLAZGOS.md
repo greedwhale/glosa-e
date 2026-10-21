@@ -2112,7 +2112,7 @@ rompían pruebas**. Los otros ocho no rompían ninguna, así que no se miraron.
 Ahí estaba el aviso, y lo que faltaba era quien lo diera.
 
 Que ninguno cambiara lo que demuestra se comprobó, no se supuso: se validó el
-árbol de `ejemplos/` de `9e17465` con el validador de hoy y se comparó queja a
+árbol de `ejemplos/` de `00fa642` con el validador de hoy y se comparó queja a
 queja con el de ahora. Descontando las tres nuevas, **cero diferencias en los
 diez**. Los que están rotos a propósito —`cii-A-0001`, `edi-0002-cortado`,
 `f-0006`— siguen rotos por lo mismo.
@@ -2419,7 +2419,7 @@ Primero, lo barato: los mismos diez ficheros con CPython, con los esquemas
 puestos, comparando el código de antes y el de ahora en dos árboles distintos.
 
 ```
-antes (a83564b)   192,5 ms        ahora   179,4 ms
+antes (1032d27)   192,5 ms        ahora   179,4 ms
 ```
 
 Más rápido, no más lento. Pero eso solo no bastaba y por eso no se paró ahí:
@@ -6464,7 +6464,7 @@ ejemplo resolvía las tres preguntas de L10 (ver
 el README, «El ejemplo del 02-10-2026») y traía, sin anunciarlo en el correo,
 otro `CustomizationID` y otro `ProfileID`. Se escribió la cabecera del ejemplo
 sobre el cuerpo de la factura de pruebas del CIUS y se pasó por el validador
-entero, en `main` (`6f8364c`):
+entero, en `main` (`08992a0`):
 
 | Se midió | Salía |
 |---|---|
@@ -7032,7 +7032,7 @@ cardinalidad de campos, los valores fijos, las listas y los sitios. La nota
 `SPFE-BORRADOR` de cada factura seguía diciendo que el anexo «no está
 publicado en el BOE», y la etiqueta del informe, «Anexo I (borrador)».
 
-**Reproducido** el 07-10-2026 sobre `cc0a935`, desde una sesión en la nube,
+**Reproducido** el 07-10-2026 sobre `6b4a165`, desde una sesión en la nube,
 con el XML del BOE bajado ese día (249.350 bytes, SHA-256
 `14bb2dad06a5ce3278c395232db9185f18052b08602cae472a9b2af3ae9c354a`) y
 extraído a tablas con un guion de cuarenta líneas. Una factura escrita al pie
@@ -7384,11 +7384,11 @@ lo que la orden admite, pero seguían midiendo el borrador de abril: la tabla
 pedía era el de abril, y lo que la orden quitó se seguía aceptando. La nota
 `SPFE-BORRADOR` lo decía en cada factura.
 
-**Reproducido** el 11-10-2026 sobre `5d4f135`: once facturas escritas a partir
+**Reproducido** el 11-10-2026 sobre `faa3f5f`: once facturas escritas a partir
 de la de la orden, por el validador entero, en un worktree de `HEAD` y en la
 copia de trabajo ya cambiada.
 
-| Factura | En `5d4f135` | Ahora |
+| Factura | En `faa3f5f` | Ahora |
 |---|---|---|
 | la de la orden | sin errores | sin errores |
 | escrita con el borrador: su identificador, su proceso, la URN de abril en la retención y en el QR, y la clave 18 | **sin errores** | cinco ERROR: `ESPECIFICACION`, `PROCESO`, `LINEA-DE-COBRO`, `RETENCION` y `CLAVE-DE-REGIMEN` |
@@ -7477,7 +7477,7 @@ la L4 de la orden trae y la lista de la norma no, valen solo en las facturas que
 la solución pública. Fuera de ella, `BR-CL-17` y `BR-CL-18` las dan por malas,
 y eso no cambia. Lo que faltaba era el porqué.
 
-**Reproducido** sobre `354b6bd`, con la factura de la orden en la N y en la D
+**Reproducido** sobre `bbea1b2`, con la factura de la orden en la N y en la D
 y el identificador cambiado a `urn:cen.eu:en16931:2026`: `BR-CL-17` y
 `BR-CL-18` en ERROR, con «El código no es de UNCL 5305, que es la lista de la
 que tiene que salir», y ni una palabra de la orden. Quien escribió la N la
@@ -7502,7 +7502,7 @@ es una categoría de IVA de la norma» sin nombrar la orden: es verdad, va en
 AVISO, y la decisión era sobre las dos reglas que condenan.
 
 **Provocado.** Seis pruebas nuevas o ampliadas, las seis en rojo contra
-`354b6bd` y en verde con el arreglo. Y tres roturas del arreglo, las tres en
+`bbea1b2` y en verde con el arreglo. Y tres roturas del arreglo, las tres en
 rojo: la frase nombrando todo lo que falla (1), la resta en cualquier lista
 (1) y la frase sin el identificador (3).
 
@@ -7516,7 +7516,7 @@ ficha.
 
 **Reproducido** el 11-10-2026: `https://www.glosa-e.com/codigo-SPFE-BORRADOR`
 contestaba 200 y las tres estaban en el `sitemap.xml` de producción. Montado
-el sitio con `6f7f186`, las tres fichas no salen. Publicar así dejaba tres
+el sitio con `0738ddb`, las tres fichas no salen. Publicar así dejaba tres
 direcciones que los buscadores ya tienen apuntando a nada.
 
 **Lo que se hizo.** Tres redirecciones permanentes en `vercel.json`: la del
@@ -7542,7 +7542,7 @@ hace. La portada y la política de privacidad dicen que lo que de la orden no
 se mide «lo dice cada informe», y había cosas que la orden pide, que no se
 comprobaban y que ningún informe nombraba.
 
-**Reproducido**, todo con `factura.validar` sobre `31e38a7`:
+**Reproducido**, todo con `factura.validar` sobre `1cd2449`:
 
 | Qué | Lo que salía | La orden |
 |---|---|---|
@@ -7589,7 +7589,7 @@ hay con qué compararla. El artículo lo dice. Lo demás que encontró el audito
 es de precisión y no del informe, y va en la tanda siguiente.
 
 **Provocado.** Veintiuna pruebas nuevas o cambiadas, en rojo contra el código
-de `31e38a7` y en verde con el arreglo. Y catorce roturas del arreglo, las
+de `1cd2449` y en verde con el arreglo. Y catorce roturas del arreglo, las
 catorce en rojo: el cuadre fuera de las reglas (3 pruebas en rojo), la nota de
 la retención convertida en error (1), la nota sin lo que no se puede (1),
 otra vez «en eso» (1), `BT-48` fuera de la lista (1), el abono medido como
@@ -7605,11 +7605,11 @@ una factura sino a lo que se escribió para explicarlo o para probarlo. Cada
 una, reproducida aquí antes de arreglarla:
 
 - **Una medida de esta tanda, hecha con una factura inválida.** La fila del
-  nombre del tercero en `cac:PartyName` decía «sin errores» en `5d4f135`, y la
+  nombre del tercero en `cac:PartyName` decía «sin errores» en `faa3f5f`, y la
   factura lo ponía detrás de `cac:PartyTaxScheme`, donde UBL no lo admite:
-  con `5d4f135` sale `XSD-ORDEN`, y con lo de hoy `XSD-ORDEN` y
+  con `faa3f5f` sale `XSD-ORDEN`, y con lo de hoy `XSD-ORDEN` y
   `SPFE-TERCERO`. La prueba no lo veía porque solo miraba el anexo. Bien
-  colocado, `5d4f135` da nada y hoy `SPFE-TERCERO`: la conclusión vale, la
+  colocado, `faa3f5f` da nada y hoy `SPFE-TERCERO`: la conclusión vale, la
   medida no. La prueba lleva ahora la factura bien escrita y pasa el
   validador entero, y la fila dice cómo se midió.
 - **«UNCL 5305 no tiene la D ni la F».** Lo decían el código, esta misma
@@ -7641,7 +7641,7 @@ una, reproducida aquí antes de arreglarla:
 el tipo de rectificativa a la 384 y la 471, pero no dice que otra factura no
 pueda llevarlo, y el auditor lo dejó como sospecha. Queda así.
 
-**Provocado.** Cinco pruebas nuevas o cambiadas en rojo contra `6865cbd` (la
+**Provocado.** Cinco pruebas nuevas o cambiadas en rojo contra `832ec85` (la
 tipología y las tres categorías con su mensaje, y la que dice que la D y la F
 sí son de la UNTDID 5305). Y nueve roturas, una por arreglo, las nueve en
 rojo: el nombre del tercero otra vez detrás de `cac:PartyTaxScheme` (1 prueba
@@ -7671,11 +7671,11 @@ vendedor cuando su NIF va con «LOC» (`BT-30`), el prefijo ES del NIF-IVA del
 vendedor (`BT-31`) y el del comprador (`BT-48`), el tipo de la entrada no
 sujeta del desglose (`BT-119`) y los códigos de exención (`BT-121`).
 
-**Reproducido** el 11-10-2026 sobre `ab3e4b3`: dieciséis facturas escritas a
+**Reproducido** el 11-10-2026 sobre `a7c9c8c`: dieciséis facturas escritas a
 partir de la de la orden, por el validador entero y con los esquemas de
 `web/paquete.zip`, en una copia de `HEAD` y en la de trabajo ya cambiada.
 
-| Factura | En `ab3e4b3` | Ahora |
+| Factura | En `a7c9c8c` | Ahora |
 |---|---|---|
 | la de la orden | sin errores | sin errores |
 | la fecha de pago posterior a la expedición | **sin errores** | `FECHA-DE-PAGO` |
@@ -7759,12 +7759,12 @@ son el IVA, con su lista L9 (`BT-ES-22`, `BG-ES-2` y `BG-ES-3`); el número de
 la autorización de facturación (`BT-ES-26`); y la información adicional de
 cada línea (`BT-160` con `INFO`).
 
-**Reproducido** el 11-10-2026 sobre `e51de10`: diecinueve facturas escritas a
+**Reproducido** el 11-10-2026 sobre `93a88c6`: diecinueve facturas escritas a
 partir de la de la orden, por el validador entero y con los esquemas de
 `web/paquete.zip`. Las diecinueve salían **sin un error ni un aviso**, también
 las diez que la orden da por malas:
 
-| Factura | En `e51de10` | Ahora |
+| Factura | En `93a88c6` | Ahora |
 |---|---|---|
 | la de la orden | sin errores | sin errores |
 | un cargo de línea con `RESTO`, o con `IEE` | sin errores | sin errores |
@@ -7851,13 +7851,13 @@ embebidos: a las facturas emitidas o interconectadas (apartado 6 del artículo
 3), salvo la firma de las interconectadas, y a las copias fieles (apartado 4
 del artículo 4). Nada de eso se miraba.
 
-**Reproducido** el 11-10-2026 sobre `cae90d3`: dieciocho facturas escritas a
+**Reproducido** el 11-10-2026 sobre `d839f64`: dieciocho facturas escritas a
 partir de la de la orden, por el validador entero y con los esquemas de
 `web/paquete.zip`. Ninguna sacaba una queja del anexo, tampoco las ocho que
 la orden da por malas ni las dos copias fieles con la firma, que la orden no
 dice si valen:
 
-| Factura | En `cae90d3` | Ahora |
+| Factura | En `d839f64` | Ahora |
 |---|---|---|
 | la de la orden, y con una autorización con su número | sin errores | sin errores |
 | la autorización sin número | **sin errores** | `AUTORIZACION` |
@@ -7884,7 +7884,7 @@ validador entero: 33 rutas salían sin una queja. Casi todas son opcionales en
 el anexo (el QR, el tercero, los cargos, la fecha de pago, el tipo de la línea
 exenta…). Cuatro no:
 
-| Factura | En `cae90d3` | Ahora |
+| Factura | En `d839f64` | Ahora |
 |---|---|---|
 | la línea sin «VAT» en el impuesto | **sin errores** | `TIPO-DE-IMPUESTO` |
 | el desglose sin «VAT» | **sin errores** | `TIPO-DE-IMPUESTO` |
@@ -7975,9 +7975,9 @@ que se hizo fue evaluar con lxml la expresión de cada regla sobre un concepto
 vacío, cambiando `xs:decimal` por `number`, que con el tipo ausente da lo
 mismo.
 
-**Reproducido** el 11-10-2026 sobre `a08a8a3`:
+**Reproducido** el 11-10-2026 sobre `cbf52b4`:
 
-| Factura | En `a08a8a3` | Ahora |
+| Factura | En `cbf52b4` | Ahora |
 |---|---|---|
 | el caso bueno de cada prueba oficial `BR-{X}-05`, `06` y `07`, sin el tipo: ocho categorías por tres conceptos | **sin la regla**, en los 24 | la regla, en los 24 |
 | lo mismo en la O | sin la regla | sin la regla |
@@ -8043,7 +8043,7 @@ EDIFACT, `> 0` en las dos. Aquí el IGIC y el IPSI son `NO_NEGATIVO` en todas
 las sintaxis, y nadie había decidido nada sobre la de CII: salió al comparar
 las tres vinculaciones el 11-10-2026, mirando el tipo que falta.
 
-**Reproducido** el 12-10-2026 sobre `2ae7722`, con una línea, un descuento y
+**Reproducido** el 12-10-2026 sobre `1695c1f`, con una línea, un descuento y
 un cargo al 0 %, y evaluando con lxml la expresión de cada vinculación sobre
 un concepto con el tipo a cero:
 
@@ -8051,7 +8051,7 @@ un concepto con el tipo a cero:
 |---|---|---|---|
 | el esquematrón, IGIC al 0 % | lo admite | **lo rechaza**, `BR-AF-05` a `07` | lo rechaza |
 | el esquematrón, IPSI al 0 % | lo admite | lo admite | lo rechaza |
-| el motor en `2ae7722` | sin nada | sin nada | no se midió |
+| el motor en `1695c1f` | sin nada | sin nada | no se midió |
 | el motor ahora, IGIC al 0 % | sin nada | NOTA `IVA-CERO-ESQUEMATRON` | sin nada |
 
 **En el repositorio oficial ya se sabe.** La issue 519 de
@@ -8127,10 +8127,10 @@ sus bajas. Desde el 29-09-2026 una respuesta se reconocía y se le miraba la
 forma y la firma, y el informe decía que su contenido no se miraba. Era
 verdad, y era el paso 7 del plan.
 
-**Reproducido** el 12-10-2026 sobre `26e9a5d`, con doce mensajes escritos aquí
+**Reproducido** el 12-10-2026 sobre `9ce8c0e`, con doce mensajes escritos aquí
 y los esquemas de `web/paquete.zip`:
 
-| Mensaje | En `26e9a5d` |
+| Mensaje | En `9ce8c0e` |
 |---|---|
 | una anulación, un pago y un cobro bien escritos | sin errores |
 | la anulación sin su fecha, el pago sin la de efecto, el impago sin la suya | sin errores |
@@ -8258,7 +8258,7 @@ leer que la orden lo describe como el NIF y comparado con un NIF-IVA de otro
 país; «INFO» otra vez en ERROR; y la ficha sin `UBL-CR-558`. En el corpus,
 1346 incidencias antes y después: ninguna factura declara la solución pública.
 
-**Visto en el navegador**, en www.glosa-e.com después de publicar `65a24ca`,
+**Visto en el navegador**, en www.glosa-e.com después de publicar `61d327b`,
 pegando el texto en la portada. El pago sin vencimiento: la forma sin errores
 contra el esquema, ERROR `SPFE-MENSAJE-VENCIMIENTO` con la norma «Anexo II», la
 nota con «Anexos I y II» y, en el contenido, «Parte de lo que la orden de la
@@ -8272,7 +8272,7 @@ código, lo mismo que `factura.validar` en la consola.
 
 **Lo que había.** El 26-08-2026 las reglas del IGIC y del IPSI pasaron aquí
 de `BR-IG-*` y `BR-IP-*` a `BR-AF-*` y `BR-AG-*`, al comprobarlas contra el
-esquematrón oficial (el commit `6ef9804` no dice qué versión; la última
+esquematrón oficial (el commit `75dfa5b` no dice qué versión; la última
 publicada era la 1.3.16, y la copia fija no llegó hasta el 13-09). El cambio
 era bueno; lo que se contó de él, no. La ficha de `BR-AG-01`, que se publica
 en la página, decía que `BR-IP-*` se había escrito «por analogía con el
@@ -8322,7 +8322,7 @@ versiones que cita la ficha van en su lista, como el 2.5 de UBL.
 
 | Lo que decía el cambio | Lo que consta |
 |---|---|
-| el comentario de la prueba: el cambio de nombre fue el 13-09-2026 | el 26-08-2026 (`6ef9804`); el 13-09 llegó la copia fija |
+| el comentario de la prueba: el cambio de nombre fue el 13-09-2026 | el 26-08-2026 (`75dfa5b`); el 13-09 llegó la copia fija |
 | «al comprobarlo contra la 1.3.16» | el commit no dice la versión: se dice así |
 | «desde 2017» | en el repositorio, desde 2017; en lo publicado, desde la 1.0.0, de 2018 |
 | la ficha: «en CII fueron siempre `BR-AG-*`» | hasta la 1.3.16; en la 1.3.17 el IPSI es `BR-IG` en CII |
@@ -8357,7 +8357,7 @@ que se quiere: esas fichas cuentan lo que trae la copia.
 byte:
 
 - **Deshecho de verdad.** Cada trozo cambiado en el validador y en el README,
-  devuelto al texto de `425689d` de uno en uno: ocho trozos. Los seis que
+  devuelto al texto de `f19482e` de uno en uno: ocho trozos. Los seis que
   llevaban la frase falsa o las seis reglas, en rojo; la ficha de `BR-AG-01`
   pone en rojo dos pruebas, la de la frase y la de la copia. Los otros dos
   salen en verde, y es lo que toca: son la cifra de pruebas del README y
@@ -8389,9 +8389,9 @@ BT-129 en la copia») y decía que en la copia la unidad no tiene campo propio;
 la orden le da `BT-130`.
 
 **Reproducido** el 13-10-2026. La prueba nueva, corrida contra la tabla de
-`527ff7f`, sale en rojo con seis términos sin fila: `BT-30`, `BT-31`, `BT-47`,
+`dd503b6`, sale en rojo con seis términos sin fila: `BT-30`, `BT-31`, `BT-47`,
 `BT-130`, `BT-142` y `BT-167`. El séptimo, `BT-149`, es el que se deja vacío a
-propósito, y en `527ff7f` ninguna fila decía por qué.
+propósito, y en `dd503b6` ninguna fila decía por qué.
 
 **Lo que se hizo.** Cada término, contra el esquema de Facturae 3.2.2 y el
 texto de la orden:
@@ -8456,7 +8456,7 @@ española». La cabecera del módulo decía que dónde se escriben en Facturae n
 se adivinaba. Y la fila de los anticipos decía «llega igual» a `BT-113`.
 
 **Reproducido** el 13-10-2026. El cepo de los términos, con la expresión
-nueva y contra la tabla de `aa50e90`, sale en rojo con 35 sin fila: los 33
+nueva y contra la tabla de `ba6be37`, sale en rojo con 35 sin fila: los 33
 españoles, `BT-149` y `BT-154`.
 
 **Lo que se hizo.** Cada campo, contra el esquema de Facturae 3.2.2 y el texto
@@ -8516,7 +8516,7 @@ traen suplidos y dos importes retenidos; ninguno, un impuesto que no sea el
   `BG-ES-4`: su lista de conceptos acaba en «Otros», y no dice si eso abarca
   lo que no es una retención fiscal.
 
-**Provocado.** Contra la tabla de `aa50e90`, en rojo nueve de las diez
+**Provocado.** Contra la tabla de `ba6be37`, en rojo nueve de las diez
 pruebas; la de los destinos sigue en verde, y es lo esperado: aquella tabla
 no nombraba ningún campo español con número, así que no había nada mal que
 cazar. Por eso se rompió aparte: una fila de la extensión española que nombra
@@ -8702,7 +8702,7 @@ factura de la orden (19-10-2026), la retención de garantía de una obra se
 escribió como retención de concepto 11, que es como cabe. Un total a pagar
 disparatado pasó sin una queja.
 
-**Reproducido** el 19-10-2026 sobre `7c0f79d`, con la factura de la orden de
+**Reproducido** el 19-10-2026 sobre `67d0105`, con la factura de la orden de
 las pruebas: 121,00 con IVA, 20,00 pagados y 15,00 retenidos. Con 500,00 a
 pagar, y con 101,00 (sin restar la retención), solo la nota
 `SPFE-TOTAL-A-PAGAR`; lo mismo con IRPF y con el concepto 11. No era nuevo:
@@ -8748,7 +8748,7 @@ la de por debajo de una unidad.
 (19-10-2026). Tres casos pasaban la validación sin que el informe dijera nada,
 y en los tres había algo que decir aunque no fuera un error.
 
-**Reproducido** el 19-10-2026 sobre `bf6a487`, con la factura de la orden de
+**Reproducido** el 19-10-2026 sobre `a27e2b1`, con la factura de la orden de
 las pruebas: un descuento del documento con motivo «Retención de garantía 5 %»
 salía sin una nota; un 388 sin BG-3, igual que con él; y dos veces el mismo
 emisor, número y fecha daban CU-10, «la misma factura dos veces», que es lo

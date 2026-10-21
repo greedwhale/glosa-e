@@ -115,7 +115,7 @@ def catalogo(esquemas_del_paquete):
 # sin indicador de copia, el vendedor identificado en BT-32 con «LOC» y el
 # atributo «FC», un anticipo pagado con su fecha, la retención con el
 # calificador de la L7 de la orden y el QR con el de L10. Medido el 07-10-2026
-# sobre `cc0a935`, con las reglas del borrador: seis ERROR (SPFE-PROCESO,
+# sobre `6b4a165`, con las reglas del borrador: seis ERROR (SPFE-PROCESO,
 # -COPIA, -IMPORTE-PAGADO, -NIF, -LINEA-DE-COBRO y -RETENCION).
 
 DEL_BOE = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -2294,7 +2294,7 @@ class TestCategoriasDeLaOrden:
 
         Y mandaba a buscar el fallo donde no está: quien escribió la N la
         sacó de la orden, y lo que le falta es declarar la solución pública.
-        Medido ese día sobre `354b6bd`, con la N y con la D sin declararla.
+        Medido ese día sobre `bbea1b2`, con la N y con la D sin declararla.
         """
         sin = cambia(xml, ESPECIFICACION, "urn:cen.eu:en16931:2026")
         quejas = [i for i in factura.validar(sin.encode("utf-8")).errores

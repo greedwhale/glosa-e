@@ -133,7 +133,7 @@ def test_cada_ejemplo_dice_lo_que_tiene_que_decir(nombre):
 def test_el_duplicado_de_f_0002_es_el_que_enciende_cu_10():
     """`f-0002-bis.xml` es copia byte a byte de `f-0002.xml`, y ese es su oficio.
 
-    Nació sin querer, en `23c74a1` («Orquestador: … y lotes de ficheros»): iba
+    Nació sin querer, en `40248bc` («Orquestador: … y lotes de ficheros»): iba
     a ser el segundo de un lote de dos y la diferencia que debía tener se
     perdió por el camino. Durante un tiempo fue solo eso, un duplicado que no
     demostraba nada, y aquí había una prueba que lo dejaba anotado como

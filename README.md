@@ -4264,7 +4264,7 @@ enteras, sin PDF que leer por coordenadas. Bajado el 07-10-2026: el XML pesa
 `6384b2bb755404829f184fc18d7e2b99ce013436387ffed12ff4124ee99cd5d7`. Ninguno se
 versiona.
 
-Medido ese día sobre `cc0a935`, antes de tocar nada, con una factura escrita al
+Medido ese día sobre `6b4a165`, antes de tocar nada, con una factura escrita al
 pie de la letra del anexo publicado —el proceso de la orden, sin indicador de
 copia, el vendedor en `BT-32` con «LOC» y «FC», un anticipo pagado y la
 retención con el calificador de L7—: **seis ERROR** de reglas `SPFE-` que la
@@ -4393,12 +4393,12 @@ catorce listas. No trae la tabla del mensaje de anulación ni el anexo II, que
 son de las reglas nuevas. Las rutas de los campos españoles
 (`RUTAS_CIUS_ES`) salen de ahí, con sus arreglos a la vista.
 
-Medido antes de tocar nada, sobre `5d4f135`: una factura escrita con el
+Medido antes de tocar nada, sobre `faa3f5f`: una factura escrita con el
 borrador de abril (su identificador, su proceso, la URN de abril en la
 retención y en el QR, y la clave 18 del IVA) pasaba el validador entero **sin
 un error**. Con las reglas al texto de la orden, sale con cinco.
 
-| Lo que cambió | En `5d4f135` | Ahora |
+| Lo que cambió | En `faa3f5f` | Ahora |
 |---|---|---|
 | El identificador de especificación del borrador | Era el que se pedía, y el de la orden se aceptaba como «el del ejemplo» | ERROR, que dice que es el de abril; vale el de la orden |
 | El proceso del borrador, `urn:aeat:names:specification:ubl:schema:B2B` | Se aceptaba | ERROR |
@@ -4470,10 +4470,10 @@ la tabla en la primera tanda, tres en la segunda), en HALLAZGOS.
 ### Lo que la orden pide y no se medía: la fecha de pago, el NIF y el desglose
 
 El 11-10-2026 se miden seis de las nueve cosas que la orden pide y aquí no se
-medían. Medido antes de tocar nada, sobre `ab3e4b3`, con el validador entero
+medían. Medido antes de tocar nada, sobre `a7c9c8c`, con el validador entero
 y los esquemas de `web/paquete.zip`:
 
-| Factura | En `ab3e4b3` | Ahora |
+| Factura | En `a7c9c8c` | Ahora |
 |---|---|---|
 | la fecha efectiva de pago, posterior a la expedición | sin errores | ERROR `SPFE-FECHA-DE-PAGO` |
 | anterior a la operación (`BT-7`) | sin errores | ERROR |
@@ -4549,9 +4549,9 @@ son el IVA, cada uno con su código de la lista L9 (`IEH`, `IEE`, `IMPTAS`… y
 (`BT-ES-22`), el detalle de un impuesto cobrado como cargo del documento
 (`BG-ES-2`) y el desglose del que se cobra en nombre de un tercero (`BG-ES-3`).
 Y la información adicional de la línea es una propiedad del artículo con el
-nombre fijo `INFO`. Medido antes de tocar nada, sobre `e51de10`:
+nombre fijo `INFO`. Medido antes de tocar nada, sobre `93a88c6`:
 
-| Factura | En `e51de10` | Ahora |
+| Factura | En `93a88c6` | Ahora |
 |---|---|---|
 | un cargo de línea con `RESTO` o con `IEE` | sin errores | sin errores |
 | sin código, o con uno que no es de L9 | sin errores | ERROR `SPFE-IMPUESTO-O-TASA` |
@@ -4640,9 +4640,9 @@ facturas buenas, uno a uno, y se pasó el validador entero con los esquemas:
 eran cosas que la orden pide: el número de la autorización, el «VAT» del
 impuesto en las líneas, el desglose y los cargos, y el detalle de un impuesto
 cobrado como cargo. Y la suma de retenciones sin ninguna retención pasaba sin
-una palabra. Medido antes de tocar nada, sobre `cae90d3`:
+una palabra. Medido antes de tocar nada, sobre `d839f64`:
 
-| Factura | En `cae90d3` | Ahora |
+| Factura | En `d839f64` | Ahora |
 |---|---|---|
 | una autorización con su número | sin errores | sin errores |
 | sin número, a secas o con el número vacío | sin errores | ERROR `SPFE-AUTORIZACION` |
@@ -4762,10 +4762,10 @@ el pago y el rechazo con sus bajas, que manda el destinatario (`PAYMENT`,
 las suyas, que el emisor manda si quiere (`SETTLEMENT`, `CANCELSETTLEMENT`,
 `DEFAULT`, `CANCELDEFAULT`). Hasta el 12-10-2026 a una respuesta se le miraba
 la forma y la firma, y del contenido el informe decía que no se miraba.
-Medido ese día sobre `26e9a5d`, con mensajes escritos aquí y los esquemas de
+Medido ese día sobre `9ce8c0e`, con mensajes escritos aquí y los esquemas de
 `web/paquete.zip`, de nueve rotos ocho salían sin una queja:
 
-| Mensaje | En `26e9a5d` | Ahora |
+| Mensaje | En `9ce8c0e` | Ahora |
 |---|---|---|
 | los nueve, bien escritos | sin errores | sin errores, y la NOTA `SPFE-MENSAJE-ALCANCE` |
 | una anulación, un pago o un impago sin su fecha | sin errores | ERROR `SPFE-MENSAJE-FECHA` |
@@ -6188,9 +6188,9 @@ comparación con el tipo en las tres vinculaciones (`xs:decimal(cbc:Percent) =
 EDIFACT), y en XPath una comparación con nada es falsa: la regla salta. En la
 O, que pide `not(...)`, es al revés. Las pruebas unitarias oficiales no lo
 prueban: de los 78 conceptos que montan en sus casos de estas reglas, ninguno
-va sin tipo fuera de la O. Medido antes de tocar nada, sobre `a08a8a3`:
+va sin tipo fuera de la O. Medido antes de tocar nada, sobre `cbf52b4`:
 
-| Factura | En `a08a8a3` | Ahora |
+| Factura | En `cbf52b4` | Ahora |
 |---|---|---|
 | el caso bueno de cada prueba oficial `BR-{X}-05`, `06` y `07`, sin el tipo: ocho categorías por tres conceptos | sin la regla, en los 24 | la regla, en los 24 |
 | lo mismo en la O | sin la regla | sin la regla |

@@ -16,7 +16,7 @@ lista de códigos de respuesta de UN/CEFACT (UNCL 4343) que usa Peppol (`AP`,
 estos. Una respuesta con otro código sigue como estaba: se le mira la forma y
 la firma, y del contenido el informe dice que no se mira.
 
-Hasta el 12-10-2026 no se medía ninguno, y medido sobre `26e9a5d` con
+Hasta el 12-10-2026 no se medía ninguno, y medido sobre `9ce8c0e` con
 mensajes escritos aquí: de nueve rotos (sin la fecha, sin el vencimiento del
 pago, sin el NIF de la factura, un rechazo con un motivo que no está en la
 lista) ocho salían sin una queja, y el noveno, una anulación escrita como
