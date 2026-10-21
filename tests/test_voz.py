@@ -379,6 +379,32 @@ def test_el_informe_y_el_banco_sin_comillas_angulares_y_con_la_marca_entera(fuen
     assert not _marca(textos), f"{fuente.name} dice Glosa sin el -e: {_marca(textos)}"
 
 
+# --- La licencia, en su sitio ----------------------------------------------
+#
+# Hasta el 21-10-2026 el cierre de cinco entradas de la bitácora decía "es
+# código abierto (AGPL-3.0-only)". El titular pidió quitar la etiqueta: a quien
+# lee un artículo le dice poco, y la licencia ya está donde se busca, en el
+# aviso legal, en el fichero LICENSE y en el repositorio. Fuera del aviso legal,
+# ninguna página la nombra.
+
+LA_LICENCIA = re.compile(r"AGPL", re.IGNORECASE)
+
+
+def test_la_red_de_la_licencia_caza_lo_que_ya_se_colo():
+    assert LA_LICENCIA.search("es código abierto (AGPL-3.0-only) y corre")
+    assert LA_LICENCIA.search("licencia agpl")
+    assert not LA_LICENCIA.search("es gratis, es código abierto y corre entero")
+
+
+@pytest.mark.parametrize("pagina", [p for p in PAGINAS if p.name != "legal.html"],
+                         ids=lambda p: p.name)
+def test_la_licencia_solo_en_el_aviso_legal(pagina):
+    textos = " ".join(_lo_que_se_lee_de_la_pagina(pagina))
+    assert not LA_LICENCIA.search(textos), (
+        f"{pagina.name} nombra la licencia. Va en el aviso legal (legal.html), "
+        "no en las páginas ni en el cierre de la bitácora.")
+
+
 def test_el_respaldo_de_un_valor_que_falta_va_a_secas():
     """Un certificado sin nombre salía como "el emisor", con comillas."""
     from validador.incidencias import entre_comillas
