@@ -62,8 +62,10 @@ TICKETBAI = "TICKETBAI"
 
 # Los dos servicios de cotejo de la AEAT: el de los sistemas que emiten
 # facturas verificables y el de los que no. Los dos son el QR del reglamento de
-# VERI*FACTU, y BT-123 dice VERIFACTU en los dos casos: la lista de la orden no
-# tiene un tercer valor.
+# VERI*FACTU. Que BT-123 diga VERIFACTU también en el de los no verificables es
+# una lectura, no algo que diga la orden: su lista solo tiene VERIFACTU y
+# TICKETBAI, y ninguno de los dos nombra a los no verificables. Por eso aquí
+# no se le pone queja a ninguna de las dos combinaciones.
 _RUTAS_DE_LA_AEAT = ("/wlpl/TIKE-CONT/ValidarQR", "/wlpl/TIKE-CONT/ValidarQRNoVerifactu")
 _AEAT = "www2.agenciatributaria.gob.es"
 _AEAT_PRUEBAS = "prewww2.aeat.es"
@@ -96,8 +98,10 @@ def crc8(texto: str) -> str:
     """El CRC-8 de TicketBAI, en decimal y con tres cifras.
 
     Polinomio 0x07, sin reflejar, empezando y acabando en cero: es el del anexo
-    3 de la especificación. Comprobado con sus dos ejemplos, el 237 del
-    identificador y el 007 de la dirección.
+    3 de la especificación, que lo da en Java con una tabla de 256 valores.
+    Comprobado el 22-10-2026 con sus dos ejemplos, el 237 del identificador y
+    el 007 de la dirección, y contra esa tabla en 5002 cadenas: ninguna
+    distinta.
     """
     crc = 0
     for byte in texto.encode("utf-8"):
@@ -215,7 +219,10 @@ def _sobrantes(pares, admitidos) -> list[str]:
 
 def _nif_contra(nif_del_qr: str, nifs_del_vendedor: set[str]) -> list[Incidencia]:
     # Sin un NIF del vendedor que leer no hay con qué comparar, y su falta ya
-    # la dice SPFE-NIF.
+    # la dice SPFE-NIF. Que el obligado siga siendo el vendedor cuando expide
+    # el destinatario o un tercero lo dice el art. 5.1 del reglamento de
+    # facturación, RD 1619/2012: ellos la expiden materialmente, y el obligado
+    # sigue siendo responsable (leído en el BOE el 22-10-2026).
     if not nifs_del_vendedor or nif_del_qr in nifs_del_vendedor:
         return []
     return [_aviso(

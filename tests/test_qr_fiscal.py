@@ -74,7 +74,8 @@ class TestVeriFactu:
         assert "pruebas" in aviso.mensaje and aviso.encontrado == "prewww2.aeat.es"
 
     def test_una_direccion_que_no_es_de_nadie(self):
-        """Como la del ejemplo que mandó la AEAT el 02-10-2026, a un dominio que no existe."""
+        """A gob.aeat, como la del ejemplo del 02-10-2026 según se anotó el
+        05-10-2026. La ruta exacta de aquel ejemplo no se ha vuelto a mirar."""
         [aviso] = revisar("https://www.gob.aeat/wlpl/TIKE-CONT/ValidarQR?nif=B12345674")
         assert "ninguna de las publicadas" in aviso.mensaje
         assert "no se han comparado" in aviso.mensaje

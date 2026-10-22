@@ -8905,15 +8905,16 @@ limpia.
 **Reproducido** el 22-10-2026 sobre `44cc805`: la factura de la orden con el
 QR de otro NIF, de otro número, de otra fecha, con el importe a pagar en vez
 del total, con el servidor de pruebas de la AEAT, con la dirección del ejemplo
-del 02-10-2026 (a `gob.aeat`, que no existe), en dólares, o con la descripción
+del 02-10-2026 (a `gob.aeat`, según se anotó el 05-10-2026; `aeat` no es un
+dominio de primer nivel en la lista de la IANA), en dólares, o con la descripción
 TICKETBAI y la dirección de la AEAT: ninguna queja. Nueve pruebas en rojo y
 ninguna más.
 
 **Lo que se hizo.** `validador/qr_fiscal.py`, con la especificación del QR de
 la AEAT y la de TicketBAI fijadas por su huella, y `SPFE-QR-URL`, en AVISO,
 para todo lo que la dirección dice y no es de la factura. Al compararlo
-salieron siete facturas buenas de la suite con aviso, y una más de
-`test_precios_con_iva`: cambiaban el total con IVA y dejaban el QR con el de la
+salieron con aviso nueve facturas buenas de la suite: siete de `TestLasBuenas`,
+la de dos impuestos en un cargo y una de `test_precios_con_iva`. Cambiaban el total con IVA y dejaban el QR con el de la
 factura de la orden. Ahora cada una lleva el suyo.
 
 **Provocado**, una rotura cada vez. Sin la llamada desde `_qr`, las nueve en

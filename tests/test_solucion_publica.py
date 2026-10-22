@@ -236,7 +236,9 @@ CON_LA_RETENCION_SIN_CALIFICADOR = cambia(DEL_BOE, f"{L7}RETE<", "RETE<")
 CON_EL_QR_SIN_DESCRIPCION = cambia(DEL_BOE, "<cbc:DocumentDescription>VERIFACTU</cbc:DocumentDescription>", "")
 # Las buenas que cambian el total con IVA (BT-112) cambian también el importe
 # del QR, que lo copia. Hasta el 22-10-2026 llevaban el de la factura de la
-# orden, 121.00, y nadie lo comparaba; al compararlo salieron siete con aviso.
+# orden, 121.00, y nadie lo comparaba; al compararlo salieron ocho pruebas de
+# este módulo con aviso: las siete de `TestLasBuenas` y la de dos impuestos en
+# un cargo.
 #
 # El recargo de equivalencia como lo pone la orden: sin línea propia, en el
 # desglose del IVA (BG-23) con la categoría N, su tipo (BT-119) y su cuota
@@ -1467,7 +1469,10 @@ class TestLaDireccionDelQr:
         assert "pruebas" in la(xml, "SPFE-QR-URL").mensaje
 
     def test_la_del_ejemplo_de_la_aeat(self):
-        """La del 02-10-2026 apunta a gob.aeat, que no existe."""
+        """La del 02-10-2026 apuntaba a gob.aeat, según se anotó el 05-10-2026
+        (el correo no está en el repositorio). Que no existe sí se ha mirado:
+        aeat no está en la lista de dominios de primer nivel de la IANA,
+        versión 2026102200."""
         xml = cambia(DEL_BOE, "www2.agenciatributaria.gob.es", "www.gob.aeat")
         assert "ninguna de las publicadas" in la(xml, "SPFE-QR-URL").mensaje
 
