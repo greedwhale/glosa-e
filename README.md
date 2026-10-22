@@ -156,13 +156,14 @@ es lo peor que puede hacer un validador; era el fallo más grave que ha tenido
 este proyecto y no lo cazó ningún test: lo cazó un usuario escribiendo mal una
 carpeta.
 
-En la carpeta `ejemplos/` hay nueve documentos preparados: dos facturas
+En la carpeta `ejemplos/` hay diez documentos preparados: dos facturas
 correctas, una repetida en otro fichero, otra cuyas líneas no cuadran con el
 total, una en sintaxis CII con dos tipos de IVA en las líneas y uno solo en el
-desglose, un abono correcto, un Facturae 3.2.2 firmado (`fe-0001.xml`) y dos
-en EDIFACT: `edi-0001.edi`, correcta, y `edi-0002-cortado.edi`, a la que le
+desglose, un abono correcto, un Facturae 3.2.2 firmado (`fe-0001.xml`) y tres
+en EDIFACT: `edi-0001.edi`, correcta; `edi-0002-cortado.edi`, a la que le
 faltan tres segmentos y lo único que la delata es que la cuenta del sobre no
-sale.
+sale; y `edi-0003-una-de-cinco.edi`, correcta salvo el UNA, que trae cinco
+caracteres de los seis que manda ISO 9735 y se lee con una nota.
 
 La firma de ese último está hecha con la clave de juguete de
 `tests/test_firma.py`, y el fichero lo dice en un comentario: sirve para
