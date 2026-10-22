@@ -15,6 +15,7 @@ según el RD 238/2026.
 | `validador/iva.py` | El desglose de IVA: bases, cuotas, categorías y exenciones | Terminado |
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
 | `validador/solucion_publica.py` | El anexo I: lo que la solución pública pide a una factura UBL que declara su CIUS | Sobre la orden publicada el 05-10-2026; sus reglas nuevas, todavía no |
+| `validador/qr_fiscal.py` | La dirección del QR de VERI*FACTU o de TicketBAI, comparada con la factura que la lleva | Terminado |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
 | `validador/cifras.py` | Cómo se escriben cifras y fechas en lo que lee una persona: coma decimal, miles, «Tiene» tal cual y dd-mm-aaaa | Terminado |
 | `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
@@ -30,7 +31,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3510 tests, todos en verde.
+3566 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -3948,6 +3949,7 @@ Lo que se comprueba:
 | Cada línea: una o dos claves de régimen en la lista de su impuesto (la L3A de la orden ya no tiene la 18, la 19 ni la 20), como mucho una referencia catastral con su situación de L6, y ninguna otra propiedad del artículo que la información adicional, `INFO` (en AVISO) | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL`, `-INFORMACION-ADICIONAL` |
 | Los impuestos y tasas que no son el IVA: el código de L9 en cada cargo de línea y en cada impuesto cobrado como cargo del documento, con su cuota en el impuesto y en el total del cargo, y la misma; el desglose del que se cobra en nombre de un tercero, con «VAT» y «S»; y la cuota de cada uno, la base por el tipo con el margen de la del IVA. Con dos impuestos en un cargo, una nota; y un cargo con el total del impuesto y sin su detalle no dice qué impuesto es | `SPFE-IMPUESTO-O-TASA` |
 | Las líneas de cobro: un valor de la L7 de la orden, con su calificador delante (sin él, lo dice `SPFE-CALIFICADOR`), y un solo grupo de retenciones; las retenciones con su suma, su línea de cobro y su concepto de L5, y sus dos cuentas: cada una es su base por su porcentaje, y la suma es la de todas, y si no se detalla ninguna, una nota; y el QR fiscal, uno como mucho, con su dirección y, si lleva descripción, VERIFACTU o TICKETBAI (el escrito con la URN de abril no es el QR, y una nota lo dice) | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-QR` |
+| La dirección del QR (`BT-ES-25`) contra la factura: el NIF, la serie y el número, la fecha y el importe, y en TicketBAI sus dos CRC; una dirección que no es de la AEAT ni de una hacienda foral, y el entorno de pruebas de la AEAT. Todo en AVISO; en otra moneda que el euro el importe no se compara, y una nota lo dice | `SPFE-QR-URL` |
 | La autorización de facturación: cada `BG-24` `AUT`, los que haya, con su número (`BT-ES-26`) | `SPFE-AUTORIZACION` |
 | Los valores de L7, L8 y L10 con el calificador de su lista delante, como contestó la AEAT el 13-10-2026: sin él, un AVISO por factura con todos los que lo llevan solo. Se siguen reconociendo de las dos formas, para medir lo demás | `SPFE-CALIFICADOR` |
 | Ningún fichero dentro de la factura, ni en la original ni en la copia fiel, que no lo dice el anexo sino los artículos 3 y 4 de la orden; la firma vale en la original, y en la copia fiel es un aviso | `SPFE-FICHERO-EMBEBIDO` |
@@ -4063,6 +4065,51 @@ cumplía el borrador; hasta el 11-10-2026, que se medía lo que ya pedía el
 borrador. En un lote sin ninguna no lo dice. Y cuelga de la nota, no de lo que
 el documento declara: un lote con solo un abono que declara la orden lo
 contaba como medido.
+
+### La dirección del QR, contra la factura
+
+La orden pide en `BT-ES-25` "la URL correspondiente al QR VERI*FACTU o
+TICKETBAI, según corresponda conforme normativa aplicable", y no dice más.
+Hasta el 22-10-2026 aquí se miraba que estuviera, y nada de lo que decía: una
+dirección con el NIF de otro, la fecha de otra factura o el servidor de pruebas
+de la AEAT pasaba sin una palabra. Es lo que el receptor escanea para cotejar
+la factura con Hacienda.
+
+La forma de la dirección no está en la orden: la dan dos especificaciones, que
+`validador/qr_fiscal.py` cita con su dirección y su huella SHA-256. Las copias
+no se versionan.
+
+- **VERI\*FACTU**, la especificación técnica del QR de la AEAT, versión 0.5.0
+  de 10-12-2025. La dirección del servicio de cotejo, de producción
+  (`www2.agenciatributaria.gob.es`) o de pruebas (`prewww2.aeat.es`), lleva
+  "únicamente" cuatro parámetros: `nif`, `numserie`, `fecha` en DD-MM-AAAA e
+  `importe` con punto decimal. Se comparan con el NIF del vendedor, `BT-1`,
+  `BT-2` y `BT-112`. El idioma y el formato los admite el servicio, pero no el
+  QR, y del formato la especificación dice que "nunca podrá incorporarse".
+- **TicketBAI**, la especificación de 2020, versión 1.1. El identificador
+  `TBAI-NIF-DDMMAA-firma-CRC` lleva el NIF y la fecha, y la dirección la serie
+  (`s`), el número (`nf`), el importe con IVA (`i`) y, la última, su CRC-8
+  (`cr`). Los dos CRC se recalculan, con el algoritmo de su anexo 3 y
+  comprobado con sus dos ejemplos. La serie y el número, juntos, son `BT-1`,
+  como contestó el buzón el 13-10-2026.
+
+Tres decisiones:
+
+- **Todo es AVISO.** La orden no copia esas especificaciones en su anexo, y el
+  validador no sabe qué sistema de facturación usó el emisor.
+- **En otra moneda el importe no se compara.** Las especificaciones dicen
+  "importe total de la factura" y no dicen en qué moneda; una nota lo dice.
+- **Araba tiene dos direcciones.** La especificación de 2020 da
+  `https://ticketbai.araba.eus/TBAI/QRTBAI`, sin barra final, y el anexo V de su
+  orden foral `https://ticketbai.araba.eus/tbai/qrtbai/`, con ella. Se aceptan
+  las dos. El CRC se calcula sobre la dirección tal cual va, así que no depende
+  de cuál se elija.
+
+Lo que no se hace: validar el registro de VERI\*FACTU ni su encadenamiento, ni
+preguntar a la AEAT si la factura está registrada. Eso pide red y el registro,
+que no viaja con la factura. Tampoco se publica una dirección de pruebas de
+TicketBAI, porque ninguna de las dos especificaciones la da: una dirección que
+no es de las publicadas sale como tal, sin comparar sus datos.
 
 ### Lo que contestó la Agencia, y lo que dejó abierto
 

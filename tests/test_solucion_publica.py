@@ -50,7 +50,12 @@ DEL_BORRADOR = "urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0
 PROCESO_DEL_BORRADOR = "urn:aeat:names:specification:ubl:schema:B2B"
 URN_DEL_BORRADOR = "urn:aeat:names:specification:ubl:schema:"
 
-QR_URL = "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=B12345674"
+# La dirección del QR de la factura de la orden, escrita como va en el XML, con
+# los & escapados. Hasta el 22-10-2026 llevaba solo el NIF: no se comparaba con
+# la factura, y nadie lo veía. Ahora lleva los cuatro datos que pide la
+# especificación de la AEAT, y son los de `DEL_BOE`.
+QR_URL = ("https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=B12345674"
+          "&amp;numserie=F-2026-0101&amp;fecha=06-10-2026&amp;importe=121.00")
 
 
 def cambia(xml: str, viejo: str, nuevo: str) -> str:
@@ -131,7 +136,7 @@ DEL_BOE = f"""<?xml version="1.0" encoding="UTF-8"?>
   <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
   <cac:AdditionalDocumentReference>
     <cbc:ID>urn:aeat:names:specification:schema:QR</cbc:ID>
-    <cbc:UUID>https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=B12345674</cbc:UUID>
+    <cbc:UUID>{QR_URL}</cbc:UUID>
     <cbc:DocumentDescription>VERIFACTU</cbc:DocumentDescription>
   </cac:AdditionalDocumentReference>
   <cac:AccountingSupplierParty><cac:Party>
@@ -229,6 +234,10 @@ CON_EL_VENDEDOR_EN_BT31 = cambia(
     "<cac:PartyTaxScheme><cbc:CompanyID>ESB12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID>")
 CON_LA_RETENCION_SIN_CALIFICADOR = cambia(DEL_BOE, f"{L7}RETE<", "RETE<")
 CON_EL_QR_SIN_DESCRIPCION = cambia(DEL_BOE, "<cbc:DocumentDescription>VERIFACTU</cbc:DocumentDescription>", "")
+# Las buenas que cambian el total con IVA (BT-112) cambian también el importe
+# del QR, que lo copia. Hasta el 22-10-2026 llevaban el de la factura de la
+# orden, 121.00, y nadie lo comparaba; al compararlo salieron siete con aviso.
+#
 # El recargo de equivalencia como lo pone la orden: sin línea propia, en el
 # desglose del IVA (BG-23) con la categoría N, su tipo (BT-119) y su cuota
 # (BT-117), sobre la misma base que la entrada S. La cuota total y el total con
@@ -251,6 +260,7 @@ CON_EL_RECARGO_EN_EL_DESGLOSE = cambia(cambia(cambia(cambia(
     '<cbc:TaxInclusiveAmount currencyID="EUR">126.20</cbc:TaxInclusiveAmount>'),
     '<cbc:PayableAmount currencyID="EUR">86.00</cbc:PayableAmount>',
     '<cbc:PayableAmount currencyID="EUR">91.20</cbc:PayableAmount>')
+CON_EL_RECARGO_EN_EL_DESGLOSE = cambia(CON_EL_RECARGO_EN_EL_DESGLOSE, "importe=121.00", "importe=126.20")
 
 # El grupo de entidades de nivel avanzado: la línea lleva el importe total de
 # la contraprestación (BT-131) y el desglose, la base imponible a coste
@@ -273,6 +283,7 @@ CON_EL_GRUPO_DE_ENTIDADES = cambia(cambia(cambia(cambia(cambia(
     <cbc:TaxInclusiveAmount currencyID="EUR">171.00</cbc:TaxInclusiveAmount>"""),
     '<cbc:PayableAmount currencyID="EUR">86.00</cbc:PayableAmount>',
     '<cbc:PayableAmount currencyID="EUR">136.00</cbc:PayableAmount>')
+CON_EL_GRUPO_DE_ENTIDADES = cambia(CON_EL_GRUPO_DE_ENTIDADES, "importe=121.00", "importe=171.00")
 
 # Una inversión del sujeto pasivo (AE) con el comprador identificado solo en
 # BT-47, con «LOC» y «FC», como dice la fila de la orden. BR-AE-02 pide el
@@ -296,6 +307,7 @@ CON_AE_Y_EL_COMPRADOR_EN_BT47 = cambia(cambia(cambia(cambia(cambia(cambia(
     '<cbc:PayableAmount currencyID="EUR">65.00</cbc:PayableAmount>'),
     "<cbc:Name>Asesoria fiscal de octubre</cbc:Name>",
     "<cbc:Name>Ejecucion de obra con inversion del sujeto pasivo</cbc:Name>")
+CON_AE_Y_EL_COMPRADOR_EN_BT47 = cambia(CON_AE_Y_EL_COMPRADOR_EN_BT47, "importe=121.00", "importe=100.00")
 
 # La L8 de la orden da el valor, REGI, y aparte el calificador
 # urn:aeat:names:specification:schema:lin:. El buzón contestó el 13-10-2026 que
@@ -480,6 +492,7 @@ def _sin_cuota(xml: str, categoria: str, tipo_linea: str | None, tipo_desglose: 
                  '<cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount>\n    <cac:TaxSubtotal>')
     xml = cambia(xml, '<cbc:TaxInclusiveAmount currencyID="EUR">121.00</cbc:TaxInclusiveAmount>',
                  '<cbc:TaxInclusiveAmount currencyID="EUR">100.00</cbc:TaxInclusiveAmount>')
+    xml = cambia(xml, "importe=121.00", "importe=100.00")
     return cambia(xml, '<cbc:PayableAmount currencyID="EUR">86.00</cbc:PayableAmount>',
                   '<cbc:PayableAmount currencyID="EUR">65.00</cbc:PayableAmount>')
 
@@ -557,7 +570,8 @@ def _con_un_impuesto_en_un_cargo(total: str = "5.00", *impuestos: str) -> str:
              '    <cbc:TaxInclusiveAmount currencyID="EUR">127.05</cbc:TaxInclusiveAmount>\n'
              '    <cbc:ChargeTotalAmount currencyID="EUR">5.00</cbc:ChargeTotalAmount>'),
             ('<cbc:PayableAmount currencyID="EUR">86.00</cbc:PayableAmount>',
-             '<cbc:PayableAmount currencyID="EUR">92.05</cbc:PayableAmount>')):
+             '<cbc:PayableAmount currencyID="EUR">92.05</cbc:PayableAmount>'),
+            ("importe=121.00", "importe=127.05")):
         xml = cambia(xml, viejo, nuevo)
     return xml
 
@@ -1425,6 +1439,57 @@ class TestElQr:
         assert las(cambia(DEL_BOE, ">VERIFACTU<", ">TICKETBAI<"), "SPFE-QR") == []
         queja = la(cambia(DEL_BOE, ">VERIFACTU<", ">VeriFactu<"), "SPFE-QR")
         assert queja.encontrado == "VeriFactu" and queja.esperado == "VERIFACTU o TICKETBAI"
+
+
+class TestLaDireccionDelQr:
+    """BT-ES-25 contra la factura: el NIF, la serie y el número, la fecha y el importe.
+
+    Lo de cada parámetro se prueba en `test_qr_fiscal`; aquí, que la factura
+    de la orden le da sus datos. Reproducido el 22-10-2026 sobre `44cc805`:
+    cada uno de estos salía sin una queja.
+    """
+
+    def test_la_de_la_orden_cuadra(self):
+        assert las(DEL_BOE, "SPFE-QR-URL") == []
+
+    @pytest.mark.parametrize("viejo, nuevo, encontrado", [
+        ("nif=B12345674", "nif=A12345674", "A12345674"),
+        ("numserie=F-2026-0101", "numserie=F-2026-0102", "F-2026-0102"),
+        ("fecha=06-10-2026", "fecha=07-10-2026", "07-10-2026"),
+        ("importe=121.00", "importe=86.00", "86.00"),
+    ], ids=["otro NIF", "otro número", "otra fecha", "lo que se paga y no el total"])
+    def test_lo_que_no_es_de_esta_factura(self, viejo, nuevo, encontrado):
+        aviso = la(cambia(DEL_BOE, viejo, nuevo), "SPFE-QR-URL")
+        assert aviso.gravedad == AVISO and aviso.encontrado == encontrado
+
+    def test_el_entorno_de_pruebas(self):
+        xml = cambia(DEL_BOE, "www2.agenciatributaria.gob.es", "prewww2.aeat.es")
+        assert "pruebas" in la(xml, "SPFE-QR-URL").mensaje
+
+    def test_la_del_ejemplo_de_la_aeat(self):
+        """La del 02-10-2026 apunta a gob.aeat, que no existe."""
+        xml = cambia(DEL_BOE, "www2.agenciatributaria.gob.es", "www.gob.aeat")
+        assert "ninguna de las publicadas" in la(xml, "SPFE-QR-URL").mensaje
+
+    def test_con_el_nif_en_bt31_y_su_prefijo(self):
+        assert las(CON_EL_VENDEDOR_EN_BT31, "SPFE-QR-URL") == []
+
+    def test_el_tipo_y_la_direccion_no_dicen_lo_mismo(self):
+        aviso = la(cambia(DEL_BOE, ">VERIFACTU<", ">TICKETBAI<"), "SPFE-QR-URL")
+        assert aviso.campo == "Tipo de QR (BT-123)"
+
+    def test_en_otra_moneda_lo_dice_y_no_compara(self):
+        xml = cambia(DEL_BOE, "<cbc:DocumentCurrencyCode>EUR<", "<cbc:DocumentCurrencyCode>USD<")
+        notas = [i for i in las(xml, "SPFE-QR-URL")]
+        assert [i.gravedad for i in notas] == [NOTA]
+
+    def test_sin_direccion_lo_dice_spfe_qr_y_no_esta(self):
+        sin_direccion = cambia(DEL_BOE, f"<cbc:UUID>{QR_URL}</cbc:UUID>", "")
+        assert las(sin_direccion, "SPFE-QR-URL") == []
+
+    def test_el_validador_entero_lo_dice(self):
+        informe = factura.validar(cambia(DEL_BOE, "nif=B12345674", "nif=A12345674").encode("utf-8"))
+        assert "SPFE-QR-URL" in {i.codigo for i in informe.avisos}
 
 
 class TestLaAutorizacion:

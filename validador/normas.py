@@ -94,6 +94,11 @@ NORMAS: tuple[tuple[str, str, str], ...] = (
     ("SPFE-MENSAJE-", MENSAJES,
      "los mensajes de la solución pública: la anulación de una factura, del "
      "anexo I, y los estados del anexo II de la Orden HAC/1028/2026"),
+    # La orden pide la dirección del QR (BT-ES-25) y su forma la dan otros.
+    ("SPFE-QR-URL", SOLUCION_PUBLICA,
+     "el anexo I de la Orden HAC/1028/2026, que pide la dirección del QR, con "
+     "la forma que le dan la especificación del QR de la AEAT y la de "
+     "TicketBAI"),
     ("SPFE-", SOLUCION_PUBLICA,
      "el contenido mínimo de las facturas de la solución pública: el anexo I de la "
      "Orden HAC/1028/2026"),

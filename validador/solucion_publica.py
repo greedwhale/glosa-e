@@ -130,8 +130,8 @@ from __future__ import annotations
 import re
 from datetime import date
 
-from validador import cifras, cius_es, nif
-from validador.codigo_unico import limpiar_nif
+from validador import cifras, cius_es, nif, qr_fiscal
+from validador.codigo_unico import leer_fecha, limpiar_nif
 from validador.en16931 import _UNCL1001
 from validador.formato import (
     MARCADOR_CIUS_ES,
@@ -2924,7 +2924,28 @@ def _qr(raiz) -> list[Incidencia]:
                 encontrado=", ".join(dict.fromkeys(otros)),
             )
         )
+    # La dirección contra la factura. Una descripción que no es de las dos ya
+    # tiene su ERROR arriba, y entonces no se le compara el tipo.
+    for qr in qrs:
+        if direccion := _valor(qr, _QR_URL):
+            tipo = _valor(qr, _DESCRIPCION_DEL_DOCUMENTO)
+            incidencias += qr_fiscal.revisar(
+                direccion,
+                tipo if tipo in _TIPOS_DE_QR else None,
+                nifs_del_vendedor=_nifs_del_vendedor(raiz),
+                numero=_valor(raiz, SINTAXIS_UBL.numero),
+                fecha=leer_fecha(_valor(raiz, SINTAXIS_UBL.fecha)),
+                total=_valor(raiz, SINTAXIS_UBL.con_impuestos),
+                moneda=_valor(raiz, SINTAXIS_UBL.moneda),
+            )
     return incidencias
+
+
+def _nifs_del_vendedor(raiz) -> set[str]:
+    """Los NIF del vendedor escritos como los admite la orden, sin el prefijo ES."""
+    return {limpiar_nif(_valor(esquema, "./cbc:CompanyID"))
+            for esquema in _nodos(raiz, _ESQUEMAS_DEL_VENDEDOR)
+            if _nif_bien_puesto(esquema)}
 
 
 def _autorizacion(raiz) -> list[Incidencia]:

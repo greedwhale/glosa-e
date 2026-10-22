@@ -8893,3 +8893,34 @@ y la que mira que no hable de fallo); sin mirar si la factura es española, dos
 (la holandesa y la de `firma.reglas` con `espanola=False`); y como AVISO en vez
 de NOTA, otra vez las cinco. Antes del arreglo, con el parámetro ya puesto y
 sin la regla, las cinco salían en rojo y ninguna más.
+
+## El QR de la factura, con la dirección que fuera
+
+**Cómo salió.** En el plan del 25-09-2026, paso 20. `SPFE-QR` miraba que el
+QR fiscal tuviera dirección (`BT-ES-25`) y no qué decía. La propia suite lo
+tenía escondido: la factura de la orden llevaba de dirección
+`.../ValidarQR?nif=B12345674`, sin la serie, la fecha ni el importe, y salía
+limpia.
+
+**Reproducido** el 22-10-2026 sobre `44cc805`: la factura de la orden con el
+QR de otro NIF, de otro número, de otra fecha, con el importe a pagar en vez
+del total, con el servidor de pruebas de la AEAT, con la dirección del ejemplo
+del 02-10-2026 (a `gob.aeat`, que no existe), en dólares, o con la descripción
+TICKETBAI y la dirección de la AEAT: ninguna queja. Nueve pruebas en rojo y
+ninguna más.
+
+**Lo que se hizo.** `validador/qr_fiscal.py`, con la especificación del QR de
+la AEAT y la de TicketBAI fijadas por su huella, y `SPFE-QR-URL`, en AVISO,
+para todo lo que la dirección dice y no es de la factura. Al compararlo
+salieron siete facturas buenas de la suite con aviso, y una más de
+`test_precios_con_iva`: cambiaban el total con IVA y dejaban el QR con el de la
+factura de la orden. Ahora cada una lleva el suyo.
+
+**Provocado**, una rotura cada vez. Sin la llamada desde `_qr`, las nueve en
+rojo otra vez, y ninguna más. Con el importe comparado contra lo que se paga
+(`BT-115`) en vez del total, 49, empezando por la factura de la orden, que
+lleva retención y anticipo. Con el CRC de la dirección calculado sin la barra
+final de la ruta, 11, y la primera es el ejemplo de Bizkaia de la
+especificación. Sin mirar el servidor de pruebas, dos; sin mirar la moneda,
+dos; con el NIF del vendedor sin quitarle el prefijo ES, dos; sin los
+parámetros de sobra, tres; sin el CRC del identificador TBAI, una.

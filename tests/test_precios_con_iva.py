@@ -90,7 +90,10 @@ def libros(lineas, *, cuota_del_bruto: bool, decimales: str = "0.0001",
     total = base + cuota
     descuentos = (f'    <cbc:AllowanceTotalAmount currencyID="EUR">{descuento}'
                   '</cbc:AllowanceTotalAmount>\n') if descuento is not None else ""
-    return CABECERA + ajuste + f"""  <cac:TaxTotal>
+    # El QR de la cabecera lleva el total de la factura de la orden; desde el
+    # 22-10-2026 se compara con BT-112, así que lleva el de esta.
+    cabecera = cambia(CABECERA, "importe=121.00", f"importe={total}")
+    return cabecera + ajuste + f"""  <cac:TaxTotal>
     <cbc:TaxAmount currencyID="EUR">{cuota}</cbc:TaxAmount>
     <cac:TaxSubtotal>
       <cbc:TaxableAmount currencyID="EUR">{base}</cbc:TaxableAmount>
