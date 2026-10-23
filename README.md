@@ -29,9 +29,10 @@ según el RD 238/2026.
 | `validador/edifact.py` | El cuarto formato: la tira de ISO 9735, sus grupos y sus cuentas | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
+| `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3576 tests, todos en verde.
+3608 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5530,6 +5531,54 @@ hay que se tocaron un mes después de publicarse. Para el resto lo único que se
 podría poner es la fecha en que se montó el sitio, que es la misma para todas
 y no dice nada de si el contenido cambió. Una fecha que miente vale menos que
 ninguna.
+
+### El aviso a Bing, por IndexNow
+
+Desde el 23-10-2026, al final de cada tanda, después de publicar y de
+comprobar producción:
+
+```
+./.venv/Scripts/python.exe -m validador --avisar-indexnow
+```
+
+IndexNow es el protocolo con el que se le dice a Bing qué páginas cambiaron,
+en vez de esperar a que pase por el sitemap. Ese día Bing tenía indexadas 138
+páginas, más que Google, y su panel decía que Copilot había citado una ficha
+siete veces el 13-10.
+**Google no lo usa**: no está entre los buscadores de su FAQ, así que esto no
+toca las 321 páginas descubiertas sin indexar de Google.
+
+**La clave se publica, y no es un secreto.** El protocolo pide un fichero
+`<clave>.txt` en la raíz que la lleve dentro, y el buscador lo lee de ahí
+para creerse que el aviso es del dueño del dominio. Cualquiera la puede leer,
+y solo sirve para avisar de direcciones de `www.glosa-e.com`. Está en
+`paquete.CLAVE_DE_INDEXNOW` y el montaje escribe su fichero junto a
+`robots.txt`. La regla de no manejar claves va por las que abren algo; esta
+excepción la decidió el titular el 23-10-2026.
+
+Tres decisiones, cada una con su negativa y su prueba rota a propósito:
+
+- **Solo lo que cambió.** La FAQ de IndexNow dice que no está pensado para
+  mandar el sitio entero, y que avisar de lo que no cambia gasta la cuota de
+  rastreo. Se apunta lo avisado (en `glosa-indexnow.json`, dentro de la
+  carpeta común de git, que no se versiona y comparten los worktrees) y se
+  compara con lo montado. Lo que cuenta es el contenido: sin la huella `?v=`,
+  los scripts, los estilos ni la política de contenido. Sin eso, tocar
+  `glosa.css` cambiaba las 418 páginas a la vez. La primera vez solo apunta.
+- **Que producción sirva ya lo que se avisa.** Se compara lo montado con las
+  huellas de `dist/rueda.json` de producción, que lleva la de cada fichero
+  publicado. Medido el 23-10-2026: coinciden las 419 páginas HTML, una vez
+  igualados los saltos de línea de Windows. Pedir las 418 páginas una a una
+  costaba 201 s y 23 cortes desde la conexión desde la que se publica; con
+  `rueda.json` es una petición. Si no cuadra (el despliegue no ha terminado, o
+  lo montado no es de `main`), no se manda nada.
+- **Que la clave se sirva**, porque sin ella Bing contesta 403 y no indexa
+  nada de lo avisado.
+
+Cualquier negativa sale con código 2 y no apunta nada: lo que no se avisó hoy
+se avisa la próxima vez, porque se compara con lo último avisado y no con el
+último despliegue. Si el sitio se monta y se publica sin correr esto, no se
+pierde nada; se queda esperando.
 
 ### La tarjeta social
 

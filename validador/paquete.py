@@ -628,6 +628,21 @@ _ESTILO = "glosa.css"
 # dirección que le va a contestar con una mudanza.
 DOMINIO = "https://www.glosa-e.com"
 
+# La clave de IndexNow, el protocolo con el que se avisa a Bing (y a los demás
+# buscadores que lo usan) de qué páginas cambiaron. Se publica en la raíz como
+# `<clave>.txt` y el buscador la lee de ahí para creerse que el aviso es del
+# dueño del dominio.
+#
+# **No es un secreto, y por eso puede estar aquí.** La regla de esta casa es no
+# manejar claves, y va por las que dan acceso a algo: GitHub, Vercel. Esta no
+# abre nada: cualquiera la lee en el sitio, y lo único que permite es avisar de
+# direcciones de este mismo dominio. Lo decidió el titular el 23-10-2026.
+#
+# Se escribe una vez y no se calcula al montar: si cambiara en cada despliegue,
+# el buscador tendría que volver a comprobarla cada vez, y un aviso mandado
+# antes de que termine el despliegue llevaría una clave que todavía no se sirve.
+CLAVE_DE_INDEXNOW = "18c7a2162471ea018913c3b8aba8b1d6"
+
 # Las cuentas fuera del sitio, desde el 18-10-2026. Salen de aquí dos cosas:
 # el bloque `sameAs` de la portada, que lo pone el montaje, y los enlaces del
 # pie de cada página, que están escritos a mano y que una prueba compara con
@@ -1415,7 +1430,8 @@ def _para_investigadores(destino: Path, correo: str, hoy: date) -> Path:
 
 def _para_buscadores(destino: Path, cambios: dict[str, date] | None = None) -> int:
     """Canónica, tarjeta, enlaces de salida y enlaces de casa en su forma
-    limpia en cada página, y los ficheros de rigor."""
+    limpia en cada página, y los ficheros de rigor: `robots.txt`, el sitemap
+    y la clave de IndexNow (ver `CLAVE_DE_INDEXNOW`)."""
     paginas = sorted(p.name for p in destino.glob("*.html")
                      if p.name not in _FUERA_DEL_INDICE)
     if not paginas:
@@ -1457,6 +1473,9 @@ def _para_buscadores(destino: Path, cambios: dict[str, date] | None = None) -> i
         encoding="utf-8",
     )
     (destino / "sitemap.xml").write_text(_sitemap(paginas, cambios), encoding="utf-8")
+    # La clave sola, sin salto de línea detrás: el protocolo pide un fichero
+    # que lleve la clave, y no hay por qué averiguar si cada buscador recorta.
+    (destino / f"{CLAVE_DE_INDEXNOW}.txt").write_bytes(CLAVE_DE_INDEXNOW.encode("utf-8"))
     return len(paginas)
 
 

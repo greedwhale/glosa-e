@@ -1369,6 +1369,14 @@ class TestParaQueSeLlegueDesdeFuera:
         assert "User-agent: *" in robots
         assert f"Sitemap: {paquete.DOMINIO}/sitemap.xml" in robots
 
+    def test_la_clave_de_indexnow_va_en_la_raiz_y_sola(self, repositorio):
+        """El buscador la lee de `/<clave>.txt`; sin ella contesta 403 a cada
+        aviso. Y no va en el sitemap: no es una página."""
+        sitio = _montar(repositorio).carpeta
+        clave = paquete.CLAVE_DE_INDEXNOW
+        assert (sitio / f"{clave}.txt").read_bytes() == clave.encode("utf-8")
+        assert clave not in (sitio / "sitemap.xml").read_text(encoding="utf-8")
+
     def test_el_sitemap_lista_todas_las_paginas_y_ninguna_mas(self, repositorio):
         sitio = _montar(repositorio).carpeta
         mapa = (sitio / "sitemap.xml").read_text(encoding="utf-8")

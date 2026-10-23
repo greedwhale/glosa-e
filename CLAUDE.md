@@ -32,7 +32,10 @@ El detalle está en cuatro documentos y este fichero no los repite:
   Es lo que hace que el sitio se pueda construir sin tener las carpetas fuente.
 - **Nunca pedir ni manejar tokens, contraseñas ni claves.** GitHub y Vercel los
   autentica el usuario en su navegador. No se piden, no se reciben, no se
-  escriben.
+  escriben. **La de IndexNow no es de estas**, y está en
+  `paquete.CLAVE_DE_INDEXNOW` a propósito: el protocolo la publica en la raíz
+  del sitio, no abre nada y solo sirve para avisar de páginas de este dominio.
+  Lo decidió el titular el 23-10-2026; el porqué, en el README.
 
 ## Cómo se trabaja aquí
 
@@ -220,6 +223,12 @@ tampoco prueba que corran: prueba que están escritos.
   dominio canónico es **`www.glosa-e.com`** y el ápice redirige a él con un
   308; <https://glosa-dhm7.vercel.app> sigue sirviendo lo mismo. El porqué del
   nombre y los vecinos, en `MARCA.md`.
+- **Después de publicar, se avisa a Bing** con
+  `./.venv/Scripts/python.exe -m validador --avisar-indexnow`, con `sitio/`
+  montado desde el commit de `main`. Solo manda las páginas que cambiaron
+  desde el último aviso, y se niega con código 2 si producción no sirve lo
+  montado. No va en la construcción de Vercel porque esa corre antes de que el
+  despliegue esté en el aire.
 - **El repositorio es `greedwhale/glosa-e`** desde el 21-10-2026. Se rehízo la
   historia para poder abrirla sin datos personales (el porqué, en el commit
   `7e9eff8`), y el de antes, `greedwhale/factura-e`, ya no se usa.

@@ -16,7 +16,7 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from validador import bitacora, cifras, factura, paquete, tsl
+from validador import bitacora, cifras, factura, indexnow, paquete, tsl
 from validador.cadena import Almacen
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.cadena import SUFIJO_DE_SELLOS
@@ -227,6 +227,16 @@ def main(argumentos: list[str] | None = None) -> int:
         "CDN ajeno en cada visita. Son unos 8 MB y se baja una vez.",
     )
     analizador.add_argument(
+        "--avisar-indexnow",
+        metavar="CARPETA",
+        nargs="?",
+        const="sitio",
+        help="avisa a Bing, por IndexNow, de las páginas que cambiaron desde el "
+        "último aviso. Se corre después de publicar, con el sitio montado en "
+        "CARPETA desde el mismo commit: si producción no sirve eso, no se manda "
+        "nada. La primera vez solo apunta lo publicado.",
+    )
+    analizador.add_argument(
         "--solo-errores",
         action="store_true",
         help="calla los avisos y deja solo lo que impide cobrar",
@@ -261,6 +271,8 @@ def main(argumentos: list[str] | None = None) -> int:
         return _traer_pyodide(Path(opciones.traer_pyodide))
     if opciones.sitio:
         return _montar_sitio(Path(opciones.sitio), opciones.exigir_paquete)
+    if opciones.avisar_indexnow:
+        return _avisar_indexnow(Path(opciones.avisar_indexnow))
     if opciones.empaquetar:
         return _empaquetar(
             Path(opciones.empaquetar),
@@ -472,6 +484,47 @@ def _montar_sitio(destino: Path, exigir_paquete: bool = False) -> int:
             "la\n  forma ni de quién es la firma, y lo dirá en cada informe. "
             "Ármalo\n  antes con `python -m validador --empaquetar`."
         )
+    return 0
+
+
+def _avisar_indexnow(sitio: Path) -> int:
+    """Avisa de lo que cambió, o dice por qué no. Ver `validador.indexnow`.
+
+    Las negativas salen con código 2, como las de montar: quien corre esto al
+    final de una tanda tiene que poder saber, sin leer, que no se avisó.
+    """
+    try:
+        aviso = indexnow.avisar(sitio)
+    except indexnow.NoSeAvisa as motivo:
+        print(f"No se ha avisado de nada.\n\n  {motivo}", file=sys.stderr)
+        return 2
+    except OSError as error:
+        print(
+            f"No se ha podido hablar con producción o con el buscador: {error}"
+            "\n\n  No se ha apuntado nada: la próxima vez se manda lo mismo.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if aviso.primera:
+        print(
+            f"Primera vez: apuntadas {aviso.paginas} páginas como punto de "
+            "partida, y no se avisa de ninguna.\n\n  IndexNow no es para mandar "
+            "el sitio entero, y lo publicado hasta hoy los buscadores ya lo "
+            "conocen\n  por el sitemap. Desde ahora se avisa solo de lo que cambie."
+        )
+    elif not aviso.mandadas:
+        print(f"Nada ha cambiado desde el último aviso en {aviso.paginas} páginas: "
+              "no se manda nada.")
+    else:
+        print(f"Avisado de {len(aviso.mandadas)} página(s); el buscador contestó "
+              f"{aviso.contesto}"
+              + (" (recibido; la clave se está comprobando)." if aviso.contesto == 202
+                 else "."))
+        for direccion in aviso.mandadas[:20]:
+            print(f"  {direccion}")
+        if len(aviso.mandadas) > 20:
+            print(f"  y {len(aviso.mandadas) - 20} más")
     return 0
 
 
