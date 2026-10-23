@@ -31,7 +31,7 @@ según el RD 238/2026.
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3566 tests, todos en verde.
+3576 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5511,12 +5511,25 @@ servidor `sitio` de `.claude/launch.json`.
 europea tiene 219 códigos y cada ficha suya enlazaba a los otros 218: en BR-47
 eran 223 de sus 532 palabras visibles. Por encima de 24 hermanos se enlazan los
 12 más cercanos de la misma serie, y la familia entera queda a un clic, en el
-catálogo. Que eso sea lo que frenaba la indexación es una hipótesis: se mira a
-las cuatro semanas.
+catálogo. Que eso fuera lo que frenaba la indexación era una hipótesis, y a
+las cuatro semanas no se sostiene: el 23-10-2026 Search Console tenía 98
+páginas indexadas (eran 110) y 321 descubiertas sin visitar (eran 295).
 
-El sitemap va **sin `lastmod` a propósito**. Lo único que se podría poner es la
-fecha en que se montó el sitio, que es la misma para las 167 páginas y no dice
-nada de si el contenido cambió. Una fecha que miente vale menos que ninguna.
+**La portada enlaza los tres últimos artículos de la bitácora.** Ese mismo
+23-10, de los seis artículos, cuatro estaban sin visitar y otro rastreado sin
+indexar, y la portada, que es lo que Google más visita, no llevaba a ninguno.
+La sección la rellena el montaje en el hueco `<!-- AQUI VA LO ULTIMO DE LA
+BITACORA -->` de `index.html`, y se niega a montar si hay entradas y el hueco
+ha desaparecido. Que esto haga que se indexen también es una hipótesis: se
+mira el 20-11-2026.
+
+El sitemap lleva **`lastmod` solo donde la fecha es cierta**: en las entradas
+de la bitácora y en su índice. La de cada entrada es la más reciente entre su
+`data-fecha` y sus marcas de «Corregida el…» o «Actualizada el…», porque las
+hay que se tocaron un mes después de publicarse. Para el resto lo único que se
+podría poner es la fecha en que se montó el sitio, que es la misma para todas
+y no dice nada de si el contenido cambió. Una fecha que miente vale menos que
+ninguna.
 
 ### La tarjeta social
 

@@ -120,6 +120,10 @@ EN_ISO = {
     ("codigo_unico.py", "revisar"): "la fecha del fichero en «Tiene», que va tal "
                                     "cual como las cifras",
     ("paquete.py", "armar"): "`PAQUETE.json`, que es para máquina",
+    ("paquete.py", "_sitemap"): "el `lastmod` del sitemap, que es para máquina "
+                                "y su norma pide W3C Datetime",
+    ("paquete.py", "_con_lo_ultimo"): "el atributo `datetime` de `<time>`, como "
+                                      "en el índice de la bitácora",
     ("paquete.py", "_para_investigadores"): "la cabecera `Expires` de security.txt, "
                                             "que la fija su norma",
     ("tsl.py", "_manifiesto"): "las líneas del manifiesto que lee "

@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import html
 import json
 import re
 import zipfile
@@ -1016,15 +1017,26 @@ def _con_tarjeta(texto: str, url: str, nombre: str, huella_de_la_tarjeta: str) -
     return texto.replace(_FIN_DE_LA_CABECERA, bloque + _FIN_DE_LA_CABECERA, 1)
 
 
-def _sitemap(paginas: list[str]) -> str:
+def _sitemap(paginas: list[str], cambios: dict[str, date] | None = None) -> str:
     """El índice de lo publicado, para que un buscador no tenga que adivinar.
 
-    Sin `lastmod` **a propósito**. Google lo usa si se lo puede creer, y aquí
-    lo único que se podría poner es la fecha en que se montó el sitio, que es
-    la misma para las 168 páginas y no dice nada de si el contenido cambió.
-    Una fecha que miente vale menos que ninguna.
+    `lastmod` **solo donde la fecha es cierta**, que hoy son la bitácora y sus
+    entradas. Google lo usa si se lo puede creer, y deja de creerlo si miente.
+    Para las fichas y el resto, lo único que se podría poner es la fecha en
+    que se montó el sitio, que es la misma para las 418 páginas y no dice nada
+    de si el contenido cambió. Una fecha que miente vale menos que ninguna.
+
+    Hasta el 23-10-2026 no lo llevaba ninguna. Ese día Search Console tenía a
+    los seis artículos sin indexar, cuatro sin visitar siquiera, y no había
+    nada en el sitemap que le dijera a Google cuáles eran nuevos.
     """
-    urls = "".join(f"  <url><loc>{_direccion(n)}</loc></url>\n" for n in paginas)
+    cambios = cambios or {}
+    urls = "".join(
+        f"  <url><loc>{_direccion(n)}</loc>"
+        + (f"<lastmod>{cambios[n].isoformat()}</lastmod>" if n in cambios else "")
+        + "</url>\n"
+        for n in paginas
+    )
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
@@ -1074,6 +1086,72 @@ def _hacia_fuera(texto: str) -> tuple[str, int]:
         return etiqueta[:-1].rstrip() + ' target="_blank">'
 
     return _RE_ANCLA.sub(_una, texto), cuantos
+
+
+# --- Lo último de la bitácora, en la portada ---------------------------------
+#
+# Medido en Search Console el 23-10-2026: de los seis artículos de la bitácora,
+# cuatro estaban en «descubierta, sin indexar» —Google sabía que existían por
+# el sitemap y no había entrado— y otro, rastreado sin indexar. Lo mismo las
+# fichas que solo explica Glosa-e: 34 de las 39 SPFE sin visitar. Lo indexado
+# eran 91 fichas BR y poco más.
+#
+# La portada es la página que Google visita más, y no llevaba a nada de eso:
+# enlazaba el aviso legal, el banco, el catálogo, la tesis y el índice de la
+# bitácora. Los artículos quedaban a dos saltos. Que enlazarlos desde aquí
+# haga que se indexen **es una hipótesis**, no una causa medida: se comprueba
+# en Search Console cuatro semanas después.
+#
+# Se rellena al montar, desde los mismos artículos que publica la bitácora, y
+# no a mano en `index.html`, por lo de siempre: a mano se escriben los de hoy
+# y se queda atrás el primero que se publique mañana. Y **se niega** si hay
+# entradas y la portada ha perdido el hueco: sin la negativa, borrar el
+# comentario por descuido publicaría una portada que ya no enlaza nada y que
+# se ve perfectamente.
+HUECO_DE_LO_ULTIMO = "<!-- AQUI VA LO ULTIMO DE LA BITACORA -->"
+_EN_LA_PORTADA = 3
+
+
+def _sin_hueco(cuantas: int, nombre: str) -> str:
+    return (
+        f"Hay {cuantas} entradas en la bitácora y «{nombre}» ya no lleva "
+        f"`{HUECO_DE_LO_ULTIMO}`, así que la portada se publicaría sin enlazar "
+        "ninguna. No da error y se ve bien: lo que pasa es que Google deja de "
+        "encontrarlas desde la página que más visita."
+    )
+
+
+def _con_lo_ultimo(portada: Path, entradas: list[bitacora.Entrada]) -> None:
+    """Pone en la portada las entradas más nuevas de la bitácora."""
+    texto = portada.read_text(encoding="utf-8")
+    if not entradas:
+        # Sin bitácora no hay nada que enlazar, y una sección que dice
+        # «lo último» sin nada debajo es peor que no tenerla.
+        portada.write_text(texto.replace(HUECO_DE_LO_ULTIMO, ""), encoding="utf-8")
+        return
+    if HUECO_DE_LO_ULTIMO not in texto:
+        raise SinPagina(_sin_hueco(len(entradas), portada.name))
+    filas = "".join(
+        "      <li><a href=\"./{}\"><time datetime=\"{}\">{}</time>"
+        "<b>{}</b><span>{}</span></a></li>\n".format(
+            e.nombre, e.fecha.isoformat(), html.escape(e.dicha),
+            html.escape(e.titulo), html.escape(e.entradilla),
+        )
+        for e in entradas[:_EN_LA_PORTADA]
+    )
+    bloque = (
+        '<section id="lo-ultimo">\n'
+        '      <p class="rotulo">Bitácora</p>\n'
+        '      <h2 class="titulo">Lo último que se ha medido.</h2>\n'
+        '      <ul class="ultimas">\n'
+        f"{filas}"
+        "      </ul>\n"
+        '      <p class="texto"><a href="./bitacora.html">Todas las entradas'
+        "</a>, y las reglas que añade la factura española, una por una: "
+        '<a href="./incidencias.html#familia-SPFE">las SPFE</a>.</p>\n'
+        "    </section>"
+    )
+    portada.write_text(texto.replace(HUECO_DE_LO_ULTIMO, bloque, 1), encoding="utf-8")
 
 
 # --- Los enlaces de casa, a su dirección limpia ------------------------------
@@ -1335,7 +1413,7 @@ def _para_investigadores(destino: Path, correo: str, hoy: date) -> Path:
     return fichero
 
 
-def _para_buscadores(destino: Path) -> int:
+def _para_buscadores(destino: Path, cambios: dict[str, date] | None = None) -> int:
     """Canónica, tarjeta, enlaces de salida y enlaces de casa en su forma
     limpia en cada página, y los ficheros de rigor."""
     paginas = sorted(p.name for p in destino.glob("*.html")
@@ -1378,7 +1456,7 @@ def _para_buscadores(destino: Path) -> int:
         f"Sitemap: {DOMINIO}/sitemap.xml\n",
         encoding="utf-8",
     )
-    (destino / "sitemap.xml").write_text(_sitemap(paginas), encoding="utf-8")
+    (destino / "sitemap.xml").write_text(_sitemap(paginas, cambios), encoding="utf-8")
     return len(paginas)
 
 
@@ -1471,7 +1549,13 @@ def montar_sitio(
     # medias es justo lo que el paso siguiente publica sin enterarse. Leer no
     # cuesta nada y se hace dos veces a propósito.
     if (pagina / bitacora.CARPETA).is_dir():
-        bitacora.leer_entradas(pagina / bitacora.CARPETA)
+        leidas = bitacora.leer_entradas(pagina / bitacora.CARPETA)
+        # Y si hay entradas, que la portada tenga dónde enlazarlas: por lo
+        # mismo, saberlo al final dejaría media carpeta montada.
+        portada = pagina / "index.html"
+        if (leidas and (pagina / bitacora.NOMBRE).is_file() and portada.is_file()
+                and HUECO_DE_LO_ULTIMO not in portada.read_text(encoding="utf-8")):
+            raise SinPagina(_sin_hueco(len(leidas), portada.name))
 
     # Y la política, por lo mismo y con la misma lección. `_con_politica` corre
     # al final, que es donde tiene que correr —las huellas tienen que ser las
@@ -1636,6 +1720,7 @@ def montar_sitio(
     # un hueco— y porque su negativa es menos grave: si falta una fecha no se
     # publica la bitácora, no se cae el validador.
     plantilla_bitacora = pagina / bitacora.NOMBRE
+    publicadas: list[bitacora.Entrada] = []
     if plantilla_bitacora.is_file():
         texto_bitacora = plantilla_bitacora.read_text(encoding="utf-8")
         for busca, pon, constante in sellos:
@@ -1651,6 +1736,12 @@ def montar_sitio(
             for busca, pon, _ in sellos:
                 generada = generada.replace(busca, pon)
             salida.write_text(generada, encoding="utf-8")
+    _con_lo_ultimo(destino / "index.html", publicadas)
+    # Lo que va al `lastmod`: cada entrada, con su último cambio dicho, y el
+    # índice, con el de la más reciente, que es lo que cambia su lista.
+    cambios = {e.nombre: e.cambiada for e in publicadas}
+    if publicadas:
+        cambios[bitacora.NOMBRE] = max(e.cambiada for e in publicadas)
 
     # Una página por código, del mismo armazón y del mismo catálogo. Va
     # detrás porque necesita la plantilla ya comprobada: si a `incidencias.html`
@@ -1720,7 +1811,7 @@ def montar_sitio(
     # Lo último que se toca de cada página: la canónica y la tarjeta. Va antes
     # de las huellas a propósito, porque las huellas tienen que ser las del
     # fichero que de verdad se publica.
-    _para_buscadores(destino)
+    _para_buscadores(destino, cambios)
     _con_ficha_de_la_portada(destino, nombre_del_titular)
     _para_investigadores(destino, _correo_del_titular(pagina), date.today())
     # La política, después de todo lo que reescribe una página: las huellas de

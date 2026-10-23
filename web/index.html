@@ -606,6 +606,21 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
 .corta.depende { color: var(--aviso); }
 .corta.dato { color: var(--nota); }
 
+/* Lo último de la bitácora. Lo rellena el montaje (`_con_lo_ultimo`), así
+   que en `web/` servido a secas no sale: el hueco es un comentario. La forma
+   es la del índice de la bitácora, un punto más pequeña. */
+.ultimas { list-style: none; padding: 0; margin: 1.5rem 0 1.2rem; max-width: 40rem; }
+.ultimas li { border-top: 1px solid var(--borde); }
+.ultimas li:last-child { border-bottom: 1px solid var(--borde); }
+.ultimas a { display: block; padding: 1.1rem 0; text-decoration: none; color: inherit; }
+.ultimas a:hover b, .ultimas a:focus-visible b { color: var(--acento); text-decoration: underline; text-underline-offset: .18em; }
+.ultimas time {
+  display: block; font-size: var(--t0); text-transform: uppercase;
+  letter-spacing: .1em; color: var(--tenue); font-weight: 600;
+}
+.ultimas b { display: block; margin: .3rem 0 .25rem; font: 400 var(--t3)/1.3 var(--serif); color: var(--tinta); }
+.ultimas span { display: block; color: var(--tinta-2); font-size: var(--t1); }
+
 @media (max-width: 46rem) {
   .qa > details, .qa summary { grid-template-columns: 1fr; }
   .qa h3 { text-align: left; padding-bottom: .3rem; }
@@ -1043,6 +1058,8 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       renovarse, y vuelve a decirse en cada informe.</p>
       <div class="panel trae"><dl id="trae-lista"><dt>Cargando…</dt><dd>…</dd></dl></div>
     </section>
+
+    <!-- AQUI VA LO ULTIMO DE LA BITACORA -->
 
     <section id="preguntas">
       <p class="rotulo">Preguntas frecuentes</p>

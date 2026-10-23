@@ -89,6 +89,9 @@ class Entrada:
     entradilla: str
     fuentes: int
     cuerpo: str
+    # La fecha del último cambio que la entrada **dice** que tuvo: la suya, o
+    # la de su último «Corregida el…» o «Actualizada el…», si es más tarde.
+    cambiada: _dt.date
 
     @property
     def nombre(self) -> str:
@@ -129,6 +132,41 @@ def _fuentes_de(cuerpo: str) -> int:
         r'<footer class="fuentes">(.*?)</footer>', cuerpo, re.S
     )
     return len(re.findall(r"<a\b", pie.group(1))) if pie else 0
+
+
+# Las marcas con que una entrada dice que se tocó después de publicarse. Es lo
+# que va al `lastmod` del sitemap, y por qué no vale otra cosa está medido: el
+# artículo de EDIFACT es del 7 de septiembre y se actualizó el 7 de octubre, y
+# el de la copia fiel, del 21 de septiembre, se corrigió el 26 y se actualizó
+# el 7 de octubre. Con `data-fecha` el sitemap le diría a Google que no han
+# cambiado. La fecha del último commit tampoco vale: la historia se rehízo el
+# 21-10-2026 y todas dicen ese día.
+#
+# Un retoque que no merece la marca —una errata, unas comillas— no cuenta, y
+# está bien que no cuente: no es contenido nuevo que un buscador deba volver a
+# leer. Lo que se cuenta al lector como cambio es lo que se le cuenta a Google.
+_CAMBIO = re.compile(
+    r"<b>(?:Corregida|Actualizada) el (\d{1,2}) de ([a-z]+) de (\d{4})"
+)
+
+
+def _cambios(ruta: Path, cuerpo: str) -> list[_dt.date]:
+    """Las fechas de las marcas de cambio. Se niega ante una que no se lee."""
+    fechas = []
+    for dia, mes, anyo in _CAMBIO.findall(cuerpo):
+        if mes not in _MESES:
+            raise SinEntrada(
+                f"«{ruta.name}» dice que se cambió el «{dia} de {mes} de {anyo}», "
+                "y ese mes no existe. Ignorarla dejaría en el sitemap una fecha "
+                "anterior al cambio, que es decirle a un buscador que no lo hubo."
+            )
+        try:
+            fechas.append(_dt.date(int(anyo), _MESES.index(mes) + 1, int(dia)))
+        except ValueError as error:
+            raise SinEntrada(
+                f"«{ruta.name}» tiene una marca de cambio imposible: {error}"
+            ) from error
+    return fechas
 
 
 def leer_entradas(carpeta: Path) -> list[Entrada]:
@@ -184,6 +222,7 @@ def leer_entradas(carpeta: Path) -> list[Entrada]:
         entradas.append(Entrada(
             ruta=ruta, slug=slug, titulo=titulo, fecha=fecha,
             entradilla=entradilla, fuentes=cuantas, cuerpo=cuerpo,
+            cambiada=max([fecha, *_cambios(ruta, cuerpo)]),
         ))
 
     repetidos = sorted({e.slug for e in entradas

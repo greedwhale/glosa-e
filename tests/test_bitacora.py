@@ -246,3 +246,48 @@ def test_el_menu_del_sitio_lleva_a_la_bitacora():
     """Publicada y sin enlazar sería una carpeta bonita que no lee nadie."""
     portada = (WEB / "index.html").read_text(encoding="utf-8")
     assert f'href="./{bitacora.NOMBRE}"' in portada
+
+
+# --- La fecha del último cambio, para el sitemap ------------------------------
+#
+# Va al `lastmod`, y por eso tiene que ser la que la entrada dice y no otra:
+# con `data-fecha` a secas, el artículo de EDIFACT (del 7 de septiembre,
+# actualizado el 7 de octubre) le diría a Google que no ha cambiado.
+
+
+class TestLaFechaDelUltimoCambio:
+    def test_sin_marcas_es_la_suya(self, tmp_path):
+        (tmp_path / "x.html").write_text(_entrada(fecha="2026-09-07"), encoding="utf-8")
+        (una,) = bitacora.leer_entradas(tmp_path)
+        assert una.cambiada == una.fecha
+
+    def test_con_marcas_es_la_ultima(self, tmp_path):
+        cuerpo = _entrada(fecha="2026-09-07").replace(
+            "<p>Cuerpo.</p>",
+            "<p><b>Actualizada el 7 de octubre de 2026.</b> Algo.</p>"
+            "<p><b>Corregida el 26 de septiembre de 2026, a mano.</b> Otro.</p>")
+        (tmp_path / "x.html").write_text(cuerpo, encoding="utf-8")
+        (una,) = bitacora.leer_entradas(tmp_path)
+        assert una.cambiada.isoformat() == "2026-10-07"
+
+    def test_con_una_marca_de_un_mes_que_no_existe(self, tmp_path):
+        """Ignorarla dejaría en el sitemap una fecha anterior al cambio."""
+        cuerpo = _entrada().replace(
+            "<p>Cuerpo.</p>", "<p><b>Corregida el 7 de setiembre de 2026.</b></p>")
+        (tmp_path / "x.html").write_text(cuerpo, encoding="utf-8")
+        with pytest.raises(bitacora.SinEntrada, match="ese mes no existe"):
+            bitacora.leer_entradas(tmp_path)
+
+    def test_con_una_marca_imposible(self, tmp_path):
+        cuerpo = _entrada().replace(
+            "<p>Cuerpo.</p>", "<p><b>Actualizada el 31 de septiembre de 2026.</b></p>")
+        (tmp_path / "x.html").write_text(cuerpo, encoding="utf-8")
+        with pytest.raises(bitacora.SinEntrada, match="marca de cambio imposible"):
+            bitacora.leer_entradas(tmp_path)
+
+    def test_las_de_hoy_que_se_han_tocado_lo_dicen(self):
+        """Las dos que se actualizaron el 7 de octubre, leídas de verdad."""
+        por_nombre = {e.slug: e for e in bitacora.leer_entradas(ARTICULOS)}
+        for slug in ("edifact-reglas-de-2018", "copia-fiel-nadie-traduce"):
+            assert por_nombre[slug].cambiada.isoformat() == "2026-10-07", slug
+            assert por_nombre[slug].cambiada > por_nombre[slug].fecha, slug

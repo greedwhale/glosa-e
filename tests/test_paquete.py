@@ -1185,6 +1185,10 @@ class TestLaBitacoraSeComprueba:
         carpeta = repositorio / "web" / bitacora.CARPETA
         carpeta.mkdir(exist_ok=True)
         (carpeta / "una.html").write_text(articulo, encoding="utf-8")
+        # Con entradas, la portada tiene que traer dónde enlazarlas.
+        (repositorio / "web" / "index.html").write_text(
+            PAGINA.replace("</body>", paquete.HUECO_DE_LO_ULTIMO + "\n</body>"),
+            encoding="utf-8")
 
     BUENA = ('<article class="entrada" data-fecha="2026-09-07" '
              'data-titulo="Un titulo" data-entradilla="Una entradilla.">'
@@ -2043,3 +2047,82 @@ class TestLaPaginaDeCuandoNoHayNada:
         texto = self.PAGINA.read_text(encoding="utf-8")
         assert "Glosa-e" in texto and 'lang="es"' in texto
         assert "Agencia Tributaria" in texto, "se ha quedado sin el aviso del pie"
+
+
+# --- Lo último de la bitácora, en la portada, y su `lastmod` -----------------
+
+def _articulo(slug: str, fecha: str, marca: str = "") -> tuple[str, str]:
+    return slug, (
+        f'<article class="entrada" data-fecha="{fecha}" data-titulo="Sobre {slug}" '
+        f'data-entradilla="Lo de {slug}.">\n  <h1>Sobre {slug}</h1>\n'
+        f"  <p>{marca}Cuerpo.</p>\n"
+        '  <footer class="fuentes"><a href="https://www.boe.es/">BOE</a></footer>\n'
+        "</article>\n"
+    )
+
+
+class TestLoUltimoEnLaPortada:
+    """Medido el 23-10-2026: la portada no enlazaba ningún artículo, y Google
+    tenía cuatro de los seis sin visitar. Ahora los tres más nuevos salen en
+    ella, y se niega a montar si hay bitácora y la portada perdió el hueco."""
+
+    @pytest.fixture
+    def con_bitacora(self, repositorio):
+        web = repositorio / "web"
+        (web / "index.html").write_text(
+            PAGINA.replace("</body>", paquete.HUECO_DE_LO_ULTIMO + "\n</body>"),
+            encoding="utf-8")
+        (web / bitacora.NOMBRE).write_text(
+            PAGINA.replace("</body>", bitacora.HUECO + "\n</body>"), encoding="utf-8")
+        (web / bitacora.CARPETA).mkdir()
+        for slug, cuerpo in (
+            _articulo("vieja", "2026-09-01",
+                      "<b>Actualizada el 7 de octubre de 2026.</b> "),
+            _articulo("dos", "2026-09-20"),
+            _articulo("tres", "2026-10-01"),
+            _articulo("nueva", "2026-10-19"),
+        ):
+            (web / bitacora.CARPETA / f"{slug}.html").write_text(cuerpo, encoding="utf-8")
+        return repositorio
+
+    def test_enlaza_las_tres_mas_nuevas_y_ninguna_mas(self, con_bitacora):
+        portada = (_montar(con_bitacora).carpeta / "index.html").read_text(encoding="utf-8")
+        seccion = re.search(r'<section id="lo-ultimo">.*?</section>', portada, re.S)
+        assert seccion, "la portada se ha montado sin la sección"
+        enlaces = re.findall(r'href="\./(bitacora-[^"]+)"', seccion.group(0))
+        assert enlaces == ["bitacora-nueva", "bitacora-tres", "bitacora-dos"]
+        assert paquete.HUECO_DE_LO_ULTIMO not in portada
+
+    def test_sin_el_hueco_y_con_entradas_no_se_monta(self, con_bitacora):
+        (con_bitacora / "web" / "index.html").write_text(PAGINA, encoding="utf-8")
+        with pytest.raises(paquete.SinPagina, match="sin enlazar ninguna"):
+            _montar(con_bitacora)
+        # Y antes de escribir nada: media carpeta montada la publica el paso
+        # siguiente sin enterarse.
+        assert not (con_bitacora / "sitio").exists()
+
+    def test_sin_bitacora_no_queda_ni_la_seccion_ni_el_hueco(self, repositorio):
+        (repositorio / "web" / "index.html").write_text(
+            PAGINA.replace("</body>", paquete.HUECO_DE_LO_ULTIMO + "\n</body>"),
+            encoding="utf-8")
+        portada = (_montar(repositorio).carpeta / "index.html").read_text(encoding="utf-8")
+        assert 'id="lo-ultimo"' not in portada
+        assert paquete.HUECO_DE_LO_ULTIMO not in portada
+
+    def test_el_lastmod_solo_en_la_bitacora_y_con_el_ultimo_cambio(self, con_bitacora):
+        mapa = (_montar(con_bitacora).carpeta / "sitemap.xml").read_text(encoding="utf-8")
+        fechas = dict(re.findall(
+            r"<loc>[^<]*/([^/<]*)</loc><lastmod>([^<]*)</lastmod>", mapa))
+        assert fechas == {
+            "bitacora": "2026-10-19",
+            "bitacora-dos": "2026-09-20",
+            "bitacora-nueva": "2026-10-19",
+            "bitacora-tres": "2026-10-01",
+            # Es del 1 de septiembre, pero dice que se actualizó el 7 de octubre.
+            "bitacora-vieja": "2026-10-07",
+        }
+        assert mapa.count("<lastmod>") == len(fechas)
+
+    def test_la_portada_de_verdad_lleva_el_hueco(self):
+        portada = Path(paquete.__file__).parent.parent / "web" / "index.html"
+        assert paquete.HUECO_DE_LO_ULTIMO in portada.read_text(encoding="utf-8")
