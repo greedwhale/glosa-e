@@ -189,7 +189,7 @@ def test_las_reglas_de_linea_salen_en_el_catalogo(codigo):
     assert codigo in {c.codigo for c in codigos_del_paquete()}
 
 # Cómo escribe la norma sus códigos, sacado del esquematrón oficial
-# (`eInvoicing-EN16931`, v1.3.16): el número va **siempre con dos cifras**
+# (`eInvoicing-EN16931`, v1.3.17): el número va **siempre con dos cifras**
 # —BR-01, BR-CO-10, BR-S-08, BR-CL-01—, y el prefijo de grupo es de letras.
 _COMO_LOS_ESCRIBE_LA_NORMA = r"^BR-(?:[A-Z]+-)?\d{2}$"
 

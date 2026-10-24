@@ -44,7 +44,7 @@ from validador.sintaxis import (
 # Categorías de IVA de la norma (lista UNCL 5305), en castellano. Las dos
 # últimas son impuestos españoles, y **están en la lista de la norma europea**
 # con reglas propias, igual que las demás: BR-CL-18 las admite y el esquematrón
-# tiene una familia BR-AF-* para el IGIC y otra BR-AG-* para el IPSI. Aquí se
+# tiene una familia BR-IG-* para el IGIC y otra BR-IP-* para el IPSI. Aquí se
 # llegó a escribir lo contrario, y de ahí salió el fallo que cuenta `REGLAS`.
 #
 # La S se llamó aquí "tipo general" hasta el 18-10-2026, y no lo es: en España
@@ -76,8 +76,8 @@ SIN_TIPO = "sin tipo"  # no debe declararse tipo
 NO_NEGATIVO = "cero o positivo"  # tiene que haber tipo y no ser negativo
 
 # Y cómo debe ser el motivo de exención. La norma no solo lo exige donde hace
-# falta: también lo **prohíbe** donde no (BR-S-10, BR-Z-10, BR-AF-10,
-# BR-AG-10). Con un solo «¿lo exige?», «no obligatorio» y «prohibido» eran lo
+# falta: también lo **prohíbe** donde no (BR-S-10, BR-Z-10, BR-IG-10,
+# BR-IP-10). Con un solo «¿lo exige?», «no obligatorio» y «prohibido» eran lo
 # mismo, y una entrada a tipo cero con motivo de exención pasaba sin más.
 #
 # Hubo un tercer estado, `LIBRE` —«la norma no se pronuncia»—, y con él un
@@ -114,9 +114,9 @@ REGLAS: dict[str, ReglaCategoria] = {
     "G": ReglaCategoria("G", CERO, OBLIGATORIO, UNA_SOLA),
     "O": ReglaCategoria("O", SIN_TIPO, OBLIGATORIO, UNA_SOLA),
     # IGIC e IPSI: el tipo puede ser cero o positivo, nunca negativo
-    # (BR-AF-05 a 07, «0 (zero) or greater than zero»), y el motivo de
-    # exención está prohibido (BR-AF-10, «shall not have»), igual que en el
-    # tipo general. Lo mismo con BR-AG-* para el IPSI.
+    # (BR-IG-05 a 07, «0 (zero) or greater than zero»), y el motivo de
+    # exención está prohibido (BR-IG-10, «shall not have»), igual que en el
+    # tipo general. Lo mismo con BR-IP-* para el IPSI.
     #
     # **Hasta el 13-09-2026 aquí ponía lo contrario**: que la norma no ataba a
     # estas dos categorías, con `CUALQUIERA` para el tipo y `LIBRE` para el
@@ -127,21 +127,27 @@ REGLAS: dict[str, ReglaCategoria] = {
     # esquematrón oficial (v1.3.16), no de ninguna prueba: las pruebas estaban
     # escritas desde la misma suposición que el código.
     #
-    # Los códigos son AF y AG porque son los de la copia oficial que se fija,
-    # la 1.3.16: ahí $VATIG lleva BR-AF-* y $VATIP lleva BR-AG-*. No son los
-    # únicos nombres que han tenido. En UBL, el CEN los llamó BR-IG-* (IGIC)
-    # y BR-IP-* (IPSI) en todas sus versiones publicadas, de la 1.0.0 (2018) a
-    # la 1.3.13, y la 1.3.17, del 12-10-2026, vuelve a esos nombres. En CII
-    # fueron BR-AF-* y BR-AG-* hasta la 1.3.16, y en la 1.3.17 salieron
-    # cruzados: el IGIC es BR-IP-* y el IPSI, BR-IG-*. En EDIFACT el código es
-    # BR-AF-* y BR-AG-*, y el texto de sus mensajes dice BR-IG y BR-IP (en el
-    # abstracto de la 1.3.16, que no viene en la copia fijada). Aquí se empezó
-    # con IG e IP y se pasó a AF y AG el 26-08-2026, al comprobarlo contra el
-    # esquematrón oficial; el commit no dice qué versión, y la última
-    # publicada era la 1.3.16. Lo que se escribió entonces de IG e IP, que
-    # eran un invento de este proyecto, era falso, y está en HALLAZGOS.
-    "L": ReglaCategoria("AF", NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
-    "M": ReglaCategoria("AG", NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
+    # Los códigos son IG e IP, los del modelo de la norma en la copia que se
+    # fija, la 1.3.17 (12-10-2026): ahí $VATIG lleva BR-IG-* y $VATIP lleva
+    # BR-IP-*. No son los únicos nombres que han tenido, y cada sintaxis los
+    # llama a su manera. En UBL fueron BR-IG-* y BR-IP-* de la 1.0.0 (2018) a
+    # la 1.3.13, BR-AF-* y BR-AG-* de la 1.3.14 a la 1.3.16, y otra vez BR-IG-*
+    # y BR-IP-* en la 1.3.17. En CII fueron BR-AF-* y BR-AG-* hasta la 1.3.16,
+    # y en la 1.3.17 salieron cruzados: el IGIC es BR-IP-* y el IPSI, BR-IG-*.
+    # En EDIFACT el código sigue siendo BR-AF-* y BR-AG-*, con BR-IG y BR-IP en
+    # el texto de sus mensajes. Qué nombre da cada esquematrón lo dice
+    # `Sintaxis.familias_de_su_esquematron`, que `test_norma_oficial` compara
+    # con la vinculación de cada sintaxis, para que una nota que cita una
+    # regla de ese esquematrón cite el código que de verdad da.
+    #
+    # Aquí se empezó con IG e IP, se pasó a AF y AG el 26-08-2026, al
+    # comprobarlo contra el esquematrón oficial (la 1.3.16), y se volvió a IG e
+    # IP el 24-10-2026, al traer la 1.3.17, en todas las sintaxis. Lo que se
+    # escribió en agosto de IG e IP, que eran un invento de este proyecto, era
+    # falso, y está en HALLAZGOS. Las fichas BR-AF-* y BR-AG-* que llegaron a
+    # publicarse redirigen a las nuevas.
+    "L": ReglaCategoria("IG", NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
+    "M": ReglaCategoria("IP", NO_NEGATIVO, PROHIBIDO, AL_MENOS_UNA),
 }
 
 # Que no vuelva a entrar un estado que no se queja de nada. Si una categoría
@@ -308,14 +314,14 @@ class Apunte:
 # `TaxTypeCode` contesta a otra pregunta: **qué impuesto es**, no de qué
 # categoría UNCL5305. Aun así, tres de sus valores fijan la categoría sin
 # ambigüedad, porque la norma tiene una familia de reglas para cada uno:
-# el IGIC canario es la L, con las reglas AF ($VATIG en el esquematrón), y
-# el IPSI de Ceuta y Melilla es la M, con las AG. Son los nombres de la copia
-# oficial que se fija; los que han tenido en otras versiones están en
-# `REGLAS`.
+# el IGIC canario es la L, con las reglas IG ($VATIG en el esquematrón), y
+# el IPSI de Ceuta y Melilla es la M, con las IP. Son los nombres de la copia
+# oficial que se fija; los que han tenido en otras versiones y en otras
+# sintaxis están en `REGLAS`.
 _IMPUESTO_DE_FACTURAE = {
     "01": "S",   # IVA
-    "03": "L",   # IGIC  -> BR-AF-*
-    "02": "M",   # IPSI  -> BR-AG-*
+    "03": "L",   # IGIC  -> BR-IG-*
+    "02": "M",   # IPSI  -> BR-IP-*
 }
 
 
@@ -1598,8 +1604,11 @@ def _regla_cero_que_rechaza_su_esquematron(
     """De la casa: el tipo a cero que la norma admite y el esquematrón de la sintaxis no.
 
     Hoy es el IGIC en CII (`Sintaxis.cero_que_rechaza_su_esquematron`). El
-    texto de BR-AF-05 a 07 dice «0 (zero) or greater than zero», la
-    vinculación de UBL `>= 0` y la de CII `> 0`. Se denunció en el repositorio
+    texto de BR-IG-05 a 07 dice «0 (zero) or greater than zero», la
+    vinculación de UBL `>= 0` y la de CII `> 0`. CII las llama BR-IP-05 a 07
+    desde la 1.3.17, y la nota cita las dos: la de aquí, y la que da ese
+    esquematrón (`Sintaxis.familias_de_su_esquematron`), que es la que verá
+    quien reciba la factura. Se denunció en el repositorio
     oficial (issue 519) y el 29-09-2026 se cerró cambiando los nombres de las
     reglas y no la comparación. Aquí se sigue al texto, y la factura no tiene
     nada que arreglar; pero quien la reciba y la pase por el esquematrón de
@@ -1614,7 +1623,12 @@ def _regla_cero_que_rechaza_su_esquematron(
         if (apunte.categoria in sintaxis.cero_que_rechaza_su_esquematron
                 and apunte.tipo is not None and apunte.tipo == 0):
             regla = REGLAS[apunte.categoria]
-            suyos.append((apunte, f"BR-{regla.codigo}-{_sufijo_del_concepto(apunte)}"))
+            suya = sintaxis.familias_de_su_esquematron.get(apunte.categoria, regla.codigo)
+            sufijo = _sufijo_del_concepto(apunte)
+            nombre = f"BR-{suya}-{sufijo}"
+            if suya != regla.codigo:
+                nombre += f" (aquí, BR-{regla.codigo}-{sufijo})"
+            suyos.append((apunte, nombre))
     if not suyos:
         return []
     reglas_ = sorted({regla for _, regla in suyos})

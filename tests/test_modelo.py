@@ -21,7 +21,7 @@ from lxml import etree
 from validador import edifact, modelo
 from validador.codigos import codigos_del_paquete
 from validador.formato import detectar
-from validador.incidencias import AVISO, ERROR
+from validador.incidencias import AVISO, ERROR, NOTA
 from validador.sintaxis import (
     SINTAXIS_CII,
     SINTAXIS_EDIFACT,
@@ -275,6 +275,14 @@ CASOS_CII = [
      cii(acuerdo="<ram:SellerTradeParty><ram:SpecifiedTaxRegistration>"
                  "<ram:ID schemeID=\"VA\">ESB12345678</ram:ID></ram:SpecifiedTaxRegistration>"
                  "</ram:SellerTradeParty>")),
+    # La nota de EL: la «mala» es la griega, que vale y la saca.
+    ("IVA-PREFIJO-EL",
+     cii(acuerdo="<ram:SellerTradeParty><ram:SpecifiedTaxRegistration>"
+                 "<ram:ID schemeID=\"VA\">EL094259216</ram:ID></ram:SpecifiedTaxRegistration>"
+                 "</ram:SellerTradeParty>"),
+     cii(acuerdo="<ram:SellerTradeParty><ram:SpecifiedTaxRegistration>"
+                 "<ram:ID schemeID=\"VA\">ESB12345678</ram:ID></ram:SpecifiedTaxRegistration>"
+                 "</ram:SellerTradeParty>")),
     ("BR-CO-26",
      cii(acuerdo="<ram:SellerTradeParty><ram:Name>Vendedor SL</ram:Name></ram:SellerTradeParty>"),
      cii(acuerdo="<ram:SellerTradeParty><ram:Name>Vendedor SL</ram:Name>"
@@ -475,6 +483,20 @@ def test_el_prefijo_de_grecia_es_el_y_no_gr():
                 "</cac:TaxScheme></cac:PartyTaxScheme></cac:Party></cac:AccountingSupplierParty>")
     assert "BR-CO-09" not in salen(ubl(vendedor.format("EL094259216")), SINTAXIS_UBL)
     assert "BR-CO-09" in salen(ubl(vendedor.format("XX094259216")), SINTAXIS_UBL)
+
+
+def test_el_lleva_la_nota_de_que_la_1_3_17_lo_rechaza():
+    """Vale, y se dice que el esquematrón de la 1.3.17 no lo admite."""
+    vendedor = ("<cac:AccountingSupplierParty><cac:Party><cac:PartyTaxScheme>"
+                "<cbc:CompanyID>{}</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID>"
+                "</cac:TaxScheme></cac:PartyTaxScheme></cac:Party></cac:AccountingSupplierParty>")
+    nota = la(ubl(vendedor.format("EL094259216")), SINTAXIS_UBL, "IVA-PREFIJO-EL")
+    assert nota.gravedad == NOTA
+    assert "1.3.17" in nota.mensaje and "BR-CO-09" in nota.mensaje
+    assert nota.encontrado == "vendedor: EL094259216"
+    # Un NIF con otro prefijo no la saca, y uno sin prefijo da el error y no la nota.
+    assert "IVA-PREFIJO-EL" not in salen(ubl(vendedor.format("ESB12345678")), SINTAXIS_UBL)
+    assert "IVA-PREFIJO-EL" not in salen(ubl(vendedor.format("XX094259216")), SINTAXIS_UBL)
 
 
 def test_el_pago_fraccionado_mira_las_direcciones_y_no_el_origen_de_los_articulos():

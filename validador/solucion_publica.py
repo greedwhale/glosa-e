@@ -615,8 +615,9 @@ if _NO_SUJETA not in _CATEGORIAS:
     raise AnexoCambiado("la L4 de la orden ya no tiene la categoría no sujeta")
 
 # Los códigos de exención (BT-121): «Solo podrán adoptar valores VATEX-EU o
-# VATEX-ES». La lista es la CEF-VATEX, y en la versión que lleva Glosa no hay
-# ningún VATEX-ES: uno que no esté en ella lo dice BR-CL-22.
+# VATEX-ES». La lista es la CEF-VATEX, que trae dieciocho VATEX-ES desde la
+# 1.3.17 (hasta el 24-10-2026 la que llevaba Glosa-e no tenía ninguno): uno
+# que no esté en ella lo dice BR-CL-22, y no esta regla.
 _dice("BT-121", "Lista CEF-VATEX. Solo podrán adoptar valores VATEX-EU o VATEX-ES")
 _EXENCIONES = ("VATEX-EU-", "VATEX-ES-")
 

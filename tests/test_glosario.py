@@ -60,9 +60,19 @@ def test_lo_escrito_en_el_fichero_va_entre_comillas_invertidas():
     punto que queda fuera es una versión, y está escrita aquí.
     """
     versiones = {("SPFE-SINTAXIS", "2.5"), ("SPFE-MENSAJE-ALCANCE", "2.5")}
-    # Las del esquematrón del CEN, que la ficha de BR-AG-01 cita para contar
-    # cómo se han llamado las reglas del IPSI en cada una.
-    versiones |= {("BR-AG-01", v) for v in ("1.3.13", "1.3.14", "1.3.16", "1.3.17")}
+    # Las del esquematrón del CEN, que las fichas de BR-IG-01 y BR-IP-01 citan
+    # para contar cómo se han llamado las reglas del IGIC y del IPSI en cada una.
+    versiones |= {(ficha, v) for ficha in ("BR-IG-01", "BR-IP-01")
+                  for v in ("1.3.13", "1.3.14", "1.3.16", "1.3.17")}
+    # Y las que dicen desde qué versión CII las llama de otro modo: la nota del
+    # cero y las demás fichas de las dos familias.
+    versiones.add(("IVA-CERO-ESQUEMATRON", "1.3.17"))
+    # Y las de dos listas que la 1.3.17 igualó entre UBL y CII.
+    versiones |= {("BR-CL-08", "1.3.17"), ("BR-CL-14", "1.3.17")}
+    # Y la nota de EL, que dice qué versión lo admitía y cuál lo quitó.
+    versiones |= {("IVA-PREFIJO-EL", "1.3.16"), ("IVA-PREFIJO-EL", "1.3.17")}
+    versiones |= {("IVA-VATEX-ES", "1.3.16"), ("IVA-VATEX-ES", "1.3.17")}
+    versiones |= {(f"BR-{f}-{n:02d}", "1.3.17") for f in ("IG", "IP") for n in range(2, 11)}
     con_punto = []
     for clave, texto in [*FAMILIAS.items(), *CODIGOS.items()]:
         fuera = re.sub(r"`[^`]*`", "", texto)
@@ -129,3 +139,25 @@ def test_un_codigo_desconocido_no_se_inventa_nada():
     texto, propia = explicar("NO-EXISTE-ESTE", "TAMPOCO")
     assert texto == ""
     assert propia is False
+
+
+def test_las_fichas_del_igic_y_del_ipsi_dicen_como_las_llama_cii():
+    """El código que da un validador de CII lleva a la ficha de la otra categoría.
+
+    Lo que dice cada ficha, contra `Sintaxis.familias_de_su_esquematron`, que
+    `test_norma_oficial` compara con la vinculación de CII. Si el CEN deshace
+    el cruce, esto se pone en rojo y las dieciocho frases sobran.
+    """
+    from validador import iva
+    from validador.sintaxis import SINTAXIS_CII
+
+    for categoria, otra in (("L", "M"), ("M", "L")):
+        aqui = iva.REGLAS[categoria].codigo
+        en_cii = SINTAXIS_CII.familias_de_su_esquematron[categoria]
+        assert en_cii == iva.REGLAS[otra].codigo, (
+            f"CII ya no cruza {aqui}: sobran las frases del cruce en las fichas")
+        for numero in range(2, 11):
+            texto = " ".join(CODIGOS[f"BR-{aqui}-{numero:02d}"].split())
+            assert (f"llama a esta regla BR-{en_cii}-{numero:02d}," in texto
+                    and f"la ficha que lo explica es BR-{en_cii}-{numero:02d}." in texto), (
+                aqui, numero)

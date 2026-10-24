@@ -19,7 +19,7 @@ from lxml import etree
 from tests.test_modelo import cii, edi, facturae, ubl
 from validador import en16931, listas_de_codigos
 from validador.codigos import codigos_del_paquete
-from validador.incidencias import ERROR
+from validador.incidencias import ERROR, NOTA
 from validador.sintaxis import (
     SINTAXIS_CII,
     SINTAXIS_EDIFACT,
@@ -155,8 +155,10 @@ def test_cii_la_unidad_del_precio_tambien():
 
 
 def test_todas_las_reglas_del_modulo_tienen_su_caso_en_cii():
+    """Y la nota de los VATEX-ES, que tiene el suyo abajo."""
     del_modulo = {c.codigo for c in codigos_del_paquete() if c.modulo == "listas_de_codigos.py"}
-    assert del_modulo == TODAS == {c[0] for c in CASOS_CII} | {"BR-CL-08"}
+    assert del_modulo == TODAS | {"IVA-VATEX-ES"}
+    assert TODAS == {c[0] for c in CASOS_CII} | {"BR-CL-08"}
 
 
 # --- UBL: lo que las pruebas oficiales no prueban ----------------------------------
@@ -176,6 +178,26 @@ def test_ubl_el_motivo_de_exencion_se_compara_en_mayusculas():
                    "</cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>")
     assert salen(exencion("vatex-eu-ic"), SINTAXIS_UBL) == set()
     assert salen(exencion("VATEX-XX"), SINTAXIS_UBL) == {"BR-CL-22"}
+
+
+def test_un_vatex_es_vale_y_lleva_la_nota_de_desde_cuando():
+    """Los dieciocho de España entraron con la 1.3.17, y la 1.3.16 los rechaza."""
+    def exencion(*codigos):
+        return ubl("<cac:TaxTotal>" + "".join(
+            "<cac:TaxSubtotal><cac:TaxCategory><cbc:ID>E</cbc:ID>"
+            f"<cbc:TaxExemptionReasonCode>{c}</cbc:TaxExemptionReasonCode>"
+            "</cac:TaxCategory></cac:TaxSubtotal>" for c in codigos) + "</cac:TaxTotal>")
+    (nota,) = listas_de_codigos.reglas(exencion("VATEX-ES-IGIC11", "vatex-es-ipsi7"), SINTAXIS_UBL)
+    assert nota.codigo == "IVA-VATEX-ES" and nota.gravedad == NOTA
+    assert nota.encontrado == "VATEX-ES-IGIC11, vatex-es-ipsi7"
+    assert "1.3.17" in nota.mensaje and "BR-CL-22" in nota.mensaje
+    # Uno que no está en la lista es BR-CL-22, y no la nota.
+    assert salen(exencion("VATEX-ES-20-1"), SINTAXIS_UBL) == {"BR-CL-22"}
+    assert salen(exencion("VATEX-EU-IC"), SINTAXIS_UBL) == set()
+    # En CII igual.
+    raiz = cii(cobro="<ram:ApplicableTradeTax><ram:ExemptionReasonCode>VATEX-ES-N1"
+                     "</ram:ExemptionReasonCode></ram:ApplicableTradeTax>")
+    assert salen(raiz, SINTAXIS_CII) == {"IVA-VATEX-ES"}
 
 
 def test_ubl_el_esquema_de_la_direccion_electronica_y_el_del_lugar_de_entrega():

@@ -806,10 +806,10 @@ class TestCategorias:
         assert problema.gravedad == ERROR
         assert "no es una exención" in problema.mensaje
 
-    @pytest.mark.parametrize("categoria,codigo", [("L", "BR-AF-10"),
-                                                  ("M", "BR-AG-10")])
+    @pytest.mark.parametrize("categoria,codigo", [("L", "BR-IG-10"),
+                                                  ("M", "BR-IP-10")])
     def test_el_igic_y_el_ipsi_no_llevan_motivo(self, revisar, categoria, codigo):
-        """BR-AF-10 y BR-AG-10: «shall not have a VAT exemption reason».
+        """BR-IG-10 y BR-IP-10: «shall not have a VAT exemption reason».
 
         Hasta el 13-09-2026 esta prueba se llamaba «del IGIC y el IPSI no se
         opina» y exigía que esta misma factura pasara limpia: se creía que la
@@ -849,8 +849,8 @@ class TestCategorias:
         )
         assert [i.codigo for i in incidencias if i.gravedad != NOTA] == []
 
-    @pytest.mark.parametrize("categoria,codigo", [("L", "BR-AF-05"),
-                                                  ("M", "BR-AG-05")])
+    @pytest.mark.parametrize("categoria,codigo", [("L", "BR-IG-05"),
+                                                  ("M", "BR-IP-05")])
     def test_el_igic_y_el_ipsi_no_admiten_tipo_negativo(
             self, revisar, categoria, codigo):
         incidencias = revisar(
@@ -1049,14 +1049,14 @@ class TestDondeViveCadaRegla:
             "tiene que sennalar la linea, que es de donde sale la regla")
 
     def test_el_igic_y_el_ipsi_usan_los_codigos_de_la_copia_fijada(self, revisar):
-        """BR-AF-* y BR-AG-*, los de la copia oficial que se fija (1.3.16).
+        """BR-IG-* y BR-IP-*, los del modelo de la copia oficial que se fija (1.3.17).
 
-        No son los unicos que han tenido: en UBL fueron BR-IG-* y BR-IP-*
-        hasta la 1.3.13, y la 1.3.17 vuelve a ellos. Cuando se traiga esa
-        copia, test_norma_oficial se pone en rojo y esto cambia con ella.
+        No son los unicos que han tenido: en UBL fueron BR-AF-* y BR-AG-* de la
+        1.3.14 a la 1.3.16, y CII los cruza en la 1.3.17. Si otra copia los
+        cambia, test_norma_oficial se pone en rojo y esto cambia con ella.
         """
-        assert iva.REGLAS["L"].codigo == "AF"
-        assert iva.REGLAS["M"].codigo == "AG"
+        assert iva.REGLAS["L"].codigo == "IG"
+        assert iva.REGLAS["M"].codigo == "IP"
 
 
 # El tipo bueno de cada categoría que tiene que llevarlo, para montar al lado
@@ -1142,7 +1142,7 @@ class TestElTipoQueFalta:
         assert not {"BR-O-05", "BR-O-06", "BR-O-07"} & codigos(incidencias)
 
     def test_la_ficha_de_cada_una_lo_dice(self):
-        """La de BR-AG-05 decía lo contrario: «la queja no es ésta sino BR-48»."""
+        """La de BR-IP-05 decía lo contrario: «la queja no es ésta sino BR-48»."""
         callan = [f"BR-{iva.REGLAS[c].codigo}-{s}" for c in _TIPO_DE_CADA_CATEGORIA
                   for s in ("05", "06", "07")
                   if "solo lo no sujeto va sin" not in CODIGOS[f"BR-{iva.REGLAS[c].codigo}-{s}"]]
@@ -1166,9 +1166,9 @@ def _igic(nombre, categoria="L", tipo="0", ajuste=None):
 class TestElCeroDelIgicEnCII:
     """El IGIC a tipo cero: la norma lo admite y el esquematrón de CII no.
 
-    BR-AF-05, 06 y 07 dicen «0 (zero) or greater than zero», y así las escribe
+    BR-IG-05, 06 y 07 dicen «0 (zero) or greater than zero», y así las escribe
     la vinculación de UBL, `>= 0`. La de CII compara con `> 0`, y en el IPSI,
-    BR-AG, con `>= 0`. Se denunció en el repositorio oficial (issue 519) y se
+    BR-IP, con `>= 0`. Se denunció en el repositorio oficial (issue 519) y se
     cerró el 29-09-2026 cambiando los nombres, no la comparación. Aquí se sigue
     a la norma, y una nota dice que el esquematrón de CII la rechaza. Lo que
     dice cada vinculación lo lee `test_norma_oficial`.
@@ -1176,16 +1176,21 @@ class TestElCeroDelIgicEnCII:
 
     def test_en_cii_es_una_nota_y_no_un_error(self):
         incidencias = _igic("CII")
-        assert "BR-AF-05" not in codigos(incidencias)
+        assert "BR-IG-05" not in codigos(incidencias)
         nota = una(incidencias, "IVA-CERO-ESQUEMATRON")
         assert nota.gravedad == NOTA
-        assert "BR-AF-05" in nota.mensaje and "CII" in nota.mensaje
+        assert "BR-IG-05" in nota.mensaje and "CII" in nota.mensaje
         assert nota.campo == "Conceptos: línea 1"
 
-    @pytest.mark.parametrize("ajuste,regla", [("descuento", "BR-AF-06"), ("cargo", "BR-AF-07")])
+    def test_cita_la_regla_con_el_nombre_que_le_da_cii(self):
+        """BR-IP-05 es lo que dirá el esquematrón de CII de la 1.3.17, y BR-IG-05 la de aquí."""
+        nota = una(_igic("CII"), "IVA-CERO-ESQUEMATRON")
+        assert "BR-IP-05 (aquí, BR-IG-05)" in nota.mensaje
+
+    @pytest.mark.parametrize("ajuste,regla", [("descuento", "BR-IG-06"), ("cargo", "BR-IG-07")])
     def test_el_descuento_y_el_cargo_dicen_su_regla(self, ajuste, regla):
         nota = una(_igic("CII", ajuste=ajuste), "IVA-CERO-ESQUEMATRON")
-        assert "BR-AF-05" in nota.mensaje and regla in nota.mensaje
+        assert "BR-IG-05" in nota.mensaje and regla in nota.mensaje
         assert nota.campo == f"Conceptos: línea 1, {ajuste} 1"
 
     def test_en_ubl_no_hay_nada_que_decir(self):
@@ -1199,7 +1204,7 @@ class TestElCeroDelIgicEnCII:
 
     def test_el_negativo_sigue_siendo_un_error(self):
         incidencias = _igic("CII", tipo="-7")
-        assert "BR-AF-05" in codigos(incidencias, ERROR)
+        assert "BR-IG-05" in codigos(incidencias, ERROR)
         assert "IVA-CERO-ESQUEMATRON" not in codigos(incidencias)
 
     def test_sin_desglose_tambien(self):
@@ -1209,10 +1214,10 @@ class TestElCeroDelIgicEnCII:
         incidencias = iva.reglas(etree.fromstring(xml.encode("utf-8"), parser=parser()), sintaxis)
         assert "IVA-CERO-ESQUEMATRON" in codigos(incidencias, NOTA)
 
-    def test_las_fichas_de_br_af_lo_dicen(self):
-        """Es lo que buscará quien vea su CII rechazada con BR-AF-05."""
+    def test_las_fichas_de_br_ig_lo_dicen(self):
+        """Es adonde llega quien vea su CII rechazada con BR-IP-05, por la frase del cruce."""
         for sufijo in ("05", "06", "07"):
-            assert "IVA-CERO-ESQUEMATRON" in CODIGOS[f"BR-AF-{sufijo}"], sufijo
+            assert "IVA-CERO-ESQUEMATRON" in CODIGOS[f"BR-IG-{sufijo}"], sufijo
 
 
 class TestPropias:
@@ -1627,7 +1632,7 @@ class TestLaCuotaDeCadaCategoria:
 
     def test_el_igic_se_mira_en_ubl_y_no_en_cii(self):
         assert self.cuota("L", "7", "100.00", "12.00", SINTAXIS_UBL) == [
-            ("BR-AF-09", ERROR), ("BR-CO-17", ERROR)]
+            ("BR-CO-17", ERROR), ("BR-IG-09", ERROR)]
         assert self.cuota("L", "7", "100.00", "12.00", SINTAXIS_CII) == [("BR-CO-17", ERROR)]
 
 

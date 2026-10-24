@@ -584,6 +584,9 @@ class TestElMapaEsSoloUnMapa:
                     # Y otro: en cuáles el esquematrón de la sintaxis rechaza
                     # el tipo a cero que la norma admite. Tampoco es una ruta.
                     "cero_que_rechaza_su_esquematron",
+                    # Cómo llama ese esquematrón a las familias del IGIC y del
+                    # IPSI: un diccionario de códigos. Tampoco es una ruta.
+                    "familias_de_su_esquematron",
                     # Qué códigos de medio de pago son una transferencia.
                     # Tampoco es una ruta.
                     "medios_de_transferencia",

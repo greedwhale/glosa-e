@@ -1,6 +1,6 @@
 # De dónde sale esta carpeta
 
-Copia sin tocar de <https://github.com/ConnectingEurope/eInvoicing-EN16931>, commit `b6c9e06a59812fb1a83585da40923b3678a649ad`.
+Copia sin tocar de <https://github.com/ConnectingEurope/eInvoicing-EN16931>, commit `6e35e0ab8b09eb183f7d84b282e24ef95f9f5715`.
 No la ha escrito este proyecto y no se edita a mano: se rehace con
 `python -m herramientas.norma_oficial <commit>`.
 
@@ -15,4 +15,4 @@ No la ha escrito este proyecto y no se edita a mano: se rehace con
   todo lo anterior.
 
 Huella del contenido (SHA-256, finales de línea normalizados):
-`9359948d767adf8cc86c21243e2d7f87159b9c3e408f09b1dcfde0a044b6187d`
+`1f67b2a5d86f0f161d2cfa7ed14d7479a9e0562b299495b8545157a160b97de4`

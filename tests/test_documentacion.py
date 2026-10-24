@@ -743,12 +743,16 @@ def test_el_validador_no_dice_que_la_orden_este_por_publicar():
 # ninguna norma. Era falso: el esquematrón del CEN los usó en UBL en todas sus
 # versiones publicadas, de la 1.0.0 (2018) a la 1.3.13, y la 1.3.17 vuelve a
 # ellos. La frase acabó en cinco sitios del validador y del README, uno de
-# ellos la ficha de `BR-AG-01`, que sale en la página. Lo destapó la auditoría
-# de la 1.3.17, el 12-10-2026.
+# ellos la ficha de `BR-AG-01` (hoy `BR-IP-01`), que sale en la página. Lo
+# destapó la auditoría de la 1.3.17, el 12-10-2026.
 
 _LOS_NOMBRES = re.compile(r"\bBR-I[GP]\b|«I[GP]»|\bIG(?: e | y |/)IP\b")
+# Lo de «en España» va fuera desde el 24-10-2026: con las fichas llamándose
+# otra vez BR-IG-*, la de BR-IG-08 nombra la familia en su primera frase y en
+# la siguiente habla de «un tipo que no existe en España», que es del IGIC y
+# no de su nombre.
 _SIN_NORMA = re.compile(
-    r"no exist\w*|nunca exist\w*|inexistent\w*|invent\w*|"
+    r"no exist\w*\b(?! en España)|nunca exist\w*|inexistent\w*|invent\w*|"
     r"no aparec\w* en ningun\w*|por analog\w*", re.I)
 _LO_DICE_FALSO = re.compile(r"\bfals[oa]s?\b", re.I)
 
@@ -790,41 +794,43 @@ def test_nadie_dice_que_br_ig_y_br_ip_sean_un_invento_de_aqui():
 
 
 # Lo que las fichas del IGIC y del IPSI cuentan de la copia con la que se
-# comparan. La de `BR-AG-01` nombra la versión fijada, y la de `BR-AF-01`
-# contaba una familia de seis reglas cuando la copia trae diez: las dos cosas
-# quedan viejas en silencio el día que se trae otra copia, y se trae con la
-# 1.3.17, que cambia justo esos nombres.
+# comparan. Las dos nombran la versión fijada, y la de `BR-IG-01` cuenta las
+# reglas de la familia (contaba seis cuando la copia traía diez): las dos cosas
+# quedan viejas en silencio el día que se trae otra copia. Con la 1.3.16, la
+# ficha que nombraba la versión era la de `BR-AG-01`, y al traer la 1.3.17
+# esta prueba se puso en rojo y obligó a reescribirlas.
 
-_HUELLA_DE_LA_1_3_16 = "78001153d1161ba4e003c4bd5e9f9d52030a71b9c4afb78fbe00b293a52e4226"
+_HUELLA_DE_LA_1_3_17 = "1f67b2a5d86f0f161d2cfa7ed14d7479a9e0562b299495b8545157a160b97de4"
 
 
-def test_la_ficha_de_br_ag_01_nombra_la_copia_con_la_que_se_compara():
-    """Dice «la 1.3.16», y la huella fijada tiene que ser la de la 1.3.16."""
+@pytest.mark.parametrize("ficha", ["BR-IG-01", "BR-IP-01"])
+def test_las_fichas_del_igic_y_del_ipsi_nombran_la_copia_con_la_que_se_compara(ficha):
+    """Dicen «la 1.3.17», y la huella fijada tiene que ser la de la 1.3.17."""
     from validador.glosario import CODIGOS
 
     fijada = re.search(r'^HUELLA = "([0-9a-f]{64})"',
                        (RAIZ / "tests" / "test_norma_oficial.py").read_text(encoding="utf-8"),
                        re.M).group(1)
-    assert fijada == _HUELLA_DE_LA_1_3_16, (
-        "La copia oficial ya no es la 1.3.16, y la ficha de BR-AG-01 cuenta los "
-        "nombres del IPSI hasta ella: hay que reescribirla con la versión nueva, "
-        "y esta prueba con ella.")
-    assert "con la que se compara, la 1.3.16." in " ".join(CODIGOS["BR-AG-01"].split())
+    assert fijada == _HUELLA_DE_LA_1_3_17, (
+        f"La copia oficial ya no es la 1.3.17, y la ficha de {ficha} cuenta los "
+        "nombres que ha tenido la familia hasta ella: hay que reescribirla con la "
+        "versión nueva, y esta prueba con ella.")
+    assert "con la que se compara, la 1.3.17," in " ".join(CODIGOS[ficha].split())
 
 
-def test_la_ficha_de_br_af_01_cuenta_las_reglas_que_trae_la_copia():
-    """«Familia entera de diez reglas», y la copia trae diez BR-AF."""
+def test_la_ficha_de_br_ig_01_cuenta_las_reglas_que_trae_la_copia():
+    """«Familia entera de diez reglas», y la copia trae diez BR-IG en UBL."""
     from validador.glosario import CODIGOS
 
     reglas = set(re.findall(
-        r'name="(BR-AF-\d+)"',
+        r'name="(BR-IG-\d+)"',
         (RAIZ / "tests" / "en16931-oficial" / "EN16931-UBL-model.sch").read_text(encoding="utf-8")))
     en_letra = {10: "diez"}
     assert len(reglas) in en_letra, (
-        f"La copia oficial trae {len(reglas)} reglas BR-AF y la ficha de BR-AF-01 "
+        f"La copia oficial trae {len(reglas)} reglas BR-IG y la ficha de BR-IG-01 "
         "cuenta diez: hay que reescribirla, y esta prueba con ella.")
     assert (f"familia entera de {en_letra[len(reglas)]} reglas"
-            in " ".join(CODIGOS["BR-AF-01"].split()))
+            in " ".join(CODIGOS["BR-IG-01"].split()))
 
 
 def test_cada_pie_enlaza_las_dos_cuentas():

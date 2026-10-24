@@ -8949,3 +8949,57 @@ Ninguna regla cambia de qué se compara.
 **Provocado**, una rotura cada vez sobre `solucion_publica.py`: con el cargo
 otra vez en NOTA, una prueba en rojo; con el `0..1` otra vez en el aviso de
 los importes, tres; sin el anexo del portal en el aviso del `ProfileID`, una.
+
+## La 1.3.17 del CEN: un mapa escrito por nombre, y dos listas que ya no difieren
+
+**Cómo salió.** De la tanda de la 1.3.17 (paso 17b del plan), el 24-10-2026.
+Con la copia nueva y nada más, la suite dio veinte pruebas en rojo. Casi todas
+esperaban algo de la 1.3.17 (los nombres del IGIC y del IPSI, EL fuera de
+`BR-CO-09`, los VATEX-ES, la huella), y dos lo esperaban a propósito: las que
+atan las fichas `BR-AF-01` y `BR-AG-01` a la copia fijada.
+
+**Lo que no se esperaba, uno.** El mapa de familias de `test_norma_oficial`
+estaba escrito a mano, el mismo para las tres sintaxis y por el nombre de la
+regla: `AF` es la L, `AG` es la M. Renombrado sin más (`IG` la L, `IP` la M),
+en CII habría comparado el IGIC con las reglas del IPSI, porque la 1.3.17 las
+cruzó allí, y nada lo habría dicho: no se midió cuántas comparaciones habrían
+salido verdes así, porque no se llegó a correr. Ahora el mapa se lee de
+cada vinculación por la categoría que nombran sus expresiones, y una prueba
+compara lo leído con `Sintaxis.familias_de_su_esquematron`, que es lo que usa
+la nota del cero para citar el código que da el esquematrón de CII.
+
+**Lo que no se esperaba, dos.** Dos cosas que el validador, el README y las
+fichas contaban como diferencias entre UBL y CII dejaron de serlo: los países
+de CII ya no traen AN ni les falta SS (BR-CL-14, 15 y los prefijos de
+`BR-CO-09`), y los asuntos de nota de la vinculación de UBL son ya los
+mismos que los de CII. Lo dijo la prueba que vigila dónde difieren las
+listas, que es para lo que estaba. Y `BR-DEC-13` y `15` de CII envuelven el
+valor en `xs:decimal`: la expresión que reconocía «mira el valor» no lo
+reconocía, y la regla salía como ni una cosa ni otra.
+
+**Lo que se hizo**, con lo decidido el 12-10-2026: `BR-IG-*` y `BR-IP-*` en
+todas las sintaxis, con las fichas que cuentan los tres nombres y una frase del
+cruce de CII en las otras dieciocho; las fichas viejas y sus direcciones sin
+cero, con un 308 directo a la de su categoría; EL admitido con
+`IVA-PREFIJO-EL`; los VATEX-ES con `IVA-VATEX-ES`; las catorce listas
+regeneradas. El detalle, en el README.
+
+**Provocado**, una rotura cada vez y vuelta atrás:
+
+- el mapa de CII sin cruzar en `sintaxis.py`: la prueba de las familias, en
+  rojo;
+- `/codigo-BR-AF-03` llevado a `BR-IP-03` en `vercel.json`: la de las
+  redirecciones por categoría, en rojo;
+- EL devuelto a la lista de `BR-CO-09` en la copia: la que pide que siga
+  fuera, en rojo (la copia se restauró y su huella es la fijada);
+- la nota de los VATEX-ES apagada: dos pruebas en rojo;
+- la frase del cruce mandando a la ficha de la misma familia y no a la otra:
+  la prueba de las fichas, en rojo;
+- y una que saltó sin motivo: la prueba que vigila que nadie diga que
+  `BR-IG` no existe vio, con la ficha llamándose otra vez `BR-IG-08`, la
+  frase de al lado, «un tipo que no existe en España», que habla del IGIC y
+  no de su nombre. Se apartó «en España» y se comprobó que sigue viendo «una
+  regla BR-IG-5 que no existe» y «BR-IG no existe en ninguna norma». La
+  primera vez se escribió sin el `\b` y no apartaba nada: la expresión
+  retrocedía una letra y volvía a casar.
+

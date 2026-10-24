@@ -702,10 +702,11 @@ CODIGOS: dict[str, str] = {
     ),
     "IVA-CERO-ESQUEMATRON": (
         'Una factura en CII lleva conceptos de IGIC con el tipo a cero. La '
-        'norma lo admite: BR-AF-05, 06 y 07 piden un tipo `0 (zero) or '
+        'norma lo admite: BR-IG-05, 06 y 07 piden un tipo `0 (zero) or '
         'greater than zero` (cero o mayor que cero), y así lo escribe el '
-        'esquematrón oficial de UBL. El de CII exige un tipo mayor que cero y '
-        'lo rechaza, y en el IPSI, '
+        'esquematrón oficial de UBL. El de CII, que desde la versión 1.3.17 '
+        'las llama BR-IP-05, 06 y 07, exige un tipo mayor que cero y lo '
+        'rechaza, y en el IPSI, '
         'al lado, no. Se denunció en el repositorio oficial de la norma (la '
         'issue 519) y el 29 de septiembre de 2026 se cerró cambiando el '
         'nombre de las reglas, no la comparación. Aquí se sigue al texto de '
@@ -713,6 +714,29 @@ CODIGOS: dict[str, str] = {
         'existe porque quien la reciba y la valide con el esquematrón de CII '
         'la verá rechazada, y conviene saberlo antes de enviarla. En UBL no '
         'pasa.'
+    ),
+    "IVA-PREFIJO-EL": (
+        'Un identificador de IVA empieza por EL, que es como escribe Grecia '
+        'su prefijo en el IVA europeo: el artículo 215 de la Directiva '
+        '2006/112/CE la autoriza a usarlo en vez de GR, su código de ISO 3166, '
+        'y así lo da el VIES. El esquematrón oficial del CEN lo admitió en '
+        'BR-CO-09 hasta la versión 1.3.16, que es la que usa Peppol, y la '
+        '1.3.17, del 12-10-2026, lo quitó al poner la lista al día con ISO '
+        '3166. Aquí vale, y en la factura no hay nada que arreglar; la nota '
+        'existe porque quien la valide con el esquematrón de la 1.3.17 la verá '
+        'rechazada con BR-CO-09. Se avisó al CEN en su repositorio (la issue '
+        '532).'
+    ),
+    "IVA-VATEX-ES": (
+        'El motivo de una exención (BT-121) lleva un código VATEX-ES. La '
+        'lista CEF-VATEX, la de los motivos de exención, trae desde su versión '
+        '9 dieciocho códigos de España, del IVA, del IGIC y del IPSI, y el CEN '
+        'los anunció para usarse en la norma desde noviembre de 2026. El '
+        'esquematrón oficial los trae desde su versión 1.3.17, del 12-10-2026, '
+        'que es con la que se compara aquí, y por eso valen. El de la 1.3.16, '
+        'que es la que usa Peppol, no los tiene, y quien valide la factura '
+        'con él la verá rechazada con BR-CL-22. En la factura no hay nada que '
+        'arreglar; la nota existe para que se sepa antes de enviarla.'
     ),
     "EDI-ETIQUETA-IMPOSIBLE": (
         'Hay texto donde tenía que empezar un segmento. Una etiqueta EDIFACT '
@@ -2504,7 +2528,7 @@ CODIGOS: dict[str, str] = {
         'exportación o el importe es de otra entrada del desglose; en los dos '
         'casos la exención que la factura invoca no cuadra con lo que cobra.'
     ),
-    "BR-AF-01": (
+    "BR-IG-01": (
         'Hay conceptos con IGIC y el desglose no recoge esa categoría. El '
         'IGIC es el impuesto canario, que ocupa el lugar del IVA en las '
         'islas, y la norma europea lo trata como una categoría más, con su '
@@ -2514,9 +2538,17 @@ CODIGOS: dict[str, str] = {
         'publicar que de esa familia '
         'solo existían dos, porque se había supuesto que la norma no ataba ni '
         'el tipo ni el motivo del IGIC. Los ata, y se vio al comparar este '
-        'validador con el esquematrón oficial regla por regla.'
+        'validador con el esquematrón oficial regla por regla. El código '
+        'tampoco es el mismo en todas partes. En la versión 1.3.17 del '
+        'esquematrón del CEN, del 12-10-2026, la familia es BR-IG-* en UBL, '
+        'BR-IP-* en CII, que la cruzó con la del IPSI, y BR-AF-* en EDIFACT, '
+        'con BR-IG en el texto de sus mensajes. En UBL fue BR-IG-* hasta la '
+        '1.3.13 y BR-AF-* de la 1.3.14 a la 1.3.16. Aquí es BR-IG-* en todas '
+        'las sintaxis, que es como la llama el modelo de la norma en la '
+        'copia oficial con la que se compara, la 1.3.17, y las fichas BR-AF-* '
+        'llevan a éstas.'
     ),
-    "BR-AF-08": (
+    "BR-IG-08": (
         'La base declarada con IGIC no es la suma de los conceptos que van a '
         'ese impuesto y tipo. Es el mismo cuadre que en las demás categorías, '
         'con una diferencia que conviene saber: el IGIC tiene tipos propios, '
@@ -2527,7 +2559,7 @@ CODIGOS: dict[str, str] = {
         'ahí. Con menos de una unidad de margen en UBL y exacta en CII; lo '
         'que pasa por el margen sale como IVA-BASE-TOLERADA.'
     ),
-    "BR-AF-09": (
+    "BR-IG-09": (
         'La cuota de una entrada con IGIC se aparta una unidad o más de '
         'aplicar el tipo a la base. Es la cuenta de BR-CO-17 repetida para el '
         'IGIC, y no la evalúan todos: el esquematrón de UBL sí, con menos de '
@@ -2535,7 +2567,7 @@ CODIGOS: dict[str, str] = {
         'comprobar. Aquí se sigue a cada uno, así que en una factura CII sólo '
         'sale BR-CO-17. EDIFACT y Facturae van con UBL.'
     ),
-    "BR-AF-02": (
+    "BR-IG-02": (
         'Hay líneas con IGIC y la factura no identifica fiscalmente al '
         'vendedor. Es la misma exigencia que en el régimen general: el IGIC '
         'sustituye al IVA en Canarias, y quien lo repercute tiene que constar '
@@ -2544,17 +2576,17 @@ CODIGOS: dict[str, str] = {
         'no se evalúa, y no hace falta: el esquema ya exige el número de '
         'identificación fiscal de las dos partes.'
     ),
-    "BR-AF-03": (
-        'Lo mismo que BR-AF-02, cuando lo que va a IGIC es un descuento de '
+    "BR-IG-03": (
+        'Lo mismo que BR-IG-02, cuando lo que va a IGIC es un descuento de '
         'documento y no una línea. Da igual de qué cuelgue la categoría: la '
         'identificación que pide es la misma.'
     ),
-    "BR-AF-04": (
-        'Lo mismo que BR-AF-02, cuando lo que va a IGIC es un cargo de '
+    "BR-IG-04": (
+        'Lo mismo que BR-IG-02, cuando lo que va a IGIC es un cargo de '
         'documento (un porte, un embalaje) y no una línea. Suma a la misma '
         'base, y la factura tiene que identificar a las mismas partes.'
     ),
-    "BR-AF-05": (
+    "BR-IG-05": (
         'Una línea con IGIC declara un tipo negativo. La norma no le fija al '
         'IGIC un tipo concreto, pero sí el signo: cero o positivo. Lo que '
         'hace peligroso este error es que no descuadra nada. Una línea de 100 '
@@ -2567,7 +2599,7 @@ CODIGOS: dict[str, str] = {
         'El esquematrón oficial de CII rechaza también el cero, que la norma '
         'admite: aquí vale, y lo dice la nota IVA-CERO-ESQUEMATRON.'
     ),
-    "BR-AF-06": (
+    "BR-IG-06": (
         'Un descuento de los que van al pie de la factura, con IGIC, declara '
         'un tipo negativo. Un descuento ya resta por ser descuento: su '
         'importe baja la base de su tipo sin necesidad de ningún signo. '
@@ -2579,7 +2611,7 @@ CODIGOS: dict[str, str] = {
         'El esquematrón oficial de CII rechaza también el cero, que la norma '
         'admite: aquí vale, y lo dice la nota IVA-CERO-ESQUEMATRON.'
     ),
-    "BR-AF-07": (
+    "BR-IG-07": (
         'Un cargo de los que van al pie de la factura (un porte, un embalaje, '
         'un recargo), con IGIC, declara un tipo negativo. El cargo suma a la '
         'base de su tipo, y ese tipo tiene que ser cero o positivo como en '
@@ -2590,7 +2622,7 @@ CODIGOS: dict[str, str] = {
         'El esquematrón oficial de CII rechaza también el cero, que la norma '
         'admite: aquí vale, y lo dice la nota IVA-CERO-ESQUEMATRON.'
     ),
-    "BR-AF-10": (
+    "BR-IG-10": (
         'Una entrada de IGIC en el desglose trae motivo de exención, y la '
         'norma no lo permite: para el IGIC dice lo mismo que para el '
         'régimen general, que el motivo sobra. Lo que sí admite es el tipo cero, así '
@@ -2601,19 +2633,19 @@ CODIGOS: dict[str, str] = {
         'Canarias` pasaba limpia, y la ficha de este código ni siquiera '
         'existía.'
     ),
-    "BR-AG-01": (
+    "BR-IP-01": (
         'Hay conceptos con IPSI y el desglose no recoge esa categoría. El '
         'IPSI es el impuesto de Ceuta y Melilla, y el código de sus reglas '
-        'merece una nota, porque ha cambiado de nombre. En UBL, el '
-        'esquematrón del CEN las llamó BR-IP-* hasta la versión 1.3.13, de '
-        '2024, y BR-AG-* desde la 1.3.14. En CII fueron BR-AG-* hasta la '
-        '1.3.16, y en EDIFACT el código es BR-AG-* y el texto de sus mensajes '
-        'dice BR-IP-*. Aquí se usa BR-AG-*, que es el nombre en la copia '
-        'oficial con la que se compara, la 1.3.16. En la 1.3.17, del '
-        '12-10-2026, el IPSI vuelve a ser BR-IP-* en UBL y pasa a ser BR-IG-* '
-        'en CII.'
+        'merece una nota, porque ha cambiado de nombre y no es el mismo en '
+        'cada sintaxis. En la versión 1.3.17 del esquematrón del CEN, del '
+        '12-10-2026, la familia es BR-IP-* en UBL, BR-IG-* en CII, que la '
+        'cruzó con la del IGIC, y BR-AG-* en EDIFACT, con BR-IP en el texto '
+        'de sus mensajes. En UBL fue BR-IP-* hasta la 1.3.13 y BR-AG-* de la '
+        '1.3.14 a la 1.3.16. Aquí es BR-IP-* en todas las sintaxis, que es '
+        'como la llama el modelo de la norma en la copia oficial con la que '
+        'se compara, la 1.3.17, y las fichas BR-AG-* llevan a éstas.'
     ),
-    "BR-AG-08": (
+    "BR-IP-08": (
         'La base declarada con IPSI no es la suma de los conceptos que van a '
         'ese impuesto y tipo. El caso medido está entre las facturas de '
         'ejemplo que publica la Administración: 1163,52 de base al 3% y '
@@ -2624,14 +2656,14 @@ CODIGOS: dict[str, str] = {
         'menos de una unidad de margen en UBL y exacta en CII; lo que pasa '
         'por el margen sale como IVA-BASE-TOLERADA.'
     ),
-    "BR-AG-09": (
+    "BR-IP-09": (
         'La cuota de una entrada con IPSI se aparta una unidad o más de '
         'aplicar el tipo a la base. Igual que con el IGIC: el esquematrón de '
         'UBL la evalúa con menos de una unidad de margen y el de CII la da '
         'por duplicada de BR-CO-17 y no la mira, y aquí se sigue a cada uno. '
         'EDIFACT y Facturae van con UBL.'
     ),
-    "BR-AG-02": (
+    "BR-IP-02": (
         'Hay líneas con IPSI y la factura no identifica fiscalmente al '
         'vendedor. Igual que con el IVA y el IGIC: quien repercute el '
         'impuesto de Ceuta y Melilla tiene que constar con su identificador '
@@ -2640,17 +2672,17 @@ CODIGOS: dict[str, str] = {
         'hace falta: el esquema ya exige el número de identificación fiscal '
         'de las dos partes.'
     ),
-    "BR-AG-03": (
-        'Lo mismo que BR-AG-02, cuando lo que va a IPSI es un descuento de '
+    "BR-IP-03": (
+        'Lo mismo que BR-IP-02, cuando lo que va a IPSI es un descuento de '
         'documento y no una línea. Da igual de qué cuelgue la categoría: la '
         'identificación que pide es la misma.'
     ),
-    "BR-AG-04": (
-        'Lo mismo que BR-AG-02, cuando lo que va a IPSI es un cargo de '
+    "BR-IP-04": (
+        'Lo mismo que BR-IP-02, cuando lo que va a IPSI es un cargo de '
         'documento (un porte, un embalaje) y no una línea. Suma a la misma '
         'base, y la factura tiene que identificar a las mismas partes.'
     ),
-    "BR-AG-05": (
+    "BR-IP-05": (
         'Una línea con IPSI declara un tipo negativo. El IPSI, el impuesto de '
         'Ceuta y Melilla, tiene tipos propios, y la regla sobre su signo es '
         'la del resto: cero o positivo. Conviene no confundirla con la '
@@ -2658,7 +2690,7 @@ CODIGOS: dict[str, str] = {
         'línea sin tipo salta aquí aunque el desglose traiga el suyo, porque '
         'solo lo no sujeto va sin tipo.'
     ),
-    "BR-AG-06": (
+    "BR-IP-06": (
         'Un descuento de documento con IPSI declara un tipo negativo. La '
         'norma parte la misma comprobación en tres números según de dónde '
         'cuelgue el concepto (05 la línea, 06 el descuento de documento, 07 '
@@ -2668,7 +2700,7 @@ CODIGOS: dict[str, str] = {
         'mismo. '
         'Salta también si el descuento no trae tipo: solo lo no sujeto va sin él.'
     ),
-    "BR-AG-07": (
+    "BR-IP-07": (
         'Un cargo de documento con IPSI declara un tipo negativo. El cargo '
         'suma a la base de su tipo, y ese tipo tiene que ser cero o positivo. '
         'Si hay varios cargos con el mismo tipo negativo (el porte y el '
@@ -2677,7 +2709,7 @@ CODIGOS: dict[str, str] = {
         'cada uno. '
         'Salta también si el cargo no trae tipo: solo lo no sujeto va sin él.'
     ),
-    "BR-AG-10": (
+    "BR-IP-10": (
         'Una entrada de IPSI en el desglose trae motivo de exención, y la '
         'norma no lo permite. El motivo se exige donde hay algo que '
         'justificar (la exenta, la inversión del sujeto pasivo, la '
@@ -3158,8 +3190,9 @@ CODIGOS: dict[str, str] = {
         'El asunto de una nota (BT-21) no es un código de UNCL 4451. En UBL va '
         'dentro del texto de la nota, entre almohadillas (#AAI#Texto de la '
         'nota), y solo se mira si lo de dentro son tres caracteres; en CII es un '
-        'elemento propio. La lista es la del esquematrón de CII, que tiene todos '
-        'los códigos de la de UBL y dieciocho más. Solo se mira en UBL y en CII: '
+        'elemento propio. La lista es la del esquematrón de CII, que desde la '
+        'versión 1.3.17 es también la de la vinculación de UBL (hasta entonces '
+        'tenía dieciocho códigos más). Solo se mira en UBL y en CII: '
         'EDIFACT y Facturae no lo escriben.'
     ),
     "BR-CL-10": (
@@ -3187,10 +3220,11 @@ CODIGOS: dict[str, str] = {
     "BR-CL-14": (
         'El país de una dirección no es un código de ISO 3166-1 de dos letras: '
         'ES, y no ESP ni SP; GB, y no UK. Se miran todas las direcciones de la '
-        'factura. La lista es la del esquematrón de UBL: la de CII todavía tiene '
-        'AN, las Antillas Neerlandesas, y le falta SS, Sudán del Sur. En '
-        'Facturae el país va en tres letras y es de la lista de su esquema, y '
-        'aquí no se mira.'
+        'factura. La lista es la del esquematrón de UBL, que desde la versión '
+        '1.3.17 es también la de CII (hasta entonces la de CII tenía AN, las '
+        'Antillas Neerlandesas, y le faltaba SS, Sudán del Sur). En Facturae '
+        'el país va en tres letras y es de la lista de su esquema, y aquí no '
+        'se mira.'
     ),
     "BR-CL-15": (
         'El país de origen de un artículo (BT-159) no es un código de ISO 3166-1 '
@@ -3515,9 +3549,9 @@ CODIGOS: dict[str, str] = {
         "VATEX-EU ni un VATEX-ES, que son los únicos que admite la orden. La "
         "lista CEF-VATEX trae también los de otros países, como los VATEX-FR "
         "de Francia, y la norma europea los admite (BR-CL-22): son de su IVA, "
-        "no del español. En la versión de la lista que lleva Glosa-e no hay "
-        "ningún VATEX-ES; uno que no esté en ella lo dice BR-CL-22, y no esta "
-        "regla."
+        "no del español. Los VATEX-ES de la lista son dieciocho, del IVA, del "
+        "IGIC y del IPSI (la nota IVA-VATEX-ES dice desde cuándo); uno que no "
+        "esté en ella lo dice BR-CL-22, y no esta regla."
     ),
     "SPFE-CATEGORIA": (
         "La categoría de IVA es de la norma europea, pero no de la lista L4 "
@@ -4004,6 +4038,25 @@ CODIGOS: dict[str, str] = {
         "vuelve a montar quien la mantiene."
     ),
 }
+
+
+# El esquematrón de CII de la 1.3.17 cruzó los nombres: su BR-IP-* es el IGIC
+# y su BR-IG-*, el IPSI (`Sintaxis.familias_de_su_esquematron`). Quien busque
+# aquí el código que le dio un validador de CII cae en la ficha de la otra
+# categoría, y la ficha no lo sabría. Lo cuentan entero BR-IG-01 y BR-IP-01;
+# las demás lo dicen en una frase al final, la misma en las dieciocho, y por
+# eso se añade aquí y no a mano. `test_glosario` mira que diga lo que dice
+# `sintaxis`.
+for _numero in range(2, 11):
+    for _aqui, _en_cii in (("IG", "IP"), ("IP", "IG")):
+        _ficha = f"BR-{_aqui}-{_numero:02d}"
+        CODIGOS[_ficha] += (
+            f" En CII es al revés: desde la versión 1.3.17, su esquematrón "
+            f"llama a esta regla BR-{_en_cii}-{_numero:02d}, y BR-{_aqui}-{_numero:02d} "
+            f"a la {'del IPSI' if _aqui == 'IG' else 'del IGIC'}. Si el código "
+            f"lo da un validador de CII, la ficha que lo explica es "
+            f"BR-{_en_cii}-{_numero:02d}.")
+del _numero, _aqui, _en_cii, _ficha
 
 
 def explicar(codigo: str, familia: str) -> tuple[str, bool]:

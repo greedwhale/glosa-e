@@ -67,7 +67,7 @@ OFICIAL = pathlib.Path(__file__).resolve().parent / "en16931-oficial"
 
 # La huella de la copia. Si alguien la rehace con otro commit, esto se pone en
 # rojo y hay que cambiarla a sabiendas, junto con `PROCEDENCIA.md`.
-HUELLA = "78001153d1161ba4e003c4bd5e9f9d52030a71b9c4afb78fbe00b293a52e4226"
+HUELLA = "1f67b2a5d86f0f161d2cfa7ed14d7479a9e0562b299495b8545157a160b97de4"
 
 ISO = "{http://purl.oclc.org/dsdl/schematron}"
 VEFA = "{http://difi.no/xsd/vefa/validator/1.0}"
@@ -320,10 +320,60 @@ def test_toda_regla_implementada_tiene_prueba_oficial_o_se_dice():
 # el de UBL, que escribe `xs:decimal(cbc:TaxableAmount - 1) < (…)`.
 MARGEN = re.compile(r"-\s*1\s*\)?\s*(<=|<)")
 
-# El código de cada familia de reglas y la categoría UNCL5305 que comprueba.
-# Coinciden salvo tres: IC es K, AF es L y AG es M.
-FAMILIAS = {"S": "S", "Z": "Z", "E": "E", "AE": "AE", "IC": "K", "G": "G",
-            "O": "O", "AF": "L", "AG": "M"}
+# El código de cada familia de reglas y la categoría UNCL5305 que comprueba,
+# **leído de cada vinculación** por la categoría que nombran sus expresiones, y
+# no por el nombre de la regla. Hasta la 1.3.16 se escribía a mano, uno para
+# las tres sintaxis: coincidían salvo IC, que es K, y AF y AG, que eran L y M.
+# En la 1.3.17 UBL dice IG e IP, CII las cruzó (su IP es el IGIC) y EDIFACT
+# sigue con AF y AG. Con el mapa escrito por nombre, el IGIC de CII se habría
+# comparado con el IPSI de aquí, y no habría saltado nada que lo dijera.
+_CATEGORIA_NOMBRADA = re.compile(r"(?:CategoryCode|cbc:ID\)?|D_5305)\s*=\s*'([A-Z]{1,2})'")
+
+
+@functools.cache
+def familias(sintaxis: str) -> dict[str, str]:
+    """{código de la familia en esta vinculación: categoría que comprueba}."""
+    raiz = etree.parse(str(OFICIAL / f"EN16931-{sintaxis}-model.sch")).getroot()
+    nombradas: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
+    for p in raiz.iter(ISO + "param"):
+        nombre = re.fullmatch(r"BR-([A-Z]+)-\d\d", p.get("name").strip())
+        # La B, la del IVA con medio de pago, nombra la S para compararse con
+        # ella: no es una familia de categoría.
+        if nombre and nombre.group(1) != "B":
+            nombradas[nombre.group(1)].update(_CATEGORIA_NOMBRADA.findall(p.get("value")))
+    mapa = {}
+    for codigo, cuentas in nombradas.items():
+        if not cuentas:
+            continue
+        assert len(cuentas) == 1, f"{sintaxis} BR-{codigo}: nombra varias categorías {dict(cuentas)}"
+        mapa[codigo] = next(iter(cuentas))
+    assert sorted(mapa.values()) == sorted(iva.REGLAS), (sintaxis, mapa)
+    return mapa
+
+
+def regla_de(sintaxis: str, categoria: str, sufijo: str) -> str:
+    """Cómo se llama en esta vinculación la regla de una categoría."""
+    (codigo,) = [c for c, cat in familias(sintaxis).items() if cat == categoria]
+    return f"BR-{codigo}-{sufijo}"
+
+
+def test_cada_esquematron_llama_a_las_familias_como_dice_sintaxis():
+    """El IGIC y el IPSI, con el nombre que les da cada vinculación oficial.
+
+    Es lo que usa la nota del cero para citar la regla que dará el
+    esquematrón de la sintaxis, que en CII no es la de aquí. Las demás
+    familias se llaman igual en las tres, y aquí también.
+    """
+    for nombre, mapa in (("UBL", SINTAXIS_UBL), ("CII", SINTAXIS_CII), ("EDIFACT", SINTAXIS_EDIFACT)):
+        leido = {cat: codigo for codigo, cat in familias(nombre).items()}
+        assert {c: leido[c] for c in ("L", "M")} == mapa.familias_de_su_esquematron, nombre
+        for categoria, regla in iva.REGLAS.items():
+            if categoria not in ("L", "M"):
+                assert leido[categoria] == regla.codigo, (nombre, categoria)
+    # Facturae no tiene esquematrón europeo, y va con UBL.
+    assert SINTAXIS_FACTURAE.familias_de_su_esquematron == SINTAXIS_UBL.familias_de_su_esquematron
+    # Y los de aquí son los del modelo de la norma, los de UBL.
+    assert {c: iva.REGLAS[c].codigo for c in ("L", "M")} == SINTAXIS_UBL.familias_de_su_esquematron
 
 
 @functools.cache
@@ -342,10 +392,10 @@ def margen(sintaxis: str, regla: str) -> str:
 
 
 def _con_margen(sintaxis: str) -> set[str]:
-    salen = {familia: margen(sintaxis, f"BR-{familia}-08") for familia in FAMILIAS}
+    salen = {familia: margen(sintaxis, f"BR-{familia}-08") for familia in familias(sintaxis)}
     assert set(salen.values()) <= {"exacta", "<"}, (
         f"{sintaxis}: un BR-{{X}}-08 con «<=», que aquí no está previsto: {salen}")
-    return {FAMILIAS[f] for f, m in salen.items() if m == "<"}
+    return {familias(sintaxis)[f] for f, m in salen.items() if m == "<"}
 
 
 def test_la_base_lleva_el_margen_del_esquematron_de_ubl():
@@ -426,14 +476,15 @@ def test_sin_tipo_saltan_las_del_tipo_salvo_en_la_no_sujeta():
     vacio = etree.fromstring("<concepto/>")
     distintos = []
     for sintaxis in ("UBL", "CII", "EDIFACT"):
-        for familia, categoria in FAMILIAS.items():
+        for familia, categoria in familias(sintaxis).items():
             for sufijo in ("05", "06", "07"):
                 regla = f"BR-{familia}-{sufijo}"
                 expresion = vinculacion(sintaxis)[regla].replace("xs:decimal(", "number(")
                 salta = not vacio.xpath(expresion, namespaces=espacios)
                 apunte = iva.Apunte("concepto", None, categoria, None,
                                     es_ajuste=sufijo != "05", es_cargo=sufijo == "07")
-                dice = regla in {i.codigo for i in iva._regla_tipo_de_los_conceptos([apunte])}
+                aqui = f"BR-{iva.REGLAS[categoria].codigo}-{sufijo}"
+                dice = aqui in {i.codigo for i in iva._regla_tipo_de_los_conceptos([apunte])}
                 assert salta == (familia != "O"), (sintaxis, regla, expresion)
                 if dice != salta:
                     distintos.append(f"{sintaxis} {regla}")
@@ -450,7 +501,7 @@ def _rechazan_el_cero(sintaxis: str) -> set[str]:
         "<cbc:Percent>0</cbc:Percent><ram:RateApplicablePercent>0</ram:RateApplicablePercent>"
         "<C_C243><D_5278>0</D_5278></C_C243></c>")
     rechazan = set()
-    for familia, categoria in FAMILIAS.items():
+    for familia, categoria in familias(sintaxis).items():
         saltan = {not con_cero.xpath(vinculacion(sintaxis)[f"BR-{familia}-{s}"]
                                      .replace("xs:decimal(", "number("), namespaces=espacios)
                   for s in ("05", "06", "07")}
@@ -461,7 +512,7 @@ def _rechazan_el_cero(sintaxis: str) -> set[str]:
 
 
 def test_el_cero_que_la_norma_admite_y_cada_esquematron_rechaza():
-    """BR-AF y BR-AG, 05 a 07: el texto admite el cero, y el esquematrón de CII no.
+    """BR-IG y BR-IP, 05 a 07: el texto admite el cero, y el esquematrón de CII no.
 
     El texto de la regla dice «0 (zero) or greater than zero» en el IGIC y en
     el IPSI. La vinculación de UBL lo escribe `>= 0`; la de CII, `> 0` en el
@@ -474,9 +525,10 @@ def test_el_cero_que_la_norma_admite_y_cada_esquematron_rechaza():
     """
     texto = {a.get("id"): "".join(a.itertext())
              for a in etree.parse(str(OFICIAL / "EN16931-model.sch")).getroot().iter(ISO + "assert")}
-    for familia in ("AF", "AG"):
+    for categoria in ("L", "M"):
         for sufijo in ("05", "06", "07"):
-            assert "shall be 0 (zero) or greater than zero" in texto[f"BR-{familia}-{sufijo}"]
+            regla = f"BR-{iva.REGLAS[categoria].codigo}-{sufijo}"
+            assert "shall be 0 (zero) or greater than zero" in texto[regla]
     # Las demás piden lo mismo en el texto y en las dos vinculaciones: el cero
     # en Z, E, AE, K y G, ningún tipo en la O y uno positivo en la S.
     assert _rechazan_el_cero("UBL") == {"S", "O"}
@@ -491,8 +543,8 @@ def test_la_cuota_de_cada_categoria_es_la_de_su_esquematron():
 
     Las seis de tipo cero comparan con `= 0`, sin margen, en UBL y en CII. Las
     tres de tipo positivo repiten la cuenta de BR-CO-17 con menos de una unidad
-    de margen, pero no en todas partes: el esquematrón de CII da BR-AF-09 y
-    BR-AG-09 por duplicadas de BR-CO-17 y las deja en `true()`. Lo que
+    de margen, pero no en todas partes: el esquematrón de CII da BR-IG-09 y
+    BR-IP-09 por duplicadas de BR-CO-17 y las deja en `true()`. Lo que
     `sintaxis.py` dice de eso se lee de aquí.
     """
     for sintaxis, mapa in (("UBL", SINTAXIS_UBL), ("CII", SINTAXIS_CII)):
@@ -501,12 +553,13 @@ def test_la_cuota_de_cada_categoria_es_la_de_su_esquematron():
             assert margen(sintaxis, regla) == "exacta", (sintaxis, regla)
             assert re.search(r"=\s*0\s*$", vinculacion(sintaxis)[regla]), (sintaxis, regla)
         activas = set()
-        for familia in ("S", "AF", "AG"):
-            expresion = vinculacion(sintaxis)[f"BR-{familia}-09"].strip()
+        for categoria in ("S", "L", "M"):
+            regla = regla_de(sintaxis, categoria, "09")
+            expresion = vinculacion(sintaxis)[regla].strip()
             if expresion == "true()":
                 continue
-            assert margen(sintaxis, f"BR-{familia}-09") == "<", (sintaxis, familia)
-            activas.add(FAMILIAS[familia])
+            assert margen(sintaxis, regla) == "<", (sintaxis, regla)
+            activas.add(categoria)
         assert activas == set(mapa.comprueba_la_cuota_por_tipo), sintaxis
     for mapa in (SINTAXIS_EDIFACT, SINTAXIS_FACTURAE):
         assert mapa.comprueba_la_cuota_por_tipo == SINTAXIS_UBL.comprueba_la_cuota_por_tipo
@@ -533,7 +586,7 @@ def test_los_identificadores_de_cada_categoria_son_los_de_la_vinculacion():
     caso a caso; esto comprueba que la tabla no dice de más ni de menos en los
     casos que las pruebas no montan.
     """
-    for familia, categoria in FAMILIAS.items():
+    for familia, categoria in familias("UBL").items():
         exigidos: set[str] = set()
         for _, campos, _ in iva.IDENTIFICADORES_EXIGIDOS.get(categoria, ()):
             campos = set(campos)
@@ -558,14 +611,28 @@ def test_los_identificadores_de_cada_categoria_son_los_de_la_vinculacion():
 def test_los_prefijos_del_iva_son_los_de_la_vinculacion_de_ubl():
     """BR-CO-09: la lista de `modelo.py`, código a código, contra la oficial.
 
-    La de CII no es la misma —trae AN y le falta SS— y por eso se dice cuál se
-    sigue. Si el comité cambia la de UBL, esto se pone en rojo.
+    Hasta la 1.3.16 la de CII no era la misma (traía AN y le faltaba SS), y por
+    eso se dice cuál se sigue; en la 1.3.17 son iguales. Si el comité cambia la
+    de UBL, esto se pone en rojo.
     """
     listas = re.findall(r"'( [^']+ )'", vinculacion("UBL")["BR-CO-09"])
     assert len(listas) == 1
-    assert modelo.PREFIJOS_IVA == frozenset(listas[0].split())
+    assert modelo.PREFIJOS_DE_LA_VINCULACION == frozenset(listas[0].split())
     cii = frozenset(re.findall(r"'( [^']+ )'", vinculacion("CII")["BR-CO-09"])[0].split())
-    assert modelo.PREFIJOS_IVA ^ cii == {"AN", "SS"}
+    assert frozenset(listas[0].split()) == cii
+
+
+def test_el_sigue_fuera_de_br_co_09_y_aqui_se_admite():
+    """EL, Grecia: la 1.3.17 lo quitó, y aquí se admite con IVA-PREFIJO-EL.
+
+    Si el CEN lo devuelve (se le pidió en la issue 532), esto se pone en rojo:
+    la nota deja de ser cierta y hay que quitarla, con este apartado.
+    """
+    for sintaxis in ("UBL", "CII"):
+        lista = re.findall(r"'( [^']+ )'", vinculacion(sintaxis)["BR-CO-09"])[0].split()
+        assert modelo.PREFIJO_QUE_QUITO_LA_1_3_17 not in lista, (
+            f"{sintaxis}: BR-CO-09 vuelve a admitir EL, y la nota IVA-PREFIJO-EL sobra")
+    assert modelo.PREFIJOS_IVA - modelo.PREFIJOS_DE_LA_VINCULACION == {"EL"}
 
 
 def test_la_transferencia_es_la_que_nombra_cada_vinculacion():
@@ -609,7 +676,11 @@ def test_las_repetidas_son_la_misma_regla_en_la_vinculacion_y_aqui():
 # aquí. Facturae no tiene vinculación y se decide en `sintaxis.py`.
 
 CUENTA_LO_ESCRITO = re.compile(r"string-length\(substring-after\(")
-MIRA_EL_VALOR = re.compile(r"round\(\s*\.\s*\*\s*100\s*\)\s*div\s*100")
+# Con `xs:decimal(.)` o con `.` a secas: la 1.3.17 envolvió el punto en CII
+# (BR-DEC-13 y 15) para que el redondeo sea decimal y no de coma flotante, y lo
+# que se compara sigue siendo el valor.
+MIRA_EL_VALOR = re.compile(
+    r"round\(\s*(?:xs:decimal\(\s*\.\s*\)|\.)\s*\*\s*100\s*\)\s*div\s*100")
 
 
 @pytest.mark.parametrize("nombre, sintaxis", [
@@ -670,13 +741,14 @@ def test_donde_cii_dice_otra_lista_es_por_lo_que_se_dice():
     otra, esto se pone en rojo y hay que volver a decidir."""
     ubl, cii = listas_oficiales("UBL"), listas_oficiales("CII")
     distintas = {r for r in ubl.keys() & cii.keys() if ubl[r] != cii[r]}
-    assert distintas == {"BR-CL-01", "BR-CL-06", "BR-CL-14", "BR-CL-15"}, distintas
-    for regla in ("BR-CL-14", "BR-CL-15"):
-        assert cii[regla] - ubl[regla] == {"AN"} and ubl[regla] - cii[regla] == {"SS"}
+    # Los países (BR-CL-14 y 15) dejaron de ser distintos en la 1.3.17 (#509):
+    # hasta la 1.3.16 la de CII tenía AN y le faltaba SS.
+    assert distintas == {"BR-CL-01", "BR-CL-06"}, distintas
     # El asunto de la nota no está en el esquematrón de códigos de UBL: está en
-    # su vinculación, con la lista de antes, y la de CII la contiene.
+    # su vinculación. Hasta la 1.3.16 llevaba la lista de antes, y a la de CII
+    # le sobraban dieciocho; en la 1.3.17 son la misma.
     lista_ubl = frozenset(LISTA_ENTRE_ESPACIOS.findall(vinculacion("UBL")["BR-CL-08"])[0].split())
-    assert lista_ubl < cii["BR-CL-08"] and len(cii["BR-CL-08"] - lista_ubl) == 18
+    assert lista_ubl == cii["BR-CL-08"]
 
 
 def test_los_codigos_de_devengo_son_los_de_cada_esquematron():

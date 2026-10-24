@@ -265,9 +265,9 @@ class Sintaxis:
 
     # En qué categorías el esquematrón oficial de esta sintaxis rechaza un
     # tipo a cero que la norma admite, para decirlo. Hoy se dice una: el IGIC
-    # en CII, cuyas BR-AF-05 a 07 comparan con `> 0` cuando el texto de la
-    # regla dice «0 (zero) or greater than zero», y la vinculación de UBL,
-    # `>= 0`. Aquí se sigue al texto, como con el periodo que el esquematrón
+    # en CII, cuyas BR-IP-05 a 07 (las BR-IG-05 a 07 de aquí) comparan con
+    # `> 0` cuando el texto de la regla dice «0 (zero) or greater than zero»,
+    # y la vinculación de UBL, `>= 0`. Aquí se sigue al texto, como con el periodo que el esquematrón
     # de CII no encuentra, y el motor lo dice en una nota
     # (IVA-CERO-ESQUEMATRON): quien reciba la factura y la pase por ese
     # esquematrón la verá rechazada. Lo lee de la vinculación oficial
@@ -275,6 +275,16 @@ class Sintaxis:
     # y M, y no se dice: EDIFACT va con UBL, como en los márgenes, porque su
     # esquematrón se quedó en 2017 (lo prueba `test_norma_oficial`).
     cero_que_rechaza_su_esquematron: frozenset[str]
+
+    # Cómo llama el esquematrón oficial de esta sintaxis a las familias del
+    # IGIC (L) y del IPSI (M), que no es siempre como las llama el modelo de la
+    # norma ni como se llaman aquí (`iva.REGLAS`). En la 1.3.17, UBL dice IG e
+    # IP, como el modelo; CII las cruzó, y su BR-IP es el IGIC; EDIFACT sigue
+    # con AF y AG. Sirve para que una nota que cita una regla del esquematrón
+    # de la sintaxis cite el código que ese esquematrón da. `test_norma_oficial`
+    # lo lee de la vinculación por la categoría que mira cada regla, no por su
+    # nombre. Facturae no tiene esquematrón europeo, y va con UBL.
+    familias_de_su_esquematron: dict[str, str]
 
     # Qué medios de pago son una transferencia, que es cuando BR-50 y BR-61
     # piden la cuenta. En UBL, CII y EDIFACT son los códigos UNCL4461 que nombra
@@ -475,6 +485,7 @@ SINTAXIS_UBL = Sintaxis(
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
     cero_que_rechaza_su_esquematron=frozenset(),
+    familias_de_su_esquematron={"L": "IG", "M": "IP"},
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset(),
     monedas_de_importes=(
@@ -705,7 +716,8 @@ SINTAXIS_CII = Sintaxis(
     cuota_admite_la_unidad_justa=True,  # el esquematrón de CII: `<=`
     base_admite_una_unidad=frozenset({"Z", "E", "AE", "K", "G"}),
     comprueba_la_cuota_por_tipo=frozenset({"S"}),
-    cero_que_rechaza_su_esquematron=frozenset({"L"}),  # BR-AF-05 a 07: `> 0`
+    cero_que_rechaza_su_esquematron=frozenset({"L"}),  # su BR-IP-05 a 07: `> 0`
+    familias_de_su_esquematron={"L": "IP", "M": "IG"},  # cruzadas en la 1.3.17
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset({"BR-DEC-13", "BR-DEC-15"}),
     # En CII solo el total del impuesto lleva moneda: los demás importes van
@@ -1007,6 +1019,7 @@ SINTAXIS_EDIFACT = Sintaxis(
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
     cero_que_rechaza_su_esquematron=frozenset(),
+    familias_de_su_esquematron={"L": "AF", "M": "AG"},
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset(),
     # Las listas de códigos. El esquematrón de códigos de EDIFACT es de 2017 y
@@ -1373,6 +1386,7 @@ SINTAXIS_FACTURAE = Sintaxis(
     base_admite_una_unidad=frozenset({"S", "L", "M"}),  # también el de UBL
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),  # y aquí
     cero_que_rechaza_su_esquematron=frozenset(),  # y en esto
+    familias_de_su_esquematron={"L": "IG", "M": "IP"},  # y en esto
     # «04 Transferencia», en `PaymentMeansType` del esquema oficial.
     medios_de_transferencia=frozenset({"04"}),
     # Los importes de Facturae no llevan moneda: la de la factura va una vez.

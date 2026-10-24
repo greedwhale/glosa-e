@@ -1916,12 +1916,19 @@ class TestElDesglose:
                    "SPFE-EXENCION") == []
 
     def test_un_vatex_es_lo_juzga_br_cl_22_con_la_lista(self):
-        """La orden admite los VATEX-ES, y en la lista que lleva Glosa no hay
-        ninguno: si no está en la lista, lo dice BR-CL-22, y no esta regla."""
-        con_es = _sin_cuota(DEL_BOE, "E", "0", "0", "VATEX-ES-20-1")
-        assert "SPFE-EXENCION" not in codigos(con_es)
-        assert "BR-CL-22" in {i.codigo for i in factura.validar(con_es.encode("utf-8")).errores}
-        assert not any(codigo.startswith("VATEX-ES") for codigo in listas_de_codigos.VATEX)
+        """La orden admite los VATEX-ES. Uno de la lista vale, con la nota de
+        desde cuándo; uno que no está lo dice BR-CL-22, y no esta regla."""
+        bueno = _sin_cuota(DEL_BOE, "E", "0", "0", "VATEX-ES-IVA20")
+        assert "SPFE-EXENCION" not in codigos(bueno)
+        informe = factura.validar(bueno.encode("utf-8"))
+        assert "BR-CL-22" not in {i.codigo for i in informe.errores}
+        assert "IVA-VATEX-ES" in {i.codigo for i in informe.incidencias if i.gravedad == NOTA}
+        inventado = _sin_cuota(DEL_BOE, "E", "0", "0", "VATEX-ES-20-1")
+        assert "SPFE-EXENCION" not in codigos(inventado)
+        informe = factura.validar(inventado.encode("utf-8"))
+        assert "BR-CL-22" in {i.codigo for i in informe.errores}
+        assert "IVA-VATEX-ES" not in {i.codigo for i in informe.incidencias}
+        assert sum(codigo.startswith("VATEX-ES-") for codigo in listas_de_codigos.VATEX) == 18
 
 
 class TestLosImpuestosYTasas:

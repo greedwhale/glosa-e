@@ -54,7 +54,7 @@ from __future__ import annotations
 
 import re
 
-from validador.incidencias import AVISO, ERROR, Incidencia
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 from validador.sintaxis import (
     SIN_MAPA,
     Sintaxis,
@@ -64,18 +64,19 @@ from validador.sintaxis import (
     texto,
 )
 
-__all__ = ["PREFIJOS_IVA", "grupos", "reglas"]
+__all__ = ["PREFIJOS_DE_LA_VINCULACION", "PREFIJOS_IVA", "grupos", "reglas"]
 
 # Los prefijos que BR-CO-09 admite en un identificador de IVA: los códigos
-# ISO 3166-1 alfa-2, más EL para Grecia y 1A para Kosovo. Copiados de la
-# vinculación oficial de UBL, que es de donde salen las pruebas; la de CII trae
-# AN —las Antillas Neerlandesas, que dejaron de existir en 2010— y le falta SS,
-# Sudán del Sur. `test_norma_oficial` compara esta lista con la oficial, así
-# que no puede quedarse vieja sin que se note.
-PREFIJOS_IVA = frozenset(
+# ISO 3166-1 alfa-2, más 1A para Kosovo. Copiados de la vinculación oficial de
+# UBL, que es de donde salen las pruebas; hasta la
+# 1.3.16 la de CII traía AN (las Antillas Neerlandesas, que dejaron de existir
+# en 2010) y le faltaba SS, Sudán del Sur, y en la 1.3.17 son la misma.
+# `test_norma_oficial` compara esta lista con la oficial, así que no puede
+# quedarse vieja sin que se note.
+PREFIJOS_DE_LA_VINCULACION = frozenset(
     "1A AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI "
     "BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO "
-    "CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH EL ER ES ET FI FJ FK FM "
+    "CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM "
     "FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR "
     "HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW "
     "KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO "
@@ -85,6 +86,18 @@ PREFIJOS_IVA = frozenset(
     "TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS XI YE YT ZA "
     "ZM ZW".split()
 )
+
+# EL, Grecia. Es el prefijo de Grecia en el IVA europeo: el artículo 215 de la
+# Directiva 2006/112/CE la autoriza a usarlo en vez de GR, y así lo escribe el
+# VIES. El esquematrón del CEN lo admitió hasta la 1.3.16, que es la que usa
+# Peppol, y la 1.3.17 (12-10-2026) lo quitó de la lista de BR-CO-09 al ponerla
+# al día con ISO 3166, donde Grecia es GR. Aquí se sigue admitiendo, porque un
+# NIF griego escrito como lo escribe Grecia no está mal, con una nota que dice
+# que el esquematrón de la 1.3.17 lo rechaza (IVA-PREFIJO-EL). Se avisó al CEN
+# en la issue 532. `test_norma_oficial` se pone en rojo el día que la
+# vinculación lo devuelva, y entonces la nota sobra.
+PREFIJO_QUE_QUITO_LA_1_3_17 = "EL"
+PREFIJOS_IVA = PREFIJOS_DE_LA_VINCULACION | {PREFIJO_QUE_QUITO_LA_1_3_17}
 
 # Los grupos, y cómo se llama cada uno en el informe.
 _NOMBRE_DEL_GRUPO = {
@@ -719,9 +732,11 @@ def _regla_prefijo_del_nif(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
 
     Es lo que lo hace legible desde otro país: `B12345678` es un NIF español
     para quien ya sabe que es español, y `ESB12345678` lo es para cualquiera.
-    Grecia usa EL, no GR.
+    Grecia usa EL, no GR, y la nota IVA-PREFIJO-EL dice que el esquematrón de
+    la 1.3.17 ya no lo admite (`PREFIJO_QUE_QUITO_LA_1_3_17`).
     """
     sin_prefijo = []
+    con_el = []
     for quien, ruta in (
         ("vendedor", sintaxis.vendedor_nif),
         ("representante fiscal", sintaxis.representante_nif),
@@ -731,9 +746,25 @@ def _regla_prefijo_del_nif(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
             valor = _escrito(nodo)
             if valor and valor[:2] not in PREFIJOS_IVA:
                 sin_prefijo.append(f"{quien}: {valor}")
+            elif valor[:2] == PREFIJO_QUE_QUITO_LA_1_3_17:
+                con_el.append(f"{quien}: {valor}")
+    incidencias = []
+    if con_el:
+        incidencias.append(Incidencia(
+            "IVA-PREFIJO-EL",
+            NOTA,
+            "Hay identificadores de IVA que empiezan por EL, el prefijo de "
+            "Grecia en el IVA europeo, y aquí valen. El esquematrón oficial "
+            "del CEN lo admitía hasta su versión 1.3.16, que es la que usa "
+            "Peppol, y desde la 1.3.17 lo rechaza con BR-CO-09: quien valide "
+            "la factura con esa versión la verá rechazada.",
+            campo="Identificador de IVA",
+            esperado="EL (o GR, según la versión del esquematrón)",
+            encontrado="; ".join(con_el),
+        ))
     if not sin_prefijo:
-        return []
-    return [
+        return incidencias
+    return incidencias + [
         Incidencia(
             "BR-CO-09",
             ERROR,

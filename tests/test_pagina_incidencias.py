@@ -26,7 +26,7 @@ import re
 
 import pytest
 
-from validador import pagina_incidencias
+from validador import iva, pagina_incidencias
 from validador.codigos import Codigo, SinLeer, codigos_del_paquete, \
     sin_leer_del_paquete
 
@@ -324,6 +324,31 @@ class TestLasDireccionesViejas:
             origen = "/" + pagina_incidencias.FICHA.format(viejo).removesuffix(".html")
             destino = "/" + pagina_incidencias.FICHA.format(nuevo).removesuffix(".html")
             assert redirecciones[origen]["destination"] == destino, origen
+
+    def test_las_del_igic_y_del_ipsi_llevan_a_su_categoria(self):
+        """BR-AF a BR-IG y BR-AG a BR-IP, número a número, y no al revés.
+
+        Las fichas del IGIC y del IPSI se publicaron como `BR-AF-*` y
+        `BR-AG-*` hasta el 24-10-2026, cuando la copia fijada pasó a la 1.3.17
+        y aquí se llamaron otra vez `BR-IG-*` y `BR-IP-*`. Que las dos
+        familias se crucen no lo vería nadie: la ficha de destino existe. Y en
+        CII la 1.3.17 sí las cruzó, así que la tentación está ahí.
+        """
+        redirecciones = self._redirecciones()
+        for viejo, nuevo, categoria in (("AF", "IG", "L"), ("AG", "IP", "M")):
+            assert iva.REGLAS[categoria].codigo == nuevo
+            for n in range(1, 11):
+                origen = f"/codigo-BR-{viejo}-{n:02d}"
+                assert redirecciones[origen]["destination"] == f"/codigo-BR-{nuevo}-{n:02d}", origen
+                if n < 10:
+                    corto = f"/codigo-BR-{viejo}-{n}"
+                    assert redirecciones[corto]["destination"] == f"/codigo-BR-{nuevo}-{n:02d}", corto
+
+    def test_ninguna_redireccion_lleva_a_otra_redireccion(self):
+        """Una cadena cuesta un salto más, y los buscadores no siguen muchos."""
+        redirecciones = self._redirecciones()
+        encadenadas = [o for o, r in redirecciones.items() if r["destination"] in redirecciones]
+        assert not encadenadas, ", ".join(encadenadas)
 
     def test_ninguna_redireccion_tapa_una_ficha_ni_lleva_a_ninguna_parte(self):
         """Una redirección mal puesta es peor que un 404: se lleva la buena."""

@@ -22,9 +22,10 @@ dice. Pasó. Del 12 al 13 de septiembre de 2026 este fichero sostenía que eran
 46 y no 54, que ocho códigos de IGIC e IPSI «no existen», y lo comprobaba
 provocándolos y viendo que no salían. No salían porque la tabla decía que la
 norma no ataba a esas dos categorías, y la norma sí las ata: el esquematrón
-oficial trae BR-AF-05, 06, 07 y 10 y los mismos de BR-AG. Las tres opiniones
-eran la misma equivocación contada tres veces. La cuarta es la norma escrita,
-y está en `test_la_tabla_dice_lo_que_dice_el_esquematron`.
+oficial trae BR-AF-05, 06, 07 y 10 y los mismos de BR-AG (BR-IG y BR-IP desde
+la 1.3.17). Las tres opiniones eran la misma equivocación contada tres veces.
+La cuarta es la norma escrita, y está en
+`test_la_tabla_dice_lo_que_dice_el_esquematron`.
 """
 from __future__ import annotations
 
@@ -72,21 +73,21 @@ LOS_COMPUESTOS = (
     "BR-G-06", "BR-G-07", "BR-G-08", "BR-G-09", "BR-G-10",
     "BR-O-01", "BR-O-02", "BR-O-03", "BR-O-04", "BR-O-05",
     "BR-O-06", "BR-O-07", "BR-O-08", "BR-O-09", "BR-O-10",
-    "BR-AF-01", "BR-AF-02", "BR-AF-03", "BR-AF-04", "BR-AF-05",
-    "BR-AF-06", "BR-AF-07", "BR-AF-08", "BR-AF-09", "BR-AF-10",
-    "BR-AG-01", "BR-AG-02", "BR-AG-03", "BR-AG-04", "BR-AG-05",
-    "BR-AG-06", "BR-AG-07", "BR-AG-08", "BR-AG-09", "BR-AG-10",
+    "BR-IG-01", "BR-IG-02", "BR-IG-03", "BR-IG-04", "BR-IG-05",
+    "BR-IG-06", "BR-IG-07", "BR-IG-08", "BR-IG-09", "BR-IG-10",
+    "BR-IP-01", "BR-IP-02", "BR-IP-03", "BR-IP-04", "BR-IP-05",
+    "BR-IP-06", "BR-IP-07", "BR-IP-08", "BR-IP-09", "BR-IP-10",
 )
 
 # Los ocho que este fichero dio por inexistentes, nombrados uno a uno para que
 # la corrección no dependa de que alguien se acuerde de ella.
 LOS_OCHO_QUE_SI_EXISTEN = (
-    "BR-AF-05", "BR-AF-06", "BR-AF-07", "BR-AF-10",
-    "BR-AG-05", "BR-AG-06", "BR-AG-07", "BR-AG-10",
+    "BR-IG-05", "BR-IG-06", "BR-IG-07", "BR-IG-10",
+    "BR-IP-05", "BR-IP-06", "BR-IP-07", "BR-IP-10",
 )
 
 # Lo que dice el esquematrón oficial de cada categoría, copiado de su texto
-# (`eInvoicing-EN16931`, v1.3.16, `schematron/abstract/EN16931-model.sch`) y no
+# (`eInvoicing-EN16931`, v1.3.17, `schematron/abstract/EN16931-model.sch`) y no
 # de la tabla de `iva.py`. Tipo: BR-{X}-05 a 07. Motivo: BR-{X}-10.
 #
 #   S   «shall be greater than zero»             · «shall not have» motivo

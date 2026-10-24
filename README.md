@@ -32,7 +32,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3608 tests, todos en verde.
+3618 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -1410,8 +1410,8 @@ Ahora se deduce lo que se puede deducir:
 | Lo escrito | Se deduce | Por qué |
 |---|---|---|
 | `01` con tipo > 0 | **S** | IVA a tipo positivo solo puede ser sujeta y no exenta |
-| `03` | **L** (BR-AF-*) | el IGIC identifica su familia de reglas |
-| `02` | **M** (BR-AG-*) | ídem el IPSI |
+| `03` | **L** (BR-IG-*) | el IGIC identifica su familia de reglas |
+| `02` | **M** (BR-IP-*) | ídem el IPSI |
 | `01` con tipo 0 | **nada** | y se dice |
 
 La última fila es la importante. Un cero en Facturae puede ser exenta, no
@@ -1441,7 +1441,7 @@ borde —**basta una línea muda para que no se conteste**—, y se provocó dej
 la lectura sin efecto: caen las cuatro pruebas del caso que sí contesta y
 ninguna de las otras cinco.
 
-Lo que esto abre: las reglas BR-S-*, BR-AF-* y BR-AG-* ya corren de verdad
+Lo que esto abre: las reglas BR-S-*, BR-IG-* y BR-IP-* ya corren de verdad
 sobre facturas españolas, que antes no las miraba nadie.
 
 ### BT-3 y el país: traducir el vocabulario, y negarse cuando no se puede
@@ -4569,7 +4569,7 @@ y los esquemas de `web/paquete.zip`:
 | la no sujeta con tipo 0 | sin errores | sin errores |
 | la exención con un VATEX-EU | sin errores | sin errores |
 | con un VATEX-FR | sin errores | ERROR `SPFE-EXENCION` |
-| con un VATEX-ES | `BR-CL-22` | `BR-CL-22` |
+| con un VATEX-ES que no está en la lista | `BR-CL-22` | `BR-CL-22` |
 
 **Lo que se decidió sin preguntar, y por qué.**
 
@@ -4598,10 +4598,11 @@ y los esquemas de `web/paquete.zip`:
   tipo ya lo dice `BR-48`, y dos quejas por lo mismo no dicen más que una.
   Medido: en Glosa, una entrada `O` con tipo 0 no hace saltar ninguna regla
   de la norma, así que lo que la orden pide se puede cumplir sin romper nada.
-- **Los VATEX-ES los juzga `BR-CL-22`.** La versión de la lista CEF-VATEX que
-  lleva Glosa no tiene ninguno, y uno que no está en la lista ya sale ahí. La
-  regla nueva solo dice lo que la norma admite y la orden no: los de otros
-  países.
+- **Los VATEX-ES los juzga `BR-CL-22`.** Hasta el 24-10-2026 la lista
+  CEF-VATEX que llevaba Glosa-e no tenía ninguno; desde la 1.3.17 trae
+  dieciocho, que valen con la nota `IVA-VATEX-ES`, y uno que no está en la
+  lista sale ahí. La regla nueva solo dice lo que la norma admite y la orden
+  no: los de otros países.
 - **La fecha de pago sin `BT-7`.** La orden pide `BT-7` solo cuando la
   operación es de otro día que la expedición, así que sin él la operación es
   del día de la expedición, y un pago anterior es anterior a la operación.
@@ -5763,7 +5764,7 @@ unitaria por regla**: un fragmento de factura y la regla que tiene que saltar
 o no saltar. Son las pruebas con las que el comité comprueba su esquematrón.
 
 Aquí se usan al revés, para comprobar el validador. `herramientas/norma_oficial.py`
-trae una copia fijada a un commit —el de la v1.3.16— a `tests/en16931-oficial/`:
+trae una copia fijada a un commit —el de la v1.3.17, desde el 24-10-2026— a `tests/en16931-oficial/`:
 279 ficheros de pruebas, el esquematrón del modelo, el de listas de códigos, la
 vinculación de cada sintaxis —UBL, CII y EDIFACT, que es donde está la
 expresión que se evalúa— y la EUPL 1.2, que es su licencia.
@@ -6112,8 +6113,9 @@ Son dos reglas con el mismo número:
 | Z, E, AE, K, G, O | cuota **cero exacto** | BR-CO-17 redondea a entero a tipo cero y deja pasar 0,40 |
 | S, L, M | base por tipo, a menos de una unidad | la misma cuenta; en CII, BR-CO-17 admite la unidad justa y BR-S-09 no |
 
-Y otra vez las dos sintaxis no dicen lo mismo: el esquematrón de CII da
-BR-AF-09 y BR-AG-09 por duplicadas de BR-CO-17 y las deja en `true()`. Aquí se
+Y otra vez las dos sintaxis no dicen lo mismo: el esquematrón de CII da las
+09 del IGIC y del IPSI (sus BR-IP-09 y BR-IG-09 desde la 1.3.17, que cruzó los
+nombres) por duplicadas de BR-CO-17 y las deja en `true()`. Aquí se
 sigue a cada uno —EDIFACT y Facturae con UBL—, y qué categorías mira cada
 sintaxis lo lee de la vinculación la misma prueba que lee los márgenes.
 
@@ -6451,16 +6453,68 @@ UBL en todas sus versiones publicadas, de la 1.0.0 (2018) a la 1.3.13; la
 1.3.14 los cambió por `BR-AF-*` y `BR-AG-*`, que CII había usado siempre, y la
 1.3.17, del 12-10-2026, vuelve a ellos. En EDIFACT, el texto de los mensajes
 dice `BR-IG` y `BR-IP` también en la 1.3.16. Lo encontró la auditoría de la
-1.3.17, el mismo día que salió. Se siguen enseñando `BR-AF-*` y `BR-AG-*`, que
-son los de la copia fijada: cambia lo que se cuenta, no el código. Y la ficha
-de `BR-AF-01` contaba una familia de seis reglas, y son diez.
+1.3.17, el mismo día que salió. Se siguieron enseñando `BR-AF-*` y `BR-AG-*`,
+que eran los de la copia fijada, hasta que se trajo la 1.3.17 (abajo). Y la
+ficha de `BR-AF-01` contaba una familia de seis reglas, y son diez.
 
 Una prueba de `test_documentacion.py` lee el validador y el README y se niega
 si una frase nombra esos códigos y, ella o la de al lado, dice que no existen,
 que se inventaron o que salieron por analogía, salvo que diga también que eso
-es falso. Otras dos atan las fichas a la copia: la de `BR-AG-01` tiene que
-nombrar la versión fijada, y la de `BR-AF-01`, contar las reglas `BR-AF` que
-trae. Las dos se ponen en rojo el día que se traiga otra copia.
+es falso. Otras dos atan las fichas a la copia: las de `BR-IG-01` y `BR-IP-01`
+tienen que nombrar la versión fijada, y la de `BR-IG-01`, contar las reglas
+`BR-IG` que trae. Se pusieron en rojo al traer la 1.3.17, como estaba previsto,
+y se volverán a poner el día que se traiga otra.
+
+### La 1.3.17: los nombres de antes, EL y los VATEX-ES
+
+El 24-10-2026 la copia fijada pasó de la 1.3.16 a la **1.3.17**, la del
+12-10-2026 (commit `6e35e0ab`, huella `1f67b2a5…` en `test_norma_oficial`).
+Sigue siendo la edición de 2017 de la norma. Con la copia nueva y nada más se
+pusieron en rojo veinte pruebas, y cada una dijo una cosa que había cambiado.
+Lo decidió el titular el 12-10-2026, con la auditoría delante.
+
+**Los nombres del IGIC y del IPSI.** Aquí vuelven a ser `BR-IG-*` y `BR-IP-*`
+en todas las sintaxis, que es como los llama el modelo de la norma en la 1.3.17
+y como los llama UBL. CII los cruzó (su `BR-IP-*` es el IGIC y su `BR-IG-*`, el
+IPSI) y EDIFACT sigue con `BR-AF-*` y `BR-AG-*`. Qué nombre da cada
+esquematrón está en `Sintaxis.familias_de_su_esquematron`, y
+`test_norma_oficial` ya no lo escribe a mano: lo lee de cada vinculación por la
+categoría que nombra cada regla, no por su nombre. Con el mapa escrito por
+nombre, el IGIC de CII se habría comparado con el IPSI de aquí sin que nada lo
+dijera. La nota del cero cita las dos, `BR-IP-05 (aquí, BR-IG-05)`, porque la
+primera es la que verá quien la valide con el esquematrón de CII. Las fichas
+`BR-IG-01` y `BR-IP-01` cuentan los tres nombres, y las otras dieciocho dicen
+en una frase que en CII es al revés y cuál es su ficha.
+
+**Las direcciones.** Las veinte fichas `BR-AF-*` y `BR-AG-*` estaban
+publicadas y en el sitemap: redirigen con un 308 a la de su categoría, número
+a número. Las dieciocho sin cero que ya había (`/codigo-BR-AF-1`) van directas
+a la nueva, sin cadena, y hay dieciocho nuevas para `BR-IG-1` y `BR-IP-1` a
+9. Dos pruebas lo guardan: que cada vieja vaya a la de su categoría y no a la
+otra, y que ninguna redirección lleve a otra.
+
+**EL, Grecia.** La 1.3.17 lo quitó de la lista de `BR-CO-09` al ponerla al día
+con ISO 3166, donde Grecia es GR. Pero EL es como escribe Grecia su prefijo en
+el IVA europeo: el artículo 215 de la Directiva 2006/112/CE la autoriza, y el
+VIES lo da así. Aquí se sigue admitiendo, con la nota `IVA-PREFIJO-EL`, que
+dice que la 1.3.17 lo rechaza y la 1.3.16, la que usa Peppol, no.
+`test_norma_oficial` se pone en rojo si el CEN lo devuelve (se le pidió en la
+issue 532), y entonces la nota sobra.
+
+**Los VATEX-ES.** La lista CEF-VATEX trae dieciocho códigos de exención de
+España, del IVA, del IGIC y del IPSI, que el CEN anunció para usarse en la
+norma desde noviembre de 2026 (issue 525 de su repositorio). Valen, con la nota
+`IVA-VATEX-ES`, que dice que la 1.3.16 no los tiene y los rechaza con
+`BR-CL-22`. El día exacto, el 15-11-2026, lo leyó la auditoría del 12-10 en la
+hoja de la lista; aquí no se ha vuelto a comprobar, y la nota dice el mes.
+
+**Las listas.** Se regeneraron las catorce. Además de los VATEX-ES: STD sale de
+las monedas y entra STN (São Tomé cambió de moneda en 2018), ISO 6523 gana
+0249, 0250 y 0251, y EAS pierde 0219 y 0220 y gana 9960. Y dos diferencias
+entre UBL y CII que esto contaba desaparecen: los países de CII ya no traen AN
+ni les falta SS, y los asuntos de nota de la vinculación de UBL son ya los
+mismos que los de CII. `BR-DEC-13` y `15` de CII envuelven el valor en
+`xs:decimal`, y siguen mirando el valor.
 
 ## Por qué este y no otro, contestado sin pedir fe
 

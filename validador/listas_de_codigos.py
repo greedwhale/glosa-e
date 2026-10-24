@@ -17,10 +17,11 @@ nueva del comité no se cuela sin que alguien la mire.
 Los tres esquematrones —UBL, CII y EDIFACT— no dicen la misma lista en todas
 las reglas, y aquí se usa **una por regla**, la más al día:
 
-- **Países**, la de UBL. La de CII todavía tiene AN, las Antillas Neerlandesas,
-  que se disolvieron en 2010, y le falta SS, Sudán del Sur. Es la misma
-  diferencia que en los prefijos de BR-CO-09.
-- **Asuntos de nota**, la de CII: tiene los 383 códigos de la de UBL y 18 más.
+- **Países**, la de UBL. Hasta la 1.3.16 la de CII tenía AN, las Antillas
+  Neerlandesas, que se disolvieron en 2010, y le faltaba SS, Sudán del Sur; en
+  la 1.3.17 las dos dicen lo mismo, y los prefijos de BR-CO-09 también.
+- **Asuntos de nota**, la de CII. Hasta la 1.3.16 tenía los 383 códigos de la
+  de UBL y 18 más; en la 1.3.17 son la misma, con 401.
 - **La fecha de devengo** es otra lista en cada sintaxis —UNTDID 2005 en UBL,
   2475 en CII—, y por eso va en el mapa de cada una:
   `Sintaxis.codigos_de_devengo`.
@@ -47,7 +48,7 @@ quitar nada.
 from __future__ import annotations
 
 from validador import cius_es
-from validador.incidencias import ERROR, Incidencia
+from validador.incidencias import ERROR, NOTA, Incidencia
 from validador.modelo import grupos
 from validador.sintaxis import SIN_MAPA, Sintaxis, buscar, como_texto
 
@@ -245,6 +246,34 @@ _EL_FC_DE_LA_AEAT = (
 )
 
 
+# Los VATEX-ES (BR-CL-22). La lista CEF-VATEX trae desde su versión 9 dieciocho
+# códigos de exención españoles, del IVA, del IGIC y del IPSI, que el CEN
+# anunció para usarse en la norma desde noviembre de 2026 (issue 525 de su
+# repositorio; la auditoría del 12-10-2026 leyó en la hoja de la lista el
+# 15-11-2026, y aquí no se ha vuelto a comprobar el día). Entraron en el
+# esquematrón con la 1.3.17, que es la copia fijada, y por eso aquí valen. La
+# 1.3.16, que es la que usa Peppol, no los tiene y los rechaza con BR-CL-22: la
+# nota lo dice, como la de EL en BR-CO-09. Hasta el 24-10-2026 la lista que
+# llevaba Glosa-e era la de la 1.3.16 y no tenía ninguno.
+_DE_ESPANA = "VATEX-ES-"
+
+
+def _vatex_de_espana(codigos: list[str], que: str, lugares: list[str]) -> Incidencia:
+    return Incidencia(
+        "IVA-VATEX-ES",
+        NOTA,
+        "El motivo de la exención usa un código VATEX-ES, de los que la lista "
+        "CEF-VATEX añadió para España y el CEN anunció para usarse desde "
+        "noviembre de 2026. Aquí vale: los trae el esquematrón oficial del CEN "
+        "desde su versión 1.3.17. El de la 1.3.16, que es el que usa Peppol, no "
+        "los tiene: quien valide la factura con esa versión la verá rechazada "
+        "con BR-CL-22.",
+        campo=que + (f" · {', '.join(lugares)}" if lugares else ""),
+        esperado="un código de la lista CEF-VATEX",
+        encontrado=", ".join(codigos),
+    )
+
+
 def reglas(raiz, sintaxis: Sintaxis,
            de_mas: dict[str, frozenset[str]] | None = None) -> list[Incidencia]:
     """Las BR-CL sobre un documento ya parseado.
@@ -265,16 +294,27 @@ def reglas(raiz, sintaxis: Sintaxis,
         valores = lista(cual, sintaxis) | de_mas.get(cual, frozenset())
         lugares: list[str] = []
         malos: list[str] = []
+        de_espana: list[str] = []
+        lugares_de_espana: list[str] = []
         for grupo, campo in donde:
             for nombre, nodo in grupos(raiz, sintaxis, grupo):
                 for encontrado in _nodos(nodo, getattr(sintaxis, campo), sintaxis):
                     escrito = _codigo(_escrito(encontrado), como, sintaxis)
-                    if escrito is None or _vale(escrito, como, valores):
+                    if escrito is None:
+                        continue
+                    if _vale(escrito, como, valores):
+                        if cual == "VATEX" and escrito.upper().startswith(_DE_ESPANA):
+                            if nombre and nombre not in lugares_de_espana:
+                                lugares_de_espana.append(nombre)
+                            if escrito not in de_espana:
+                                de_espana.append(escrito)
                         continue
                     if nombre and nombre not in lugares:
                         lugares.append(nombre)
                     if escrito not in malos:
                         malos.append(escrito)
+        if de_espana:
+            incidencias.append(_vatex_de_espana(de_espana, que, lugares_de_espana))
         if not malos:
             continue
         if ejemplo is None:
@@ -309,7 +349,7 @@ CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS GIP GMD GNF GTQ GYD
 HKD HNL HTG HUF IDR ILS INR IQD IRR ISK JMD JOD JPY KES KGS KHR KMF KPW KRW
 KWD KYD KZT LAK LBP LKR LRD LSL LYD MAD MDL MGA MKD MMK MNT MOP MRU MUR MVR
 MWK MXN MXV MYR MZN NAD NGN NIO NOK NPR NZD OMR PAB PEN PGK PHP PKR PLN PYG
-QAR RON RSD RUB RWF SAR SBD SCR SDG SEK SGD SHP SLE SOS SRD SSP STD SVC SYP
+QAR RON RSD RUB RWF SAR SBD SCR SDG SEK SGD SHP SLE SOS SRD SSP STN SVC SYP
 SZL THB TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD USN UYI UYU UYW UZS VED
 VES VND VUV WST XAF XAG XAU XBA XBB XBC XBD XCD XCG XDR XOF XPD XPF XPT XSU
 XTS XUA XXX YER ZAR ZMW ZWG
@@ -402,8 +442,8 @@ ISO_6523 = frozenset("""
 0201 0202 0203 0204 0205 0206 0207 0208 0209 0210 0211 0212 0213 0214 0215
 0216 0217 0218 0219 0220 0221 0222 0223 0224 0225 0226 0227 0228 0229 0230
 0231 0232 0233 0234 0235 0236 0237 0238 0239 0240 0241 0242 0243 0244 0245
-0246 0247 0248
-""".split())  # 243
+0246 0247 0248 0249 0250 0251
+""".split())  # 246
 
 UNTDID_7143 = frozenset("""
 AA AB AC AD AE AF AG AH AI AJ AK AL AM AN AO AP AQ AR AS AT AU AV AW AX AY
@@ -459,27 +499,32 @@ SAD SAE SAI SG SH SM SU TAB TAC TT TV V1 V2 WH XAA YY ZZZ
 """.split())  # 178
 
 VATEX = frozenset("""
-VATEX-EU-132 VATEX-EU-132-1A VATEX-EU-132-1B VATEX-EU-132-1C VATEX-EU-132-1D
-VATEX-EU-132-1E VATEX-EU-132-1F VATEX-EU-132-1G VATEX-EU-132-1H
-VATEX-EU-132-1I VATEX-EU-132-1J VATEX-EU-132-1K VATEX-EU-132-1L
-VATEX-EU-132-1M VATEX-EU-132-1N VATEX-EU-132-1O VATEX-EU-132-1P
-VATEX-EU-132-1Q VATEX-EU-135-1 VATEX-EU-143 VATEX-EU-143-1A VATEX-EU-143-1B
-VATEX-EU-143-1C VATEX-EU-143-1D VATEX-EU-143-1E VATEX-EU-143-1F
-VATEX-EU-143-1FA VATEX-EU-143-1G VATEX-EU-143-1H VATEX-EU-143-1I
-VATEX-EU-143-1J VATEX-EU-143-1K VATEX-EU-143-1L VATEX-EU-144 VATEX-EU-146-1E
-VATEX-EU-148 VATEX-EU-148-A VATEX-EU-148-B VATEX-EU-148-C VATEX-EU-148-D
-VATEX-EU-148-E VATEX-EU-148-F VATEX-EU-148-G VATEX-EU-151 VATEX-EU-151-1A
-VATEX-EU-151-1AA VATEX-EU-151-1B VATEX-EU-151-1C VATEX-EU-151-1D
-VATEX-EU-151-1E VATEX-EU-153 VATEX-EU-159 VATEX-EU-309 VATEX-EU-79-C
-VATEX-EU-AE VATEX-EU-D VATEX-EU-F VATEX-EU-G VATEX-EU-I VATEX-EU-IC
-VATEX-EU-J VATEX-EU-O VATEX-FR-298SEXDECIESA VATEX-FR-AE VATEX-FR-CGI261-1
-VATEX-FR-CGI261-2 VATEX-FR-CGI261-3 VATEX-FR-CGI261-4 VATEX-FR-CGI261-5
-VATEX-FR-CGI261-7 VATEX-FR-CGI261-8 VATEX-FR-CGI261A VATEX-FR-CGI261B
-VATEX-FR-CGI261C-1 VATEX-FR-CGI261C-2 VATEX-FR-CGI261C-3 VATEX-FR-CGI261D-1
-VATEX-FR-CGI261D-1BIS VATEX-FR-CGI261D-2 VATEX-FR-CGI261D-3
-VATEX-FR-CGI261D-4 VATEX-FR-CGI261E-1 VATEX-FR-CGI261E-2 VATEX-FR-CGI275
-VATEX-FR-CGI277A VATEX-FR-CGI295 VATEX-FR-CNWVAT VATEX-FR-FRANCHISE
-""".split())  # 88
+VATEX-ES-IGIC11 VATEX-ES-IGIC12 VATEX-ES-IGIC13 VATEX-ES-IGIC1TR
+VATEX-ES-IGIC25 VATEX-ES-IGIC47 VATEX-ES-IGIC90 VATEX-ES-IPSI7
+VATEX-ES-IPSI8 VATEX-ES-IVA140BIS VATEX-ES-IVA20 VATEX-ES-IVA21
+VATEX-ES-IVA22 VATEX-ES-IVA23/24 VATEX-ES-IVA25 VATEX-ES-N1 VATEX-ES-N2
+VATEX-ES-OTROS VATEX-EU-132 VATEX-EU-132-1A VATEX-EU-132-1B VATEX-EU-132-1C
+VATEX-EU-132-1D VATEX-EU-132-1E VATEX-EU-132-1F VATEX-EU-132-1G
+VATEX-EU-132-1H VATEX-EU-132-1I VATEX-EU-132-1J VATEX-EU-132-1K
+VATEX-EU-132-1L VATEX-EU-132-1M VATEX-EU-132-1N VATEX-EU-132-1O
+VATEX-EU-132-1P VATEX-EU-132-1Q VATEX-EU-135-1 VATEX-EU-143 VATEX-EU-143-1A
+VATEX-EU-143-1B VATEX-EU-143-1C VATEX-EU-143-1D VATEX-EU-143-1E
+VATEX-EU-143-1F VATEX-EU-143-1FA VATEX-EU-143-1G VATEX-EU-143-1H
+VATEX-EU-143-1I VATEX-EU-143-1J VATEX-EU-143-1K VATEX-EU-143-1L VATEX-EU-144
+VATEX-EU-146-1E VATEX-EU-148 VATEX-EU-148-A VATEX-EU-148-B VATEX-EU-148-C
+VATEX-EU-148-D VATEX-EU-148-E VATEX-EU-148-F VATEX-EU-148-G VATEX-EU-151
+VATEX-EU-151-1A VATEX-EU-151-1AA VATEX-EU-151-1B VATEX-EU-151-1C
+VATEX-EU-151-1D VATEX-EU-151-1E VATEX-EU-153 VATEX-EU-159 VATEX-EU-309
+VATEX-EU-79-C VATEX-EU-AE VATEX-EU-D VATEX-EU-F VATEX-EU-G VATEX-EU-I
+VATEX-EU-IC VATEX-EU-J VATEX-EU-O VATEX-FR-298SEXDECIESA VATEX-FR-AE
+VATEX-FR-CGI261-1 VATEX-FR-CGI261-2 VATEX-FR-CGI261-3 VATEX-FR-CGI261-4
+VATEX-FR-CGI261-5 VATEX-FR-CGI261-7 VATEX-FR-CGI261-8 VATEX-FR-CGI261A
+VATEX-FR-CGI261B VATEX-FR-CGI261C-1 VATEX-FR-CGI261C-2 VATEX-FR-CGI261C-3
+VATEX-FR-CGI261D-1 VATEX-FR-CGI261D-1BIS VATEX-FR-CGI261D-2
+VATEX-FR-CGI261D-3 VATEX-FR-CGI261D-4 VATEX-FR-CGI261E-1 VATEX-FR-CGI261E-2
+VATEX-FR-CGI275 VATEX-FR-CGI277A VATEX-FR-CGI295 VATEX-FR-CNWVAT
+VATEX-FR-FRANCHISE
+""".split())  # 106
 
 UNECE_REC_20 = frozenset("""
 10 11 13 14 15 1I 20 21 22 23 24 25 27 28 2A 2B 2C 2G 2H 2I 2J 2K 2L 2M 2N
@@ -606,8 +651,8 @@ EAS = frozenset("""
 0002 0007 0009 0037 0060 0088 0096 0097 0106 0130 0135 0142 0147 0151 0154
 0158 0170 0177 0183 0184 0188 0190 0191 0192 0193 0194 0195 0196 0198 0199
 0200 0201 0202 0203 0204 0205 0208 0209 0210 0211 0212 0213 0215 0216 0217
-0218 0219 0220 0221 0225 0230 0235 0240 0242 0244 0245 0246 0248 9910 9913
-9914 9915 9918 9919 9920 9922 9923 9924 9925 9926 9927 9928 9929 9930 9931
-9932 9933 9934 9935 9936 9937 9938 9939 9940 9941 9942 9943 9944 9945 9946
-9947 9948 9949 9950 9951 9952 9953 9957 9959 AN AQ AS AU EM
-""".split())  # 104
+0218 0221 0225 0230 0235 0240 0242 0244 0245 0246 0248 9910 9913 9914 9915
+9918 9919 9920 9922 9923 9924 9925 9926 9927 9928 9929 9930 9931 9932 9933
+9934 9935 9936 9937 9938 9939 9940 9941 9942 9943 9944 9945 9946 9947 9948
+9949 9950 9951 9952 9953 9957 9959 9960 AN AQ AS AU EM
+""".split())  # 103
