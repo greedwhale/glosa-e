@@ -8925,3 +8925,27 @@ final de la ruta, 11, y la primera es el ejemplo de Bizkaia de la
 especificación. Sin mirar el servidor de pruebas, dos; sin mirar la moneda,
 dos; con el NIF del vendedor sin quitarle el prefijo ES, dos; sin los
 parámetros de sobra, tres; sin el CRC del identificador TBAI, una.
+
+## El anexo del portal: un impuesto por cargo, y una nota que esperaba
+
+**Cómo salió.** De la vigilancia del 19-10-2026: mirar si el anexo I del
+portal de la AEAT, que se llama *Proyecto*, era el texto del BOE o el
+borrador. No era ninguno de los dos. Es el del BOE con sus erratas
+corregidas, subido el 21-10-2026, y con dos cardinalidades nuevas: `BG-ES-2`
+en `0..1` y `RECT:IMPORTES` en `0..3` (la tabla, en el README).
+
+**Reproducido** el 24-10-2026 sobre `c6a797e`, con las dos pruebas que lo
+fijaban, en verde: un cargo con dos impuestos salía en una NOTA que decía que
+se esperaba la respuesta de la Agencia, y dos importes de Base en una
+rectificativa salían en un AVISO que atribuía a la AEAT un `0..1` que su
+anexo publicado ya no dice. Las dos frases eran ciertas el día que se
+escribieron y habían dejado de serlo sin que nada lo dijera.
+
+**Lo que se hizo.** El cargo con más de un impuesto pasa a AVISO, con las dos
+cardinalidades, la del BOE y la del portal; el aviso de los importes dice
+`0..3`; y los mensajes que esperaban el anexo dicen que ya lo escribe así.
+Ninguna regla cambia de qué se compara.
+
+**Provocado**, una rotura cada vez sobre `solucion_publica.py`: con el cargo
+otra vez en NOTA, una prueba en rojo; con el `0..1` otra vez en el aviso de
+los importes, tres; sin el anexo del portal en el aviso del `ProfileID`, una.

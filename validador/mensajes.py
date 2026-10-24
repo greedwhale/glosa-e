@@ -67,8 +67,10 @@ eso las dice la nota `SPFE-MENSAJE-ALCANCE` en cada anulación:
   ninguno; pero en el segundo es un AVISO.
 
 El buzón contestó el 13-10-2026 las dos: sobra `cac:Response`, y el nombre va
-en `cac:PartyLegalEntity`, como en el anexo II. La AEAT lo corrige en el anexo
-que publicará en su Portal de Desarrolladores. Contestó también lo que ninguna
+en `cac:PartyLegalEntity`, como en el anexo II. El anexo que la AEAT publicó en
+su portal el 21-10-2026 ya lo escribe así (medido el 24-10-2026), pero las
+tablas salen del BOE, que no cambia, y se siguen buscando los dos sitios.
+Contestó también lo que ninguna
 tabla decía: el NIF del emisor va sin ES, y su `cac:TaxScheme` puede ir vacío.
 
 Lo que no se mide
@@ -619,8 +621,8 @@ def _facturas(respuesta, plan: Plan) -> list[Incidencia]:
                 "cac:PartyTaxScheme. La tabla de la anulación lo pone en un sitio "
                 "que no existe en UBL 2.5, y la AEAT contestó por escrito el "
                 "13-10-2026 que va en cac:PartyLegalEntity, como en el anexo II, "
-                "y que lo corrige en el anexo que publicará en su Portal de "
-                "Desarrolladores.",
+                "y así lo escribe el anexo que publicó en su portal el "
+                "21-10-2026.",
                 campo="Nombre o razón social del emisor",
                 esperado=_RUTA_DEL_NOMBRE,
                 encontrado="en cac:PartyTaxScheme/cbc:RegistrationName",
@@ -696,8 +698,8 @@ def _alcance(medidas: list[Plan], otras: int) -> Incidencia:
             "factura anulada de cac:Response y pone el nombre del vendedor en "
             "cac:PartyTaxScheme/cac:PartyLegalEntity. La AEAT contestó el "
             "13-10-2026 que sobra cac:Response y que el nombre va en "
-            "cac:PartyLegalEntity, como en el anexo II, y lo corrige en el anexo "
-            "que publicará en su Portal de Desarrolladores. Los datos de la "
+            "cac:PartyLegalEntity, como en el anexo II, y así lo escribe el anexo "
+            "que publicó en su portal el 21-10-2026. Los datos de la "
             "factura se buscan donde los pone el anexo II, en "
             "cac:DocumentResponse/cac:DocumentReference, y también donde los "
             "pone esta tabla, para no decir que faltan cuando están; el nombre, "

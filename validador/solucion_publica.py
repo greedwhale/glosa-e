@@ -56,8 +56,11 @@ Lo que la orden no dice y aquí se decide
 ----------------------------------------
 - **La cuota de un cargo con más de un impuesto.** BT-ES-8 pide la misma
   cuota en el impuesto y en el total del cargo, que es uno por cargo: con dos
-  impuestos no se puede. Se le preguntó al buzón el 07-10-2026 si va la suma,
-  y hasta entonces no se compara: lo dice una NOTA.
+  impuestos no se puede. Se le preguntó al buzón el 07-10-2026 si va la suma;
+  contestó que lo evaluaba, y el caso que se le mandó el 13-10-2026 sigue sin
+  respuesta. El anexo que la AEAT publicó en su portal el 21-10-2026 deja el
+  grupo en `0..1`, uno por cargo, y el BOE, en `0..n`. No se compara, y desde
+  el 24-10-2026 lo dice un AVISO y no una NOTA.
 - **El margen de las cuotas que la orden define como una cuenta**, las
   retenciones y los impuestos y tasas: el de la cuota del IVA (BR-CO-17).
 - **La firma en la copia fiel**, en AVISO. La orden deja ir con la firma a
@@ -73,7 +76,8 @@ Lo que dijo el buzón y sigue valiendo
 - **El `ProfileID` es el que no lleva `ubl:`** (13-10-2026),
   `urn:aeat:names:specification:schema:profile:B2B`, como en el ejemplo del
   02-10-2026 y como el resto de campos, aunque la orden publicada lo escriba
-  con él. El del BOE sale en AVISO, porque es lo que dice el texto publicado.
+  con él; el anexo del portal de la AEAT del 21-10-2026 ya va sin él. El del
+  BOE sale en AVISO, porque es lo que dice el texto publicado.
 - **Los valores de L7, L8 y L10 llevan el calificador de su lista delante**
   (13-10-2026), en las tres listas, como escribió la AEAT los de L10 en su
   ejemplo del 02-10-2026. Las filas dan solo el valor, y la lista el
@@ -326,7 +330,9 @@ _obligatorio("BT-24")
 # correo el 02-10-2026, sin él. El buzón contestó dos veces el 13-10-2026 que
 # el bueno es el del ejemplo, sin ubl:, como el resto de campos. No dijo que lo
 # corrija en el anexo, y el anexo 2.0 que mandó ese mismo día todavía lo lleva
-# con ubl: (medido). Si la fila deja de decir lo que dice el BOE, el módulo no
+# con ubl: (medido). El que publicó en su portal el 21-10-2026 ya va sin él
+# (medido el 24-10-2026), pero `cius_es` sale del BOE, y el BOE no cambia. Si
+# la fila deja de decir lo que dice el BOE, el módulo no
 # se importa: o es la corrección, y el valor sale otra vez de la tabla, o es
 # otra cosa, y hay que mirarla.
 PROCESO = "urn:aeat:names:specification:schema:profile:B2B"
@@ -404,12 +410,14 @@ _MAXIMO_DEL_DOCUMENTO["RECT:IMPORTES"] = _cuantos(_DOCUMENTOS["RECT:IMPORTES"], 
 # La fila BT-3 dice "hasta tres grupos" de importes rectificados, y el grupo es
 # `0..5`: la orden se contradice. Hasta el 11-10-2026 se callaba (lo midió el
 # auditor), y hasta el 13-10-2026 cuatro o cinco salían en una NOTA. Ese día el
-# buzón contestó que el grupo pasa a `0..1` en el anexo que publicará en su
-# Portal de Desarrolladores, y mandó un ejemplo con tres, uno por código de
-# L2.C: Base, Cuota y CuotaRecargo. Las tres cifras solo casan leídas así, uno
+# buzón contestó que el grupo pasa a `0..1`, y mandó un ejemplo con tres, uno
+# por código de L2.C: Base, Cuota y CuotaRecargo. Las tres cifras solo casan leídas así, uno
 # por código, y los tres de BT-3 son los tres de la lista; si la lista cambia,
 # el módulo no importa. Un código repetido sale en AVISO, y más de cinco sigue
-# siendo ERROR, porque es lo que dice el BOE.
+# siendo ERROR, porque es lo que dice el BOE. El anexo que la AEAT publicó en
+# su portal el 21-10-2026 no le da `0..1` sino `0..3`, que casa con BT-3 y con
+# el ejemplo (medido el 24-10-2026): con tres códigos, cuatro o cinco ya
+# repiten uno, y salen en ese AVISO.
 _dice("BT-3", "hasta tres grupos de términos de negocio de importes rectificados")
 _IMPORTES_SEGUN_BT3 = 3
 _CODIGOS_DE_IMPORTE = tuple(_L["L2.C"].valores)
@@ -1094,9 +1102,9 @@ def _proceso(raiz) -> list[Incidencia]:
     if declarado == PROCESO:
         return []
     if declarado == PROCESO_DE_LA_ORDEN:
-        # Un AVISO: es lo que dice el BOE, y la corrección no está publicada
-        # todavía. Pero no una NOTA, porque la AEAT ha dicho por escrito que el
-        # bueno es el otro.
+        # Un AVISO: es lo que dice el BOE, y la corrección solo está en el
+        # anexo del portal de la AEAT (21-10-2026), que no es la orden. Pero no
+        # una NOTA, porque la AEAT ha dicho por escrito que el bueno es el otro.
         return [
             Incidencia(
                 "SPFE-PROCESO",
@@ -1105,8 +1113,9 @@ def _proceso(raiz) -> list[Incidencia]:
                 "publicada en el BOE el 05-10-2026, el que lleva ubl. La AEAT "
                 f"contestó por escrito el 13-10-2026 que el que vale es {PROCESO}, "
                 "sin ubl, como el resto de campos y como en su ejemplo del "
-                "02-10-2026. Es un aviso y no un error porque es lo que dice el "
-                "texto publicado.",
+                "02-10-2026, y así lo escribe el anexo que publicó en su portal el "
+                "21-10-2026. Es un aviso y no un error porque es lo que dice el "
+                "texto publicado en el BOE.",
                 campo="Tipo de proceso de negocio (BT-23)",
                 esperado=PROCESO,
                 encontrado=declarado,
@@ -1384,9 +1393,9 @@ def _rectificativa(raiz) -> list[Incidencia]:
                 AVISO,
                 f"Hay más de un importe rectificado con {_y(repetidos)}. La fila "
                 "BT-3 habla de hasta tres grupos y el BOE le da al grupo cinco "
-                "(0..5); la AEAT contestó el 13-10-2026 que el grupo pasa a 0..1 en "
-                "el anexo que publicará en su Portal de Desarrolladores, y en el "
-                "ejemplo que mandó ese día lleva uno por código de la lista L2.C: "
+                "(0..5); el anexo que la AEAT publicó en su portal el 21-10-2026 "
+                "le da tres (0..3), y en el ejemplo que mandó el 13-10-2026 lleva "
+                "uno por código de la lista L2.C: "
                 f"{_y(list(_CODIGOS_DE_IMPORTE))}. Es un aviso y no un error "
                 "porque el BOE lo admite.",
                 campo="Importes rectificados (BG-24 RECT:IMPORTES)",
@@ -2337,13 +2346,15 @@ def _impuestos_de_los_cargos(raiz) -> list[Incidencia]:
         incidencias.append(
             Incidencia(
                 "SPFE-IMPUESTO-O-TASA",
-                NOTA,
-                f"El cargo lleva {cuantos} impuestos o tasas (BG-ES-2). La orden pide "
-                "la cuota de cada uno (BT-ES-8) también en el total del cargo, "
+                AVISO,
+                f"El cargo lleva {cuantos} impuestos o tasas (BG-ES-2), y el anexo "
+                "que la AEAT publicó en su portal el 21-10-2026 admite uno solo por "
+                "cargo (0..1). El BOE admite varios (0..n), pero pide la cuota de "
+                "cada uno (BT-ES-8) también en el total del cargo, "
                 "cac:TaxTotal/cbc:TaxAmount, que es uno por cargo: con más de un "
-                "impuesto no se puede cumplir al pie de la letra. Se le preguntó a "
-                "la Agencia el 07-10-2026 si ahí va la suma, y hasta que conteste "
-                "no se compara.",
+                "impuesto no se puede cumplir al pie de la letra, y no se compara. "
+                "Con un cargo por impuesto se cumplen los dos. Es un aviso y no un "
+                "error porque el BOE lo admite.",
                 campo=_donde("Cuota del impuesto o tasa (BT-ES-8)", [nombre]),
                 encontrado=f"{cuantos} impuestos",
             )

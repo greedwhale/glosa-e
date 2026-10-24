@@ -1074,14 +1074,15 @@ class TestCabecera:
         assert las(DEL_BOE, "SPFE-PROCESO") == []
 
     def test_el_proceso_del_boe_es_aviso_y_pide_el_que_vale(self):
-        """Es lo que dice el BOE, y la corrección no está publicada: ni limpio
-        ni error."""
+        """Es lo que dice el BOE, y la corrección solo está en el anexo del
+        portal de la AEAT, que no es la orden: ni limpio ni error."""
         del_boe = cambia(DEL_BOE, PROCESO, PROCESO_DEL_BOE)
         aviso = la(del_boe, "SPFE-PROCESO")
         assert aviso.gravedad == AVISO and aviso.esperado == PROCESO
         assert "13-10-2026" in aviso.mensaje and "texto publicado" in aviso.mensaje
         # No dijo que lo corrija en el anexo, y su anexo 2.0 lo lleva con ubl:.
-        assert "Portal" not in aviso.mensaje
+        # Lo corrigió el anexo del portal del 21-10-2026, y eso es lo que se dice.
+        assert "Portal" not in aviso.mensaje and "portal el 21-10-2026" in aviso.mensaje
         assert codigos(del_boe) == {"SPFE-PROCESO"}
 
     def test_si_la_fila_bt_23_cambia_el_modulo_no_se_importa(self, monkeypatch):
@@ -1246,12 +1247,14 @@ class TestRectificativa:
     def test_un_codigo_repetido_es_aviso(self, cuantos):
         """La fila BT-3 dice hasta tres grupos y el grupo es `0..5`; hasta el
         13-10-2026, de cuatro a cinco salía una NOTA. La AEAT contestó ese día
-        que el grupo pasa a `0..1`, con un ejemplo de uno por código."""
+        que el grupo pasa a `0..1`, con un ejemplo de uno por código, y el anexo
+        de su portal del 21-10-2026 le da `0..3`."""
         xml = rectificativa_con(adjunto("RECT:TIPO", "R1"), adjunto("RECT:MODALIDAD", "S"),
                                 *[adjunto("RECT:IMPORTES", "Base", "100.00")] * cuantos)
         aviso = la(xml, "SPFE-RECTIFICATIVA")
         assert aviso.gravedad == AVISO and aviso.encontrado == f"Base {cuantos} veces"
-        assert "0..1" in aviso.mensaje and "13-10-2026" in aviso.mensaje
+        assert "0..3" in aviso.mensaje and "21-10-2026" in aviso.mensaje
+        assert "0..1" not in aviso.mensaje
 
     def test_uno_por_codigo_no_dice_nada_como_en_el_ejemplo_de_la_aeat(self):
         """El de importes.xml, del 13-10-2026: Base, Cuota y CuotaRecargo."""
@@ -1977,13 +1980,17 @@ class TestLosImpuestosYTasas:
 
     def test_con_dos_impuestos_en_el_cargo_no_se_compara_y_se_dice(self, catalogo):
         """La cuota va también en el total del cargo, que es uno: con dos
-        impuestos no se puede. Es la pregunta 4 al buzón, del 07-10-2026."""
+        impuestos no se puede. Es la pregunta 4 al buzón, del 07-10-2026. Hasta
+        el 24-10-2026 salía una NOTA; el anexo del portal de la AEAT del
+        21-10-2026 deja el grupo en `0..1`, y el BOE en `0..n`: un AVISO, y
+        ninguna otra queja."""
         xml = _con_un_impuesto_en_un_cargo("5.00", _impuesto("50.00", "2.50", "5", "IEE"),
                                            _impuesto("50.00", "2.50", "5", "IMPTAS"))
-        nota = la(xml, "SPFE-IMPUESTO-O-TASA")
-        assert nota.gravedad == NOTA and "07-10-2026" in nota.mensaje
-        assert nota.encontrado == "2 impuestos"
-        assert limpia(xml, catalogo) == []
+        aviso = la(xml, "SPFE-IMPUESTO-O-TASA")
+        assert aviso.gravedad == AVISO and "21-10-2026" in aviso.mensaje
+        assert "0..1" in aviso.mensaje and "0..n" in aviso.mensaje
+        assert aviso.encontrado == "2 impuestos"
+        assert limpia(xml, catalogo) == [("SPFE-IMPUESTO-O-TASA", aviso.campo)]
 
     def test_la_cuota_es_la_base_por_el_tipo(self):
         """Con el margen de la cuota del IVA, como las retenciones."""

@@ -5008,6 +5008,59 @@ anterior, y la contestó el segundo correo: la solución pública se basa en la
 semántica de la EN 16931, que no impone esa restricción (en la sección del
 ejemplo del 02-10-2026, arriba).
 
+### El anexo del portal, del 21-10-2026
+
+El 21-10-2026 la AEAT subió los anexos I y II a la página de la solución
+pública de su Portal de Entidades Desarrolladoras, como `A1-Proyecto-OM-FE.pdf`
+y `A2-Proyecto-OM-FE.pdf`. El nombre conserva el *Proyecto*, pero no es el
+borrador de abril: lleva los 29 `BT-ES` del BOE con su numeración. Se midió el
+24-10-2026. El anexo I se pasó a texto con `pdftotext -layout`, se comparó
+renglón a renglón con los dos que mandó el buzón el 13-10-2026, y cada errata
+medida en el BOE se buscó en él:
+
+| Qué | BOE | Anexo 2.0, 13-10 | Portal, 21-10 |
+|---|---|---|---|
+| `BT-23`, el proceso | con `ubl:` | con `ubl:` | sin `ubl:` |
+| `BT-48`, la descripción | del vendedor | del comprador | del comprador |
+| `BT-ES-5`, `cbc:ServiceTypeCode` | bajo `cac:Party` | bajo `cac:Party` | bajo `cac:ServiceProviderParty` |
+| `BT-ES-6` a `BT-ES-9` | con `cac:Invoice` y `cac:TaxSubTotal` | con `cac:Invoice` | `/in:Invoice/cac:AllowanceCharge/cac:TaxTotal/cac:TaxSubtotal/…` |
+| `BG-ES-2`, impuestos o tasas por cargo | `0..n` | `0..n` | **`0..1`** |
+| `BT-ES-23` y `BT-ES-24` | `/in:invoice` | `/in:Invoice` | `/in:Invoice` |
+| `BG-24` de `RECT:IMPORTES` | `0..5` | `0..1` | **`0..3`** |
+| La anulación | la factura en `cac:Response`, el nombre en `cac:PartyTaxScheme` | igual | la factura en `cac:DocumentResponse`, el nombre en `cac:PartyLegalEntity` |
+| `BT-10` | `0..n` | `0..n` | `0..n`: la errata sigue |
+
+Trae todo lo que el buzón dijo que corregía, también lo que la versión 2.0
+dejó sin corregir, y el `ProfileID`, que el buzón no dijo que fuera a
+corregir. Y dos cardinalidades que no salen de ninguna respuesta: un solo
+impuesto o tasa por cargo, y tres importes rectificados en vez del `0..1` que
+contestó el buzón. Los tres de `BT-3` y los tres códigos de L2.C casan ahora
+con el grupo.
+
+El anexo II del portal, comparado palabra a palabra con el del BOE, solo
+cambia la maquetación: la barra doble de `cac:Response//cac:Status` sigue en
+una de sus rutas. Los niveles de sus filas no se compararon.
+
+**Qué cambió aquí.**
+
+- `SPFE-IMPUESTO-O-TASA`, con más de un impuesto en un cargo, pasa de NOTA a
+  AVISO. No es un error porque el BOE lo admite; el anexo del portal no, y el
+  caso que se le mandó al buzón el 13-10-2026 sigue sin respuesta. La cuota
+  de esos cargos sigue sin compararse.
+- `SPFE-RECTIFICATIVA`: el aviso de un código repetido decía que la AEAT
+  dejaba el grupo en `0..1`, y su anexo publicado le da `0..3`. La regla no
+  cambia: con tres códigos, cuatro o cinco grupos ya repiten uno y salen en
+  ese aviso, y más de cinco sigue en ERROR.
+- Los textos que decían que la AEAT lo corregía en un anexo por publicar
+  (la anulación, el nombre del vendedor) dicen ahora que el del portal ya lo
+  escribe así, y el aviso del `ProfileID` del BOE lo dice también.
+
+**Lo que no cambia.** Las tablas salen del BOE: `cius_es` se genera de su
+XML, que es la norma, y el anexo del portal no es la orden. Si la AEAT
+publica en el BOE una corrección de errores, `cius_es` se regenera y el
+módulo deja de importar en cada fila que cambie. Los PDF del portal se
+guardan en `informes/`, con su SHA-256, junto a los del buzón.
+
 ### La copia fiel, y el número que cambia
 
 Hasta el 07-10-2026 este apartado se titulaba «La copia fiel, y los dos números

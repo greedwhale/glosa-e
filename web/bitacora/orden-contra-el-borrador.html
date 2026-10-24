@@ -1,7 +1,7 @@
 <article class="entrada"
   data-fecha="2026-10-13"
   data-titulo="La orden renumera los campos españoles del anexo, y la AEAT confirma sus erratas"
-  data-entradilla="La Orden HAC/1028/2026, en el BOE desde el 5 de octubre, trae el anexo definitivo de la factura electrónica, y cambió mucho más de lo que se anunció en septiembre: los campos españoles pasan de 52 filas a 33, y de sus 33 números solo dos dicen lo mismo que en el borrador de abril. El texto tiene además erratas que se pueden medir: 13 de las 61 rutas de sus anexos no existen en UBL, y entre ellas están todas las del mensaje para anular una factura. La AEAT contestó el 13 de octubre que las corrige.">
+  data-entradilla="La Orden HAC/1028/2026, en el BOE desde el 5 de octubre, trae el anexo definitivo de la factura electrónica, y cambió mucho más de lo que se anunció en septiembre: los campos españoles pasan de 52 filas a 33, y de sus 33 números solo dos dicen lo mismo que en el borrador de abril. El texto tiene además erratas que se pueden medir: 13 de las 61 rutas de sus anexos no existen en UBL, y entre ellas están todas las del mensaje para anular una factura. La AEAT contestó el 13 de octubre que las corrige. Actualizada el 24 de octubre: el anexo corregido ya está en el portal de la AEAT, con dos cambios que el BOE no tiene.">
 
   <time datetime="2026-10-13">13 de octubre de 2026</time>
   <h1>La orden renumera los campos españoles del anexo, y la AEAT confirma
@@ -10,6 +10,20 @@
   abril delante tiene que rehacer casi todo lo español, y no puede fiarse del texto
   publicado al pie de la letra. Esto es lo que cambió, dónde falla la orden,
   qué contestó la AEAT y qué mide Glosa-e desde que salió.</p>
+
+  <aside class="correccion">
+    <b>Actualizada el 24 de octubre de 2026.</b> La AEAT ya publicó el anexo I
+    corregido en su portal para desarrolladores, en un fichero del 21 de
+    octubre. Arregla las erratas de rutas que se midieron en el anexo I,
+    también las del mensaje de anulación, y escribe el identificador del
+    proceso sin <code>ubl:</code>, como contestó. Trae además dos cambios que
+    el BOE no tiene: un solo impuesto o tasa por cargo del documento, donde el
+    BOE admite varios, y hasta tres importes rectificados, donde el BOE dice
+    cinco. Glosa-e sigue midiendo el texto del BOE, que es el que obliga, y lo
+    que el anexo del portal pide de más sale con un aviso. Una errata sigue
+    igual: la referencia del comprador (<code>BT-10</code>) puede repetirse, y
+    en UBL solo cabe una.
+  </aside>
 
   <h2>Lo que se anunció y lo que salió</h2>
 
@@ -249,6 +263,9 @@
       <li><a href="https://www.agenciatributaria.es/AEAT.desarrolladores/Desarrolladores/_menu_/Reuniones/Ejercicio_2026/Seminario_actualizacion_sobre_la_Solucion_Publica_de_Facturacion_Electronica__SPFE____10_09_2026/Seminario_actualizacion_sobre_la_Solucion_Publica_de_Facturacion_Electronica__SPFE____10_09_2026.html">Seminario
       de la AEAT del 10-09-2026</a>, en el Portal de Entidades
       Desarrolladoras: donde se anunciaron los cambios.</li>
+      <li><a href="https://www.agenciatributaria.es/AEAT.desarrolladores/Desarrolladores/_menu_/Documentacion/Solucion_Publica_de_Facturacion_Electronica__SPFE_/Solucion_Publica_de_Facturacion_Electronica__SPFE_.html">Documentación
+      de la solución pública</a>, en el Portal de Entidades Desarrolladoras de
+      la AEAT: los anexos I y II corregidos, en ficheros del 21-10-2026.</li>
       <li><a href="https://docs.oasis-open.org/ubl/os-UBL-2.5/">UBL 2.5</a>,
       de OASIS: los esquemas de <code>Invoice</code> y de
       <code>ApplicationResponse</code> por los que se recorrieron las
@@ -266,7 +283,9 @@
     mala una factura buena se midieron cambiando una sola cosa cada vez en
     una factura escrita aquí, y cada regla que cambió con las respuestas del
     13 de octubre se rompió a propósito para ver que las pruebas lo detectan.
-    Ninguna factura de terceros.</p>
+    Ninguna factura de terceros. El 24 de octubre se pasó a texto el anexo I
+    del portal y se comparó con el del BOE y con el que la AEAT mandó por
+    correo el 13 de octubre.</p>
   </footer>
 
 </article>
