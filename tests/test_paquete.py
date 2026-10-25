@@ -2118,9 +2118,25 @@ class TestLoUltimoEnLaPortada:
         (repositorio / "web" / "index.html").write_text(
             PAGINA.replace("</body>", paquete.HUECO_DE_LO_ULTIMO + "\n</body>"),
             encoding="utf-8")
-        portada = (_montar(repositorio).carpeta / "index.html").read_text(encoding="utf-8")
+        carpeta = _montar(repositorio).carpeta
+        portada = (carpeta / "index.html").read_text(encoding="utf-8")
         assert 'id="lo-ultimo"' not in portada
         assert paquete.HUECO_DE_LO_ULTIMO not in portada
+        # Sin artículos tampoco hay canal: uno vacío tendría que inventarse
+        # la fecha.
+        assert not (carpeta / bitacora.CANAL).exists()
+
+    def test_el_canal_de_la_bitacora_y_el_boton_que_lo_ofrece(self, con_bitacora):
+        from lxml import etree
+        _con_novedades(con_bitacora)
+        carpeta = _montar(con_bitacora).carpeta
+        canal = etree.parse(str(carpeta / bitacora.CANAL))
+        atom = {"a": "http://www.w3.org/2005/Atom"}
+        ids = [e.findtext("a:id", namespaces=atom) for e in canal.findall("a:entry", atom)]
+        assert ids == [f"{paquete.DOMINIO}/bitacora-{s}"
+                       for s in ("nueva", "tres", "dos", "vieja")]
+        pagina = (carpeta / novedades.NOMBRE).read_text(encoding="utf-8")
+        assert f'data-copiar="{paquete.DOMINIO}/{bitacora.CANAL}"' in pagina
 
     def test_el_lastmod_solo_en_la_bitacora_y_con_el_ultimo_cambio(self, con_bitacora):
         mapa = (_montar(con_bitacora).carpeta / "sitemap.xml").read_text(encoding="utf-8")
@@ -2346,9 +2362,22 @@ class TestLasNovedadesSeMontan:
         atom = {"a": "http://www.w3.org/2005/Atom"}
         ids = [e.findtext("a:id", namespaces=atom) for e in canal.findall("a:entry", atom)]
         pagina = (raiz / novedades.NOMBRE).read_text(encoding="utf-8")
-        de_reglas = re.findall(r'<li class="novedad de-reglas" id="([^"]+)"', pagina)
-        assert [i.rsplit("#", 1)[1] for i in ids if "/novedades#" in i] == de_reglas
-        assert len(ids) == pagina.count('<li class="novedad ')
+        en_la_pagina = re.findall(r'<li class="novedad" id="([^"]+)"', pagina)
+        # Solo reglas, desde el 25-10-2026: ningún artículo en el canal.
+        assert all("/novedades#" in i for i in ids)
+        assert [i.rsplit("#", 1)[1] for i in ids] == en_la_pagina
+        assert len(ids) == pagina.count('<li class="novedad') > 0
+
+    def test_el_boton_de_seguir_ofrece_solo_lo_que_existe(self, sitio_con_catalogo):
+        pagina = (sitio_con_catalogo / novedades.NOMBRE).read_text(encoding="utf-8")
+        assert novedades.HUECO_DE_SEGUIR not in pagina
+        boton = re.search(r'<details class="seguirlas">.*?</details>', pagina, re.S)
+        assert boton, "la página se ha montado sin el botón de seguir"
+        destinos = re.findall(r'<p class="opcion"><a href="([^"]+)"', boton.group(0))
+        # Este repositorio no trae bitácora, así que tampoco su canal; y el
+        # boletín no sale mientras no tenga dirección.
+        assert destinos == [paquete.CUENTA_DE_LA_MARCA, "./novedades.xml"]
+        assert paquete.BOLETIN_DE_LINKEDIN == "" and "Boletín" not in boton.group(0)
 
     def test_un_codigo_sin_apuntar_no_deja_montar(self, repositorio):
         fuente = (_WEB_DE_VERDAD / novedades.FUENTE).read_text(encoding="utf-8")
@@ -2368,12 +2397,13 @@ class TestLasNovedadesSeMontan:
             _montar(repositorio)
         assert not (repositorio / "sitio").exists()
 
-    def test_la_plantilla_sin_hueco_no_se_monta(self, repositorio):
+    @pytest.mark.parametrize("hueco", [novedades.HUECO, novedades.HUECO_DE_SEGUIR])
+    def test_la_plantilla_sin_hueco_no_se_monta(self, repositorio, hueco):
         _con_novedades(repositorio)
         plantilla = repositorio / "web" / novedades.NOMBRE
-        plantilla.write_text(
-            plantilla.read_text(encoding="utf-8").replace(novedades.HUECO, ""),
-            encoding="utf-8")
+        texto = plantilla.read_text(encoding="utf-8")
+        assert texto.count(hueco) == 1
+        plantilla.write_text(texto.replace(hueco, ""), encoding="utf-8")
         with pytest.raises(paquete.SinNovedades, match="ya no lleva"):
             _montar(repositorio)
         assert not (repositorio / "sitio").exists()

@@ -291,3 +291,27 @@ class TestLaFechaDelUltimoCambio:
         for slug in ("edifact-reglas-de-2018", "copia-fiel-nadie-traduce"):
             assert por_nombre[slug].cambiada.isoformat() == "2026-10-07", slug
             assert por_nombre[slug].cambiada > por_nombre[slug].fecha, slug
+
+
+# --- El canal Atom de la bitácora, desde el 25-10-2026 ------------------------
+
+def test_el_canal_lleva_cada_articulo_con_su_direccion_limpia():
+    from lxml import etree
+    atom = {"a": "http://www.w3.org/2005/Atom"}
+    dominio = "https://www.glosa-e.com"
+    entradas = bitacora.leer_entradas(ARTICULOS)
+    raiz = etree.fromstring(bitacora.canal(entradas, dominio).encode("utf-8"))
+    assert raiz.find("a:link[@rel='self']", atom).get("href") == f"{dominio}/bitacora.xml"
+    ids = [e.findtext("a:id", namespaces=atom) for e in raiz.findall("a:entry", atom)]
+    # El id es la dirección del artículo, la misma que tenía en el canal de
+    # las novedades hasta el 25-10-2026: quien ya lo leyó allí no lo ve nuevo.
+    assert sorted(ids) == sorted(f"{dominio}/{e.nombre.removesuffix('.html')}"
+                                 for e in entradas)
+    assert len(set(ids)) == len(ids) == len(entradas)
+    ultima = max(e.cambiada for e in entradas)
+    assert raiz.findtext("a:updated", namespaces=atom) == f"{ultima.isoformat()}T00:00:00Z"
+
+
+def test_sin_articulos_el_canal_se_niega():
+    with pytest.raises(bitacora.SinEntrada, match="no tiene artículos"):
+        bitacora.canal([], "https://www.glosa-e.com")

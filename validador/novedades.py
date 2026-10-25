@@ -1,22 +1,28 @@
 # -*- coding: utf-8 -*-
-"""Las novedades: cada regla nueva o retirada y cada artículo, con su fecha.
+"""Las novedades: cada regla nueva o retirada del validador, con su fecha.
 
 Por qué existe
 --------------
 Quien programa una factura electrónica quiere enterarse de lo que cambia sin
 depender de una red social. Hasta el 25-10-2026 eso solo se podía siguiendo a
 Glosa-e en X o en LinkedIn, o volviendo a mirar el catálogo de códigos. Esta
-página lo junta todo, con la fecha delante, y lo da también como **canal
-Atom** (`novedades.xml`), que se sigue con un lector de noticias sin que
-nadie tenga que acordarse de avisar. Que Slack o Teams lo lean no se ha
-comprobado, y por eso la página no lo dice.
+página lo junta, con la fecha delante, y lo da también como **canal Atom**
+(`novedades.xml`), que se sigue con un lector de noticias sin que nadie tenga
+que acordarse de avisar. Que Slack o Teams lo lean no se ha comprobado, y por
+eso la página no lo dice.
 
-Lo que se apunta y lo que se lee solo
--------------------------------------
-Los artículos salen solos de la bitácora, con su fecha y su entradilla. Las
-reglas se apuntan a mano en `web/novedades.txt`, porque lo que hay que decir
-de un código nuevo (qué mira y por qué) no está escrito en ningún sitio del
-que se pueda sacar.
+Solo reglas, y no los artículos
+-------------------------------
+Nació el 25-10-2026 con los artículos de la bitácora mezclados por fecha, y
+ese mismo día se quitaron: cada artículo se contaba dos veces, en su índice y
+aquí. Lo que no está en ningún otro sitio es el registro de lo que cambia en
+el validador, código a código. Los artículos tienen su propio canal,
+`bitacora.xml`, y los dos se ofrecen juntos en el botón de seguir de esta
+página (`panel`), que es donde se elige dónde recibirlo todo.
+
+Las reglas se apuntan a mano en `web/novedades.txt`, porque lo que hay que
+decir de un código nuevo (qué mira y por qué) no está escrito en ningún sitio
+del que se pueda sacar.
 
 Y como lo que se apunta a mano se queda atrás, **el montaje se niega** si el
 catálogo no cuadra con lo apuntado: un código que exista y no salga ni en la
@@ -46,12 +52,14 @@ import html
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from xml.sax.saxutils import escape as _xml
+
+from validador import atom
 
 __all__ = [
     "CANAL",
     "FUENTE",
     "HUECO",
+    "HUECO_DE_SEGUIR",
     "NOMBRE",
     "Novedad",
     "NovedadMal",
@@ -59,6 +67,7 @@ __all__ = [
     "canal",
     "leer",
     "pagina",
+    "panel",
     "revisar",
 ]
 
@@ -66,6 +75,7 @@ NOMBRE = "novedades.html"
 CANAL = "novedades.xml"
 FUENTE = "novedades.txt"
 HUECO = "<!-- AQUI VAN LAS NOVEDADES -->"
+HUECO_DE_SEGUIR = "<!-- AQUI VA COMO SEGUIRLAS -->"
 
 _FECHA = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -233,38 +243,6 @@ def revisar(novedades: Novedades, catalogo: set[str]) -> None:
 
 
 # --- Lo que se publica -------------------------------------------------------
-#
-# Una sola lista, con las dos clases de entrada mezcladas por fecha: quien
-# sigue las novedades quiere saber qué ha cambiado esta semana, no ir a dos
-# sitios. La de regla se reconoce por los códigos; la de bitácora, por llevar
-# a su artículo.
-
-
-@dataclass(frozen=True)
-class _Fila:
-    fecha: _dt.date
-    cambiada: _dt.date
-    tipo: str
-    titulo: str
-    texto: str
-    enlace: str
-    ancla: str
-    nuevos: tuple[str, ...] = ()
-    retirados: tuple[str, ...] = ()
-
-
-def _filas(novedades: Novedades, articulos) -> list[_Fila]:
-    filas = [
-        _Fila(e.fecha, e.fecha, "Reglas", e.titulo, e.texto,
-              f"./{NOMBRE}#{e.id}", e.id, e.nuevos, e.retirados)
-        for e in novedades.entradas
-    ] + [
-        _Fila(a.fecha, a.cambiada, "Bitácora", a.titulo, a.entradilla,
-              f"./{a.nombre}", "")
-        for a in articulos
-    ]
-    return sorted(filas, key=lambda f: (f.fecha, f.tipo == "Reglas", f.titulo),
-                  reverse=True)
 
 
 _MESES = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
@@ -286,101 +264,109 @@ def _chips(codigos, fichas: set[str], clase: str) -> str:
             + "".join(uno(c) for c in codigos) + "</ul>")
 
 
-def pagina(plantilla: str, novedades: Novedades, articulos, fichas: set[str],
-           catalogo: int) -> str:
-    """El cuerpo de `novedades.html`, ya metido en su plantilla."""
-    if HUECO not in plantilla:
-        raise NovedadMal(
-            f"{NOMBRE} ya no lleva `{HUECO}`, así que la página se publicaría "
-            "sin una sola novedad y sin que nada fallara.")
+# --- Cómo seguirlas ----------------------------------------------------------
+#
+# Un botón que se despliega con los sitios donde recibirlo, y lo que recibe
+# quien elige cada uno: no es lo mismo un boletín al mes que cada regla el día
+# que sale. Va en un `<details>` para que abra y cierre sin guion; el guion
+# solo copia la dirección de un canal, que es para lo que la caja de antes
+# enseñaba la dirección entera. Sin guion, el nombre del canal es un enlace a
+# él, que también se copia.
+#
+# El boletín de LinkedIn entra el día que exista: una opción que manda a un
+# boletín que no hay es un cartel. Basta con darle su dirección a `panel`.
+
+
+def _opcion(titulo: str, enlace: str, texto: str, cuando: str,
+            copiar: str | None = None) -> str:
+    boton = ("" if copiar is None else
+             f'<button type="button" class="copiar" data-copiar="{html.escape(copiar)}" '
+             'hidden>Copiar la dirección</button>')
+    return (f'<li><p class="opcion"><a href="{html.escape(enlace)}">{html.escape(titulo)}</a>'
+            f'<span class="cada">{html.escape(cuando)}</span></p>'
+            f"<p>{html.escape(texto)}</p>{boton}</li>")
+
+
+def panel(dominio: str, cuenta_en_x: str, bitacora: str | None,
+          boletin: str | None = None) -> str:
+    """El botón de seguir, con un destino por cada sitio que existe: sin
+    bitácora montada, tampoco su canal."""
+    opciones = []
+    if boletin:
+        opciones.append(_opcion(
+            "Boletín La glosa del mes", boletin,
+            "Todo lo del mes en un número, por correo y en el móvil. La "
+            "suscripción se hace en LinkedIn.", "uno al mes"))
+    opciones += [
+        _opcion("Glosa-e en X", cuenta_en_x,
+                "Lo que se va publicando allí, el día que sale.", "a diario"),
+        _opcion("Canal Atom de las novedades", f"./{CANAL}",
+                "Cada regla nueva o retirada, en un lector de noticias, sin que "
+                "nadie tenga que acordarse de avisar.", "cada regla",
+                copiar=f"{dominio}/{CANAL}"),
+    ]
+    if bitacora:
+        opciones.append(_opcion(
+            "Canal Atom de la bitácora", f"./{bitacora}",
+            "Cada artículo nuevo de la bitácora, en el mismo lector.",
+            "cada artículo", copiar=f"{dominio}/{bitacora}"))
+    return ('<details class="seguirlas"><summary>Seguir las novedades '
+            '<svg class="galon" viewBox="0 0 10 6" aria-hidden="true">'
+            '<path d="M1 1l4 4 4-4"/></svg></summary>'
+            '<ul class="destinos">' + "".join(opciones) + "</ul></details>")
+
+
+def pagina(plantilla: str, novedades: Novedades, fichas: set[str], catalogo: int,
+           seguir: str) -> str:
+    """`novedades.html` entera: la lista en su hueco y el botón en el suyo."""
+    for hueco, que in ((HUECO, "una sola novedad"), (HUECO_DE_SEGUIR, "cómo seguirlas")):
+        if plantilla.count(hueco) != 1:
+            raise NovedadMal(
+                f"{NOMBRE} ya no lleva `{hueco}` una vez, así que la página se "
+                f"publicaría sin {que} y sin que nada fallara.")
     partes = []
-    for f in _filas(novedades, articulos):
-        ancla = f' id="{f.ancla}"' if f.ancla else ""
-        if f.tipo == "Reglas":
-            titulo = f"<h2>{html.escape(f.titulo)}</h2>"
-            codigos = ""
-            if f.nuevos:
-                codigos += ('<p class="rotulo-codigos">Nuevos</p>'
-                            + _chips(f.nuevos, fichas, "nuevos"))
-            if f.retirados:
-                codigos += ('<p class="rotulo-codigos">Retirados</p>'
-                            + _chips(f.retirados, set(), "retirados"))
-        else:
-            titulo = f'<h2><a href="{f.enlace}">{html.escape(f.titulo)}</a></h2>'
-            codigos = ""
+    for e in novedades.entradas:
+        codigos = ""
+        if e.nuevos:
+            codigos += ('<p class="rotulo-codigos">Nuevos</p>'
+                        + _chips(e.nuevos, fichas, "nuevos"))
+        if e.retirados:
+            codigos += ('<p class="rotulo-codigos">Retirados</p>'
+                        + _chips(e.retirados, set(), "retirados"))
         partes.append(
-            f'<li class="novedad {"de-reglas" if f.tipo == "Reglas" else "de-bitacora"}"{ancla}>'
-            f'<p class="cuando"><time datetime="{f.fecha.isoformat()}">'
-            f"{_dicha(f.fecha)}</time> <span>{f.tipo}</span></p>"
-            f"{titulo}<p>{html.escape(f.texto)}</p>{codigos}</li>"
+            f'<li class="novedad" id="{e.id}">'
+            f'<p class="cuando"><time datetime="{e.fecha.isoformat()}">'
+            f"{_dicha(e.fecha)}</time></p>"
+            f"<h2>{html.escape(e.titulo)}</h2><p>{html.escape(e.texto)}</p>{codigos}</li>"
         )
     lista = '<ol class="novedades">' + "\n".join(partes) + "</ol>"
     partida = (
-        '<p class="partida">La lista de reglas empieza el '
+        '<p class="partida">La lista empieza el '
         f"{_dicha(novedades.partida + _dt.timedelta(days=1))}. Los "
         f"{len(novedades.de_partida)} códigos que había el "
         f"{_dicha(novedades.partida)}, el día que entró en vigor la orden, no "
         'salen aquí uno a uno: están todos en <a href="./incidencias.html">el '
         f"catálogo</a>, que hoy tiene {catalogo}.</p>"
     )
-    return plantilla.replace(HUECO, lista + "\n" + partida)
+    return (plantilla.replace(HUECO, lista + "\n" + partida)
+            .replace(HUECO_DE_SEGUIR, seguir))
 
 
-def canal(novedades: Novedades, articulos, dominio: str) -> str:
-    """El canal Atom (RFC 4287) con las mismas entradas que la página.
-
-    La hora no se apunta en ningún sitio, así que va la medianoche UTC del día:
-    Atom pide fecha y hora, y lo que vale es el día. El id de cada entrada no
-    cambia nunca, porque es lo que usa el lector para saber que ya la enseñó:
-    el ancla para las de reglas, la dirección del artículo para las de la
-    bitácora.
-    """
-    filas = _filas(novedades, articulos)
-
-    def momento(dia: _dt.date) -> str:
-        return f"{dia.isoformat()}T00:00:00Z"
-
-    def direccion(enlace: str) -> str:
-        # `./x.html#y` → `https://dominio/x#y`, la dirección limpia que sirve
-        # producción, como la canónica y el sitemap.
-        sin_punto = enlace.removeprefix("./")
-        pagina_, _, ancla = sin_punto.partition("#")
-        limpia = pagina_.removesuffix(".html")
-        return f"{dominio}/{limpia}" + (f"#{ancla}" if ancla else "")
-
+def canal(novedades: Novedades, dominio: str) -> str:
+    """El canal Atom con las mismas entradas que la página. El id de cada una
+    es su ancla en la página, `/novedades#id`, que no cambia nunca."""
     entradas = []
-    for f in filas:
-        resumen = f.texto
-        if f.nuevos:
-            resumen += " Nuevos: " + ", ".join(f.nuevos) + "."
-        if f.retirados:
-            resumen += " Retirados: " + ", ".join(f.retirados) + "."
-        enlace = direccion(f.enlace)
-        entradas.append(
-            "  <entry>\n"
-            f"    <title>{_xml(f.titulo)}</title>\n"
-            f'    <link rel="alternate" type="text/html" href="{_xml(enlace)}"/>\n'
-            f"    <id>{_xml(enlace)}</id>\n"
-            f"    <published>{momento(f.fecha)}</published>\n"
-            f"    <updated>{momento(f.cambiada)}</updated>\n"
-            f"    <category term=\"{'reglas' if f.tipo == 'Reglas' else 'bitacora'}\" "
-            f'label="{_xml(f.tipo)}"/>\n'
-            f"    <summary>{_xml(resumen)}</summary>\n"
-            "  </entry>\n"
-        )
-    ultima = max((f.cambiada for f in filas), default=novedades.partida)
-    return (
-        '<?xml version="1.0" encoding="utf-8"?>\n'
-        '<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="es">\n'
-        "  <title>Novedades de Glosa-e</title>\n"
-        "  <subtitle>Cada regla nueva o retirada del validador y cada artículo "
-        "de la bitácora, con su fecha.</subtitle>\n"
-        f'  <link rel="self" type="application/atom+xml" href="{dominio}/{CANAL}"/>\n'
-        f'  <link rel="alternate" type="text/html" href="{dominio}/novedades"/>\n'
-        f"  <id>{dominio}/novedades</id>\n"
-        f"  <updated>{momento(ultima)}</updated>\n"
-        "  <author><name>Glosa-e</name>"
-        f"<uri>{dominio}/</uri></author>\n"
-        + "".join(entradas)
-        + "</feed>\n"
-    )
+    for e in novedades.entradas:
+        resumen = e.texto
+        if e.nuevos:
+            resumen += " Nuevos: " + ", ".join(e.nuevos) + "."
+        if e.retirados:
+            resumen += " Retirados: " + ", ".join(e.retirados) + "."
+        entradas.append(atom.Entrada(
+            titulo=e.titulo, enlace=atom.direccion(dominio, f"./{NOMBRE}#{e.id}"),
+            publicada=e.fecha, cambiada=e.fecha, resumen=resumen))
+    return atom.canal(
+        dominio=dominio, nombre=CANAL, pagina=NOMBRE.removesuffix(".html"),
+        titulo="Novedades de Glosa-e",
+        subtitulo="Cada regla nueva o retirada del validador, con su fecha.",
+        entradas=entradas, sin_entradas=novedades.partida)

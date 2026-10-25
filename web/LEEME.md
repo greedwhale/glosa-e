@@ -172,11 +172,14 @@ y cada enlace contestó 200.
 
 ## Las novedades y su canal Atom
 
-Desde el 25-10-2026, `novedades.html` junta cada regla nueva o retirada y
-cada artículo, por fecha, y `novedades.xml` dice lo mismo en Atom. La página
-sale de su plantilla y de `novedades.txt`, que no se copian tal cual; la
-portada, la bitácora y el catálogo la anuncian con un `<link
-rel="alternate">` para los lectores que la buscan solos. Medido el
+Desde el 25-10-2026, `novedades.html` junta cada regla nueva o retirada, por
+fecha, y `novedades.xml` dice lo mismo en Atom; los artículos tienen el suyo,
+`bitacora.xml`. La página sale de su plantilla y de `novedades.txt`, que no
+se copian tal cual, y lleva el botón Seguir las novedades, que se despliega
+sin guion (es un `<details>`); el guion solo copia la dirección de cada
+canal. La portada anuncia los dos canales con un `<link rel="alternate">`
+para los lectores que los buscan solos, el catálogo el de las novedades y la
+bitácora el suyo, que heredan sus artículos. Medido el
 25-10-2026 en el servidor `sitio`: cada enlace de la página contestó 200, sin
 errores en la consola y sin desbordar a 375 px, en claro y en oscuro.
 

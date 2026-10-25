@@ -1,6 +1,7 @@
 # Las novedades de Glosa-e. Lo que se apunta aquí sale en novedades.html y en
-# el canal Atom, novedades.xml, junto con los artículos de la bitácora, que
-# salen solos. El formato y el porqué, en validador/novedades.py.
+# el canal Atom, novedades.xml. Solo reglas: los artículos de la bitácora
+# tienen su página y su canal, bitacora.xml. El formato y el porqué, en
+# validador/novedades.py.
 #
 # Cada código nuevo va en `nuevos` y cada código que se quita, en `retirados`,
 # con la fecha en que salió a producción. Si no, el sitio no se monta: el

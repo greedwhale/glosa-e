@@ -45,18 +45,25 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from validador import atom
+
 __all__ = [
+    "CANAL",
     "CARPETA",
     "Entrada",
     "HUECO",
     "NOMBRE",
     "PREFIJO",
     "SinEntrada",
+    "canal",
     "leer_entradas",
     "montar_bitacora",
 ]
 
 NOMBRE = "bitacora.html"
+# El canal Atom de los artículos, desde el 25-10-2026. Hasta ese día iban en el
+# de las novedades, mezclados con las reglas, y se contaban dos veces.
+CANAL = "bitacora.xml"
 # Donde viven los artículos, dentro de `web/`. Son trozos, no páginas: no
 # llevan cabecera ni pie porque se los pone la plantilla.
 CARPETA = "bitacora"
@@ -317,3 +324,27 @@ def montar_bitacora(plantilla: Path, carpeta: Path, destino: Path) -> list[Entra
         )
 
     return entradas
+
+
+def canal(entradas: list[Entrada], dominio: str) -> str:
+    """El canal Atom de la bitácora: un artículo por entrada, con su entradilla.
+
+    El id de cada una es la dirección del artículo, la misma que tenía en el
+    canal de las novedades, para que quien ya lo leyó allí no lo vea como
+    nuevo si se cambia de canal. Se niega sin artículos: el canal tendría que
+    inventarse una fecha.
+    """
+    if not entradas:
+        raise SinEntrada("la bitácora no tiene artículos, y su canal no tendría "
+                         "ni una entrada ni una fecha cierta")
+    ordenadas = sorted(entradas, key=lambda e: (e.fecha, e.slug), reverse=True)
+    return atom.canal(
+        dominio=dominio, nombre=CANAL, pagina=NOMBRE.removesuffix(".html"),
+        titulo="Bitácora de Glosa-e",
+        subtitulo="Lo que Glosa-e va midiendo sobre facturas y normas reales, "
+                  "con la fecha en que se midió y la fuente al lado.",
+        entradas=[atom.Entrada(
+            titulo=e.titulo, enlace=atom.direccion(dominio, f"./{e.nombre}"),
+            publicada=e.fecha, cambiada=e.cambiada, resumen=e.entradilla)
+            for e in ordenadas],
+        sin_entradas=ordenadas[0].fecha)

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Novedades &middot; Glosa-e</title>
-<meta name="description" content="Cada regla nueva o retirada de Glosa-e y cada artículo de la bitácora, con su fecha. También como canal Atom, para seguirlas sin redes.">
+<meta name="description" content="Cada regla nueva o retirada del validador de Glosa-e, con su fecha. También como canal Atom.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='6 -1 42 42'%3E%3Cstyle%3Eg%7Bstroke:%231c4e80%7D@media (prefers-color-scheme:dark)%7Bg%7Bstroke:%238ab4e0%7D%7D%3C/style%3E%3Cg fill='none' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 7 H8 V33 H16'/%3E%3Cpath d='M25 12 h21'/%3E%3Cpath d='M25 20 h21'/%3E%3Cpath d='M25 28 h13'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="./glosa.css">
 <link rel="alternate" type="application/atom+xml" title="Novedades de Glosa-e" href="./novedades.xml">
@@ -19,22 +19,36 @@
 .portada { padding: 3rem 0 1rem; }
 .portada h1 { font: 400 var(--t5)/1.15 var(--serif); letter-spacing: -.015em; margin-bottom: .8rem; }
 .portada .lema { font-size: var(--t3); color: var(--tinta-2); max-width: 38rem; }
-/* Cómo seguirlas sin redes: la dirección del canal, a la vista y entera,
-   que es lo que se pega en un lector. Se selecciona de un toque. */
-.seguirlas { margin: 1.75rem 0 0; padding: 1.1rem 1.25rem; max-width: 40rem; border: 1px solid var(--borde); border-radius: 10px; background: var(--panel); font-size: var(--t1); color: var(--tinta-2); }
-.seguirlas b { color: var(--tinta); }
-.seguirlas code { font-family: var(--mono); color: var(--tinta); overflow-wrap: anywhere; user-select: all; }
+/* Cómo seguirlas: un botón que se despliega con cada sitio donde recibirlas
+   y lo que se recibe en cada uno. Sustituye el 25-10-2026 a una caja con la
+   dirección del canal entera, que pesaba como un aviso y que nadie leía: lo
+   que se hace con esa dirección es copiarla, y para eso está el botón de cada
+   canal. Se despliega en su sitio y no flota, para que en el móvil no tape la
+   lista. */
+.seguirlas { margin: 1.5rem 0 0; max-width: 34rem; }
+.seguirlas > summary { list-style: none; display: inline-flex; align-items: center; gap: .55rem; padding: .5rem .95rem; border: 1px solid var(--borde); border-radius: 8px; background: var(--panel); color: var(--tinta); font-size: var(--t1); font-weight: 600; cursor: pointer; }
+.seguirlas > summary::-webkit-details-marker { display: none; }
+.seguirlas > summary:hover, .seguirlas > summary:focus-visible { border-color: var(--acento); color: var(--acento); }
+.seguirlas .galon { width: .65rem; height: .4rem; fill: none; stroke: currentColor; stroke-width: 1.6; transition: transform .15s; }
+.seguirlas[open] .galon { transform: rotate(180deg); }
+.destinos { list-style: none; padding: 0; margin: .6rem 0 0; border: 1px solid var(--borde); border-radius: 10px; background: var(--panel); }
+.destinos li { padding: .85rem 1.1rem; border-top: 1px solid var(--borde); }
+.destinos li:first-child { border-top: 0; }
+.destinos .opcion { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin: 0; }
+.destinos .opcion a { font-weight: 600; color: var(--tinta); text-decoration: none; }
+.destinos .opcion a:hover, .destinos .opcion a:focus-visible { color: var(--acento); text-decoration: underline; text-underline-offset: .18em; }
+.destinos .cada { font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em; font-weight: 600; color: var(--tenue); white-space: nowrap; }
+.destinos li > p:not(.opcion) { margin: .25rem 0 0; font-size: var(--t1); color: var(--tinta-2); }
+.copiar { margin: .55rem 0 0; padding: .3rem .65rem; font: inherit; font-size: var(--t0); border: 1px solid var(--borde); border-radius: 6px; background: transparent; color: var(--tinta); cursor: pointer; }
+.copiar:hover, .copiar:focus-visible { border-color: var(--acento); color: var(--acento); }
+.destinos code { display: block; margin: .55rem 0 0; font-family: var(--mono); font-size: var(--t0); color: var(--tinta); overflow-wrap: anywhere; user-select: all; }
 .novedades { list-style: none; padding: 0; margin: 2.5rem 0 0; max-width: 46rem; }
 .novedad { display: grid; grid-template-columns: 9rem minmax(0, 1fr); column-gap: 1.75rem; padding: 1.5rem 0; border-top: 1px solid var(--borde); scroll-margin-top: 5rem; }
 .novedad:last-child { border-bottom: 1px solid var(--borde); }
 .novedad > * { grid-column: 2; min-width: 0; }
 .novedad > .cuando { grid-column: 1; grid-row: 1 / span 6; font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em; font-weight: 600; color: var(--tenue); font-variant-numeric: tabular-nums; }
-.novedad .cuando span { display: block; margin-top: .4rem; color: var(--acento); }
-.novedad.de-bitacora .cuando span { color: var(--nota); }
 .novedad:target { background: var(--acento-flojo); border-radius: 10px; padding-left: 1rem; padding-right: 1rem; }
 .novedad h2 { font: 400 var(--t4)/1.2 var(--serif); letter-spacing: -.012em; color: var(--tinta); margin: 0 0 .45rem; text-wrap: balance; }
-.novedad h2 a { color: inherit; text-decoration: none; }
-.novedad h2 a:hover, .novedad h2 a:focus-visible { color: var(--acento); text-decoration: underline; text-underline-offset: .18em; }
 .novedad > p { color: var(--tinta-2); overflow-wrap: break-word; }
 .novedad > p.rotulo-codigos { margin: .9rem 0 .35rem; font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em; font-weight: 600; color: var(--tenue); }
 .codigos { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: .35rem; }
@@ -47,7 +61,6 @@
   .novedad { grid-template-columns: minmax(0, 1fr); }
   .novedad > *, .novedad > .cuando { grid-column: 1; grid-row: auto; }
   .novedad > .cuando { margin-bottom: .5rem; }
-  .novedad .cuando span { display: inline; margin: 0 0 0 .6rem; }
 }
 </style>
 </head>
@@ -74,7 +87,7 @@
         <a href="./tesis.html"><b>Por qué se explica en vez de certificar</b><span>La tesis del proyecto, y el caso que la puso a prueba.</span></a>
         <a href="./banco.html"><b>Banco de pruebas</b><span>Las comprobaciones, corriéndolas tu navegador delante de ti.</span></a>
         <a href="./bitacora.html"><b>Bitácora</b><span>Lo que se va midiendo, con la fecha y la fuente al lado.</span></a>
-        <a href="./novedades.html"><b>Novedades</b><span>Cada regla nueva o retirada y cada artículo, con su fecha. También en Atom.</span></a>
+        <a href="./novedades.html"><b>Novedades</b><span>Cada regla nueva o retirada del validador, con su fecha. También en Atom.</span></a>
         <a href="./legal.html"><b>Aviso legal y privacidad</b><span>Qué se mide, qué no se guarda y qué no acredita esto.</span></a>
         <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20"><b>Escríbeme</b><span>Dudas, fallos que veas y propuestas. Se abre tu programa de correo.</span></a>
       </nav>
@@ -87,14 +100,13 @@
   <div class="envoltorio">
 <div class="portada">
   <h1>Novedades</h1>
-  <p class="lema">Cada regla nueva o retirada del validador y cada artículo de
-  la bitácora, con la fecha en que salió. Al montar el sitio, los códigos que
-  hay se comparan con los apuntados aquí, y si falta uno nuevo o uno retirado
-  el sitio no se publica. El cambio de una regla que ya estaba no se puede
-  comprobar así, y sale cuando se apunta.</p>
-  <div class="seguirlas"><b>Para seguirlas sin redes</b>, el canal Atom:
-  <code>https://www.glosa-e.com/novedades.xml</code>. Se pega en cualquier
-  lector de noticias.</div>
+  <p class="lema">Cada regla nueva o retirada del validador, con la fecha en
+  que salió. Al montar el sitio, los códigos que hay se comparan con los
+  apuntados aquí, y si falta uno nuevo o uno retirado el sitio no se publica.
+  El cambio de una regla que ya estaba no se puede comprobar así, y sale
+  cuando se apunta. Lo que se escribe sobre la norma está en la
+  <a href="./bitacora.html">bitácora</a>.</p>
+  <!-- AQUI VA COMO SEGUIRLAS -->
 </div>
 <!-- AQUI VAN LAS NOVEDADES -->
   </div>
@@ -117,5 +129,24 @@
     <p class="firma-pie">© 2026 Glosa-e</p>
   </div>
 </footer>
+<script>
+// Copia la dirección de un canal, que es lo que se pega en un lector de
+// noticias. Sin guion los botones no se ven y queda el enlace al canal; si el
+// navegador no deja copiar, el botón se cambia por la dirección, a la vista y
+// lista para seleccionar.
+for (const boton of document.querySelectorAll("button.copiar")) {
+  boton.hidden = false;
+  boton.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(boton.dataset.copiar);
+      boton.textContent = "Copiada";
+    } catch {
+      const direccion = document.createElement("code");
+      direccion.textContent = boton.dataset.copiar;
+      boton.replaceWith(direccion);
+    }
+  });
+}
+</script>
 </body>
 </html>

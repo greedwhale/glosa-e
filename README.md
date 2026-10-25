@@ -33,7 +33,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3670 tests, todos en verde.
+3692 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5627,10 +5627,13 @@ página, y el montaje se niega, antes de escribir nada, si un artículo trae
 otro o el armazón de las fichas trae uno suyo.
 
 **Las novedades, en una página y en un canal Atom**, desde el 25-10-2026:
-`novedades.html` y `novedades.xml`, con cada regla nueva o retirada y cada
-artículo de la bitácora, por fecha. Los artículos salen solos; las reglas se
-apuntan a mano en `web/novedades.txt`, porque lo que mira un código nuevo y
-por qué no está escrito en ningún sitio del que se pueda sacar. Y como lo que
+`novedades.html` y `novedades.xml`, con cada regla nueva o retirada, por
+fecha. Nacieron con los artículos de la bitácora mezclados, y ese mismo día
+se quitaron: cada artículo se contaba dos veces, en su índice y aquí. Los
+artículos tienen su propio canal, `bitacora.xml`, que el montaje escribe de
+las mismas entradas que el índice y solo si hay alguna. Las reglas se apuntan
+a mano en `web/novedades.txt`, porque lo que mira un código nuevo y por qué
+no está escrito en ningún sitio del que se pueda sacar. Y como lo que
 se apunta a mano se queda atrás, **el montaje se niega** (`SinNovedades`, que
 hereda de `NoSeMonta`) si el catálogo no cuadra con lo apuntado: un código
 que no sale ni en la partida ni en ninguna novedad, uno que se da por
@@ -5647,14 +5650,23 @@ novedades, del 07-10 al 24-10, y hoy el catálogo tiene 408. Lo que esto
 **no** vigila es el cambio de una regla que ya estaba: no se puede medir
 desde fuera, y la página lo dice.
 
-El canal se sirve como `application/atom+xml`, su tipo (RFC 4287), con una
-cabecera en `vercel.json`. Por eso la línea de seguir lleva a la página y no
-al `.xml`: un navegador puede bajarlo como fichero en vez de enseñarlo, y la
-página da la dirección entera para pegarla en un lector. La hora no se
-apunta en ningún sitio y va la medianoche UTC del día. El id de cada entrada
-es el ancla (`/novedades#id`) o la dirección del artículo, y no cambia al
-corregir el título, que es lo que hace que un lector no enseñe dos veces lo
-mismo. Quién lo lee no se mide.
+Los dos canales se sirven como `application/atom+xml`, su tipo (RFC 4287),
+con una cabecera cada uno en `vercel.json`. Por eso la línea de seguir lleva
+a la página y no al `.xml`: un navegador puede bajarlo como fichero en vez de
+enseñarlo. En la página, **el botón Seguir las novedades** se despliega con
+cada sitio donde recibirlas y lo que llega a cada uno: X, a diario; el canal
+de las novedades, cada regla; el de la bitácora, cada artículo, este solo si
+hay bitácora. Cada canal tiene un botón que copia su dirección entera, que es
+lo que se pega en un lector; si el navegador no deja copiar, el botón se
+cambia por la dirección a la vista. El boletín de LinkedIn entra el primero
+el día que `BOLETIN_DE_LINKEDIN` tenga su dirección, y no antes. Correo
+propio no hay a propósito: el plan del 22-10-2026 lo descartó (LSSI,
+artículo 21, y guardar direcciones de terceros). La hora no se apunta en
+ningún sitio y va la medianoche UTC del día. El id de cada entrada es el
+ancla (`/novedades#id`) o la dirección del artículo, la misma que tenía
+cuando los artículos iban en las novedades, y no cambia al corregir el
+título, que es lo que hace que un lector no enseñe dos veces lo mismo. Quién
+los lee no se mide.
 
 ### El aviso a Bing, por IndexNow
 

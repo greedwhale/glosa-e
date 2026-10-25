@@ -655,6 +655,11 @@ CLAVE_DE_INDEXNOW = "18c7a2162471ea018913c3b8aba8b1d6"
 # primera cuelga de la organización y el segundo de su fundador.
 CUENTA_DE_LA_MARCA = "https://x.com/glosa_e"
 PERFIL_DEL_TITULAR = "https://www.linkedin.com/in/dunior-hernandez-martinez"
+# El boletín de LinkedIn, La glosa del mes (decisión 5 del plan del
+# 22-10-2026: se crea en noviembre y sale la primera semana de diciembre).
+# Vacío mientras no exista; con su dirección, el botón de seguir de las
+# novedades lo ofrece el primero, porque es lo único que llega por correo.
+BOLETIN_DE_LINKEDIN = ""
 
 # La tarjeta que se enseña cuando alguien pega el enlace en un sitio ajeno.
 # La genera `herramientas/tarjeta.py` y va versionada, como la marca: no se
@@ -704,7 +709,7 @@ _DE_LA_PAGINA = (
     # camino: son plantillas y hay que generarlas, no copiarlas. La primera
     # rellena el catálogo de códigos; la segunda pone el armazón a cada
     # entrada, que es lo que evita que el menú se escriba una vez por artículo.
-    # `novedades.html` tampoco: se rellena de `novedades.txt` y de la bitácora.
+    # `novedades.html` tampoco: se rellena de `novedades.txt`.
     "tesis.html",
 )
 
@@ -1255,10 +1260,13 @@ def _leer_novedades(pagina: Path) -> novedades.Novedades | None:
             f"Está la plantilla {novedades.NOMBRE} y no {novedades.FUENTE}, "
             "así que la página y el canal saldrían sin una sola regla, diciendo "
             "que no ha cambiado nada.")
-    if novedades.HUECO not in plantilla.read_text(encoding="utf-8"):
-        raise SinNovedades(
-            f"{novedades.NOMBRE} ya no lleva `{novedades.HUECO}`, así que la "
-            "página se publicaría sin una sola novedad y sin que nada fallara.")
+    texto = plantilla.read_text(encoding="utf-8")
+    for hueco, que in ((novedades.HUECO, "una sola novedad"),
+                       (novedades.HUECO_DE_SEGUIR, "el botón de seguirlas")):
+        if texto.count(hueco) != 1:
+            raise SinNovedades(
+                f"{novedades.NOMBRE} ya no lleva `{hueco}` una vez, así que la "
+                f"página se publicaría sin {que} y sin que nada fallara.")
     try:
         leidas = novedades.leer(fuente)
         novedades.revisar(leidas, {c.codigo for c in codigos_del_paquete()})
@@ -1914,6 +1922,10 @@ def montar_sitio(
             if nombre != bitacora.NOMBRE:
                 generada = _con_seguir(generada, nombre, con_novedades)
             salida.write_text(generada, encoding="utf-8")
+    # El canal de los artículos, de las mismas entradas que el índice.
+    if publicadas:
+        (destino / bitacora.CANAL).write_text(
+            bitacora.canal(publicadas, DOMINIO), encoding="utf-8")
     _con_lo_ultimo(destino / "index.html", publicadas)
     # Lo que va al `lastmod`: cada entrada, con su último cambio dicho, y el
     # índice, con el de la más reciente, que es lo que cambia su lista.
@@ -1938,10 +1950,11 @@ def montar_sitio(
                               encoding="utf-8")
         _con_las_fichas(destino / "index.html", fichas)
 
-    # Las novedades, al final de lo que se genera: necesitan los artículos ya
-    # leídos y las fichas ya escritas, para enlazar solo los códigos que las
-    # tienen. La página sale de su plantilla y el canal, de las mismas
-    # entradas, así que no pueden decir cosas distintas.
+    # Las novedades, al final de lo que se genera: necesitan las fichas ya
+    # escritas, para enlazar solo los códigos que las tienen, y saber si hay
+    # bitácora, para ofrecer su canal en el botón. La página sale de su
+    # plantilla y el canal, de las mismas entradas, así que no pueden decir
+    # cosas distintas.
     if leidas_novedades is not None:
         texto_novedades = (pagina / novedades.NOMBRE).read_text(encoding="utf-8")
         for busca, pon, constante in sellos:
@@ -1952,16 +1965,17 @@ def montar_sitio(
         escritas = set(fichas) if plantilla.is_file() else set()
         con_ficha = {c.codigo for c in catalogo
                      if pagina_incidencias.nombre_de(c.codigo) in escritas}
+        seguir = novedades.panel(DOMINIO, CUENTA_DE_LA_MARCA,
+                                 bitacora.CANAL if publicadas else None,
+                                 BOLETIN_DE_LINKEDIN or None)
         (destino / novedades.NOMBRE).write_text(
-            novedades.pagina(texto_novedades, leidas_novedades, publicadas,
-                             con_ficha, len(catalogo)),
+            novedades.pagina(texto_novedades, leidas_novedades, con_ficha,
+                             len(catalogo), seguir),
             encoding="utf-8")
         (destino / novedades.CANAL).write_text(
-            novedades.canal(leidas_novedades, publicadas, DOMINIO), encoding="utf-8")
-        fechas = [e.fecha for e in leidas_novedades.entradas] + [
-            e.cambiada for e in publicadas]
-        if fechas:
-            cambios[novedades.NOMBRE] = max(fechas)
+            novedades.canal(leidas_novedades, DOMINIO), encoding="utf-8")
+        if leidas_novedades.entradas:
+            cambios[novedades.NOMBRE] = max(e.fecha for e in leidas_novedades.entradas)
 
     huerfanos = sorted(c for c, cuantas in firmadas.items() if not cuantas)
     if huerfanos:
