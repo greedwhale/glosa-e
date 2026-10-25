@@ -345,15 +345,27 @@ details.documento[open] > summary > header::after { content: "Cerrar"; }
 details.documento > summary:focus-visible { outline: 2px solid var(--acento); outline-offset: -2px; }
 details.documento > summary > header .estado { grid-column: 1; }
 
-/* El recuento, al pie del informe y cerrado: es para mandarlo, no para leerlo
-   aquí, y quien solo quiere saber qué falla no tiene por qué tropezar con él.
-   El texto va tal cual sale de Python, en la letra fija, porque las cuentas
-   van en columnas; y con su barra de desplazamiento, porque en el móvil una
-   línea de código y norma no cabe y partirla descuadra las columnas. */
-.recuento { margin: 1.5rem 0 1rem; border-top: 1px solid var(--borde); padding-top: .9rem; }
-.recuento summary { cursor: pointer; color: var(--acento); font-size: var(--t2); font-weight: 600; }
-.recuento summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 3px; }
-.recuento > p { font-size: var(--t1); line-height: 1.5; color: var(--tinta-2); max-width: 40rem; margin: .6rem 0; }
+/* El recuento, al pie del informe y abierto. Hasta el 25-10-2026 iba
+   cerrado en un desplegable que se titulaba por para quién era ("para
+   mandárselo a otra persona") y no por lo que era, y nadie sabía qué había
+   dentro sin abrirlo. Ahora se ve entero y lleva el corchete de la marca, el
+   de la glosa, en el color del acento: no es una queja de la factura sino lo
+   que se puede hacer con el informe, y por eso no lleva el color de ninguna
+   gravedad. El texto va tal cual sale de Python, en la letra fija, porque las
+   cuentas van en columnas; y con su barra de desplazamiento, porque en el
+   móvil una línea de código y norma no cabe y partirla descuadra las
+   columnas. */
+.recuento {
+  position: relative; margin: 2rem 0 1rem; padding: .2rem 0 .2rem 1.6rem;
+}
+.recuento::before {
+  content: ""; position: absolute; left: 0; top: .3rem; bottom: .3rem; width: .5rem;
+  border: 2px solid var(--acento); border-right: 0;
+}
+.recuento h3 { font: 400 var(--t4)/1.2 var(--serif); letter-spacing: -.012em; color: var(--tinta); margin: 0 0 .5rem; text-wrap: balance; }
+.recuento > p { font-size: var(--t2); line-height: 1.55; color: var(--tinta-2); max-width: 40rem; margin: .4rem 0; }
+.recuento > p.dudas { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--borde); color: var(--tinta); }
+.recuento > p.dudas a { color: var(--acento); font-weight: 600; }
 .recuento pre {
   margin: .6rem 0; padding: .8rem 1rem; max-height: 22rem; overflow: auto;
   background: var(--panel-2); border: 1px solid var(--borde); border-radius: 8px;
@@ -1773,7 +1785,7 @@ function pintarInforme(datos) {
       "<p class='texto' style='color:var(--tinta-2)'>Son " +
       enMiles(datos.documentos.length) + " ficheros, así que cada uno sale " +
       "cerrado: se abre pulsando su nombre." +
-      (datos.recuento ? " El recuento de todo el lote, para mandarlo, está " +
+      (datos.recuento ? " El recuento de todo el lote está " +
                         "<a href='#recuento-lote'>al final</a>." : "") + "</p>");
   }
   datos.documentos.forEach((doc, n) => {
@@ -1799,23 +1811,33 @@ function pintarInforme(datos) {
     );
   }
 
-  // El recuento, para quien quiera enseñarle a otra persona qué falla sin
-  // enseñarle las facturas. Es el de `--recuento` en consola, escrito en
-  // Python: aquí solo se pinta, así que no puede llevar algo que allí no
-  // lleve. Hasta el 19-10-2026 había que instalar Python y el programa para
-  // sacarlo, y para un fabricante pequeño eso era no sacarlo.
+  // El recuento, para enseñar qué falla sin enseñar las facturas. Es el de
+  // `--recuento` en consola, escrito en Python: aquí solo se pinta, así que
+  // no puede llevar algo que allí no lleve. Hasta el 19-10-2026 había que
+  // instalar Python y el programa para sacarlo, y para un fabricante pequeño
+  // eso era no sacarlo.
+  //
+  // La línea del final abre el correo con el asunto escrito, para que se
+  // sepa de qué va antes de leerlo. Pregunta por dudas y no ofrece nada: un
+  // "informe completo" anunciado aquí sería anunciar un servicio, y desde el
+  // 21-10-2026 el sitio no anuncia ninguno.
   if (datos.recuento) {
+    const facturas = datos.documentos.length === 1 ? "tu factura" : "tus facturas";
     partes.push(
-      "<details class='recuento' id='recuento-lote'>" +
-        "<summary>Para mandárselo a otra persona: el recuento</summary>" +
-        "<p>Solo los códigos, en cuántos documentos sale cada uno y cuántas " +
-        "veces, y los formatos. No lleva nombres de fichero, NIF, números de " +
-        "factura, fechas, importes ni nombres. Se copia aquí, en tu navegador, " +
-        "y no se manda a ningún sitio: lo mandas tú, si quieres. Léelo antes.</p>" +
+      "<section class='recuento' id='recuento-lote' aria-labelledby='recuento-titulo'>" +
+        "<h3 id='recuento-titulo'>El recuento: qué falla en " + facturas +
+        ", sin datos de nadie</h3>" +
+        "<p>En unas líneas, cada código que ha salido, en cuántas facturas y " +
+        "cuántas veces, y los formatos. No lleva nombres de fichero, NIF, " +
+        "números de factura, fechas, importes ni nombres. Sirve para enseñar " +
+        "qué falla sin enseñar las facturas. Se copia aquí y no se manda solo: " +
+        "léelo antes de mandarlo.</p>" +
         "<pre id='recuento-texto'>" + escapar(datos.recuento) + "</pre>" +
         "<p class='copiar'><button type='button' id='copiar-recuento'>Copiar el recuento</button>" +
         "<span id='recuento-copiado' role='status'></span></p>" +
-      "</details>"
+        "<p class='dudas'>¿Dudas sobre el informe o sobre algo en concreto? " +
+        "<a href='mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20sobre%20el%20informe'>Escríbeme</a>.</p>" +
+      "</section>"
     );
   }
 

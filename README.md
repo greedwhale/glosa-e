@@ -132,8 +132,10 @@ nombre y la dirección del comprador). Se agrupa por el conjunto de documentos y
 no por la cuenta: dos códigos con 18 cada uno en facturas distintas no van
 juntos, y la prueba lo provoca. Lo que sale en todos no se repite aquí.
 
-**Y en la web, desde el mismo día.** Al pie de cada informe hay un desplegable,
-cerrado, con el mismo recuento y un botón para copiarlo. Lo escribe la misma
+**Y en la web, desde el mismo día.** Al pie de cada informe va el mismo
+recuento, con un botón para copiarlo y una línea para escribir si hay dudas.
+Iba cerrado en un desplegable hasta el 25-10-2026, y se titulaba por para quién
+era y no por lo que era; ahora se ve entero. Lo escribe la misma
 función de Python (`InformeLote.recuento`), y la página solo lo pinta, así que
 no puede llevar algo que la consola no lleve; la prueba de los textos de las
 facturas se repite con el Python de `glosa.js` tal cual corre allí. Si el

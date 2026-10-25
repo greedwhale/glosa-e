@@ -72,7 +72,7 @@ class TestNoSePintaDeMas:
         """Con miles de ficheros cerrados, el recuento queda muy abajo."""
         pagina = _pagina()
         assert "<a href='#recuento-lote'>al final</a>" in pagina
-        assert "<details class='recuento' id='recuento-lote'>" in pagina
+        assert "<section class='recuento' id='recuento-lote'" in pagina
 
     def test_un_solo_escuchador_para_toda_la_pagina(self):
         """Uno por informe dejaba contestar al de un lote viejo.
