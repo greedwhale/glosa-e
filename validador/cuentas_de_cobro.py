@@ -182,5 +182,10 @@ def reglas_de_lote(cobros: list[Cobro],
 
 
 def reglas(raiz, deteccion) -> list[Incidencia]:
-    """Lo mismo dentro de un fichero, que en Facturae pueden ser varias facturas."""
+    """Lo mismo dentro de un fichero, que solo en Facturae pueden ser varias
+    facturas. Un UBL o un CII es una sola, con un solo juego de cuentas, y no
+    puede no cuadrar consigo mismo: leerlo sería trabajo para nada en cada
+    fichero de un lote."""
+    if not deteccion or deteccion.familia != FACTURAE:
+        return []
     return reglas_de_lote(extraer_de(raiz, deteccion))

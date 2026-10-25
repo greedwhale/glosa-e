@@ -1045,6 +1045,11 @@ y uno en las facturas de prueba del cliente @firma, que reutilizan el mismo
 vendedor en ejemplos distintos con cuentas distintas. Es justo lo que tiene que
 decir: mismo NIF, otra cuenta.
 
+Y lo que cuesta: en un lote de 1.000 facturas UBL, 3,05 s con la lectura de
+las cuentas y 2,93 s sin ella, el mejor de tres en esta máquina el 25-10-2026.
+Dentro de un fichero solo se mira en Facturae: un UBL o un CII es una sola
+factura y no puede no cuadrar consigo mismo.
+
 ## La bitácora, y por qué se genera
 
 `www.glosa-e.com/bitacora.html`. Es donde se publica lo que este proyecto mide
