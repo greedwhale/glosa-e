@@ -17,7 +17,7 @@ import pytest
 
 from validador import facturae, factura
 from validador.formato import detectar
-from validador.incidencias import AVISO, ERROR
+from validador.incidencias import AVISO, ERROR, NOTA
 
 HOY = date(2026, 9, 20)
 NIF = "B12345674"
@@ -582,6 +582,111 @@ class TestLasRamasQueFaltaban:
         salta = [i for i in quejas(fe(lote_ejecutar="1.00"))
                  if i.codigo == "FE-LOTE-EJECUTAR"]
         assert salta and salta[0].gravedad == ERROR
+
+
+class TestLosTresOrganosDeFACe:
+    """FE-DIR3: la oficina contable, el órgano gestor y la unidad tramitadora.
+
+    La factura de prueba va de una empresa a otra (`B12345674`), así que el
+    punto de partida no dice nada; aquí se le cambia el comprador por una
+    entidad pública y se le ponen, quitan o cambian de sitio los centros.
+    """
+
+    TRES = (("01", "EA0001234"), ("02", "L01280796"), ("03", "LA0001234"))
+
+    @staticmethod
+    def _centros(*pares) -> str:
+        return "<AdministrativeCentres>" + "".join(
+            "<AdministrativeCentre>"
+            + (f"<CentreCode>{codigo}</CentreCode>" if codigo else "")
+            + (f"<RoleTypeCode>{rol}</RoleTypeCode>" if rol else "")
+            + "</AdministrativeCentre>"
+            for rol, codigo in pares
+        ) + "</AdministrativeCentres>"
+
+    def _a_la_administracion(self, comprador=(), vendedor=(), nif="Q2826000H"):
+        documento = fe()
+        antes, despues = documento.split("<BuyerParty>")
+        despues = despues.replace(
+            f"<TaxIdentificationNumber>{NIF}</TaxIdentificationNumber>",
+            f"<TaxIdentificationNumber>{nif}</TaxIdentificationNumber>", 1)
+        if comprador:
+            despues = despues.replace(
+                "</TaxIdentification></BuyerParty>",
+                "</TaxIdentification>" + self._centros(*comprador) + "</BuyerParty>", 1)
+        if vendedor:
+            antes = antes.replace(
+                "</TaxIdentification></SellerParty>",
+                "</TaxIdentification>" + self._centros(*vendedor) + "</SellerParty>", 1)
+        return antes + "<BuyerParty>" + despues
+
+    @staticmethod
+    def _dir3(xml: str):
+        return [i for i in quejas(xml) if i.codigo.startswith("FE-DIR3")]
+
+    def test_sin_ninguno_sale_un_aviso_que_nombra_los_tres(self):
+        salta = self._dir3(self._a_la_administracion())
+        assert [i.codigo for i in salta] == ["FE-DIR3-FALTA"]
+        assert salta[0].gravedad == AVISO
+        assert salta[0].encontrado == "ninguno de los tres"
+        for rol in ("rol 01, fiscal", "rol 02, receptor", "rol 03, pagador"):
+            assert rol in salta[0].mensaje
+        assert "le faltan" in salta[0].mensaje
+
+    def test_con_los_tres_sale_la_nota_con_sus_codigos(self):
+        salta = self._dir3(self._a_la_administracion(comprador=self.TRES))
+        assert [i.codigo for i in salta] == ["FE-DIR3-ALCANCE"]
+        assert salta[0].gravedad == NOTA
+        assert salta[0].encontrado == "01 EA0001234 · 02 L01280796 · 03 LA0001234"
+        assert "No se ha comprobado" in salta[0].mensaje
+
+    def test_si_falta_uno_se_nombra_ese_y_lo_que_hay(self):
+        salta = self._dir3(self._a_la_administracion(comprador=self.TRES[:2]))
+        assert [i.codigo for i in salta] == ["FE-DIR3-FALTA"]
+        assert "le falta la unidad tramitadora (rol 03, pagador)" in salta[0].mensaje
+        assert "rol 01" not in salta[0].mensaje
+        assert salta[0].encontrado == (
+            "solo la oficina contable (EA0001234) y el órgano gestor (L01280796)")
+
+    def test_los_roles_cambiados_no_valen(self):
+        """El órgano gestor es el receptor, el 02, y no el pagador: con la
+        tabla del manual leída fila a fila se habrían cruzado."""
+        cruzados = (("01", "EA0001234"), ("03", "L01280796"), ("04", "LA0001234"))
+        salta = self._dir3(self._a_la_administracion(comprador=cruzados))
+        assert [i.codigo for i in salta] == ["FE-DIR3-FALTA"]
+        assert "el órgano gestor (rol 02, receptor)" in salta[0].mensaje
+
+    def test_los_centros_en_el_vendedor_se_dicen(self):
+        salta = self._dir3(self._a_la_administracion(vendedor=self.TRES))
+        assert [i.codigo for i in salta] == ["FE-DIR3-FALTA"]
+        assert "FACe los busca en el comprador" in salta[0].mensaje
+
+    def test_un_codigo_sin_rol_se_dice(self):
+        salta = self._dir3(self._a_la_administracion(comprador=(("", "EA0001234"),)))
+        assert "EA0001234 sin rol" in salta[0].mensaje
+        assert salta[0].encontrado == "ninguno de los tres"
+
+    def test_un_rol_sin_codigo_no_cuenta(self):
+        salta = self._dir3(self._a_la_administracion(
+            comprador=self.TRES[:2] + (("03", ""),)))
+        assert [i.codigo for i in salta] == ["FE-DIR3-FALTA"]
+        assert "la unidad tramitadora" in salta[0].mensaje
+
+    @pytest.mark.parametrize("nif", ["P2807900B", "Q2826000H", "S1511001H",
+                                     "ESQ2826000H", "Q-2826000-H"])
+    def test_las_tres_letras_publicas_con_y_sin_prefijo(self, nif):
+        assert [i.codigo for i in self._dir3(self._a_la_administracion(nif=nif))] == [
+            "FE-DIR3-FALTA"]
+
+    @pytest.mark.parametrize("nif", ["B12345674", "A28855260", "12345678Z", "Q"])
+    def test_a_quien_no_es_una_entidad_publica_no_se_le_dice_nada(self, nif):
+        assert self._dir3(self._a_la_administracion(nif=nif)) == []
+
+    def test_en_el_orquestador_es_un_aviso_y_no_quita_la_conformidad(self):
+        informe = factura.validar(self._a_la_administracion(), hoy=HOY)
+        salta = [i for i in informe.incidencias if i.codigo == "FE-DIR3-FALTA"]
+        assert salta and factura.origen(salta[0]) == "Ley 9/2017"
+        assert "FE-DIR3-FALTA" not in codigos(informe.incidencias, ERROR)
 
 
 class TestLosPaisesQueISORetiro:

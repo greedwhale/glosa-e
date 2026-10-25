@@ -33,7 +33,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3692 tests, todos en verde.
+3709 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -1176,6 +1176,45 @@ Nueve ficheros oficiales que no hemos escrito nosotros, ninguna queja de
 aritmética sobre las que están bien —incluida la más enrevesada, con descuento
 general, descuento y cargo de línea, dos impuestos repercutidos, recargo de
 equivalencia y retención— y las dos defectuosas señaladas con la cifra exacta.
+
+### Los tres órganos de una factura a la Administración
+
+Una factura a la Administración tiene que decir a qué tres órganos va: la
+oficina contable, el órgano gestor y la unidad tramitadora. Lo pide la Ley
+9/2017 de Contratos del Sector Público, en su disposición adicional 32.ª,
+apartado 2 (los pliegos los identifican, y "deberán constar en la factura
+correspondiente"), y FACe lo comprueba al recibirla: el punto 8 del anexo II
+de la Orden HAP/492/2014, que añadió la Orden HAP/1650/2015, valida que los
+tres códigos DIR3 tengan valor, que existan y que la relación entre ellos esté
+dada de alta.
+
+Facturae los escribe como centros administrativos del comprador, cada uno con
+su rol. La pareja de rol y órgano sale del manual del proveedor de FACe
+(v1.2.2): el órgano gestor con el rol `02` (receptor), la unidad tramitadora
+con el `03` (pagador) y la oficina contable con el `01` (fiscal). La tabla del
+mismo manual, pasada a texto, sale con la columna de la descripción corrida una
+fila; leída así, cambiaría el órgano gestor por la unidad tramitadora. Vale la
+frase, que no se puede leer de dos maneras.
+
+- **`FE-DIR3-FALTA`, aviso.** Cuando el NIF del comprador es de una entidad
+  pública (empieza por P, Q o S: artículo 3 de la Orden EHA/451/2008) y falta
+  alguno de los tres. Dice cuál, y los dos tropiezos que se ven desde el
+  fichero: los centros puestos en el vendedor, donde FACe no los busca, y un
+  código sin rol. Es aviso y no error porque **el fichero no dice si va a
+  FACe**, y hay entidades con esas letras que no reciben por ahí.
+- **`FE-DIR3-ALCANCE`, nota.** Cuando están los tres: sus códigos, y que no se
+  ha comprobado que existan en el directorio ni que la relación esté dada de
+  alta, porque el directorio no viaja con el validador. Sin la nota, tres
+  códigos inventados saldrían sin una palabra y se leería que están bien.
+
+No se mira la forma de cada código: DIR3 tiene varias según el tipo de unidad,
+el esquema solo pide diez caracteres como mucho, y una forma mal deducida
+rechazaría códigos buenos.
+
+Medido sobre las nueve facturas Facturae de prueba de fuentes oficiales: cinco
+van a un comprador con NIF de entidad pública y **ninguna lleva los centros**.
+Las cinco son de 2007 a 2012, en las versiones 3.0 y 3.1, que FACe ya no
+admite (punto 1 del mismo anexo); hoy saldrían con el aviso, y salen.
 
 ## El binding EN 16931 de Facturae, que no existía
 

@@ -58,10 +58,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from validador import cifras, paises
+from validador import cifras, nif, paises
 from validador.sintaxis import a_decimal
 from validador.formato import FACTURAE, Deteccion
-from validador.incidencias import AVISO, ERROR, Incidencia
+from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
 __all__ = ["reglas"]
 
@@ -947,6 +947,166 @@ def _reglas_paises(raiz) -> list[Incidencia]:
     return incidencias
 
 
+# --- Los tres órganos de una factura a la Administración -------------------
+
+# Las letras con que empieza el NIF de una entidad pública. Salen del
+# artículo 3 de la Orden EHA/451/2008 (BOE del 26-02-2008): P, corporaciones
+# locales; Q, organismos públicos; S, órganos de la Administración del Estado
+# y de las comunidades autónomas. Es la única pista que trae el fichero de que
+# la factura va a una Administración: Facturae no tiene un campo que lo diga.
+_LETRAS_PUBLICAS = {
+    "P": "corporación local",
+    "Q": "organismo público",
+    "S": "órgano de la Administración del Estado o de una comunidad autónoma",
+}
+
+# Los tres órganos que FACe pide, con el rol con que Facturae los marca y el
+# nombre de ese rol en el esquema (`RoleTypeCodeType`). La pareja sale del
+# manual del proveedor de FACe (v1.2.2, 11-04-2014), que lo dice en tres
+# frases: el órgano gestor es un centro administrativo con el rol "receptor",
+# la unidad tramitadora, con el rol "pagador", y la oficina contable, con el
+# rol "fiscal". La tabla del mismo
+# manual, copiada a texto, sale con la columna de la descripción corrida una
+# fila, y leída así cambiaría el órgano gestor por la unidad tramitadora: vale
+# la frase, que no se puede leer de dos maneras.
+_ORGANOS_DE_FACE = (
+    ("01", "la oficina contable", "fiscal"),
+    ("02", "el órgano gestor", "receptor"),
+    ("03", "la unidad tramitadora", "pagador"),
+)
+
+
+def _centros(parte) -> dict[str, list[str]]:
+    """Los códigos de los centros administrativos de una parte, por su rol.
+
+    Un centro sin código no cuenta: FACe enruta por el código, y un centro con
+    el rol y sin código no lleva la factura a ningún sitio. Uno con código y
+    sin rol se guarda aparte, con la clave vacía, para poder decir que está.
+    """
+    por_rol: dict[str, list[str]] = {}
+    for centro in _hijos(parte, "AdministrativeCentres", "AdministrativeCentre"):
+        codigo = _texto(centro, "CentreCode")
+        if codigo:
+            por_rol.setdefault(_texto(centro, "RoleTypeCode") or "", []).append(codigo)
+    return por_rol
+
+
+def _enumerar(cosas: list[str]) -> str:
+    if len(cosas) == 1:
+        return cosas[0]
+    return ", ".join(cosas[:-1]) + " y " + cosas[-1]
+
+
+def _reglas_dir3(raiz) -> list[Incidencia]:
+    """FE-DIR3-FALTA y FE-DIR3-ALCANCE: los tres órganos de FACe.
+
+    Una factura a la Administración tiene que decir a qué tres órganos va. Lo
+    manda la Ley 9/2017, de Contratos del Sector Público, en su disposición
+    adicional 32.ª, apartado 2: los pliegos incluirán "la identificación del
+    órgano administrativo con competencias en materia de contabilidad pública,
+    así como la identificación del órgano de contratación y del destinatario,
+    que deberán constar en la factura correspondiente". Y FACe lo comprueba al
+    recibirla: el anexo II de la Orden HAP/492/2014, que añadió la Orden
+    HAP/1650/2015 (BOE del 06-08-2015), dice en su punto 8 que "se validará
+    que los códigos DIR3 de los tres órganos administrativos que resulta
+    obligatorio identificar en la factura electrónica tengan valor y existan",
+    y su disposición adicional cuarta, que solo las que no superen esas
+    validaciones pueden rechazarse en esa fase. Es de las pocas cosas por las
+    que FACe devuelve una factura sin que nadie la lea.
+
+    Sale aviso y no error porque el fichero no dice si va a FACe. La letra del
+    NIF dice que el comprador es una entidad pública, pero hay entidades con
+    esa letra que no reciben por FACe, y medirles a ellas lo que pide FACe
+    sería inventarse un error. Lo que sí dice el aviso es exactamente qué rol
+    falta y dónde se buscan los códigos: en el pliego del contrato.
+
+    Cuando están los tres, sale una nota con los códigos y con lo que no se ha
+    mirado: que existan en el directorio DIR3 y que la relación entre los tres
+    esté dada de alta, que es la otra mitad del punto 8. Para eso hace falta el
+    directorio, y no viaja con el validador. Sin la nota, una factura con los
+    tres códigos inventados saldría sin una palabra, y se leería como que los
+    códigos están bien.
+
+    No se mira la forma del código. DIR3 tiene varias según el tipo de unidad,
+    el esquema de Facturae solo pide diez caracteres como mucho, y una forma
+    mal deducida rechazaría códigos buenos.
+    """
+    partes = _hijos(raiz, "Parties")
+    if not partes:
+        return []
+    compradores = _hijos(partes[0], "BuyerParty")
+    if not compradores:
+        return []
+    comprador = compradores[0]
+    escrito = nif.normalizar(
+        _texto(comprador, "TaxIdentification", "TaxIdentificationNumber") or "")
+    # Con el prefijo de país delante, el mismo NIF que sin él.
+    documento = escrito[2:] if len(escrito) == 11 and escrito.startswith("ES") else escrito
+    letra = documento[:1]
+    if len(documento) != 9 or letra not in _LETRAS_PUBLICAS:
+        return []
+
+    del_comprador = _centros(comprador)
+    campo = "Centros administrativos del comprador (DIR3)"
+    faltan = [(rol, organo, nombre) for rol, organo, nombre in _ORGANOS_DE_FACE
+              if rol not in del_comprador]
+    if not faltan:
+        codigos = [", ".join(del_comprador[rol]) for rol, _, _ in _ORGANOS_DE_FACE]
+        return [Incidencia(
+            "FE-DIR3-ALCANCE",
+            NOTA,
+            "La factura va a una entidad pública y lleva los tres órganos que "
+            f"pide FACe: la oficina contable {codigos[0]}, el órgano gestor "
+            f"{codigos[1]} y la unidad tramitadora {codigos[2]}. No se ha "
+            "comprobado que esos códigos existan en el directorio DIR3 ni que "
+            "la relación entre los tres esté dada de alta: hace falta el "
+            "directorio, y lo comprueba el registro contable de facturas al "
+            "recibirla. Antes de enviarla, se puede mirar en el directorio de "
+            "unidades de FACe.",
+            campo=campo,
+            encontrado=" · ".join(
+                f"{rol} {codigo}" for (rol, _, _), codigo in zip(_ORGANOS_DE_FACE, codigos)),
+        )]
+
+    hay = [f"{organo} ({', '.join(del_comprador[rol])})"
+           for rol, organo, _ in _ORGANOS_DE_FACE if rol in del_comprador]
+    mensaje = (
+        f"La factura va a una entidad pública (el NIF {documento} empieza por "
+        f"{letra}: {_LETRAS_PUBLICAS[letra]}) y "
+        + ("le falta " if len(faltan) == 1 else "le faltan ")
+        + _enumerar([f"{organo} (rol {rol}, {nombre})" for rol, organo, nombre in faltan])
+        + ". Si se presenta en FACe, el registro contable puede rechazarla por "
+        "eso. Los códigos DIR3 de los tres los da el pliego del contrato, y van "
+        "como centros administrativos del comprador."
+    )
+    # Los dos tropiezos que se ven desde el fichero: los centros puestos en el
+    # vendedor, que FACe no mira, y un código sin rol, que no se sabe a cuál de
+    # los tres corresponde.
+    vendedores = _hijos(partes[0], "SellerParty")
+    del_vendedor = _centros(vendedores[0]) if vendedores else {}
+    en_el_vendedor = [rol for rol, _, _ in faltan if rol in del_vendedor]
+    if en_el_vendedor:
+        mensaje += (
+            " El vendedor lleva centros con "
+            + ("ese rol" if len(en_el_vendedor) == 1 else "esos roles")
+            + ", y FACe los busca en el comprador.")
+    sin_rol = del_comprador.get("", [])
+    if sin_rol:
+        mensaje += (
+            f" El comprador lleva {_enumerar(sin_rol)} sin rol, y sin rol no se "
+            "sabe a cuál de los tres "
+            + ("corresponde." if len(sin_rol) == 1 else "corresponden."))
+    return [Incidencia(
+        "FE-DIR3-FALTA",
+        AVISO,
+        mensaje,
+        campo=campo,
+        esperado="la oficina contable (01), el órgano gestor (02) y la unidad "
+                 "tramitadora (03), cada uno con su código",
+        encontrado=("solo " + _enumerar(hay)) if hay else "ninguno de los tres",
+    )]
+
+
 def reglas(raiz, deteccion: Deteccion) -> list[Incidencia]:
     """Las reglas de Facturae sobre un documento ya parseado.
 
@@ -969,6 +1129,7 @@ def reglas(raiz, deteccion: Deteccion) -> list[Incidencia]:
 
     facturas = _hijos(raiz, "Invoices", "Invoice")
     incidencias = _reglas_paises(raiz)
+    incidencias.extend(_reglas_dir3(raiz))
     incidencias.extend(_reglas_lote(raiz, facturas))
     for factura in facturas:
         incidencias.extend(_reglas_factura(factura, _etiqueta(factura, len(facturas))))

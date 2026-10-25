@@ -12,6 +12,16 @@
 # leyendo el catálogo de cada commit con el lector de hoy (validador/codigos.py),
 # desde 598f34c, el último del 06-10-2026. Las fechas son las de esos commits.
 
+fecha: 2026-10-25
+id: los-tres-organos-de-face
+titulo: FE-DIR3: los tres órganos de una factura a la Administración
+nuevos: FE-DIR3-FALTA FE-DIR3-ALCANCE
+texto: En un Facturae a una entidad pública, la oficina contable, el
+  órgano gestor y la unidad tramitadora, con el rol que les pide FACe y
+  en el comprador. Si falta alguno, un aviso que dice cuál; si están los
+  tres, una nota con sus códigos, porque que existan en el directorio
+  DIR3 no se comprueba.
+
 fecha: 2026-10-24
 id: la-1-3-17-del-cen
 titulo: BR-IG y BR-IP otra vez, con la versión 1.3.17 del CEN

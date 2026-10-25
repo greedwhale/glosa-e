@@ -1683,6 +1683,31 @@ CODIGOS: dict[str, str] = {
         'pide la norma europea, y tampoco se traduce por cuenta propia: '
         'convertir ZAR en CD sería decidir qué quiso decir quien lo escribió.'
     ),
+    "FE-DIR3-FALTA": (
+        'La factura va a una entidad pública, porque el NIF del comprador '
+        'empieza por P, Q o S, y le falta alguno de los tres órganos que pide '
+        'FACe: la oficina contable (rol 01, fiscal), el órgano gestor (rol 02, '
+        'receptor) y la unidad tramitadora (rol 03, pagador). La Ley 9/2017 de '
+        'Contratos del Sector Público, en su disposición adicional 32.ª, pide '
+        'que consten en la factura, y el pliego del contrato dice cuáles son. '
+        'FACe valida que los tres códigos DIR3 tengan valor y existan, por el '
+        'anexo II de la Orden HAP/492/2014, y puede rechazar la factura al '
+        'registrarla. Van como centros administrativos del comprador, no del '
+        'vendedor. Sale como aviso y no como error porque el fichero no dice '
+        'si la factura va a FACe: hay entidades con esas letras que no reciben '
+        'por ahí.'
+    ),
+    "FE-DIR3-ALCANCE": (
+        'La factura a una entidad pública lleva los tres órganos que pide FACe, '
+        'y la nota dice sus códigos y lo que no se ha comprobado: que existan '
+        'en el directorio DIR3 y que la relación entre la oficina contable, el '
+        'órgano gestor y la unidad tramitadora esté dada de alta. Eso lo valida '
+        'el registro contable de facturas al recibirla, por el punto 8 del '
+        'anexo II de la Orden HAP/492/2014, y hace falta el directorio, que no '
+        'viaja con el validador. Tampoco se mira la forma de cada código. Antes '
+        'de enviarla, se puede consultar en el directorio de unidades del '
+        'portal de FACe.'
+    ),
     "FE-TIPO-SIN-EQUIVALENTE": (
         'El tipo de documento de esta factura no se ha traducido al '
         'vocabulario europeo, y la nota dice por qué. Pasa con dos de los '

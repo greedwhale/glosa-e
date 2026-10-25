@@ -55,6 +55,11 @@ ESTADOS = "Anexo II"
 MENSAJES = "Anexos I y II"
 FORMA = "Esquema XSD"
 NACIONAL = "Formato Facturae"
+# Los tres órganos de una factura a la Administración no salen del formato:
+# los pide en la factura la Ley de Contratos del Sector Público, y FACe los
+# valida con el anexo II de la Orden HAP/492/2014. Con la etiqueta de Facturae
+# la ficha diría que es una regla del formato, y el esquema no la tiene.
+CONTRATOS = "Ley 9/2017"
 SELLO = "Firma electrónica"
 # La norma que manda en la sintaxis de EDIFACT: cómo se separan los segmentos,
 # y sobre todo las cuentas del sobre.
@@ -103,6 +108,11 @@ NORMAS: tuple[tuple[str, str, str], ...] = (
      "el contenido mínimo de las facturas de la solución pública: el anexo I de la "
      "Orden HAC/1028/2026"),
     ("XSD-", FORMA, "el esquema oficial del formato"),
+    ("FE-DIR3-", CONTRATOS,
+     "la Ley 9/2017 de Contratos del Sector Público, que en su disposición "
+     "adicional 32.ª pide los tres órganos en la factura, y las validaciones "
+     "de FACe del anexo II de la Orden HAP/492/2014, que añadió la Orden "
+     "HAP/1650/2015"),
     ("FE-", NACIONAL, "la especificación española de Facturae"),
     ("EDI-", SINTAXIS_EDI, "la sintaxis de EDIFACT"),
     # La nota del art. 7.3 no sale de eIDAS: lo que dice es que el real
