@@ -119,6 +119,10 @@ EN_ISO = {
     ("codigo_unico.py", "huella"): "lo que se resume para la huella",
     ("codigo_unico.py", "revisar"): "la fecha del fichero en «Tiene», que va tal "
                                     "cual como las cifras",
+    ("novedades.py", "pagina"): "el atributo `datetime` de `<time>`, como en "
+                                "el índice de la bitácora",
+    ("novedades.py", "momento"): "las fechas del canal Atom, que su norma pide "
+                                 "en RFC 3339",
     ("paquete.py", "armar"): "`PAQUETE.json`, que es para máquina",
     ("paquete.py", "_sitemap"): "el `lastmod` del sitemap, que es para máquina "
                                 "y su norma pide W3C Datetime",

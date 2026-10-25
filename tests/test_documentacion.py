@@ -248,7 +248,7 @@ def test_el_catalogo_no_se_puede_publicar_vacio():
 # pasar un texto cambiado en una sola, que es justo la forma en que esto se
 # rompe de verdad.
 PAGINAS = ("index.html", "banco.html", "legal.html", "incidencias.html",
-           "tesis.html", "bitacora.html", "404.html")
+           "tesis.html", "bitacora.html", "novedades.html", "404.html")
 PRINCIPIO, FIN = "<!-- MENU", "<!-- FIN MENU -->"
 
 

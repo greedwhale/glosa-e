@@ -29,10 +29,11 @@ según el RD 238/2026.
 | `validador/edifact.py` | El cuarto formato: la tira de ISO 9735, sus grupos y sus cuentas | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
+| `validador/novedades.py` | Las novedades: cada regla nueva o retirada y cada artículo, en una página y en un canal Atom | Terminado |
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3627 tests, todos en verde.
+3667 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5598,12 +5599,42 @@ códigos.
 
 **Y cada artículo y cada ficha acaban en Sigue las novedades**, una línea con X
 y el perfil de LinkedIn, que salen de `CUENTA_DE_LA_MARCA` y
-`PERFIL_DEL_TITULAR`. El plan pide tres formas de seguir, y las otras dos (el
-boletín de LinkedIn y un canal Atom) todavía no existen: se añaden el día que
-existan, porque una línea que manda a un canal que no hay es un cartel. Va
-detrás del único `</article>` de la página, y el montaje se niega, antes de
-escribir nada, si un artículo trae otro o el armazón de las fichas trae uno
-suyo.
+`PERFIL_DEL_TITULAR`. El plan pide tres formas de seguir: el canal Atom
+existe desde el mismo día (abajo), y la línea lo nombra solo cuando el sitio
+monta las novedades; el boletín de LinkedIn todavía no, y una línea que manda
+a un canal que no hay es un cartel. Va detrás del único `</article>` de la
+página, y el montaje se niega, antes de escribir nada, si un artículo trae
+otro o el armazón de las fichas trae uno suyo.
+
+**Las novedades, en una página y en un canal Atom**, desde el 25-10-2026:
+`novedades.html` y `novedades.xml`, con cada regla nueva o retirada y cada
+artículo de la bitácora, por fecha. Los artículos salen solos; las reglas se
+apuntan a mano en `web/novedades.txt`, porque lo que mira un código nuevo y
+por qué no está escrito en ningún sitio del que se pueda sacar. Y como lo que
+se apunta a mano se queda atrás, **el montaje se niega** (`SinNovedades`, que
+hereda de `NoSeMonta`) si el catálogo no cuadra con lo apuntado: un código
+que no sale ni en la partida ni en ninguna novedad, uno que se da por
+retirado y sigue, uno que se va sin decirlo, o uno que se retira sin haber
+estado. Provocado: con BR-CO-09 quitado de la partida, `--sitio` sale con
+`exit 2` y no deja carpeta.
+
+La partida son los 390 códigos del 06-10-2026, el día que entró en vigor la
+orden, medidos en `598f34c`, el último commit de ese día. La historia de
+después se midió leyendo el catálogo de cada commit con el lector de hoy:
+los códigos compuestos del IVA solo se resuelven con el `codigos.py` en su
+carpeta, así que se copió el de hoy en cada commit antiguo. Salen 9
+novedades, del 07-10 al 24-10, y hoy el catálogo tiene 408. Lo que esto
+**no** vigila es el cambio de una regla que ya estaba: no se puede medir
+desde fuera, y la página lo dice.
+
+El canal se sirve como `application/atom+xml`, su tipo (RFC 4287), con una
+cabecera en `vercel.json`. Por eso la línea de seguir lleva a la página y no
+al `.xml`: un navegador puede bajarlo como fichero en vez de enseñarlo, y la
+página da la dirección entera para pegarla en un lector. La hora no se
+apunta en ningún sitio y va la medianoche UTC del día. El id de cada entrada
+es el ancla (`/novedades#id`) o la dirección del artículo, y no cambia al
+corregir el título, que es lo que hace que un lector no enseñe dos veces lo
+mismo. Quién lo lee no se mide.
 
 ### El aviso a Bing, por IndexNow
 

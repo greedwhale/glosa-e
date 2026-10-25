@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from validador import bitacora, cadena, paquete
+from validador import bitacora, cadena, novedades, paquete
 from validador.cadena import Almacen
 from validador.esquema import Catalogo
 
@@ -2161,6 +2161,19 @@ def _con_catalogo(repositorio):
     return repositorio
 
 
+def _con_novedades(repositorio, fuente=None):
+    """La plantilla de las novedades y su fuente, los de verdad salvo que se
+    pase otra fuente. Las dos cuadran con el catálogo del fuente de hoy, que
+    es el que lee el montaje."""
+    web = repositorio / "web"
+    for nombre in (novedades.NOMBRE, novedades.FUENTE):
+        (web / nombre).write_text(
+            (_WEB_DE_VERDAD / nombre).read_text(encoding="utf-8"), encoding="utf-8")
+    if fuente is not None:
+        (web / novedades.FUENTE).write_text(fuente, encoding="utf-8")
+    return repositorio
+
+
 @pytest.fixture(scope="module")
 def sitio_con_catalogo(tmp_path_factory):
     """El sitio montado con las 408 fichas, una vez para todo el módulo.
@@ -2168,7 +2181,8 @@ def sitio_con_catalogo(tmp_path_factory):
     Montarlas cuesta unos 30 segundos, y lo leen dos pruebas que no lo tocan:
     con una por prueba, estas dos solas eran una sexta parte de la suite.
     """
-    repositorio = _con_catalogo(_armar_repositorio(tmp_path_factory.mktemp("catalogo")))
+    repositorio = _con_novedades(
+        _con_catalogo(_armar_repositorio(tmp_path_factory.mktemp("catalogo"))))
     return _montar(repositorio).carpeta
 
 
@@ -2233,6 +2247,13 @@ class TestSigueLasNovedades:
         assert enlaces == [paquete.CUENTA_DE_LA_MARCA, paquete.PERFIL_DEL_TITULAR]
         assert not any("?" in e or "#" in e for e in enlaces)
 
+    def test_con_novedades_suma_su_pagina_y_nada_mas(self):
+        # A la página y no al `.xml`, que un navegador puede bajar en vez de
+        # enseñar (el porqué, junto a `_SEGUIR_CON_NOVEDADES`).
+        _, enlaces = self._enlaces(paquete._SEGUIR_CON_NOVEDADES)
+        assert enlaces == [paquete.CUENTA_DE_LA_MARCA, paquete.PERFIL_DEL_TITULAR,
+                           f"./{novedades.NOMBRE}"]
+
     def test_cada_ficha_acaba_en_ella(self, sitio_con_catalogo):
         raiz = sitio_con_catalogo
         fichas = sorted(raiz.glob("codigo-*.html"))
@@ -2241,6 +2262,9 @@ class TestSigueLasNovedades:
             texto = ficha.read_text(encoding="utf-8")
             bloque, _ = self._enlaces(texto)
             assert "</article>" + bloque in texto, ficha.name
+            # El sitio monta las novedades, así que la línea las nombra (con
+            # la dirección limpia, como todo enlace del sitio montado).
+            assert 'href="./novedades"' in bloque, ficha.name
         # El catálogo no es un artículo y no la lleva.
         assert 'class="seguir"' not in (raiz / "incidencias.html").read_text(
             encoding="utf-8")
@@ -2261,6 +2285,8 @@ class TestSigueLasNovedades:
             texto = (raiz / nombre).read_text(encoding="utf-8")
             bloque, _ = self._enlaces(texto)
             assert "</article>" + bloque in texto, nombre
+            # Sin la plantilla de las novedades, la línea no manda a ellas.
+            assert novedades.NOMBRE not in bloque, nombre
         assert 'class="seguir"' not in (raiz / bitacora.NOMBRE).read_text(
             encoding="utf-8")
 
@@ -2288,5 +2314,66 @@ class TestSigueLasNovedades:
                 "</main>", "<article>Suelto.</article></main>", 1),
             encoding="utf-8")
         with pytest.raises(paquete.SinPagina, match="Sigue las novedades"):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+
+class TestLasNovedadesSeMontan:
+    """La página y el canal Atom, desde el 25-10-2026, y la negativa que
+    impide que se queden atrás: un código nuevo sin su línea en
+    `novedades.txt` no deja montar el sitio."""
+
+    def test_salen_la_pagina_y_el_canal_y_cada_enlace_tiene_destino(
+            self, sitio_con_catalogo):
+        raiz = sitio_con_catalogo
+        pagina = (raiz / novedades.NOMBRE).read_text(encoding="utf-8")
+        assert novedades.HUECO not in pagina
+        assert (raiz / novedades.CANAL).is_file()
+        # Montadas, las direcciones van limpias: `./codigo-X`, sin `.html`.
+        enlazados = re.findall(r'href="\./(codigo-[^"]+)"', pagina)
+        assert enlazados, "la página no enlaza ninguna ficha"
+        for nombre in enlazados:
+            assert (raiz / f"{nombre}.html").is_file(), nombre
+        # Cada código nuevo que sigue en el catálogo enlaza su ficha.
+        leidas = novedades.leer(_WEB_DE_VERDAD / novedades.FUENTE)
+        nuevos = {c for e in leidas.entradas for c in e.nuevos}
+        assert {n.removeprefix("codigo-") for n in enlazados} == nuevos
+
+    def test_el_canal_lleva_cada_entrada_de_la_pagina(self, sitio_con_catalogo):
+        from lxml import etree
+        raiz = sitio_con_catalogo
+        canal = etree.parse(str(raiz / novedades.CANAL))
+        atom = {"a": "http://www.w3.org/2005/Atom"}
+        ids = [e.findtext("a:id", namespaces=atom) for e in canal.findall("a:entry", atom)]
+        pagina = (raiz / novedades.NOMBRE).read_text(encoding="utf-8")
+        de_reglas = re.findall(r'<li class="novedad de-reglas" id="([^"]+)"', pagina)
+        assert [i.rsplit("#", 1)[1] for i in ids if "/novedades#" in i] == de_reglas
+        assert len(ids) == pagina.count('<li class="novedad ')
+
+    def test_un_codigo_sin_apuntar_no_deja_montar(self, repositorio):
+        fuente = (_WEB_DE_VERDAD / novedades.FUENTE).read_text(encoding="utf-8")
+        # BR-CO-10 es de la partida: quitarlo de ahí es lo mismo que un
+        # código nuevo que nadie ha apuntado.
+        assert len(re.findall(r"\bBR-CO-10\b", fuente)) == 1
+        _con_novedades(repositorio, re.sub(r"\bBR-CO-10\b", "", fuente))
+        with pytest.raises(paquete.SinNovedades, match="BR-CO-10") as error:
+            _montar(repositorio)
+        assert isinstance(error.value, paquete.NoSeMonta)
+        assert not (repositorio / "sitio").exists()
+
+    def test_la_plantilla_sin_su_fuente_no_se_monta(self, repositorio):
+        _con_novedades(repositorio)
+        (repositorio / "web" / novedades.FUENTE).unlink()
+        with pytest.raises(paquete.SinNovedades, match=novedades.FUENTE):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+    def test_la_plantilla_sin_hueco_no_se_monta(self, repositorio):
+        _con_novedades(repositorio)
+        plantilla = repositorio / "web" / novedades.NOMBRE
+        plantilla.write_text(
+            plantilla.read_text(encoding="utf-8").replace(novedades.HUECO, ""),
+            encoding="utf-8")
+        with pytest.raises(paquete.SinNovedades, match="ya no lleva"):
             _montar(repositorio)
         assert not (repositorio / "sitio").exists()

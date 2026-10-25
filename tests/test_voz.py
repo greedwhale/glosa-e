@@ -30,7 +30,8 @@ RAIZ = Path(__file__).resolve().parents[1]
 WEB = RAIZ / "web"
 
 PAGINAS = sorted([WEB / p for p in ("index.html", "banco.html", "legal.html",
-                                     "incidencias.html", "tesis.html", "bitacora.html")]
+                                     "incidencias.html", "tesis.html", "bitacora.html",
+                                     "novedades.html")]
                  + list((WEB / "bitacora").glob("*.html")))
 
 # La primera del plural y el vosotros, por su forma.
@@ -142,6 +143,8 @@ SIN_TILDE = re.compile(
 TAL_CUAL = {
     "Suministros Ibericos SL": "el nombre del vendedor en el EDIFACT de ejemplo: "
                                "el banco lo compara con lo que lee del fichero",
+    "codigos": "la clave de la partida en web/novedades.txt, que va sin tilde "
+               "como las demás claves del fichero",
 }
 
 _MARCAS = re.compile(r"<[^>]*>|[\w-]+=(['\"])[^'\"]*\1")

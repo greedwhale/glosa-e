@@ -57,7 +57,8 @@ from validador.cadena import (
     SUFIJO_DE_SELLOS,
     Almacen,
 )
-from validador import bitacora, cifras, pagina_incidencias
+from validador import bitacora, cifras, novedades, pagina_incidencias
+from validador.codigos import codigos_del_paquete
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
 from validador.esquema import Catalogo
@@ -703,6 +704,7 @@ _DE_LA_PAGINA = (
     # camino: son plantillas y hay que generarlas, no copiarlas. La primera
     # rellena el catálogo de códigos; la segunda pone el armazón a cada
     # entrada, que es lo que evita que el menú se escriba una vez por artículo.
+    # `novedades.html` tampoco: se rellena de `novedades.txt` y de la bitácora.
     "tesis.html",
 )
 
@@ -713,6 +715,15 @@ class SinRueda(NoSeMonta):
 
 class SinPagina(NoSeMonta):
     """Falta el index.html, o ya no dice dónde busca sus cosas."""
+
+
+class SinNovedades(NoSeMonta):
+    """Las novedades no cuadran con el catálogo, o no se pueden leer.
+
+    Es lo que impide que la página de novedades y su canal se queden atrás: un
+    código nuevo que no se apunte en `web/novedades.txt` no deja montar el
+    sitio. El porqué entero, en `validador/novedades.py`.
+    """
 
 
 class RuedaVieja(NoSeMonta):
@@ -1142,9 +1153,10 @@ def _sin_hueco(cuantas: int, nombre: str) -> str:
 # acaba de ver un ERROR quiere entenderlo, y tenía que ir a buscarlo; desde el
 # 25-10-2026 es un enlace a su ficha. El informe lo pinta el navegador, así que
 # la página tiene que saber qué códigos tienen ficha, y se lo dice el montaje
-# con las fichas que acaba de escribir. Deducirlo en la página no valía: los
-# `BR-{X}-8` del IVA se componen al validar y no tienen ficha, y un enlace que
-# da 404 a quien tiene un ERROR delante es peor que no dar enlace.
+# con las fichas que acaba de escribir. Deducirlo en la página no valía: el
+# 25-10-2026 los 408 tenían ficha, pero un código que se componga al validar
+# no la tendría (`sin_leer_del_paquete` los cuenta, y ese día eran cero), y un
+# enlace que da 404 a quien tiene un ERROR delante es peor que no dar enlace.
 #
 # Va en un atributo y no en un `<script>` de datos porque la política de
 # contenido solo deja pasar los `<script>` a secas, con su huella, y el JSON-LD.
@@ -1182,9 +1194,11 @@ def _con_las_fichas(portada: Path, fichas: list[str]) -> None:
 # quien llega desde un buscador a leer una página, la lee y se va, y aquí se le
 # dice dónde enterarse de lo siguiente. El plan del 22-10-2026 pide tres
 # formas de seguir: X, el boletín de LinkedIn y un canal Atom. **Hoy solo
-# existe la primera**, y el perfil de quien lo lleva; el boletín y el canal
-# todavía no, y una línea que manda a un canal que no existe es un cartel. Se
-# añaden aquí el día que existan.
+# existía la primera**, y el perfil de quien lo lleva; el boletín y el canal
+# todavía no, y una línea que manda a un canal que no existe es un cartel. El
+# canal Atom y la página de novedades existen desde ese mismo día, y la línea
+# los nombra solo cuando el sitio los monta: sin la plantilla de novedades, la
+# línea se queda con las dos redes. El boletín, el día que exista.
 #
 # Las direcciones salen de las dos constantes de las cuentas, las mismas del
 # `sameAs` y de los pies, y van sin parámetros de rastreo: el sitio no mide
@@ -1197,6 +1211,15 @@ _SEGUIR = (
     f'<a href="{PERFIL_DEL_TITULAR}">LinkedIn</a> lo que se va midiendo y '
     "construyendo.</p></aside>"
 )
+_SEGUIR_CON_NOVEDADES = _SEGUIR.replace(
+    "construyendo.</p>",
+    "construyendo. Y sin redes, en las "
+    f'<a href="./{novedades.NOMBRE}">novedades</a>, que también son un canal '
+    "Atom.</p>", 1)
+# Lleva a la página y no al `.xml`: el canal se sirve como
+# `application/atom+xml`, que es su tipo, y un navegador puede bajarlo como
+# fichero en vez de enseñarlo. La página da la dirección para pegarla en un
+# lector, que es lo que hace falta para seguirlo.
 _FIN_DEL_ARTICULO = "</article>"
 
 
@@ -1208,11 +1231,40 @@ def _articulos_de_mas(nombre: str, cuantos: int) -> str:
     )
 
 
-def _con_seguir(texto: str, nombre: str) -> str:
+def _con_seguir(texto: str, nombre: str, con_novedades: bool = False) -> str:
     """Pone la línea de seguir detrás del artículo de una página."""
     if texto.count(_FIN_DEL_ARTICULO) != 1:
         raise SinPagina(_articulos_de_mas(nombre, texto.count(_FIN_DEL_ARTICULO)))
-    return texto.replace(_FIN_DEL_ARTICULO, _FIN_DEL_ARTICULO + _SEGUIR, 1)
+    linea = _SEGUIR_CON_NOVEDADES if con_novedades else _SEGUIR
+    return texto.replace(_FIN_DEL_ARTICULO, _FIN_DEL_ARTICULO + linea, 1)
+
+
+def _leer_novedades(pagina: Path) -> novedades.Novedades | None:
+    """Las novedades leídas y comprobadas contra el catálogo, o nada si el
+    sitio no lleva su página.
+
+    Se llama antes de escribir nada, como la bitácora: una novedad que falta
+    descubierta al final dejaría media carpeta montada.
+    """
+    plantilla = pagina / novedades.NOMBRE
+    if not plantilla.is_file():
+        return None
+    fuente = pagina / novedades.FUENTE
+    if not fuente.is_file():
+        raise SinNovedades(
+            f"Está la plantilla {novedades.NOMBRE} y no {novedades.FUENTE}, "
+            "así que la página y el canal saldrían sin una sola regla, diciendo "
+            "que no ha cambiado nada.")
+    if novedades.HUECO not in plantilla.read_text(encoding="utf-8"):
+        raise SinNovedades(
+            f"{novedades.NOMBRE} ya no lleva `{novedades.HUECO}`, así que la "
+            "página se publicaría sin una sola novedad y sin que nada fallara.")
+    try:
+        leidas = novedades.leer(fuente)
+        novedades.revisar(leidas, {c.codigo for c in codigos_del_paquete()})
+    except novedades.NovedadMal as error:
+        raise SinNovedades(str(error)) from error
+    return leidas
 
 
 def _con_lo_ultimo(portada: Path, entradas: list[bitacora.Entrada]) -> None:
@@ -1676,6 +1728,11 @@ def montar_sitio(
         if cuantos:
             raise SinPagina(_articulos_de_mas(pagina_incidencias.NOMBRE, cuantos + 1))
 
+    # Las novedades, por lo mismo: se leen y se cuadran con el catálogo antes
+    # de escribir nada.
+    leidas_novedades = _leer_novedades(pagina)
+    con_novedades = leidas_novedades is not None
+
     # Y la política, por lo mismo y con la misma lección. `_con_politica` corre
     # al final, que es donde tiene que correr —las huellas tienen que ser las
     # del texto que de verdad se publica—, y hasta el 20-09-2026 era también el
@@ -1855,7 +1912,7 @@ def montar_sitio(
             for busca, pon, _ in sellos:
                 generada = generada.replace(busca, pon)
             if nombre != bitacora.NOMBRE:
-                generada = _con_seguir(generada, nombre)
+                generada = _con_seguir(generada, nombre, con_novedades)
             salida.write_text(generada, encoding="utf-8")
     _con_lo_ultimo(destino / "index.html", publicadas)
     # Lo que va al `lastmod`: cada entrada, con su último cambio dicho, y el
@@ -1877,8 +1934,34 @@ def montar_sitio(
             generada = salida.read_text(encoding="utf-8")
             for busca, pon, _ in sellos:
                 generada = generada.replace(busca, pon)
-            salida.write_text(_con_seguir(generada, nombre), encoding="utf-8")
+            salida.write_text(_con_seguir(generada, nombre, con_novedades),
+                              encoding="utf-8")
         _con_las_fichas(destino / "index.html", fichas)
+
+    # Las novedades, al final de lo que se genera: necesitan los artículos ya
+    # leídos y las fichas ya escritas, para enlazar solo los códigos que las
+    # tienen. La página sale de su plantilla y el canal, de las mismas
+    # entradas, así que no pueden decir cosas distintas.
+    if leidas_novedades is not None:
+        texto_novedades = (pagina / novedades.NOMBRE).read_text(encoding="utf-8")
+        for busca, pon, constante in sellos:
+            if busca in texto_novedades:
+                texto_novedades = texto_novedades.replace(busca, pon)
+                firmadas[constante] += 1
+        catalogo = codigos_del_paquete()
+        escritas = set(fichas) if plantilla.is_file() else set()
+        con_ficha = {c.codigo for c in catalogo
+                     if pagina_incidencias.nombre_de(c.codigo) in escritas}
+        (destino / novedades.NOMBRE).write_text(
+            novedades.pagina(texto_novedades, leidas_novedades, publicadas,
+                             con_ficha, len(catalogo)),
+            encoding="utf-8")
+        (destino / novedades.CANAL).write_text(
+            novedades.canal(leidas_novedades, publicadas, DOMINIO), encoding="utf-8")
+        fechas = [e.fecha for e in leidas_novedades.entradas] + [
+            e.cambiada for e in publicadas]
+        if fechas:
+            cambios[novedades.NOMBRE] = max(fechas)
 
     huerfanos = sorted(c for c, cuantas in firmadas.items() if not cuantas)
     if huerfanos:

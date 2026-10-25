@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novedades &middot; Glosa-e</title>
+<meta name="description" content="Cada regla nueva o retirada de Glosa-e y cada artículo de la bitácora, con su fecha. También como canal Atom, para seguirlas sin redes.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='6 -1 42 42'%3E%3Cstyle%3Eg%7Bstroke:%231c4e80%7D@media (prefers-color-scheme:dark)%7Bg%7Bstroke:%238ab4e0%7D%7D%3C/style%3E%3Cg fill='none' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 7 H8 V33 H16'/%3E%3Cpath d='M25 12 h21'/%3E%3Cpath d='M25 20 h21'/%3E%3Cpath d='M25 28 h13'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="./glosa.css">
+<link rel="alternate" type="application/atom+xml" title="Novedades de Glosa-e" href="./novedades.xml">
+<style>
+/* Lo propio de las novedades. La base sale de glosa.css.
+
+   Una lista con la fecha al margen, como la glosa del informe: en una página
+   que dice qué ha cambiado, la fecha es lo primero que se lee y lo que dice
+   si lo que sigue va con uno. Las de reglas llevan sus códigos como fichas
+   pequeñas, enlazadas; las retiradas, tachadas y sin enlace, porque su ficha
+   ya no es la suya. */
+.portada { padding: 3rem 0 1rem; }
+.portada h1 { font: 400 var(--t5)/1.15 var(--serif); letter-spacing: -.015em; margin-bottom: .8rem; }
+.portada .lema { font-size: var(--t3); color: var(--tinta-2); max-width: 38rem; }
+/* Cómo seguirlas sin redes: la dirección del canal, a la vista y entera,
+   que es lo que se pega en un lector. Se selecciona de un toque. */
+.seguirlas { margin: 1.75rem 0 0; padding: 1.1rem 1.25rem; max-width: 40rem; border: 1px solid var(--borde); border-radius: 10px; background: var(--panel); font-size: var(--t1); color: var(--tinta-2); }
+.seguirlas b { color: var(--tinta); }
+.seguirlas code { font-family: var(--mono); color: var(--tinta); overflow-wrap: anywhere; user-select: all; }
+.novedades { list-style: none; padding: 0; margin: 2.5rem 0 0; max-width: 46rem; }
+.novedad { display: grid; grid-template-columns: 9rem minmax(0, 1fr); column-gap: 1.75rem; padding: 1.5rem 0; border-top: 1px solid var(--borde); scroll-margin-top: 5rem; }
+.novedad:last-child { border-bottom: 1px solid var(--borde); }
+.novedad > * { grid-column: 2; min-width: 0; }
+.novedad > .cuando { grid-column: 1; grid-row: 1 / span 6; font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em; font-weight: 600; color: var(--tenue); font-variant-numeric: tabular-nums; }
+.novedad .cuando span { display: block; margin-top: .4rem; color: var(--acento); }
+.novedad.de-bitacora .cuando span { color: var(--nota); }
+.novedad:target { background: var(--acento-flojo); border-radius: 10px; padding-left: 1rem; padding-right: 1rem; }
+.novedad h2 { font: 400 var(--t4)/1.2 var(--serif); letter-spacing: -.012em; color: var(--tinta); margin: 0 0 .45rem; text-wrap: balance; }
+.novedad h2 a { color: inherit; text-decoration: none; }
+.novedad h2 a:hover, .novedad h2 a:focus-visible { color: var(--acento); text-decoration: underline; text-underline-offset: .18em; }
+.novedad > p { color: var(--tinta-2); overflow-wrap: break-word; }
+.novedad > p.rotulo-codigos { margin: .9rem 0 .35rem; font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em; font-weight: 600; color: var(--tenue); }
+.codigos { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: .35rem; }
+.codigos li { font-family: var(--mono); font-size: var(--t0); }
+.codigos a { display: inline-block; padding: .2rem .5rem; border: 1px solid var(--borde); border-radius: 6px; color: var(--tinta); text-decoration: none; }
+.codigos a:hover, .codigos a:focus-visible { border-color: var(--acento); color: var(--acento); }
+.codigos.retirados li { padding: .2rem .5rem; color: var(--tenue); text-decoration: line-through; }
+.partida { margin: 2rem 0 0; max-width: 40rem; font-size: var(--t1); color: var(--tenue); }
+@media (max-width: 640px) {
+  .novedad { grid-template-columns: minmax(0, 1fr); }
+  .novedad > *, .novedad > .cuando { grid-column: 1; grid-row: auto; }
+  .novedad > .cuando { margin-bottom: .5rem; }
+  .novedad .cuando span { display: inline; margin: 0 0 0 .6rem; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="envoltorio barra">
+    <a class="marca" href="./"><span class="nombre">Glosa-e</span></a>
+    <!-- MENU: este bloque es el mismo, letra por letra, en las ocho
+         páginas. Que lo siga siendo lo comprueba tests/test_documentacion.py:
+         seis copias de un menú se separan solas, y entonces cada página dice
+         que el sitio tiene una cosa distinta. Las entradas de la bitácora no
+         se cuentan aquí: salen de `bitacora.html`, que es su plantilla, así
+         que llevan este mismo bloque por construcción y no por acordarse. -->
+    <details class="menu">
+      <summary>
+        <span>Menú</span>
+        <svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+        <span class="tapa"></span>
+      </summary>
+      <nav>
+        <a href="./"><b>La herramienta</b><span>Validar una factura y leer el informe.</span></a>
+        <a href="./incidencias.html"><b>Qué significa cada aviso</b><span>Cada código que puede salir, con la norma de la que sale.</span></a>
+        <a href="./tesis.html"><b>Por qué se explica en vez de certificar</b><span>La tesis del proyecto, y el caso que la puso a prueba.</span></a>
+        <a href="./banco.html"><b>Banco de pruebas</b><span>Las comprobaciones, corriéndolas tu navegador delante de ti.</span></a>
+        <a href="./bitacora.html"><b>Bitácora</b><span>Lo que se va midiendo, con la fecha y la fuente al lado.</span></a>
+        <a href="./novedades.html"><b>Novedades</b><span>Cada regla nueva o retirada y cada artículo, con su fecha. También en Atom.</span></a>
+        <a href="./legal.html"><b>Aviso legal y privacidad</b><span>Qué se mide, qué no se guarda y qué no acredita esto.</span></a>
+        <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20"><b>Escríbeme</b><span>Dudas, fallos que veas y propuestas. Se abre tu programa de correo.</span></a>
+      </nav>
+    </details>
+    <!-- FIN MENU -->
+  </div>
+</header>
+
+<main>
+  <div class="envoltorio">
+<div class="portada">
+  <h1>Novedades</h1>
+  <p class="lema">Cada regla nueva o retirada del validador y cada artículo de
+  la bitácora, con la fecha en que salió. Al montar el sitio, los códigos que
+  hay se comparan con los apuntados aquí, y si falta uno nuevo o uno retirado
+  el sitio no se publica. El cambio de una regla que ya estaba no se puede
+  comprobar así, y sale cuando se apunta.</p>
+  <div class="seguirlas"><b>Para seguirlas sin redes</b>, el canal Atom:
+  <code>https://www.glosa-e.com/novedades.xml</code>. Se pega en cualquier
+  lector de noticias.</div>
+</div>
+<!-- AQUI VAN LAS NOVEDADES -->
+  </div>
+</main>
+
+<footer>
+  <div class="envoltorio">
+    <p class="aviso-legal"><b>Aviso.</b> Glosa-e es una herramienta privada e
+    independiente. No es un servicio oficial de la Agencia Tributaria, de FACe
+    ni de ninguna administración, y su resultado no acredita nada ante ellas.</p>
+    <nav>
+      <a href="./">La herramienta</a>
+      <a href="./bitacora.html">Bitácora</a>
+      <a href="./legal.html">Aviso legal y privacidad</a>
+      <span class="redes">
+        <a href="https://x.com/glosa_e" rel="me" aria-label="Glosa-e en X" title="Glosa-e en X"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg></a>
+        <a href="https://www.linkedin.com/in/dunior-hernandez-martinez" rel="me" aria-label="Dunior Hernández Martínez en LinkedIn" title="Dunior Hernández Martínez en LinkedIn"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 1 1 0-4.125 2.062 2.062 0 0 1 0 4.125zM7.119 20.452H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg></a>
+      </span>
+    </nav>
+    <p class="firma-pie">© 2026 Glosa-e</p>
+  </div>
+</footer>
+</body>
+</html>
