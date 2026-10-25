@@ -32,7 +32,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3618 tests, todos en verde.
+3627 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5585,6 +5585,25 @@ hay que se tocaron un mes después de publicarse. Para el resto lo único que se
 podría poner es la fecha en que se montó el sitio, que es la misma para todas
 y no dice nada de si el contenido cambió. Una fecha que miente vale menos que
 ninguna.
+
+**El código de cada incidencia del informe enlaza su ficha**, desde el
+25-10-2026, y se abre en otra pestaña: el informe se pinta en la página con el
+fichero que se soltó, y saliendo de ella se pierde. El informe lo pinta el
+navegador, así que la página tiene que saber qué códigos tienen ficha, y se lo
+dice el montaje: escribe la lista de las fichas que acaba de escribir en el
+`data-fichas=""` del `#informe` de `index.html`, y se niega a montar si hay
+catálogo y el hueco no está una vez. Sin montar la lista está vacía y el
+informe sale en texto, como antes. Son 4,8 KB más en la portada con los 408
+códigos.
+
+**Y cada artículo y cada ficha acaban en Sigue las novedades**, una línea con X
+y el perfil de LinkedIn, que salen de `CUENTA_DE_LA_MARCA` y
+`PERFIL_DEL_TITULAR`. El plan pide tres formas de seguir, y las otras dos (el
+boletín de LinkedIn y un canal Atom) todavía no existen: se añaden el día que
+existan, porque una línea que manda a un canal que no hay es un cartel. Va
+detrás del único `</article>` de la página, y el montaje se niega, antes de
+escribir nada, si un artículo trae otro o el armazón de las fichas trae uno
+suyo.
 
 ### El aviso a Bing, por IndexNow
 

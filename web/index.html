@@ -377,6 +377,11 @@ details.documento > summary > header .estado { grid-column: 1; }
 .glosa .margen { text-align: right; padding: 1.1rem 1.25rem 1.1rem 1rem; border-right: 1px solid var(--borde); }
 .glosa .grave { font-size: var(--t0); text-transform: uppercase; letter-spacing: .09em; font-weight: 700; display: block; margin-bottom: .15rem; }
 .glosa .codigo { font-family: var(--mono); font-size: var(--t1); font-weight: 600; display: block; overflow-wrap: anywhere; }
+/* El código que tiene ficha es un enlace, y se ve que lo es sin depender del
+   color, que aquí ya dice la gravedad: subrayado de puntos, que pasa a lleno
+   al pasar por encima. */
+.glosa a.codigo { text-decoration: underline dotted 1px; text-underline-offset: 3px; }
+.glosa a.codigo:hover, .glosa a.codigo:focus-visible { text-decoration-style: solid; }
 .glosa .norma { font-size: var(--t0); color: var(--tenue); display: block; margin-top: .1rem; }
 .glosa .cuerpo { position: relative; padding: 1.1rem 1.5rem 1.1rem 1.6rem; }
 .glosa .cuerpo::before, .glosa::before {
@@ -844,7 +849,10 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       </section>
     </div>
 
-    <div id="informe"></div>
+    <!-- `data-fichas` lo rellena el montaje con los códigos que tienen
+         ficha, separados por espacios; ver `paquete._con_las_fichas`. Aquí
+         va vacío, y servida `web/` a secas el informe sale sin enlaces. -->
+    <div id="informe" data-fichas=""></div>
 
     <!-- «si trae la prueba» no sobra. De las tres cosas que se miran de una
          firma, la revocación es la única que puede quedarse sin contestar:
@@ -1594,6 +1602,26 @@ function pintarLoQueTrae(paquete) {
 
 // --- El informe ------------------------------------------------------------
 
+// Los códigos que tienen ficha propia, para que el del informe enlace la suya.
+//
+// La lista la escribe el montaje, de las mismas fichas que acaba de escribir,
+// y no se deduce aquí del código: los `BR-{X}-8` del IVA se componen al
+// validar y no tienen página, y un enlace que da 404 a quien acaba de ver un
+// ERROR es peor que no tener enlace. Sin montar, la lista está vacía y el
+// informe sale como antes, en texto.
+const CON_FICHA = new Set(($("informe").dataset.fichas || "").split(" ").filter(Boolean));
+
+function pintarCodigo(codigo) {
+  if (!CON_FICHA.has(codigo)) return "<span class='codigo'>" + escapar(codigo) + "</span>";
+  // En otra pestaña, a propósito: el informe se pinta en esta página con el
+  // fichero que se soltó, y saliendo de ella se pierde y hay que volver a
+  // soltarlo. Sin `.html`: el montaje sirve las direcciones limpias, y la
+  // otra contesta con un 308.
+  return "<a class='codigo' href='./codigo-" + escapar(codigo) + "' target='_blank' " +
+    "rel='noopener' title='Qué significa " + escapar(codigo) + " (se abre en otra pestaña)'>" +
+    escapar(codigo) + "</a>";
+}
+
 function pintarGlosa(inc) {
   const detalles = [];
   if (inc.campo) detalles.push(["Campo", inc.campo]);
@@ -1609,7 +1637,7 @@ function pintarGlosa(inc) {
         // bueno y con qué base, que es justo lo que hay que leer para saber
         // cuánto vale el resto.
         "<span class='grave'>" + escapar(inc.gravedad) + "</span>" +
-        "<span class='codigo'>" + escapar(inc.codigo) + "</span>" +
+        pintarCodigo(inc.codigo) +
         "<span class='norma'>" + escapar(inc.norma || "") + "</span>" +
       "</div>" +
       "<div class='cuerpo'>" +

@@ -543,8 +543,8 @@ def test_el_aviso_legal_dice_bajo_que_licencia_se_publica():
 # texto. Cambiar una palabra de la página, o de la ficha que la página pinta,
 # sin cambiar esto deja la suite en rojo.
 
-FECHA_DE_LA_POLITICA = "18 de octubre de 2026"
-HUELLA_DE_LA_POLITICA = "211f099f696c31640dc721e8fa372dd5c5a6314e5e2e081abe51e062e9eb6493"
+FECHA_DE_LA_POLITICA = "25 de octubre de 2026"
+HUELLA_DE_LA_POLITICA = "4c69cbbf32c4f749c21f10f03e5ad4cb4038a4a803a35ec74a255d2191462f89"
 
 
 def _texto_de_la_politica() -> str:

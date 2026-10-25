@@ -390,6 +390,11 @@ def _apuntar_huellas(carpeta):
 @pytest.fixture
 def repositorio(tmp_path):
     """Un repositorio en pequeño: la página, un wheel y unos ejemplos."""
+    return _armar_repositorio(tmp_path)
+
+
+def _armar_repositorio(tmp_path):
+    """Lo de `repositorio`, aparte para poder armarlo una vez por módulo."""
     (tmp_path / "web").mkdir()
     (tmp_path / "web" / "index.html").write_text(PAGINA, encoding="utf-8")
     (tmp_path / "web" / "banco.html").write_text(PAGINA, encoding="utf-8")
@@ -2134,3 +2139,154 @@ class TestLoUltimoEnLaPortada:
     def test_la_portada_de_verdad_lleva_el_hueco(self):
         portada = Path(paquete.__file__).parent.parent / "web" / "index.html"
         assert paquete.HUECO_DE_LO_ULTIMO in portada.read_text(encoding="utf-8")
+
+
+# --- El código del informe enlaza su ficha, y Sigue las novedades -------------
+
+_WEB_DE_VERDAD = Path(paquete.__file__).parent.parent / "web"
+_INFORME_CON_HUECO = '<div id="informe" data-fichas=""></div>'
+
+
+def _con_catalogo(repositorio):
+    """El repositorio pequeño con la plantilla de los códigos de verdad, que
+    es la que hace que el montaje escriba las fichas, y la portada con el
+    hueco donde va la lista."""
+    web = repositorio / "web"
+    (web / "incidencias.html").write_text(
+        (_WEB_DE_VERDAD / "incidencias.html").read_text(encoding="utf-8"),
+        encoding="utf-8")
+    (web / "index.html").write_text(
+        PAGINA.replace("</body>", _INFORME_CON_HUECO + "\n</body>"),
+        encoding="utf-8")
+    return repositorio
+
+
+@pytest.fixture(scope="module")
+def sitio_con_catalogo(tmp_path_factory):
+    """El sitio montado con las 408 fichas, una vez para todo el módulo.
+
+    Montarlas cuesta unos 30 segundos, y lo leen dos pruebas que no lo tocan:
+    con una por prueba, estas dos solas eran una sexta parte de la suite.
+    """
+    repositorio = _con_catalogo(_armar_repositorio(tmp_path_factory.mktemp("catalogo")))
+    return _montar(repositorio).carpeta
+
+
+class TestElInformeEnlazaSuFicha:
+    """Desde el 25-10-2026 el código de cada incidencia del informe enlaza su
+    ficha. El informe lo pinta el navegador, y la lista de qué códigos tienen
+    ficha se la da el montaje, de las fichas que acaba de escribir."""
+
+    def test_la_lista_son_las_fichas_montadas_y_ninguna_mas(self, sitio_con_catalogo):
+        raiz = sitio_con_catalogo
+        portada = (raiz / "index.html").read_text(encoding="utf-8")
+        lista = re.search(r'id="informe" data-fichas="([^"]*)"', portada)
+        assert lista, "la portada se ha montado sin la lista de fichas"
+        dichos = lista.group(1).split(" ")
+        escritas = sorted(p.name.removeprefix("codigo-").removesuffix(".html")
+                          for p in raiz.glob("codigo-*.html"))
+        assert sorted(dichos) == escritas
+        assert len(dichos) == len(set(dichos)) > 400
+        assert paquete.HUECO_DE_LAS_FICHAS not in portada
+
+    def test_sin_el_hueco_no_se_monta_ni_se_escribe_nada(self, repositorio):
+        _con_catalogo(repositorio)
+        (repositorio / "web" / "index.html").write_text(PAGINA, encoding="utf-8")
+        with pytest.raises(paquete.SinPagina, match="sin un solo enlace"):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+    def test_sin_catalogo_no_hace_falta_el_hueco(self, repositorio):
+        # El repositorio pequeño no trae la plantilla de los códigos: no hay
+        # fichas, y no hay lista que poner. Montar sin ella sigue valiendo.
+        assert not list(_montar(repositorio).carpeta.glob("codigo-*.html"))
+
+    def test_la_portada_de_verdad_lleva_el_hueco_y_el_informe_lo_lee(self):
+        portada = (_WEB_DE_VERDAD / "index.html").read_text(encoding="utf-8")
+        assert portada.count(paquete.HUECO_DE_LAS_FICHAS) == 1
+        assert _INFORME_CON_HUECO in portada
+        assert 'dataset.fichas' in portada
+        # El código de la glosa pasa por quien decide si es enlace, y el
+        # enlace se abre en otra pestaña: en esta se perdería el informe.
+        glosa = portada[portada.index("function pintarGlosa"):]
+        glosa = glosa[:glosa.index("\n}\n")]
+        assert "pintarCodigo(inc.codigo)" in glosa
+        assert "escapar(inc.codigo)" not in glosa
+        codigo = portada[portada.index("function pintarCodigo"):]
+        codigo = codigo[:codigo.index("\n}\n")]
+        assert "CON_FICHA.has(codigo)" in codigo
+        assert "target='_blank'" in codigo and "rel='noopener'" in codigo
+
+
+class TestSigueLasNovedades:
+    """La línea con que acaba cada artículo y cada ficha, desde el 25-10-2026.
+    Nombra solo lo que existe: X y el perfil de LinkedIn."""
+
+    @staticmethod
+    def _enlaces(texto):
+        bloque = re.findall(r'<aside class="seguir".*?</aside>', texto, re.S)
+        assert len(bloque) == 1, f"{len(bloque)} líneas de seguir y no una"
+        return bloque[0], re.findall(r'href="([^"]+)"', bloque[0])
+
+    def test_solo_manda_a_las_dos_cuentas_y_sin_rastreo(self):
+        _, enlaces = self._enlaces(paquete._SEGUIR)
+        assert enlaces == [paquete.CUENTA_DE_LA_MARCA, paquete.PERFIL_DEL_TITULAR]
+        assert not any("?" in e or "#" in e for e in enlaces)
+
+    def test_cada_ficha_acaba_en_ella(self, sitio_con_catalogo):
+        raiz = sitio_con_catalogo
+        fichas = sorted(raiz.glob("codigo-*.html"))
+        assert len(fichas) > 400
+        for ficha in fichas:
+            texto = ficha.read_text(encoding="utf-8")
+            bloque, _ = self._enlaces(texto)
+            assert "</article>" + bloque in texto, ficha.name
+        # El catálogo no es un artículo y no la lleva.
+        assert 'class="seguir"' not in (raiz / "incidencias.html").read_text(
+            encoding="utf-8")
+
+    def test_cada_articulo_acaba_en_ella_y_el_indice_no(self, repositorio):
+        web = repositorio / "web"
+        (web / "index.html").write_text(
+            PAGINA.replace("</body>", paquete.HUECO_DE_LO_ULTIMO + "\n</body>"),
+            encoding="utf-8")
+        (web / bitacora.NOMBRE).write_text(
+            PAGINA.replace("</body>", bitacora.HUECO + "\n</body>"), encoding="utf-8")
+        (web / bitacora.CARPETA).mkdir()
+        for slug, cuerpo in (_articulo("una", "2026-10-01"),
+                             _articulo("otra", "2026-10-19")):
+            (web / bitacora.CARPETA / f"{slug}.html").write_text(cuerpo, encoding="utf-8")
+        raiz = _montar(repositorio).carpeta
+        for nombre in ("bitacora-una.html", "bitacora-otra.html"):
+            texto = (raiz / nombre).read_text(encoding="utf-8")
+            bloque, _ = self._enlaces(texto)
+            assert "</article>" + bloque in texto, nombre
+        assert 'class="seguir"' not in (raiz / bitacora.NOMBRE).read_text(
+            encoding="utf-8")
+
+    def test_un_articulo_con_dos_cierres_no_se_monta(self, repositorio):
+        web = repositorio / "web"
+        (web / "index.html").write_text(
+            PAGINA.replace("</body>", paquete.HUECO_DE_LO_ULTIMO + "\n</body>"),
+            encoding="utf-8")
+        (web / bitacora.NOMBRE).write_text(
+            PAGINA.replace("</body>", bitacora.HUECO + "\n</body>"), encoding="utf-8")
+        (web / bitacora.CARPETA).mkdir()
+        _, cuerpo = _articulo("doble", "2026-10-01")
+        (web / bitacora.CARPETA / "doble.html").write_text(
+            cuerpo.replace("<p>", "<article>Un recuadro.</article><p>", 1),
+            encoding="utf-8")
+        with pytest.raises(paquete.SinPagina, match="Sigue las novedades"):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+    def test_un_armazon_de_fichas_con_un_cierre_suyo_no_se_monta(self, repositorio):
+        _con_catalogo(repositorio)
+        plantilla = repositorio / "web" / "incidencias.html"
+        plantilla.write_text(
+            plantilla.read_text(encoding="utf-8").replace(
+                "</main>", "<article>Suelto.</article></main>", 1),
+            encoding="utf-8")
+        with pytest.raises(paquete.SinPagina, match="Sigue las novedades"):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()

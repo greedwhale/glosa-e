@@ -312,3 +312,9 @@ footer .firma-pie { margin-top: 1.1rem; }
 @media (max-width: 34rem) {
   .portada { padding-top: 3rem; }
 }
+
+/* Sigue las novedades: la línea con que acaban cada artículo y cada ficha. La
+   pone el montaje (`paquete._con_seguir`). Va aparte del texto, con un filete,
+   para que no se lea como la última frase del artículo. */
+.seguir { margin: 2.5rem 0 0; padding-top: 1.1rem; border-top: 1px solid var(--borde); max-width: 65ch; font-size: var(--t1); color: var(--tinta-2); }
+.seguir b { color: var(--tinta); }

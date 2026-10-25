@@ -160,6 +160,16 @@ lo deja, lo deja seleccionado y lo dice. Copiar no pide nada a la red (medido el
 19-10-2026: 24 peticiones antes del clic y 24 después), y el
 testigo no cambia.
 
+## El código de cada incidencia, con su ficha
+
+Desde el 25-10-2026, en el sitio montado el código de cada incidencia es un
+enlace a su ficha (`./codigo-BR-CO-10`), en otra pestaña para no perder el
+informe. Solo enlazan los códigos que tienen ficha: la lista la pone el
+montaje en `data-fichas` y la página no la deduce. Servida `web/` a secas la
+lista está vacía y el informe sale en texto. Medido el 25-10-2026 con
+`f-0006.xml` en el servidor `sitio`: cada código del informe salió enlazado,
+y cada enlace contestó 200.
+
 ## Resultados medidos
 
 En Chrome, sobre esta máquina, con Pyodide 314.0.6:

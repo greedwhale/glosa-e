@@ -1136,6 +1136,85 @@ def _sin_hueco(cuantas: int, nombre: str) -> str:
     )
 
 
+# --- El código del informe, con su ficha ------------------------------------
+#
+# En el informe de la herramienta el código de cada incidencia era texto. Quien
+# acaba de ver un ERROR quiere entenderlo, y tenía que ir a buscarlo; desde el
+# 25-10-2026 es un enlace a su ficha. El informe lo pinta el navegador, así que
+# la página tiene que saber qué códigos tienen ficha, y se lo dice el montaje
+# con las fichas que acaba de escribir. Deducirlo en la página no valía: los
+# `BR-{X}-8` del IVA se componen al validar y no tienen ficha, y un enlace que
+# da 404 a quien tiene un ERROR delante es peor que no dar enlace.
+#
+# Va en un atributo y no en un `<script>` de datos porque la política de
+# contenido solo deja pasar los `<script>` a secas, con su huella, y el JSON-LD.
+HUECO_DE_LAS_FICHAS = 'data-fichas=""'
+
+
+def _sin_hueco_de_las_fichas(nombre: str) -> str:
+    return (
+        f"«{nombre}» no lleva `{HUECO_DE_LAS_FICHAS}` una vez, así que el "
+        "informe no sabría qué códigos tienen ficha y se publicaría con todos "
+        "en texto, sin un solo enlace. No falla nada al verlo: solo deja de "
+        "llevar a la explicación."
+    )
+
+
+def _con_las_fichas(portada: Path, fichas: list[str]) -> None:
+    """Le dice al informe de la portada qué códigos tienen ficha."""
+    texto = portada.read_text(encoding="utf-8")
+    if not fichas:
+        return
+    if texto.count(HUECO_DE_LAS_FICHAS) != 1:
+        raise SinPagina(_sin_hueco_de_las_fichas(portada.name))
+    codigos = " ".join(
+        n.removeprefix("codigo-").removesuffix(".html") for n in fichas
+    )
+    portada.write_text(
+        texto.replace(HUECO_DE_LAS_FICHAS,
+                      f'data-fichas="{html.escape(codigos)}"', 1),
+        encoding="utf-8")
+
+
+# --- Sigue las novedades -----------------------------------------------------
+#
+# La línea con que acaba cada artículo de la bitácora y cada ficha de código:
+# quien llega desde un buscador a leer una página, la lee y se va, y aquí se le
+# dice dónde enterarse de lo siguiente. El plan del 22-10-2026 pide tres
+# formas de seguir: X, el boletín de LinkedIn y un canal Atom. **Hoy solo
+# existe la primera**, y el perfil de quien lo lleva; el boletín y el canal
+# todavía no, y una línea que manda a un canal que no existe es un cartel. Se
+# añaden aquí el día que existan.
+#
+# Las direcciones salen de las dos constantes de las cuentas, las mismas del
+# `sameAs` y de los pies, y van sin parámetros de rastreo: el sitio no mide
+# nada de quien entra, y tampoco de quien sale.
+_SEGUIR = (
+    '<aside class="seguir" aria-label="Sigue las novedades">'
+    "<p><b>Sigue las novedades.</b> Lo nuevo de la factura electrónica se "
+    f'cuenta en X, en <a href="{CUENTA_DE_LA_MARCA}">@glosa_e</a>, y quien '
+    "lleva Glosa-e cuenta en "
+    f'<a href="{PERFIL_DEL_TITULAR}">LinkedIn</a> lo que se va midiendo y '
+    "construyendo.</p></aside>"
+)
+_FIN_DEL_ARTICULO = "</article>"
+
+
+def _articulos_de_mas(nombre: str, cuantos: int) -> str:
+    return (
+        f"«{nombre}» tiene {cuantos} `{_FIN_DEL_ARTICULO}` y no uno, así que "
+        "no se sabe detrás de cuál va la línea de Sigue las novedades. Puesta "
+        "a ciegas, saldría en medio del texto o no saldría."
+    )
+
+
+def _con_seguir(texto: str, nombre: str) -> str:
+    """Pone la línea de seguir detrás del artículo de una página."""
+    if texto.count(_FIN_DEL_ARTICULO) != 1:
+        raise SinPagina(_articulos_de_mas(nombre, texto.count(_FIN_DEL_ARTICULO)))
+    return texto.replace(_FIN_DEL_ARTICULO, _FIN_DEL_ARTICULO + _SEGUIR, 1)
+
+
 def _con_lo_ultimo(portada: Path, entradas: list[bitacora.Entrada]) -> None:
     """Pone en la portada las entradas más nuevas de la bitácora."""
     texto = portada.read_text(encoding="utf-8")
@@ -1575,6 +1654,27 @@ def montar_sitio(
         if (leidas and (pagina / bitacora.NOMBRE).is_file() and portada.is_file()
                 and HUECO_DE_LO_ULTIMO not in portada.read_text(encoding="utf-8")):
             raise SinPagina(_sin_hueco(len(leidas), portada.name))
+        # La línea de seguir va detrás del único `</article>` de cada página
+        # de artículo, que es la plantilla con el artículo dentro. Por lo
+        # mismo, se sabe ya si hay uno de más o de menos.
+        if (pagina / bitacora.NOMBRE).is_file():
+            armazon = (pagina / bitacora.NOMBRE).read_text(encoding="utf-8")
+            for entrada in leidas:
+                cuantos = (armazon + entrada.cuerpo).count(_FIN_DEL_ARTICULO)
+                if cuantos != 1:
+                    raise SinPagina(_articulos_de_mas(entrada.ruta.name, cuantos))
+
+    # Las dos cosas que el montaje pone con las fichas de código, mirando la
+    # plantilla y la portada antes de escribir nada: el hueco donde va la
+    # lista de códigos con ficha, y que el armazón no traiga un `</article>`
+    # suyo, que es detrás de lo que va la línea de seguir en cada ficha.
+    if (pagina / pagina_incidencias.NOMBRE).is_file():
+        if indice.read_text(encoding="utf-8").count(HUECO_DE_LAS_FICHAS) != 1:
+            raise SinPagina(_sin_hueco_de_las_fichas(indice.name))
+        cuantos = (pagina / pagina_incidencias.NOMBRE).read_text(
+            encoding="utf-8").count(_FIN_DEL_ARTICULO)
+        if cuantos:
+            raise SinPagina(_articulos_de_mas(pagina_incidencias.NOMBRE, cuantos + 1))
 
     # Y la política, por lo mismo y con la misma lección. `_con_politica` corre
     # al final, que es donde tiene que correr —las huellas tienen que ser las
@@ -1754,6 +1854,8 @@ def montar_sitio(
             generada = salida.read_text(encoding="utf-8")
             for busca, pon, _ in sellos:
                 generada = generada.replace(busca, pon)
+            if nombre != bitacora.NOMBRE:
+                generada = _con_seguir(generada, nombre)
             salida.write_text(generada, encoding="utf-8")
     _con_lo_ultimo(destino / "index.html", publicadas)
     # Lo que va al `lastmod`: cada entrada, con su último cambio dicho, y el
@@ -1775,7 +1877,8 @@ def montar_sitio(
             generada = salida.read_text(encoding="utf-8")
             for busca, pon, _ in sellos:
                 generada = generada.replace(busca, pon)
-            salida.write_text(generada, encoding="utf-8")
+            salida.write_text(_con_seguir(generada, nombre), encoding="utf-8")
+        _con_las_fichas(destino / "index.html", fichas)
 
     huerfanos = sorted(c for c, cuantas in firmadas.items() if not cuantas)
     if huerfanos:
