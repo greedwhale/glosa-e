@@ -33,7 +33,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3667 tests, todos en verde.
+3670 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5504,6 +5504,26 @@ llegaron a publicarse, más `BR-CL-1` y las seis de abajo, porque sin el cero
 es como lo teclea de memoria quien lo busca. Otras dos pruebas comprueban que
 no falte ninguna y que ninguna tape una ficha o lleve a una que no existe; las
 dos se provocaron rompiendo `vercel.json`.
+
+**Toda ficha que existió, en la lista.** Lo que impide que retirar un código
+deje su ficha en un 404 es `tests/fichas_publicadas.txt`: lo que está ahí y ya
+no en el catálogo tiene que redirigir. Pero se escribió el 11-10-2026, y
+`COPIA-CUOTA`, retirada el 07-10, dio 404 hasta el 25-10 con la prueba en
+verde. Desde ese día la lista sale de la historia y no de la memoria:
+`herramientas/fichas_que_existieron.py` recorre cada commit desde el primero
+con fichas y junta los códigos de cada catálogo (con el lector de hoy, y con
+el suyo los de antes del 23-09, que el de hoy no entiende). Ese día dio esas
+39 direcciones de septiembre, que redirigían como alias pero no estaban
+apuntadas, y nada más; con `--produccion`, cada retirado acabó en 200.
+
+El recorrido entero lleva unos diez minutos y en GitHub la copia viene sin
+historia, así que no va en la suite. Lo que va, y se provocó: que cada ficha
+redirigida esté en la lista (o sea el alias sin cero de una que lo esté); que
+la lista solo crezca, comparada con cada commit que la tocó, que es lo único
+que ve quitar a la vez una línea y su redirección; y que la herramienta siga
+sabiendo leer, sobre tres commits: ve irse `COPIA-CUOTA` y lee uno de
+septiembre con su propio lector. Las dos últimas se saltan en una copia sin
+historia.
 
 **La segunda, IGIC e IPSI.** La tabla de `iva.py` les ponía `tipo = cualquiera`
 y `motivo = libre`, con un comentario que decía que la norma no ataba a esas

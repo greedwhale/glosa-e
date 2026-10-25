@@ -444,3 +444,49 @@ XSD-VALOR
 SPFE-CANJE
 SPFE-GARANTIA
 FIRMA-POR-FUERA
+
+# Los nombres sin cero con que salieron las fichas del IVA del 11 al
+# 13-09-2026 (`codigo-BR-S-8` y los demás), antes de llamarse como los llama
+# la norma. Ya redirigían, porque son también el alias sin cero de una ficha de
+# hoy, pero no estaban aquí. Medido el 25-10-2026 con
+# `herramientas/fichas_que_existieron.py`, que recorre los 170 commits desde
+# el primero con fichas: con estos, la lista tiene todo lo que salió.
+BR-AE-1
+BR-AE-5
+BR-AE-6
+BR-AE-7
+BR-AE-8
+BR-AF-1
+BR-AF-8
+BR-AG-1
+BR-AG-8
+BR-E-1
+BR-E-5
+BR-E-6
+BR-E-7
+BR-E-8
+BR-G-1
+BR-G-5
+BR-G-6
+BR-G-7
+BR-G-8
+BR-IC-1
+BR-IC-5
+BR-IC-6
+BR-IC-7
+BR-IC-8
+BR-O-1
+BR-O-5
+BR-O-6
+BR-O-7
+BR-O-8
+BR-S-1
+BR-S-5
+BR-S-6
+BR-S-7
+BR-S-8
+BR-Z-1
+BR-Z-5
+BR-Z-6
+BR-Z-7
+BR-Z-8

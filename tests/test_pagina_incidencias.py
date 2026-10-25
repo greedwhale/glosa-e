@@ -349,6 +349,77 @@ class TestLasDireccionesViejas:
                     corto = f"/codigo-BR-{viejo}-{n}"
                     assert redirecciones[corto]["destination"] == f"/codigo-BR-{nuevo}-{n:02d}", corto
 
+    def test_cada_ficha_redirigida_esta_apuntada(self):
+        """Lo que se redirige es una ficha que existió o el alias sin cero de
+        una (de hoy o retirada: `BR-AF-2` nunca fue ficha, pero así teclea
+        `BR-AF-02` quien lo busca de memoria). Una ficha que existió tiene que
+        estar en la lista: si se quitara de ella, la prueba de los retirados
+        dejaría de mirarla."""
+        publicadas = self._publicadas()
+        alias = {re.sub(r"^(BR-[A-Z]+-)0(\d)$", r"\1\2", c) for c in publicadas}
+        sueltas = sorted(
+            origen for origen in self._redirecciones()
+            if origen.startswith("/codigo-")
+            and (codigo := origen.removeprefix("/codigo-")) not in alias
+            and codigo not in publicadas)
+        assert not sueltas, (
+            "se redirigen y no están en tests/fichas_publicadas.txt: "
+            + ", ".join(sueltas))
+
+    @staticmethod
+    def _con_historia(*commits):
+        """Se salta donde no hay historia: GitHub saca la copia sin ella."""
+        import subprocess
+        try:
+            superficial = subprocess.run(
+                ["git", "rev-parse", "--is-shallow-repository"], cwd=RAIZ,
+                capture_output=True, text=True, check=True).stdout.strip()
+        except (OSError, subprocess.CalledProcessError):
+            pytest.skip("no hay git, o esto no es una copia del repositorio")
+        if superficial == "true":
+            pytest.skip("la copia no trae la historia")
+        for commit in commits:
+            if subprocess.run(["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+                              cwd=RAIZ, capture_output=True).returncode:
+                pytest.skip(f"la copia no trae {commit}")
+
+    def test_la_lista_de_publicadas_solo_crece(self):
+        """Una ficha que tuvo dirección la sigue teniendo: lo que estuvo en la
+        lista en cualquier commit sigue en ella. Es lo que impide quitar a la
+        vez una línea y su redirección, que juntas no las ve otra prueba."""
+        import subprocess
+        self._con_historia("HEAD")
+        ruta = "tests/fichas_publicadas.txt"
+        versiones = subprocess.run(
+            ["git", "log", "--format=%h", "--", ruta], cwd=RAIZ,
+            capture_output=True, text=True, check=True).stdout.split()
+        assert versiones, "la lista no tiene historia"
+        hoy = self._publicadas()
+        for commit in versiones:
+            antes = subprocess.run(["git", "show", f"{commit}:{ruta}"], cwd=RAIZ,
+                                   capture_output=True, text=True,
+                                   encoding="utf-8").stdout.splitlines()
+            perdidas = {l.strip() for l in antes
+                        if l.strip() and not l.startswith("#")} - hoy
+            assert not perdidas, (
+                f"{', '.join(sorted(perdidas))} estaban en la lista en {commit} "
+                "y ya no: su ficha tuvo dirección y dejaría de vigilarse")
+
+    def test_el_recorrido_de_la_historia_ve_lo_que_se_retiro(self):
+        """La herramienta que mide la historia entera no va en la suite (diez
+        minutos), pero se le prueba lo que tiene que saber hacer, sobre tres
+        commits: ver irse COPIA-CUOTA el 07-10-2026, con el lector de hoy, y
+        leer uno de septiembre con el suyo, donde las fichas del IVA se
+        llamaban sin cero."""
+        from herramientas import fichas_que_existieron as recorrido
+        self._con_historia("9a33561", "c7ba6e5")
+        antes, despues = recorrido.codigos_de("9a33561^"), recorrido.codigos_de("9a33561")
+        assert "COPIA-CUOTA" in antes and "COPIA-CUOTA" not in despues
+        septiembre = recorrido.codigos_de("c7ba6e5")
+        assert {"BR-S-8", "BR-AE-1"} <= septiembre
+        # Y lo que vio está apuntado: es la razón de ser de la lista.
+        assert (antes | despues | septiembre) <= self._publicadas()
+
     def test_ninguna_redireccion_lleva_a_otra_redireccion(self):
         """Una cadena cuesta un salto más, y los buscadores no siguen muchos."""
         redirecciones = self._redirecciones()

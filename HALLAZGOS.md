@@ -9025,3 +9025,19 @@ redirección; en verde con ella. Con la página de novedades, un código que se
 retire ya no puede pasar sin apuntarse en `web/novedades.txt`, aunque eso no
 le pone la dirección: lo sigue diciendo la prueba de los retirados.
 
+**Y la historia entera.** Por si había más, se recorrieron los commits desde
+el primero con fichas, el del 11-09, con el catálogo de cada uno. Ninguna otra
+ficha retirada daba 404: todas acaban en 200. Pero 39 no estaban en la lista,
+las de septiembre sin cero (`BR-S-8` y las demás), que redirigían solo porque
+son también el alias de una ficha de hoy. Se apuntaron, el recorrido quedó
+como herramienta (`herramientas/fichas_que_existieron.py`) y la suite vigila
+lo que puede sin él: que nada redirigido falte de la lista, que la lista no
+pierda líneas y que la herramienta siga leyendo. Provocado, una rotura cada
+vez y vuelta atrás:
+
+- la línea de `COPIA-CUOTA` y su redirección, quitadas juntas: la prueba de
+  que la lista solo crece, en rojo (antes no lo veía ninguna);
+- la línea de `BR-S-8` quitada: la del recorrido, en rojo;
+- la herramienta sin el lector de reserva: la del recorrido, en rojo, y
+  diciendo qué commit no se pudo leer.
+
