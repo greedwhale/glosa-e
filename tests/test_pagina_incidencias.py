@@ -284,6 +284,11 @@ class TestLasDireccionesViejas:
         "SPFE-BORRADOR": "SPFE-ALCANCE",
         "SPFE-RECARGO-DE-EQUIVALENCIA": "SPFE-LINEA-DE-COBRO",
         "SPFE-GRUPO-DE-ENTIDADES": "SPFE-LINEA-DE-COBRO",
+        # Y la del 07-10-2026, que se apuntó tarde (en fichas_publicadas.txt).
+        # Decía que la cuota de la copia va sin el recargo de equivalencia; con
+        # la orden el recargo va en el desglose del IVA, y lo que queda de
+        # aquello lo explica COPIA-TOTAL, que salía con ella.
+        "COPIA-CUOTA": "COPIA-TOTAL",
     }
 
     def _publicadas(self) -> set[str]:

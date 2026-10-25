@@ -9003,3 +9003,25 @@ regeneradas. El detalle, en el README.
   primera vez se escribió sin el `\b` y no apartaba nada: la expresión
   retrocedía una letra y volvía a casar.
 
+## COPIA-CUOTA: una ficha retirada que la lista de publicadas no conocía
+
+**Cómo salió.** Al escribir la historia de las novedades, el 25-10-2026, con
+los códigos de cada commit desde el 06-10. `COPIA-CUOTA` salía retirada el
+07-10, y `https://www.glosa-e.com/codigo-COPIA-CUOTA` contestaba 404. La ficha
+existía desde el 20-09-2026.
+
+**Por qué no lo vio nadie.** La prueba que obliga a dar dirección a la ficha
+de un código retirado lee `tests/fichas_publicadas.txt`, y esa lista se
+escribió el 11-10 con el glosario de ese día y los tres retirados de ese día.
+`COPIA-CUOTA` se había ido cuatro días antes: no estaba ni en la lista ni en
+el glosario, y para la prueba no había existido nunca. Es el disfraz de
+siempre: la comprobación estaba verde y no miraba lo que se cree.
+
+**Lo que se hizo.** Apuntada en la lista, con su nota, y una redirección
+permanente a `COPIA-TOTAL`, que salía con ella y es la que explica hoy dónde
+va el recargo en la copia. Las dos pruebas de los retirados (que tenga
+dirección y que lleve a la sustituta), en rojo con la lista apuntada y sin la
+redirección; en verde con ella. Con la página de novedades, un código que se
+retire ya no puede pasar sin apuntarse en `web/novedades.txt`, aunque eso no
+le pone la dirección: lo sigue diciendo la prueba de los retirados.
+

@@ -7,6 +7,11 @@
 #
 # Escrito el 11-10-2026 con el glosario de ese día y los tres códigos que se
 # retiraron ese mismo día, que estaban en el sitemap de producción.
+#
+# Se quedó fuera COPIA-CUOTA, con ficha desde el 20-09-2026 y retirada el
+# 07-10, cuatro días antes de escribirse la lista: como no estaba ni aquí ni en
+# el glosario, la prueba no la veía, y su dirección dio 404 hasta el
+# 25-10-2026. Se apuntó ese día, al medirlo en producción.
 ANCLAS-SIN-RENOVAR
 BR-01
 BR-02
@@ -256,6 +261,7 @@ CADENA-SIN-ANCLAS
 CONFIANZA-ANCLA
 CONFIANZA-REVOCACION
 COPIA-CARGO-IVA
+COPIA-CUOTA
 COPIA-DESGLOSE-CERO
 COPIA-DIRECCION
 COPIA-FACTURA-PREVIA

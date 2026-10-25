@@ -106,7 +106,7 @@ titulo: La orden en el BOE: la cuota de la copia fiel lleva el recargo
 retirados: COPIA-CUOTA
 texto: Con la orden, el recargo de equivalencia va en el desglose del IVA y
   la cuota de la copia fiel lo lleva. La nota que decía lo contrario,
-  COPIA-CUOTA, se retira.
+  COPIA-CUOTA, se retira, y su ficha lleva a la de COPIA-TOTAL.
 
 # Lo que había el 06-10-2026, medido en 598f34c. No se toca: un código
 # nuevo va en una novedad, no aquí.
