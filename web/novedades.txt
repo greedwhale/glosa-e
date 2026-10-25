@@ -13,6 +13,15 @@
 # desde 598f34c, el último del 06-10-2026. Las fechas son las de esos commits.
 
 fecha: 2026-10-25
+id: cuenta-distinta
+titulo: CUENTA-DISTINTA: el mismo emisor, otra cuenta
+nuevos: CUENTA-DISTINTA
+texto: Un aviso cuando las facturas de un mismo emisor piden el pago en
+  cuentas distintas, en un lote o en un Facturae con varias facturas.
+  Dice cuáles y en qué facturas sale cada una. Puede ser legítimo, y
+  también es la señal del fraude del cambio de cuenta.
+
+fecha: 2026-10-25
 id: los-tres-organos-de-face
 titulo: FE-DIR3: los tres órganos de una factura a la Administración
 nuevos: FE-DIR3-FALTA FE-DIR3-ALCANCE

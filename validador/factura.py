@@ -34,6 +34,7 @@ from validador import (
     cadena,
     codigo_unico,
     copia_fiel,
+    cuentas_de_cobro,
     edifact,
     en16931,
     esquema,
@@ -281,6 +282,10 @@ def _reglas_con_cuentas(
         )
     )
     incidencias.extend(codigo_unico.reglas(raiz, deteccion, hoy=hoy))
+    # Las cuentas de cobro de un mismo emisor, que dentro de un fichero solo
+    # pueden no cuadrar en Facturae, que trae varias facturas. Entre ficheros
+    # lo mira el lote.
+    incidencias.extend(cuentas_de_cobro.reglas(raiz, deteccion))
     return (
         _podar(incidencias),
         firma.estado_de_la_firma(examenes),
@@ -422,6 +427,7 @@ PARTES = (PARTE_FORMA, PARTE_CONTENIDO, PARTE_FIRMA)
 PARTE_DE_LA_FAMILIA: dict[str, str | None] = {
     "XSD": PARTE_FORMA, "XML": PARTE_FORMA,
     "BR": PARTE_CONTENIDO, "COPIA": PARTE_CONTENIDO, "CU": PARTE_CONTENIDO,
+    "CUENTA": PARTE_CONTENIDO,
     "EDI": PARTE_CONTENIDO, "FE": PARTE_CONTENIDO, "IVA": PARTE_CONTENIDO,
     "NIF": PARTE_CONTENIDO, "PERFIL": PARTE_CONTENIDO, "SIN": PARTE_CONTENIDO,
     "SPFE": PARTE_CONTENIDO,
@@ -1391,14 +1397,18 @@ class LoteEnMarcha:
         lote = InformeLote(nombres=self._nombres)
         todos: list[codigo_unico.CodigoUnico] = []
         procedencias: list[str] = []
+        cobros: list[cuentas_de_cobro.Cobro] = []
+        de_donde_cobros: list[str] = []
 
         for hechas, (camino, nombre) in enumerate(
             zip(self._caminos, lote.nombres, strict=True), start=1
         ):
-            informe, codigos = self._uno(camino, nombre)
+            informe, codigos, suyos = self._uno(camino, nombre)
             lote.informes.append((camino, informe))
             todos.extend(codigos)
             procedencias.extend([nombre] * len(codigos))
+            cobros.extend(suyos)
+            de_donde_cobros.extend([nombre] * len(suyos))
             yield hechas
 
         # Solo interesa lo que cruza ficheros. Lo que ya dijo el informe de un
@@ -1408,19 +1418,23 @@ class LoteEnMarcha:
         }
         lote.cruzadas = [
             i
-            for i in codigo_unico.reglas_de_lote(todos, procedencias=procedencias)
+            for i in (
+                codigo_unico.reglas_de_lote(todos, procedencias=procedencias)
+                + cuentas_de_cobro.reglas_de_lote(cobros, procedencias=de_donde_cobros)
+            )
             if _senia(i) not in dentro_de_uno
         ]
         self.lote = lote
 
     def _uno(
         self, camino: Path, nombre: str
-    ) -> tuple[Informe, list[codigo_unico.CodigoUnico]]:
-        """El informe de un fichero, y sus facturas para las reglas de conjunto."""
+    ) -> tuple[Informe, list[codigo_unico.CodigoUnico], list[cuentas_de_cobro.Cobro]]:
+        """El informe de un fichero, y sus facturas para las reglas de conjunto:
+        los códigos únicos y las cuentas de cobro."""
         try:
             datos = camino.read_bytes()
         except OSError as error:
-            return Informe(deteccion=_no_se_puede_leer(camino, error)), []
+            return Informe(deteccion=_no_se_puede_leer(camino, error)), [], []
 
         try:
             deteccion = detectar(datos)
@@ -1435,13 +1449,17 @@ class LoteEnMarcha:
                 informe.mirado = _mirado(deteccion, self._catalogo)
                 informe.contenido_medido = mensajes.medido_entero(raiz, deteccion)
         except Exception as error:  # noqa: BLE001 - ver `_se_atraganta`
-            return _se_atraganta(camino, error, nombre), []
+            return _se_atraganta(camino, error, nombre), [], []
 
         # Al montón del lote solo van las facturas sujetas al reglamento
         # español. Comparar series y duplicados entre una factura holandesa y
         # una alemana no significa nada: no comparten numeración ni tienen por
         # qué. Sin este filtro salían «duplicados» entre dos suites de prueba
         # que solo tenían en común el número de ejemplo.
+        #
+        # Las cuentas de cobro, en cambio, de todas: que un proveedor holandés
+        # pida el pago en otra cuenta es la misma señal que si fuera español.
+        cobros = cuentas_de_cobro.extraer_de(raiz, deteccion)
         if codigo_unico.obligado_en_espania(raiz, deteccion):
-            return informe, list(codigo_unico.extraer_de(raiz, deteccion))
-        return informe, []
+            return informe, list(codigo_unico.extraer_de(raiz, deteccion)), cobros
+        return informe, [], cobros

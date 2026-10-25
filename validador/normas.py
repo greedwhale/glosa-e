@@ -109,9 +109,9 @@ NORMAS: tuple[tuple[str, str, str], ...] = (
      "Orden HAC/1028/2026"),
     ("XSD-", FORMA, "el esquema oficial del formato"),
     ("FE-DIR3-", CONTRATOS,
-     "la Ley 9/2017 de Contratos del Sector Público, que en su disposición "
-     "adicional 32.ª pide los tres órganos en la factura, y las validaciones "
-     "de FACe del anexo II de la Orden HAP/492/2014, que añadió la Orden "
+     "la disposición adicional 32.ª de la Ley de Contratos del Sector "
+     "Público, que pide los tres órganos en la factura, y las validaciones de "
+     "FACe del anexo II de la Orden HAP/492/2014, que añadió la Orden "
      "HAP/1650/2015"),
     ("FE-", NACIONAL, "la especificación española de Facturae"),
     ("EDI-", SINTAXIS_EDI, "la sintaxis de EDIFACT"),

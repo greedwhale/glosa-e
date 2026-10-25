@@ -64,6 +64,13 @@ FAMILIAS: dict[str, str] = {
         "hacen que el mismo fichero se lea distinto según quién lo abra, y "
         "una factura que dice dos cosas no dice ninguna."
     ),
+    "CUENTA": (
+        "Las cuentas en que un mismo emisor pide que se le pague, comparadas "
+        "entre sus facturas. No lo pide ninguna norma de facturación: cada "
+        "factura, mirada sola, puede estar perfecta. Es la señal del fraude "
+        "del cambio de cuenta, y solo se ve poniendo juntas las facturas de un "
+        "emisor, en un lote o en un Facturae que trae varias."
+    ),
     "FE": (
         "Reglas propias de Facturae, el formato español. No salen de EN 16931 "
         "sino de la especificación de Facturae y de lo que la Administración "
@@ -560,6 +567,18 @@ CODIGOS: dict[str, str] = {
         'facturas ajenas antes de acotarla. Salta en ocho de los catorce '
         'ficheros Facturae de ejemplo que hay aquí, los de la propia '
         'Administración incluidos.'
+    ),
+    "CUENTA-DISTINTA": (
+        'Las facturas de un mismo emisor, el mismo NIF, piden el pago en '
+        'cuentas distintas (BT-84). El aviso dice cuáles, en cuántas facturas '
+        'sale cada una y en qué ficheros. Puede ser legítimo, si el emisor '
+        'cobra en más de una cuenta. También es la señal del fraude del cambio '
+        'de cuenta: alguien entra en el correo del proveedor, o se hace pasar '
+        'por él, y manda una factura correcta con otra cuenta. INCIBE aconseja '
+        'comprobar la cuenta por un canal distinto del correo electrónico. Se '
+        'compara el juego de cuentas de cada factura, sin espacios ni '
+        'mayúsculas de por medio, y las facturas sin cuenta no cuentan. '
+        'EDIFACT no entra, porque su instrucción de pago no tiene mapa.'
     ),
     "NIF-RECEPTOR": (
         'El NIF de quien recibe la factura no pasa su dígito de control. No '

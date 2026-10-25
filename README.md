@@ -14,12 +14,13 @@ según el RD 238/2026.
 | `validador/en16931.py` | Campos obligatorios y cuadre aritmético, sobre UBL, CII y EDIFACT | Terminado |
 | `validador/iva.py` | El desglose de IVA: bases, cuotas, categorías y exenciones | Terminado |
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
+| `validador/cuentas_de_cobro.py` | Las cuentas en que cada emisor pide el pago, comparadas entre sus facturas | Terminado |
 | `validador/solucion_publica.py` | El anexo I: lo que la solución pública pide a una factura UBL que declara su CIUS | Sobre la orden publicada el 05-10-2026; sus reglas nuevas, todavía no |
 | `validador/qr_fiscal.py` | La dirección del QR de VERI*FACTU o de TicketBAI, comparada con la factura que la lleva | Terminado |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
 | `validador/cifras.py` | Cómo se escriben cifras y fechas en lo que lee una persona: coma decimal, miles, «Tiene» tal cual y dd-mm-aaaa | Terminado |
 | `validador/esquema.py` | Validación de forma contra los XSD oficiales, con los errores traducidos | Terminado |
-| `validador/facturae.py` | La aritmética del formato nacional: totales, líneas, impuestos y lote | Terminado |
+| `validador/facturae.py` | La aritmética del formato nacional: totales, líneas, impuestos y lote, y los tres órganos de FACe | Terminado |
 | `validador/firma.py` | La firma XAdES: integridad del documento y verificación RSA y ECDSA, sin salir a la red | Terminado |
 | `validador/cadena.py` | De quién es el certificado: la cadena hasta un ancla de confianza instalada | Terminado |
 | `validador/revocacion.py` | Si anularon el certificado: listas de revocación (CRL), sin salir a la red | Terminado |
@@ -29,11 +30,12 @@ según el RD 238/2026.
 | `validador/edifact.py` | El cuarto formato: la tira de ISO 9735, sus grupos y sus cuentas | Terminado |
 | `validador/factura.py` | El orquestador: forma y contenido sobre el mismo documento, y lotes | Terminado |
 | `validador/bitacora.py` | La bitácora del sitio: índice y artículos, generados de una plantilla | Terminado |
-| `validador/novedades.py` | Las novedades: cada regla nueva o retirada y cada artículo, en una página y en un canal Atom | Terminado |
+| `validador/novedades.py` | Las novedades: cada regla nueva o retirada del validador, en una página y en un canal Atom | Terminado |
+| `validador/atom.py` | Los dos canales Atom del sitio, el de las novedades y el de la bitácora, con el mismo molde | Terminado |
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3709 tests, todos en verde.
+3732 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -997,6 +999,51 @@ de `./`, la consulta arranca de la raíz del documento aunque se lance desde el
 nodo del vendedor: en una factura donde el vendedor solo trae
 `PartyLegalEntity` y el comprador sí trae `PartyTaxScheme`, el código único
 acababa llevando **el NIF del comprador**. Hay un test que lo fija.
+
+## Las cuentas de cobro: el mismo emisor, otra cuenta
+
+El fraude más caro que llega con una factura no tiene nada mal escrito. Es una
+factura correcta, de un proveedor de verdad, que pide el pago en otra cuenta:
+alguien ha entrado en el correo del proveedor, o se hace pasar por él, y lo
+único que cambia es el IBAN. INCIBE lo describe en su página sobre el fraude
+del correo comprometido y aconseja comprobar la cuenta "mediante un canal de
+comunicación ajeno al correo electrónico".
+
+Ninguna regla de forma ni de contenido puede verlo, porque mirada sola cada
+factura está bien. Se ve poniendo juntas las de un mismo emisor, que es lo que
+hace un lote: `validador/cuentas_de_cobro.py` junta, por el NIF de quien emite,
+las cuentas de cobro (BT-84) de sus facturas, y **`CUENTA-DISTINTA`** avisa
+cuando no son las mismas. Dice cuáles, en cuántas facturas sale cada una y en
+qué ficheros, con la que sale en menos al final.
+
+Las decisiones:
+
+- **Aviso, y de la casa.** Cobrar en dos cuentas es legal y corriente. El
+  aviso no dice que haya fraude: dice que la cuenta cambia, para que quien va
+  a pagar lo confirme antes. Ninguna norma de facturación lo pide.
+- **El emisor es el NIF del código único**, leído por el mismo camino, para
+  que una factura no pueda ser de un emisor para el código y de otro para las
+  cuentas. Pero entran todas las facturas, también las extranjeras: el código
+  único solo compara las españolas porque las numeraciones de otros países no
+  tienen nada que ver entre sí, y una cuenta nueva es la misma señal venga de
+  donde venga.
+- **Se compara el juego de cuentas de cada factura**, no cada cuenta suelta:
+  dos facturas que ofrecen las mismas dos cuentas no han cambiado nada. La
+  cuenta se compara sin espacios y en mayúsculas, porque el IBAN se escribe en
+  grupos de cuatro en papel y de corrido en el fichero.
+- **Dentro de un fichero también**, porque un Facturae trae varias facturas. Y
+  lo que ya dijo un Facturae de sí mismo no se repite entre ficheros: lo que se
+  compara para no repetirlo no lleva nombres de fichero, que el informe de un
+  fichero solo no conoce.
+- **EDIFACT no entra**: su instrucción de pago no tiene mapa. Tampoco las
+  facturas sin cuenta, que no han cambiado de cuenta, sino que no dan ninguna.
+
+Medido sobre los 101 ficheros de muestra y de ejemplo: 76 facturas leídas, 61
+con cuenta de cobro, de 26 emisores, 12 de ellos con más de una factura. Salen
+**tres avisos, los tres entre ficheros de prueba**: dos en las suites europeas
+y uno en las facturas de prueba del cliente @firma, que reutilizan el mismo
+vendedor en ejemplos distintos con cuentas distintas. Es justo lo que tiene que
+decir: mismo NIF, otra cuenta.
 
 ## La bitácora, y por qué se genera
 
