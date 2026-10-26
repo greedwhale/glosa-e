@@ -315,10 +315,68 @@ def test_el_menu_no_apunta_a_paginas_que_no_existen():
     """Un menú con un enlace roto es peor que uno corto: manda a un 404."""
     import re
 
+    for bloque in (_menu_de(RAIZ / "web" / "index.html"),
+                   _pie_de(RAIZ / "web" / "index.html")):
+        for destino in re.findall(r'href="\./([^"#]+)"', bloque):
+            assert (RAIZ / "web" / destino).is_file(), (
+                f"el menú o el pie llevan a «{destino}» y ese fichero no está "
+                "en web/")
+
+
+# El pie, igual que el menú: copiado en las ocho páginas y comparado letra por
+# letra. Desde el 25-10-2026 la barra enseña cinco entradas y el pie las
+# lleva todas, así que un pie que se quede atrás en una página deja una página
+# del sitio sin camino desde allí.
+PIE_PRINCIPIO, PIE_FIN = "<!-- PIE", "<!-- FIN PIE -->"
+
+
+def _pie_de(pagina: Path) -> str:
+    texto = pagina.read_text(encoding="utf-8")
+    assert PIE_PRINCIPIO in texto and PIE_FIN in texto, (
+        f"«{pagina.name}» se ha quedado sin el pie común: entre "
+        f"{PIE_PRINCIPIO}… y {PIE_FIN} es donde va, y ahí no hay nada.")
+    return texto[texto.index(PIE_PRINCIPIO):texto.index(PIE_FIN) + len(PIE_FIN)]
+
+
+def test_el_pie_es_el_mismo_en_todas_las_paginas():
+    pies = {p: _pie_de(RAIZ / "web" / p) for p in PAGINAS}
+    distintas = [p for p, m in pies.items() if m != pies["index.html"]]
+    assert not distintas, (
+        "el pie de la portada y el de "
+        + ", ".join(f"«{p}»" for p in distintas)
+        + " ya no son el mismo. Se copia entero, no se retoca en una sola.")
+
+
+def test_el_pie_lleva_todo_lo_que_lleva_la_barra():
+    """Lo que la barra enseña tiene que estar también abajo."""
     menu = _menu_de(RAIZ / "web" / "index.html")
-    for destino in re.findall(r'href="\./([^"#]+)"', menu):
-        assert (RAIZ / "web" / destino).is_file(), (
-            f"el menú lleva a «{destino}» y ese fichero no está en web/")
+    pie = _pie_de(RAIZ / "web" / "index.html")
+    barra = menu[menu.index('<nav class="principal"'):]
+    barra = barra[:barra.index("</nav>")]
+    for destino in re.findall(r'href="(\./[^"]*)"', barra):
+        assert f'href="{destino}"' in pie, (
+            f"la barra lleva a «{destino}» y el pie no: quien baja al final "
+            "de la página no lo encuentra")
+
+
+def test_la_barra_no_pasa_de_cinco_entradas():
+    """Lo que la hizo desplegable fue crecer: cada página nueva, un enlace más.
+
+    Hasta el 25-10-2026 todo iba escondido en una pestaña por eso. Ahora la
+    barra enseña cinco, decididas por el titular, y lo nuevo va al pie. Si
+    hace falta una sexta, se quita otra o se decide de nuevo: no se añade
+    sola.
+    """
+    menu = _menu_de(RAIZ / "web" / "index.html")
+    barra = menu[menu.index('<nav class="principal"'):]
+    barra = barra[:barra.index("</nav>")]
+    pestana = menu[menu.index('<details class="menu">'):]
+    pestana = pestana[:pestana.index("</nav>")]
+    assert barra.count("<a ") <= 5, (
+        f"la barra lleva {barra.count('<a ')} entradas y el límite es cinco")
+    assert barra.count("<a ") == pestana.count("<a "), (
+        "la barra y la pestaña del móvil no llevan las mismas entradas: según "
+        "el ancho, el sitio enseñaría cosas distintas")
 
 
 # --- La ficha de quien esta detras -------------------------------------------
@@ -425,7 +483,7 @@ def test_el_menu_escribe_a_la_direccion_de_la_ficha():
             f"{escritos}: manda a escribir a una dirección que ya no es de nadie")
         return
 
-    assert escritos == [correo], (
+    assert escritos and set(escritos) == {correo}, (
         f"el menú escribe a {escritos} y la ficha de `glosa.js` dice "
         f"«{correo}». Son la misma dirección o no son nada: quien cambie una "
         "tiene que cambiar la otra.")

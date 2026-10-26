@@ -200,20 +200,47 @@ header::before {
 .marca:hover .nombre { color: var(--acento); }
 .marca:focus-visible { outline: 2px solid var(--acento); outline-offset: 4px; border-radius: 4px; }
 
-/* --- La pestaña ----------------------------------------------------------
-   La barra llevaba cuatro enlaces y el pie seis, y cada página nueva alargaba
-   las dos listas: una navegación que crece con el proyecto acaba siendo el
-   índice de lo que hay, no el camino a lo que se busca. Ahora la barra tiene
-   dos cosas —la marca y esta pestaña— y lo demás se despliega.
+/* --- La barra y la pestaña ---------------------------------------------
+   Hasta el 25-10-2026 la barra llevaba solo la marca y una pestaña, y todo
+   lo demás se desplegaba: la barra había llegado a cuatro enlaces y el pie a
+   seis, y cada página nueva alargaba las dos. Pero lo escondido no se ve, y
+   quien llegaba no sabía qué había en el sitio sin abrir la pestaña. Desde el
+   25-10-2026, por decisión del titular, la barra enseña cinco entradas fijas
+   y el pie lleva todas: la barra deja de crecer porque lo nuevo va al pie, no
+   porque se esconda. Que no pase de cinco lo vigila una prueba.
 
+   En el móvil cinco no caben, y ahí sigue la pestaña con las mismas cinco.
    Es un <details>, no un menú de JavaScript. Se abre con el teclado por su
    cuenta, no espera a que cargue nada y no puede quedarse trabado: si algo
    fallara, lo peor que sale es una lista abierta. Las páginas de consulta no
    cargan ni una línea de código a propósito, y esto no las obliga a empezar.
 
-   Los enlaces llevan una línea debajo diciendo qué hay al otro lado. «Banco
-   de pruebas» no significa nada para quien llega de un buscador, y un menú
-   que hay que probar entrando no es un menú. */
+   En la pestaña los enlaces llevan una línea debajo diciendo qué hay al otro
+   lado: en el móvil hay sitio a lo alto, y un menú que hay que probar
+   entrando no es un menú. */
+.principal { margin-left: auto; display: flex; align-items: center; gap: .15rem; font-size: var(--t1); }
+.principal a {
+  color: var(--tinta-2); text-decoration: none; white-space: nowrap;
+  padding: .45rem .65rem; border-radius: 8px;
+}
+.principal a:hover { color: var(--acento); background: var(--panel-2); }
+.principal a:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+/* Escribir es lo único que no lleva a otra página del sitio, y por eso se
+   distingue: el mismo trazo que los botones de la herramienta. */
+.principal a.escribeme {
+  margin-left: .5rem; color: var(--acento); font-weight: 600;
+  background: var(--acento-flojo); border: 1px solid var(--acento);
+}
+.principal a.escribeme:hover { background: var(--panel); }
+.menu { display: none; }
+/* El corte, medido el 25-10-2026: las cinco entradas ocupan 520 px y la marca
+   110, y con los márgenes la barra entera pide unos 700. A 47rem (752 px) cabe
+   con aire; por debajo, la pestaña. En rem y no en px, para que quien agranda
+   la letra pase a la pestaña antes de que la barra se desborde. */
+@media (max-width: 47rem) {
+  .principal { display: none; }
+  .menu { display: block; }
+}
 .menu { margin-left: auto; position: relative; font-size: var(--t1); }
 .menu > summary {
   display: inline-flex; align-items: center; gap: .45rem; cursor: pointer;

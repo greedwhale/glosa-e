@@ -152,13 +152,27 @@ validarlo ahí y enseñar el informe. La red no se toca.
 
 ## El recuento, al pie del informe
 
-Desde el 19-10-2026, cada informe acaba con un desplegable cerrado que lleva el
-mismo texto que `--recuento` en consola: los códigos, en cuántos documentos sale
+Desde el 19-10-2026, cada informe acaba con el mismo texto que `--recuento` en
+consola (en un desplegable cerrado hasta el 25-10-2026; desde entonces, a la
+vista, con una línea para escribir si hay dudas): los códigos, en cuántos documentos sale
 cada uno y cuántas veces, y los formatos, sin nombres de fichero ni nada de
 dentro de las facturas. El botón lo copia al portapapeles, y si el navegador no
 lo deja, lo deja seleccionado y lo dice. Copiar no pide nada a la red (medido el
 19-10-2026: 24 peticiones antes del clic y 24 después), y el
 testigo no cambia.
+
+## La barra y el pie
+
+Desde el 25-10-2026 la barra de arriba enseña cinco entradas fijas: Validar,
+Qué significa cada aviso, Qué es Glosa-e, Bitácora y Escríbeme. Hasta ese día
+todo iba en una pestaña desplegable, y quien llegaba no veía qué había en el
+sitio sin abrirla. En el móvil las cinco no caben y sigue la pestaña, con las
+mismas cinco; cada ancho enseña una y esconde la otra, sin JavaScript.
+
+El pie lleva todas las páginas, y es el mismo en las ocho, como el menú. Tres
+pruebas lo sostienen: que el pie no se separe entre páginas, que lleve todo lo
+que lleva la barra y que la barra no pase de cinco. Lo que hizo desplegable la
+barra la primera vez fue eso, crecer con cada página; ahora lo nuevo va al pie.
 
 ## El código de cada incidencia, con su ficha
 
