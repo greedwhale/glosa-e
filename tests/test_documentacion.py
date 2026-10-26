@@ -78,15 +78,16 @@ def test_el_readme_dice_cuantas_pruebas_hay_de_verdad():
 
 # --- Las cifras que la página publica --------------------------------------
 #
-# El mismo problema, un piso más arriba. El libro blanco (`web/tesis.html`)
-# publica cuatro cifras como argumento de credibilidad, y dos de ellas se
+# El mismo problema, un piso más arriba. La página Sobre Glosa-e
+# (`web/sobre.html`, que fue la tesis hasta el 25-10-2026) publica cuatro
+# cifras como argumento de credibilidad, y dos de ellas se
 # mueven solas: los códigos de incidencia crecen cuando alguien añade una
 # regla, y las comprobaciones del navegador cuando alguien añade una al banco.
 #
 # Una cifra vieja ahí es peor que en el README, porque el README lo lee quien
 # trabaja en esto y la página la lee quien está decidiendo si fiarse.
 
-TESIS = RAIZ / "web" / "tesis.html"
+TESIS = RAIZ / "web" / "sobre.html"
 BANCO = RAIZ / "web" / "prueba.py"
 
 
@@ -107,7 +108,7 @@ def test_la_tesis_dice_cuantos_codigos_hay_de_verdad():
     hay = len(codigos_del_paquete())
     dice = _cifra_de_la_tesis("Códigos de aviso")
     assert dice == hay, (
-        f"web/tesis.html dice «{dice} códigos de aviso» y hay {hay}. La página "
+        f"web/sobre.html dice «{dice} códigos de aviso» y hay {hay}. La página "
         f"la lee quien está decidiendo si fiarse. Cámbiala a {hay}.")
 
 
@@ -120,7 +121,7 @@ def test_la_tesis_dice_cuantas_comprobaciones_corre_el_navegador():
                          re.MULTILINE))
     dice = _cifra_de_la_tesis("Comprobaciones en tu navegador")
     assert dice == hay, (
-        f"web/tesis.html dice «{dice} comprobaciones» y el banco tiene {hay}. "
+        f"web/sobre.html dice «{dice} comprobaciones» y el banco tiene {hay}. "
         f"Cámbiala a {hay}.")
 
 
@@ -152,6 +153,41 @@ def test_la_portada_dice_cuantos_codigos_hay_explicados():
         r'los (\d+) están <a href="./incidencias.html">explicados uno a uno')
     assert dice == hay, (
         f"la portada dice {dice} códigos explicados y hay {hay}. Cámbiala a {hay}.")
+
+
+def test_sobre_dice_cuantos_codigos_tienen_ficha():
+    """La misma cifra, en la lista de lo que hace, y con su propio guardián."""
+    from validador.codigos import codigos_del_paquete
+
+    texto = " ".join(TESIS.read_text(encoding="utf-8").split())
+    hallados = re.findall(r"los (\d+) tienen <a href=\"\./incidencias\.html\">su ficha", texto)
+    assert len(hallados) == 1, (
+        "la frase de los códigos con ficha ya no está en Sobre Glosa-e con la "
+        "forma esperada: o se ha reescrito, o este guardián está ciego")
+    hay = len(codigos_del_paquete())
+    assert int(hallados[0]) == hay, (
+        f"Sobre Glosa-e dice que {hallados[0]} códigos tienen ficha y hay {hay}.")
+
+
+def test_la_tesis_lleva_a_sobre_glosa_e():
+    """La dirección vieja está en los buscadores: que no se quede en nada.
+
+    El 25-10-2026 la tesis pasó a ser parte de Sobre Glosa-e. Con `cleanUrls`,
+    `/tesis.html` ya lleva a `/tesis`; esta redirección lleva de ahí a la
+    página nueva, y permanente, para que el buscador cambie la dirección que
+    guarda.
+    """
+    import json
+
+    datos = json.loads((RAIZ / "vercel.json").read_text(encoding="utf-8"))
+    r = {x["source"]: x for x in datos.get("redirects", [])}.get("/tesis")
+    assert r and r.get("destination") == "/sobre" and r.get("permanent") is True, (
+        "/tesis ya no redirige a /sobre: quien llegue por la dirección vieja "
+        "se encuentra la página de error")
+    assert (RAIZ / "web" / "sobre.html").is_file()
+    assert not (RAIZ / "web" / "tesis.html").exists(), (
+        "ha vuelto web/tesis.html: se publicaría al lado de la redirección y "
+        "habría dos páginas diciendo lo mismo con palabras distintas")
 
 
 def test_el_ejemplo_de_nota_de_la_portada_sale_de_verdad_como_nota():
@@ -248,7 +284,7 @@ def test_el_catalogo_no_se_puede_publicar_vacio():
 # pasar un texto cambiado en una sola, que es justo la forma en que esto se
 # rompe de verdad.
 PAGINAS = ("index.html", "banco.html", "legal.html", "incidencias.html",
-           "tesis.html", "bitacora.html", "novedades.html", "404.html")
+           "sobre.html", "bitacora.html", "novedades.html", "404.html")
 PRINCIPIO, FIN = "<!-- MENU", "<!-- FIN MENU -->"
 
 
@@ -474,8 +510,9 @@ def test_el_menu_escribe_a_la_direccion_de_la_ficha():
     menú no puede seguir mandando correo a nadie.
     """
     correo = _ficha().get("correo", "")
-    menu = _menu_de(RAIZ / "web" / "index.html")
-    escritos = re.findall(r'href="mailto:([^"?]+)', menu)
+    escritos = [d for pagina in sorted((RAIZ / "web").glob("*.html"))
+                for d in re.findall(r'href="mailto:([^"?]+)',
+                                    pagina.read_text(encoding="utf-8"))]
 
     if not correo:
         assert not escritos, (

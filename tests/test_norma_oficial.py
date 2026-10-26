@@ -808,9 +808,12 @@ PUBLICADAS = (
     ("legal.html", r"en sus (\d+) casos este validador dice lo mismo",
      ("casos",)),
     ("legal.html", r"las otras (\d+) no tienen ninguno", ("sin_caso_oficial",)),
-    ("tesis.html", r"No comprueba (\d+) de las (\d+) reglas de la EN 16931",
+    ("sobre.html", r"No comprueba (\d+) de las (\d+) reglas de la EN 16931",
      ("imposibles", "reglas")),
-    ("tesis.html", r"qué cubren las otras (\d+)", ("comprobadas",)),
+    ("sobre.html", r"qué cubren las otras (\d+)", ("comprobadas",)),
+    ("sobre.html",
+     r"Las (\d+) reglas de la EN 16931, de los campos obligatorios al desglose "
+     r"del IVA: (\d+) se comprueban", ("reglas", "comprobadas")),
 )
 
 

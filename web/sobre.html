@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sobre Glosa-e</title>
+<meta name="description" content="Qué es Glosa-e, qué comprueba en una factura electrónica y qué no, por qué es gratis y por qué explica en vez de certificar. Con las cifras medidas.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='6 -1 42 42'%3E%3Cstyle%3Eg%7Bstroke:%231c4e80%7D@media (prefers-color-scheme:dark)%7Bg%7Bstroke:%238ab4e0%7D%7D%3C/style%3E%3Cg fill='none' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 7 H8 V33 H16'/%3E%3Cpath d='M25 12 h21'/%3E%3Cpath d='M25 20 h21'/%3E%3Cpath d='M25 28 h13'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="./glosa.css">
+<style>
+/* Lo propio de esta página: es un documento largo, así que manda la columna de
+   lectura y el ritmo, no la retícula. La base sale de glosa.css.
+
+   Desde el 25-10-2026 esta página es la que era la tesis, con lo que pidió el
+   titular delante: qué es, qué hace, para quién, por qué es gratis, qué no
+   hace y cómo escribir. La tesis va detrás, resumida, y `/tesis` redirige
+   aquí: dos páginas que explican lo mismo acaban diciendo cosas distintas. */
+.portada { padding: 3rem 0 1rem; }
+.portada h1 { font: 400 var(--t5)/1.15 var(--serif); letter-spacing: -.015em; margin-bottom: .8rem; }
+.portada .entrada { font-size: var(--t3); color: var(--tinta-2); max-width: 36rem; }
+article { max-width: 44rem; }
+article h2 { font: 400 var(--t4)/1.2 var(--serif); letter-spacing: -.012em; margin: 3.25rem 0 .9rem; text-wrap: balance; }
+article h2:first-of-type { margin-top: 1.5rem; }
+article h3 { font: 600 var(--t2)/1.4 var(--sans); margin: 2rem 0 .5rem; }
+article p, article li { color: var(--tinta-2); max-width: 36rem; }
+article b { color: var(--tinta); font-weight: 600; }
+article ul { padding-left: 1.1rem; margin: 0 0 1em; }
+article li { margin-bottom: .4rem; }
+
+/* Las filas: lo que hace y lo que no, con el gesto de la marca. A la
+   izquierda, contra un filete, la afirmación; al lado, lo que significa. Es
+   el mismo dibujo que la glosa del informe y que "Lo que no hace" de la
+   portada, y las dos listas van iguales a propósito: lo que no hace pesa lo
+   mismo que lo que hace. */
+.filas { list-style: none; margin: 1.25rem 0 0; padding: 0; display: grid; gap: 1.15rem; }
+.filas li { display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: 0 1.25rem; margin: 0; max-width: none; }
+.filas b {
+  text-align: right; font-size: var(--t1); line-height: 1.5;
+  padding-right: 1.25rem; border-right: 2px solid var(--borde-fuerte);
+}
+.filas span { color: var(--tinta-2); font-size: var(--t1); line-height: 1.55; }
+@media (max-width: 34rem) {
+  .filas li { grid-template-columns: minmax(0, 1fr); gap: .3rem; }
+  .filas b {
+    text-align: left; border-right: 0; padding-right: 0;
+    border-left: 2px solid var(--borde-fuerte); padding-left: .75rem;
+  }
+  .filas span { padding-left: .75rem; }
+}
+
+/* La cita al margen: una afirmación que se sostiene sola. Se usa poco a
+   propósito: si estuviera cada dos párrafos dejaría de destacar nada. */
+.cita {
+  font: 400 var(--t3)/1.45 var(--serif); color: var(--tinta);
+  border-left: 3px solid var(--borde-fuerte); padding-left: 1.25rem;
+  margin: 2rem 0; max-width: 32rem;
+}
+/* Las cifras. Van en su propia retícula porque se miran, no se leen. */
+.cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1.25rem 1.5rem; margin: 1.5rem 0 2rem; max-width: 42rem; }
+.cifras div { border-left: 1px solid var(--borde-fuerte); padding-left: .9rem; }
+.cifras dt { font-size: var(--t0); text-transform: uppercase; letter-spacing: .1em; color: var(--tenue); font-weight: 600; }
+.cifras dd { margin: .2rem 0 0; font: 400 var(--t4)/1.1 var(--serif); color: var(--tinta); }
+.cifras .pie { font-size: var(--t1); color: var(--tenue); display: block; margin-top: .15rem; font-family: var(--sans); }
+
+/* El contacto, al final y con el asunto ya escrito: quien abre el correo
+   sabe de qué va antes de leerlo. Con el trazo de los botones de la
+   herramienta, que es el de "Escríbeme" en la barra. */
+.escribir { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1.1rem 0 1rem; }
+.escribir a {
+  font: 600 var(--t1)/1 var(--sans); color: var(--acento); text-decoration: none;
+  background: var(--acento-flojo); border: 1px solid var(--acento);
+  border-radius: 8px; padding: .65rem 1rem;
+}
+.escribir a:hover { background: var(--panel); }
+.escribir a:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="envoltorio barra">
+    <a class="marca" href="./"><span class="nombre">Glosa-e</span></a>
+    <!-- MENU: este bloque es el mismo, letra por letra, en las ocho
+         páginas. Que lo siga siendo lo comprueba tests/test_documentacion.py:
+         ocho copias de un menú se separan solas, y entonces cada página dice
+         que el sitio tiene una cosa distinta. Las entradas de la bitácora no
+         se cuentan aquí: salen de `bitacora.html`, que es su plantilla, así
+         que llevan este mismo bloque por construcción y no por acordarse.
+
+         Son las mismas cinco entradas dos veces: en la barra, a la vista, y
+         en la pestaña que se abre en el móvil, donde la barra no cabe. Cada
+         ancho enseña una y esconde la otra. Desde el 25-10-2026. -->
+    <nav class="principal" aria-label="Principal">
+      <a href="./">Validar</a>
+      <a href="./incidencias.html">Qué significa cada aviso</a>
+      <a href="./sobre.html">Sobre Glosa-e</a>
+      <a href="./bitacora.html">Bitácora</a>
+      <a class="escribeme" href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20">Escríbeme</a>
+    </nav>
+    <details class="menu">
+      <summary>
+        <span>Menú</span>
+        <svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+        <span class="tapa"></span>
+      </summary>
+      <nav aria-label="Principal">
+        <a href="./"><b>Validar</b><span>Suelta una factura y lee el informe.</span></a>
+        <a href="./incidencias.html"><b>Qué significa cada aviso</b><span>Cada código que puede salir, con la norma de la que sale.</span></a>
+        <a href="./sobre.html"><b>Sobre Glosa-e</b><span>Qué hace, qué no hace y por qué es gratis.</span></a>
+        <a href="./bitacora.html"><b>Bitácora</b><span>Lo que se va midiendo, con la fecha y la fuente al lado.</span></a>
+        <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20"><b>Escríbeme</b><span>Dudas, fallos que veas y propuestas. Se abre tu programa de correo.</span></a>
+      </nav>
+    </details>
+    <!-- FIN MENU -->
+  </div>
+</header>
+
+<main>
+  <div class="envoltorio">
+
+    <div class="portada">
+      <h1>Sobre Glosa-e</h1>
+      <p class="entrada">Qué es, qué comprueba y qué no, por qué es gratis
+      y por qué explica en vez de certificar. Al final, cómo escribir con
+      una pregunta, una propuesta o un error.</p>
+    </div>
+
+    <article>
+
+      <h2 id="que-es">Qué es</h2>
+
+      <p>Glosa-e es un validador de facturas electrónicas españolas que
+      explica en castellano lo que encuentra. Lee <b>Facturae, UBL, CII y
+      EDIFACT</b>, los cuatro formatos del RD 238/2026, y dice qué pone la
+      factura, contra qué norma se ha comprobado y qué no se ha podido
+      mirar.</p>
+
+      <p>Corre entero en tu navegador. La factura no sale de tu ordenador,
+      porque no hay ningún servidor que la reciba.</p>
+
+      <h2 id="que-hace">Qué hace</h2>
+
+      <ul class="filas">
+        <li><b>La forma</b>
+        <span>Comprueba que el fichero cumple el esquema oficial de su
+        formato: el de Facturae, el de UBL o el de CII. Es lo primero que
+        rechaza quien recibe una factura.</span></li>
+        <li><b>La norma europea</b>
+        <span>Las 223 reglas de la EN 16931, de los campos obligatorios al
+        desglose del IVA: 219 se comprueban, y las que no se pueden se dicen
+        en vez de adivinarse.</span></li>
+        <li><b>Lo de España</b>
+        <span>El código único de factura del RD 238/2026; parte del anexo I
+        de la Orden HAC/1028/2026 y de sus mensajes de anulación y de estado,
+        en las facturas UBL para la solución pública; las cuentas de
+        Facturae; y, en las facturas a la Administración, los tres órganos
+        que pide FACe.</span></li>
+        <li><b>La firma</b>
+        <span>Que no se ha tocado, de quién es (hasta la lista de confianza
+        del Estado) y su sello de tiempo. Si el certificado está anulado, se
+        ve cuando el documento trae la prueba; cuando no la trae, se dice que
+        falta.</span></li>
+        <li><b>El lote</b>
+        <span>Miles de facturas a la vez, en tu navegador: 3.000 en 31,4 s,
+        medido el 20-10-2026. Entre ellas busca facturas repetidas, números
+        reutilizados con otra fecha, huecos en la numeración y el mismo
+        emisor pidiendo el pago en otra cuenta.</span></li>
+        <li><b>La copia fiel</b>
+        <span>Quien no emite por la solución pública de la AEAT le manda una
+        copia de cada factura en UBL. Glosa-e dice qué se queda por el camino
+        al pasarla, siempre como nota, porque esa traducción no la publica
+        nadie.</span></li>
+        <li><b>Cada código, explicado</b>
+        <span>Todo lo que sale lleva un código, y los 411 tienen
+        <a href="./incidencias.html">su ficha en castellano</a>, con la norma
+        de la que salen.</span></li>
+      </ul>
+
+      <h2 id="para-quien">Para quién</h2>
+
+      <ul>
+        <li><b>Quien emite facturas</b> y quiere saber, antes de mandarlas, si
+        su programa las escribe bien.</li>
+        <li><b>Quien programa un sistema de facturación</b> y necesita ver qué
+        regla falla, de qué norma sale y por qué.</li>
+        <li><b>Quien recibe facturas</b> y quiere revisarlas, una a una o un
+        mes entero de golpe.</li>
+      </ul>
+
+      <h2 id="gratis">Por qué es gratis</h2>
+
+      <p><b>Porque validar no le cuesta nada a nadie.</b> El validador se
+      descarga una vez, unos 10 MB que el navegador guarda durante un año. A
+      partir de ahí, cada factura se lee en tu ordenador. Ningún servidor
+      recibe tus facturas, así que validar una más, o mil más, no genera
+      ningún coste que haya que cobrarte.</p>
+
+      <p><b>Porque no se cobra con tus datos.</b> No hay registro, cuenta,
+      publicidad ni cookies, y tu navegador no se conecta con ningún otro
+      sitio. Lo único que queda es el registro normal de cualquier servidor
+      web: tu dirección IP, la fecha y qué fichero se pidió, nunca nada de tu
+      factura. No hace falta creérselo: el testigo de la
+      <a href="./">portada</a> lo cuenta en directo y el
+      <a href="./legal.html#privacidad">aviso legal</a> lo detalla.</p>
+
+      <h2 id="no-hace">Lo que no hace</h2>
+
+      <ul class="filas">
+        <li><b>No certifica nada</b>
+        <span>Una glosa explica; no da validez. La validez la da la ley y, si
+        acaso, quien recibe la factura.</span></li>
+        <li><b>No es oficial</b>
+        <span>No es de la Agencia Tributaria, de FACe ni de ninguna
+        administración, y su resultado no acredita nada ante ellas.</span></li>
+        <li><b>No comprueba VeriFactu</b>
+        <span>Eso es contrastar con el registro de Hacienda si una factura
+        consta, y aquí no se contrasta nada con nadie de fuera.</span></li>
+        <li><b>No sale a la red</b>
+        <span>Tampoco para saber si un certificado está anulado: esa consulta
+        lleva el número de serie del certificado y le diría a la autoridad qué
+        factura estás mirando y cuándo.</span></li>
+        <li><b>No lo comprueba todo</b>
+        <span>No comprueba 4 de las 223 reglas de la EN 16931, las que piden
+        entender una frase: que el motivo escrito de un descuento diga lo
+        mismo que su código. Se declaran en vez de adivinarse, y el
+        <a href="./legal.html#aviso">aviso legal</a> dice qué cubren las
+        otras 219 y qué queda fuera.</span></li>
+        <li><b>No acierta siempre</b>
+        <span>Se equivoca como cualquier programa. Lo que promete no es
+        acertar, sino no afirmar más de lo que ha comprobado.</span></li>
+      </ul>
+
+      <h2 id="explica">Por qué explica en vez de certificar</h2>
+
+      <p>Comprobar una factura contra la EN 16931 y el RD 238/2026 es trabajo
+      conocido: están las reglas escritas y están los esquemas. Lo difícil es
+      que <b>casi ninguna comprobación se puede hacer del todo</b>, y que las
+      que no se pueden hacer son justo las que más pesan. Saber si un
+      certificado estaba anulado el día que se firmó exige una prueba que el
+      certificado no lleva dentro. Cuando falta, un validador tiene dos
+      opciones: decirlo, o pintar el tic verde y callarse.</p>
+
+      <p class="cita">Pintar el tic verde es la opción por defecto de casi
+      todo el software, y no por mala fe: un aprobado limpio se entiende
+      solo, y una explicación de por qué no se sabe algo, no.</p>
+
+      <h3>Las tres gravedades</h3>
+
+      <p>De esa decisión sale la forma del informe, que no tiene dos estados
+      sino tres:</p>
+
+      <ul>
+        <li><b>Error</b>: algo incumple una norma concreta, y se dice cuál.</li>
+        <li><b>Aviso</b>: algo no se ha podido comprobar, o depende de un dato
+        que escribe la parte interesada.</li>
+        <li><b>Nota</b>: no es una queja; dice <b>qué se ha dado por bueno y
+        con qué base</b>.</li>
+      </ul>
+
+      <p>La tercera es la que sostiene a las otras dos. Que no conste anulado
+      ningún certificado de la cadena no significa nada por sí solo.
+      Significa algo cuando va seguido de <i>según la lista de tal autoridad,
+      publicada tal día</i>, porque entonces quien lee puede juzgar cuánto
+      vale.</p>
+
+      <h3>Un caso, con sus segundos</h3>
+
+      <p>Una firma de larga duración guarda dentro la prueba de que el
+      certificado no estaba anulado. La regla evidente era: si esa prueba es
+      anterior a la firma, no cierra la pregunta. Al pasarla por seis
+      documentos reales, el informe enseñaba <b>la misma fecha a los dos
+      lados</b>, y debajo había veintisiete segundos: un documento así se
+      construye preguntando el estado, firmando y sellando, por ese orden. La
+      regla habría levantado el aviso en casi toda factura archivada de
+      verdad.</p>
+
+      <p class="cita">Un aviso que sale siempre deja de leerse, y entonces no
+      avisa de nada.</p>
+
+      <p>Lo que lo cerró no fue inventarse un margen. <b>Quien dice hasta
+      cuándo vale una prueba es quien la emitió</b>, y lo dice por escrito
+      dentro de la propia respuesta: si su plazo llega hasta la firma, se
+      acepta, y el informe dice el hueco y en qué se apoya. Las pruebas
+      automáticas estaban todas en verde; lo encontró abrir seis ficheros
+      que no había escrito este proyecto.</p>
+
+      <h3>Lo que se mide</h3>
+
+      <p>Ninguna afirmación sobre rendimiento, red o comportamiento entra sin
+      el número que la sostiene, y si no está medido, se dice.</p>
+
+      <dl class="cifras">
+        <div>
+          <dt>Peticiones a terceros</dt>
+          <dd>0<span class="pie">al arrancar, al validar y en el banco</span></dd>
+        </div>
+        <div>
+          <dt>Formatos</dt>
+          <dd>4<span class="pie">Facturae, UBL, CII y EDIFACT</span></dd>
+        </div>
+        <div>
+          <dt>Códigos de aviso</dt>
+          <dd>411<span class="pie">cada uno con su norma y su explicación</span></dd>
+        </div>
+        <div>
+          <dt>Comprobaciones en tu navegador</dt>
+          <dd>43<span class="pie">las corre tu máquina, no un servidor; están en el <a href="./banco.html">banco de pruebas</a></span></dd>
+        </div>
+      </dl>
+
+      <h3>Por qué se llama así</h3>
+
+      <p>Una <i>glosa</i> es una nota al margen que explica un texto sin
+      sustituirlo. No dice si el documento es bueno: dice qué pone y qué hay
+      que saber para entenderlo. Por eso los informes tienen esa forma, el
+      código al margen y la explicación al lado, y el nombre está elegido
+      para que la herramienta no pueda prometer otra cosa sin
+      contradecirse.</p>
+
+      <h2 id="escribeme">Preguntas, propuestas o errores</h2>
+
+      <p>Se escribe a <b>contacto@glosa-e.com</b>. Los tres botones abren tu
+      programa de correo con el asunto ya puesto.</p>
+
+      <p class="escribir">
+        <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20pregunta">Tengo una pregunta</a>
+        <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20propuesta">Tengo una propuesta</a>
+        <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20error%20encontrado">He encontrado un error</a>
+      </p>
+
+      <p>Si el error sale en un informe, ayuda mandar su recuento: está al pie
+      del informe, con un botón para copiarlo, y no lleva nombres, NIF,
+      importes ni números de factura.</p>
+
+    </article>
+
+  </div>
+</main>
+
+<footer>
+  <div class="envoltorio">
+    <p class="aviso-legal"><b>Aviso.</b> Glosa-e es una herramienta privada e
+    independiente. No es un servicio oficial de la Agencia Tributaria, de FACe
+    ni de ninguna administración, y su resultado no acredita nada ante ellas.</p>
+    <!-- PIE: el mismo en las ocho páginas, como el menú, y lo vigila la
+         misma prueba. La barra lleva cinco entradas y no más; aquí van todas,
+         para que lo que no cabe arriba no se quede sin camino. -->
+    <nav aria-label="Todas las páginas">
+      <a href="./">Validar</a>
+      <a href="./incidencias.html">Qué significa cada aviso</a>
+      <a href="./sobre.html">Sobre Glosa-e</a>
+      <a href="./bitacora.html">Bitácora</a>
+      <a href="./novedades.html">Novedades</a>
+      <a href="./banco.html">Banco de pruebas</a>
+      <a href="./#preguntas">Preguntas frecuentes</a>
+      <a href="./legal.html">Aviso legal y privacidad</a>
+      <span class="redes">
+        <a href="https://x.com/glosa_e" rel="me" aria-label="Glosa-e en X" title="Glosa-e en X"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg></a>
+        <a href="https://www.linkedin.com/in/dunior-hernandez-martinez" rel="me" aria-label="Dunior Hernández Martínez en LinkedIn" title="Dunior Hernández Martínez en LinkedIn"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 1 1 0-4.125 2.062 2.062 0 0 1 0 4.125zM7.119 20.452H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg></a>
+      </span>
+    </nav>
+    <!-- FIN PIE -->
+    <p class="firma-pie">© 2026 Glosa-e</p>
+  </div>
+</footer>
+</body>
+</html>

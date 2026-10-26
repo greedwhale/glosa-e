@@ -195,7 +195,7 @@ def _cuerpo(codigos: list[Codigo], sin_leer: list[SinLeer]) -> str:
         # donde este catálogo admite que no está entero, y esconderlo abajo
         # sería la versión educada de no decirlo.
         # Sin coletilla debajo del numero: `.pie` solo esta definida en
-        # `tesis.html` y aqui saldria el texto pegado a la cifra. Lo que
+        # `sobre.html` y aqui saldria el texto pegado a la cifra. Lo que
         # significa ya lo dice el parrafo de arriba.
         + (f"<div><dt>Compuestos al validar</dt>"
            f"<dd>{len(sin_leer)}</dd></div>" if sin_leer else "")

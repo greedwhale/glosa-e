@@ -146,7 +146,8 @@
     { "source": "/codigo-COPIA-CUOTA", "destination": "/codigo-COPIA-TOTAL", "permanent": true },
     { "source": "/codigo-SPFE-BORRADOR", "destination": "/codigo-SPFE-ALCANCE", "permanent": true },
     { "source": "/codigo-SPFE-RECARGO-DE-EQUIVALENCIA", "destination": "/codigo-SPFE-LINEA-DE-COBRO", "permanent": true },
-    { "source": "/codigo-SPFE-GRUPO-DE-ENTIDADES", "destination": "/codigo-SPFE-LINEA-DE-COBRO", "permanent": true }
+    { "source": "/codigo-SPFE-GRUPO-DE-ENTIDADES", "destination": "/codigo-SPFE-LINEA-DE-COBRO", "permanent": true },
+    { "source": "/tesis", "destination": "/sobre", "permanent": true }
   ],
   "headers": [
     {

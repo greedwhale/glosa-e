@@ -30,7 +30,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 WEB = RAIZ / "web"
 
 PAGINAS = sorted([WEB / p for p in ("index.html", "banco.html", "legal.html",
-                                     "incidencias.html", "tesis.html", "bitacora.html",
+                                     "incidencias.html", "sobre.html", "bitacora.html",
                                      "novedades.html")]
                  + list((WEB / "bitacora").glob("*.html")))
 

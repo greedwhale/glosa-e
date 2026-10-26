@@ -710,7 +710,7 @@ _DE_LA_PAGINA = (
     # rellena el catálogo de códigos; la segunda pone el armazón a cada
     # entrada, que es lo que evita que el menú se escriba una vez por artículo.
     # `novedades.html` tampoco: se rellena de `novedades.txt`.
-    "tesis.html",
+    "sobre.html",
 )
 
 

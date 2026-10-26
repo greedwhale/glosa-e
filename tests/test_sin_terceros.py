@@ -162,7 +162,7 @@ def test_las_cifras_publicadas_siguen_diciendo_cero():
         "esa forma. O ha cambiado la cifra —y entonces hay que mirar por qué— "
         "o ha cambiado la redacción y este guardián se ha quedado ciego.")
 
-    tesis = (WEB / "tesis.html").read_text(encoding="utf-8")
+    tesis = (WEB / "sobre.html").read_text(encoding="utf-8")
     assert re.search(
         r"<dt>Peticiones a terceros</dt>\s*<dd>0<", tesis), (
-        "`tesis.html` ya no publica «Peticiones a terceros: 0» con esa forma.")
+        "`sobre.html` ya no publica «Peticiones a terceros: 0» con esa forma.")
