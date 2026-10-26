@@ -141,7 +141,7 @@ from validador.formato import (
     MARCADOR_CIUS_ES,
     NOMBRA_A_LA_AEAT,
     NS_FIRMA,
-    RESPUESTA,
+    RESPUESTAS,
     UBL,
     declara_la_solucion_publica,
 )
@@ -947,7 +947,7 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
     """Las reglas del anexo I, sobre un documento que declara la solución pública."""
     if not declara_el_cius(deteccion):
         return _de_la_aeat_sin_reconocer(deteccion)
-    if deteccion.familia == RESPUESTA:
+    if deteccion.familia in RESPUESTAS:
         # El anexo I mide facturas. Una respuesta puede llevar el mismo
         # `CustomizationID`, y sin esta línea recibía SPFE-SINTAXIS diciendo
         # que el anexo «solo define» la solución pública sobre UBL, que es
@@ -1044,7 +1044,7 @@ def _de_la_aeat_sin_reconocer(deteccion) -> list[Incidencia]:
     sale un tercero, que se vea.
     """
     perfil = (deteccion.perfil if deteccion else "") or ""
-    if NOMBRA_A_LA_AEAT not in perfil or deteccion.familia == RESPUESTA:
+    if NOMBRA_A_LA_AEAT not in perfil or deteccion.familia in RESPUESTAS:
         return []
     return [
         Incidencia(

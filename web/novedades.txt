@@ -12,6 +12,19 @@
 # leyendo el catálogo de cada commit con el lector de hoy (validador/codigos.py),
 # desde 598f34c, el último del 06-10-2026. Las fechas son las de esos commits.
 
+fecha: 2026-10-26
+id: acuses-de-la-solucion-publica
+titulo: SPFE-ACUSE: los acuses de la solución pública
+nuevos: SPFE-ACUSE-ALCANCE SPFE-ACUSE-RESULTADO SPFE-ACUSE-CABECERA
+  SPFE-ACUSE-NO-CUADRA SPFE-ACUSE-ACEPTADA SPFE-ACUSE-RECHAZADA
+  SPFE-ACUSE-FECHA
+texto: Glosa-e lee el acuse con que contesta la solución pública, el
+  DocumentStatus de UBL: dice si se aceptaron todas las facturas del
+  envío, una parte o ninguna, y de cada factura, si consta como dada de
+  alta y su localizador. Avisa cuando la cabecera y las facturas no dicen
+  lo mismo. Los códigos de error de una factura se enseñan tal cual,
+  porque la AEAT no los ha publicado.
+
 fecha: 2026-10-25
 id: cuenta-distinta
 titulo: CUENTA-DISTINTA: el mismo emisor, otra cuenta

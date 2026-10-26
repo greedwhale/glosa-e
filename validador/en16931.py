@@ -33,7 +33,7 @@ from decimal import Decimal
 from lxml import etree
 
 from validador import cifras, decimales, edifact, iva, listas_de_codigos, modelo
-from validador.formato import FACTURAE, RESPUESTA, detectar, parser
+from validador.formato import FACTURAE, RESPUESTAS, detectar, parser
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia, Informe
 from validador.sintaxis import (
     NS_CII,
@@ -882,7 +882,7 @@ def reglas(raiz, deteccion, espanola: bool = True,
     `comprador_registro_de_mas`, lo mismo con el sitio donde la orden pone el
     registro del comprador (BT-47): ver `iva._regla_identificadores`.
     """
-    if deteccion.familia == RESPUESTA:
+    if deteccion.familia in RESPUESTAS:
         # Una respuesta no es una factura: la EN 16931 no dice nada de ella, y
         # el aviso de abajo —«solo se ha identificado, no validado»— sería
         # falso, porque su forma sí se mira (en `esquema.reglas`) y la columna

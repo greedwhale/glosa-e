@@ -883,7 +883,7 @@ details.documento > summary > header .estado { grid-column: 1; }
             <span>Qué se queda por el camino al pasar la factura a UBL para la
             AEAT, siempre como nota.</span></li>
             <li><b>Cada código, explicado</b>
-            <span>Todo lo que sale lleva un código, y los 411 están <a
+            <span>Todo lo que sale lleva un código, y los 418 están <a
             href="./incidencias.html">explicados uno a uno</a>, con la norma de
             la que salen.</span></li>
           </ul>
@@ -1095,6 +1095,12 @@ details.documento > summary > header .estado { grid-column: 1; }
             cambió de manera que medirla con uno posterior podría acusarla de lo
             que no tiene. Sin versión se le supone la 2.1, como a las
             facturas.</p>
+            <p>Y los acuses con que contesta la solución pública
+            (<code>DocumentStatus</code>), con el esquema de UBL 2.5: dicen si
+            se aceptaron todas las facturas del envío, una parte o ninguna, y
+            de cada factura, si consta como dada de alta y su localizador. Los
+            códigos de error de una factura salen tal cual, porque la AEAT no
+            los ha publicado.</p>
           </div>
         </details>
 
@@ -1478,7 +1484,7 @@ function marcar(etiqueta, segundos) {
 // Los códigos que tienen ficha propia, para que el del informe enlace la suya.
 //
 // La lista la escribe el montaje, de las mismas fichas que acaba de escribir,
-// y no se deduce aquí del código. Hoy los 411 tienen ficha, pero el catálogo
+// y no se deduce aquí del código. Hoy los 418 tienen ficha, pero el catálogo
 // se lee del fuente y un código que se componga al validar no la tendría (el
 // catálogo cuenta esos aparte, y el 25-10-2026 eran cero): un enlace que da
 // 404 a quien acaba de ver un ERROR es peor que no tener enlace. Sin montar,

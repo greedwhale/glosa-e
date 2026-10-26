@@ -713,6 +713,7 @@ class TestNadieSeOlvidaDeUnaFamilia:
             "CII": formato.CII,
             "EDIFACT": EDIFACT,
             "RESPUESTA": RESPUESTA,
+            "ACUSE": formato.ACUSE,
         }
         desconocidas = usadas - set(conocidas)
         assert not desconocidas, (

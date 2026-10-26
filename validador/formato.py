@@ -37,6 +37,7 @@ NS_FACTURAE: dict[str, str] = {
 NS_UBL_FACTURA = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
 NS_UBL_ABONO = "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2"
 NS_UBL_RESPUESTA = "urn:oasis:names:specification:ubl:schema:xsd:ApplicationResponse-2"
+NS_UBL_ACUSE = "urn:oasis:names:specification:ubl:schema:xsd:DocumentStatus-2"
 NS_UBL_CBC = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
 
 NS_CII = "urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
@@ -157,6 +158,19 @@ EDIFACT = "EDIFACT"
 # para el mensaje de anulación de la solución pública, cuyo texto no está
 # publicado. Reconocerlo no es saber de cuál es.
 RESPUESTA = "ApplicationResponse"
+
+# El `DocumentStatus` de UBL: el acuse con que la solución pública contesta a
+# todos sus servicios menos a las descargas (documento de formatos de la AEAT,
+# versión 0.1.2 del 20-10-2026, apartado 5.1.1). Tampoco es una factura, y por
+# lo mismo que `RESPUESTA` lleva familia propia: hasta el 26-10-2026 no se
+# reconocía, y el acuse del ejemplo oficial salía SIN COMPROBAR. Lo que se le
+# mide está en `acuses`.
+ACUSE = "DocumentStatus"
+
+# Los documentos de UBL que contestan a otro y no son facturas. Lo que decide
+# «a esto no le toca, porque no es una factura» pregunta por esta tupla y no
+# por cada familia: con dos, la que se olvide recibe las reglas de factura.
+RESPUESTAS = (RESPUESTA, ACUSE)
 
 # La cabecera de mensaje: UNH+referencia+TIPO:D:96A:UN. De ahí sale el tipo
 # de mensaje y la versión del directorio. Y el BGM, de donde sale si es una
@@ -532,6 +546,38 @@ def _detectar_respuesta(raiz: etree._Element, namespace: str) -> Deteccion:
     )
 
 
+def _detectar_acuse(raiz: etree._Element, namespace: str) -> Deteccion:
+    """Un `DocumentStatus`, el acuse de la solución pública.
+
+    Como una respuesta: ni factura ni abono, y sin `conforme_en16931`. Sin
+    `UBLVersionID` es de la 2.5, y no de la 2.1 como lo demás: quien contesta
+    con `DocumentStatus` es la solución pública, que solo existe sobre UBL 2.5,
+    y el acuse del ejemplo oficial no lleva ni versión ni especificación. Va
+    aparte de `_detectar_respuesta`, con su familia escrita, para que
+    `test_respuesta` la vea al recorrer este fichero.
+    """
+    espacios = {"cbc": NS_UBL_CBC}
+    version = _texto(raiz, "./cbc:UBLVersionID", espacios)
+    if version:
+        motivo = "Formato reconocido."
+    else:
+        version = "2.5"
+        motivo = (
+            "Sin UBLVersionID; se asume UBL 2.5, porque quien contesta con "
+            "DocumentStatus es la solución pública, que solo existe sobre ella."
+        )
+    return Deteccion(
+        familia=ACUSE,
+        version=version,
+        tipo_documento=None,
+        perfil=_texto(raiz, "./cbc:CustomizationID", espacios),
+        conforme_en16931=False,
+        firmado=_tiene_firma(raiz),
+        namespace=namespace,
+        motivo=motivo,
+    )
+
+
 def _detectar_cii(raiz: etree._Element, namespace: str) -> Deteccion:
     perfil = _texto(
         raiz,
@@ -814,6 +860,8 @@ def detectar(datos: bytes | str) -> Deteccion:
         return _detectar_ubl(raiz, namespace, nombre)
     if namespace == NS_UBL_RESPUESTA and nombre == "ApplicationResponse":
         return _detectar_respuesta(raiz, namespace)
+    if namespace == NS_UBL_ACUSE and nombre == "DocumentStatus":
+        return _detectar_acuse(raiz, namespace)
     if namespace == NS_CII and nombre == "CrossIndustryInvoice":
         return _detectar_cii(raiz, namespace)
     if namespace is None and nombre.startswith("M_"):
@@ -843,7 +891,8 @@ def detectar(datos: bytes | str) -> Deteccion:
         motivo=(
             f"XML válido, pero su elemento raíz \"{nombre}\" no es de ningún "
             "documento que se valide aquí: facturas Facturae, UBL, CII o "
-            "EDIFACT, y respuestas ApplicationResponse de UBL."
+            "EDIFACT, respuestas ApplicationResponse de UBL y acuses "
+            "DocumentStatus de la solución pública."
         ),
     )
 
@@ -855,6 +904,7 @@ _NAMESPACE_DE_LA_RAIZ = {
     "Invoice": NS_UBL_FACTURA,
     "CreditNote": NS_UBL_ABONO,
     "ApplicationResponse": NS_UBL_RESPUESTA,
+    "DocumentStatus": NS_UBL_ACUSE,
     "CrossIndustryInvoice": NS_CII,
 }
 

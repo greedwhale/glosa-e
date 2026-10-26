@@ -35,10 +35,12 @@ from pathlib import Path
 from lxml import etree
 
 from validador.formato import (
+    ACUSE,
     CII,
     EDIFACT,
     FACTURAE,
     RESPUESTA,
+    RESPUESTAS,
     UBL,
     detectar,
     entidades_sin_resolver,
@@ -142,7 +144,7 @@ def _versiones_ubl(declarada: str | None) -> tuple[str, ...]:
 # visto con una factura delante. Una prueba comprueba que todo lo que pide
 # `_nombres_esperados` encaja aquí.
 _DE_ENTRADA = re.compile(
-    r"^(?:UBL-(?:Invoice|CreditNote|ApplicationResponse)-2\.\d+"
+    r"^(?:UBL-(?:Invoice|CreditNote|ApplicationResponse|DocumentStatus)-2\.\d+"
     r"|CrossIndustryInvoice_100pD\d\dB|Facturaev\d+(?:_\d+)*)\.xsd$"
 )
 
@@ -162,6 +164,12 @@ def _nombres_esperados(deteccion) -> tuple[str, ...]:
             f"UBL-ApplicationResponse-{version}.xsd"
             for version in _versiones_ubl(deteccion.version)
         )
+    if deteccion.familia == ACUSE:
+        # Solo el de su versión, sin subir: que de una versión vieja a la 2.5
+        # no se pueda fallar está medido con facturas y respuestas, no con
+        # acuses. Sin `UBLVersionID` es la 2.5 (ver `formato._detectar_respuesta`),
+        # que es la única que se lleva.
+        return (f"UBL-DocumentStatus-{deteccion.version or '2.5'}.xsd",)
     if deteccion.familia == CII:
         return (
             "CrossIndustryInvoice_100pD16B.xsd",
@@ -1011,7 +1019,7 @@ def validar(datos: bytes | str, catalogo: Catalogo | None = None) -> Informe:
     except etree.XMLSyntaxError:
         return informe  # no es XML; EDIFACT no tiene esquema que valga
     informe.incidencias.extend(reglas(raiz, deteccion, catalogo))
-    if deteccion.familia == RESPUESTA:
+    if deteccion.familia in RESPUESTAS:
         # Lo mismo que `factura.validar`: sin esto, esta función, que es la de
         # solo la forma, daba por validada una respuesta con la forma rota y
         # ningún esquema instalado. Solo lo usan las pruebas, pero es pública.

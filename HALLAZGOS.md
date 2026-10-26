@@ -9072,3 +9072,29 @@ portada y la del banco salieron bien a las 12:26 y a las 12:27 del mismo
 día, y en producción la portada no bajaba nada hasta una tecla y después
 estaba lista en 13,2 s.
 publicarlo, y se mira entonces.
+
+## Los acuses de la solución pública salían sin comprobar
+
+**Lo que pasó.** El acuse con que contesta la solución pública, el
+`DocumentStatus` de UBL, no se reconocía. Medido el 26-10-2026 con el del
+ejemplo oficial de remisión de la AEAT (`SendInvoicesSOAP.zip`, del
+15-10-2026): salía SIN COMPROBAR, con "su elemento raíz no es de ningún
+documento que se valide aquí", y salida 1. Un fichero que la propia AEAT
+devuelve se trataba como uno que no se sabe qué es.
+
+**Lo que destapó al medirlo.** Ese acuse no pasa el esquema de UBL 2.5 de
+OASIS: le falta `cbc:IssueDate`, que `DocumentStatus` exige una vez. Es su
+único fallo; con la fecha puesta valida. El esquema lo contesta como
+`XSD-ORDEN` sobre `cac:DocumentResponse`, porque es lo que encuentra donde
+esperaba la fecha, y dicho así no se ve qué falta.
+
+**Lo que se hizo.** Se reconoce como acuse, de la 2.5 si no dice versión, y se
+le pasa su esquema, que entró en el paquete de la página (43 esquemas). Se lee
+la cabecera, cada factura y su localizador, con siete códigos `SPFE-ACUSE-*`.
+La fecha que falta sale como error, por decisión del titular, con una nota que
+dice que es la fecha y que el ejemplo de la AEAT tampoco la lleva. Los códigos
+de error de cada factura se enseñan tal cual, porque no están publicados.
+
+**Provocado.** Cada comprobación rota a propósito, una cada vez y vuelta atrás:
+las diez roturas ponen `tests/test_acuses.py` en rojo. Detalle en el README,
+"Los acuses de la solución pública".

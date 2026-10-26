@@ -51,7 +51,7 @@ def esquemas_del_paquete(tmp_path_factory):
     dependa de ella se salta justo donde más falta hace. Es lo mismo que hace
     `test_paises.py` con su lista.
 
-    Sesión y no función: son 42 ficheros y se sacan una vez. El `Catalogo` que
+    Sesión y no función: son 43 ficheros y se sacan una vez. El `Catalogo` que
     se construya encima sí es de cada prueba, porque compila lo suyo.
     """
     destino = tmp_path_factory.mktemp("esquemas-del-paquete")

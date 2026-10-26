@@ -53,6 +53,8 @@ SOLUCION_PUBLICA = "Anexo I"
 # que miden también la anulación, los dos.
 ESTADOS = "Anexo II"
 MENSAJES = "Anexos I y II"
+# Los acuses con que contesta la solución pública. No los define la orden.
+ACUSES = "Servicios web de la AEAT"
 FORMA = "Esquema XSD"
 NACIONAL = "Formato Facturae"
 # Los tres órganos de una factura a la Administración no salen del formato:
@@ -99,6 +101,14 @@ NORMAS: tuple[tuple[str, str, str], ...] = (
     ("SPFE-MENSAJE-", MENSAJES,
      "los mensajes de la solución pública: la anulación de una factura, del "
      "anexo I, y los estados del anexo II de la Orden HAC/1028/2026"),
+    # Los acuses no salen de la orden: sus servicios web «se ajustarán a las
+    # especificaciones, condiciones técnicas y volumetría previstos en la Sede
+    # electrónica» de la AEAT, y lo que se sabe de su respuesta está en los
+    # documentos que la AEAT publicó en su portal.
+    ("SPFE-ACUSE-", ACUSES,
+     "los acuses de la solución pública: el documento de formatos de entrada "
+     "y salida y el catálogo de servicios web que la AEAT publica en su "
+     "Portal de Desarrolladores"),
     # La orden pide la dirección del QR (BT-ES-25) y su forma la dan otros.
     ("SPFE-QR-URL", SOLUCION_PUBLICA,
      "el anexo I de la Orden HAC/1028/2026, que pide la dirección del QR, con "

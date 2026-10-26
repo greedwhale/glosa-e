@@ -51,7 +51,9 @@ FAMILIAS: dict[str, str] = {
         "aquí no se mide lo dice en cada factura la nota SPFE-ALCANCE. Desde "
         "el 12-10-2026 se miden también los mensajes de la orden, la anulación "
         "de una factura y los ocho estados del anexo II, que se reconocen por "
-        "su código de respuesta y llevan su propia nota, SPFE-MENSAJE-ALCANCE."
+        "su código de respuesta y llevan su propia nota, SPFE-MENSAJE-ALCANCE. "
+        "Y desde el 26-10-2026, los acuses con que contesta la solución "
+        "pública, que llevan la suya, SPFE-ACUSE-ALCANCE."
     ),
     "XSD": (
         "La forma del fichero, comprobada contra el esquema oficial de su "
@@ -3870,6 +3872,77 @@ CODIGOS: dict[str, str] = {
         "nombre del emisor de una anulación solo está en el cbc:RegistrationName "
         "de cac:PartyTaxScheme, sale un aviso: va en cac:PartyLegalEntity, "
         "contestó también la AEAT."
+    ),
+    "SPFE-ACUSE-ALCANCE": (
+        "El documento es un acuse de la solución pública, el DocumentStatus "
+        "de UBL con que la AEAT contesta a sus servicios web (a todos menos a "
+        "las descargas), y la nota dice con qué se ha leído y qué no. Es una "
+        "nota y no un fallo. Lo que se sabe de un acuse está en el documento "
+        "de formatos de entrada y salida que la AEAT publicó en su Portal de "
+        "Desarrolladores el 20-10-2026 y en su ejemplo de remisión del "
+        "15-10-2026: la cabecera dice 200 si todas las facturas se aceptaron, "
+        "406 si solo una parte y 400 si ninguna, y cada factura lleva su "
+        "número, su fecha, el NIF de quien la emite, su estado y su "
+        "localizador. De los estados de una factura solo está publicado el "
+        "200, el de dada de alta. Los códigos de error no, y se enseñan tal "
+        "cual. No se mira el sobre ebXML que acompaña al acuse, que es el que "
+        "dice a qué servicio y a qué envío contesta, ni que las facturas "
+        "existan o que el localizador valga. El acuse no dice de quién es: "
+        "se lee como de la solución pública porque es quien usa este documento."
+    ),
+    "SPFE-ACUSE-RESULTADO": (
+        "Lo que dice la cabecera del acuse, en castellano, y cuántas facturas "
+        "trae y en qué estado. Es una nota y no un fallo. La cabecera es el "
+        "cbc:ResponseCode de cac:DocumentResponse/cac:Response: 200 quiere "
+        "decir que todas las facturas del envío se aceptaron, 406 que solo "
+        "una parte y 400 que ninguna, con las palabras del documento de "
+        "formatos de la AEAT. Lo que vale para cada factura es su propio "
+        "estado, que sale en su nota o en su aviso."
+    ),
+    "SPFE-ACUSE-CABECERA": (
+        "La cabecera del acuse no dice el resultado del envío con uno de los "
+        "tres códigos que la AEAT ha publicado (200, 406 y 400): falta "
+        "cac:DocumentResponse, falta su cbc:ResponseCode o trae otro código. "
+        "Es un aviso y no un error porque el esquema de UBL lo admite y lo que "
+        "dice cada factura se sigue leyendo, pero un acuse así no dice, en "
+        "resumen, qué se aceptó."
+    ),
+    "SPFE-ACUSE-NO-CUADRA": (
+        "La cabecera del acuse y los estados de sus facturas no dicen lo "
+        "mismo: un 200 (todas aceptadas) con alguna factura que no consta "
+        "como dada de alta, un 400 (ninguna) con alguna que sí, o un 406 "
+        "(una parte) con todas en el mismo estado. Lo que vale para cada "
+        "factura es su estado, que va en su referencia; la cabecera es un "
+        "resumen."
+    ),
+    "SPFE-ACUSE-ACEPTADA": (
+        "Una factura que el acuse da por dada de alta en la solución pública: "
+        "su cbc:DocumentStatusCode es 200, el del ejemplo de la AEAT, con su "
+        "descripción. La nota dice qué factura es, por su número, su fecha y "
+        "el NIF de quien la emite, y trae su localizador "
+        "(cbc:ReferencedDocumentInternalAddress), que es con lo que se "
+        "descarga después por el servicio de descarga por localizador, el que "
+        "la AEAT recomienda. Si no lo trae, la nota lo dice: el documento de "
+        "formatos dice que cada factura lo lleva, y sin él solo se puede "
+        "descargar por su identificador."
+    ),
+    "SPFE-ACUSE-RECHAZADA": (
+        "Una factura que el acuse no da por dada de alta: su "
+        "cbc:DocumentStatusCode no es 200, o no trae ninguno. Es un aviso y "
+        "no un error porque el acuse está bien hecho; lo que dice es que esa "
+        "factura no ha entrado. La AEAT no ha publicado qué quiere decir cada "
+        "código de error de una factura, así que aquí no se traduce: el "
+        "aviso trae el código y la descripción tal cual vienen, y el motivo "
+        "es el que diga la descripción."
+    ),
+    "SPFE-ACUSE-FECHA": (
+        "Al acuse le falta su fecha, cbc:IssueDate, que el esquema de UBL "
+        "exige en todo DocumentStatus. Es una nota que explica el error de "
+        "forma que sale con él: el esquema lo marca en cac:DocumentResponse, "
+        "que es lo que encuentra donde esperaba la fecha, y por eso su error "
+        "dice que cac:DocumentResponse no puede ir ahí. El acuse del ejemplo "
+        "de remisión que la AEAT publicó el 15-10-2026 no la lleva, y es su "
+        "único fallo de forma: con la fecha puesta, valida."
     ),
     "COPIA-TOTAL": (
         "Cuando la factura lleva retenciones, su total no es el total con "

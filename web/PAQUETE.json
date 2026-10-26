@@ -1,12 +1,12 @@
 {
-  "esquemas": 42,
+  "esquemas": 43,
   "anclas": 268,
   "anclas_de_sellos": 121,
-  "bytes": 1247225,
-  "huella": "91c70984b9645414eb56606e80c07a61cb6fd17d2f82af81db038d424acc9d7d",
-  "declarada": "de la lista de confianza de ES, publicada por MINISTERIO DE ASUNTOS ECONOMICOS Y TRANSFORMACION DIGITAL el 2026-08-06",
+  "bytes": 1250598,
+  "huella": "858f36e257e4b922831e59a5771e0dd99244d70c7014a68a36adfccc58af4050",
+  "declarada": "de la lista de confianza de ES, publicada por MINISTERIO DE ASUNTOS ECONOMICOS Y TRANSFORMACION DIGITAL el 06-08-2026",
   "publicada": "2026-08-06",
   "siguiente": "2027-02-02",
   "montada": "2026-08-27",
-  "armado": "2026-09-11"
+  "armado": "2026-10-26"
 }

@@ -9,7 +9,8 @@ según el RD 238/2026.
 |---|---|---|
 | `validador/nif.py` | Valida NIF, NIE y CIF con sus dígitos de control | Terminado |
 | `validador/calendario.py` | Días hábiles españoles y plazo de 4 días de los estados | Terminado |
-| `validador/formato.py` | Detección de formato y versión (Facturae, UBL, CII, EDIFACT, y las respuestas `ApplicationResponse` de UBL) | Terminado |
+| `validador/formato.py` | Detección de formato y versión (Facturae, UBL, CII, EDIFACT, las respuestas `ApplicationResponse` de UBL y los acuses `DocumentStatus` de la solución pública) | Terminado |
+| `validador/acuses.py` | Los acuses de la solución pública: la cabecera, el estado de cada factura y su localizador | Terminado |
 | `validador/sintaxis.py` | El mapa: dónde vive cada campo de EN 16931 en UBL, CII y EDIFACT | Terminado |
 | `validador/en16931.py` | Campos obligatorios y cuadre aritmético, sobre UBL, CII y EDIFACT | Terminado |
 | `validador/iva.py` | El desglose de IVA: bases, cuotas, categorías y exenciones | Terminado |
@@ -35,7 +36,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3757 tests, todos en verde.
+3791 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -648,6 +649,70 @@ variable de entorno `FACTURAE_ESQUEMAS`.
 Si no hay ninguno instalado, **no se comprueba la forma y se dice**, una vez al
 final y no una por factura. Callar y aparentar que todo está bien sería lo peor
 que podría hacer un validador.
+
+### Los acuses de la solución pública: `DocumentStatus`
+
+A todos sus servicios menos a las dos descargas, la solución pública contesta
+con un `DocumentStatus` de UBL: lo dicen el documento de formatos de entrada y
+salida de la AEAT (versión 0.1.2, del 20-10-2026, apartado 5.1.1) y su
+catálogo de servicios (versión 0.1.3). **Hasta el 26-10-2026 no se
+reconocía**: el acuse del ejemplo oficial de remisión (`SendInvoicesSOAP.zip`,
+del 15-10-2026) salía SIN COMPROBAR y con salida 1, como un fichero que no se
+sabe qué es.
+
+Desde ese día se reconoce, se le pasa el esquema de OASIS
+(`UBL-DocumentStatus-2.5.xsd`, que va en el paquete de la página) y se lee lo
+poco que está publicado, que es el apartado 5.2.2 del documento de formatos y
+el ejemplo:
+
+- **La cabecera**, `cac:DocumentResponse/cac:Response/cbc:ResponseCode`: 200
+  si todas las facturas se aceptaron, 406 si solo una parte y 400 si ninguna.
+  Sale en una NOTA, `SPFE-ACUSE-RESULTADO`, con la cuenta de facturas. Si falta
+  o es otro, un AVISO, `SPFE-ACUSE-CABECERA`.
+- **Cada factura**, un `cac:DocumentReference`. Con `cbc:DocumentStatusCode`
+  200, que es el del ejemplo, una NOTA con su localizador, que es con lo que se
+  descarga después (el catálogo recomienda la descarga por localizador frente
+  a la descarga por identificador). Con otro, o sin ninguno, un AVISO: no
+  consta como dada de alta.
+- **Que digan lo mismo**: un 200 con alguna factura que no lo es, un 400 con
+  alguna que sí o un 406 con todas iguales salen con `SPFE-ACUSE-NO-CUADRA`.
+
+Lo que se decidió en cada una:
+
+- **Los códigos de error de una factura no se traducen.** La AEAT no los ha
+  publicado: el único estado de factura que se ha visto es el 200 del ejemplo.
+  Inventarles un significado sería prometer de más, así que el aviso trae el
+  código y la descripción tal cual vienen.
+- **El acuse del ejemplo tiene un error de forma, y sale con él.** Le falta
+  `cbc:IssueDate`, que `DocumentStatus` exige una vez. Medido el 26-10-2026
+  con lxml contra el esquema de OASIS: es su único fallo, y con la fecha
+  puesta valida. Lo decidió el titular ese día: un fallo de forma es un error
+  venga de quien venga. Lo que contesta el esquema es `XSD-ORDEN` sobre
+  `cac:DocumentResponse` («no puede ir en este sitio»), que no deja ver que lo
+  que falta es la fecha, y por eso va con una NOTA, `SPFE-ACUSE-FECHA`, que lo
+  dice.
+- **Sin versión es de la 2.5**, no de la 2.1 como lo demás: quien contesta con
+  `DocumentStatus` es la solución pública, que solo existe sobre UBL 2.5, y el
+  acuse del ejemplo no trae ni versión ni especificación.
+- **No se mira el sobre ebXML**, que es el que dice a qué servicio contesta el
+  acuse y a qué envío, ni que las facturas existan o que el localizador valga.
+  Lo dice la nota que va siempre, `SPFE-ACUSE-ALCANCE`, y también que el acuse
+  no dice de quién es.
+- **La norma de las fichas es «Servicios web de la AEAT»** y no la orden: la
+  orden no define estos acuses, dice que sus servicios se ajustarán a lo que
+  la AEAT publique en su Sede.
+
+Las pruebas están en `tests/test_acuses.py`, y cada comprobación se ha roto a
+propósito una vez para verla en rojo: sin la detección, sin el esquema, sin las
+reglas, sin la nota de la fecha, con todo cuadrando, con el 406 sin mirar, con
+otro estado de alta, con el localizador callado, sin contar los
+`cac:AdditionalDocumentResponse` y sin la frase del lote. Las diez saltan.
+
+**Medido en el navegador** el 26-10-2026, con el sitio montado en local: un
+acuse con la forma del del ejemplo sale con el `XSD-ORDEN` y sus cuatro notas,
+igual que en consola, en 16,5 s desde la página recién abierta, con el
+arranque de Pyodide dentro. Lo que **no está medido**: ningún acuse real, solo
+el ejemplo de la AEAT y los de las pruebas, que son nuestros.
 
 ### Lo que traduce
 
@@ -3627,9 +3692,9 @@ admite, y se paga una vez por visita.
 
 ```
 Escrito web/paquete.zip (1.19 MB)
-  SHA-256  91c70984b9645414eb56606e80c07a61cb6fd17d2f82af81db038d424acc9d7d
+  SHA-256  858f36e257e4b922831e59a5771e0dd99244d70c7014a68a36adfccc58af4050
 
-  esquemas XSD          42
+  esquemas XSD          43
   anclas de firma       268
   anclas de sellado     121
 

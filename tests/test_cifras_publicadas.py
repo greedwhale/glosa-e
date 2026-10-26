@@ -117,7 +117,10 @@ CIFRAS = (
           "los resultados del banco comparados con Python nativo"),
     Cifra(r"No basta con que las (\d+) salgan verdes",
           _comprobaciones_del_banco, "las comprobaciones del banco"),
-    Cifra(r"entraron los (\d+) esquemas de UBL 2\.5", _esquemas_de_ubl_25,
+    # Hasta el 26-10-2026 leía «entraron los 18», que es lo que pasó el
+    # 11-09-2026 y no lo que va hoy: con el esquema del acuse, la prueba pedía
+    # reescribir la historia.
+    Cifra(r"hoy van (\d+) esquemas de UBL 2\.5", _esquemas_de_ubl_25,
           "los XSD de UBL 2.5 que van dentro del paquete"),
 )
 
@@ -219,6 +222,9 @@ CEPO = re.compile(
 # Escribirlo aquí cuesta, y ese es el precio: lo que no se puede medir se dice
 # en voz alta en vez de colarse.
 SIN_VIGILAR: dict[str, str] = {
+    "Eran 9,4 hasta el 11-09-2026, cuando entraron los 18 esquemas de UBL 2.5. El":
+        "es lo que entró el 11-09-2026, no lo que va hoy: lo de hoy lo dice "
+        "la frase de «hoy van», que sí se vigila",
     "esa comprobación salió **en verde** diciendo «los 17 módulos» sin `edifact`":
         "es la cita textual de lo que dijo el banco aquel día, no una cifra de "
         "hoy: corregirla sería falsear el relato del fallo",

@@ -31,6 +31,7 @@ from pathlib import Path
 from lxml import etree
 
 from validador import (
+    acuses,
     cadena,
     codigo_unico,
     copia_fiel,
@@ -48,12 +49,14 @@ from validador import (
     solucion_publica,
 )
 from validador.formato import (
+    ACUSE,
     CII,
     EDIFACT,
     FACTURAE,
     FIRMA_EN_PIE,
     FIRMA_ROTA,
     RESPUESTA,
+    RESPUESTAS,
     UBL,
     Deteccion,
     detectar,
@@ -81,7 +84,7 @@ from validador.incidencias import (
 # código de salida 0, con la columna de la forma diciendo «Sin errores». Por eso
 # `test_respuesta.py` recorre las familias de `formato.py` y no deja ninguna
 # fuera de esta lista ni de EDIFACT.
-_FAMILIAS_XML = (UBL, FACTURAE, CII, RESPUESTA)
+_FAMILIAS_XML = (UBL, FACTURAE, CII, RESPUESTA, ACUSE)
 
 # EDIFACT también acaba en un árbol, pero por dos caminos: si viene en XML
 # —la forma de ISO 20625, que es la que publica la Comisión— se parsea como
@@ -264,6 +267,9 @@ def _reglas_con_cuentas(
     # Los mensajes de la orden, que son respuestas y no facturas: la anulación
     # y los ocho estados del anexo II. A todo lo demás no le toca.
     incidencias.extend(mensajes.reglas(raiz, deteccion))
+    # Los acuses con que contesta la solución pública: la cabecera y el estado
+    # de cada factura. Tampoco son facturas.
+    incidencias.extend(acuses.reglas(raiz, deteccion))
     incidencias.extend(edifact.totales_de_otra_guia(raiz, deteccion))
     incidencias.extend(edifact.iva_fuera_del_desglose(raiz, deteccion))
     incidencias.extend(facturae.reglas(raiz, deteccion))
@@ -332,7 +338,7 @@ def _mirado(deteccion: Deteccion, catalogo: Catalogo | None) -> bool:
     que nadie ha abierto. Medido antes de escribir esto: con `esquemas/` vacío,
     una respuesta con la forma rota salía correcta.
     """
-    if deteccion.familia != RESPUESTA:
+    if deteccion.familia not in RESPUESTAS:
         return True
     return esquema.se_puede_comprobar(deteccion, catalogo)
 
@@ -697,9 +703,9 @@ class InformeLote:
         # lote de respuestas y el esquema de `ApplicationResponse` sin
         # instalar, decir «la forma contra el esquema XSD» sería apuntarse una
         # comprobación que no se ha hecho.
-        con_esquema = (familias - {EDIFACT, RESPUESTA}) | (
-            {RESPUESTA} if self._alguna_respuesta_mirada() else set()
-        )
+        con_esquema = (
+            familias - {EDIFACT, *RESPUESTAS}
+        ) | self._respuestas_miradas()
         if forma and con_esquema:
             mirado[PARTE_FORMA].append("la forma contra el esquema XSD")
         contenido = mirado[PARTE_CONTENIDO]
@@ -771,6 +777,16 @@ class InformeLote:
                 "parte de lo que la orden de la solución pública pide a sus "
                 "mensajes de anulación y de estado (lo que no se mide lo dice la "
                 "nota SPFE-MENSAJE-ALCANCE)"
+            )
+        if ACUSE in familias:
+            # De un acuse se lee todo lo que la AEAT ha publicado que lleva, y
+            # no hay más que medirle; lo que no se sabe (los códigos de error de
+            # cada factura, el sobre) lo dice su nota. Sin comas dentro, como
+            # los trozos de arriba.
+            contenido.append(
+                "la cabecera y el estado de cada factura en los acuses de la "
+                "solución pública (lo que no se mide lo dice la nota "
+                "SPFE-ACUSE-ALCANCE)"
             )
         de_la_firma = mirado[PARTE_FIRMA]
         sin_la_firma = sin_mirar[PARTE_FIRMA]
@@ -905,20 +921,27 @@ class InformeLote:
             if any(i.codigo == "SPFE-MENSAJE-ALCANCE" for i in informe.incidencias)
         )
 
-    def _alguna_respuesta_mirada(self) -> bool:
-        """¿Se le pudo pasar su esquema a alguna de las respuestas del lote?
+    def _respuestas_miradas(self) -> set[str]:
+        """Las familias de respuesta del lote a las que se pudo pasar su esquema.
 
         Alguna y no todas, con el mismo criterio que las facturas: a una
         factura cuyo esquema falta tampoco se le quita la frase de la forma al
         resto del lote. La que no se miró lleva su aviso y sale SIN COMPROBAR,
         así que el lote no puede salir «sin errores».
+
+        Devuelve las familias y no un sí o un no. Hasta el 26-10-2026 era un
+        sí o un no, y quien lo leía lo convertía en `{RESPUESTA}`; con los
+        acuses la frase salía igual, porque solo se mira si queda algo, pero
+        el conjunto decía que había un `ApplicationResponse` donde solo había
+        un `DocumentStatus`, y el día que alguien lo lea por familias, mentirá.
         """
-        return any(
-            informe.mirado
+        return {
+            informe.deteccion.familia
             for _, informe in self.informes
-            if informe.deteccion is not None
-            and informe.deteccion.familia == RESPUESTA
-        )
+            if informe.mirado
+            and informe.deteccion is not None
+            and informe.deteccion.familia in RESPUESTAS
+        }
 
     def alcance(self, forma: bool = True, anclas: bool = False) -> str:
         """Qué se ha mirado, dicho una vez y al final del informe.

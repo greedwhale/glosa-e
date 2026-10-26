@@ -313,7 +313,9 @@ WebAssembly, sin que el fichero salga del ordenador.
   Eran 9,4 hasta el 11-09-2026, cuando entraron los 18 esquemas de UBL 2.5. El
   zip ya viene comprimido y Brotli no le saca nada, así que lo que crece por el
   cable es exactamente lo que crece en disco: 0,25 MB. El 15-09-2026 eran
-  9,86, y de esa medida sale el «unos 10 MB» de la portada.
+  9,86, y de esa medida sale el «unos 10 MB» de la portada. El 26-10-2026
+  entró el esquema del acuse de la solución pública, y el zip creció 3 KB:
+  hoy van 19 esquemas de UBL 2.5.
 
   Vuelto a medir el 22-09-2026 contra `www.glosa-e.com`, pidiendo con Brotli
   las 24 direcciones que carga una primera visita: **9.966.246 bytes, 9,97 MB**.
@@ -346,7 +348,7 @@ WebAssembly, sin que el fichero salga del ordenador.
   avisarles. `--sitio` **se niega a montar** si `glosa.js` y `paquete.py` no
   declaran la misma versión.
 - **Los esquemas XSD oficiales sí están aquí**, y esto decía lo contrario. Van
-  dentro de `paquete.zip`: 42 ficheros —Facturae 3.0, 3.1, 3.2, 3.2.1 y 3.2.2,
+  dentro de `paquete.zip`: 43 ficheros —Facturae 3.0, 3.1, 3.2, 3.2.1 y 3.2.2,
   CII D16B, UBL 2.1 y **UBL 2.5**, que es el único que la solución pública
   admite—, y la página los enseña contados en «lo que trae». Lo que
   sigue siendo cierto es lo otro, y son dos cosas distintas que esta lista tenía

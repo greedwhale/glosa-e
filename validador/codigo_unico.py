@@ -53,7 +53,7 @@ from validador.formato import (
     CII,
     EDIFACT,
     FACTURAE,
-    RESPUESTA,
+    RESPUESTAS,
     UBL,
     detectar,
     parser,
@@ -1069,7 +1069,7 @@ def validar(datos: bytes | str, hoy: date | None = None) -> Informe:
     informe = Informe(deteccion=deteccion)
     if not deteccion:
         return informe
-    if deteccion.familia == RESPUESTA:
+    if deteccion.familia in RESPUESTAS:
         # Una respuesta no lleva código único: no es una factura. Sin esta
         # línea, `extraer` no encontraba nada y salía CU-00, «falta el número
         # de factura», sobre un documento que no tiene por qué llevarlo.
