@@ -5803,6 +5803,10 @@ abrir una pregunta por su ancla. Lo vigila
 robot, y la comprobación de producción le da el gesto con un `keydown`,
 porque abierta por un script la página se quedaba esperando sin error.
 
+Publicado eso (25928a6), la prueba en directo de la portada y la del banco
+salieron bien el mismo día, a las 12:26 y a las 12:27, y la portada en
+producción seguía arrancando con una tecla, lista en 13,2 s.
+
 Y el mismo día las cinco páginas sin fecha propia (portada, banco, Sobre
 Glosa-e, aviso legal y catálogo) la llevan en el sitemap, de
 `web/fechas.txt`. Cada fecha va con la huella de su página, sin comentarios,

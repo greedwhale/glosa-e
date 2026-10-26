@@ -9066,4 +9066,9 @@ resto: el robot dispara `pointerover`, `mouseover`, `pointermove` y
 lista de lo que hizo el robot para que ninguno vuelva a entrar. Provocado:
 con `pointermove` otra vez en la lista, y con `mousemove`, la prueba se pone
 en rojo. Las copias se quitaron el mismo día.
+
+**Medido después de publicarlo** (25928a6): la prueba en directo de la
+portada y la del banco salieron bien a las 12:26 y a las 12:27 del mismo
+día, y en producción la portada no bajaba nada hasta una tecla y después
+estaba lista en 13,2 s.
 publicarlo, y se mira entonces.
