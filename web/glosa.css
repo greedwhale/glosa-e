@@ -345,3 +345,15 @@ footer .firma-pie { margin-top: 1.1rem; }
    para que no se lea como la última frase del artículo. */
 .seguir { margin: 2.5rem 0 0; padding-top: 1.1rem; border-top: 1px solid var(--borde); max-width: 65ch; font-size: var(--t1); color: var(--tinta-2); }
 .seguir b { color: var(--tinta); }
+
+/* El contacto, al final de la portada y de Sobre Glosa-e, con el asunto ya escrito: quien abre el correo
+   sabe de qué va antes de leerlo. Con el trazo de los botones de la
+   herramienta, que es el de "Escríbeme" en la barra. */
+.escribir { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1.1rem 0 1rem; }
+.escribir a {
+  font: 600 var(--t1)/1 var(--sans); color: var(--acento); text-decoration: none;
+  background: var(--acento-flojo); border: 1px solid var(--acento);
+  border-radius: 8px; padding: .65rem 1rem;
+}
+.escribir a:hover { background: var(--panel); }
+.escribir a:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }

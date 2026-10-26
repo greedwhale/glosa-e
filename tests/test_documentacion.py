@@ -136,12 +136,15 @@ def _cifra_de_la_portada(patron: str) -> int:
     return int(hallados[0])
 
 
-def test_la_portada_dice_cuantas_comprobaciones_corre_el_boton():
+def test_la_portada_dice_cuantas_comprobaciones_hay_en_el_banco():
+    """Desde el 25-10-2026 el banco no se corre en la portada: la portada lo
+    cuenta, en "Compruébalo tú", y lleva a él."""
     hay = len(re.findall(r"^@comprobar\(", BANCO.read_text(encoding="utf-8"),
                          re.MULTILINE))
-    dice = _cifra_de_la_portada(r'id="correr-banco" disabled>Correr las (\d+) aquí<')
+    dice = _cifra_de_la_portada(
+        r'Las (\d+) comprobaciones del <a href="./banco.html">banco de pruebas</a>')
     assert dice == hay, (
-        f"el botón de la portada promete correr {dice} y el banco tiene {hay}. "
+        f"la portada dice que el banco tiene {dice} comprobaciones y tiene {hay}. "
         f"Cámbialo a {hay}.")
 
 
@@ -167,6 +170,29 @@ def test_sobre_dice_cuantos_codigos_tienen_ficha():
     hay = len(codigos_del_paquete())
     assert int(hallados[0]) == hay, (
         f"Sobre Glosa-e dice que {hallados[0]} códigos tienen ficha y hay {hay}.")
+
+
+def test_el_cierre_de_contacto_es_el_mismo_en_la_portada_y_en_sobre():
+    """Los tres botones de correo, letra por letra en las dos páginas.
+
+    Desde el 25-10-2026 la portada cierra con el mismo contacto que Sobre
+    Glosa-e. Copiado en dos sitios y sin plantilla, como el menú: si uno
+    cambia un asunto y el otro no, llegan correos con dos asuntos para lo
+    mismo y nadie se entera.
+    """
+    def botones(pagina):
+        texto = (RAIZ / "web" / pagina).read_text(encoding="utf-8")
+        hallados = re.findall(r'<p class="escribir">(.*?)</p>', texto, re.S)
+        assert len(hallados) == 1, (
+            f"{pagina} lleva {len(hallados)} bloques de botones de correo y "
+            "tiene que llevar uno")
+        return " ".join(hallados[0].split())
+
+    portada, sobre = botones("index.html"), botones("sobre.html")
+    assert portada == sobre, (
+        "los botones de correo de la portada y los de Sobre Glosa-e ya no "
+        f"dicen lo mismo:{NL}  portada: {portada}{NL}  sobre:   {sobre}")
+    assert portada.count("mailto:") == 3
 
 
 def test_la_tesis_lleva_a_sobre_glosa_e():
@@ -696,30 +722,6 @@ def test_lo_que_las_paginas_llaman_existe_en_glosa_js():
                 "No falla nada: el boton se queda muerto y la pagina sigue "
                 "diciendo que eso se puede comprobar.")
 
-
-def test_lo_que_la_portada_dice_de_otros_lleva_fecha_y_donde_mirarlo():
-    """Un dato sobre un tercero sin fecha ni enlace se pudre en silencio.
-
-    La portada afirma que los validadores gratuitos que se miraron no enseñan
-    sus comprobaciones y dicen poco de la firma. Eso fue verdad el dia que se
-    miro y puede dejar de serlo mañana sin que aqui se entere nadie. Lo unico
-    que se puede exigir a una afirmacion asi es que diga **de que dia es** y
-    **donde comprobarla** — y que se pueda avisar de que ya no vale.
-    """
-    portada = (RAIZ / "web" / "index.html").read_text(encoding="utf-8")
-    trozo = re.search(r'<p class="procedencia">(.*?)</p>', portada, re.S)
-    assert trozo, (
-        "la portada ha perdido la nota de procedencia de la seccion «Por qué "
-        "este», y con ella lo unico que sostiene lo que alli se dice de otros")
-    nota = trozo.group(1)
-    assert re.search(r"\d{2}-\d{2}-\d{4}", nota), (
-        "la nota de procedencia no dice de que dia es lo que se miro")
-    enlaces = re.findall(r'href="(https?://[^"]+)"', nota)
-    assert len(enlaces) >= 2, (
-        f"la nota de procedencia cita a otros y solo trae {len(enlaces)} "
-        "enlace(s): lo que se dice de un tercero se enlaza a donde lo dice el")
-    assert "mailto:" in nota, (
-        "la nota de procedencia no deja avisar de que algo de esto ya no vale")
 
 def test_la_linea_de_autoria_es_la_misma_en_todas_las_paginas():
     """Copiada en siete sitios, y por lo mismo que el menú: sin plantilla.

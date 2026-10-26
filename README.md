@@ -6693,6 +6693,18 @@ mismos que los de CII. `BR-DEC-13` y `15` de CII envuelven el valor en
 
 ## Por qué este y no otro, contestado sin pedir fe
 
+**Quitada el 25-10-2026.** La portada se acortó y esta sección salió
+entera, con la tabla y su nota de procedencia. La tabla era una foto del
+15-09-2026 que envejece sola y nombraba a otros por lo que hacen mal, y lo
+que defendía ya lo prueban el testigo de la portada y el banco. Queda una
+línea, "Compruébalo tú", que cuenta las comprobaciones y lleva al banco, y se
+corren allí. Con la tabla se fue su guardián
+(`test_lo_que_la_portada_dice_de_otros_lleva_fecha_y_donde_mirarlo`), y la
+cifra de esa línea la vigila
+`test_la_portada_dice_cuantas_comprobaciones_hay_en_el_banco`. Las anclas,
+con su fecha y la de renovarse, las enseña el banco en "Lo que trae puesto".
+Lo que sigue cuenta cómo era y por qué se hizo así.
+
 Las fichas de la portada decían **qué** es esto —dónde corre, contra qué,
 formatos, precio— y ninguna decía por qué este y no el de al lado. Además, la
 del precio no distinguía nada: los validadores gratuitos son gratuitos. En su
@@ -6917,6 +6929,10 @@ para un asesor.
 La ficha cambia «Dónde corre», que ya lo cuenta el testigo, por **219 de sus 223
 reglas**; el botón del banco dice cuántas corre, y «Qué mira» cuántos códigos
 hay explicados. Las tres con guardián contra lo que se mide.
+
+Desde el 25-10-2026 el botón ya no está: la cifra del banco la dice la línea
+"Compruébalo tú", y la de los códigos, la fila "Cada código, explicado" de la
+lista "Qué hace". Los guardianes siguen, leyendo esas frases.
 
 ## La portada, repasada contra las de al lado
 

@@ -108,7 +108,7 @@ PIEZAS = [
     ("testigo", '<aside class="testigo"'),
     ("herramienta", '<section id="herramienta"'),
     ("ficha", '<dl class="ficha">'),
-    ("resto", '<section id="que-mira">'),
+    ("resto", '<section id="que-hace">'),
 ]
 
 

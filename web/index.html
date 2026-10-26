@@ -450,98 +450,31 @@ details.documento > summary > header .estado { grid-column: 1; }
   width: .45rem; border: 2px solid var(--nota); border-right: 0;
 }
 
-/* --- Por que este -------------------------------------------------------- */
-/* El panel del banco no decora la seccion: es la seccion. Lleva el mismo gesto
-   que el informe —caja, rotulo, y el veredicto debajo— para que quien ya ha
-   visto un informe reconozca a la primera que esto es lo mismo aplicado a la
-   herramienta: una comprobacion con su resultado, no una promesa. */
-.comprobar .rotulo { margin-bottom: .45rem; }
-.comprobar .texto { font-size: var(--t1); color: var(--tinta-2); }
-.comprobar .probar { margin-top: 1.15rem; }
-#banco-salida:empty { display: none; }
-#banco-salida { margin-top: 1.25rem; }
-#banco-salida .veredicto { margin-bottom: 0; }
-#banco-salida ul { list-style: none; margin: .85rem 0 0; padding: 0; display: grid; gap: .35rem; }
-#banco-salida li { font-family: var(--mono); font-size: var(--t1); color: var(--error); }
-#banco-salida .pie { margin-top: .85rem; font-size: var(--t1); color: var(--tinta-2); }
-/* Frente a los demas. Una tabla de verdad y no tarjetas con tics: son seis
-   filas de preguntas con dos respuestas, y eso se lee en columnas. La columna
-   de aqui lleva el filete de la glosa, que es donde este producto pone lo
-   que afirma; la de los demas va un tono por debajo, sin rojo: es un dato con
-   fecha, no una acusacion. */
-.frente { margin: 0 0 1.75rem; }
-.frente table { width: 100%; border-collapse: collapse; font-size: var(--t1); }
-.frente caption { text-align: left; color: var(--tenue); font-size: var(--t1); padding-bottom: .8rem; caption-side: top; }
-.frente thead th {
-  font-size: var(--t0); text-transform: uppercase; letter-spacing: .09em;
-  color: var(--tenue); font-weight: 600; text-align: left; padding: 0 .9rem .5rem 0;
-  border-bottom: 1px solid var(--borde-fuerte);
+/* --- Qué hace, y lo que no ---------------------------------------------- */
+/* Las dos listas, una al lado de la otra y con el mismo peso: lo que no hace
+   es la mitad de la tesis. En dos columnas no cabe el margen de 11rem de
+   Sobre Glosa-e, así que cada fila va apilada: la afirmación contra su
+   filete y, debajo, lo que significa. Es el mismo gesto, el de la glosa del
+   informe, en vertical. */
+.dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.25rem 2.75rem; }
+@media (max-width: 46rem) { .dos { grid-template-columns: minmax(0, 1fr); } }
+.dos h3 { font-size: var(--t3); font-weight: 600; margin: 0 0 1.15rem; }
+.limites { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.05rem; }
+.limites li { display: grid; gap: .2rem; border-left: 2px solid var(--borde-fuerte); padding-left: .85rem; }
+.limites b { color: var(--tinta); font-weight: 600; font-size: var(--t1); line-height: 1.5; }
+.limites span { color: var(--tinta-2); font-size: var(--t1); line-height: 1.55; }
+.mas { margin: 2rem 0 0; font-size: var(--t1); color: var(--tinta-2); }
+/* "Compruébalo tú" es lo que queda de la sección "Por qué este", y lleva el
+   corchete del recuento: es una afirmación que se puede ir a comprobar. */
+.compruebalo {
+  position: relative; margin: 1.5rem 0 0; padding: .2rem 0 .2rem 1.6rem;
+  max-width: 40rem; color: var(--tinta-2);
 }
-.frente tbody th { text-align: left; font-weight: 600; color: var(--tinta); width: 26%; }
-.frente tbody th, .frente td { padding: .8rem .9rem .8rem 0; vertical-align: top; border-bottom: 1px dashed var(--borde); line-height: 1.5; }
-.frente tbody tr:last-child > * { border-bottom: 0; }
-.frente td:nth-child(2) { color: var(--tinta-2); width: 37%; }
-.frente td:nth-child(3) { color: var(--tinta); border-left: 2px solid var(--acento); padding-left: .9rem; }
-.frente thead th:nth-child(3) { padding-left: .9rem; }
-/* En el movil, cada pregunta es un bloque con sus dos respuestas rotuladas:
-   tres columnas a 360 px son tres tiras de dos palabras. */
-@media (max-width: 40rem) {
-  .frente thead { display: none; }
-  .frente table, .frente caption, .frente tbody, .frente tr, .frente tbody th, .frente td { display: block; width: auto; }
-  .frente tr { padding: .75rem 0; border-bottom: 1px dashed var(--borde); }
-  .frente tbody tr:last-child { border-bottom: 0; }
-  .frente tbody th, .frente td { border-bottom: 0; padding: 0 0 .45rem; }
-  .frente td::before {
-    content: attr(data-rotulo); display: block; font-size: var(--t0);
-    text-transform: uppercase; letter-spacing: .09em; color: var(--tenue); font-weight: 600;
-  }
-  /* Con la misma especificidad que el ancho de arriba, o el 37 % se queda
-     puesto y la respuesta de los demás ocupa un tercio del bloque. */
-  .frente td:nth-child(2) { width: auto; }
-  .frente td:nth-child(3) { padding-left: .75rem; }
+.compruebalo::before {
+  content: ""; position: absolute; left: 0; top: .3rem; bottom: .3rem; width: .5rem;
+  border: 2px solid var(--acento); border-right: 0;
 }
-
-/* De donde sale lo que aqui se dice de los demas. Va en gris y pequeno a
-   proposito: es la nota al pie de una afirmacion, no la afirmacion. */
-.procedencia { margin-top: 1.5rem; font-size: var(--t1); color: var(--tenue); max-width: 42rem; }
-
-/* --- Lo que trae puesto -------------------------------------------------- */
-.trae dl { display: grid; grid-template-columns: 1fr auto; gap: 0; margin: 0; }
-.trae dt, .trae dd { padding: .55rem 0; border-bottom: 1px dashed var(--borde); margin: 0; }
-.trae dd { text-align: right; font-family: var(--mono); font-size: var(--t1); color: var(--tinta-2); }
-.trae dt:last-of-type, .trae dl > :nth-last-child(-n+2) { border-bottom: 0; }
-.trae dd.mal { color: var(--error); }
-.trae dd.ojo { color: var(--aviso); }
-
-/* --- Tres columnas ------------------------------------------------------- */
-.tres { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
-.tres .panel h3 { font-size: var(--t2); margin-bottom: .45rem; display: flex; align-items: center; gap: .5rem; }
-.tres .panel h3 .num { font: 500 var(--t0)/1.6 var(--mono); color: var(--acento); background: var(--acento-flojo); border-radius: 999px; width: 1.6rem; height: 1.6rem; display: grid; place-items: center; flex: none; }
-.tres .panel p { font-size: var(--t1); color: var(--tinta-2); }
-
-/* Margen y cuerpo, el mismo gesto que `.glosa` en el informe: la afirmacion
-   a la izquierda, contra un filete, y la explicacion al lado. Lo que el
-   producto **no** hace es su tesis, y estaba puesto como cuatro vinetas al
-   final de una seccion. Aqui pesa lo que tiene que pesar. */
-.limites { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.15rem; }
-.limites li { display: grid; grid-template-columns: 11rem 1fr; gap: 0 1.25rem; }
-.limites b {
-  text-align: right; color: var(--tinta); font-weight: 600;
-  font-size: var(--t1); line-height: 1.5;
-  padding-right: 1.25rem; border-right: 2px solid var(--borde-fuerte);
-}
-.limites span { color: var(--tinta-2); font-size: var(--t1); }
-/* En estrecho no hay margen que valga: dos columnas de 11rem no caben, y
-   partir la frase en un movil la hace ilegible. Se apila. */
-@media (max-width: 34rem) {
-  .limites li { grid-template-columns: 1fr; gap: .3rem; }
-  .limites b {
-    text-align: left; border-right: 0; padding-right: 0;
-    border-left: 2px solid var(--borde-fuerte); padding-left: .75rem;
-  }
-  .limites span { padding-left: .75rem; }
-}
-h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem; }
+.compruebalo b { color: var(--tinta); }
 
 /* --- El escalon de pago -------------------------------------------------- */
 .escalon { background: var(--panel-2); border: 1px solid var(--borde); border-radius: 12px; padding: 2rem; }
@@ -899,195 +832,89 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
       <div><dt>Formatos</dt><dd>Facturae · UBL · CII · EDIFACT</dd></div>
     </dl>
 
-    <section id="que-mira">
-      <p class="rotulo">Qué mira</p>
-      <h2 class="titulo">Tres comprobaciones, y se dice cuáles se han hecho.</h2>
-      <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Decir
-      que es válida, a secas, no significa nada si no dice contra qué. Cada informe
-      empieza diciendo qué se ha mirado de estas tres partes y qué no, antes
-      de ninguna queja, para que no haya que suponerlo. Cada aviso lleva su código, y los 411 están <a
-      href="./incidencias.html">explicados uno a uno</a>, con la norma de la
-      que salen.</p>
-      <div class="tres">
-        <div class="panel">
-          <h3><span class="num">1</span> La forma</h3>
-          <p>Que el fichero cumpla su esquema XSD oficial: el de Facturae, el de
-          UBL o el de CII. Es lo primero que rechaza un receptor.</p>
+    <!-- Qué hace, y lo que no, una lista al lado de la otra.
+
+         Hasta el 25-10-2026 aquí había tres paneles numerados, la forma, el
+         contenido y la firma, y debajo lo que no hace. Se quedaban cortos: el
+         lote, la copia fiel y lo de España no salían en ninguno. Ahora son las
+         siete cosas que hace, en corto, y al lado las que no, con el mismo
+         peso. Lo largo está en Sobre Glosa-e.
+
+         Con la lista se fueron también "Por qué este", la tabla que comparaba
+         con seis validadores y su nota de procedencia, y las anclas. La tabla
+         era una foto del 15-09-2026 que envejece sola y nombraba a otros por
+         lo que hacen mal; lo que defendía ya lo prueban el testigo y el banco.
+         Queda "Compruébalo tú", que lleva al banco, y las comprobaciones se
+         corren allí. Las anclas, con su fecha y la de renovarse, las enseña el
+         banco en "Lo que trae puesto", y Sobre Glosa-e explica de dónde
+         salen. -->
+    <section id="que-hace">
+      <p class="rotulo">Qué hace</p>
+      <h2 class="titulo">Dice qué ha mirado y qué no, antes de ninguna queja.</h2>
+      <p class="texto" style="color:var(--tinta-2);margin-bottom:1.75rem">Decir
+      que es válida, a secas, no significa nada si no dice contra qué. Cada
+      informe empieza por lo que se ha comprobado y lo que no, para que no haya
+      que suponerlo.</p>
+      <div class="dos">
+        <div>
+          <h3>Lo que hace</h3>
+          <ul class="limites">
+            <li><b>La forma</b>
+            <span>El esquema oficial de su formato: Facturae, UBL o CII. Es lo
+            primero que rechaza quien recibe una factura.</span></li>
+            <li><b>La norma europea</b>
+            <span>Las 223 reglas de EN 16931, de los campos obligatorios al
+            desglose de IVA: 219 se comprueban y 4 no se pueden, y se
+            dice.</span></li>
+            <li><b>Lo de España</b>
+            <span>El código único del RD 238/2026, parte del anexo I de la orden
+            para la solución pública, las cuentas de Facturae y los tres órganos
+            que pide FACe.</span></li>
+            <li><b>La firma</b>
+            <span>Que no se ha tocado y de quién es, hasta la lista de confianza
+            del Estado, con su sello de tiempo. La revocación, si el documento
+            trae la prueba.</span></li>
+            <li><b>El lote</b>
+            <span>Miles de facturas a la vez, y entre ellas las repetidas, los
+            números reutilizados, los huecos y el mismo emisor pidiendo el pago
+            en otra cuenta.</span></li>
+            <li><b>La copia fiel</b>
+            <span>Qué se queda por el camino al pasar la factura a UBL para la
+            AEAT, siempre como nota.</span></li>
+            <li><b>Cada código, explicado</b>
+            <span>Todo lo que sale lleva un código, y los 411 están <a
+            href="./incidencias.html">explicados uno a uno</a>, con la norma de
+            la que salen.</span></li>
+          </ul>
         </div>
-        <div class="panel">
-          <h3><span class="num">2</span> El contenido</h3>
-          <p>Las 223 reglas de EN 16931, de los campos obligatorios al desglose
-          de IVA: 219 se comprueban y 4 no se pueden, y se dice. Además, las
-          reglas españolas del RD 238/2026 y, en UBL para la solución pública,
-          parte del anexo I de la orden publicada el 05-10-2026 y de sus
-          mensajes de anulación y de estado: lo que no se mide lo dice cada
-          informe.</p>
-        </div>
-        <div class="panel">
-          <h3><span class="num">3</span> La firma</h3>
-          <p>Que la firma sea íntegra, de quién dice ser, y que su certificado
-          lleve a una autoridad de la lista de confianza del Estado.</p>
+        <div>
+          <h3>Lo que no hace</h3>
+          <ul class="limites">
+            <li><b>No certifica nada</b>
+            <span>Explica qué ha comprobado. La validez la da la ley y, si
+            acaso, quien recibe la factura.</span></li>
+            <li><b>No es oficial</b>
+            <span>No es de la AEAT, de FACe ni de ningún organismo, y su
+            resultado no acredita nada ante ellos.</span></li>
+            <li><b>No comprueba VeriFactu</b>
+            <span>Eso es contrastar con el registro de Hacienda si una factura
+            consta, y aquí no se contrasta nada con nadie de fuera.</span></li>
+            <li><b>No guarda ni envía tu factura</b>
+            <span>No hay a dónde: corre dentro de tu navegador, y tu navegador
+            no contacta con ningún otro dominio. <a
+            href="./legal.html#privacidad">Está medido</a>.</span></li>
+            <li><b>No acierta siempre</b>
+            <span>Se equivoca como cualquier programa. Lo que promete es no
+            afirmar más de lo que ha comprobado.</span></li>
+          </ul>
         </div>
       </div>
-
-      <h3 class="subtitulo">Lo que no hace</h3>
-      <ul class="limites">
-        <li>
-          <b>No es de la AEAT</b>
-          <span>Ni de FACe, ni de ningún organismo. No tiene relación con
-          ellos.</span>
-        </li>
-        <li>
-          <b>No comprueba VeriFactu</b>
-          <span>Eso es otra cosa: contrastar contra el registro de Hacienda si
-          una factura consta. Aquí no se contrasta contra nada de fuera, porque
-          no se sale a la red.</span>
-        </li>
-        <li>
-          <b>No se limita a decir que es válida</b>
-          <span>Dice qué comprobaciones ha pasado y cuáles no se han podido
-          hacer.</span>
-        </li>
-        <li>
-          <b>No guarda ni envía tu fichero</b>
-          <span>No hay a dónde: el validador corre dentro de tu navegador. Y no
-          habla con nadie más: el intérprete, los esquemas y las anclas se
-          sirven desde aquí, así que tu navegador no contacta con ningún otro
-          dominio. <a href="./legal.html#privacidad">Está medido</a>.</span>
-        </li>
-      </ul>
-    </section>
-
-    <!-- Por que este y no otro, contestado sin pedir fe.
-
-         Las fichas de la portada dicen QUE es esto; ninguna decia por que este
-         y no el de al lado. La respuesta honesta no es una lista de virtudes
-         —cualquiera escribe la suya, y quien lee no puede distinguirlas— sino
-         la unica que se puede comprobar desde aqui mismo: que las
-         comprobaciones corren en el ordenador de quien mira. Asi que esta
-         seccion no las cuenta. Las corre. -->
-    <section id="por-que-este">
-      <p class="rotulo">Por qué este</p>
-      <h2 class="titulo">Lo que promete esta página se comprueba desde esta página.</h2>
-      <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Cualquier
-      validador dice lo que ha mirado, y no hay forma de distinguir al que lo
-      ha hecho del que lo dice. Aquí no hace falta creerlo: las mismas
-      comprobaciones que acaban de leer tu factura las corre tu navegador
-      cuando tú lo digas. Una de ellas es que <b>esta página no le pide nada a
-      nadie</b>: la promesa de privacidad, comprobada por ti sin tener que
-      creerse a nadie.</p>
-
-      <!-- Frente a los demás.
-
-           Cada celda de la columna del medio es de un día y de algo que se
-           puede volver a mirar: lo que apuntó el navegador al abrir cada
-           herramienta sin aceptar nada, su formulario, y lo que cada una
-           publica de sí misma. Sin nombres en la tabla —van al pie, con su
-           enlace— y sin nada que no se haya visto: no se subió ninguna
-           factura a ninguna, así que de lo que hacen con ella solo se dice lo
-           que dicen ellas o lo que dice su formulario.
-
-           Y lo que no favorece también va: dos de las seis dicen, como esta,
-           que la factura se lee en el navegador. Lo que las separa no es la
-           frase, es poder comprobarla. -->
-      <div class="frente">
-        <table>
-          <caption>Seis validadores gratuitos de facturas españolas, abiertos
-          uno a uno el 15-09-2026, y lo mismo aquí.</caption>
-          <thead>
-            <tr><th scope="col">Lo que conviene preguntar</th><th scope="col">En los seis</th><th scope="col">Aquí</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th scope="row">¿Adónde va tu factura?</th>
-              <td data-rotulo="En los seis">Tres la mandan a su servidor con un
-              formulario. Dos dicen que se lee en el navegador; uno no lo
-              aclara.</td>
-              <td data-rotulo="Aquí">A ningún sitio, y no hace falta creerlo:
-              <a href="#testigo">el testigo de arriba</a> cuenta lo que se pide
-              mientras se lee.</td>
-            </tr>
-            <tr>
-              <th scope="row">¿Quién más se entera de que has entrado?</th>
-              <td data-rotulo="En los seis">Cuatro le piden algo a Google al
-              abrir la herramienta: su analítica o sus etiquetas.</td>
-              <td data-rotulo="Aquí">Nadie. La página tiene prohibido pedir nada
-              a otro dominio, y <a href="./banco.html">el banco</a> comprueba
-              que tu navegador lo cumple.</td>
-            </tr>
-            <tr>
-              <th scope="row">¿Deja algo en tu navegador?</th>
-              <td data-rotulo="En los seis">Cuatro, sin haber aceptado nada: tres
-              ponen cookies (entre 2 y 10) y dos guardan datos.</td>
-              <td data-rotulo="Aquí">Nada, ni al abrir ni después.</td>
-            </tr>
-            <tr>
-              <th scope="row">¿Y la firma?</th>
-              <td data-rotulo="En los seis">Ninguno dice contra qué lista de
-              autoridades la comprueba ni si mira la revocación. Dos solo miran
-              si está.</td>
-              <td data-rotulo="Aquí">Hasta la lista de confianza del Estado, con
-              sello de tiempo, y con revocación <b>si el documento trae la
-              prueba</b> (no se sale a la red a buscarla, y cuando
-              falta <a href="#no-comprobado">se dice que falta</a>). Y <a
-              href="#trae">se dice de qué día es la lista</a>.</td>
-            </tr>
-            <tr>
-              <th scope="row">¿Se puede ver cómo comprueba?</th>
-              <td data-rotulo="En los seis">Ninguno enseña sus comprobaciones
-              corriendo.</td>
-              <td data-rotulo="Aquí">Sí: el banco las corre en tu navegador,
-              justo debajo.</td>
-            </tr>
-            <tr>
-              <th scope="row">¿Qué formatos lee?</th>
-              <td data-rotulo="En los seis">Cuatro, solo Facturae.</td>
-              <td data-rotulo="Aquí">Facturae, UBL, CII y EDIFACT: los cuatro del
-              RD 238/2026.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="panel comprobar">
-        <p class="rotulo">El banco de pruebas</p>
-        <p class="texto">Que la forma se mida contra el esquema oficial, que
-        una firma de verdad se verifique, que la cadena llegue hasta la lista
-        de confianza del Estado, que una autoridad retirada no valga para lo
-        que firmó después. Todas contra el mismo código que acaba de leer tu
-        factura, no contra una copia preparada.</p>
-        <p class="probar">
-          <button type="button" id="correr-banco" disabled>Correr las 43 aquí</button>
-          <span id="banco-nota">Se corren en tu navegador. Lo único que se baja es el fichero de comprobaciones, de este mismo sitio.</span>
-        </p>
-        <div id="banco-salida"></div>
-      </div>
-
-      <p class="procedencia">De dónde sale la tabla: el <b>15-09-2026</b> se
-      abrieron los seis validadores gratuitos de facturas españolas que salen
-      buscando (<a href="https://www.facturaview.es/" rel="nofollow noopener">FacturaView</a>,
-      <a href="https://invoice.docuflair.com/es/validar/facturae" rel="nofollow noopener">Docuflair</a>,
-      <a href="https://facturax.app/herramientas/validador-facturae" rel="nofollow noopener">FacturaX</a>,
-      <a href="https://plataforma.firma-e.com/VisualizadorFacturae/" rel="nofollow noopener">firma-e</a>,
-      <a href="https://viewer.facturadirecta.com/" rel="nofollow noopener">Facturadirecta</a>
-      y <a href="https://app.aidoks.eu/validation" rel="nofollow noopener">aiDoks</a>),
-      sin aceptar nada y sin subir ninguna factura. Lo del servidor sale de su
-      formulario o de lo que dice cada uno; los terceros, las cookies y lo
-      guardado, de lo que apuntó el navegador al abrir; la firma y los
-      formatos, de lo que publica cada uno sobre su herramienta. Si
-      algo de esto ha cambiado o está mal,
-      <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20lo%20que%20dice%20la%20portada">dímelo y lo corrijo</a>.</p>
-    </section>
-
-    <section id="trae">
-      <p class="rotulo">Con qué</p>
-      <h2 class="titulo">Las anclas de confianza vienen con la página.</h2>
-      <p class="texto" style="color:var(--tinta-2);margin-bottom:1.5rem">Para
-      comprobar de quién es una firma hacen falta los certificados de las
-      autoridades en las que se confía. Aquí no los eliges tú: viajan dentro.
-      Por eso se dice de qué lista salen, de cuándo son y cuándo les toca
-      renovarse, y vuelve a decirse en cada informe.</p>
-      <div class="panel trae"><dl id="trae-lista"><dt>Cargando…</dt><dd>…</dd></dl></div>
+      <p class="mas">Cada punto, más despacio, en <a href="./sobre.html">Sobre
+      Glosa-e</a>.</p>
+      <p class="compruebalo"><b>Compruébalo tú.</b> Las 43 comprobaciones del <a
+      href="./banco.html">banco de pruebas</a> corren en tu navegador, con el
+      mismo código que lee tu factura. Una de ellas es que esta página no le
+      pide nada a nadie.</p>
     </section>
 
     <!-- AQUI VA LO ULTIMO DE LA BITACORA -->
@@ -1143,6 +970,34 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
             certificado, que es lo que aquí se queda a medias por no salir a la
             red. A cambio, allí <b>la factura se envía</b>: su aviso de datos
             dice que se borra al terminar.</p>
+          </div>
+        </details>
+
+        <details id="rechaza">
+          <summary>
+            <h3>¿Por qué sale bien aquí y luego la rechaza FACe o la solución pública?</h3>
+            <span class="a"><span class="corta dato">Porque miran más</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+          </summary>
+          <div class="r">
+            <p>Aquí se comprueba lo que dice el fichero contra normas
+            publicadas. <b>Lo que depende de un registro de fuera no se
+            mira</b>, porque esta página no sale a la red, y el informe lo dice
+            en vez de darlo por bueno. Quien recibe la factura sí puede
+            mirarlo.</p>
+            <p>Un ejemplo claro son los tres órganos de una factura a la
+            Administración. FACe comprueba que los tres códigos DIR3 existan y
+            que la relación entre ellos esté dada de alta: lo dice el punto 8
+            del anexo II de la Orden HAP/492/2014. Aquí se mira que estén y en
+            su sitio, y una nota avisa de que no se ha comprobado que existan,
+            porque el directorio no viaja con la página.</p>
+            <p>Con la firma pasa algo parecido: si el documento no trae la
+            prueba de que su certificado no está anulado, aquí se dice que
+            falta, y quien la recibe puede consultarlo en línea. Y de la
+            solución pública se mide parte del anexo I de la orden, no entero:
+            lo que no se mide, lo dice cada informe.</p>
+            <p>Si te ha pasado con una factura y el informe no avisaba de nada,
+            <a href="#escribeme">escríbeme</a>: es justo el fallo que conviene
+            corregir.</p>
           </div>
         </details>
 
@@ -1365,6 +1220,26 @@ h3.subtitulo { font-size: var(--t3); font-weight: 600; margin: 2.5rem 0 1.15rem;
         <a class="boton" id="escalon-boton" href="#">Escríbeme</a>
       </div>
     </section>
+
+    <!-- El cierre, el mismo de Sobre Glosa-e: los tres botones con el asunto
+         ya puesto. -->
+    <section id="escribeme">
+      <p class="rotulo">Escríbeme</p>
+      <h2 class="titulo">Preguntas, propuestas o errores.</h2>
+      <p class="texto" style="color:var(--tinta-2)">Se escribe a
+      <b>contacto@glosa-e.com</b>. Los tres botones abren tu programa de correo
+      con el asunto ya puesto.</p>
+      <p class="escribir">
+        <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20pregunta">Tengo una pregunta</a>
+        <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20propuesta">Tengo una propuesta</a>
+        <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20error%20encontrado">He encontrado un error</a>
+      </p>
+      <p class="texto" style="color:var(--tinta-2)">Si el error sale en un
+      informe, ayuda mandar su recuento: está al pie del informe, con un botón
+      para copiarlo, y no lleva nombres, NIF, importes ni números de
+      factura.</p>
+    </section>
+
 
   </div>
 </main>
@@ -1595,42 +1470,6 @@ function marcar(etiqueta, segundos) {
   span.textContent = etiqueta + " " + segundos + " s";
   $("fases").appendChild(span);
   $("riel").style.width = Math.round((hechas / FASES_TOTALES) * 100) + "%";
-}
-
-function pintarLoQueTrae(paquete) {
-  const lista = $("trae-lista");
-  const fila = (clave, valor, clase) =>
-    "<dt>" + clave + "</dt><dd class='" + (clase || "") + "'>" + valor + "</dd>";
-
-  if (!paquete) {
-    // La ausencia se cuenta, y se cuenta diciendo **qué se deja de mirar**. Un
-    // «no se ha podido cargar» a secas deja creyendo que falta un adorno.
-    lista.innerHTML =
-      fila("Esquemas XSD", "no están", "mal") +
-      fila("Anclas de confianza", "no están", "mal") +
-      fila("Entonces no se comprueba", "la forma ni de quién es el certificado", "mal");
-    return;
-  }
-  let filas =
-    fila("Esquemas XSD", paquete.esquemas) +
-    fila("Anclas de firma", paquete.anclas) +
-    fila("Anclas de sellado de tiempo", paquete.anclas_de_sellos) +
-    fila("De dónde salen", escapar(Glosa.fecha(paquete.declarada || "(no consta)"))) +
-    fila("Montadas el", paquete.montada ? Glosa.fecha(paquete.montada) : "(no consta)");
-  // La fecha que de verdad importa. Un conjunto de anclas no caduca —los
-  // certificados de dentro duran veinte años— pero la lista de quién sigue
-  // estando autorizado se renueva cada seis meses, y pasada esa fecha aquí se
-  // sigue creyendo a quien el Estado ya haya retirado.
-  const siguiente = paquete.siguiente;
-  if (!siguiente) {
-    filas += fila("Se renuevan el", "(la lista no lo dice)", "ojo");
-  } else if (new Date(siguiente) < new Date()) {
-    filas += fila("Debían renovarse el", Glosa.fecha(siguiente), "ojo");
-    filas += fila("Mientras tanto", "se cree a autoridades que quizá ya no lo sean", "ojo");
-  } else {
-    filas += fila("Se renuevan el", Glosa.fecha(siguiente));
-  }
-  lista.innerHTML = filas;
 }
 
 // --- El informe ------------------------------------------------------------
@@ -1900,21 +1739,17 @@ function copiarRecuento() {
 let listo = false;
 let fallo = false;
 let elArranque = null;
-let elPaquete = null;
 
 async function empezar() {
   try {
     const { total, paquete } = await Glosa.arrancar(marcar);
     listo = true;
-    elPaquete = paquete;
-    pintarLoQueTrae(paquete);
     $("zona-titulo").textContent = "Suelta aquí tu factura";
     $("zona-pie").innerHTML =
       "XML, XSIG o EDIFACT. Se lee en este navegador: " +
       "<b>no se sube a ningún sitio.</b>";
     $("arranque").classList.add("listo");
     muestras.forEach((b) => { b.disabled = false; });
-    $("correr-banco").disabled = false;
     $("arranque-titulo").textContent = "Listo en " + total + " s";
     $("arranque-nota").textContent = paquete
       // La invitación a desconectar se midió antes de escribirla: el 24-09-2026,
@@ -1933,8 +1768,6 @@ async function empezar() {
     $("zona-titulo").textContent = "No ha arrancado";
     $("zona-pie").textContent = motivo(error);
     $("arranque").hidden = true;
-    $("banco-nota").textContent =
-      "El validador no ha arrancado, así que aquí tampoco hay nada que correr.";
     console.error(error);
   }
 }
@@ -1984,7 +1817,6 @@ let leyendo = false;
 function ocuparse(si) {
   leyendo = si;
   muestras.forEach((b) => { b.disabled = si; });
-  $("correr-banco").disabled = si;
 }
 
 // `aclaracion` va encima del informe, como la de las muestras: de dónde sale
@@ -2046,65 +1878,6 @@ async function soltar(ficheros, aclaracion = "") {
   }
 }
 
-// --- El banco de pruebas, en la portada ------------------------------------
-//
-// Son las mismas que corre `banco.html`, todas, y no una seleccion: una
-// demostracion recortada es otra forma de pedir fe. El fichero de
-// comprobaciones se baja con su huella, asi que lo que corre es el de hoy y no
-// el que dejo la cache —ese es el fallo que se repite en este proyecto, y aqui
-// saldria todo verde sin haber probado nada.
-async function correrElBanco() {
-  cerrarLectura();
-  const boton = $("correr-banco");
-  const salida = $("banco-salida");
-  const antes = boton.textContent;
-  boton.disabled = true;
-  boton.textContent = "Corriendo…";
-  salida.innerHTML =
-    "<div class='veredicto'><h3>Corriendo…</h3><p>Se están ejecutando en " +
-    "este navegador. Tarda unos segundos porque corren de verdad: cada una " +
-    "monta lo suyo (un esquema, una firma, una lista de confianza) y lo " +
-    "comprueba.</p></div>";
-  const cero = performance.now();
-  try {
-    const resultados = await Glosa.correrBanco();
-    const tiempo = ((performance.now() - cero) / 1000).toFixed(1).replace(".", ",");
-    const fallan = resultados.filter((r) => !r.ok);
-    const criticas = fallan.filter((r) => r.critica).length;
-    const pie = "<p class='pie'>Una a una, con su tiempo y su detalle, en el " +
-      "<a href='./banco.html'>banco de pruebas</a>.</p>";
-
-    if (!fallan.length) {
-      salida.innerHTML =
-        "<div class='veredicto si'><h3>Las " + resultados.length +
-        " comprobaciones pasan</h3><p>Las ha corrido este navegador en " +
-        tiempo + " s, con el mismo código que valida tu factura. " +
-        (elPaquete
-          ? "Con los esquemas y las anclas puestos: se ha comprobado la forma, el contenido y la firma."
-          : "Pero sin el paquete de esquemas y anclas, así que aquí no se ha comprobado ni la forma ni de quién es el certificado.") +
-        "</p>" + pie + "</div>";
-      return;
-    }
-    salida.innerHTML =
-      "<div class='veredicto no'><h3>Fallan " + fallan.length + " de " +
-      resultados.length + (criticas ? " (" + criticas + " crítica" +
-        (criticas > 1 ? "s" : "") + ")" : "") + "</h3>" +
-      "<p>Entonces la herramienta de arriba no es de fiar, y lo estás viendo " +
-      "tú antes que nadie, que es exactamente para lo que está esto.</p>" +
-      "<ul>" + fallan.slice(0, 5).map((r) =>
-        "<li>" + escapar(r.nombre) + ": " + escapar(r.detalle) + "</li>").join("") +
-      "</ul>" + pie + "</div>";
-  } catch (error) {
-    salida.innerHTML =
-      "<div class='veredicto no'><h3>No se han podido correr</h3><p>" +
-      escapar(motivo(error)) + "</p></div>";
-    console.error(error);
-  } finally {
-    boton.textContent = antes;
-    boton.disabled = false;
-  }
-}
-
 const zona = $("zona");
 zona.addEventListener("click", () => { if (!fallo) $("fichero").click(); });
 zona.addEventListener("keydown", (e) => {
@@ -2112,7 +1885,6 @@ zona.addEventListener("keydown", (e) => {
 });
 $("fichero").addEventListener("change", (e) => soltar([...e.target.files]));
 muestras.forEach((b) => b.addEventListener("click", () => verElEjemplo(b)));
-$("correr-banco").addEventListener("click", correrElBanco);
 ["dragenter", "dragover"].forEach((ev) =>
   zona.addEventListener(ev, (e) => { e.preventDefault(); if (!fallo) zona.classList.add("encima"); }));
 ["dragleave", "drop"].forEach((ev) =>
