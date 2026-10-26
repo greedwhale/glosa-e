@@ -722,6 +722,10 @@ class SinPagina(NoSeMonta):
     """Falta el index.html, o ya no dice dónde busca sus cosas."""
 
 
+class SinFecha(NoSeMonta):
+    """`web/fechas.txt` no se puede leer, o nombra una página que no hay."""
+
+
 class SinNovedades(NoSeMonta):
     """Las novedades no cuadran con el catálogo, o no se pueden leer.
 
@@ -1051,11 +1055,13 @@ def _con_tarjeta(texto: str, url: str, nombre: str, huella_de_la_tarjeta: str) -
 def _sitemap(paginas: list[str], cambios: dict[str, date] | None = None) -> str:
     """El índice de lo publicado, para que un buscador no tenga que adivinar.
 
-    `lastmod` **solo donde la fecha es cierta**, que hoy son la bitácora y sus
-    entradas. Google lo usa si se lo puede creer, y deja de creerlo si miente.
-    Para las fichas y el resto, lo único que se podría poner es la fecha en
-    que se montó el sitio, que es la misma para las 418 páginas y no dice nada
-    de si el contenido cambió. Una fecha que miente vale menos que ninguna.
+    `lastmod` **solo donde la fecha es cierta**: la bitácora y sus entradas,
+    las novedades y, desde el 26-10-2026, las páginas de `web/fechas.txt`
+    (ver `_fechas_de_las_paginas`). Google lo usa si se lo puede creer, y deja
+    de creerlo si miente. Para las fichas, lo único que se podría poner es la
+    fecha en que se montó el sitio, que es la misma para las 411 y no dice
+    nada de si el contenido cambió. Una fecha que miente vale menos que
+    ninguna.
 
     Hasta el 23-10-2026 no lo llevaba ninguna. Ese día Search Console tenía a
     los seis artículos sin indexar, cuatro sin visitar siquiera, y no había
@@ -1242,6 +1248,59 @@ def _con_seguir(texto: str, nombre: str, con_novedades: bool = False) -> str:
         raise SinPagina(_articulos_de_mas(nombre, texto.count(_FIN_DEL_ARTICULO)))
     linea = _SEGUIR_CON_NOVEDADES if con_novedades else _SEGUIR
     return texto.replace(_FIN_DEL_ARTICULO, _FIN_DEL_ARTICULO + linea, 1)
+
+
+# Las fechas de las páginas que no traen la suya: la portada, el banco, Sobre
+# Glosa-e, el aviso legal y el catálogo. Hasta el 26-10-2026 no llevaban
+# `lastmod`, porque no había de dónde sacar una cierta, y Google no tenía cómo
+# saber que la portada había cambiado.
+#
+# La fecha se escribe a mano, y por eso va con la huella de la página: si la
+# página cambia y la fecha no, `tests/test_fechas_del_sitemap.py` se niega y
+# dice la huella nueva. No se niega el montaje, a propósito: mientras se
+# trabaja una página se monta muchas veces, y la fecha que vale es la del día
+# en que se publica, que es cuando corre la suite.
+FECHAS = "fechas.txt"
+
+
+def huella_para_la_fecha(texto: str) -> str:
+    """La huella de lo que una página dice: sin sus comentarios y con los
+    espacios juntos, para que una nota al margen o un sangrado no le cambien
+    la fecha a una página que dice lo mismo que ayer."""
+    sin_notas = re.sub(r"<!--.*?-->", "", texto, flags=re.S)
+    return hashlib.sha256(" ".join(sin_notas.split()).encode("utf-8")).hexdigest()[:12]
+
+
+def _fechas_de_las_paginas(pagina: Path) -> dict[str, tuple[date, str]]:
+    """Cada página de `fechas.txt`, con su fecha y la huella con que se apuntó.
+
+    Una línea por página, `nombre fecha huella`, y `#` para lo que se comenta.
+    Sin el fichero no hay fechas y el sitemap sale como antes.
+    """
+    fuente = pagina / FECHAS
+    if not fuente.is_file():
+        return {}
+    fechas: dict[str, tuple[date, str]] = {}
+    for numero, linea in enumerate(fuente.read_text(encoding="utf-8").splitlines(), 1):
+        linea = linea.split("#", 1)[0].strip()
+        if not linea:
+            continue
+        partes = linea.split()
+        try:
+            nombre, dia, huella = partes
+            fecha = date.fromisoformat(dia)
+        except ValueError as error:
+            raise SinFecha(
+                f"{FECHAS}, línea {numero}: «{linea}» no es `nombre fecha huella`, "
+                "con la fecha en aaaa-mm-dd.") from error
+        if not (pagina / nombre).is_file():
+            raise SinFecha(
+                f"{FECHAS}, línea {numero}: {nombre} no está en la carpeta de la "
+                "página, así que su fecha iría al sitemap de una que no existe.")
+        if nombre in fechas:
+            raise SinFecha(f"{FECHAS} apunta {nombre} dos veces.")
+        fechas[nombre] = (fecha, huella)
+    return fechas
 
 
 def _leer_novedades(pagina: Path) -> novedades.Novedades | None:
@@ -1740,6 +1799,7 @@ def montar_sitio(
     # de escribir nada.
     leidas_novedades = _leer_novedades(pagina)
     con_novedades = leidas_novedades is not None
+    fechas = _fechas_de_las_paginas(pagina)
 
     # Y la política, por lo mismo y con la misma lección. `_con_politica` corre
     # al final, que es donde tiene que correr —las huellas tienen que ser las
@@ -1976,6 +2036,16 @@ def montar_sitio(
             novedades.canal(leidas_novedades, DOMINIO), encoding="utf-8")
         if leidas_novedades.entradas:
             cambios[novedades.NOMBRE] = max(e.fecha for e in leidas_novedades.entradas)
+
+    # Las fechas apuntadas a mano. El catálogo lista todos los códigos, así que
+    # una regla nueva también lo cambia: lleva la más nueva de las dos.
+    for nombre, (dia, _) in fechas.items():
+        cambios[nombre] = max(dia, cambios.get(nombre, dia))
+    if (pagina_incidencias.NOMBRE in cambios and leidas_novedades is not None
+            and leidas_novedades.entradas):
+        cambios[pagina_incidencias.NOMBRE] = max(
+            cambios[pagina_incidencias.NOMBRE],
+            max(e.fecha for e in leidas_novedades.entradas))
 
     huerfanos = sorted(c for c, cuantas in firmadas.items() if not cuantas)
     if huerfanos:

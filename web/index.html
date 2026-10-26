@@ -1837,6 +1837,7 @@ async function soltar(ficheros, aclaracion = "") {
       "<p>" + ficheros.length + " fichero(s) esperando. Se validan aquí " +
       "mismo, en tu navegador, sin subirse a ningún sitio.</p></div>";
     $("informe").scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!elArranque) elArranque = empezar();
     await elArranque;
     if (!listo) {
       // El arranque se ha caído. Lo cuenta también aquí y no solo en la zona:
@@ -1958,7 +1959,8 @@ function abrirLaPreguntaDelAncla() {
 addEventListener("hashchange", abrirLaPreguntaDelAncla);
 abrirLaPreguntaDelAncla();
 
-elArranque = empezar();
+// Al primer gesto y no al abrir: el porqué, en `alPrimerGesto` de glosa.js.
+Glosa.alPrimerGesto(() => { elArranque = empezar(); });
 </script>
 </body>
 </html>

@@ -35,7 +35,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3738 tests, todos en verde.
+3751 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5760,6 +5760,42 @@ ancla (`/novedades#id`) o la dirección del artículo, la misma que tenía
 cuando los artículos iban en las novedades, y no cambia al corregir el
 título, que es lo que hace que un lector no enseñe dos veces lo mismo. Quién
 los lee no se mide.
+
+### La prueba en directo de Google, y el arranque al primer gesto
+
+Medido el 26-10-2026 en Search Console, con la sesión del titular: la prueba
+en directo de la portada salía con "Se ha producido un error", y con ella
+Solicitar indexación, que la hace primero. No era la cuota (esa dice "Cuota
+superada"), ni el navegador (falla igual en el del titular y en Chrome), ni el sitemap
+(leído ese día, 424 páginas). Era la página:
+
+| Página | Baja el validador al abrirse | Prueba en directo |
+|---|---|---|
+| la portada | sí | error |
+| el banco | sí | error |
+| Sobre Glosa-e | no | bien |
+| el aviso legal | no | bien |
+
+y `incidencias`, que tampoco lo baja, se aceptó el día antes. El rastreo
+normal sí funciona: la portada estaba indexada, rastreada el 23-10. Lo que no
+funcionaba era pedirlo. Google no dice el motivo; lo que se ve es que las dos
+que fallan son las dos que bajan unos 10 MB y ponen en marcha Python nada más
+abrirse.
+
+Desde ese día las dos lo arrancan **al primer gesto de una persona**: mover el
+ratón, tocar, una tecla, la rueda o arrastrar un fichero (`alPrimerGesto`, en
+`glosa.js`). El robot no hace ninguna de esas cosas y lee la misma página sin
+el peso; quien la abre mueve algo en el primer segundo. El `scroll` se queda
+fuera a propósito, porque lo dispara la propia página al abrir una pregunta
+por su ancla. Lo vigila `tests/test_arranque_al_primer_gesto.py`, y la
+comprobación de producción le da el gesto con un `keydown`, porque abierta por
+un script la página se quedaba esperando sin error.
+
+Y el mismo día las cinco páginas sin fecha propia (portada, banco, Sobre
+Glosa-e, aviso legal y catálogo) la llevan en el sitemap, de
+`web/fechas.txt`. Cada fecha va con la huella de su página, sin comentarios,
+y `tests/test_fechas_del_sitemap.py` se niega si la página cambia y la fecha
+no. El catálogo lleva además la de la última novedad, si es más nueva.
 
 ### El aviso a Bing, por IndexNow
 

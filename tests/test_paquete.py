@@ -2157,6 +2157,39 @@ class TestLoUltimoEnLaPortada:
         assert paquete.HUECO_DE_LO_ULTIMO in portada.read_text(encoding="utf-8")
 
 
+class TestLasFechasApuntadas:
+    """El `lastmod` de `web/fechas.txt`, desde el 26-10-2026: la portada no
+    llevaba ninguno y Google no tenía cómo saber que había cambiado. Que la
+    fecha sea la de la página de hoy lo vigila `test_fechas_del_sitemap.py`."""
+
+    def _fechas(self, repositorio, texto):
+        (repositorio / "web" / paquete.FECHAS).write_text(texto, encoding="utf-8")
+
+    def test_la_fecha_apuntada_va_al_sitemap(self, repositorio):
+        self._fechas(repositorio, "# un comentario\n\nindex.html 2026-10-26 abc\n")
+        mapa = (_montar(repositorio).carpeta / "sitemap.xml").read_text(encoding="utf-8")
+        assert f"<loc>{paquete.DOMINIO}/</loc><lastmod>2026-10-26</lastmod>" in mapa
+        assert mapa.count("<lastmod>") == 1
+        # Y el fichero no se publica: es para el montaje.
+        assert not (repositorio / "sitio" / paquete.FECHAS).exists()
+
+    def test_sin_el_fichero_no_hay_fechas(self, repositorio):
+        mapa = (_montar(repositorio).carpeta / "sitemap.xml").read_text(encoding="utf-8")
+        assert "<lastmod>" not in mapa
+
+    @pytest.mark.parametrize("linea, dice", [
+        ("index.html 26-10-2026 abc", "aaaa-mm-dd"),
+        ("index.html 2026-10-26", "nombre fecha huella"),
+        ("noexiste.html 2026-10-26 abc", "no está en la carpeta"),
+        ("index.html 2026-10-26 abc\nindex.html 2026-10-25 abc", "dos veces"),
+    ])
+    def test_una_linea_mal_no_deja_montar(self, repositorio, linea, dice):
+        self._fechas(repositorio, linea + "\n")
+        with pytest.raises(paquete.SinFecha, match=dice):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+
 # --- El código del informe enlaza su ficha, y Sigue las novedades -------------
 
 _WEB_DE_VERDAD = Path(paquete.__file__).parent.parent / "web"

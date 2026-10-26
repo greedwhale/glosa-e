@@ -9041,3 +9041,22 @@ vez y vuelta atrás:
 - la herramienta sin el lector de reserva: la del recorrido, en rojo, y
   diciendo qué commit no se pudo leer.
 
+## Search Console no podía probar las páginas que arrancan el validador
+
+**Lo que pasó.** El 25 y el 26-10-2026, Solicitar indexación de la portada
+contestaba "Se ha producido un problema al enviar la solicitud", en el
+navegador del titular y en otro. La prueba en directo, que es lo primero que
+hace esa petición, fallaba igual en la portada y en el banco, y salía bien en
+Sobre Glosa-e y en el aviso legal. Las dos que fallan son las dos que bajan el
+validador nada más abrirse, unos 10 MB entre Python y sus paquetes; las que
+salen bien no lo bajan. La causa exacta no la dice Google: es lo que separa a
+unas de otras, en cuatro páginas medidas.
+
+**Lo que se hizo.** El arranque espera al primer gesto de una persona, y el
+robot no hace ninguno. El guardián mira el código de las dos páginas, porque
+si una vuelve a arrancar al abrirse no falla nada en ningún sitio: se cierra
+otra vez la puerta de Google sin que nadie se entere. Provocado, una rotura
+cada vez y vuelta atrás: el arranque de la portada puesto otra vez al abrir,
+el del banco igual, y `scroll` metido entre los gestos; los tres, en rojo.
+Que la prueba en directo sale bien con esto solo se sabe después de
+publicarlo, y se mira entonces.

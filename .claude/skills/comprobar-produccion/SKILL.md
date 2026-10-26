@@ -57,7 +57,13 @@ quien ya lo haya visitado y no habría forma de avisarle.
 Con el panel del navegador, sobre la página publicada. Espera al arranque y
 mide:
 
+**Desde el 26-10-2026 la portada y el banco arrancan al primer gesto** (mover
+el ratón, una tecla...; el porqué, en `alPrimerGesto` de `glosa.js`). Abierta
+por un script no se mueve nada y se queda esperando para siempre, sin error.
+La primera línea hace de gesto:
+
 ```js
+dispatchEvent(new KeyboardEvent('keydown'));
 const t0=performance.now();
 while(!document.getElementById('arranque').classList.contains('listo') && performance.now()-t0<180000){
   await new Promise(r=>setTimeout(r,200));
@@ -204,6 +210,7 @@ se puede es **`#veredicto`, que arranca con la clase `esperando` y la pierde**
 cuando el banco está montado (pasa a `veredicto si`). Medido: 6,3 s.
 
 ```js
+dispatchEvent(new KeyboardEvent('keydown'));   // el gesto: ver el punto 3
 const v = document.getElementById('veredicto');
 const t0=performance.now();
 while(v.classList.contains('esperando') && performance.now()-t0<180000){

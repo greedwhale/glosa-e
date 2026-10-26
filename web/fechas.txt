@@ -1,0 +1,14 @@
+# El último cambio de cada página que no trae fecha propia, para el `lastmod`
+# del sitemap. La bitácora y las novedades la sacan de sus entradas; estas, de
+# aquí. El catálogo lleva además la de la última novedad, si es más nueva.
+#
+# Una línea por página: nombre, fecha (aaaa-mm-dd) y la huella de su texto
+# sin comentarios, de `paquete.huella_para_la_fecha`. Si cambias una de estas
+# páginas, la suite se niega hasta que pongas aquí la fecha del día en que se
+# publica y la huella nueva, que te dice ella.
+
+index.html        2026-10-26  cd186113aa61
+banco.html        2026-10-26  d78184b1cbe5
+sobre.html        2026-10-25  64c694231b8e
+legal.html        2026-10-25  e32653c21f90
+incidencias.html  2026-10-25  349c07c82339

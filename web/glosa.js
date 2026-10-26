@@ -644,6 +644,33 @@ async function conVigilante(faena) {
   }
 }
 
+// Llama a `hacer` una vez, al primer gesto de una persona: mover el raton,
+// tocar la pantalla, pulsar una tecla, girar la rueda o arrastrar un fichero.
+//
+// Es para el arranque. Hasta el 26-10-2026 la portada y el banco bajaban el
+// validador al abrirse, unos 10 MB, y la prueba en directo de Search Console
+// fallaba justo en esas dos con "Se ha producido un error", y con ella
+// Solicitar indexacion; en Sobre Glosa-e y en el aviso legal, que no lo
+// bajan, salia bien. El robot que hace esa prueba no mueve el raton ni toca
+// nada, asi que lee la misma pagina sin el peso. Quien la abre de verdad
+// mueve algo en el primer segundo, y no lo nota.
+//
+// El `scroll` no esta a proposito: lo dispara tambien la pagina sola, al
+// abrir una pregunta por su ancla, y eso no es una persona. Se desplaza con
+// la rueda, el dedo o el teclado, y esos si estan.
+const GESTOS = ["pointerdown", "pointermove", "touchstart", "keydown", "wheel", "dragenter"];
+
+function alPrimerGesto(hacer) {
+  let hecho = false;
+  const una = () => {
+    if (hecho) return;
+    hecho = true;
+    GESTOS.forEach((g) => removeEventListener(g, una, true));
+    hacer();
+  };
+  GESTOS.forEach((g) => addEventListener(g, una, { capture: true, passive: true }));
+}
+
 // Arranca el validador entero. `avisar(etiqueta, segundos)` se llama al
 // terminar cada fase, para que cada pagina lo cuente como quiera.
 //
@@ -1047,7 +1074,7 @@ async function _correrBancoAhora() {
 }
 
 window.Glosa = {
-  arrancar, validar, validarEjemplo, correrBanco, puedeVender,
+  arrancar, alPrimerGesto, validar, validarEjemplo, correrBanco, puedeVender,
   hayIdentificacion, fecha,
   titular: TITULAR,
   get paquete() { return PAQUETE; },

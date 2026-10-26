@@ -217,7 +217,9 @@ function pintar(resultados, paquete) {
   }
 }
 
-Glosa.arrancar(marcar).then(async ({ total, paquete }) => {
+// Al primer gesto y no al abrir, como la portada: el porqué, en
+// `alPrimerGesto` de glosa.js.
+Glosa.alPrimerGesto(() => Glosa.arrancar(marcar).then(async ({ total, paquete }) => {
   marcar("Total hasta poder validar", total);
   contarLoQueTrae(paquete);
   pintar(await Glosa.correrBanco(), paquete);
@@ -225,7 +227,7 @@ Glosa.arrancar(marcar).then(async ({ total, paquete }) => {
   $("veredicto").className = "veredicto no";
   $("veredicto").textContent = "No ha arrancado: " + (error.message || error);
   console.error(error);
-});
+}));
 </script>
 </body>
 </html>
