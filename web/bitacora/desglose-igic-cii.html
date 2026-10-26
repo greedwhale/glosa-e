@@ -11,6 +11,16 @@
   un solo error. Con IVA, la misma factura no pasa, y en UBL tampoco. La
   cuota no se mira desde 2018 y la base, desde 2021.</p>
 
+  <aside class="correccion">
+    <b>Actualizada el 26 de octubre de 2026.</b> Desde el 24 de octubre,
+    Glosa-e compara sus reglas con la 1.3.17 y llama <code>BR-IG</code> a las
+    del IGIC y <code>BR-IP</code> a las del IPSI. Donde decía
+    <code>BR-AF-08</code> y <code>BR-AG-08</code>, los nombres de la 1.3.16,
+    dice ahora <code>BR-IG-08</code> y <code>BR-IP-08</code>. Lo que cambia la
+    1.3.17 está en <a href="./bitacora-validador-oficial-1-3-17.html">la
+    entrada del 26 de octubre</a>.
+  </aside>
+
   <p>Toda factura EN 16931 lleva un <b>desglose de impuestos</b> (el grupo
   <code>BG-23</code>): una fila por cada categoría y tipo, con la base
   imponible (<code>BT-116</code>), el tipo (<code>BT-119</code>) y la cuota
@@ -110,9 +120,8 @@
   compara con los casos de prueba oficiales. Con las mismas facturas de
   prueba da <code>BR-45</code> cuando falta la base, <code>BR-CO-17</code>
   cuando la cuota no cuadra y la regla de la base de su categoría cuando la
-  base no sale de las líneas (hoy <code>BR-AF-08</code> para el IGIC y
-  <code>BR-AG-08</code> para el IPSI, que son los nombres de la 1.3.16; la
-  1.3.17 los cambia).</p>
+  base no sale de las líneas (<code>BR-IG-08</code> para el IGIC y
+  <code>BR-IP-08</code> para el IPSI).</p>
 
   <p>Eso no hace de Glosa-e el validador bueno y del oficial el malo. Es una
   segunda lectura de la misma norma, y aquí las dos no coinciden: cuando eso

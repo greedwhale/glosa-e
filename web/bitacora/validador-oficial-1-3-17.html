@@ -1,0 +1,221 @@
+<article class="entrada"
+  data-fecha="2026-10-26"
+  data-titulo="Dos versiones del validador oficial, dos veredictos: lo que cambia la 1.3.17 para una factura española"
+  data-entradilla="El CEN publicó el 12 de octubre la versión 1.3.17 de su validador. Admite por fin los códigos de exención de España y devuelve al IGIC y al IPSI sus nombres de antes, pero en CII los cruza, deja de aceptar el prefijo de Grecia y sigue rechazando el IGIC al 0 %. Peppol sigue en la 1.3.16, así que hoy una misma factura puede pasar con una y no con la otra.">
+
+  <time datetime="2026-10-26">26 de octubre de 2026</time>
+  <h1>Dos versiones del validador oficial, dos veredictos: lo que cambia la
+  1.3.17 para una factura española</h1>
+  <p class="lema">El CEN publicó el 12 de octubre la versión 1.3.17 de su
+  validador. Admite por fin los códigos de exención de España y devuelve al
+  IGIC y al IPSI sus nombres de antes, pero en CII los cruza, deja de aceptar
+  el prefijo de Grecia y sigue rechazando el IGIC al 0 %. Peppol sigue en la
+  1.3.16, así que hoy una misma factura puede pasar con una y no con la
+  otra.</p>
+
+  <p>El <b>esquematrón</b> es el validador oficial de la norma europea de
+  factura electrónica, la EN 16931: un fichero de reglas que publica el CEN,
+  el comité que la escribe, y que muchas herramientas usan tal cual o copiado
+  para decir si una factura cumple. Hay uno por sintaxis, UBL y CII, y cada
+  cierto tiempo sale una versión. La 1.3.17 salió el 12 de octubre de 2026, y
+  sigue siendo la de la edición de 2017 de la norma. La Comisión Europea, que
+  lleva el registro de estos ficheros, da el 16 de noviembre como el día en que
+  quien siga la norma debe tenerla ya en uso.</p>
+
+  <p>La red Peppol, por la que circula buena parte de la factura electrónica
+  entre empresas en Europa, todavía no la usa: su versión vigente, la 3.0.21,
+  publicada el 20 de mayo, va sobre la 1.3.16. Por eso importa saber qué
+  cambia de una a otra.</p>
+
+  <h2>Lo que cambia para una factura española</h2>
+
+  <div class="cuadro">
+  <table>
+    <caption>Lo que da cada versión del esquematrón oficial</caption>
+    <thead><tr><th>Lo que lleva la factura</th><th>Con la 1.3.16</th><th>Con la 1.3.17</th></tr></thead>
+    <tbody>
+      <tr><td>Un código de exención de España (VATEX-ES)</td><td>lo rechaza, con <code>BR-CL-22</code></td><td><b>vale</b></td></tr>
+      <tr><td>Un número de IVA griego con el prefijo EL</td><td><b>vale</b></td><td>lo rechaza, con <code>BR-CO-09</code></td></tr>
+      <tr><td>Una línea de IGIC al 0 %, en CII</td><td>la rechaza, con <code>BR-AF-05</code></td><td>la sigue rechazando, ahora con <code>BR-IP-05</code></td></tr>
+      <tr><td>Una línea de IGIC al 0 %, en UBL</td><td><b>vale</b></td><td><b>vale</b></td></tr>
+      <tr><td>El nombre de las reglas del IGIC, en UBL y en CII</td><td><code>BR-AF</code> en las dos</td><td><code>BR-IG</code> en UBL y <code>BR-IP</code> en CII</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Los nombres del IGIC y del IPSI</h2>
+
+  <p>El IGIC canario y el IPSI de Ceuta y Melilla tienen cada uno su familia
+  de reglas en la norma, de la 01 a la 10, y sus nombres han ido y venido. En
+  UBL se llamaron <code>BR-IG</code> y <code>BR-IP</code> desde la primera
+  versión, la 1.0.0 de 2018, hasta la 1.3.13. La 1.3.14 los cambió por
+  <code>BR-AF</code> y <code>BR-AG</code>, que eran los que CII había usado
+  siempre, y la 1.3.17 vuelve a <code>BR-IG</code> y <code>BR-IP</code>.</p>
+
+  <p>En CII el cambio salió cruzado: allí <code>BR-IP</code> es el IGIC y
+  <code>BR-IG</code>, el IPSI, al revés que en UBL. Y en EDIFACT, que también
+  admite el RD 238/2026, el código sigue siendo <code>BR-AF</code> y
+  <code>BR-AG</code>, pero el texto de los mensajes dice <code>BR-IG</code> y
+  <code>BR-IP</code>. Quien lea <code>BR-IP-05</code> en un informe tiene que
+  mirar antes la sintaxis para saber de qué impuesto le hablan.</p>
+
+  <p>Aquí se dijo durante mes y medio que <code>BR-IG</code> y
+  <code>BR-IP</code> no existían en ninguna norma. Era falso, y se corrigió el
+  mismo día en que salió la 1.3.17, al revisarla.</p>
+
+  <h2>El IGIC al 0 % sigue sin pasar en CII</h2>
+
+  <p>La norma admite el IGIC con el tipo a cero: las reglas 05, 06 y 07 de su
+  familia piden un tipo "0 (zero) or greater than zero", cero o mayor que
+  cero. El esquematrón de UBL lo escribe así. El de CII exige un tipo mayor
+  que cero, y en el IPSI, al lado, no. Se avisó en el repositorio del CEN, en
+  la <a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/519">issue
+  #519</a>, que se cerró el 29 de septiembre cambiando el nombre de las
+  reglas y no la comparación.</p>
+
+  <p>Con la 1.3.17, una línea de IGIC al 0 % en CII se rechaza igual, ahora
+  con <code>BR-IP-05</code>. Está en la
+  <a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/533">issue
+  #533</a>, y otra persona lo reprodujo por su cuenta el 18 de octubre con
+  los XSLT publicados.</p>
+
+  <h2>Grecia deja de valer</h2>
+
+  <p>La regla <code>BR-CO-09</code> pide que los números de IVA del vendedor,
+  de su representante fiscal y del comprador empiecen por el código de un
+  país, y su propio texto añade que Grecia puede usar EL. La 1.3.17 puso la
+  lista de prefijos al día con ISO 3166, la de los códigos de país, donde
+  Grecia es GR, y quitó EL. Pero EL es como escribe Grecia su prefijo en el
+  IVA europeo: el artículo 215 de la Directiva 2006/112/CE la autoriza, y así
+  lo da el VIES, el sistema con que se comprueban esos números. Con la 1.3.17,
+  una factura a un cliente griego, con su número bien escrito, sale
+  rechazada.</p>
+
+  <p>Se avisó al CEN en la
+  <a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/532">issue
+  #532</a>, que sigue abierta y sin respuesta.</p>
+
+  <h2>Los códigos de exención de España</h2>
+
+  <p>Cuando una factura lleva una operación exenta, el motivo puede ir con un
+  código de la lista CEF-VATEX, en <code>BT-121</code>. Su versión 9 trae
+  dieciocho códigos de España, para exenciones del IVA, del IGIC y del IPSI.
+  El CEN lo anunció en la
+  <a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/525">issue
+  #525</a>, y el registro de la Comisión da esa versión como publicada el 12 de
+  octubre, para tenerla en uso desde el 16 de noviembre de 2026: su calendario
+  fija el 15 de noviembre, y cuando cae en fin de semana, como este año, el
+  lunes siguiente. La 1.3.17 los admite. La 1.3.16 no los tiene y los rechaza con
+  <code>BR-CL-22</code>, así que, mientras Peppol siga en ella, una factura
+  española con uno de esos códigos, bien hecha según la 1.3.17, puede salir
+  rechazada en un validador que use la versión anterior.</p>
+
+  <h2>Lo demás</h2>
+
+  <p>Cambian catorce listas de códigos. Lo que puede notar alguien: la moneda
+  de Santo Tomé y Príncipe pasa de STD a STN, la que usa desde 2018; entran
+  tres esquemas de identificadores (0249, 0250 y 0251), y en las direcciones
+  electrónicas salen 0219 y 0220 y entra 9960. Y la versión cierra 16
+  incidencias del repositorio, que están en sus notas.</p>
+
+  <h2>A quién le importa, y cuándo</h2>
+
+  <p>A quien emita o reciba facturas con IGIC, IPSI, exenciones o clientes
+  griegos y se fíe de un validador para saber si están bien: tiene que saber
+  qué versión usa, porque la respuesta depende de ella. Hoy no obliga a
+  nadie: el RD 238/2026 empieza a aplicarse el 6 de octubre de 2027 para
+  quien facture más de 8 M€, y el 6 de octubre de 2028 para el resto.</p>
+
+  <h2>Qué hace Glosa-e con esto, hoy</h2>
+
+  <p>Glosa-e no ejecuta el esquematrón: escribe cada regla aparte y la compara
+  con los casos de prueba oficiales. Desde el 24 de octubre se compara con la
+  1.3.17.</p>
+
+  <ul>
+    <li>Las reglas del IGIC y del IPSI se llaman <code>BR-IG</code> y
+    <code>BR-IP</code> en todas las sintaxis, como en UBL. Sus fichas
+    (<a href="./codigo-BR-IG-01.html">BR-IG-01</a> y
+    <a href="./codigo-BR-IP-01.html">BR-IP-01</a>) dan los tres nombres y
+    dónde sale cada uno, y las direcciones viejas, las de <code>BR-AF</code> y
+    <code>BR-AG</code>, llevan a las nuevas.</li>
+    <li>El IGIC al 0 % vale, porque lo admite la norma, con la nota
+    <a href="./codigo-IVA-CERO-ESQUEMATRON.html">IVA-CERO-ESQUEMATRON</a>,
+    que dice con qué código la rechazará quien la valide con el esquematrón
+    de CII.</li>
+    <li>El prefijo EL vale, con la nota
+    <a href="./codigo-IVA-PREFIJO-EL.html">IVA-PREFIJO-EL</a>, que dice que
+    la 1.3.17 lo rechaza y la 1.3.16 no. Si el CEN vuelve a admitirlo, la
+    nota se quita.</li>
+    <li>Los dieciocho VATEX-ES valen, con la nota
+    <a href="./codigo-IVA-VATEX-ES.html">IVA-VATEX-ES</a>, que avisa de que la
+    1.3.16 los rechaza.</li>
+  </ul>
+
+  <p>Las tres son notas y no errores: la factura está bien según la norma, y
+  lo que dicen es que otro validador la verá distinta. Eso no hace bueno a
+  uno y malo al otro. Cuando dos lecturas no coinciden, lo que toca es decir
+  por qué.</p>
+
+  <p>Lo del desglose del IGIC y del IPSI en CII, que el validador oficial no
+  mira en ninguna de las dos versiones, está en
+  <a href="./bitacora-desglose-igic-cii.html">la entrada del 12 de
+  octubre</a>.</p>
+
+  <h2>Lo que no se sabe</h2>
+
+  <ul>
+    <li>Cuándo pasa Peppol a la 1.3.17. No está anunciado. Su versión de
+    noviembre de 2025, la 3.0.20, adoptó la 1.3.15, de octubre, pero eso es un
+    precedente y no un compromiso.</li>
+    <li>Lo que dice el texto de la norma, que es de pago y no se ha leído para
+    esto. Todo lo de arriba sale de los esquematrones, de la lista y de la
+    Directiva.</li>
+  </ul>
+
+  <p>Glosa-e es gratis, es código abierto y <b>corre entero en tu
+  navegador</b>: la factura no sale de tu ordenador. Está <b>en desarrollo y en
+  pruebas</b>. Si encuentras algo mal o tienes alguna propuesta,
+  <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20">escríbeme</a>.</p>
+
+  <footer class="fuentes">
+    <h2>De dónde sale</h2>
+    <ul>
+      <li><a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/releases/tag/validation-1.3.17">Artefactos
+      EN 16931 del CEN, versión 1.3.17</a>, del 12-10-2026, con sus notas: las 16
+      incidencias cerradas. La 1.3.16, en la etiqueta
+      <code>validation-1.3.16</code> del mismo repositorio.</li>
+      <li>Issues del repositorio del CEN:
+      <a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/519">#519</a>
+      (el IGIC al 0 % en CII, cerrada el 29-09-2026),
+      <a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/525">#525</a>
+      (las listas de códigos desde noviembre),
+      <a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/532">#532</a>
+      (EL) y
+      <a href="https://github.com/ConnectingEurope/eInvoicing-EN16931/issues/533">#533</a>
+      (el IGIC al 0 % y los nombres cruzados en la 1.3.17).</li>
+      <li><a href="https://ec.europa.eu/digital-building-blocks/sites/display/DIGITAL/Registry+of+supporting+artefacts+to+implement+EN16931">Registro
+      de la Comisión Europea de los ficheros de la EN 16931</a>: la lista VATEX
+      versión 9.0 y los ficheros de validación 1.3.17, publicados el 12-10-2026,
+      y el calendario de cada semestre, con el día desde el que hay que tenerlos en uso. Leído el
+      26-10-2026.</li>
+      <li><a href="https://docs.peppol.eu/poacc/billing/3.0/release-notes/">Notas
+      de versión de Peppol BIS Billing 3.0</a>: la 3.0.21, del 20-05-2026,
+      sobre la 1.3.16, y la 3.0.20, del 24-11-2025, sobre la 1.3.15. Leídas el
+      26-10-2026.</li>
+      <li><a href="https://eur-lex.europa.eu/legal-content/ES/TXT/?uri=CELEX:32006L0112">Directiva
+      2006/112/CE</a>, artículo 215: el prefijo de Grecia.</li>
+      <li><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-7295">Real
+      Decreto 238/2026</a>, artículo 7.1 (las sintaxis admitidas), y
+      <a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-20587">Orden
+      HAC/1028/2026</a>, de la que cuentan los plazos.</li>
+    </ul>
+    <p class="metodo"><b>Cómo se sabe.</b> Las diferencias entre las dos
+    versiones salen de ejecutar los XSLT oficiales del CEN de la 1.3.16 y de la
+    1.3.17 con Saxon, el 12 de octubre de 2026, y de comparar las reglas de
+    Glosa-e con los casos de prueba de la 1.3.17, el 24 de octubre. Las fechas
+    de uso son del registro de la Comisión, y las de Peppol, de sus notas de
+    versión.</p>
+  </footer>
+
+</article>

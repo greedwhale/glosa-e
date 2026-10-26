@@ -249,8 +249,8 @@ _EL_FC_DE_LA_AEAT = (
 # Los VATEX-ES (BR-CL-22). La lista CEF-VATEX trae desde su versión 9 dieciocho
 # códigos de exención españoles, del IVA, del IGIC y del IPSI, que el CEN
 # anunció para usarse en la norma desde noviembre de 2026 (issue 525 de su
-# repositorio; la auditoría del 12-10-2026 leyó en la hoja de la lista el
-# 15-11-2026, y aquí no se ha vuelto a comprobar el día). Entraron en el
+# repositorio). El registro de la Comisión Europea, leído el 26-10-2026, da el
+# 15-11-2026, y como cae en domingo, el lunes 16. Entraron en el
 # esquematrón con la 1.3.17, que es la copia fijada, y por eso aquí valen. La
 # 1.3.16, que es la que usa Peppol, no los tiene y los rechaza con BR-CL-22: la
 # nota lo dice, como la de EL en BR-CO-09. Hasta el 24-10-2026 la lista que

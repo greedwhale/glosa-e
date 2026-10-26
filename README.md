@@ -35,7 +35,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3752 tests, todos en verde.
+3757 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -6732,8 +6732,10 @@ issue 532), y entonces la nota sobra.
 España, del IVA, del IGIC y del IPSI, que el CEN anunció para usarse en la
 norma desde noviembre de 2026 (issue 525 de su repositorio). Valen, con la nota
 `IVA-VATEX-ES`, que dice que la 1.3.16 no los tiene y los rechaza con
-`BR-CL-22`. El día exacto, el 15-11-2026, lo leyó la auditoría del 12-10 en la
-hoja de la lista; aquí no se ha vuelto a comprobar, y la nota dice el mes.
+`BR-CL-22`. El día lo da el registro de la Comisión Europea, leído el
+26-10-2026: la versión 9.0 de la lista y la 1.3.17, publicadas el 12-10-2026,
+hay que tenerlas en uso desde el 15 de noviembre, y como ese día cae en domingo,
+desde el lunes 16. La nota dice el mes.
 
 **Las listas.** Se regeneraron las catorce. Además de los VATEX-ES: STD sale de
 las monedas y entra STN (São Tomé cambió de moneda en 2018), ISO 6523 gana
