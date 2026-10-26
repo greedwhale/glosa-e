@@ -644,21 +644,26 @@ async function conVigilante(faena) {
   }
 }
 
-// Llama a `hacer` una vez, al primer gesto de una persona: mover el raton,
-// tocar la pantalla, pulsar una tecla, girar la rueda o arrastrar un fichero.
+// Llama a `hacer` una vez, al primer gesto de una persona: tocar la pantalla,
+// hacer clic, pulsar una tecla, girar la rueda o arrastrar un fichero.
 //
-// Es para el arranque. Hasta el 26-10-2026 la portada y el banco bajaban el
-// validador al abrirse, unos 10 MB, y la prueba en directo de Search Console
-// fallaba justo en esas dos con "Se ha producido un error", y con ella
-// Solicitar indexacion; en Sobre Glosa-e y en el aviso legal, que no lo
-// bajan, salia bien. El robot que hace esa prueba no mueve el raton ni toca
-// nada, asi que lee la misma pagina sin el peso. Quien la abre de verdad
-// mueve algo en el primer segundo, y no lo nota.
+// Es para el arranque. La prueba en directo de Search Console, y con ella
+// Solicitar indexacion, falla con "Se ha producido un error" en una pagina que
+// pone en marcha el validador mientras el robot la lee. Medido el 26-10-2026
+// con copias publicadas de la portada y del banco: con estos oyentes fallaban,
+// y sin ellos, con todo lo demas igual, pasaban.
 //
-// El `scroll` no esta a proposito: lo dispara tambien la pagina sola, al
-// abrir una pregunta por su ancla, y eso no es una persona. Se desplaza con
-// la rueda, el dedo o el teclado, y esos si estan.
-const GESTOS = ["pointerdown", "pointermove", "touchstart", "keydown", "wheel", "dragenter"];
+// Mover el raton no cuenta, y eso solo se supo midiendo: el robot lo mueve.
+// Una pagina que solo apuntaba lo que le llegaba recibio, a los 121 ms y una
+// vez cada uno, `pointerover`, `mouseover`, `pointermove` y `mousemove`, y dos
+// `resize`; ni clic, ni tecla, ni dedo, ni rueda, ni arrastre. Con
+// `pointermove` en esta lista el validador arrancaba igual que antes, 121 ms
+// mas tarde. Quien la abre de verdad arranca en el primer clic, tecla o giro
+// de rueda, antes de soltar una factura.
+//
+// El `scroll` tampoco: lo dispara la pagina sola, al abrir una pregunta por su
+// ancla. Se desplaza con la rueda, el dedo o el teclado, y esos si estan.
+const GESTOS = ["pointerdown", "touchstart", "keydown", "wheel", "dragenter"];
 
 function alPrimerGesto(hacer) {
   let hecho = false;

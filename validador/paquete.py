@@ -2106,15 +2106,6 @@ def montar_sitio(
     # La política, después de todo lo que reescribe una página: las huellas de
     # los scripts tienen que ser las del texto que se publica.
     _con_politica(destino)
-    # TEMPORAL, 26-10-2026: variantes de la portada y del banco para partir en
-    # dos por qué la prueba en directo de Search Console falla en ellas. Van
-    # tal cual las sirve producción, cada una con una sola cosa quitada, y se
-    # copian aquí, después del sitemap, para que no entren en él ni en el
-    # aviso a Bing. Se quitan cuando se sepa la causa.
-    experimento = pagina / "experimento-google"
-    if experimento.is_dir():
-        for fichero in sorted(experimento.glob("*.html")):
-            shutil.copy2(fichero, destino / fichero.name)
 
     huellas = {}
     for camino in sorted(destino.rglob("*")):

@@ -9047,16 +9047,23 @@ vez y vuelta atrás:
 contestaba "Se ha producido un problema al enviar la solicitud", en el
 navegador del titular y en otro. La prueba en directo, que es lo primero que
 hace esa petición, fallaba igual en la portada y en el banco, y salía bien en
-Sobre Glosa-e y en el aviso legal. Las dos que fallan son las dos que bajan el
-validador nada más abrirse, unos 10 MB entre Python y sus paquetes; las que
-salen bien no lo bajan. La causa exacta no la dice Google: es lo que separa a
-unas de otras, en cuatro páginas medidas.
+Sobre Glosa-e y en el aviso legal.
 
-**Lo que se hizo.** El arranque espera al primer gesto de una persona, y el
-robot no hace ninguno. El guardián mira el código de las dos páginas, porque
-si una vuelve a arrancar al abrirse no falla nada en ningún sitio: se cierra
-otra vez la puerta de Google sin que nadie se entere. Provocado, una rotura
-cada vez y vuelta atrás: el arranque de la portada puesto otra vez al abrir,
-el del banco igual, y `scroll` metido entre los gestos; los tres, en rojo.
-Que la prueba en directo sale bien con esto solo se sabe después de
+**El primer arreglo no lo era.** Las dos que fallaban son las dos que bajan el
+validador nada más abrirse, y se hizo que esperaran al primer gesto, contando
+mover el ratón (4adc6e9). Publicado, seguían fallando. La causa se había
+sacado de lo que separaba a unas páginas de otras, sin provocarla, y el
+arreglo solo se había visto funcionar en local, donde nadie mueve el ratón por
+uno: lo de siempre, todo verde y no era lo que se creía probado.
+
+**Cómo se encontró.** Con copias publicadas de las dos, cada una con una sola
+cosa quitada: sin scripts pasaban, y sin los oyentes del gesto también, con
+todo lo demás igual. Una página que solo apuntaba lo que le llegaba dijo el
+resto: el robot dispara `pointerover`, `mouseover`, `pointermove` y
+`mousemove` a los 121 ms, y dos `resize`, sin que nadie toque nada.
+
+**Lo que se hizo.** `pointermove` sale de los gestos, y la prueba guarda la
+lista de lo que hizo el robot para que ninguno vuelva a entrar. Provocado:
+con `pointermove` otra vez en la lista, y con `mousemove`, la prueba se pone
+en rojo. Las copias se quitaron el mismo día.
 publicarlo, y se mira entonces.
