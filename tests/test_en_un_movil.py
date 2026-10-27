@@ -298,3 +298,19 @@ def test_el_pie_del_testigo_sale_plegado_y_lo_abre_la_hoja_en_ancho():
         "el móvil de esta hoja ya no se corta en 34rem, y el pie se abre en "
         "ancho a partir de ahí: hay que moverlos juntos")
 
+
+def test_el_rotulo_del_folio_va_dentro_del_corchete():
+    """A 393 px el rótulo del folio empezaba en 12 px y el corchete ocupa de
+    9,6 a 17,6: la E de ERROR caía encima del trazo (visto en un Android el
+    27-10-2026, y medido en el panel). El relleno del folio pesa más que el del
+    móvil, así que el móvil tiene que decir el suyo para el folio. Con 1,6rem
+    el rótulo empieza en 26 px, y a media altura del corchete."""
+    texto = (RAIZ / "web" / "index.html").read_text(encoding="utf-8")
+    estrecho = texto[texto.index("@media (max-width: 34rem) {\n  .glosa {"):]
+    estrecho = estrecho[:estrecho.index("\n}\n")]
+    regla = re.search(r"\.folio \.glosa \.margen \{([^}]*)\}", estrecho)
+    assert regla, "en estrecho el folio ya no le da relleno propio al margen"
+    assert re.search(r"padding:\s*\S+\s+\S+\s+\S+\s+1\.6rem", regla[1]), (
+        "el rótulo del folio vuelve a empezar encima del corchete")
+    assert "align-self: center" in regla[1], (
+        "el rótulo del folio ya no va a media altura del corchete")

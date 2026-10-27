@@ -610,6 +610,26 @@ async function conVigilante(faena) {
           const tardanza = ahora - ultimoTic;
           ultimoTic = ahora;
 
+          // Con la pagina oculta no se juzga nada, y el silencio empieza a
+          // contar otra vez al volver. Es la misma regla de abajo con otra
+          // causa: lo que no se vio no se jura.
+          //
+          // En el movil, tocar la zona abre el selector de ficheros, y con el
+          // la pagina queda oculta justo cuando el arranque acaba de empezar.
+          // Visto el 27-10-2026 en un Android: «No ha arrancado» con los 30 s
+          // sin un byte, despues de tocar la zona. Que Android deje de
+          // entregar bytes a una pagina oculta **no esta medido**; lo medido,
+          // con un servidor que calla 40 s a mitad del `.wasm` y la pagina
+          // dada por oculta, es que el vigilante la condenaba igual que a una
+          // conexion muerta, porque aqui los tics siguen llegando cada segundo
+          // y la laguna de abajo no lo caza. Una pagina oculta no tiene a
+          // nadie esperando, y una conexion muerta de verdad se sigue cazando
+          // 30 s despues de volver.
+          if (document.hidden) {
+            ultimoByte = ahora;
+            return;
+          }
+
           // Un tic que llega tarde no trae noticias: trae una laguna. Durante
           // ella no corrio el contador de bytes, asi que una descarga que iba
           // bien se ve exactamente igual que una cortada, y lo que hay que

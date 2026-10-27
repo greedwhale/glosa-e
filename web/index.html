@@ -423,6 +423,12 @@ details.documento > summary > header .estado { grid-column: 1; }
   .glosa .cuerpo { padding: .45rem 1rem 1rem 1.6rem; }
   .glosa .cuerpo::before { display: none; }
   .glosa::before { display: block; left: .6rem; top: .95rem; bottom: 1rem; }
+  /* El folio guarda sus dos columnas también aquí, y su relleno del margen
+     pesa más que el de arriba: el rótulo empezaba en 12 px y el corchete
+     ocupa de 9,6 a 17,6, así que la E de ERROR caía encima del trazo de
+     arriba (medido a 393 px el 27-10-2026). Dentro del corchete y a media
+     altura, que es donde la nota al margen señala lo que glosa. */
+  .folio .glosa .margen { padding: .75rem .5rem .75rem 1.6rem; align-self: center; }
 }
 
 /* --- Ver un informe sin soltar nada -------------------------------------- */
@@ -795,7 +801,11 @@ details.documento > summary > header .estado { grid-column: 1; }
 
           <div class="arranque" id="arranque">
             <div class="cabeza">
-              <strong id="arranque-titulo">Descargando el validador</strong>
+              <!-- No dice Descargando hasta que descarga: arranca al primer
+                   gesto, y hasta el 27-10-2026 lo decía desde que se abría la
+                   página, sin un solo byte pedido. En el móvil no había
+                   manera de saber si estaba bajando o no. -->
+              <strong id="arranque-titulo">El validador se descarga en cuanto uses la página</strong>
               <span id="arranque-nota">Son unos 10 MB la primera vez. Después queda en la caché del navegador, marcado para un año, y no vuelve a bajarse.</span>
             </div>
             <div class="riel"><i id="riel"></i></div>
@@ -1233,9 +1243,6 @@ details.documento > summary > header .estado { grid-column: 1; }
     <section id="escribeme">
       <p class="rotulo">Escríbeme</p>
       <h2 class="titulo">Preguntas, propuestas o errores.</h2>
-      <p class="texto" style="color:var(--tinta-2)">Se escribe a
-      <b>contacto@glosa-e.com</b>. Los tres botones abren tu programa de correo
-      con el asunto ya puesto.</p>
       <p class="escribir">
         <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20pregunta">Tengo una pregunta</a>
         <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20propuesta">Tengo una propuesta</a>
@@ -1748,6 +1755,7 @@ let fallo = false;
 let elArranque = null;
 
 async function empezar() {
+  $("arranque-titulo").textContent = "Descargando el validador";
   try {
     const { total, paquete } = await Glosa.arrancar(marcar);
     listo = true;

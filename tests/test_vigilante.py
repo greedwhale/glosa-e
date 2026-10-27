@@ -233,3 +233,36 @@ class TestElVigilanteNoJuraPorLoQueNoVio:
         assert "const CADA = 1000;" in codigo
         assert "const DORMIDO = 3000;" in codigo
         assert "}, CADA);" in codigo, "el tic ya no dura lo que dice `CADA`"
+
+
+class TestConLaPaginaOcultaNoSeJuzga:
+    """El fallo del 27-10-2026, en un Android: tocar la zona y «No ha arrancado».
+
+    En el móvil, tocar la zona abre el selector de ficheros, y la página queda
+    oculta justo cuando el arranque acaba de empezar. Que Android deje de
+    entregar bytes a una página oculta **no está medido**. Lo medido, con el
+    sitio montado y un servidor que calla 40 s a mitad de `pyodide.asm.wasm`:
+
+    | Caso                         | Antes                     | Después                    |
+    |------------------------------|---------------------------|----------------------------|
+    | Página oculta, 40 s callado  | «No ha arrancado», 31,0 s | lista a los 47,1 s         |
+    | Página visible, 40 s callado | «No ha arrancado», 31,0 s | «No ha arrancado», 31,0 s  |
+
+    La oculta se dio por oculta a mano (`document.hidden`), porque el panel en
+    que se midió no oculta sus pestañas de fondo. La segunda fila es la que
+    enseña que la negativa sigue viva.
+    """
+
+    def test_oculta_no_cuenta_como_silencio(self):
+        codigo = _codigo()
+        assert re.search(
+            r"if \(document\.hidden\) \{\s*ultimoByte = ahora;\s*return;\s*\}", codigo), (
+            "el vigilante vuelve a contar el silencio con la página oculta: en "
+            "el móvil, abrir el selector de ficheros tumba el arranque"
+        )
+
+    def test_se_mira_antes_de_juzgar(self):
+        codigo = _codigo()
+        oculta = codigo.index("if (document.hidden) {")
+        juicio = codigo.index("abiertas > 0 && ahora - ultimoByte > SIN_BYTES")
+        assert oculta < juicio, "se juzga antes de mirar si la página está oculta"

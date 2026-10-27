@@ -68,3 +68,17 @@ def test_ningun_gesto_es_de_los_que_hace_el_robot():
 
 def test_quedan_los_gestos_de_una_persona():
     assert {"pointerdown", "keydown", "touchstart"} <= set(_gestos())
+
+
+def test_no_dice_descargando_antes_de_descargar():
+    """Hasta el 27-10-2026 la portada decía «Descargando el validador» desde
+    que se abría, sin un solo byte pedido: desde el 26-10 arranca al primer
+    gesto. Medido ese día en el panel, a 393 px: antes de tocar, ninguna
+    petición del validador; en el móvil no había manera de saber si bajaba."""
+    texto = (WEB / "index.html").read_text(encoding="utf-8")
+    inicial = re.search(r'<strong id="arranque-titulo">([^<]*)</strong>', texto)
+    assert inicial and "Descargando" not in inicial[1], (
+        "el panel del arranque vuelve a decir que descarga antes de descargar")
+    empezar = re.search(r"async function empezar\(\) \{\s*\n([^\n]*)", texto)
+    assert empezar and 'textContent = "Descargando el validador";' in empezar[1], (
+        "`empezar()` ya no dice que empieza a descargar en cuanto empieza")

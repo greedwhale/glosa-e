@@ -9098,3 +9098,41 @@ de error de cada factura se enseñan tal cual, porque no están publicados.
 **Provocado.** Cada comprobación rota a propósito, una cada vez y vuelta atrás:
 las diez roturas ponen `tests/test_acuses.py` en rojo. Detalle en el README,
 "Los acuses de la solución pública".
+
+## En el móvil, abrir el selector de ficheros tumbaba el arranque
+
+**Lo que pasó.** Visto por el titular el 27-10-2026 en un Android: se desplazó
+por la portada sin ver que el validador bajara nada, tocó la zona y, al rato,
+"No ha arrancado: lleva 30 segundos sin llegar un solo byte".
+
+**Lo que se midió.** Tres cosas, en el panel del navegador a 393 px y con el
+sitio montado:
+
+- Un toque arranca la descarga: con un `touchstart`, en 4 s ya se habían
+  pedido `pyodide.asm.wasm` y los demás. En un teléfono de verdad **no se ha
+  medido**.
+- El panel decía "Descargando el validador" desde que se abría la página, y
+  hasta el primer gesto no se pide ni un byte. En el móvil no había manera de
+  saber si bajaba o no. Ahora dice que se descarga en cuanto se use la página,
+  y "Descargando" cuando empieza.
+- En el móvil, tocar la zona abre el selector de ficheros y la página queda
+  oculta justo cuando el arranque empieza. Con un servidor que calla 40 s a
+  mitad del `.wasm` y la página dada por oculta, el vigilante la condenaba a
+  los 31,0 s, igual que a una conexión muerta: con la página oculta los tics
+  siguen llegando cada segundo, así que la laguna que ya se perdonaba no lo
+  caza. Que Android deje de entregar bytes a una página oculta **no está
+  medido**.
+
+**Lo que se hizo.** Con la página oculta el vigilante no juzga, y el silencio
+vuelve a contar al volver. La misma prueba: oculta, lista a los 47,1 s;
+visible, "No ha arrancado" a los 31,0 s, como antes.
+
+**De paso.** En las tres glosas de muestra, a 393 px, el rótulo empezaba en
+12 px y el corchete ocupa de 9,6 a 17,6: la E de ERROR caía encima del trazo.
+El relleno del folio pesaba más que el del móvil. Ahora empieza en 26 px, a
+media altura del corchete.
+
+**Provocado.** Las cinco roturas (el vigilante sin mirar si está oculta, el
+panel diciendo "Descargando" al abrir, `empezar()` sin decirlo, el rótulo sin
+su relleno y sin centrar) ponen en rojo `tests/test_vigilante.py`,
+`tests/test_arranque_al_primer_gesto.py` y `tests/test_en_un_movil.py`.
