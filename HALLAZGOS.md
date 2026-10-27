@@ -9136,3 +9136,34 @@ media altura del corchete.
 panel diciendo "Descargando" al abrir, `empezar()` sin decirlo, el rótulo sin
 su relleno y sin centrar) ponen en rojo `tests/test_vigilante.py`,
 `tests/test_arranque_al_primer_gesto.py` y `tests/test_en_un_movil.py`.
+
+## El botón de tema, y lo que habría pintado mal
+
+**Lo que se pidió.** El 27-10-2026 el titular pidió cambiar entre tema claro
+y oscuro sin salir de la página. Hasta entonces mandaba siempre el del
+sistema. Va un botón a la derecha de la cabecera en las ocho páginas, y por
+plantilla en las fichas y en la bitácora.
+
+**Lo que habría salido mal.** Los dos botones llenos de la portada (Elegir
+fichero y Escríbeme del escalón) llevaban su propia regla de noche, con
+`prefers-color-scheme`, y esa regla no se entera de un botón. Con el sistema
+en oscuro y la página puesta en claro, habrían pintado letra casi negra
+(`#10161d`) sobre el azul oscuro (`#1c4e80`). Ahora la letra sobre el acento
+es un token de la hoja, `--sobre-acento`, y una prueba se niega si una página
+vuelve a tener noche propia. Medido en el panel con el sistema en oscuro y la
+página en claro: letra blanca sobre `#1c4e80`.
+
+**Lo que cambia en la política.** Lo elegido se guarda en el navegador, la
+palabra claro u oscuro, y el aviso legal decía que no se guarda ningún dato
+tuyo. Ahora lo dice como excepción que pone quien pulsa, y la fecha de la
+política pasa al 27-10-2026. Sin pulsar no se guarda nada.
+
+**Medido en el panel, con el sitio montado.** Pulsar en Sobre Glosa-e la pasa
+a oscuro y la portada abre en oscuro; el testigo cuenta "1 dato guardado en
+el navegador". A 753 px, el ancho más justo con la barra entera, el botón
+cabe sin desbordar; a 393 px va al lado del Menú, a la misma altura.
+
+**Provocado.** Las ocho roturas (el guion retocado en una página, el botón
+fuera del menú, visible sin código, cada copia forzada de la paleta con un
+color distinto, la noche propia de vuelta, otra cosa guardada y el aviso
+legal sin decirlo) ponen `tests/test_tema.py` en rojo.

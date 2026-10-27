@@ -40,8 +40,13 @@ EJEMPLOS = RAIZ / "ejemplos"
 
 
 def _script() -> str:
-    """El script de la portada, el que va en línea."""
+    """El script de la portada, el que va en línea.
+
+    Sin contar el del tema, que va en el `<head>` de las ocho páginas desde el
+    27-10-2026 y tiene su propia prueba en test_tema.py.
+    """
     texto = INDEX.read_text(encoding="utf-8")
+    texto = re.sub(r"<!-- TEMA:.*?<!-- FIN TEMA -->", "", texto, flags=re.S)
     scripts = re.findall(r"<script>(.*?)</script>", texto, re.S)
     assert len(scripts) == 1, f"index.html lleva {len(scripts)} scripts en línea"
     return scripts[0]

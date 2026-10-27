@@ -66,6 +66,11 @@
   --nota-flojo: #eef0f4;
   --bien: #1f6b45;
   --bien-flojo: #e9f4ee;
+  /* La letra que va encima del acento, en los botones llenos. Estaba
+     escrita en la portada con su propio `prefers-color-scheme`, y eso no
+     se entera del botón de tema: con el sistema de noche y la página
+     puesta en claro, salía letra casi negra sobre el azul oscuro. */
+  --sobre-acento: #ffffff;
   --sombra: 0 1px 2px rgba(20,24,28,.05), 0 8px 24px -12px rgba(20,24,28,.14);
   /* --- Escala tipografica ---------------------------------------------
      Seis pasos, y ninguno mas. Antes habia catorce tamanos distintos en la
@@ -104,8 +109,57 @@
     --nota-flojo: #1e232c;
     --bien: #79c79c;
     --bien-flojo: #16261e;
+    --sobre-acento: #10161d;
     --sombra: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
   }
+}
+/* El tema elegido con el botón de la cabecera, que pesa más que el del
+   sistema. Son copias de los dos bloques de arriba, y tienen que serlo
+   letra por letra: tests/test_tema.py lo comprueba, porque una copia que
+   se queda atrás pinta un color que nadie ha medido con test_contraste. */
+:root[data-tema="claro"] {
+  --papel: #fbfaf7;
+  --panel: #ffffff;
+  --panel-2: #f4f2ec;
+  --borde: #e3e0d7;
+  --borde-fuerte: #948b78;
+  --tinta: #16181c;
+  --tinta-2: #454b54;
+  --tenue: #676c76;
+  --acento: #1c4e80;
+  --acento-flojo: #eaf0f7;
+  --error: #a3231c;
+  --error-flojo: #fbeceb;
+  --aviso: #85560a;
+  --aviso-flojo: #fbf3e3;
+  --nota: #3f4d63;
+  --nota-flojo: #eef0f4;
+  --bien: #1f6b45;
+  --bien-flojo: #e9f4ee;
+  --sobre-acento: #ffffff;
+  --sombra: 0 1px 2px rgba(20,24,28,.05), 0 8px 24px -12px rgba(20,24,28,.14);
+}
+:root[data-tema="oscuro"] {
+  --papel: #14161a;
+  --panel: #1a1d22;
+  --panel-2: #22262d;
+  --borde: #2c313a;
+  --borde-fuerte: #646d7e;
+  --tinta: #e8eaee;
+  --tinta-2: #b3bac4;
+  --tenue: #89909b;
+  --acento: #8ab4e0;
+  --acento-flojo: #1b2a3a;
+  --error: #f0938c;
+  --error-flojo: #2e1b1a;
+  --aviso: #ddb15e;
+  --aviso-flojo: #2b2318;
+  --nota: #9aa7bd;
+  --nota-flojo: #1e232c;
+  --bien: #79c79c;
+  --bien-flojo: #16261e;
+  --sobre-acento: #10161d;
+  --sombra: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
 }
 
 * { box-sizing: border-box; }
@@ -279,6 +333,35 @@ header::before {
 .menu > nav span {
   display: block; color: var(--tenue); font-size: var(--t0);
   line-height: 1.45; margin-top: .1rem;
+}
+
+/* --- El botón de tema -----------------------------------------------------
+   Desde el 27-10-2026, a petición del titular: claro u oscuro sin salir de la
+   página. Una luna cuando la página está en claro y un sol cuando está en
+   oscuro, que es lo que se pulsa para pasar al otro. Escondido hasta que el
+   guion del <head> pone `data-con-tema`: sin código no haría nada.
+
+   El hueco de la barra es de 1,5rem; con el margen negativo queda en la
+   mitad, que es lo que separa un botón de su vecino y no dos bloques. */
+.tema { display: none; }
+:root[data-con-tema] .tema {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 2.2rem; height: 2.2rem; padding: 0; margin-left: -.75rem;
+  border: 1px solid var(--borde); border-radius: 8px;
+  background: var(--panel); color: var(--tinta-2); cursor: pointer;
+}
+.tema:hover { color: var(--acento); border-color: var(--borde-fuerte); }
+.tema:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.tema svg {
+  width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.tema .sol { display: none; }
+:root[data-tema="oscuro"] .tema .luna { display: none; }
+:root[data-tema="oscuro"] .tema .sol { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) .tema .luna { display: none; }
+  :root:not([data-tema="claro"]) .tema .sol { display: block; }
 }
 
 /* --- Portada ------------------------------------------------------------- */
