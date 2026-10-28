@@ -47,9 +47,18 @@ PYTHON = (Path(sys.executable) if sys.executable
           else REPO / ".venv" / "Scripts" / "python.exe")
 CEROS = "0" * 40
 
-# Medido el 16-09-2026: la suite tarda 140 s en esta máquina. Diez minutos de
-# margen; si pasa de ahí es que algo se ha colgado.
-LIMITE = 900
+# Lo que tarda la suite en esta máquina, y cuándo se midió. El 16-09-2026 eran
+# 140 s; el 28-10-2026, con 3803 pruebas, 442 s a mano y unos 445 s dentro de
+# este mismo gancho. Ese día un push se cortó a los 900 s, que era el límite
+# de entonces, y a mano no se volvió a ver: con la máquina ocupada en otra cosa
+# la suite pasó del doble. Un límite que se queda a menos del doble de lo
+# normal no distingue una suite colgada de una máquina cargada, y el mensaje
+# decía que tardaba menos de tres minutos, que ya no era verdad. Por eso el
+# límite va atado a la medida (cuatro veces) y el mensaje la cita con su fecha:
+# cuando la suite crezca, se vuelve a medir y se cambian las dos cifras aquí.
+TARDA = 445
+MEDIDO_EL = "28-10-2026"
+LIMITE = 4 * TARDA
 
 # Una línea de solo puntos, letras de estado y el porcentaje: progreso, no
 # información. `.....F..  [ 42%]` y sus parientes.
@@ -143,9 +152,11 @@ def _guardar(entrada: str) -> int:
         )
     except subprocess.TimeoutExpired:
         return decir(
-            f"La suite no ha terminado en {LIMITE // 60} minutos y tarda menos de "
-            "tres. Algo se ha quedado colgado, y este push publica en "
-            "producción: no se sabe si pasa, así que no sale."
+            f"La suite no ha terminado en {LIMITE // 60} minutos, y el "
+            f"{MEDIDO_EL} tardaba unos {round(TARDA / 60)}. O algo se ha quedado "
+            "colgado o la máquina va muy cargada. Este push publica en "
+            "producción y no se sabe si pasa, así que no sale. Córrela a mano "
+            "con `-v` para ver dónde se para, y vuelve a empujar."
         )
     except OSError as error:
         return decir(

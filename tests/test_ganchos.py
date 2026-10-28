@@ -273,9 +273,21 @@ class TestElGanchoDeGit:
     def test_una_linea_que_no_se_entiende_para(self, de_git, monkeypatch):
         assert empujar(de_git, monkeypatch, Git(), "esto no son cuatro partes\n") != 0
 
-    def test_la_suite_colgada_para(self, de_git, monkeypatch):
+    def test_la_suite_colgada_para(self, de_git, monkeypatch, capsys):
         git = Git(suite=subprocess.TimeoutExpired(cmd="pytest", timeout=900))
         assert empujar(de_git, monkeypatch, git, rama()) != 0
+        # El mensaje dice lo medido, con su fecha, y no una cifra escrita a
+        # mano: decía «tarda menos de tres» cuando ya tardaba más de siete.
+        error = capsys.readouterr().err
+        assert de_git.MEDIDO_EL in error
+        assert f"unos {round(de_git.TARDA / 60)}" in error
+        assert "menos de tres" not in error
+
+    def test_el_limite_deja_margen_sobre_lo_medido(self, de_git):
+        """El 28-10-2026 un push se cortó a los 900 s con una suite que tarda
+        445: con la máquina cargada pasó del doble. Por debajo del triple, el
+        límite vuelve a confundir una máquina ocupada con una suite colgada."""
+        assert de_git.LIMITE >= 3 * de_git.TARDA
 
     def test_sin_poder_arrancar_la_suite_para(self, de_git, monkeypatch):
         git = Git(suite=OSError(8, "Formato de ejecutable no válido"))

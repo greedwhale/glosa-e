@@ -9186,3 +9186,21 @@ el mismo borde que el botón. Las tres roturas del anclaje ponen
 `tests/test_tema.py` en rojo; la primera versión de esa prueba miraba la regla
 `.menu` equivocada y no se ponía en rojo con una de ellas, y por eso ahora
 mira todas.
+
+## El gancho cortó la suite a los 15 minutos
+
+**Lo que pasó.** El 28-10-2026, al publicar la respuesta de la AEAT sobre la
+fecha del acuse, `git push` se negó: la suite no había terminado en 900 s. El
+mensaje decía que tarda menos de tres minutos, la cifra medida el 16-09-2026
+con 140 s. Corrida a mano justo después, con `-v` para ver dónde se paraba:
+3803 pruebas en 442 s, ninguna colgada. El segundo push pasó en unos 445 s. El
+corte no se pudo reproducir; lo más probable es que la máquina estuviera
+ocupada en otra cosa, y eso no está medido.
+
+**Lo que se hizo.** El límite va atado a lo medido, `LIMITE = 4 * TARDA`, con
+`TARDA = 445` y la fecha de la medida al lado, y el mensaje cita esa medida en
+vez de una cifra escrita a mano. Dice además qué hacer: correrla a mano con
+`-v` y volver a empujar.
+
+**Provocado.** Con el límite de antes, o con el mensaje de antes,
+`tests/test_ganchos.py` en rojo; vuelto atrás, en verde.

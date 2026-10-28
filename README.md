@@ -36,7 +36,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3803 tests, todos en verde.
+3804 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
