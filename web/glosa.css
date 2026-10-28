@@ -295,7 +295,15 @@ header::before {
   .principal { display: none; }
   .menu { display: block; }
 }
-.menu { margin-left: auto; position: relative; font-size: var(--t1); }
+/* La lista se ancla a la barra y no a la pestaña. Anclada a la pestaña se
+   abría hacia la izquierda desde su borde derecho, y eso valía mientras la
+   pestaña era lo último de la barra. Con el botón de tema a su derecha, a
+   393 px la lista empezaba en -23 px y se cortaba por la izquierda (visto
+   por el titular en un Android el 27-10-2026, y medido en el panel). Ahora
+   su borde derecho es el de la columna, el mismo que el del botón de tema,
+   y su ancho, el de la ventana menos los dos márgenes: cabe siempre. */
+.barra { position: relative; }
+.menu { margin-left: auto; font-size: var(--t1); }
 .menu > summary {
   display: inline-flex; align-items: center; gap: .45rem; cursor: pointer;
   padding: .35rem .7rem; border: 1px solid var(--borde); border-radius: 8px;
@@ -317,7 +325,7 @@ header::before {
 .menu[open] .tapa { display: block; position: fixed; inset: 0; }
 
 .menu > nav {
-  position: absolute; right: 0; top: calc(100% + .55rem); z-index: 1;
+  position: absolute; right: 1.5rem; top: calc(100% - .5rem); z-index: 1;
   width: min(24rem, calc(100vw - 3rem));
   display: flex; flex-direction: column;
   background: var(--panel); border: 1px solid var(--borde);

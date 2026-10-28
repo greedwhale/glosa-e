@@ -9167,3 +9167,14 @@ cabe sin desbordar; a 393 px va al lado del Menú, a la misma altura.
 fuera del menú, visible sin código, cada copia forzada de la paleta con un
 color distinto, la noche propia de vuelta, otra cosa guardada y el aviso
 legal sin decirlo) ponen `tests/test_tema.py` en rojo.
+
+**Lo que se escapó, y lo vio el titular.** Ya publicado, en su Android: la
+lista del menú se cortaba por la izquierda. Se anclaba al borde derecho de la
+pestaña Menú, y con el botón de tema a su derecha la pestaña dejó de ser lo
+último de la barra. Medido a 393 px: la lista empezaba en -23 px. En el panel
+se miró la barra cerrada a 393 y a 753 px, y nadie abrió el menú. Ahora se
+ancla a la barra: de 24 a 369 px a 393, de 24 a 296 a 320, y a 740 acaba en
+el mismo borde que el botón. Las tres roturas del anclaje ponen
+`tests/test_tema.py` en rojo; la primera versión de esa prueba miraba la regla
+`.menu` equivocada y no se ponía en rojo con una de ellas, y por eso ahora
+mira todas.

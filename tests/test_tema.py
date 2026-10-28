@@ -119,3 +119,24 @@ def test_el_aviso_legal_dice_lo_que_se_guarda():
     assert "tu navegador guarda esa elección" in legal, (
         "el botón de tema guarda una palabra en el navegador y el aviso legal "
         "ya no lo dice: la política volvería a prometer que no se guarda nada")
+
+
+def test_la_lista_del_menu_se_ancla_a_la_barra():
+    """Visto por el titular en un Android el 27-10-2026, con el botón ya
+    publicado: la lista del menú se cortaba por la izquierda. Se anclaba al
+    borde derecho de la pestaña, y la pestaña dejó de ser lo último de la
+    barra. Medido a 393 px: empezaba en -23 px; anclada a la barra, de 24 a
+    369, el mismo borde derecho que el botón de tema. A 320 px, de 24 a 296."""
+    hoja = HOJA.read_text(encoding="utf-8")
+    assert re.search(r"^\.barra \{ position: relative; \}", hoja, re.M), (
+        "la barra ya no es el ancla de la lista del menú")
+    # Todas las reglas `.menu`, que hay más de una: la primera es la que la
+    # esconde en ancho, y mirando solo esa la prueba no vigilaba nada.
+    menus = re.findall(r"^\s*\.menu \{([^}]*)\}", hoja, re.M)
+    assert len(menus) >= 2, menus
+    assert not any("position" in m for m in menus), (
+        "la pestaña vuelve a ser el ancla de la lista: con el botón de tema a "
+        "su derecha, en el móvil se corta por la izquierda")
+    lista = re.search(r"^\.menu > nav \{([^}]*)\}", hoja, re.M)[1]
+    assert "right: 1.5rem;" in lista, (
+        "la lista del menú ya no acaba en el margen derecho de la barra")
