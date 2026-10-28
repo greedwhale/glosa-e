@@ -1354,7 +1354,7 @@ def _con_lo_ultimo(portada: Path, entradas: list[bitacora.Entrada]) -> None:
     )
     bloque = (
         '<section id="lo-ultimo">\n'
-        '      <p class="rotulo">Bitácora</p>\n'
+        '      <p class="rotulo">Blog</p>\n'
         '      <h2 class="titulo">Lo último que se ha medido.</h2>\n'
         '      <ul class="ultimas">\n'
         f"{filas}"

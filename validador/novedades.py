@@ -307,8 +307,8 @@ def panel(dominio: str, cuenta_en_x: str, bitacora: str | None,
     ]
     if bitacora:
         opciones.append(_opcion(
-            "Canal Atom de la bitácora", f"./{bitacora}",
-            "Cada artículo nuevo de la bitácora, en el mismo lector.",
+            "Canal Atom del blog", f"./{bitacora}",
+            "Cada artículo nuevo del blog, en el mismo lector.",
             "cada artículo", copiar=f"{dominio}/{bitacora}"))
     return ('<details class="seguirlas"><summary>Seguir las novedades '
             '<svg class="galon" viewBox="0 0 10 6" aria-hidden="true">'

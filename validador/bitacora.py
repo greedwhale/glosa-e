@@ -244,7 +244,7 @@ def leer_entradas(carpeta: Path) -> list[Entrada]:
 
 
 _PORTADA = """<div class="portada">
-  <h1>Bitácora</h1>
+  <h1>Blog</h1>
   <p class="entrada-lema">Lo que se va midiendo sobre facturas y normas
   reales. Cada entrada lleva la fecha en que se midió y la fuente al lado, y
   las que se han corregido dicen qué se corrigió.</p>
@@ -305,7 +305,7 @@ def montar_bitacora(plantilla: Path, carpeta: Path, destino: Path) -> list[Entra
     (destino / NOMBRE).write_text(
         _pagina(
             texto,
-            "Bitácora",
+            "Blog",
             "Lo que Glosa-e va midiendo sobre facturas y normas reales, "
             "con la fecha en que se midió y la fuente al lado.",
             _indice(entradas),
@@ -340,7 +340,7 @@ def canal(entradas: list[Entrada], dominio: str) -> str:
     ordenadas = sorted(entradas, key=lambda e: (e.fecha, e.slug), reverse=True)
     return atom.canal(
         dominio=dominio, nombre=CANAL, pagina=NOMBRE.removesuffix(".html"),
-        titulo="Bitácora de Glosa-e",
+        titulo="Blog de Glosa-e",
         subtitulo="Lo que Glosa-e va midiendo sobre facturas y normas reales, "
                   "con la fecha en que se midió y la fuente al lado.",
         entradas=[atom.Entrada(

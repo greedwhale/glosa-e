@@ -315,3 +315,18 @@ def test_el_canal_lleva_cada_articulo_con_su_direccion_limpia():
 def test_sin_articulos_el_canal_se_niega():
     with pytest.raises(bitacora.SinEntrada, match="no tiene artículos"):
         bitacora.canal([], "https://www.glosa-e.com")
+
+
+# --- Se llama Blog, desde el 28-10-2026 ---------------------------------------
+
+def test_en_la_pagina_se_llama_blog():
+    """El titular lo pidió el 28-10-2026: en lo que se ve, Blog y no Bitácora.
+    Las direcciones se quedan (`bitacora.html`, `bitacora-*.html` y su canal,
+    `bitacora.xml`): están indexadas y hay lectores suscritos, y cambiarlas
+    rompería los dos sin ganar nada que se vea."""
+    sin_comentarios = re.compile(r"<!--.*?-->|/\*.*?\*/", re.S)
+    for pagina in sorted(WEB.glob("*.html")):
+        texto = sin_comentarios.sub("", pagina.read_text(encoding="utf-8"))
+        assert "Bitácora" not in texto and ">bitácora<" not in texto, (
+            f"«{pagina.name}» vuelve a llamar Bitácora a lo que en la página es el Blog")
+    assert "<h1>Blog</h1>" in bitacora._PORTADA

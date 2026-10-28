@@ -172,7 +172,7 @@ class TestPanel:
         assert self._destinos(hecho) == [
             (X, "Glosa-e en X"),
             ("./novedades.xml", "Canal Atom de las novedades"),
-            ("./bitacora.xml", "Canal Atom de la bitácora"),
+            ("./bitacora.xml", "Canal Atom del blog"),
         ]
         assert "Boletín" not in hecho
         assert hecho.startswith('<details class="seguirlas"><summary>')
