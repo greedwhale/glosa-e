@@ -690,7 +690,9 @@ Lo que se decidió en cada una:
   venga de quien venga. Lo que contesta el esquema es `XSD-ORDEN` sobre
   `cac:DocumentResponse` («no puede ir en este sitio»), que no deja ver que lo
   que falta es la fecha, y por eso va con una NOTA, `SPFE-ACUSE-FECHA`, que lo
-  dice.
+  dice. La AEAT lo confirmó por correo el 28-10-2026: la fecha es necesaria y
+  corregirá el ejemplo publicado. El corregido que adjuntó la lleva y pasa sin
+  errores, medido ese día.
 - **Sin versión es de la 2.5**, no de la 2.1 como lo demás: quien contesta con
   `DocumentStatus` es la solución pública, que solo existe sobre UBL 2.5, y el
   acuse del ejemplo no trae ni versión ni especificación.

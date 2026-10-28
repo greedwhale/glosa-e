@@ -9099,6 +9099,14 @@ de error de cada factura se enseñan tal cual, porque no están publicados.
 las diez roturas ponen `tests/test_acuses.py` en rojo. Detalle en el README,
 "Los acuses de la solución pública".
 
+**La respuesta, el 28-10-2026.** El titular le escribió el 26-10 al buzón de la
+AEAT. Contestó que tenían una versión equivocada, que el nodo `IssueDate` es
+necesario y que corregirán el ejemplo publicado, y adjuntó uno corregido.
+Medido ese día: con `cbc:IssueDate` del 28-10-2026, `DocumentStatus` de la 2.5
+sin errores, cabecera 200 y una factura dada de alta, salida 0. No se versiona,
+como ninguna factura ni acuse de terceros. El error se queda; la nota y la
+ficha citan la respuesta, y `tests/test_acuses.py` lo vigila.
+
 ## En el móvil, abrir el selector de ficheros tumbaba el arranque
 
 **Lo que pasó.** Visto por el titular el 27-10-2026 en un Android: se desplazó

@@ -3942,7 +3942,9 @@ CODIGOS: dict[str, str] = {
         "que es lo que encuentra donde esperaba la fecha, y por eso su error "
         "dice que cac:DocumentResponse no puede ir ahí. El acuse del ejemplo "
         "de remisión que la AEAT publicó el 15-10-2026 no la lleva, y es su "
-        "único fallo de forma: con la fecha puesta, valida."
+        "único fallo de forma: con la fecha puesta, valida. La AEAT contestó "
+        "por correo el 28-10-2026 que la fecha es necesaria y que corregirá "
+        "el ejemplo; el corregido que envió la lleva y pasa sin errores."
     ),
     "COPIA-TOTAL": (
         "Cuando la factura lleva retenciones, su total no es el total con "

@@ -137,6 +137,8 @@ class TestSinFecha:
         assert nota.gravedad == NOTA
         assert "cbc:IssueDate" in nota.mensaje
         assert "ejemplo" in nota.mensaje
+        assert "28-10-2026" in nota.mensaje, (
+            "la nota ya no dice que la AEAT confirmó que la fecha es necesaria")
 
     def test_con_fecha_no_hay_nota(self, catalogo):
         assert "SPFE-ACUSE-FECHA" not in [c for c, _ in de_acuse(medir(acuse(), catalogo))]

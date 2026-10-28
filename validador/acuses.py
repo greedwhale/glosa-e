@@ -40,6 +40,11 @@ la fecha puesta valida. El error lo da el esquema, como a cualquier documento
 quien venga), y la nota `SPFE-ACUSE-FECHA` dice qué es, porque lo que el
 esquema contesta es `XSD-ORDEN` sobre `cac:DocumentResponse`, «no puede ir en
 este sitio», y eso no deja ver que lo que falta es la fecha.
+
+La AEAT lo confirmó por correo el 28-10-2026: tenía una versión equivocada, la
+fecha es necesaria y corregirá el ejemplo publicado. El corregido que adjuntó,
+con la fecha, pasa sin errores (medido ese día). Es lo que ya se hacía, así que
+el error se queda como estaba; cambia lo que se cuenta.
 """
 
 from __future__ import annotations
@@ -166,7 +171,8 @@ def _sin_fecha() -> Incidencia:
         "cac:DocumentResponse, que es lo que viene donde esperaba la fecha, y "
         "por eso su error dice que cac:DocumentResponse no puede ir ahí. El "
         "acuse del ejemplo de remisión que la AEAT publicó el 15-10-2026 "
-        "tampoco la lleva.",
+        "tampoco la lleva, y la AEAT contestó el 28-10-2026 que la fecha es "
+        "necesaria y que corregirá ese ejemplo.",
         campo="cbc:IssueDate",
         esperado="la fecha del acuse, detrás de cbc:ID",
         encontrado="(no está)",
