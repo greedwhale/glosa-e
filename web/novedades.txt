@@ -12,6 +12,17 @@
 # leyendo el catálogo de cada commit con el lector de hoy (validador/codigos.py),
 # desde 598f34c, el último del 06-10-2026. Las fechas son las de esos commits.
 
+fecha: 2026-10-29
+id: version-de-ubl
+titulo: XSD-VERSION: declara UBL 2.1 y usa la 2.5
+nuevos: XSD-VERSION
+texto: Cuando una factura declara una versión de UBL y usa elementos de
+  otra posterior, como una línea de cobro de la solución pública en una
+  factura que dice ser UBL 2.1, Glosa-e lo dice así, en lugar de
+  culpar al orden de los elementos. La solución pública admite versiones
+  anteriores a la 2.5, y una factura en 2.1 que no use nada de la 2.5
+  pasa limpia.
+
 fecha: 2026-10-26
 id: acuses-de-la-solucion-publica
 titulo: SPFE-ACUSE: los acuses de la solución pública

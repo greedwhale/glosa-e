@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -39,6 +39,7 @@ from validador.formato import (
     CII,
     EDIFACT,
     FACTURAE,
+    NOMBRA_A_LA_AEAT,
     RESPUESTA,
     RESPUESTAS,
     UBL,
@@ -898,6 +899,80 @@ def _documento_a_validar(raiz, deteccion):
     return raiz.getroottree()
 
 
+def _version_que_si_vale(arbol, deteccion, catalogo: Catalogo) -> str | None:
+    """La primera versión de UBL posterior a la declarada con la que el documento pasa.
+
+    Una factura que declara UBL 2.1 y usa `CollectionInvoiceLine`, que solo
+    existe en la 2.5, falla contra el esquema 2.1, y libxml2 lo cuenta como
+    siempre: «This element is not expected». Con la `InvoiceLine` detrás, el
+    informe decía que las dos estaban «cambiadas de sitio», y quien lo leyera
+    movería un elemento que está en su sitio. Medido el 29-10-2026 con la
+    factura de la orden, declarando 2.1. Lo que está mal es la versión, y para
+    saberlo basta con preguntarle al esquema de la versión siguiente.
+
+    Solo hacia arriba, por lo mismo que `_versiones_ubl`: un documento que pasa
+    una versión posterior a la suya usa algo que su versión no tiene. Y solo
+    con los esquemas que haya: si no está ninguno posterior, no se dice nada
+    nuevo y se queda lo de la versión declarada.
+    """
+    if deteccion.familia not in (UBL, RESPUESTA):
+        return None
+    declarada = (deteccion.version or "").strip()
+    if declarada not in _VERSIONES_UBL:
+        return None
+    for version in _VERSIONES_UBL[_VERSIONES_UBL.index(declarada) + 1:]:
+        ruta = catalogo.indice.get(
+            _nombres_esperados(replace(deteccion, version=version))[0])
+        esquema = None if ruta is None else catalogo._compilar(ruta)
+        if esquema is not None and esquema.validate(arbol):
+            return version
+    return None
+
+
+def _otra_version(deteccion, version: str, incidencias: list[Incidencia]) -> Incidencia:
+    """Lo que se dice cuando el documento pasa con una versión posterior a la suya.
+
+    Una sola incidencia en lugar de las del esquema de su versión, que culpan
+    al orden de lo que en realidad no existe en ella.
+
+    La gravedad no es la misma para todos. Quien recibe UBL 2.1 —Peppol,
+    FACeB2B— lo mide con el esquema 2.1, y ahí es un ERROR. La AEAT dice en su
+    documento de validaciones de la SPFE (versión 0.1.0, 16-10-2026, apartado
+    4.1) que la forma se comprueba con los esquemas de UBL 2.5 y que se admiten
+    versiones anteriores; contra la 2.5 pasa, así que acusarla de un rechazo
+    sería prometer de más. Qué hace la SPFE con una factura que declara una
+    versión y usa elementos de otra no está escrito en ninguna parte: AVISO.
+    """
+    nombres = list(dict.fromkeys(
+        i.encontrado for i in incidencias if i.codigo == "XSD-ORDEN" and i.encontrado))
+    usa = (f"usa {_enumerar(nombres)}, que no existe en esa versión"
+           if len(nombres) == 1 else
+           f"usa {_enumerar(nombres)}, que no existen en esa versión"
+           if nombres else "usa elementos que esa versión no tiene")
+    de_la_aeat = bool(deteccion.perfil) and NOMBRA_A_LA_AEAT in deteccion.perfil
+    if de_la_aeat:
+        que_hacer = (
+            "La AEAT comprueba la forma con los esquemas de UBL 2.5 y admite "
+            "versiones anteriores, pero no ha dicho qué hace con un documento "
+            "que declara una y usa elementos de otra. Lo seguro es declarar "
+            f"{version} en UBLVersionID."
+        )
+    else:
+        que_hacer = (
+            f"O se declara {version} en UBLVersionID, si quien lo recibe la "
+            f"admite, o se quita lo que no es de la {deteccion.version}."
+        )
+    return Incidencia(
+        "XSD-VERSION",
+        AVISO if de_la_aeat else ERROR,
+        f"El documento declara UBL {deteccion.version} y {usa}. Contra el "
+        f"esquema de UBL {version} pasa. {que_hacer}",
+        campo="UBLVersionID",
+        esperado=f"{version} o posterior",
+        encontrado=deteccion.version,
+    )
+
+
 def reglas(raiz, deteccion, catalogo: Catalogo | None = None) -> list[Incidencia]:
     """Comprueba la forma de un documento ya parseado contra su esquema."""
     if raiz is None or not deteccion:
@@ -991,6 +1066,8 @@ def reglas(raiz, deteccion, catalogo: Catalogo | None = None) -> list[Incidencia
 
     fallos = list(esquema.error_log)
     incidencias = [traducir(entrada, arbol) for entrada in fallos[:TOPE_INCIDENCIAS]]
+    if (version := _version_que_si_vale(arbol, deteccion, catalogo)) is not None:
+        return [_otra_version(deteccion, version, incidencias)]
     if len(fallos) > TOPE_INCIDENCIAS:
         incidencias.append(
             Incidencia(

@@ -2882,3 +2882,70 @@ class TestElFcEnElRegistroLegal:
     def test_el_glosario_lo_dice_tambien(self):
         assert "FC" in glosario.CODIGOS["BR-CL-11"]
         assert "BT-32" in glosario.CODIGOS["BR-CL-11"]
+
+
+# --- La factura en UBL 2.1 ------------------------------------------------------
+#
+# El documento de validaciones de la SPFE (versión 0.1.0, 16-10-2026, apartado
+# 4.1) toma UBL 2.5 como referencia y admite versiones anteriores si el
+# documento cumple el contenido mínimo del anexo I. Hasta el 29-10-2026 el
+# README decía que la solución pública solo admitía la 2.5. Medido ese día: una
+# factura de la orden que declara 2.1 y no usa nada de la 2.5 pasaba limpia,
+# como debe; la que usa `CollectionInvoiceLine` salía con un XSD-ORDEN que
+# decía que estaba «cambiada de sitio» con la `InvoiceLine`.
+
+_EN_LA_21 = cambia(DEL_BOE, "<cbc:UBLVersionID>2.5<", "<cbc:UBLVersionID>2.1<")
+
+
+def _sin_la_retencion(xml: str) -> str:
+    """Sin retención ni su línea de cobro, que es lo único de la 2.5 que lleva."""
+    xml = re.sub(r"  <cac:WithholdingTaxTotal>.*?</cac:WithholdingTaxTotal>\n", "", xml, flags=re.S)
+    xml = re.sub(r"  <cac:CollectionInvoiceLine>.*?</cac:CollectionInvoiceLine>\n", "", xml, flags=re.S)
+    return cambia(xml, '<cbc:PayableAmount currencyID="EUR">86.00<',
+                  '<cbc:PayableAmount currencyID="EUR">101.00<')
+
+
+class TestEnUbl21:
+
+    def test_sin_nada_de_la_2_5_pasa_limpia(self, catalogo):
+        assert "CollectionInvoiceLine" not in _sin_la_retencion(_EN_LA_21)
+        assert limpia(_sin_la_retencion(_EN_LA_21), catalogo) == []
+
+    def test_con_una_linea_de_cobro_dice_que_es_la_version(self, catalogo):
+        informe = factura.validar(_EN_LA_21.encode("utf-8"), catalogo=catalogo)
+        assert [(i.codigo, i.campo) for i in informe.errores + informe.avisos] == [
+            ("XSD-VERSION", "UBLVersionID")]
+        queja = informe.avisos[0]
+        assert '"CollectionInvoiceLine"' in queja.mensaje
+        assert "UBL 2.1" in queja.mensaje and "UBL 2.5 pasa" in queja.mensaje
+        assert "cambiad" not in queja.mensaje
+        assert (queja.esperado, queja.encontrado) == ("2.5 o posterior", "2.1")
+
+    def test_de_la_spfe_es_aviso_porque_la_aeat_mide_con_la_2_5(self, catalogo):
+        """Su documento de validaciones dice que comprueba la forma con los
+        esquemas de la 2.5, y contra la 2.5 pasa: un ERROR prometería un
+        rechazo que nadie ha dicho."""
+        queja = next(i for i in factura.validar(_EN_LA_21.encode("utf-8"), catalogo=catalogo).incidencias
+                     if i.codigo == "XSD-VERSION")
+        assert queja.gravedad == AVISO
+        assert "no ha dicho" in queja.mensaje
+
+    def test_de_otro_es_error(self, catalogo):
+        otro = cambia(_EN_LA_21, ESPECIFICACION, "urn:cen.eu:en16931:2017")
+        queja = next(i for i in factura.validar(otro.encode("utf-8"), catalogo=catalogo).incidencias
+                     if i.codigo == "XSD-VERSION")
+        assert queja.gravedad == ERROR
+
+    def test_sin_el_esquema_de_la_2_5_no_se_inventa_nada(self, esquemas_del_paquete, tmp_path):
+        """Solo con la 2.1 no hay a quién preguntar: se queda lo de la 2.1."""
+        import shutil
+        shutil.copytree(esquemas_del_paquete / "ubl", tmp_path / "ubl")
+        informe = factura.validar(_EN_LA_21.encode("utf-8"), catalogo=Catalogo(tmp_path))
+        codigos = {i.codigo for i in informe.errores + informe.avisos}
+        assert "XSD-VERSION" not in codigos and "XSD-ORDEN" in codigos
+
+    def test_lo_que_falla_tambien_en_la_2_5_sigue_saliendo_como_antes(self, catalogo):
+        """Si la 2.5 tampoco lo admite, la versión no es el problema."""
+        roto = cambia(_EN_LA_21, "  <cac:InvoiceLine>", "  <cbc:Inventado>1</cbc:Inventado>\n  <cac:InvoiceLine>")
+        codigos = {i.codigo for i in factura.validar(roto.encode("utf-8"), catalogo=catalogo).errores}
+        assert "XSD-VERSION" not in codigos and "XSD-ORDEN" in codigos

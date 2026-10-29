@@ -9204,3 +9204,33 @@ vez de una cifra escrita a mano. Dice además qué hacer: correrla a mano con
 
 **Provocado.** Con el límite de antes, o con el mensaje de antes,
 `tests/test_ganchos.py` en rojo; vuelto atrás, en verde.
+
+## La solución pública no solo admite UBL 2.5
+
+El README, el código y las pruebas decían que la solución pública solo admite
+UBL 2.5. El documento de validaciones de la AEAT (versión 0.1.0, 16-10-2026,
+apartado 4.1) dice otra cosa: la referencia es la 2.5, y se admiten versiones
+anteriores si la factura cumple el contenido mínimo del anexo I y el formato de
+entrada. Lo que se dedujo de esa frase no cambiaba: sin `UBLVersionID`, una
+factura de la AEAT se sigue suponiendo de la 2.5, porque es la referencia y
+porque el ejemplo de la AEAT no lleva versión.
+
+**Reproducido** con la factura de la orden de las pruebas, cambiando solo
+`UBLVersionID` a 2.1 y con los esquemas de `web/paquete.zip`:
+
+| La factura | Lo que salía |
+|---|---|
+| 2.1, sin retención ni línea de cobro | nada de forma: pasa limpia, como debe |
+| 2.1, con su `CollectionInvoiceLine` | `XSD-ORDEN`: "CollectionInvoiceLine" y "InvoiceLine" están cambiados de sitio |
+
+La segunda es la de siempre con otro disfraz (en `formato.py` ya estaba escrita
+para el caso sin versión): libxml2 dice "not expected", la `InvoiceLine` va
+detrás, y el traductor concluye que están al revés. Lo que pasa es que en la 2.1
+ese elemento no existe.
+
+**Lo que lo cerró:** cuando un documento UBL falla contra su versión, se prueba
+contra las posteriores que haya instaladas, y si una lo admite sale
+`XSD-VERSION` en lugar de los `XSD-ORDEN`. AVISO con una especificación de la
+AEAT, que comprueba la forma con la 2.5; ERROR con cualquier otra. Probado
+rompiéndolo: sin la llamada, tres de las seis pruebas de `TestEnUbl21` en rojo;
+con ERROR para todas, dos.

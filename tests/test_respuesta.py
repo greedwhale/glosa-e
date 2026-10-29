@@ -132,16 +132,16 @@ class TestSeReconoce:
         assert d.version == "2.1"
 
     def test_sin_version_pero_con_el_cius_de_la_solucion_publica_es_la_2_5(self):
-        """Solo existe sobre UBL 2.5: suponerle la 2.1 sería medirla mal."""
+        """Su referencia es UBL 2.5: suponerle la 2.1 sería medirla mal."""
         d = detectar(respuesta(version=None, perfil=PERFIL_CIUS))
         assert d.version == "2.5"
-        assert "solo existe sobre UBL 2.5" in d.motivo
+        assert "referencia de la solución pública es UBL 2.5" in d.motivo
 
     def test_sin_version_y_con_el_identificador_de_la_orden_tambien_la_2_5(self):
         """Una sola regla para todo lo que es UBL, también con el de la orden."""
         d = detectar(respuesta(version=None, perfil=PERFIL_DE_LA_ORDEN))
         assert d.version == "2.5"
-        assert "solo existe sobre UBL 2.5" in d.motivo
+        assert "referencia de la solución pública es UBL 2.5" in d.motivo
 
     def test_no_dice_seguir_la_en_16931_aunque_lleve_el_perfil_de_una_factura(self):
         """Declarar el perfil de una factura no la hace factura: la norma no se

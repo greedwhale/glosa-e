@@ -3,7 +3,7 @@
 Qué es ese anexo y por qué hace falta leerlo
 --------------------------------------------
 El RD 238/2026 admite cuatro sintaxis (artículo 7.1), pero la solución pública
-de la AEAT **solo admite UBL 2.5**, y no UBL a secas: una especificación
+de la AEAT **toma UBL 2.5 como referencia**, y no UBL a secas: una especificación
 española propia con campos que la EN 16931 no tiene —retenciones, suplidos,
 minoraciones, impuestos y tasas cobrados en nombre de un tercero, el QR
 fiscal, la rectificativa—. No se publica como esquema ni como esquematrón: se

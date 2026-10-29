@@ -925,6 +925,19 @@ CODIGOS: dict[str, str] = {
         'veces y que el esquema no admite tantas, y quien lo leyera habría '
         'borrado uno sin arreglar nada.'
     ),
+    "XSD-VERSION": (
+        'El documento declara una versión de UBL en `UBLVersionID` y usa '
+        'elementos que esa versión no tiene, y contra el esquema de una '
+        'versión posterior pasa. El caso que lo trajo: una factura de la '
+        'solución pública que declara UBL `2.1` y usa `CollectionInvoiceLine`, '
+        'que solo existe en la `2.5`. El esquema de la `2.1` lo cuenta como un '
+        'elemento fuera de sitio, y el informe decía que estaba cambiado de '
+        'orden con la línea de detalle. Es AVISO cuando el documento declara '
+        'una especificación de la AEAT, porque la AEAT comprueba la forma con '
+        'los esquemas de la `2.5` y admite versiones anteriores, pero no ha '
+        'dicho qué hace con una que declara una y usa otra; con cualquier '
+        'otra, ERROR, porque quien recibe UBL `2.1` lo mide con la `2.1`.'
+    ),
     "BR-04": (
         'El documento no dice de qué tipo es. Es lo que distingue una factura '
         'de un abono, y cada sintaxis lo escribe en su sitio: UBL en '

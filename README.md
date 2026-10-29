@@ -36,7 +36,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3805 tests, todos en verde.
+3811 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -533,8 +533,12 @@ en una carpeta:
 ### Qué versión de UBL se le mide a cada documento
 
 Hacen falta las dos, y por una razón que no es de coleccionista: **la solución
-pública solo admite UBL 2.5** y todo lo que circula hoy —Peppol, FACeB2B, lo
-que sale de cualquier ERP— es UBL 2.1. Van a convivir años.
+pública toma UBL 2.5 como referencia** y todo lo que circula hoy —Peppol,
+FACeB2B, lo que sale de cualquier ERP— es UBL 2.1. Van a convivir años. La
+solución pública admite también versiones anteriores, si la factura cumple el
+contenido mínimo del anexo I y el formato de entrada (documento de validaciones
+de la AEAT, versión 0.1.0 del 16-10-2026, apartado 4.1). Hasta el 29-10-2026
+aquí ponía que solo admitía la 2.5.
 
 La regla es que **se puede subir de versión y nunca bajar**. Primero se busca
 el esquema de la versión que el documento declara en su `UBLVersionID`, que es
@@ -569,16 +573,36 @@ forma. Es la diferencia entre no saber y equivocarse en voz alta.
 
 Y hay un caso en que la versión se deduce: a un documento **sin**
 `UBLVersionID` que declare en su `CustomizationID` un identificador de la
-AEAT (`urn:aeat.es:`) se le supone UBL 2.5, porque la solución pública solo
-existe sobre esa versión y media docena de sus campos cuelgan de
+AEAT (`urn:aeat.es:`) se le supone UBL 2.5, porque es la referencia de la
+solución pública y media docena de sus campos cuelgan de
 `cac:CollectionInvoiceLine`, que en UBL 2.1 no existe. Suponerle 2.1 no era
 redondear: era mandar a medirla con un esquema que la rechaza entera. Con
 el CIUS de abril o el identificador del ejemplo, la suposición se apoya en
-que la AEAT ha dicho que la solución pública solo admite UBL 2.5; con otro
-de la AEAT que no se conoce, es solo una suposición. Hasta
+que la AEAT toma UBL 2.5 como referencia, y en que su ejemplo no lleva
+versión; con otro de la AEAT que no se conoce, es solo una suposición. Hasta
 el 05-10-2026 la deducción colgaba del nombre del CIUS de abril, y el ejemplo
 de la propia AEAT, que declara otro identificador y no lleva versión, se
 medía como 2.1.
+
+**Y cuando declara una versión y usa otra, se dice eso.** Una factura que
+declara UBL 2.1 se mide con el esquema 2.1, sea de quien sea: si no usa nada
+de la 2.5, pasa limpia, y la AEAT dice que la admite. Si usa
+`CollectionInvoiceLine`, el esquema 2.1 la rechaza con el «This element is not
+expected» de siempre, y hasta el 29-10-2026 el informe decía que esa línea y
+la `InvoiceLine` estaban «cambiadas de sitio»: quien lo leyera movería un
+elemento que está bien puesto. Ahora, cuando falla contra su versión, se
+prueba contra las posteriores que haya instaladas, y si alguna la admite sale
+una sola incidencia, `XSD-VERSION`, en lugar de los `XSD-ORDEN`. Es ERROR con
+cualquier especificación, porque quien recibe UBL 2.1 la mide con la 2.1, y
+AVISO con una de la AEAT: su documento de validaciones dice que comprueba la
+forma con los esquemas de la 2.5, contra los que pasa, y no dice qué hace con
+una factura que declara una versión y usa elementos de otra. Sin ningún
+esquema posterior instalado, se queda lo de la versión declarada. Medido con
+la factura de la orden: declarando 2.1, sale `XSD-VERSION` y nada más de
+forma; sin la retención (lo único de la 2.5 que lleva), ni eso. Cuesta compilar
+el esquema posterior una vez: medido en consola el 29-10-2026, la primera
+factura UBL 2.1 que no pasa su esquema pasa de unos 70 ms a unos 155, y las
+siguientes se quedan en 5 ms. En el navegador no está medido.
 
 ### Las respuestas: `ApplicationResponse`
 
@@ -694,7 +718,7 @@ Lo que se decidió en cada una:
   corregirá el ejemplo publicado. El corregido que adjuntó la lleva y pasa sin
   errores, medido ese día.
 - **Sin versión es de la 2.5**, no de la 2.1 como lo demás: quien contesta con
-  `DocumentStatus` es la solución pública, que solo existe sobre UBL 2.5, y el
+  `DocumentStatus` es la solución pública, cuya referencia es UBL 2.5, y el
   acuse del ejemplo no trae ni versión ni especificación.
 - **No se mira el sobre ebXML**, que es el que dice a qué servicio contesta el
   acuse y a qué envío, ni que las facturas existan o que el localizador valga.
@@ -721,6 +745,7 @@ el ejemplo de la AEAT y los de las pruebas, que son nuestros.
 | Código | Qué ha pasado |
 |---|---|
 | `XSD-ORDEN` | Un elemento no cabe ahí: está cambiado de sitio, repetido, o no existe |
+| `XSD-VERSION` | Declara una versión de UBL y usa elementos de una posterior, con la que sí pasa |
 | `XSD-FALTA` | A un elemento le falta un hijo obligatorio |
 | `XSD-VALOR` | El valor no está en la lista cerrada que admite el esquema |
 | `XSD-TIPO` | El valor no tiene la pinta de su tipo (fecha, importe, número...) |

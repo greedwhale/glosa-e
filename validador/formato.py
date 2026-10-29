@@ -110,7 +110,7 @@ MARCADOR_CIUS_ES = "urn:aeat.es:CIUS-ES-SPFE"
 # Lo que llevan delante los dos identificadores de la AEAT, el de la orden y
 # el del borrador. No identifica la solución pública: sirve para no callarse ante
 # un tercero que no sea ninguno de los dos, y para saber que lo que lo declara
-# va en UBL 2.5.
+# va en UBL 2.5 cuando no declara versión.
 NOMBRA_A_LA_AEAT = "urn:aeat.es:"
 
 
@@ -131,9 +131,9 @@ def _supone_ubl_25(perfil: str | None) -> bool:
     """Sin `UBLVersionID`, si lo que declara es de la AEAT.
 
     Basta con que nombre a la AEAT, y no hace falta que sea uno de los dos
-    identificadores conocidos: la solución pública solo admite UBL 2.5, así
-    que un tercero de la AEAT sin versión es mucho más probable que sea 2.5
-    que 2.1. Suponer 2.1 era lo que hacía salir «cambiadas de sitio» unas
+    identificadores conocidos: la referencia de la solución pública es UBL
+    2.5, así que un tercero de la AEAT sin versión es mucho más probable que
+    sea 2.5 que 2.1. Suponer 2.1 era lo que hacía salir «cambiadas de sitio» unas
     líneas de cobro que en la 2.1 no existen.
     """
     return bool(perfil) and NOMBRA_A_LA_AEAT in perfil
@@ -463,11 +463,17 @@ def _detectar_ubl(raiz: etree._Element, namespace: str, nombre: str) -> Deteccio
     version = _texto(raiz, "./cbc:UBLVersionID", espacios)
     # Lo que el documento declara manda siempre. Cuando no declara nada hay
     # que suponer, y la suposición no es la misma para todos: un documento que
-    # dice ser de la solución pública **solo puede ser UBL 2.5**,
-    # porque la SPFE no admite otra cosa y porque media docena de sus campos
-    # —los que cuelgan de `CollectionInvoiceLine`: suplidos, minoraciones,
-    # recargo de equivalencia, régimen de grupo— usan elementos que en UBL 2.1
-    # no existen. Comprobado contra los dos esquemas.
+    # dice ser de la solución pública **se supone UBL 2.5**, porque es la
+    # referencia de la SPFE y porque media docena de sus campos —los que
+    # cuelgan de `CollectionInvoiceLine`: suplidos, minoraciones, recargo de
+    # equivalencia, régimen de grupo— usan elementos que en UBL 2.1 no
+    # existen. Comprobado contra los dos esquemas.
+    #
+    # Hasta el 29-10-2026 esto decía que la SPFE no admite otra versión, y
+    # no es así: su documento de validaciones (versión 0.1.0, apartado 4.1)
+    # admite versiones anteriores si el documento cumple el contenido mínimo
+    # del anexo I. Una factura que declara la 2.1 se mide con la 2.1, como
+    # cualquier otra; si usa algo de la 2.5, lo dice `XSD-VERSION`.
     #
     # Suponer 2.1 ahí no era una imprecisión: mandaba a comprobar la factura
     # contra un esquema que la rechaza entera, y el informe habría acusado de
@@ -483,7 +489,7 @@ def _detectar_ubl(raiz: etree._Element, namespace: str, nombre: str) -> Deteccio
         version = "2.5"
         motivo = (
             "Sin UBLVersionID, pero declara una especificación de la AEAT, y "
-            "la solución pública solo existe sobre UBL 2.5."
+            "la referencia de la solución pública es UBL 2.5."
         )
     else:
         version = "2.1"
@@ -511,8 +517,8 @@ def _detectar_respuesta(raiz: etree._Element, namespace: str) -> Deteccion:
 
     La versión se deduce igual que en `_detectar_ubl`, a propósito: una sola
     regla para todo lo que es UBL. Sin `UBLVersionID`, la 2.1, salvo que
-    declare una especificación de la AEAT, porque la solución pública solo
-    existe sobre UBL 2.5. Que
+    declare una especificación de la AEAT, porque la referencia de la
+    solución pública es UBL 2.5. Que
     una respuesta de verdad lo declare es una suposición: la tabla del mensaje
     de anulación, en el anexo I de la orden publicada el 05-10-2026, no dice
     qué identificador de especificación lleva, ni si lleva alguno. Con el
@@ -529,7 +535,7 @@ def _detectar_respuesta(raiz: etree._Element, namespace: str) -> Deteccion:
         version = "2.5"
         motivo = (
             "Sin UBLVersionID, pero declara una especificación de la AEAT, y "
-            "la solución pública solo existe sobre UBL 2.5."
+            "la referencia de la solución pública es UBL 2.5."
         )
     else:
         version = "2.1"
@@ -551,7 +557,7 @@ def _detectar_acuse(raiz: etree._Element, namespace: str) -> Deteccion:
 
     Como una respuesta: ni factura ni abono, y sin `conforme_en16931`. Sin
     `UBLVersionID` es de la 2.5, y no de la 2.1 como lo demás: quien contesta
-    con `DocumentStatus` es la solución pública, que solo existe sobre UBL 2.5,
+    con `DocumentStatus` es la solución pública, cuya referencia es UBL 2.5,
     y el acuse del ejemplo oficial no lleva ni versión ni especificación. Va
     aparte de `_detectar_respuesta`, con su familia escrita, para que
     `test_respuesta` la vea al recorrer este fichero.
@@ -564,7 +570,7 @@ def _detectar_acuse(raiz: etree._Element, namespace: str) -> Deteccion:
         version = "2.5"
         motivo = (
             "Sin UBLVersionID; se asume UBL 2.5, porque quien contesta con "
-            "DocumentStatus es la solución pública, que solo existe sobre ella."
+            "DocumentStatus es la solución pública, y esa es su referencia."
         )
     return Deteccion(
         familia=ACUSE,
