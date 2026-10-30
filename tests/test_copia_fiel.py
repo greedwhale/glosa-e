@@ -26,6 +26,7 @@ comprueba que sale **esa** nota.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import pytest
 
@@ -709,6 +710,28 @@ def test_el_medio_de_pago_pasa_la_validacion_diciendo_otra_cosa():
     assert "48" in medio.esperado
     assert "bank card" in medio.esperado
     assert "pago mediante tarjeta" in medio.encontrado
+
+
+def test_el_19_europeo_es_un_abono_y_no_un_adeudo():
+    """UNCL4461: 19 es «ACH demand corporate trade payment (CTP) credit».
+
+    Del 21-09 al 30-10-2026 la nota, la ficha, el artículo y el README dijeron
+    adeudo. Una explicación de que un código significa otra cosa no puede
+    equivocarse en lo que significa, y el esquematrón no lo vigila: trae los
+    códigos y no sus nombres. Salió el 30-10-2026, al contrastar la lista antes
+    de publicar el dato en X.
+    """
+    medio = notas(medio="19")["COPIA-PAGO-MEDIO"]
+    assert "europeo es un abono de cámara de compensación" in medio.mensaje
+    raiz = Path(__file__).resolve().parents[1]
+    for fichero in ("validador/copia_fiel.py", "validador/glosario.py",
+                    "web/bitacora/copia-fiel-nadie-traduce.html", "README.md"):
+        texto = " ".join((raiz / fichero).read_text(encoding="utf-8").split())
+        texto = texto.replace('" "', "")
+        assert "abono de cámara de compensación" in texto, fichero
+        # Solo el aviso de corrección del artículo puede nombrar el error.
+        if not fichero.endswith(".html"):
+            assert "adeudo de cámara" not in texto, fichero
 
 
 def test_un_medio_de_pago_sin_equivalente_no_se_inventa():

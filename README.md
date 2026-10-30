@@ -36,7 +36,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3811 tests, todos en verde.
+3812 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5358,7 +5358,7 @@ toda la tabla, y no se ve sin abrir las dos listas a la vez:
 
 | Lo que esconde el pago | De 14 | Qué pasa |
 |---|---:|---|
-| El **medio de pago** dice otra cosa | 12 | Facturae tiene 19 códigos propios y la norma pide UNCL4461. Medido contra la lista que trae el esquematrón oficial: **los 19 existen también en UNCL4461** —diez tal cual, y los nueve que empiezan por cero en cuanto se les quita—, así que copiar el dígito no da un error: da un código válido que dice otra cosa. El `19` de Facturae es la tarjeta y el `19` europeo es un adeudo de cámara de compensación; el `04` es la transferencia y el `4` europeo es la reversión de un adeudo. Glosa traduce **cinco**, las que se sostienen por nombre, y de las demás dice que hay que elegirlas |
+| El **medio de pago** dice otra cosa | 12 | Facturae tiene 19 códigos propios y la norma pide UNCL4461. Medido contra la lista que trae el esquematrón oficial: **los 19 existen también en UNCL4461** —diez tal cual, y los nueve que empiezan por cero en cuanto se les quita—, así que copiar el dígito no da un error: da un código válido que dice otra cosa. El `19` de Facturae es la tarjeta y el `19` europeo es un abono de cámara de compensación; el `04` es la transferencia y el `4` europeo es la reversión de un adeudo. Glosa traduce **cinco**, las que se sostienen por nombre, y de las demás dice que hay que elegirlas |
 | **Varios vencimientos** no caben | 0 | `Installment` es `maxOccurs="unbounded"` en Facturae y el anexo tiene `BG-16` con cardinalidad 0..1 y una sola fecha en `BT-9`. Hay que elegir cuál viaja. **Ninguna de las 14 de aquí trae más de uno: el corte existe y no se ha visto**, así que se prueba provocado |
 | La **cuenta de cargo** no está en el anexo | 8 | `BT-91` es término de la norma y el anexo no lo recoge —y la traen más facturas que la de abono, que sí viaja— |
 | La **dirección de la sucursal** no viaja | 8 | de la cuenta, la norma se queda con el identificador y, como mucho, el BIC. Sale en la nota de lo que se queda en el original |

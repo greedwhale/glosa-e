@@ -872,7 +872,7 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "UNCL4461** -diez tal cual, y los nueve que empiezan por cero en "
         "cuanto se les quita-, así que copiar el dígito no da un error: da un "
         "código válido que dice otra cosa. El 19 de Facturae es «pago "
-        "mediante tarjeta» y el 19 europeo es un adeudo de cámara de "
+        "mediante tarjeta» y el 19 europeo es un abono de cámara de "
         "compensación; el 04 es «transferencia» y el 4 europeo es la reversión "
         "de un adeudo. Ninguna etiqueta del esquema trae el código europeo, "
         "así que la tabla se escribe a mano: aquí van las cinco que se pueden "
@@ -1749,7 +1749,7 @@ def _del_pago(factura, etiqueta: str) -> tuple[list[Incidencia], list[str]]:
                 "empiezan por cero en cuanto se les quita-, así que copiar el "
                 "dígito no da un error, da una factura válida que dice que se "
                 "paga de otra manera. El 19 de aquí es la tarjeta y el 19 "
-                "europeo es un adeudo de cámara de compensación.",
+                "europeo es un abono de cámara de compensación.",
                 campo=f"{etiqueta}Medio de pago (BT-81 en la copia)",
                 esperado=esperado,
                 encontrado=encontrado,

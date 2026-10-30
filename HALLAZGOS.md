@@ -9209,6 +9209,23 @@ vez de una cifra escrita a mano. Dice además qué hacer: correrla a mano con
 **Provocado.** Con el límite de antes, o con el mensaje de antes,
 `tests/test_ganchos.py` en rojo; vuelto atrás, en verde.
 
+## El 19 europeo era un abono, y cinco sitios decían adeudo
+
+Del 21-09 al 30-10-2026, la nota `COPIA-PAGO-MEDIO`, su ficha, la tabla de la
+copia fiel, el artículo y el README dijeron que el 19 de UNCL4461 es un adeudo
+de cámara de compensación. Es *ACH demand corporate trade payment (CTP) credit*,
+un abono. La lista se había medido para saber qué códigos existen, porque el
+esquematrón trae los códigos, y el nombre se escribió sin contrastarlo. Ninguna
+prueba podía verlo.
+
+Salió el 30-10 al preparar una publicación de X con ese dato: `docs.peppol.eu`
+publica la lista con sus nombres, y otras copias dicen lo mismo. UNECE, la
+fuente primaria, contestó 403 a la descarga, así que ella no se leyó. La
+conclusión no cambia, el dígito copiado pasa y dice otra cosa, pero una
+explicación de que un código significa otra cosa no puede errar en lo que
+significa. La prueba `test_el_19_europeo_es_un_abono_y_no_un_adeudo` se vio
+fallar antes de corregir, y el artículo lo dice en una nota de corrección.
+
 ## La solución pública no solo admite UBL 2.5
 
 **Lo que se escapó el 29-10, y se arregló el 30-10.** La corrección de ese día

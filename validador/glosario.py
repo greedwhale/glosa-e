@@ -4101,7 +4101,7 @@ CODIGOS: dict[str, str] = {
         "quita). Copiar el dígito, o normalizarlo quitándole el cero, no da "
         "un error: da una factura válida que dice que se paga de otra manera. "
         "El `19` de Facturae es el pago con tarjeta y el `19` europeo es un "
-        "adeudo de cámara de compensación; el `04` es la transferencia y el "
+        "abono de cámara de compensación; el `04` es la transferencia y el "
         "`4` europeo es la reversión de un adeudo. Ninguna etiqueta del "
         "esquema trae el código europeo, así que la tabla se escribe a mano: "
         "Glosa-e traduce las cinco que se sostienen por nombre (al contado, "
