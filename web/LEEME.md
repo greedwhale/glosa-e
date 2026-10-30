@@ -349,8 +349,8 @@ WebAssembly, sin que el fichero salga del ordenador.
   declaran la misma versión.
 - **Los esquemas XSD oficiales sí están aquí**, y esto decía lo contrario. Van
   dentro de `paquete.zip`: 43 ficheros —Facturae 3.0, 3.1, 3.2, 3.2.1 y 3.2.2,
-  CII D16B, UBL 2.1 y **UBL 2.5**, que es el único que la solución pública
-  admite—, y la página los enseña contados en «lo que trae». Lo que
+  CII D16B, UBL 2.1 y **UBL 2.5**, que es la referencia de la solución
+  pública—, y la página los enseña contados en «lo que trae». Lo que
   sigue siendo cierto es lo otro, y son dos cosas distintas que esta lista tenía
   juntas: **no están versionados** —`git ls-files esquemas` no devuelve nada— y
   **la suite corre sin ellos a propósito**, porque un test cuyo resultado

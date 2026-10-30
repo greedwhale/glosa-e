@@ -2823,7 +2823,9 @@ Ninguna es de la extracción; los dos métodos las ven igual.
 
 ## Tres maneras de acusar en falso a una factura correcta de UBL 2.5
 
-La solución pública solo admite UBL 2.5. Antes de escribir nada de eso hicimos
+La solución pública solo admite UBL 2.5 (eso se creía; desde el 29-10-2026 se
+sabe que es su referencia y que admite anteriores, más abajo). Antes de escribir
+nada de eso hicimos
 lo que dice la casa: pasarle al validador de hoy una factura de mañana y mirar
 qué contesta. Contestaba mal de tres maneras distintas, y las tres eran del
 mismo tipo —**no callarse, sino equivocarse en voz alta contra un documento que
@@ -2999,7 +3001,9 @@ es el `cbc:Name` de esa propiedad, y el anexo no lo dice. Va declarada en
 existe en UBL 2.1. Ahí está, en una línea, por qué la solución pública no puede
 admitir la versión que usa todo el mundo: no es una preferencia de la Agencia,
 es que en 2.1 no hay dónde escribir los suplidos, las minoraciones, el recargo
-de equivalencia ni el régimen de grupo de entidades.
+de equivalencia ni el régimen de grupo de entidades. (Era el borrador. En el
+anexo de la orden son siete rutas, y la AEAT admite versiones anteriores: lo
+cuenta "La solución pública no solo admite UBL 2.5".)
 
 ## La página existía y para los buscadores no
 
@@ -9206,6 +9210,16 @@ vez de una cifra escrita a mano. Dice además qué hacer: correrla a mano con
 `tests/test_ganchos.py` en rojo; vuelto atrás, en verde.
 
 ## La solución pública no solo admite UBL 2.5
+
+**Lo que se escapó el 29-10, y se arregló el 30-10.** La corrección de ese día
+dejó sin tocar un apartado del README, a 3.500 líneas de distancia: "Por qué la
+SPFE no puede admitir UBL 2.1". Además seguía contando los trece campos del
+borrador, con el recargo de equivalencia y el grupo de entidades, cuando la
+prueba de `tests/test_rutas_cius.py` ya medía siete en el anexo de la orden. Una
+prueba medía el número y nadie miraba el texto que lo contaba. Salió al buscarle
+la fuente a un comentario de LinkedIn, y un primer borrador de ese comentario
+heredó el error. Ahora esa misma prueba exige el número en el README y que el
+título viejo no vuelva: se vio fallar antes de corregir el texto.
 
 El README, el código y las pruebas decían que la solución pública solo admite
 UBL 2.5. El documento de validaciones de la AEAT (versión 0.1.0, 16-10-2026,

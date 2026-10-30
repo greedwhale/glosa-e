@@ -4061,13 +4061,15 @@ Arregladas esas dos, **las cincuenta andan enteras**. Y la prueba que lo
 comprueba mide también la de antes del arreglo, para que la corrección esté
 sostenida por una medida y no por lo que parece.
 
-### Por qué la SPFE no puede admitir UBL 2.1
+### Por qué UBL 2.1 se queda corta para la SPFE
 
-Aquí se ve, y es una sola línea de la tabla: **trece de los campos españoles
-cuelgan de `cac:CollectionInvoiceLine`** —suplidos, minoraciones, recargo de
-equivalencia, régimen de grupo de entidades y la contraprestación de la
-retención—, y ese elemento **no existe en UBL 2.1**. No es una preferencia de
-la Agencia: en 2.1 no hay dónde escribirlos.
+Aquí se ve, y es una sola línea de la tabla:
+**siete rutas del anexo cuelgan de `cac:CollectionInvoiceLine`** (los suplidos,
+los impuestos y tasas cobrados en nombre de un tercero, las minoraciones y la
+retención), y ese elemento **no existe en UBL 2.1**. En el borrador eran trece. La AEAT admite versiones
+anteriores si la factura cumple el contenido mínimo del anexo I (validaciones
+0.1.0, apartado 4.1), así que una factura sin esos datos cabe en 2.1. Una con
+ellos, no: en 2.1 no hay dónde escribirlos.
 
 ### El anexo solo habla de facturas
 

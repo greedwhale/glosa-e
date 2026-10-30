@@ -249,9 +249,10 @@ class TestQueLlevenADondeDicen:
     def test_collectioninvoiceline_no_existiria_en_ubl_2_1(self):
         """Siete campos españoles cuelgan de ahí, y por eso hace falta la 2.5.
 
-        Es el argumento entero de por qué la solución pública no admite UBL
-        2.1, y conviene que esté medido y no contado. En el borrador eran
-        trece.
+        Es el argumento entero de por qué una factura con esos datos no cabe
+        en UBL 2.1, aunque la AEAT admita versiones anteriores, y conviene que
+        esté medido y no contado. En el borrador eran trece, y el README siguió
+        contando trece hasta el 30-10-2026: por eso se mira también lo que dice.
         """
         cuelgan = [
             r.id
@@ -259,6 +260,9 @@ class TestQueLlevenADondeDicen:
             if "CollectionInvoiceLine" in r.ruta
         ]
         assert len(cuelgan) == 7
+        readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+        assert "**siete rutas del anexo cuelgan de `cac:CollectionInvoiceLine`**" in readme
+        assert "no puede admitir UBL 2.1" not in readme
         viejo = pathlib.Path("esquemas/ubl/common/UBL-CommonAggregateComponents-2.1.xsd")
         if viejo.is_file():
             assert "CollectionInvoiceLine" not in viejo.read_text(encoding="utf-8")
