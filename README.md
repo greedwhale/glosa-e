@@ -36,7 +36,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3812 tests, todos en verde.
+3816 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4099,11 +4099,11 @@ por qué; en GitHub no está, y allí se saltan.
 ### Las reglas del anexo, y a quién se le aplican
 
 Leído el anexo, `validador/solucion_publica.py` le pide a la factura lo que el
-anexo pide. **32 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
+anexo pide. **33 códigos, todos con el prefijo `SPFE-`** y la etiqueta «Anexo
 I» en el informe, que no es la del real decreto: es el anexo de la Orden
 HAC/1028/2026. Hasta el 07-10-2026 decía «Anexo I (borrador)», y hasta el
 11-10-2026 eran 24 y medían en buena parte el borrador de abril. Ese día
-quedaron en 22 al ponerlos al texto de la orden, y llegaron a 32 con lo que la
+quedaron en 22 al ponerlos al texto de la orden, y llegaron a 33 con lo que la
 orden pide y no se medía (en «La segunda tanda», «Lo que la orden pide y no se
 medía», «Los impuestos y tasas, y la información de la línea» y «La
 autorización, los ficheros embebidos y lo que se quitaba sin una queja», más
@@ -4875,6 +4875,11 @@ nombre fijo `INFO`. Medido antes de tocar nada, sobre `93a88c6`:
   (`SPFE-CANJE`). Un 388 sin BG-3 no dice qué tickets sustituye. La orden no
   lo exige (el grupo es opcional) y el Reglamento tampoco (art. 15.6), así que
   no es un error. Antes pasaba sin una palabra.
+- **La rectificativa que no cita la rectificada, un aviso desde el 30-10-2026**
+  (`SPFE-RECTIFICADA`). El Reglamento pide identificarla (art. 15.4), salvo en
+  los descuentos por volumen y lo que autorice la AEAT, donde basta el periodo.
+  La orden deja BG-3 opcional y la excepción no se ve en el fichero, así que no
+  es un error. Antes pasaba sin una palabra.
 - **«VAT» y «S» en el desglose de un cobro**, aunque no sea el IVA. Lo dice
   el grupo: «su uso implica» los dos valores. Se lee de la columna de la ruta,
   como los de las retenciones.

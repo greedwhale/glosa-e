@@ -455,6 +455,7 @@ XSD-VERSION
 SPFE-CANJE
 SPFE-GARANTIA
 FIRMA-POR-FUERA
+SPFE-RECTIFICADA
 
 # Los nombres sin cero con que salieron las fichas del IVA del 11 al
 # 13-09-2026 (`codigo-BR-S-8` y los demás), antes de llamarse como los llama

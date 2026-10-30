@@ -9265,3 +9265,18 @@ contra las posteriores que haya instaladas, y si una lo admite sale
 AEAT, que comprueba la forma con la 2.5; ERROR con cualquier otra. Probado
 rompiéndolo: sin la llamada, tres de las seis pruebas de `TestEnUbl21` en rojo;
 con ERROR para todas, dos.
+
+## La rectificativa que no citaba la rectificada
+
+**Cómo salió.** Del estudio del art. 15 del Reglamento de facturación, el
+30-10-2026: una 384 con su tipo y su modalidad, sin BG-3, pasaba sin una
+palabra sobre lo que rectifica, y el art. 15.4 pide identificarla.
+
+**Reproducido** con tres pruebas nuevas: las dos del aviso, en 384 y 471, en
+rojo. La orden deja el grupo en `0..n`, así que callar no contradecía el anexo.
+
+**Lo que se hizo.** `SPFE-RECTIFICADA`, un AVISO. No es ERROR porque el grupo es
+opcional y el artículo exceptúa los descuentos por volumen y lo que autorice la
+AEAT, y eso no se ve en el fichero. De paso, la ficha de `SPFE-RECTIFICATIVA`
+seguía diciendo que el grupo de importes pasaba a `0..1`, que el 24-10 se
+corrigió en el mensaje y no en la ficha: ahora dice `0..3`.

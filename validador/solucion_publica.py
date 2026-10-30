@@ -1025,7 +1025,7 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
         _claves_de_regimen, _referencias_catastrales, _informacion_adicional,
         _lineas_de_cobro, _retenciones, _cuadre_de_las_retenciones,
         _impuestos_de_los_cobros, _qr, _autorizacion, _ficheros_embebidos,
-        _total_a_pagar, _calificadores, _garantia, _canje,
+        _total_a_pagar, _calificadores, _garantia, _canje, _rectificada,
     ):
         incidencias.extend(regla(raiz))
     return incidencias
@@ -2017,6 +2017,39 @@ def _canje(raiz) -> list[Incidencia]:
             "fecha deja dicho qué se sustituye.",
             campo="Referencia de una factura anterior (BG-3)",
             esperado="las simplificadas que se sustituyen",
+            encontrado="ninguna",
+        )
+    ]
+
+
+def _rectificada(raiz) -> list[Incidencia]:
+    """Una rectificativa que no cita la factura que rectifica.
+
+    El Reglamento sí la pide (art. 15.4 del RD 1619/2012), y por eso es un aviso
+    y no una nota como `_canje`. No es un error porque la orden deja BG-3 en
+    0..n, y porque el mismo artículo exceptúa los descuentos por volumen y lo
+    que autorice la AEAT, donde basta el periodo: desde el fichero no se sabe si
+    es el caso. Medido el 30-10-2026: una 384 sin referencia pasaba sin una
+    palabra.
+    """
+    tipo = _valor(raiz, "./cbc:InvoiceTypeCode")
+    if tipo not in _RECTIFICATIVOS:
+        return []
+    if _nodos(raiz, SINTAXIS_UBL.facturas_previas + "/cac:InvoiceDocumentReference"):
+        return []
+    return [
+        Incidencia(
+            "SPFE-RECTIFICADA",
+            AVISO,
+            f"La factura es rectificativa ({tipo}) y no cita la factura que "
+            "rectifica (BG-3). El Reglamento de facturación pide sus datos "
+            "identificativos (art. 15.4 del RD 1619/2012), salvo en los descuentos "
+            "o bonificaciones por volumen y en los casos que autorice la AEAT, "
+            "donde basta el periodo. La orden deja el grupo opcional y desde el "
+            "fichero no se sabe si es una de esas excepciones, así que es un aviso "
+            "y no un error.",
+            campo="Referencia de una factura anterior (BG-3)",
+            esperado="el número y la fecha de la factura rectificada",
             encontrado="ninguna",
         )
     ]

@@ -3502,9 +3502,9 @@ CODIGOS: dict[str, str] = {
         "Cuota o CuotaRecargo de la L2.C y el importe en su descripción "
         "(BT-ES-29 y BT-123). Que falte cualquiera de esas cosas, o que sobre "
         "un documento, es un error. Cuántos importes caben lo dice la orden de "
-        "dos formas: hasta tres grupos en la fila BT-3 y cinco en el grupo. La "
-        "AEAT contestó el 13-10-2026 que el grupo pasa a 0..1, y en el ejemplo "
-        "que mandó ese día lleva uno por código de L2.C. Más de cinco es un "
+        "dos formas: hasta tres grupos en la fila BT-3 y cinco en el grupo. El "
+        "anexo que la AEAT publicó en su portal el 21-10-2026 le da tres (0..3), "
+        "y en el ejemplo que mandó el 13-10-2026 lleva uno por código de L2.C. Más de cinco es un "
         "error, y un código repetido, un aviso. Los importes con "
         "la modalidad I son un aviso, porque el grupo es para la sustitución. "
         "Sale como nota cuando la modalidad es S y no trae los importes: la "
@@ -3777,6 +3777,19 @@ CODIGOS: dict[str, str] = {
         "no dice cuál es el caso, así que es una nota con las tres lecturas y "
         "no una regla. Se reconoce por el texto del motivo: un descuento de "
         "garantía con otro motivo no se ve."
+    ),
+    "SPFE-RECTIFICADA": (
+        "Una factura rectificativa (384 o 471) que no cita la factura que "
+        "rectifica en el grupo de facturas anteriores (BG-3). El Reglamento de "
+        "facturación pide los datos identificativos de la factura rectificada, "
+        "y de todas si se corrigen varias en un documento (artículo 15, apartado "
+        "4, del RD 1619/2012). La excepción son los descuentos o bonificaciones por "
+        "volumen y los casos que autorice la AEAT, donde basta indicar el "
+        "periodo. La orden deja el grupo opcional y desde el fichero no se sabe "
+        "si la factura es una de esas excepciones, así que es un aviso y no un "
+        "error. Se arregla citando el número (BT-25) y la fecha (BT-26) de cada "
+        "factura rectificada. Que la factura citada exista y sea la correcta "
+        "no se comprueba."
     ),
     "SPFE-CANJE": (
         "Una factura de tipo 388, la que se emite en sustitución de facturas "

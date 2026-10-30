@@ -12,6 +12,15 @@
 # leyendo el catálogo de cada commit con el lector de hoy (validador/codigos.py),
 # desde 598f34c, el último del 06-10-2026. Las fechas son las de esos commits.
 
+fecha: 2026-10-30
+id: rectificativa-sin-citar
+titulo: SPFE-RECTIFICADA: una rectificativa que no cita la factura que corrige
+nuevos: SPFE-RECTIFICADA
+texto: El Reglamento de facturación pide identificar la factura rectificada,
+  salvo en los descuentos por volumen y en lo que autorice la AEAT. La orden
+  deja el grupo opcional y desde el fichero no se ve si es una excepción, así
+  que Glosa-e da un aviso cuando una 384 o una 471 no cita ninguna.
+
 fecha: 2026-10-29
 id: version-de-ubl
 titulo: XSD-VERSION: declara UBL 2.1 y usa la 2.5

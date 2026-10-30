@@ -403,9 +403,15 @@ def adjunto(valor: str, codigo: str = "", descripcion: str = "", uuid: str = "",
 
 
 def rectificativa_con(*adjuntos: str, tipo: str = "384", base: str = "") -> str:
-    """La factura de la orden como rectificativa, con estos BG-24 detrás del QR."""
-    return cambia(cambia(base or DEL_BOE, "<cbc:InvoiceTypeCode>380<", f"<cbc:InvoiceTypeCode>{tipo}<"),
-                  "  <cac:AccountingSupplierParty>",
+    """La factura de la orden como rectificativa: cita la rectificada (BG-3) y lleva estos BG-24 detrás del QR."""
+    xml = cambia(base or DEL_BOE, "<cbc:InvoiceTypeCode>380<", f"<cbc:InvoiceTypeCode>{tipo}<")
+    referencia = ("  <cac:BillingReference><cac:InvoiceDocumentReference>\n"
+                  "    <cbc:ID>F-2026-0100</cbc:ID><cbc:IssueDate>2026-10-01</cbc:IssueDate>\n"
+                  "  </cac:InvoiceDocumentReference></cac:BillingReference>\n")
+    delante = "  <cac:AdditionalDocumentReference>" if "<cac:AdditionalDocumentReference>" in xml \
+        else "  <cac:AccountingSupplierParty>"
+    xml = xml.replace(delante, referencia + delante, 1)
+    return cambia(xml, "  <cac:AccountingSupplierParty>",
                   "".join(adjuntos) + "  <cac:AccountingSupplierParty>")
 
 
@@ -1818,6 +1824,20 @@ class TestLaGarantiaYElCanje:
 
     def test_otro_tipo_sin_referencia_no_la_da(self):
         assert las(DEL_BOE, "SPFE-CANJE") == []
+
+    @pytest.mark.parametrize("tipo", ["384", "471"])
+    def test_una_rectificativa_que_no_cita_la_rectificada_es_un_aviso(self, tipo):
+        """El art. 15.4 la pide y el anexo deja BG-3 opcional. Medido el 30-10-2026: pasaba sin una palabra."""
+        aviso = la(cambia(DEL_BOE, "<cbc:InvoiceTypeCode>380<", f"<cbc:InvoiceTypeCode>{tipo}<"), "SPFE-RECTIFICADA")
+        assert aviso.gravedad == AVISO and aviso.encontrado == "ninguna"
+        assert "art. 15.4" in aviso.mensaje and "por volumen" in aviso.mensaje
+
+    def test_una_rectificativa_que_cita_la_rectificada_no_lo_da(self):
+        assert las(cambia(CON_LA_REFERENCIADA, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>384<"),
+                   "SPFE-RECTIFICADA") == []
+
+    def test_una_factura_normal_sin_referencia_no_lo_da(self):
+        assert las(DEL_BOE, "SPFE-RECTIFICADA") == []
 
 
 class TestDocumento:
