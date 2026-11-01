@@ -9348,3 +9348,14 @@ salió en 2, y es la nota.
 Y destapó un quinto: `IRPF al 15%: está en la copia y no en el original`. Falso, porque
 el original lo lleva, como retención. Ahora lo dice así. La lectura no lo había visto:
 ni ejecutar sustituye a leer, ni al revés.
+
+**Y con facturas reales.** Las 13 de terceros, en esta máquina y con permiso del titular,
+después de mirar que `gobl` no abre conexiones (130 ejecuciones con las públicas, y de
+nuevo con estas: ninguna). Su importador solo lee 3.2.2 y una factura por fichero, así que
+se le dio una copia de trabajo con esa cabecera; el comprobador comparó su salida con el
+fichero intacto. Las 13 entran y **8 se quedan sin líneas**, sin error: no es la versión,
+ni las etiquetas de la línea, ni el NIF, y **no se ha averiguado**. De las 5 que dan copia,
+5 parejas y ningún aviso falso: en 4, solo el indicador de copia. La quinta lleva una
+retención con el código de un impuesto, `gobl` la convierte en un impuesto que suma al
+total, y el comprobador lo ve. Es el primer fallo de un conversor ajeno que ha cazado con
+una factura real, y es una sola: no dice cuántas veces pasa.

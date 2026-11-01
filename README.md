@@ -5585,8 +5585,9 @@ inventar: datos, totales, desglose y líneas.
 - **Medido el 01-11-2026 con la salida real de un conversor ajeno**, `gobl` v0.511.2
   de Invopop, sobre sus 10 Facturae públicas: en HALLAZGOS. 4 hubo que retocarlas,
   porque su programa las rechaza sin datos que les faltan. Ese programa escribe UBL
-  EN 16931, y no la copia de la orden. **No está medido** con facturas reales pasadas
-  por un conversor ajeno, ni contra un conversor hecho para la SPFE.
+  EN 16931, y no la copia de la orden. Con facturas reales, 5 de 13: a las otras 8 su
+  importador les pierde las líneas, sin error, y no se ha averiguado por qué. **No está
+  medido** contra un conversor hecho para la SPFE.
 
 ## Que a esto se llegue desde fuera
 
