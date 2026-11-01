@@ -4024,12 +4024,15 @@ CODIGOS: dict[str, str] = {
     "COPIA-COMPARADA": (
         'En el lote venía un Facturae y su copia fiel en UBL, y se han comparado. '
         'La nota dice cuántas parejas, cuántas tienen alguna diferencia y qué se '
-        'mira: número, fecha, moneda, identificación y razón social de las partes, '
-        'base, cuotas, total con impuestos, retenciones, desglose de impuestos y, '
-        'línea a línea, cantidad, neto y tipo. No se compara el total a pagar, los '
-        'anticipos, los suplidos, el nombre de una persona física, la dirección, '
-        'el pago ni los textos, porque la correspondencia de esos campos no está '
-        'clara o la orden no les da ruta. Las parejas se forman por el NIF del '
+        'mira: número, fecha, moneda, identificación, razón social, dirección y '
+        'contacto de las partes, base, cuotas, total con impuestos, retenciones, '
+        'desglose de impuestos, vencimiento, medio de pago, cuenta de abono, motivos '
+        'de descuentos y cargos y, línea a línea, nombre, cantidad, precio, neto y '
+        'tipo. No se compara el total a pagar, los anticipos, los suplidos, el nombre '
+        'de una persona física, el código postal y la población de fuera de España, '
+        'los medios de pago que la tabla no sostiene por su nombre ni las notas de la '
+        'factura, porque la correspondencia de esos campos no está clara o la orden '
+        'no les da ruta. Las parejas se forman por el NIF del '
         'emisor, sin el prefijo de país, y por el número con su serie. Que no haya '
         'diferencias dice que los dos ficheros dicen lo mismo en lo comparado, no '
         'que la copia sea válida: eso lo dice el informe de cada fichero. La orden '
@@ -4072,12 +4075,44 @@ CODIGOS: dict[str, str] = {
     ),
     "COPIA-LINEAS": (
         'Las líneas de la copia fiel no coinciden con las de su Facturae: hay otro '
-        'número de líneas, o alguna lleva otra cantidad (BT-129), otro neto (BT-131) '
-        'u otro tipo (BT-152). Se comparan por su posición en el fichero, así que '
+        'número de líneas, o alguna lleva otra cantidad (BT-129), otro neto (BT-131), '
+        'otro precio (BT-146) u otro tipo (BT-152). Se comparan por su posición en el fichero, así que '
         'una copia con las líneas en otro orden también da este aviso. El neto se '
         'compara con GrossAmount y no con TotalCost, que es la cantidad por el '
         'precio (COPIA-LINEA-NETO). El tipo no se compara en una línea con recargo '
         'o con dos impuestos, porque en la copia la línea lleva uno solo.'
+    ),
+    "COPIA-PARTES": (
+        'La dirección o el contacto de una de las partes no coincide entre la copia '
+        'fiel y su Facturae: calle (BT-35 del vendedor, BT-50 del comprador), población '
+        '(BT-37 y BT-52), código postal (BT-38 y BT-53), provincia (BT-39 y BT-54), país '
+        '(BT-40 y BT-55), teléfono (BT-42 y BT-57) o correo (BT-43 y BT-58). Sale también '
+        'si el original lo lleva y la copia no. Se comparan sin mayúsculas, espacios ni '
+        'puntos, el país en dos letras aunque Facturae lo escriba en tres, y la calle '
+        'puede ir repartida en más de una línea de la copia. De una dirección de fuera '
+        'de España no se comparan el código postal ni la población, que Facturae junta '
+        'en un campo (COPIA-DIRECCION). Se arregla corrigiendo la conversión.'
+    ),
+    "COPIA-PAGO": (
+        'El pago no coincide entre la copia fiel y su Facturae: el vencimiento (BT-9), '
+        'el medio de pago (BT-81) o la cuenta de abono (BT-84). Con varios vencimientos '
+        'la copia solo admite uno, y vale cualquiera de los del original. El medio solo '
+        'se compara en los cinco códigos cuya equivalencia se sostiene por su nombre: '
+        '01 al contado es 10, 02 domiciliación es 49 o 59, 04 transferencia es 30 o 58, '
+        '11 cheque es 20 y 19 tarjeta es 48, 54 o 55. Los demás no se comparan. Lo más '
+        'grave es copiar el dígito tal cual: 04 o 4 existen en la lista europea y '
+        'significan otra cosa, así que la factura es válida y dice que se paga de otra '
+        'manera. Se arregla corrigiendo la conversión.'
+    ),
+    "COPIA-TEXTOS": (
+        'Un texto de la factura no coincide entre la copia fiel y su Facturae: el nombre '
+        'del artículo de una línea (BT-153), o el motivo de un descuento o de un cargo, '
+        'de la línea (BT-139 y BT-144) o del documento (BT-97 y BT-104). Se comparan sin '
+        'mayúsculas, espacios ni puntos. Un cargo que está en la copia y no en el original '
+        'no sale aquí, porque un impuesto que no es IVA va en la copia como cargo. Las '
+        'notas de la factura no se comparan: Facturae las reparte en tres campos y la '
+        'norma tiene un solo grupo, y lo que va en cada sitio lo decide quien copia. Se '
+        'arregla corrigiendo la conversión.'
     ),
     "COPIA-SEPARADOR": (
         'La copia fiel junta la serie y el número de otra manera que aquí, por '

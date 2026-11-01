@@ -13,6 +13,16 @@
 # desde 598f34c, el último del 06-10-2026. Las fechas son las de esos commits.
 
 fecha: 2026-11-01
+id: comprobador-de-copia-fiel-pago-y-textos
+titulo: La copia fiel: también la dirección, el pago y los textos
+nuevos: COPIA-PARTES COPIA-PAGO COPIA-TEXTOS
+texto: La comparación entre un Facturae y su copia en UBL mira ahora la
+  dirección y el contacto de las partes, el vencimiento, el medio de pago,
+  la cuenta de abono, el nombre y el precio de cada línea y los motivos de
+  descuentos y cargos. Avisa, por ejemplo, si el medio de pago se ha copiado
+  con el dígito de Facturae, que en la lista europea significa otra cosa.
+
+fecha: 2026-11-01
 id: comprobador-de-copia-fiel
 titulo: La copia fiel comparada con su Facturae
 nuevos: COPIA-COMPARADA COPIA-DATOS COPIA-IMPORTES COPIA-DESGLOSE

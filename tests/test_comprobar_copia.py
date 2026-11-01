@@ -23,18 +23,20 @@ COPIA = """<?xml version="1.0" encoding="UTF-8"?>
   <cbc:ID>FE0001</cbc:ID>
   <cbc:CopyIndicator>true</cbc:CopyIndicator>
   <cbc:IssueDate>2026-03-02</cbc:IssueDate>
+  <cbc:DueDate>2026-04-01</cbc:DueDate>
   <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
   <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
   <cac:AccountingSupplierParty><cac:Party>
-    <cac:PostalAddress><cac:Country><cbc:IdentificationCode>ES</cbc:IdentificationCode></cac:Country></cac:PostalAddress>
+    <cac:PostalAddress><cbc:StreetName>Calle Mayor 1</cbc:StreetName><cbc:CityName>Madrid</cbc:CityName><cbc:PostalZone>28013</cbc:PostalZone><cbc:CountrySubentity>Madrid</cbc:CountrySubentity><cac:Country><cbc:IdentificationCode>ES</cbc:IdentificationCode></cac:Country></cac:PostalAddress>
     <cac:PartyTaxScheme><cbc:CompanyID>ESB12345674</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
     <cac:PartyLegalEntity><cbc:RegistrationName>Talleres Ejemplo SL</cbc:RegistrationName></cac:PartyLegalEntity>
   </cac:Party></cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty><cac:Party>
-    <cac:PostalAddress><cac:Country><cbc:IdentificationCode>ES</cbc:IdentificationCode></cac:Country></cac:PostalAddress>
+    <cac:PostalAddress><cbc:StreetName>Gran Via 2</cbc:StreetName><cbc:CityName>Madrid</cbc:CityName><cbc:PostalZone>28013</cbc:PostalZone><cbc:CountrySubentity>Madrid</cbc:CountrySubentity><cac:Country><cbc:IdentificationCode>ES</cbc:IdentificationCode></cac:Country></cac:PostalAddress>
     <cac:PartyTaxScheme><cbc:CompanyID>ESB85905495</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
     <cac:PartyLegalEntity><cbc:RegistrationName>Clientes Ejemplo SL</cbc:RegistrationName></cac:PartyLegalEntity>
   </cac:Party></cac:AccountingCustomerParty>
+  <cac:PaymentMeans><cbc:PaymentMeansCode>30</cbc:PaymentMeansCode><cac:PayeeFinancialAccount><cbc:ID>ES91 2100 0418 4502 0005 1332</cbc:ID></cac:PayeeFinancialAccount></cac:PaymentMeans>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="EUR">21.00</cbc:TaxAmount>
     <cac:TaxSubtotal>
@@ -130,6 +132,20 @@ def test_la_nota_dice_lo_que_no_se_compara_y_que_no_valida():
     (('<cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory>',
       '<cbc:Percent>10</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory>'),
      "COPIA-LINEAS", "BT-152"),
+    (('<cbc:PriceAmount currencyID="EUR">50.00', '<cbc:PriceAmount currencyID="EUR">60.00'),
+     "COPIA-LINEAS", "BT-146"),
+    (("Calle Mayor 1", "Calle Menor 9"), "COPIA-PARTES", "calle del vendedor (BT-35)"),
+    (("Gran Via 2", "Gran Via 3"), "COPIA-PARTES", "calle del comprador (BT-50)"),
+    (("<cbc:CityName>Madrid", "<cbc:CityName>Alcorcón"), "COPIA-PARTES", "BT-37"),
+    (("<cbc:PostalZone>28013", "<cbc:PostalZone>28014"), "COPIA-PARTES", "BT-38"),
+    (("<cbc:CountrySubentity>Madrid", "<cbc:CountrySubentity>Ávila"), "COPIA-PARTES", "BT-39"),
+    (("<cbc:IdentificationCode>ES", "<cbc:IdentificationCode>PT"), "COPIA-PARTES", "BT-40"),
+    (("<cbc:StreetName>Calle Mayor 1</cbc:StreetName>", ""), "COPIA-PARTES", "nada en la copia"),
+    (("<cbc:DueDate>2026-04-01", "<cbc:DueDate>2026-05-01"), "COPIA-PAGO", "BT-9"),
+    (("  <cbc:DueDate>2026-04-01</cbc:DueDate>\n", ""), "COPIA-PAGO", "BT-9"),
+    (("<cbc:PaymentMeansCode>30", "<cbc:PaymentMeansCode>42"), "COPIA-PAGO", "BT-81"),
+    (("ES91 2100 0418 4502 0005 1332", "ES79 2100 0813 6101 2345 6789"), "COPIA-PAGO", "BT-84"),
+    (("Revision anual del vehiculo", "Otra cosa"), "COPIA-TEXTOS", "BT-153"),
     (("</Invoice>", LINEA_DOS), "COPIA-LINEAS", "1 línea en el original y 2 en la copia"),
 ])
 def test_cada_cambio_en_la_copia_se_detecta(cambio, codigo, se_lee):
@@ -515,3 +531,190 @@ class TestEnElLote:
         roto.write_text("<esto no es xml", encoding="utf-8")
         lote = factura.validar_lote([roto, ORIGINAL])
         assert not {i.codigo for i in lote.cruzadas} & {"COPIA-COMPARADA", "COPIA-SIN-PAREJA"}
+
+
+def con_datos_de_parte(de_original: str = "") -> str:
+    """El original, con los contactos y descuentos que el de ejemplo no lleva."""
+    return (de_original or original()).replace(
+        "</AddressInSpain>",
+        "</AddressInSpain><ContactDetails><Telephone>+34 910 000 000</Telephone>"
+        "<ElectronicMail>hola@ejemplo.es</ElectronicMail></ContactDetails>", 1)
+
+
+def test_el_contacto_se_compara_y_sin_espacios():
+    de_original = con_datos_de_parte()
+    contacto = ("<cac:Contact><cbc:Telephone>+34910000000</cbc:Telephone>"
+                "<cbc:ElectronicMail>HOLA@ejemplo.es</cbc:ElectronicMail></cac:Contact>"
+                "<cac:PartyTaxScheme><cbc:CompanyID>ESB12345674")
+    bien = COPIA.replace("<cac:PartyTaxScheme><cbc:CompanyID>ESB12345674", contacto, 1)
+    assert not avisos(bien, de_original)
+    mal = bien.replace("+34910000000", "+34910000001")
+    assert "teléfono del vendedor (BT-42)" in avisos(mal, de_original)["COPIA-PARTES"].mensaje
+    sin_correo = bien.replace("<cbc:ElectronicMail>HOLA@ejemplo.es</cbc:ElectronicMail>", "")
+    assert "BT-43" in avisos(sin_correo, de_original)["COPIA-PARTES"].mensaje
+
+
+@pytest.mark.parametrize("viejo, nuevo, se_lee", [
+    ("<cbc:CityName>Madrid", "<cbc:CityName>Alcorcón", "BT-52"),
+    ("<cbc:PostalZone>28013", "<cbc:PostalZone>28014", "BT-53"),
+    ("<cbc:CountrySubentity>Madrid", "<cbc:CountrySubentity>Ávila", "BT-54"),
+    ("<cbc:IdentificationCode>ES", "<cbc:IdentificationCode>PT", "BT-55"),
+])
+def test_los_campos_del_comprador_no_se_confunden_con_los_del_vendedor(viejo, nuevo, se_lee):
+    # El último de cada uno, que es el del comprador: los dos dicen lo mismo aquí.
+    cabeza, _, cola = COPIA.rpartition(viejo)
+    assert se_lee in avisos(cabeza + nuevo + cola)["COPIA-PARTES"].mensaje
+
+
+def test_la_calle_repartida_en_dos_lineas_es_la_misma():
+    """Medido con `gobl`, que parte "Calle Pradillo, 42, 3" y no pierde nada."""
+    de_original = original().replace("Calle Mayor 1", "Calle Mayor, 1, 3")
+    repartida = COPIA.replace(
+        "<cbc:StreetName>Calle Mayor 1</cbc:StreetName>",
+        "<cbc:StreetName>Calle Mayor 1</cbc:StreetName>"
+        "<cbc:AdditionalStreetName>3</cbc:AdditionalStreetName>")
+    assert not avisos(repartida, de_original)
+    assert "COPIA-PARTES" in avisos(de_original=de_original)
+
+
+def test_de_fuera_de_espana_no_se_compara_lo_que_hay_que_partir():
+    """El código postal y la población van juntos, y nadie dice por dónde se parten."""
+    de_original = original().replace(
+        """<AddressInSpain>
+          <Address>Calle Mayor 1</Address>
+          <PostCode>28013</PostCode>
+          <Town>Madrid</Town>
+          <Province>Madrid</Province>
+          <CountryCode>ESP</CountryCode>
+        </AddressInSpain>""",
+        """<OverseasAddress>
+          <Address>Calle Mayor 1</Address>
+          <PostCodeAndTown>1000-001 Lisboa</PostCodeAndTown>
+          <Province>Madrid</Province>
+          <CountryCode>PRT</CountryCode>
+        </OverseasAddress>""")
+    copia = COPIA.replace("<cbc:IdentificationCode>ES", "<cbc:IdentificationCode>PT", 1)
+    assert "OverseasAddress" in de_original
+    assert not avisos(copia, de_original)
+    assert "BT-35" in avisos(copia.replace("Calle Mayor 1", "Otra"), de_original)["COPIA-PARTES"].mensaje
+
+
+def test_un_pais_retirado_de_iso_no_se_compara():
+    de_original = original().replace("<CountryCode>ESP", "<CountryCode>ANT", 1)
+    assert not avisos(de_original=de_original)
+
+
+@pytest.mark.parametrize("de_facturae, de_copia", [
+    ("01", "10"), ("02", "49"), ("02", "59"), ("04", "30"), ("04", "58"),
+    ("11", "20"), ("19", "48"), ("19", "54"), ("19", "55"),
+])
+def test_los_medios_que_la_tabla_sostiene_no_dan_aviso(de_facturae, de_copia):
+    de_original = original().replace("<PaymentMeans>04", f"<PaymentMeans>{de_facturae}")
+    assert not avisos(COPIA.replace("<cbc:PaymentMeansCode>30", f"<cbc:PaymentMeansCode>{de_copia}"),
+                      de_original)
+
+
+@pytest.mark.parametrize("de_facturae, de_copia", [("04", "4"), ("19", "19"), ("04", "04")])
+def test_el_digito_de_facturae_copiado_se_llama_por_su_nombre(de_facturae, de_copia):
+    de_original = original().replace("<PaymentMeans>04", f"<PaymentMeans>{de_facturae}")
+    copia = COPIA.replace("<cbc:PaymentMeansCode>30", f"<cbc:PaymentMeansCode>{de_copia}")
+    assert "copiado tal cual" in avisos(copia, de_original)["COPIA-PAGO"].mensaje
+
+
+def test_un_medio_que_la_tabla_no_sostiene_no_se_compara():
+    de_original = original().replace("<PaymentMeans>04", "<PaymentMeans>13")
+    assert not avisos(COPIA.replace("<cbc:PaymentMeansCode>30", "<cbc:PaymentMeansCode>1"), de_original)
+
+
+def varios_vencimientos() -> str:
+    return original().replace(
+        "</Installment>",
+        "</Installment><Installment><InstallmentDueDate>2026-05-01</InstallmentDueDate>"
+        "<InstallmentAmount>60.00</InstallmentAmount><PaymentMeans>04</PaymentMeans>"
+        "<AccountToBeCredited><IBAN>ES7921000813610123456789</IBAN></AccountToBeCredited>"
+        "</Installment>")
+
+
+def test_con_varios_vencimientos_vale_cualquiera_y_ninguno_otro():
+    """La copia solo admite uno, y elegir cuál es de quien copia (COPIA-VENCIMIENTOS)."""
+    de_original = varios_vencimientos()
+    assert not avisos(de_original=de_original)
+    assert not avisos(COPIA.replace("<cbc:DueDate>2026-04-01", "<cbc:DueDate>2026-05-01"), de_original)
+    assert "BT-9" in avisos(COPIA.replace("<cbc:DueDate>2026-04-01", "<cbc:DueDate>2026-06-01"),
+                            de_original)["COPIA-PAGO"].mensaje
+
+
+def test_sin_pago_en_el_original_no_se_mira_el_de_la_copia():
+    de_original = original()
+    inicio, fin = de_original.index("<PaymentDetails>"), de_original.index("</PaymentDetails>")
+    de_original = de_original[:inicio] + de_original[fin + len("</PaymentDetails>"):]
+    assert not avisos(de_original=de_original)
+
+
+def test_el_vencimiento_de_una_nota_de_abono_va_en_el_medio_de_pago():
+    """CreditNote no tiene DueDate en la cabecera."""
+    copia = COPIA.replace("  <cbc:DueDate>2026-04-01</cbc:DueDate>\n", "").replace(
+        "<cbc:PaymentMeansCode>30</cbc:PaymentMeansCode>",
+        "<cbc:PaymentMeansCode>30</cbc:PaymentMeansCode><cbc:PaymentDueDate>2026-04-01</cbc:PaymentDueDate>")
+    assert not avisos(copia)
+
+
+def test_el_precio_de_varias_unidades_se_lleva_a_una():
+    """BT-149: 100 por cada 2 es el precio de 50 del original."""
+    copia = COPIA.replace(
+        '<cbc:PriceAmount currencyID="EUR">50.00</cbc:PriceAmount>',
+        '<cbc:PriceAmount currencyID="EUR">100.00</cbc:PriceAmount>'
+        '<cbc:BaseQuantity unitCode="C62">2</cbc:BaseQuantity>')
+    assert not avisos(copia)
+
+
+DESCUENTO_F = ("<TotalCost>100.00</TotalCost><DiscountsAndRebates><Discount>"
+               "<DiscountReason>Pronto pago</DiscountReason><DiscountAmount>0.00</DiscountAmount>"
+               "</Discount></DiscountsAndRebates>")
+DESCUENTO_U = ("<cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator>"
+               "<cbc:AllowanceChargeReason>{}</cbc:AllowanceChargeReason>"
+               '<cbc:Amount currencyID="EUR">0.00</cbc:Amount></cac:AllowanceCharge>')
+
+
+def con_descuento() -> str:
+    return original().replace("<TotalCost>100.00</TotalCost>", DESCUENTO_F)
+
+
+def copia_con_motivo(motivo: str) -> str:
+    return COPIA.replace("<cac:Item><cbc:Name>",
+                         DESCUENTO_U.format(motivo) + "<cac:Item><cbc:Name>")
+
+
+def test_el_motivo_del_descuento_se_compara():
+    assert not avisos(copia_con_motivo("PRONTO PAGO"), con_descuento())
+    assert "línea 1, motivo (BT-139)" in avisos(copia_con_motivo("Otro"), con_descuento())["COPIA-TEXTOS"].mensaje
+    assert "BT-139" in avisos(de_original=con_descuento())["COPIA-TEXTOS"].mensaje
+
+
+def test_un_cargo_de_mas_en_la_copia_no_es_una_diferencia_de_textos():
+    """Un impuesto que no es IVA va en la copia como cargo, y en el original no es un cargo."""
+    cargo = DESCUENTO_U.format("IAE").replace(">false<", ">true<")
+    assert "COPIA-TEXTOS" not in avisos(COPIA.replace("<cac:Item><cbc:Name>", cargo + "<cac:Item><cbc:Name>"))
+
+
+def test_el_motivo_general_se_compara_en_el_documento():
+    de_original = original().replace(
+        "<PaymentDetails>",
+        "<GeneralDiscounts><Discount><DiscountReason>Rappel</DiscountReason>"
+        "<DiscountAmount>0.00</DiscountAmount></Discount></GeneralDiscounts><PaymentDetails>")
+    assert "motivo (BT-97)" in avisos(de_original=de_original)["COPIA-TEXTOS"].mensaje
+    bien = COPIA.replace("<cac:TaxTotal>", DESCUENTO_U.format("Rappel") + "<cac:TaxTotal>", 1)
+    assert not avisos(bien, de_original)
+
+
+def test_un_texto_largo_se_corta_en_el_aviso():
+    largo = "Revision " * 40
+    de_original = original().replace("Revision anual del vehiculo", largo)
+    mensaje = avisos(de_original=de_original)["COPIA-TEXTOS"].mensaje
+    assert largo not in mensaje and "..." in mensaje
+
+
+def test_la_nota_ya_no_dice_que_no_se_comparan():
+    mensaje = comparar()[0].mensaje
+    assert "la dirección, el pago ni los textos" not in mensaje
+    assert "vencimiento" in mensaje

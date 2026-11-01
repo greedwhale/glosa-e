@@ -9382,3 +9382,22 @@ esquema admite y su importador rechaza, esta vez con error.
 
 El de la retención convertida en impuesto es el primer fallo de un conversor ajeno cazado
 con una factura real, y es una sola: no dice cuántas veces pasa.
+
+### La dirección, el pago y los textos: lo que la copia podía cambiar sin que nadie lo viera
+
+Reproducido el 01-11-2026, antes de tocar nada: una copia con otra calle, otro código
+postal, otra provincia, otro país, otro vencimiento, otra cuenta, otro nombre de artículo,
+otro precio o el medio de pago 4 en lugar de 30 salía sin un solo aviso. Diez cambios y
+ninguno se veía, y el 4 es el fallo que la tabla llama el más peligroso: un código válido
+que significa otra cosa.
+
+Tres códigos nuevos, `COPIA-PARTES`, `COPIA-PAGO` y `COPIA-TEXTOS`, y el precio en
+`COPIA-LINEAS`. Solo las filas en las que la tabla no duda.
+
+Medir enseñó una cosa que aquí no se podía ver: la calle de Facturae es una línea y `gobl`
+la parte, "Calle Pradillo, 42, 3" en `StreetName` y `AdditionalStreetName`. No pierde nada, y
+salía como otra calle. Se juntan antes de comparar.
+
+Medido con 9 Facturae públicas por `gobl`, 5 facturas reales distintas por `gobl` (solo
+recuentos) y 6 parejas de FACe con datos inventados: ningún aviso falso. Un aviso nuevo y
+cierto: FACe no escribe el motivo de un descuento en su UBL, que es además su BR-42.

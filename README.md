@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3884 tests, todos en verde.
+3927 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5563,11 +5563,11 @@ lectura de aquí: la orden los describe en UBL y de Facturae no dice nada.
 **Comparar la copia con su original.** Desde el 01-11-2026, si un lote trae un
 Facturae y su copia en UBL, `validador/comprobar_copia.py` los empareja por el
 NIF del emisor y el número, y compara lo que la tabla deja comparar sin
-inventar: datos, totales, desglose y líneas.
+inventar: datos, dirección y contacto, totales, desglose, líneas, pago y textos.
 
-- **Son avisos, y de la casa.** `COPIA-DATOS`, `COPIA-IMPORTES`,
-  `COPIA-DESGLOSE` y `COPIA-LINEAS` dicen que los dos ficheros no dicen lo
-  mismo, que está comprobado. Decir que la copia incumple sería firmar una
+- **Son avisos, y de la casa.** `COPIA-DATOS`, `COPIA-PARTES`, `COPIA-IMPORTES`,
+  `COPIA-DESGLOSE`, `COPIA-LINEAS`, `COPIA-PAGO` y `COPIA-TEXTOS` dicen que los dos
+  ficheros no dicen lo mismo, que está comprobado. Decir que la copia incumple sería firmar una
   correspondencia que la orden no publica. `COPIA-COMPARADA` es la nota con qué se
   comparó y qué no, y `COPIA-SIN-PAREJA` la de la copia que no encuentra original.
 - **BT-112 contra la base más las cuotas**, que es lo que dice la fila del total,
@@ -5579,9 +5579,18 @@ inventar: datos, totales, desglose y líneas.
 - **Margen de medio céntimo**, y no el céntimo de `sintaxis.cuadra`. Redondear
   ocho decimales a dos aparta hasta 0,005; un céntimo entre dos importes de dos
   decimales es la diferencia que esto busca.
+- **El medio de pago, solo en los cinco códigos** que la tabla sostiene por su
+  nombre, y con los códigos más precisos de la misma cosa: 58 y 59 los SEPA, 54 y 55
+  las tarjetas. Si la copia lleva el dígito de Facturae tal cual, el aviso lo nombra.
+- **Con varios vencimientos vale cualquiera**, porque la copia solo admite uno. Y una
+  calle repartida en dos líneas de la copia es la misma calle: `gobl` lo hace sin
+  perder nada, y salía como otra.
 - **Lo que no se compara**, porque la tabla no lo deja: BT-115, BT-113, suplidos,
-  el nombre de una persona física, la categoría al 0 % y la base del recargo. Con
-  impuestos que no son IVA, IGIC ni IPSI, ni totales ni desglose.
+  el nombre de una persona física, la categoría al 0 %, la base del recargo, el código
+  postal y la población de fuera de España, y las notas de la factura. Con impuestos
+  que no son IVA, IGIC ni IPSI, ni totales ni desglose. Tampoco, de momento, varias
+  filas que la tabla da por iguales: BT-6, BT-7, BG-14, BT-26, BT-106 a BT-108, y
+  los importes de los descuentos y cargos de línea.
 - **Medido el 01-11-2026 con la salida real de un conversor ajeno**, `gobl` v0.511.2
   de Invopop, sobre sus 10 Facturae públicas: en HALLAZGOS. 4 hubo que retocarlas,
   porque su programa las rechaza sin datos que les faltan. Ese programa escribe UBL
@@ -5589,6 +5598,11 @@ inventar: datos, totales, desglose y líneas.
   distintas: dan copia 5, y ningún aviso falso, quitándole a la copia de trabajo un elemento
   con el que su importador pierde las líneas sin error. Las otras 2 llevan un código de
   impuesto que no admite. **No está medido** contra un conversor hecho para la SPFE.
+- **La dirección, el pago y los textos, medidos ese mismo día** con las mismas fuentes:
+  9 Facturae públicas por `gobl`, las 5 facturas reales que dan copia, también por
+  `gobl` y solo en recuentos, y 6 parejas de FACe con datos inventados. Ningún aviso
+  falso una vez arreglada la calle repartida; el único aviso nuevo es cierto: FACe no
+  escribe en su UBL el motivo de un descuento.
 
 ## Que a esto se llegue desde fuera
 

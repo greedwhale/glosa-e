@@ -1549,6 +1549,14 @@ _MEDIOS_DE_PAGO = {
     "19": ("pago mediante tarjeta", "48", "bank card"),
 }
 
+# Lo mismo para quien compara una copia ya hecha, que no elige sino que reconoce:
+# el código más preciso de la misma cosa también dice lo mismo. El SEPA de arriba,
+# y el 54 y el 55 de UNCL4461, la tarjeta de crédito y la de débito.
+MEDIOS_EN_LA_COPIA = {
+    codigo: (datos[1], *{"02": ("59",), "04": ("58",), "19": ("54", "55")}.get(codigo, ()))
+    for codigo, datos in _MEDIOS_DE_PAGO.items()
+}
+
 
 # Lo que se queda en el original, y cómo se llama en el informe. Se imprime el
 # concepto y no el elemento: quien lee el informe tiene delante su factura, no

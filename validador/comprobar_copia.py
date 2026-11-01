@@ -30,7 +30,12 @@ Lo que la tabla no deja comparar sin inventar:
 - la categoría de una entrada al 0 %: al cero caben seis, y el código de
   impuesto de Facturae no distingue ninguna. Se comparan juntas, solo por
   importes (`COPIA-DESGLOSE-CERO`);
-- la base de la entrada del recargo de equivalencia, que la orden no explica.
+- la base de la entrada del recargo de equivalencia, que la orden no explica;
+- el código postal y la población de fuera de España: van juntos y la copia los
+  pide en dos, y nadie dice por dónde se parten (`COPIA-DIRECCION`);
+- el medio de pago, fuera de los cinco códigos que la tabla sostiene por su nombre;
+- las notas de la factura: la norma tiene un grupo repetible y Facturae tres campos
+  que no se parecen, y lo que va en cada sitio lo decide quien copia.
 
 Y una factura con impuestos que no son IVA, IGIC ni IPSI se compara solo en sus
 datos y en sus líneas: esos impuestos van en la copia como cargo, y entonces ni
@@ -46,7 +51,9 @@ aquí no lo podían enseñar (en HALLAZGOS):
 - el prefijo del NIF, sea del país que sea, porque Facturae lo lleva aparte;
 - el signo en un abono: Facturae rectifica en negativo y el 381 va en positivo;
 - el separador entre la serie y el número, que nadie fija: es una nota
-  (`COPIA-SEPARADOR`) y no un aviso.
+  (`COPIA-SEPARADOR`) y no un aviso;
+- la calle repartida en dos líneas de la copia, si dice lo mismo;
+- un cargo de más en la copia: un impuesto que no es IVA va ahí como cargo.
 
 Lo que falta en la copia porque no tiene sitio no es una diferencia. Y todo
 esto no dice que la copia ni el original sean válidos: eso lo dice el informe
@@ -61,7 +68,8 @@ from decimal import Decimal
 
 from lxml import etree
 
-from validador import cifras, codigo_unico
+from validador import cifras, codigo_unico, paises
+from validador.copia_fiel import MEDIOS_EN_LA_COPIA
 from validador.formato import FACTURAE, UBL
 from validador.incidencias import AVISO, NOTA, Incidencia, entre_comillas
 from validador.sintaxis import (
@@ -96,6 +104,30 @@ _IMPUESTOS_COPIA = {"L": "IGIC", "M": "IPSI", "N": "recargo"}
 # una retención en el original.
 _DEL_DESGLOSE = ("IVA", "", *_IMPUESTOS_COPIA.values())
 
+# Hasta dónde se cita un texto del fichero en un aviso.
+_LARGO_CITADO = 60
+
+# Los campos de una parte: dónde se leen, cómo se llaman y su término en cada una.
+_CAMPOS_DE_UNA_PARTE = (
+    ("calle", "calle"),
+    ("poblacion", "población"),
+    ("postal", "código postal"),
+    ("provincia", "provincia"),
+    ("pais", "país"),
+    ("telefono", "teléfono"),
+    ("correo", "correo"),
+)
+_CAMPOS_DEL_VENDEDOR = tuple(
+    (campo, nombre, termino) for (campo, nombre), termino in zip(
+        _CAMPOS_DE_UNA_PARTE,
+        ("BT-35", "BT-37", "BT-38", "BT-39", "BT-40", "BT-42", "BT-43"), strict=True)
+)
+_CAMPOS_DEL_COMPRADOR = tuple(
+    (campo, nombre, termino) for (campo, nombre), termino in zip(
+        _CAMPOS_DE_UNA_PARTE,
+        ("BT-50", "BT-52", "BT-53", "BT-54", "BT-55", "BT-57", "BT-58"), strict=True)
+)
+
 
 @dataclass(frozen=True)
 class Linea:
@@ -104,6 +136,23 @@ class Linea:
     cantidad: Decimal | None
     neto: Decimal | None
     tipo: Decimal | None
+    nombre: str | None = None
+    precio: Decimal | None = None
+    # (código del término, motivo). Los descuentos y cargos de la línea.
+    motivos: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True)
+class Parte:
+    """La dirección y el contacto de una parte, que en la tabla llegan igual."""
+
+    calle: str | None = None
+    poblacion: str | None = None
+    postal: str | None = None
+    provincia: str | None = None
+    pais: str | None = None
+    telefono: str | None = None
+    correo: str | None = None
 
 
 @dataclass(frozen=True)
@@ -132,6 +181,13 @@ class Lectura:
     # El `InvoiceTotal` tal cual, solo para reconocerlo si la copia lo trae.
     total_de_facturae: Decimal | None = None
     es_abono: bool = False
+    vendedor: Parte = Parte()
+    cliente: Parte = Parte()
+    vencimientos: tuple[str, ...] = ()
+    medios: tuple[str, ...] = ()
+    cuentas: tuple[str, ...] = ()
+    # (código del término, motivo). Los descuentos y cargos del documento.
+    motivos: tuple[tuple[str, str], ...] = ()
 
     @property
     def es_copia(self) -> bool:
@@ -200,9 +256,65 @@ def _lineas_facturae(factura) -> tuple[Linea, ...]:
         tipo = None
         if len(impuestos) == 1 and not _hijos(impuestos[0], "EquivalenceSurcharge"):
             tipo = _numero(impuestos[0], "TaxRate")
-        lineas.append(Linea(_numero(linea, "Quantity"),
-                            _numero(linea, "GrossAmount"), tipo))
+        lineas.append(Linea(
+            _numero(linea, "Quantity"), _numero(linea, "GrossAmount"), tipo,
+            nombre=_texto(linea, "ItemDescription"),
+            precio=_numero(linea, "UnitPriceWithoutTax"),
+            motivos=_motivos_facturae(linea, "DiscountsAndRebates", "Charges", "BT-139", "BT-144"),
+        ))
     return tuple(lineas)
+
+
+def _motivos_facturae(nodo, descuentos: str, cargos: str,
+                      de_descuento: str, de_cargo: str) -> tuple[tuple[str, str], ...]:
+    motivos = []
+    for grupo, elemento, motivo, termino in (
+        (descuentos, "Discount", "DiscountReason", de_descuento),
+        (cargos, "Charge", "ChargeReason", de_cargo),
+    ):
+        for uno in _hijos(nodo, grupo, elemento):
+            escrito = _texto(uno, motivo)
+            if escrito:
+                motivos.append((termino, escrito))
+    return tuple(motivos)
+
+
+def _parte_facturae(parte) -> Parte:
+    """Sea empresa o persona, de aquí o de fuera.
+
+    De fuera, sin el código postal ni la población: van juntos en un campo y la
+    copia los pide en dos, y nadie dice por dónde se parte (`COPIA-DIRECCION`).
+    Solo la dirección de la parte: la de un centro administrativo no es la suya.
+    """
+    for entidad in (*_hijos(parte, "LegalEntity"), *_hijos(parte, "Individual")):
+        direccion = (_hijos(entidad, "AddressInSpain") or _hijos(entidad, "OverseasAddress")
+                     or [entidad])[0]
+        return Parte(
+            calle=_texto(direccion, "Address"),
+            poblacion=_texto(direccion, "Town"),
+            postal=_texto(direccion, "PostCode"),
+            provincia=_texto(direccion, "Province"),
+            # ESP en Facturae y ES en la copia. `alpha2` no afirma nada de los
+            # códigos que ISO ya retiró, y entonces esto no se compara.
+            pais=paises.alpha2(_texto(direccion, "CountryCode")),
+            telefono=_texto(entidad, "ContactDetails", "Telephone"),
+            correo=_texto(entidad, "ContactDetails", "ElectronicMail"),
+        )
+    return Parte()
+
+
+def _pago_facturae(factura) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    vencimientos, medios, cuentas = [], [], []
+    for plazo in _hijos(factura, "PaymentDetails", "Installment"):
+        for lista, escrito in (
+            (vencimientos, _texto(plazo, "InstallmentDueDate")),
+            (medios, _texto(plazo, "PaymentMeans")),
+            (cuentas, _texto(plazo, "AccountToBeCredited", "IBAN")
+             or _texto(plazo, "AccountToBeCredited", "AccountNumber")),
+        ):
+            if escrito and escrito not in lista:
+                lista.append(escrito)
+    return tuple(vencimientos), tuple(medios), tuple(cuentas)
 
 
 def _facturae(raiz) -> list[Lectura]:
@@ -228,6 +340,7 @@ def _facturae(raiz) -> list[Lectura]:
         total = _numero(de_totales, "InvoiceTotal")
         retenciones = _numero(de_totales, "TotalTaxesWithheld")
         desglose, otros = _desglose_facturae(factura)
+        vencimientos, medios, cuentas = _pago_facturae(factura)
         lecturas.append(Lectura(
             formato=FACTURAE,
             emisor=emisor,
@@ -252,6 +365,13 @@ def _facturae(raiz) -> list[Lectura]:
             desglose=desglose,
             lineas=_lineas_facturae(factura),
             otros_impuestos=otros,
+            vendedor=_parte_facturae(vendedor[0]) if vendedor else Parte(),
+            cliente=_parte_facturae(comprador[0]) if comprador else Parte(),
+            vencimientos=vencimientos,
+            medios=medios,
+            cuentas=cuentas,
+            motivos=_motivos_facturae(factura, "GeneralDiscounts", "GeneralSurcharges",
+                                      "BT-97", "BT-104"),
         ))
     return lecturas
 
@@ -276,6 +396,65 @@ def _desglose_ubl(raiz, sintaxis) -> tuple:
     return _congelado(desglose)
 
 
+def _parte_ubl(raiz, cual: str) -> Parte:
+    partes = _hijos(raiz, cual, "Party")
+    if not partes:
+        return Parte()
+    direccion = (_hijos(partes[0], "PostalAddress") or [partes[0]])[0]
+    # La calle de Facturae es una sola línea, y un conversor puede repartirla.
+    # Medido el 01-11-2026 con `gobl`: "Calle Pradillo, 42, 3" se escribe en
+    # StreetName y AdditionalStreetName, sin perder nada, y salía como otra calle.
+    trozos = (_texto(direccion, "StreetName"), _texto(direccion, "AdditionalStreetName"),
+              _texto(direccion, "AddressLine", "Line"))
+    return Parte(
+        calle=" ".join(t for t in trozos if t) or None,
+        poblacion=_texto(direccion, "CityName"),
+        postal=_texto(direccion, "PostalZone"),
+        provincia=_texto(direccion, "CountrySubentity"),
+        pais=(_texto(direccion, "Country", "IdentificationCode") or "").upper() or None,
+        telefono=_texto(partes[0], "Contact", "Telephone"),
+        correo=_texto(partes[0], "Contact", "ElectronicMail"),
+    )
+
+
+def _motivos_ubl(nodo, de_descuento: str, de_cargo: str) -> tuple[tuple[str, str], ...]:
+    motivos = []
+    for uno in _hijos(nodo, "AllowanceCharge"):
+        escrito = _texto(uno, "AllowanceChargeReason")
+        if escrito:
+            es_cargo = (_texto(uno, "ChargeIndicator") or "").lower() == "true"
+            motivos.append((de_cargo if es_cargo else de_descuento, escrito))
+    return tuple(motivos)
+
+
+def _pago_ubl(raiz) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    medios = _hijos(raiz, "PaymentMeans")
+    # En una nota de abono BT-9 no va en la cabecera: va dentro del medio de pago.
+    vencimientos = [_texto(raiz, "DueDate"), *(_texto(m, "PaymentDueDate") for m in medios)]
+    return (
+        tuple(dict.fromkeys(f for f in vencimientos if f)),
+        tuple(dict.fromkeys(c for c in (_texto(m, "PaymentMeansCode") for m in medios) if c)),
+        tuple(dict.fromkeys(c for c in (_texto(m, "PayeeFinancialAccount", "ID")
+                                        for m in medios) if c)),
+    )
+
+
+def _linea_ubl(linea, sintaxis) -> Linea:
+    precio = importe(linea, sintaxis.linea_precio, sintaxis)
+    # BT-149: el precio puede ser el de varias unidades, y el de Facturae es de una.
+    por_cuantas = _numero(linea, "Price", "BaseQuantity")
+    if precio is not None and por_cuantas:
+        precio = precio / por_cuantas
+    return Linea(
+        importe(linea, sintaxis.linea_cantidad, sintaxis),
+        importe(linea, "./cbc:LineExtensionAmount", sintaxis),
+        importe(linea, sintaxis.linea_tipo, sintaxis) or Decimal(0),
+        nombre=texto(linea, sintaxis.linea_nombre, sintaxis),
+        precio=precio,
+        motivos=_motivos_ubl(linea, "BT-139", "BT-144"),
+    )
+
+
 def _ubl(raiz, deteccion) -> list[Lectura]:
     sintaxis = SINTAXIS[UBL]
     # El emisor, por el mismo camino que el código único: una factura no puede
@@ -294,6 +473,7 @@ def _ubl(raiz, deteccion) -> list[Lectura]:
         if texto(raiz, ruta, sintaxis)
     ]
     total = "./cac:LegalMonetaryTotal/"
+    vencimientos, medios, cuentas = _pago_ubl(raiz)
     return [Lectura(
         formato=UBL,
         emisor=codigos[0].nif_emisor,
@@ -309,15 +489,17 @@ def _ubl(raiz, deteccion) -> list[Lectura]:
         total=importe(raiz, f"{total}cbc:TaxInclusiveAmount", sintaxis),
         retenciones=a_decimal(texto_es(raiz, "BT-ES-17")),
         desglose=_desglose_ubl(raiz, sintaxis),
-        lineas=tuple(
-            Linea(importe(linea, sintaxis.linea_cantidad, sintaxis),
-                  importe(linea, "./cbc:LineExtensionAmount", sintaxis),
-                  importe(linea, sintaxis.linea_tipo, sintaxis) or Decimal(0))
-            for linea in buscar(raiz, sintaxis.lineas, espacios)
-        ),
+        lineas=tuple(_linea_ubl(linea, sintaxis)
+                     for linea in buscar(raiz, sintaxis.lineas, espacios)),
         indicador_de_copia=texto_es(raiz, "BT-ES-1"),
         es_abono=(texto(raiz, sintaxis.tipo, sintaxis) == "381"
                   or etree.QName(raiz).localname == "CreditNote"),
+        vendedor=_parte_ubl(raiz, "AccountingSupplierParty"),
+        cliente=_parte_ubl(raiz, "AccountingCustomerParty"),
+        vencimientos=vencimientos,
+        medios=medios,
+        cuentas=cuentas,
+        motivos=_motivos_ubl(raiz, "BT-97", "BT-104"),
     )]
 
 
@@ -373,7 +555,8 @@ def _en_positivo(lectura: Lectura) -> Lectura:
         retenciones=sin_signo(lectura.retenciones),
         desglose=tuple((clave, sin_signo(base), sin_signo(cuota))
                        for clave, base, cuota in lectura.desglose),
-        lineas=tuple(Linea(sin_signo(l.cantidad), sin_signo(l.neto), l.tipo)
+        lineas=tuple(replace(l, cantidad=sin_signo(l.cantidad), neto=sin_signo(l.neto),
+                             precio=sin_signo(l.precio))
                      for l in lectura.lineas),
     )
 
@@ -518,6 +701,9 @@ def _de_lineas(original: Lectura, copia: Lectura) -> list[str]:
         if suya.neto is not None and not _igual(suya.neto, de_copia.neto):
             diferencias.append(f"línea {numero}, neto (BT-131): {_cifra(suya.neto)} en el "
                                f"original y {_cifra(de_copia.neto)} en la copia")
+        if suya.precio is not None and not _igual(suya.precio, de_copia.precio):
+            diferencias.append(f"línea {numero}, precio (BT-146): {_cifra(suya.precio)} en el "
+                               f"original y {_cifra(de_copia.precio)} en la copia")
         if (not original.otros_impuestos and suya.tipo is not None
                 and suya.tipo != de_copia.tipo):
             diferencias.append(f"línea {numero}, tipo (BT-152): {cifras.tipo(suya.tipo)} "
@@ -525,13 +711,96 @@ def _de_lineas(original: Lectura, copia: Lectura) -> list[str]:
     return diferencias
 
 
+def _corto(escrito: str | None) -> str:
+    """Un texto dentro de una frase. El nombre de un artículo puede ser un párrafo."""
+    if escrito and len(escrito) > _LARGO_CITADO:
+        escrito = escrito[:_LARGO_CITADO].rstrip() + "..."
+    return entre_comillas(escrito, "nada")
+
+
+def _de_las_partes(original: Lectura, copia: Lectura) -> list[str]:
+    diferencias = []
+    for quien, suya, de_copia, campos in (
+        ("vendedor", original.vendedor, copia.vendedor, _CAMPOS_DEL_VENDEDOR),
+        ("comprador", original.cliente, copia.cliente, _CAMPOS_DEL_COMPRADOR),
+    ):
+        for campo, nombre, termino in campos:
+            de_original, escrito = getattr(suya, campo), getattr(de_copia, campo)
+            if de_original and _compacto(de_original) != _compacto(escrito):
+                diferencias.append(f"{nombre} del {quien} ({termino}): {_corto(de_original)} "
+                                   f"en el original y {_corto(escrito)} en la copia")
+    return diferencias
+
+
+def _medio_cambiado(original: Lectura, copia: Lectura) -> str | None:
+    """El medio de pago, solo con los códigos que la tabla sostiene por su nombre.
+
+    Con los demás no se afirma nada: en `copia_fiel.py` la equivalencia se elige
+    a mano. Y el dígito copiado tal cual se dice aparte, porque es el fallo que
+    la tabla llama el más peligroso: da un código válido que significa otra cosa.
+    """
+    conocidos = [m for m in original.medios if m in MEDIOS_EN_LA_COPIA]
+    if not conocidos or any(c in MEDIOS_EN_LA_COPIA[m] for m in conocidos for c in copia.medios):
+        return None
+    esperados = " o ".join(dict.fromkeys(c for m in conocidos for c in MEDIOS_EN_LA_COPIA[m]))
+    frase = (f"medio de pago (BT-81): {' y '.join(conocidos)} en el original, que en la copia "
+             f"es {esperados}, y {' y '.join(copia.medios) or 'nada'} en la copia")
+    if any(c.lstrip("0") == m.lstrip("0") for m in conocidos for c in copia.medios):
+        frase += (". Es el código de Facturae copiado tal cual, y en la lista europea "
+                  "significa otra cosa")
+    return frase
+
+
+def _de_pago(original: Lectura, copia: Lectura) -> list[str]:
+    """Con varios vencimientos la copia solo lleva uno, y vale cualquiera de ellos."""
+    diferencias = []
+    if original.vencimientos and not set(original.vencimientos) & set(copia.vencimientos):
+        diferencias.append(f"vencimiento (BT-9): {', '.join(original.vencimientos)} en el "
+                           f"original y {', '.join(copia.vencimientos) or 'nada'} en la copia")
+    medio = _medio_cambiado(original, copia)
+    if medio:
+        diferencias.append(medio)
+    if original.cuentas and not ({_compacto(c) for c in original.cuentas}
+                                 & {_compacto(c) for c in copia.cuentas}):
+        diferencias.append(f"cuenta de abono (BT-84): {', '.join(original.cuentas)} en el "
+                           f"original y {', '.join(copia.cuentas) or 'nada'} en la copia")
+    return diferencias
+
+
+def _motivos_que_faltan(suyos, de_copia, donde: str) -> list[str]:
+    """Los del original tienen que estar. Al revés no: un impuesto que no es IVA va
+    en la copia como cargo, con su motivo, y en el original no es un cargo."""
+    escritos = {(termino, _compacto(motivo)) for termino, motivo in de_copia}
+    return [f"{donde}motivo ({termino}): {_corto(motivo)} en el original, y no en la copia"
+            for termino, motivo in suyos if (termino, _compacto(motivo)) not in escritos]
+
+
+def _de_textos(original: Lectura, copia: Lectura) -> list[str]:
+    diferencias = _motivos_que_faltan(original.motivos, copia.motivos, "")
+    # Con otro número de líneas ya lo dice COPIA-LINEAS, y por posición no se
+    # sabe cuál es cuál.
+    if len(original.lineas) == len(copia.lineas):
+        for numero, (suya, de_copia) in enumerate(zip(original.lineas, copia.lineas), start=1):
+            if suya.nombre and _compacto(suya.nombre) != _compacto(de_copia.nombre):
+                diferencias.append(f"línea {numero}, nombre (BT-153): {_corto(suya.nombre)} en "
+                                   f"el original y {_corto(de_copia.nombre)} en la copia")
+            diferencias += _motivos_que_faltan(suya.motivos, de_copia.motivos,
+                                               f"línea {numero}, ")
+    return diferencias
+
+
 _COMPARACIONES = (
     ("COPIA-DATOS", _de_datos, "los datos", "Número, fecha, moneda y partes"),
+    ("COPIA-PARTES", _de_las_partes, "la dirección o el contacto de las partes",
+     "Dirección y contacto (BT-35 a BT-43 y BT-50 a BT-58)"),
     ("COPIA-IMPORTES", _de_importes, "los importes",
      "Totales (BT-109, BT-110, BT-112 y BT-ES-17)"),
     ("COPIA-DESGLOSE", _de_desglose, "el desglose de impuestos",
      "Desglose de impuestos (BG-23)"),
     ("COPIA-LINEAS", _de_lineas, "las líneas", "Líneas (BG-25)"),
+    ("COPIA-PAGO", _de_pago, "el pago", "Pago (BT-9, BT-81 y BT-84)"),
+    ("COPIA-TEXTOS", _de_textos, "los textos",
+     "Nombre del artículo (BT-153) y motivos de descuentos y cargos"),
 )
 
 
@@ -608,11 +877,14 @@ def reglas_de_lote(lecturas: list[Lectura],
             f"{_plural(comparadas, 'factura', 'facturas')} de "
             "Facturae con su copia en UBL de este lote: "
             f"{comparadas - con_diferencias} sin diferencias y {con_diferencias} con "
-            "alguna, que salen aparte. Se compara número, fecha, moneda, identificación y "
-            "razón social de las partes, base, cuotas, total con impuestos, "
-            "retenciones, desglose de impuestos y, línea a línea, cantidad, neto y "
-            "tipo. No se compara el total a pagar, los anticipos, los suplidos, el "
-            "nombre de una persona física, la dirección, el pago ni los textos. La "
+            "alguna, que salen aparte. Se compara número, fecha, moneda, identificación, "
+            "razón social, dirección y contacto de las partes, base, cuotas, total con "
+            "impuestos, retenciones, desglose de impuestos, vencimiento, medio de pago, "
+            "cuenta de abono, motivos de descuentos y cargos y, línea a línea, nombre, "
+            "cantidad, precio, neto y tipo. No se compara el total a pagar, los anticipos, "
+            "los suplidos, el nombre de una persona física, el código postal y la población "
+            "de fuera de España, los medios de pago que la tabla no sostiene por su nombre "
+            "ni las notas de la factura. La "
             "orden no publica la correspondencia entre los dos formatos, es la lectura "
             "de esta herramienta. Esto no dice que la copia sea válida: eso lo "
             "dice el informe de cada fichero."
