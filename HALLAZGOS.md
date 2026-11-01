@@ -9349,13 +9349,36 @@ Y destapó un quinto: `IRPF al 15%: está en la copia y no en el original`. Fals
 el original lo lleva, como retención. Ahora lo dice así. La lectura no lo había visto:
 ni ejecutar sustituye a leer, ni al revés.
 
-**Y con facturas reales.** Las 13 de terceros, en esta máquina y con permiso del titular,
-después de mirar que `gobl` no abre conexiones (130 ejecuciones con las públicas, y de
-nuevo con estas: ninguna). Su importador solo lee 3.2.2 y una factura por fichero, así que
-se le dio una copia de trabajo con esa cabecera; el comprobador comparó su salida con el
-fichero intacto. Las 13 entran y **8 se quedan sin líneas**, sin error: no es la versión,
-ni las etiquetas de la línea, ni el NIF, y **no se ha averiguado**. De las 5 que dan copia,
-5 parejas y ningún aviso falso: en 4, solo el indicador de copia. La quinta lleva una
-retención con el código de un impuesto, `gobl` la convierte en un impuesto que suma al
-total, y el comprobador lo ve. Es el primer fallo de un conversor ajeno que ha cazado con
-una factura real, y es una sola: no dice cuántas veces pasa.
+**Y con facturas reales.** Los 13 ficheros de terceros, en esta máquina y con permiso del
+titular, después de mirar que `gobl` no abre conexiones (130 ejecuciones con las públicas,
+y de nuevo con estos: ninguna). Su importador solo lee 3.2.2 y una factura por fichero, así
+que se le dio una copia de trabajo con esa cabecera; el comprobador comparó su salida con
+el fichero intacto.
+
+**13 ficheros no son 13 facturas.** Comparando el bloque `<Invoice>` son **7 distintas**, y
+se había estado contando por fichero hasta que dos salieron con las mismas proporciones al
+céntimo. Lo que sigue va por facturas distintas.
+
+La primera pasada dejó a 4 de las 7 **sin líneas y sin error**. La causa es `PlaceOfIssue`:
+lo llevan esas 4 y no las otras 3. `gobl.es.facturae` v0.29.0 lo declara como cadena
+(`invoices.go:52`) y el esquema oficial lo define con hijos, y con hijos su lector no llega
+a las líneas: una cantidad imposible no da error en esas 4 y sí en las otras. Se reprodujo
+sin ninguna de terceros y sin adaptar nada: una Facturae pública de Invopop en 3.2.2 da 2
+líneas, y con ese elemento en su sitio, válida contra el XSD, 0. Hasta ahí no se podía
+descartar que lo provocara el cambio de cabecera, y no era eso.
+
+Sin ese elemento en la copia de trabajo, **5 de 7 dan copia**, con su pareja y ningún aviso
+falso. A 2 de las 5 hubo que cambiarles el NIF, también en el original comparado, porque
+su control lo pide. Las 2 que no dan copia llevan el código de impuesto 05 (Otro), que el
+esquema admite y su importador rechaza, esta vez con error.
+
+- En 3, solo el indicador de copia.
+- En 1, una retención con el código de un impuesto: `gobl` la convierte en un impuesto que
+  suma al total, y el comprobador lo ve.
+- En 1, descuento general: `gobl` exige darle impuesto y ese retoque es mío, así que cuotas,
+  total y base del IVA difieren de verdad. Además la retención va al desglose, porque
+  `gobl.ubl` v0.98.0 declara `WithholdingTaxTotal` y no lo rellena. El comprobador vio las
+  dos cosas.
+
+El de la retención convertida en impuesto es el primer fallo de un conversor ajeno cazado
+con una factura real, y es una sola: no dice cuántas veces pasa.
