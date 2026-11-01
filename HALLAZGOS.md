@@ -9304,9 +9304,9 @@ con su prueba, para que la salida no valga para cualquiera que comparta número.
 conversor de prueba escrito aquí, con la misma tabla, dio **0 avisos** en las 14
 Facturae de aquí y detectó **56 de 56** copias rotas a propósito. Parecía cerrado
 y no lo estaba: un conversor y un comprobador que salen de la misma tabla se
-equivocan en lo mismo. Ejecutar el de Invopop no fue posible, así que se usaron sus
-10 Facturae públicas, lo que su importador lee de ellas, y el código de su
-exportador a UBL, leído y reconstruido aquí. Es una lectura, no una ejecución.
+equivocan en lo mismo. Primero se usaron las 10 Facturae públicas de Invopop, lo que
+su importador lee de ellas, y el código de su exportador a UBL, leído y reconstruido
+aquí. Después se ejecutó su programa de verdad, abajo.
 
 **Reproducido** con siete pruebas en rojo antes de tocar nada. Salieron cuatro
 fallos del comprobador que las 14 de aquí no podían enseñar:
@@ -9326,5 +9326,25 @@ fallos del comprobador que las 14 de aquí no podían enseñar:
 
 **Lo que confirma la tabla, de otro autor.** Su exportador pone en BT-109, BT-110 y
 BT-112 los mismos importes que la tabla, sin restar retenciones de BT-112, y en
-BT-115 los descuenta. Es una lectura de su código, y de lo que hace con facturas
-sencillas: no decide las filas sin decidir.
+BT-115 los descuenta. No decide las filas sin decidir.
+
+**Medido después con su programa**, `gobl` v0.511.2, con la huella comprobada contra
+su `checksums.txt`: Facturae a GOBL, el complemento `eu-en16931-v2017`, y a UBL. 6 de
+las 10 salen tal cual. Las otras 4 las rechaza sin datos que les faltan y hubo que
+retocarlas: forma y condiciones de pago, motivo de un cargo, impuesto de un descuento
+y, en la del vendedor francés, un NIF que pase su control, también en el original.
+
+| Con la misma salida | Parejas | Avisos falsos |
+|---|---|---|
+| Código de antes de estos arreglos | 9 de 10 | los del abono (3) y las retenidas mal explicadas |
+| Código de ahora | 10 de 10 | ninguno |
+
+Los avisos que quedan son ciertos: la copia no dice `CopyIndicator` en ninguna (ese
+programa escribe EN 16931, no la copia de la orden), en 3 falta BT-ES-17 y la
+retención va en el desglose, y en 1 falta el recargo. En la del descuento los importes
+difieren porque se los movió el retoque, y el comprobador lo vio. El guion del número
+salió en 2, y es la nota.
+
+Y destapó un quinto: `IRPF al 15%: está en la copia y no en el original`. Falso, porque
+el original lo lleva, como retención. Ahora lo dice así. La lectura no lo había visto:
+ni ejecutar sustituye a leer, ni al revés.

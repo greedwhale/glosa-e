@@ -11,8 +11,9 @@ ve poniendo las dos juntas, que es lo que hace un lote.
 
 Por qué aviso y no error
 ------------------------
-Porque la correspondencia entre Facturae y UBL no la publica nadie: es la tabla
-de `copia_fiel.py`, leída aquí del esquema de Facturae y del anexo de la orden.
+Porque la orden no publica la correspondencia entre Facturae y UBL, y lo que hay
+de otros es su lectura (el `gobl` de Invopop, por ejemplo, escribe EN 16931 y no la
+copia de la orden). Aquí es la tabla de `copia_fiel.py`, leída aquí del esquema de Facturae y del anexo de la orden.
 Un aviso dice "estos dos ficheros no dicen lo mismo", que está comprobado; un
 error diría que la copia incumple una norma, y ninguna norma escribe esta
 comparación. Con código de la casa, por lo mismo (`COPIA-`, en `normas.py`).
@@ -91,6 +92,9 @@ _NOMBRADAS = 5
 # va en la copia como cargo (ver la fila de `TotalTaxOutputs`).
 _IMPUESTOS_FACTURAE = {"01": "IVA", "02": "IPSI", "03": "IGIC"}
 _IMPUESTOS_COPIA = {"L": "IGIC", "M": "IPSI", "N": "recargo"}
+# Lo que el desglose lleva de verdad. Lo demás que aparezca ahí, como el IRPF, es
+# una retención en el original.
+_DEL_DESGLOSE = ("IVA", "", *_IMPUESTOS_COPIA.values())
 
 
 @dataclass(frozen=True)
@@ -485,7 +489,15 @@ def _de_desglose(original: Lectura, copia: Lectura) -> list[str]:
                                f"original y {_cifra(cuota_copia)} en la copia")
     claves_original = {clave for clave, _, _ in original.desglose}
     for clave, base, cuota in copia.desglose:
-        if clave not in claves_original and (base or cuota):
+        if clave in claves_original or not (base or cuota):
+            continue
+        if original.retenciones and clave[0] not in _DEL_DESGLOSE:
+            # Medido con la salida de `gobl`, que escribe el IRPF en el desglose: decir
+            # que el original no lo tiene era falso.
+            diferencias.append(f"{_nombre_de_entrada(clave)}: en la copia va en el desglose "
+                               "de impuestos, y en el original es una retención, que en la "
+                               "copia va aparte (BT-ES-17)")
+        else:
             diferencias.append(f"{_nombre_de_entrada(clave)}: está en la copia y no en "
                                "el original")
     return diferencias
@@ -601,7 +613,7 @@ def reglas_de_lote(lecturas: list[Lectura],
             "retenciones, desglose de impuestos y, línea a línea, cantidad, neto y "
             "tipo. No se compara el total a pagar, los anticipos, los suplidos, el "
             "nombre de una persona física, la dirección, el pago ni los textos. La "
-            "correspondencia entre los dos formatos no la publica nadie, es la lectura "
+            "orden no publica la correspondencia entre los dos formatos, es la lectura "
             "de esta herramienta. Esto no dice que la copia sea válida: eso lo "
             "dice el informe de cada fichero."
         )

@@ -99,7 +99,7 @@ def test_la_nota_dice_lo_que_no_se_compara_y_que_no_valida():
     mensaje = comparar()[0].mensaje
     assert "No se compara el total a pagar" in mensaje
     assert "no dice que la copia sea válida" in mensaje
-    assert "no la publica nadie" in mensaje
+    assert "no publica la correspondencia" in mensaje
 
 
 @pytest.mark.parametrize("cambio, codigo, se_lee", [
@@ -418,6 +418,22 @@ def test_una_retencion_en_el_desglose_se_llama_por_su_impuesto():
         '<cbc:TaxAmount currencyID="EUR">15.00</cbc:TaxAmount><cac:TaxCategory><cbc:Percent>15</cbc:Percent>'
         "<cac:TaxScheme><cbc:ID>IRPF</cbc:ID></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>"), 1)
     assert "IRPF al 15%" in avisos(copia)["COPIA-DESGLOSE"].mensaje
+
+
+def test_una_retencion_en_el_desglose_no_dice_que_el_original_no_la_tiene():
+    """Medido con la salida de `gobl`: el IRPF sí está en el original, como retención.
+
+    Decir "está en la copia y no en el original" era falso, y mandaba a buscar un
+    error donde no estaba.
+    """
+    copia = COPIA.replace("</cac:TaxTotal>", (
+        '<cac:TaxSubtotal><cbc:TaxableAmount currencyID="EUR">100.00</cbc:TaxableAmount>'
+        '<cbc:TaxAmount currencyID="EUR">15.00</cbc:TaxAmount><cac:TaxCategory><cbc:Percent>15</cbc:Percent>'
+        "<cac:TaxScheme><cbc:ID>IRPF</cbc:ID></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>"))
+    mensaje = avisos(con_retenciones_en_la_copia(copia), con_retencion())["COPIA-DESGLOSE"].mensaje
+    assert "IRPF al 15%" in mensaje
+    assert "y no en el original" not in mensaje
+    assert "es una retención" in mensaje and "BT-ES-17" in mensaje
 
 
 def test_un_ubl_sin_indicador_y_sin_pareja_no_dice_nada():

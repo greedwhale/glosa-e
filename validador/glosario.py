@@ -4032,9 +4032,9 @@ CODIGOS: dict[str, str] = {
         'clara o la orden no les da ruta. Las parejas se forman por el NIF del '
         'emisor, sin el prefijo de país, y por el número con su serie. Que no haya '
         'diferencias dice que los dos ficheros dicen lo mismo en lo comparado, no '
-        'que la copia sea válida: eso lo dice el informe de cada fichero. La '
-        'correspondencia entre los dos formatos no la publica nadie: es la lectura '
-        'de esta herramienta.'
+        'que la copia sea válida: eso lo dice el informe de cada fichero. La orden '
+        'no publica la correspondencia entre los dos formatos: es la lectura de esta '
+        'herramienta.'
     ),
     "COPIA-DATOS": (
         'La copia fiel no dice lo mismo que su Facturae en los datos de la factura: '

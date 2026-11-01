@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3883 tests, todos en verde.
+3884 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5568,7 +5568,7 @@ inventar: datos, totales, desglose y líneas.
 - **Son avisos, y de la casa.** `COPIA-DATOS`, `COPIA-IMPORTES`,
   `COPIA-DESGLOSE` y `COPIA-LINEAS` dicen que los dos ficheros no dicen lo
   mismo, que está comprobado. Decir que la copia incumple sería firmar una
-  correspondencia que no publica nadie. `COPIA-COMPARADA` es la nota con qué se
+  correspondencia que la orden no publica. `COPIA-COMPARADA` es la nota con qué se
   comparó y qué no, y `COPIA-SIN-PAREJA` la de la copia que no encuentra original.
 - **BT-112 contra la base más las cuotas**, que es lo que dice la fila del total,
   y no contra `InvoiceTotal`. Si la copia lleva ese total tal cual, el aviso lo nombra.
@@ -5582,9 +5582,11 @@ inventar: datos, totales, desglose y líneas.
 - **Lo que no se compara**, porque la tabla no lo deja: BT-115, BT-113, suplidos,
   el nombre de una persona física, la categoría al 0 % y la base del recargo. Con
   impuestos que no son IVA, IGIC ni IPSI, ni totales ni desglose.
-- **Medido el 01-11-2026, sin haber ejecutado ningún conversor de otro autor.** Con
-  un conversor de prueba escrito aquí y con la lectura de otro, abajo en HALLAZGOS.
-  Sigue sin medirse contra la salida real de un conversor ajeno.
+- **Medido el 01-11-2026 con la salida real de un conversor ajeno**, `gobl` v0.511.2
+  de Invopop, sobre sus 10 Facturae públicas: en HALLAZGOS. 4 hubo que retocarlas,
+  porque su programa las rechaza sin datos que les faltan. Ese programa escribe UBL
+  EN 16931, y no la copia de la orden. **No está medido** con facturas reales pasadas
+  por un conversor ajeno, ni contra un conversor hecho para la SPFE.
 
 ## Que a esto se llegue desde fuera
 

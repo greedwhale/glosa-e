@@ -20,8 +20,8 @@ nuevos: COPIA-COMPARADA COPIA-DATOS COPIA-IMPORTES COPIA-DESGLOSE
 texto: Al poner en el mismo lote un Facturae y su copia en UBL, Glosa-e
   compara los dos y avisa de lo que no dicen igual: el número, la fecha,
   los totales, el desglose y las líneas. Dice también lo que no compara.
-  La correspondencia no la publica nadie y es lectura de Glosa-e, así que
-  son avisos y no errores.
+  La orden no publica la correspondencia y esta es la lectura de Glosa-e,
+  así que son avisos y no errores.
 
 fecha: 2026-10-30
 id: rectificativa-sin-citar
