@@ -4021,6 +4021,71 @@ CODIGOS: dict[str, str] = {
         "solo el número, la copia y el original no identificarían la misma "
         "factura."
     ),
+    "COPIA-COMPARADA": (
+        'En el lote venía un Facturae y su copia fiel en UBL, y se han comparado. '
+        'La nota dice cuántas parejas, cuántas tienen alguna diferencia y qué se '
+        'mira: número, fecha, moneda, identificación y razón social de las partes, '
+        'base, cuotas, total con impuestos, retenciones, desglose de impuestos y, '
+        'línea a línea, cantidad, neto y tipo. No se compara el total a pagar, los '
+        'anticipos, los suplidos, el nombre de una persona física, la dirección, '
+        'el pago ni los textos, porque la correspondencia de esos campos no está '
+        'clara o la orden no les da ruta. Las parejas se forman por el NIF del '
+        'emisor, sin el prefijo de país, y por el número con su serie. Que no haya '
+        'diferencias dice que los dos ficheros dicen lo mismo en lo comparado, no '
+        'que la copia sea válida: eso lo dice el informe de cada fichero. La '
+        'correspondencia entre los dos formatos no la publica nadie: es la lectura '
+        'de esta herramienta.'
+    ),
+    "COPIA-DATOS": (
+        'La copia fiel no dice lo mismo que su Facturae en los datos de la factura: '
+        'el número con su serie (BT-1), la fecha de expedición (BT-2), la moneda '
+        '(BT-5), el NIF del comprador (BT-48 o BT-47) o la razón social del emisor o '
+        'del comprador (BT-27 y BT-44). Sale también si la copia no se identifica '
+        'como copia (BT-ES-1): la orden lo pide en su artículo 4, y sin ello la '
+        'toma por el original. Si la copia lleva el número sin la serie, la copia y '
+        'el original no identifican la misma factura. Si lleva un separador, puede '
+        'estar bien, porque la orden no dice cómo se juntan: aquí se pegan sin '
+        'nada. Las razones sociales se comparan sin mayúsculas, espacios ni puntos. '
+        'Se arregla corrigiendo la conversión, no el original.'
+    ),
+    "COPIA-IMPORTES": (
+        'Los totales de la copia fiel no son los de su Facturae: la base (BT-109), '
+        'las cuotas (BT-110), el total con impuestos (BT-112) o las retenciones '
+        '(BT-ES-17). El total no se compara con el de Facturae tal cual, que resta '
+        'las retenciones, sino con ese total más las retenciones, porque BT-112 no '
+        'las resta. Si la copia lleva el total de Facturae, el aviso lo dice. Se '
+        'admite medio céntimo, porque Facturae admite más decimales y redondear no '
+        'es equivocarse. Una factura con impuestos que no son IVA, IGIC ni IPSI no '
+        'compara base, cuotas ni total: en la copia esos impuestos van como cargo '
+        'y ninguno de estos números llega igual.'
+    ),
+    "COPIA-DESGLOSE": (
+        'El desglose de impuestos de la copia fiel (BG-23) no coincide con el de su '
+        'Facturae. Se compara por impuesto y tipo, base y cuota. El recargo de '
+        'equivalencia se busca en una entrada aparte con la categoría N, que es '
+        'donde lo pone la orden, y de esa entrada solo se compara la cuota, porque '
+        'la orden no explica cuál es su base. Las entradas al 0 % se comparan '
+        'juntas, sin la categoría, porque el código de impuesto de Facturae no '
+        'dice cuál es (COPIA-DESGLOSE-CERO). Una entrada sin base ni cuota no '
+        'cuenta como diferencia.'
+    ),
+    "COPIA-LINEAS": (
+        'Las líneas de la copia fiel no coinciden con las de su Facturae: hay otro '
+        'número de líneas, o alguna lleva otra cantidad (BT-129), otro neto (BT-131) '
+        'u otro tipo (BT-152). Se comparan por su posición en el fichero, así que '
+        'una copia con las líneas en otro orden también da este aviso. El neto se '
+        'compara con GrossAmount y no con TotalCost, que es la cantidad por el '
+        'precio (COPIA-LINEA-NETO). El tipo no se compara en una línea con recargo '
+        'o con dos impuestos, porque en la copia la línea lleva uno solo.'
+    ),
+    "COPIA-SIN-PAREJA": (
+        'El lote trae una o más copias fieles, con BT-ES-1 a true, que no encuentran '
+        'su original entre los Facturae del mismo lote, y por eso no se comparan. '
+        'Las parejas se forman por el NIF del emisor y por el número con su serie, '
+        'con o sin separador. Si la copia lleva solo el número, se empareja cuando '
+        'solo una factura de ese emisor encaja. Se arregla añadiendo el Facturae '
+        'al lote o corrigiendo el NIF o el número de la copia.'
+    ),
     "COPIA-DESGLOSE-CERO": (
         "La factura declara algo al 0 % y la copia tiene que decir **de qué "
         "categoría** es. `BT-118` es obligatorio en el anexo y el código de "

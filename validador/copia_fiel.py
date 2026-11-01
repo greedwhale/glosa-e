@@ -36,7 +36,9 @@ del original «que tengan correspondencia semántica equivalente».
 Lo que no es esto
 -----------------
 No es un conversor: aquí no se escribe ninguna copia. No valida la copia, que
-es otro documento y se mide con sus propias reglas (las `SPFE-`). Los campos
+es otro documento y se mide con sus propias reglas (las `SPFE-`). Y no la
+compara con el original: eso lo hace `comprobar_copia.py`, cuando los dos
+vienen en el mismo lote. Los campos
 españoles del anexo, la orden los describe en UBL y de Facturae no dice nada:
 de dónde sale cada uno, o que no sale de ninguna parte, lo dice esta tabla
 desde el 13-10-2026, y es lectura de aquí, como todo lo demás. Hasta entonces

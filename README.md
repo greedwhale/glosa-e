@@ -16,6 +16,7 @@ según el RD 238/2026.
 | `validador/iva.py` | El desglose de IVA: bases, cuotas, categorías y exenciones | Terminado |
 | `validador/codigo_unico.py` | Código único de factura: duplicados, numeración y fechas | Terminado |
 | `validador/cuentas_de_cobro.py` | Las cuentas en que cada emisor pide el pago, comparadas entre sus facturas | Terminado |
+| `validador/comprobar_copia.py` | Un Facturae y su copia fiel en UBL, comparados cuando vienen en el mismo lote | Terminado |
 | `validador/solucion_publica.py` | El anexo I: lo que la solución pública pide a una factura UBL que declara su CIUS | Sobre la orden publicada el 05-10-2026; sus reglas nuevas, todavía no |
 | `validador/qr_fiscal.py` | La dirección del QR de VERI*FACTU o de TicketBAI, comparada con la factura que la lleva | Terminado |
 | `validador/incidencias.py` | Tipos comunes (`Incidencia`, `Informe`) que comparten los módulos de reglas | Terminado |
@@ -36,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3816 tests, todos en verde.
+3874 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5558,6 +5559,27 @@ no valida la copia, que es otro documento con sus propias reglas `SPFE-`. Hasta
 el 13-10-2026 decía también que no adivinaba de dónde salen en Facturae los
 campos españoles del anexo. Ahora la tabla lo dice, con su porqué, y es
 lectura de aquí: la orden los describe en UBL y de Facturae no dice nada.
+
+**Comparar la copia con su original.** Desde el 01-11-2026, si un lote trae un
+Facturae y su copia en UBL, `validador/comprobar_copia.py` los empareja por el
+NIF del emisor y el número, y compara lo que la tabla deja comparar sin
+inventar: datos, totales, desglose y líneas.
+
+- **Son avisos, y de la casa.** `COPIA-DATOS`, `COPIA-IMPORTES`,
+  `COPIA-DESGLOSE` y `COPIA-LINEAS` dicen que los dos ficheros no dicen lo
+  mismo, que está comprobado. Decir que la copia incumple sería firmar una
+  correspondencia que no publica nadie. `COPIA-COMPARADA` es la nota con qué se
+  comparó y qué no, y `COPIA-SIN-PAREJA` la de la copia que no encuentra original.
+- **BT-112 contra `InvoiceTotal` más las retenciones.** Es lo que dice la fila
+  del total. Si la copia lleva el total de Facturae tal cual, el aviso lo nombra.
+- **Margen de medio céntimo**, y no el céntimo de `sintaxis.cuadra`. Redondear
+  ocho decimales a dos aparta hasta 0,005; un céntimo entre dos importes de dos
+  decimales es la diferencia que esto busca.
+- **Lo que no se compara**, porque la tabla no lo deja: BT-115, BT-113, suplidos,
+  el nombre de una persona física, la categoría al 0 % y la base del recargo. Con
+  impuestos que no son IVA, IGIC ni IPSI, ni totales ni desglose.
+- **No está medido contra un conversor real**, porque aquí no hay ninguno. Las
+  pruebas usan `ejemplos/fe-0001.xml` y copias escritas a mano.
 
 ## Que a esto se llegue desde fuera
 

@@ -9280,3 +9280,20 @@ opcional y el artículo exceptúa los descuentos por volumen y lo que autorice l
 AEAT, y eso no se ve en el fichero. De paso, la ficha de `SPFE-RECTIFICATIVA`
 seguía diciendo que el grupo de importes pasaba a `0..1`, que el 24-10 se
 corrigió en el mensaje y no en la ficha: ahora dice `0..3`.
+
+## Una copia perfecta junto a su original daba un error de duplicado
+
+**Cómo salió.** Al montar el comparador de copia fiel, el 01-11-2026, mirando la
+salida de verdad del lote y no solo la del módulo. `ejemplos/fe-0001.xml` y una
+copia UBL idéntica, con `BT-ES-1` a true, daban `CU-16`, un ERROR: "Dos facturas
+distintas producen el mismo código único". Con otra fecha, `CU-11`.
+
+**Reproducido** con los dos ficheros en un lote, antes de tocar nada. Las pruebas
+del módulo salían verdes, porque llaman a sus reglas directamente: el fallo solo
+se ve por el camino entero.
+
+**Lo que lo cerró.** En `LoteEnMarcha`, los códigos de una factura con `BT-ES-1`
+a true van a su propio montón. Una copia y su original llevan el mismo número a
+propósito. Sin el indicador sigue el error (es lo que dice la orden: sin él es
+el original), y dos copias con el mismo número también se quejan: las dos cosas
+con su prueba, para que la salida no valga para cualquiera que comparta número.
