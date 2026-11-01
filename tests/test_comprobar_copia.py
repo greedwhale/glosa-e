@@ -184,6 +184,29 @@ def test_el_total_de_facturae_copiado_tal_cual_se_diagnostica():
     assert "resta las retenciones" in mensaje
 
 
+def test_un_original_que_no_resta_la_retencion_no_acusa_a_la_copia():
+    """Medido el 01-11-2026 con las Facturae públicas de Invopop.
+
+    Sumar la retención a un `InvoiceTotal` que no la restó daba 136 y acusaba a
+    una copia correcta, con 121, de haber copiado el total tal cual. BT-112 es
+    base más cuotas: se calcula de ahí. Que el original no cuadre consigo mismo
+    es cosa de FE-TOTAL.
+    """
+    de_original = original().replace("<TotalTaxesWithheld>0.00</TotalTaxesWithheld>", RETENIDO, 1)
+    assert not avisos(con_retenciones_en_la_copia(), de_original)
+
+
+def test_bt_112_vale_tambien_como_suma_de_los_dos_ya_redondeados():
+    """BR-CO-15 suma BT-109 y BT-110, que en la copia ya llevan dos decimales."""
+    de_original = original().replace(
+        "<TotalGrossAmountBeforeTaxes>100.00", "<TotalGrossAmountBeforeTaxes>100.004", 1
+    ).replace("<TotalTaxOutputs>21.00", "<TotalTaxOutputs>21.004", 1)
+    assert not avisos(de_original=de_original)
+    redondeo_junto = COPIA.replace('<cbc:TaxInclusiveAmount currencyID="EUR">121.00',
+                                   '<cbc:TaxInclusiveAmount currencyID="EUR">121.01')
+    assert not avisos(redondeo_junto, de_original)
+
+
 def test_la_retencion_que_falta_en_la_copia_se_detecta():
     assert "BT-ES-17" in avisos(de_original=con_retencion())["COPIA-IMPORTES"].mensaje
 
@@ -297,9 +320,18 @@ def test_otros_impuestos_solo_comparan_datos_y_lineas():
     assert set(avisos(otra_fecha, de_original)) == {"COPIA-DATOS"}
 
 
-def test_el_numero_con_separador_empareja_y_lo_dice():
-    salidas = avisos(COPIA.replace("<cbc:ID>FE0001", "<cbc:ID>FE-0001"))
-    assert "La orden no dice cómo se juntan" in salidas["COPIA-DATOS"].mensaje
+def test_el_separador_del_numero_es_una_nota_y_no_una_diferencia():
+    """Medido el 01-11-2026 leyendo otro conversor: `gobl.ubl` junta con un guion.
+
+    Como nadie dice cómo se juntan, un aviso por cada factura con serie acusaba
+    a ese conversor de algo que ninguna norma le pide.
+    """
+    salidas = comparar(COPIA.replace("<cbc:ID>FE0001", "<cbc:ID>FE-0001"))
+    assert {i.codigo: i.gravedad for i in salidas} == {
+        "COPIA-COMPARADA": NOTA, "COPIA-SEPARADOR": NOTA}
+    assert "1 sin diferencias" in salidas[0].mensaje
+    nota = next(i for i in salidas if i.codigo == "COPIA-SEPARADOR")
+    assert "FE-0001" in nota.mensaje and "FE0001" in nota.mensaje
 
 
 def test_el_numero_sin_serie_empareja_y_lo_dice():
@@ -325,6 +357,67 @@ def test_otro_emisor_no_se_empareja():
 def test_el_prefijo_de_pais_del_nif_no_separa_la_pareja():
     copia = COPIA.replace("ESB12345674", "B12345674")
     assert [i.codigo for i in comparar(copia)] == ["COPIA-COMPARADA"]
+
+
+def test_el_prefijo_de_otro_pais_tampoco_separa_la_pareja():
+    """Medido el 01-11-2026: Facturae escribe 123456789012 y la copia, con
+    prefijo, FR123456789012. Se quedaban sin pareja, y sin comparar."""
+    de_original = original().replace("<TaxIdentificationNumber>ESB12345674", "<TaxIdentificationNumber>123456789012", 1)
+    copia = COPIA.replace("ESB12345674", "FR123456789012")
+    assert [i.codigo for i in comparar(copia, de_original)] == ["COPIA-COMPARADA"]
+
+
+def test_un_nif_espanol_no_se_toma_por_un_prefijo():
+    """Una letra y un número no son un país: A12345674 no es 12345674."""
+    copia = COPIA.replace("ESB12345674", "12345674")
+    de_original = original().replace("<TaxIdentificationNumber>ESB12345674", "<TaxIdentificationNumber>B12345674", 1)
+    assert [i.codigo for i in comparar(copia, de_original)] == ["COPIA-SIN-PAREJA"]
+
+
+def test_el_nif_del_comprador_con_otro_prefijo_no_es_una_diferencia():
+    de_original = original().replace("<TaxIdentificationNumber>ESB85905495", "<TaxIdentificationNumber>123456789", 1)
+    copia = COPIA.replace("ESB85905495", "FR123456789")
+    assert not avisos(copia, de_original)
+
+
+def en_negativo() -> str:
+    """El original como rectificativa en negativo, que es como lo escribe Facturae."""
+    texto = original()
+    for viejo, nuevo in (("<TotalGrossAmountBeforeTaxes>100.00", "<TotalGrossAmountBeforeTaxes>-100.00"),
+                         ("<TotalTaxOutputs>21.00", "<TotalTaxOutputs>-21.00"),
+                         ("<InvoiceTotal>121.00", "<InvoiceTotal>-121.00"),
+                         ("<TotalAmount>100.00", "<TotalAmount>-100.00"),
+                         ("<TotalAmount>21.00", "<TotalAmount>-21.00"),
+                         ("<Quantity>2.00", "<Quantity>-2.00"),
+                         ("<GrossAmount>100.00", "<GrossAmount>-100.00")):
+        texto = texto.replace(viejo, nuevo)
+    return texto
+
+
+def test_un_abono_en_positivo_es_la_copia_de_un_original_en_negativo():
+    """Medido el 01-11-2026: `gobl.ubl` invierte los signos en un abono, el 381."""
+    abono = COPIA.replace("<cbc:InvoiceTypeCode>380", "<cbc:InvoiceTypeCode>381")
+    assert not avisos(abono, en_negativo())
+
+
+def test_un_abono_con_otro_importe_se_sigue_detectando():
+    abono = COPIA.replace("<cbc:InvoiceTypeCode>380", "<cbc:InvoiceTypeCode>381").replace(
+        '<cbc:TaxExclusiveAmount currencyID="EUR">100.00', '<cbc:TaxExclusiveAmount currencyID="EUR">90.00')
+    assert "BT-109" in avisos(abono, en_negativo())["COPIA-IMPORTES"].mensaje
+
+
+def test_una_factura_en_positivo_de_un_original_en_negativo_si_es_una_diferencia():
+    """Sin ser un abono, el signo cambiado es otro importe."""
+    assert set(avisos(de_original=en_negativo())) == {"COPIA-IMPORTES", "COPIA-DESGLOSE", "COPIA-LINEAS"}
+
+
+def test_una_retencion_en_el_desglose_se_llama_por_su_impuesto():
+    """Sin categoría, una entrada IRPF al 15 % se anunciaba como IVA al 15 %."""
+    copia = COPIA.replace("</cac:TaxTotal>", (
+        '<cac:TaxSubtotal><cbc:TaxableAmount currencyID="EUR">100.00</cbc:TaxableAmount>'
+        '<cbc:TaxAmount currencyID="EUR">15.00</cbc:TaxAmount><cac:TaxCategory><cbc:Percent>15</cbc:Percent>'
+        "<cac:TaxScheme><cbc:ID>IRPF</cbc:ID></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>"), 1)
+    assert "IRPF al 15%" in avisos(copia)["COPIA-DESGLOSE"].mensaje
 
 
 def test_un_ubl_sin_indicador_y_sin_pareja_no_dice_nada():

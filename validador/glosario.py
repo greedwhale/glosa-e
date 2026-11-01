@@ -4043,19 +4043,20 @@ CODIGOS: dict[str, str] = {
         'del comprador (BT-27 y BT-44). Sale también si la copia no se identifica '
         'como copia (BT-ES-1): la orden lo pide en su artículo 4, y sin ello la '
         'toma por el original. Si la copia lleva el número sin la serie, la copia y '
-        'el original no identifican la misma factura. Si lleva un separador, puede '
-        'estar bien, porque la orden no dice cómo se juntan: aquí se pegan sin '
-        'nada. Las razones sociales se comparan sin mayúsculas, espacios ni puntos. '
+        'el original no identifican la misma factura. Con otro separador no sale '
+        'aquí, sino en COPIA-SEPARADOR. Los NIF se comparan sin el prefijo de país, '
+        'y las razones sociales sin mayúsculas, espacios ni puntos. '
         'Se arregla corrigiendo la conversión, no el original.'
     ),
     "COPIA-IMPORTES": (
         'Los totales de la copia fiel no son los de su Facturae: la base (BT-109), '
         'las cuotas (BT-110), el total con impuestos (BT-112) o las retenciones '
-        '(BT-ES-17). El total no se compara con el de Facturae tal cual, que resta '
-        'las retenciones, sino con ese total más las retenciones, porque BT-112 no '
-        'las resta. Si la copia lleva el total de Facturae, el aviso lo dice. Se '
-        'admite medio céntimo, porque Facturae admite más decimales y redondear no '
-        'es equivocarse. Una factura con impuestos que no son IVA, IGIC ni IPSI no '
+        '(BT-ES-17). BT-112 se compara con la base más las cuotas, y no con el '
+        'total de Facturae, que resta las retenciones. Si la copia lleva ese total, '
+        'el aviso lo dice. Se admite medio céntimo, porque Facturae admite más '
+        'decimales y redondear no es equivocarse. En un abono (381) se comparan sin '
+        'el signo, porque Facturae rectifica en negativo y el abono va en positivo. '
+        'Una factura con impuestos que no son IVA, IGIC ni IPSI no '
         'compara base, cuotas ni total: en la copia esos impuestos van como cargo '
         'y ninguno de estos números llega igual.'
     ),
@@ -4077,6 +4078,14 @@ CODIGOS: dict[str, str] = {
         'compara con GrossAmount y no con TotalCost, que es la cantidad por el '
         'precio (COPIA-LINEA-NETO). El tipo no se compara en una línea con recargo '
         'o con dos impuestos, porque en la copia la línea lleva uno solo.'
+    ),
+    "COPIA-SEPARADOR": (
+        'La copia fiel junta la serie y el número de otra manera que aquí, por '
+        'ejemplo con un guion, y por lo demás es el mismo número. Es una nota y no '
+        'un aviso, porque el anexo tiene un solo campo para los dos (BT-1) y nadie '
+        'dice cómo se juntan. Aquí se pegan sin nada, que es como los junta el '
+        'código único. Hay programas que usan un guion. Si tu programa o la AEAT '
+        'buscan la factura por su número, conviene escribirlo igual en todas partes.'
     ),
     "COPIA-SIN-PAREJA": (
         'El lote trae una o más copias fieles, con BT-ES-1 a true, que no encuentran '

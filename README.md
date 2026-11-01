@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3874 tests, todos en verde.
+3883 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5570,16 +5570,21 @@ inventar: datos, totales, desglose y líneas.
   mismo, que está comprobado. Decir que la copia incumple sería firmar una
   correspondencia que no publica nadie. `COPIA-COMPARADA` es la nota con qué se
   comparó y qué no, y `COPIA-SIN-PAREJA` la de la copia que no encuentra original.
-- **BT-112 contra `InvoiceTotal` más las retenciones.** Es lo que dice la fila
-  del total. Si la copia lleva el total de Facturae tal cual, el aviso lo nombra.
+- **BT-112 contra la base más las cuotas**, que es lo que dice la fila del total,
+  y no contra `InvoiceTotal`. Si la copia lleva ese total tal cual, el aviso lo nombra.
+- **El separador del número es una nota**, `COPIA-SEPARADOR`: nadie dice cómo se
+  juntan la serie y el número, y hay conversores que usan un guion.
+- **Un abono se compara sin signo.** Facturae rectifica en negativo, y el 381 va
+  en positivo.
 - **Margen de medio céntimo**, y no el céntimo de `sintaxis.cuadra`. Redondear
   ocho decimales a dos aparta hasta 0,005; un céntimo entre dos importes de dos
   decimales es la diferencia que esto busca.
 - **Lo que no se compara**, porque la tabla no lo deja: BT-115, BT-113, suplidos,
   el nombre de una persona física, la categoría al 0 % y la base del recargo. Con
   impuestos que no son IVA, IGIC ni IPSI, ni totales ni desglose.
-- **No está medido contra un conversor real**, porque aquí no hay ninguno. Las
-  pruebas usan `ejemplos/fe-0001.xml` y copias escritas a mano.
+- **Medido el 01-11-2026, sin haber ejecutado ningún conversor de otro autor.** Con
+  un conversor de prueba escrito aquí y con la lectura de otro, abajo en HALLAZGOS.
+  Sigue sin medirse contra la salida real de un conversor ajeno.
 
 ## Que a esto se llegue desde fuera
 

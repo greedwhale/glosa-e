@@ -16,7 +16,7 @@ fecha: 2026-11-01
 id: comprobador-de-copia-fiel
 titulo: La copia fiel comparada con su Facturae
 nuevos: COPIA-COMPARADA COPIA-DATOS COPIA-IMPORTES COPIA-DESGLOSE
-  COPIA-LINEAS COPIA-SIN-PAREJA
+  COPIA-LINEAS COPIA-SEPARADOR COPIA-SIN-PAREJA
 texto: Al poner en el mismo lote un Facturae y su copia en UBL, Glosa-e
   compara los dos y avisa de lo que no dicen igual: el número, la fecha,
   los totales, el desglose y las líneas. Dice también lo que no compara.

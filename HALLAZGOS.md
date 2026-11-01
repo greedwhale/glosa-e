@@ -9297,3 +9297,34 @@ a true van a su propio montón. Una copia y su original llevan el mismo número 
 propósito. Sin el indicador sigue el error (es lo que dice la orden: sin él es
 el original), y dos copias con el mismo número también se quejan: las dos cosas
 con su prueba, para que la salida no valga para cualquiera que comparta número.
+
+## El comprobador de copia fiel, medido con facturas de otro autor
+
+**Cómo salió.** Del encargo de medirlo contra un conversor, el 01-11-2026. Un
+conversor de prueba escrito aquí, con la misma tabla, dio **0 avisos** en las 14
+Facturae de aquí y detectó **56 de 56** copias rotas a propósito. Parecía cerrado
+y no lo estaba: un conversor y un comprobador que salen de la misma tabla se
+equivocan en lo mismo. Ejecutar el de Invopop no fue posible, así que se usaron sus
+10 Facturae públicas, lo que su importador lee de ellas, y el código de su
+exportador a UBL, leído y reconstruido aquí. Es una lectura, no una ejecución.
+
+**Reproducido** con siete pruebas en rojo antes de tocar nada. Salieron cuatro
+fallos del comprobador que las 14 de aquí no podían enseñar:
+
+1. **Acusaba a copias correctas.** BT-112 se esperaba como `InvoiceTotal` más las
+   retenciones. Las 3 de Invopop con retención no la restan de `InvoiceTotal`, y
+   el aviso decía que la copia había copiado el total, justo al revés. Las 6 de
+   aquí con retención sí la restan, y por eso no se había visto. Ahora se espera
+   la base más las cuotas, que es lo que dice la tabla.
+2. **Un vendedor extranjero se quedaba sin comparar.** `limpiar_nif` solo quita el
+   ES, y 123456789012 contra FR123456789012 no se emparejaba.
+3. **Un abono salía entero como diferencia**, con cada importe y cada línea: el
+   original en negativo y el 381 en positivo.
+4. **El guion del número era un aviso en cada factura con serie**, y ninguna norma
+   le dice a nadie cómo juntarlos. Ahora es la nota `COPIA-SEPARADOR`. De paso, una
+   retención dentro del desglose se anunciaba como IVA.
+
+**Lo que confirma la tabla, de otro autor.** Su exportador pone en BT-109, BT-110 y
+BT-112 los mismos importes que la tabla, sin restar retenciones de BT-112, y en
+BT-115 los descuenta. Es una lectura de su código, y de lo que hace con facturas
+sencillas: no decide las filas sin decidir.

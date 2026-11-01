@@ -35,6 +35,18 @@ Y una factura con impuestos que no son IVA, IGIC ni IPSI se compara solo en sus
 datos y en sus líneas: esos impuestos van en la copia como cargo, y entonces ni
 la base, ni las cuotas, ni el total llegan con el mismo número.
 
+Lo que no es diferencia aunque lo parezca
+-----------------------------------------
+Salió de medirlo con facturas y código de otro autor, el 01-11-2026, y las de
+aquí no lo podían enseñar (en HALLAZGOS):
+
+- BT-112 se espera como la base más las cuotas, y no a partir de `InvoiceTotal`:
+  hay Facturae que no restan ahí la retención, aunque su esquema diga que sí;
+- el prefijo del NIF, sea del país que sea, porque Facturae lo lleva aparte;
+- el signo en un abono: Facturae rectifica en negativo y el 381 va en positivo;
+- el separador entre la serie y el número, que nadie fija: es una nota
+  (`COPIA-SEPARADOR`) y no un aviso.
+
 Lo que falta en la copia porque no tiene sitio no es una diferencia. Y todo
 esto no dice que la copia ni el original sean válidos: eso lo dice el informe
 de cada fichero.
@@ -43,8 +55,10 @@ de cada fichero.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
+
+from lxml import etree
 
 from validador import cifras, codigo_unico
 from validador.formato import FACTURAE, UBL
@@ -53,6 +67,7 @@ from validador.sintaxis import (
     SINTAXIS,
     a_decimal,
     buscar,
+    redondear,
     importe,
     importe_en_moneda,
     texto,
@@ -110,6 +125,9 @@ class Lectura:
     lineas: tuple[Linea, ...]
     indicador_de_copia: str | None = None
     otros_impuestos: bool = False
+    # El `InvoiceTotal` tal cual, solo para reconocerlo si la copia lo trae.
+    total_de_facturae: Decimal | None = None
+    es_abono: bool = False
 
     @property
     def es_copia(self) -> bool:
@@ -220,9 +238,12 @@ def _facturae(raiz) -> list[Lectura]:
                               if comprador else None),
             base=base,
             cuotas=cuotas,
-            # El total de Facturae resta las retenciones y BT-112 no: se le
-            # devuelven, y así este campo es lo que debería decir la copia.
-            total=None if total is None else total + (retenciones or Decimal(0)),
+            # BT-112 es base más cuotas (BR-CO-15). No se saca de `InvoiceTotal`
+            # sumándole la retención que resta: medido el 01-11-2026, las
+            # Facturae públicas de Invopop no la restan, y una copia correcta
+            # salía acusada. Que el original no cuadre es cosa de FE-TOTAL.
+            total=None if base is None or cuotas is None else base + cuotas,
+            total_de_facturae=total,
             retenciones=retenciones,
             desglose=desglose,
             lineas=_lineas_facturae(factura),
@@ -238,7 +259,12 @@ def _desglose_ubl(raiz, sintaxis) -> tuple:
         tipo = importe(grupo, sintaxis.desglose_tipo, sintaxis) or Decimal(0)
         base = importe(grupo, sintaxis.desglose_base, sintaxis) or Decimal(0)
         cuota = importe(grupo, sintaxis.desglose_cuota, sintaxis) or Decimal(0)
-        familia = _IMPUESTOS_COPIA.get(categoria, "IVA")
+        esquema = (grupo.xpath("string(./cac:TaxCategory/cac:TaxScheme/cbc:ID)",
+                               namespaces=sintaxis.espacios) or "").strip().upper()
+        # Por la categoría, y si no por el esquema: sin esto, una retención
+        # metida en el desglose se anunciaba como IVA.
+        familia = _IMPUESTOS_COPIA.get(categoria) or (
+            esquema if esquema not in ("", "VAT", "IVA") else "IVA")
         if familia == "recargo":
             _sumar(desglose, (familia, tipo), None, cuota)
         else:
@@ -286,6 +312,8 @@ def _ubl(raiz, deteccion) -> list[Lectura]:
             for linea in buscar(raiz, sintaxis.lineas, espacios)
         ),
         indicador_de_copia=texto_es(raiz, "BT-ES-1"),
+        es_abono=(texto(raiz, sintaxis.tipo, sintaxis) == "381"
+                  or etree.QName(raiz).localname == "CreditNote"),
     )]
 
 
@@ -318,6 +346,34 @@ def _cifra(valor: Decimal | None) -> str:
     return "nada" if valor is None else cifras.en_castellano(valor)
 
 
+def _sin_pais(nif: str) -> str:
+    """Sin el prefijo de cualquier país. `limpiar_nif` solo quita el ES.
+
+    Medido el 01-11-2026: un vendedor francés, 123456789012 en el Facturae y
+    FR123456789012 en la copia, se quedaba sin pareja y sin comparar. Dos letras
+    y no una: la letra de un NIF español no es ningún país.
+    """
+    return re.sub(r"^[A-Z]{2}", "", nif.upper())
+
+
+def _en_positivo(lectura: Lectura) -> Lectura:
+    """Un abono sin signos. Facturae rectifica en negativo, y el 381 va en positivo."""
+    def sin_signo(valor):
+        return None if valor is None else abs(valor)
+    return replace(
+        lectura,
+        base=sin_signo(lectura.base),
+        cuotas=sin_signo(lectura.cuotas),
+        total=sin_signo(lectura.total),
+        total_de_facturae=sin_signo(lectura.total_de_facturae),
+        retenciones=sin_signo(lectura.retenciones),
+        desglose=tuple((clave, sin_signo(base), sin_signo(cuota))
+                       for clave, base, cuota in lectura.desglose),
+        lineas=tuple(Linea(sin_signo(l.cantidad), sin_signo(l.neto), l.tipo)
+                     for l in lectura.lineas),
+    )
+
+
 def _igual(a: Decimal | None, b: Decimal | None) -> bool:
     return a is not None and b is not None and abs(a - b) <= _MARGEN
 
@@ -325,7 +381,8 @@ def _igual(a: Decimal | None, b: Decimal | None) -> bool:
 def _pareja_de(copia: Lectura, originales: list[int], lecturas: list[Lectura]) -> int | None:
     """El original de una copia: primero exacto, luego sin separadores, y por
     último por el número sin la serie, solo si no hay dos que encajen."""
-    del_emisor = [i for i in originales if lecturas[i].emisor == copia.emisor]
+    del_emisor = [i for i in originales
+                  if _sin_pais(lecturas[i].emisor) == _sin_pais(copia.emisor)]
     for i in del_emisor:
         if lecturas[i].numero == copia.numero:
             return i
@@ -339,24 +396,21 @@ def _pareja_de(copia: Lectura, originales: list[int], lecturas: list[Lectura]) -
 
 def _de_datos(original: Lectura, copia: Lectura) -> list[str]:
     diferencias = []
-    if original.numero != copia.numero:
-        if _compacto(original.numero) == _compacto(copia.numero):
-            diferencias.append(
-                f"número (BT-1): {copia.numero} en la copia y {original.numero} con "
-                "la serie y el número pegados. La orden no dice cómo se juntan, "
-                "y aquí se pegan sin separador")
-        else:
-            diferencias.append(
-                f"número (BT-1): {copia.numero} en la copia, sin la serie, y "
-                f"{original.numero} en el original. Así la copia y el original no "
-                "identifican la misma factura")
+    # Con otro separador no es una diferencia: lo dice COPIA-SEPARADOR.
+    if _compacto(original.numero) != _compacto(copia.numero):
+        diferencias.append(
+            f"número (BT-1): {copia.numero} en la copia, sin la serie, y "
+            f"{original.numero} en el original. Así la copia y el original no "
+            "identifican la misma factura")
     if original.fecha != copia.fecha:
         diferencias.append(f"fecha de expedición (BT-2): {original.fecha} en el "
                            f"original y {copia.fecha} en la copia")
     if original.moneda != copia.moneda:
         diferencias.append(f"moneda (BT-5): {original.moneda} en el original y "
                            f"{copia.moneda} en la copia")
-    if original.comprador and original.comprador[0] not in copia.comprador:
+    if original.comprador and _sin_pais(original.comprador[0]) not in {
+        _sin_pais(nif) for nif in copia.comprador
+    }:
         escrito = ", ".join(copia.comprador) or "ninguno"
         diferencias.append(f"NIF del comprador (BT-48 o BT-47): {original.comprador[0]} "
                            f"en el original y {escrito} en la copia")
@@ -374,22 +428,32 @@ def _de_datos(original: Lectura, copia: Lectura) -> list[str]:
     return diferencias
 
 
+def _total_cuadra(original: Lectura, copia: Lectura) -> bool:
+    """Vale la suma exacta y la de los dos ya redondeados, que es la de BR-CO-15."""
+    if _igual(original.total, copia.total):
+        return True
+    return (original.base is not None and original.cuotas is not None
+            and _igual(redondear(original.base) + redondear(original.cuotas), copia.total))
+
+
 def _de_importes(original: Lectura, copia: Lectura) -> list[str]:
     diferencias = []
     if not original.otros_impuestos:
         for nombre, de_original, de_copia in (
             ("base (BT-109)", original.base, copia.base),
             ("cuotas (BT-110)", original.cuotas, copia.cuotas),
-            ("total con impuestos (BT-112)", original.total, copia.total),
         ):
             if de_original is not None and not _igual(de_original, de_copia):
                 diferencias.append(f"{nombre}: {_cifra(de_original)} según el original "
                                    f"y {_cifra(de_copia)} en la copia")
+        if original.total is not None and not _total_cuadra(original, copia):
+            frase = (f"total con impuestos (BT-112): {_cifra(original.total)} según el "
+                     f"original y {_cifra(copia.total)} en la copia")
+            if original.retenciones and _igual(original.total_de_facturae, copia.total):
+                frase += (". Es el total de Facturae tal cual, que resta las retenciones, "
+                          "y BT-112 no las resta")
+            diferencias.append(frase)
     retenido = original.retenciones or Decimal(0)
-    if (not original.otros_impuestos and retenido and original.total is not None
-            and _igual(original.total - retenido, copia.total)):
-        diferencias.append("el total de la copia es el de Facturae tal cual, que "
-                           "resta las retenciones, y BT-112 no las resta")
     if not _igual(retenido, copia.retenciones or Decimal(0)):
         diferencias.append(f"retenciones (BT-ES-17): {_cifra(retenido)} en el original y "
                            f"{_cifra(copia.retenciones)} en la copia")
@@ -468,6 +532,8 @@ def _resumidas(diferencias: list[str]) -> str:
 def _de_una_pareja(original: Lectura, copia: Lectura,
                    ficheros: tuple[str, ...]) -> list[Incidencia]:
     incidencias = []
+    if copia.es_abono:
+        original, copia = _en_positivo(original), _en_positivo(copia)
     for codigo, comparar, que, campo in _COMPARACIONES:
         diferencias = comparar(original, copia)
         if diferencias:
@@ -504,6 +570,7 @@ def reglas_de_lote(lecturas: list[Lectura],
     emparejados: set[int] = set()
     otros: list[str] = []
     sueltas: list[int] = []
+    separadores: list[tuple[str, str]] = []
     for indice in copias:
         pareja = _pareja_de(lecturas[indice], originales, lecturas)
         if pareja is None:
@@ -514,6 +581,9 @@ def reglas_de_lote(lecturas: list[Lectura],
         emparejados.add(pareja)
         if lecturas[pareja].otros_impuestos:
             otros.append(lecturas[pareja].numero)
+        if (lecturas[pareja].numero != lecturas[indice].numero
+                and _compacto(lecturas[pareja].numero) == _compacto(lecturas[indice].numero)):
+            separadores.append((lecturas[indice].numero, lecturas[pareja].numero))
         suyas = _de_una_pareja(lecturas[pareja], lecturas[indice],
                                tuple(dict.fromkeys(fichero(pareja) + fichero(indice))))
         con_diferencias += bool(suyas)
@@ -554,6 +624,22 @@ def reglas_de_lote(lecturas: list[Lectura],
                        f"{con_diferencias} con diferencias",
         ))
     salida.extend(avisos)
+    if separadores:
+        # Nota y una sola: un conversor que junta con guion lo hace en todas sus
+        # facturas con serie, y ninguna norma le dice que no. Medido el
+        # 01-11-2026 leyendo `gobl.ubl`, que junta con guion.
+        nombradas = ", ".join(f"{copia} y {suya}" for copia, suya in separadores[:_NOMBRADAS])
+        salida.append(Incidencia(
+            "COPIA-SEPARADOR",
+            NOTA,
+            f"En {_plural(len(separadores), 'copia', 'copias')} el número junta la serie "
+            f"y el número de otra manera que aquí: {nombradas}. La orden tiene un solo "
+            "campo para los dos y no dice cómo se juntan. Aquí se pegan sin nada, que es "
+            "como los junta el código único. Si tu programa o la AEAT buscan la factura "
+            "por su número, conviene escribirlo igual en todas partes.",
+            campo="Número de factura (BT-1)",
+            encontrado=nombradas,
+        ))
     if sueltas:
         nombres = ", ".join(lecturas[i].numero for i in sueltas[:_NOMBRADAS])
         resto = len(sueltas) - _NOMBRADAS
