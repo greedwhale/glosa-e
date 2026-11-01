@@ -9383,6 +9383,39 @@ esquema admite y su importador rechaza, esta vez con error.
 El de la retención convertida en impuesto es el primer fallo de un conversor ajeno cazado
 con una factura real, y es una sola: no dice cuántas veces pasa.
 
+### Las filas iguales que nadie miraba, y un aviso falso que la tabla ya explicaba
+
+**El síntoma.** El README decía que varias filas que la tabla da por iguales aún no se
+comparaban, en una lista. Reproducido el 01-11-2026: diez copias rotas pasaban sin un
+aviso, con otra fecha de operación (dos, una en cada sentido), sin el periodo de
+facturación, con otra moneda del IVA, otra suma de líneas, descuentos o cargos generales
+de más, y otros importes de descuento y de cargo de línea, y otro porcentaje de cargo.
+
+**El aviso falso.** Al probar, salió lo contrario: un impuesto que no es IVA, escrito como
+cargo de línea, se acusaba de neto distinto (`COPIA-LINEAS`). La fila de la tabla dice
+que ahí va, dentro de BT-131, y el comparador no la había leído.
+
+**El arreglo.** Se comparan BT-6, BT-7, BT-73, BT-74, BT-25, BT-26, BT-106 a BT-108, BT-136,
+BT-141 y BT-143. Sin códigos nuevos, porque son los mismos datos, importes y líneas. Lo que
+decide cada una está en la cabecera de `comprobar_copia.py`.
+
+**La lista que pedía memoria.** Queda un cepo: toda fila igual de la tabla tiene que
+nombrarse en el comparador, o `test_comprobar_copia.py` se niega.
+
+**Probado rompiéndolo.** 30 roturas del código. Tres pasaban y enseñaron tres pruebas que
+faltaban: un Facturae sin moneda del IVA, un total general sin sus sumandos y el porcentaje
+de un descuento tomado por el de un cargo. Con ellas, caen las 30.
+
+**Medido.** `gobl` en 9 Facturae públicas, 0 avisos nuevos, y se ve lo que valía la regla de
+la fecha: 8 de las 9 escriben una operación igual a la expedición, que `gobl` no escribe. En
+las 5 facturas reales que dan copia, por `gobl` y solo en recuentos, 3 avisos ciertos: su
+importador no lee `InvoicingPeriod`, que en sus fuentes solo está en el esquema. En las 6
+parejas de FACe, datos inventados, 1 cierto. Las 6 escriben 0,00 en `TotalGrossAmount`: en 5, la
+copia cuadra con la suma de las líneas y no salta, porque que el original no cuadre consigo
+mismo es cosa de `FE-TOTAL`; en la del descuento, la línea dice 105 y la copia 100.
+Y una cosa que no se acusa a propósito: su rectificativa no lleva `Corrective` y su UBL sí
+nombra la rectificada. No está medido contra un conversor hecho para la SPFE.
+
 ### La dirección, el pago y los textos: lo que la copia podía cambiar sin que nadie lo viera
 
 Reproducido el 01-11-2026, antes de tocar nada: una copia con otra calle, otro código

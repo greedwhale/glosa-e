@@ -35,7 +35,9 @@ Lo que la tabla no deja comparar sin inventar:
   pide en dos, y nadie dice por dónde se parten (`COPIA-DIRECCION`);
 - el medio de pago, fuera de los cinco códigos que la tabla sostiene por su nombre;
 - las notas de la factura: la norma tiene un grupo repetible y Facturae tres campos
-  que no se parecen, y lo que va en cada sitio lo decide quien copia.
+  que no se parecen, y lo que va en cada sitio lo decide quien copia;
+- una factura rectificada que la copia nombra y el original no: con el criterio 03
+  se rectifica un periodo entero, sin número, y de dónde lo saca la copia no se ve.
 
 Y una factura con impuestos que no son IVA, IGIC ni IPSI se compara solo en sus
 datos y en sus líneas: esos impuestos van en la copia como cargo, y entonces ni
@@ -53,7 +55,13 @@ aquí no lo podían enseñar (en HALLAZGOS):
 - el separador entre la serie y el número, que nadie fija: es una nota
   (`COPIA-SEPARADOR`) y no un aviso;
 - la calle repartida en dos líneas de la copia, si dice lo mismo;
-- un cargo de más en la copia: un impuesto que no es IVA va ahí como cargo.
+- un cargo de más en la copia: un impuesto que no es IVA va ahí como cargo, y si va
+  en la línea, además, su neto lo lleva dentro;
+- la fecha de la operación que no se escribe porque es la de expedición;
+- la moneda del IVA que no se escribe porque es la de la factura: Facturae obliga a
+  escribirla y copiarla rompe la copia (`COPIA-MONEDA-DEL-IVA`);
+- una suma que no es la de Facturae y sí la de sus sumandos ya redondeados, que es la
+  que pide la norma (BR-CO-10, BR-CO-11 y BR-CO-12).
 
 Lo que falta en la copia porque no tiene sitio no es una diferencia. Y todo
 esto no dice que la copia ni el original sean válidos: eso lo dice el informe
@@ -140,6 +148,9 @@ class Linea:
     precio: Decimal | None = None
     # (código del término, motivo). Los descuentos y cargos de la línea.
     motivos: tuple[tuple[str, str], ...] = ()
+    descuentos: tuple[Decimal, ...] = ()
+    cargos: tuple[Decimal, ...] = ()
+    tipos_de_cargo: tuple[Decimal, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -188,6 +199,16 @@ class Lectura:
     cuentas: tuple[str, ...] = ()
     # (código del término, motivo). Los descuentos y cargos del documento.
     motivos: tuple[tuple[str, str], ...] = ()
+    fecha_operacion: str | None = None
+    moneda_del_impuesto: str | None = None
+    periodo: tuple[str | None, str | None] = (None, None)
+    # (número con su serie, fecha). La fecha, si el original la escribe.
+    rectificadas: tuple[tuple[str, str | None], ...] = ()
+    suma_lineas: Decimal | None = None
+    suma_descuentos: Decimal | None = None
+    suma_cargos: Decimal | None = None
+    descuentos: tuple[Decimal, ...] = ()
+    cargos: tuple[Decimal, ...] = ()
 
     @property
     def es_copia(self) -> bool:
@@ -214,6 +235,11 @@ def _texto(nodo, *nombres: str) -> str | None:
 
 def _numero(nodo, *nombres: str) -> Decimal | None:
     return a_decimal(_texto(nodo, *nombres))
+
+
+def _importes(nodo, *nombres: str) -> tuple[Decimal, ...]:
+    leidos = (a_decimal((uno.text or "").strip()) for uno in _hijos(nodo, *nombres))
+    return tuple(valor for valor in leidos if valor is not None)
 
 
 def _sumar(desglose: dict, clave, base: Decimal | None, cuota: Decimal) -> None:
@@ -261,6 +287,9 @@ def _lineas_facturae(factura) -> tuple[Linea, ...]:
             nombre=_texto(linea, "ItemDescription"),
             precio=_numero(linea, "UnitPriceWithoutTax"),
             motivos=_motivos_facturae(linea, "DiscountsAndRebates", "Charges", "BT-139", "BT-144"),
+            descuentos=_importes(linea, "DiscountsAndRebates", "Discount", "DiscountAmount"),
+            cargos=_importes(linea, "Charges", "Charge", "ChargeAmount"),
+            tipos_de_cargo=_importes(linea, "Charges", "Charge", "ChargeRate"),
         ))
     return tuple(lineas)
 
@@ -315,6 +344,23 @@ def _pago_facturae(factura) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str
             if escrito and escrito not in lista:
                 lista.append(escrito)
     return tuple(vencimientos), tuple(medios), tuple(cuentas)
+
+
+def _rectificadas_facturae(factura) -> tuple[tuple[str, str | None], ...]:
+    """Con su número. Con el criterio 03 se rectifica un periodo, y no hay ninguno.
+
+    `RelatedInvoice` ya viene con la serie y el número juntos, y sin fecha.
+    """
+    rectificadas = []
+    for bloque in _hijos(factura, "InvoiceHeader", "Corrective"):
+        numero = _texto(bloque, "InvoiceNumber")
+        if numero:
+            serie = _texto(bloque, "InvoiceSeriesCode") or ""
+            rectificadas.append((f"{serie}{numero}", _texto(bloque, "InvoiceIssueDate")))
+    asociada = _texto(factura, "AdditionalData", "RelatedInvoice")
+    if asociada:
+        rectificadas.append((asociada, None))
+    return tuple(rectificadas)
 
 
 def _facturae(raiz) -> list[Lectura]:
@@ -372,6 +418,16 @@ def _facturae(raiz) -> list[Lectura]:
             cuentas=cuentas,
             motivos=_motivos_facturae(factura, "GeneralDiscounts", "GeneralSurcharges",
                                       "BT-97", "BT-104"),
+            fecha_operacion=_texto(factura, "InvoiceIssueData", "OperationDate"),
+            moneda_del_impuesto=_texto(factura, "InvoiceIssueData", "TaxCurrencyCode"),
+            periodo=(_texto(factura, "InvoiceIssueData", "InvoicingPeriod", "StartDate"),
+                     _texto(factura, "InvoiceIssueData", "InvoicingPeriod", "EndDate")),
+            rectificadas=_rectificadas_facturae(factura),
+            suma_lineas=_numero(de_totales, "TotalGrossAmount"),
+            suma_descuentos=_numero(de_totales, "TotalGeneralDiscounts"),
+            suma_cargos=_numero(de_totales, "TotalGeneralSurcharges"),
+            descuentos=_importes(factura, "GeneralDiscounts", "Discount", "DiscountAmount"),
+            cargos=_importes(factura, "GeneralSurcharges", "Charge", "ChargeAmount"),
         ))
     return lecturas
 
@@ -439,12 +495,23 @@ def _pago_ubl(raiz) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     )
 
 
+def _de_los_cargos_ubl(nodo) -> tuple[list[Decimal], list[Decimal], list[Decimal]]:
+    descuentos, cargos, tipos = [], [], []
+    for uno in _hijos(nodo, "AllowanceCharge"):
+        es_cargo = (_texto(uno, "ChargeIndicator") or "").lower() == "true"
+        (cargos if es_cargo else descuentos).extend(_importes(uno, "Amount"))
+        if es_cargo:
+            tipos.extend(_importes(uno, "MultiplierFactorNumeric"))
+    return descuentos, cargos, tipos
+
+
 def _linea_ubl(linea, sintaxis) -> Linea:
     precio = importe(linea, sintaxis.linea_precio, sintaxis)
     # BT-149: el precio puede ser el de varias unidades, y el de Facturae es de una.
     por_cuantas = _numero(linea, "Price", "BaseQuantity")
     if precio is not None and por_cuantas:
         precio = precio / por_cuantas
+    descuentos, cargos, tipos = _de_los_cargos_ubl(linea)
     return Linea(
         importe(linea, sintaxis.linea_cantidad, sintaxis),
         importe(linea, "./cbc:LineExtensionAmount", sintaxis),
@@ -452,6 +519,9 @@ def _linea_ubl(linea, sintaxis) -> Linea:
         nombre=texto(linea, sintaxis.linea_nombre, sintaxis),
         precio=precio,
         motivos=_motivos_ubl(linea, "BT-139", "BT-144"),
+        descuentos=tuple(descuentos),
+        cargos=tuple(cargos),
+        tipos_de_cargo=tuple(tipos),
     )
 
 
@@ -500,6 +570,17 @@ def _ubl(raiz, deteccion) -> list[Lectura]:
         medios=medios,
         cuentas=cuentas,
         motivos=_motivos_ubl(raiz, "BT-97", "BT-104"),
+        fecha_operacion=texto(raiz, sintaxis.fecha_devengo, sintaxis),
+        moneda_del_impuesto=texto(raiz, sintaxis.moneda_impuestos, sintaxis),
+        periodo=(_texto(raiz, "InvoicePeriod", "StartDate"),
+                 _texto(raiz, "InvoicePeriod", "EndDate")),
+        rectificadas=tuple(
+            (_texto(uno, "ID") or "", _texto(uno, "IssueDate"))
+            for uno in _hijos(raiz, "BillingReference", "InvoiceDocumentReference")
+        ),
+        suma_lineas=importe(raiz, sintaxis.suma_lineas, sintaxis),
+        suma_descuentos=importe(raiz, sintaxis.descuentos_total, sintaxis),
+        suma_cargos=importe(raiz, sintaxis.cargos_total, sintaxis),
     )]
 
 
@@ -546,6 +627,9 @@ def _en_positivo(lectura: Lectura) -> Lectura:
     """Un abono sin signos. Facturae rectifica en negativo, y el 381 va en positivo."""
     def sin_signo(valor):
         return None if valor is None else abs(valor)
+
+    def sin_signos(valores):
+        return tuple(abs(valor) for valor in valores)
     return replace(
         lectura,
         base=sin_signo(lectura.base),
@@ -556,13 +640,30 @@ def _en_positivo(lectura: Lectura) -> Lectura:
         desglose=tuple((clave, sin_signo(base), sin_signo(cuota))
                        for clave, base, cuota in lectura.desglose),
         lineas=tuple(replace(l, cantidad=sin_signo(l.cantidad), neto=sin_signo(l.neto),
-                             precio=sin_signo(l.precio))
+                             precio=sin_signo(l.precio), descuentos=sin_signos(l.descuentos),
+                             cargos=sin_signos(l.cargos))
                      for l in lectura.lineas),
+        suma_lineas=sin_signo(lectura.suma_lineas),
+        suma_descuentos=sin_signo(lectura.suma_descuentos),
+        suma_cargos=sin_signo(lectura.suma_cargos),
+        descuentos=sin_signos(lectura.descuentos),
+        cargos=sin_signos(lectura.cargos),
     )
 
 
 def _igual(a: Decimal | None, b: Decimal | None) -> bool:
     return a is not None and b is not None and abs(a - b) <= _MARGEN
+
+
+def _suma_cuadra(total: Decimal, sumandos, de_copia: Decimal) -> bool:
+    """Vale la suma tal cual y la de los sumandos ya redondeados, que es la de la norma.
+
+    Con tres líneas de 0,334 Facturae suma 1,002 y la copia, 0,99: las dos bien.
+    Sin sumandos no hay otra suma: un cero no puede dar por bueno un total que falta.
+    """
+    if _igual(total, de_copia):
+        return True
+    return bool(sumandos) and _igual(sum((redondear(s) for s in sumandos), Decimal(0)), de_copia)
 
 
 def _pareja_de(copia: Lectura, originales: list[int], lecturas: list[Lectura]) -> int | None:
@@ -581,6 +682,22 @@ def _pareja_de(copia: Lectura, originales: list[int], lecturas: list[Lectura]) -
     return solo_numero[0] if len(solo_numero) == 1 else None
 
 
+def _de_las_rectificadas(original: Lectura, copia: Lectura) -> list[str]:
+    """Las del original tienen que estar. Con otro separador sigue siendo la misma."""
+    de_copia = {_compacto(numero): fecha for numero, fecha in copia.rectificadas}
+    diferencias = []
+    for numero, fecha in original.rectificadas:
+        clave = _compacto(numero)
+        if clave not in de_copia:
+            escritas = ", ".join(n for n, _ in copia.rectificadas) or "nada"
+            diferencias.append(f"factura rectificada (BT-25): {numero} en el original y "
+                               f"{escritas} en la copia")
+        elif fecha and fecha != de_copia[clave]:
+            diferencias.append(f"fecha de la factura rectificada (BT-26): {fecha} en el "
+                               f"original y {de_copia[clave] or 'nada'} en la copia")
+    return diferencias
+
+
 def _de_datos(original: Lectura, copia: Lectura) -> list[str]:
     diferencias = []
     # Con otro separador no es una diferencia: lo dice COPIA-SEPARADOR.
@@ -595,6 +712,30 @@ def _de_datos(original: Lectura, copia: Lectura) -> list[str]:
     if original.moneda != copia.moneda:
         diferencias.append(f"moneda (BT-5): {original.moneda} en el original y "
                            f"{copia.moneda} en la copia")
+    # Sin fecha aparte es la de expedición: en Facturae solo se escribe si es otra.
+    if (original.fecha_operacion or copia.fecha_operacion) and (
+        (original.fecha_operacion or original.fecha) != (copia.fecha_operacion or copia.fecha)
+    ):
+        diferencias.append(f"fecha de la operación (BT-7): "
+                           f"{original.fecha_operacion or original.fecha} en el original y "
+                           f"{copia.fecha_operacion or copia.fecha} en la copia")
+    # Sin moneda aparte es la de la factura, y la copia no debe escribirla si es esa
+    # (`COPIA-MONEDA-DEL-IVA`). Solo se mira si alguien dice otra cosa: si no, una
+    # moneda cambiada en BT-5 salía dos veces.
+    del_impuesto = original.moneda_del_impuesto or original.moneda
+    if (copia.moneda_del_impuesto or del_impuesto != original.moneda) and (
+        del_impuesto != (copia.moneda_del_impuesto or copia.moneda)
+    ):
+        diferencias.append(f"moneda del IVA (BT-6): {del_impuesto} en el original y "
+                           f"{copia.moneda_del_impuesto or copia.moneda} en la copia")
+    for nombre, suyo, de_copia in (
+        ("inicio del periodo de facturación (BT-73)", original.periodo[0], copia.periodo[0]),
+        ("fin del periodo de facturación (BT-74)", original.periodo[1], copia.periodo[1]),
+    ):
+        if suyo != de_copia:
+            diferencias.append(f"{nombre}: {suyo or 'nada'} en el original y "
+                               f"{de_copia or 'nada'} en la copia")
+    diferencias += _de_las_rectificadas(original, copia)
     if original.comprador and _sin_pais(original.comprador[0]) not in {
         _sin_pais(nif) for nif in copia.comprador
     }:
@@ -640,6 +781,23 @@ def _de_importes(original: Lectura, copia: Lectura) -> list[str]:
                 frase += (". Es el total de Facturae tal cual, que resta las retenciones, "
                           "y BT-112 no las resta")
             diferencias.append(frase)
+        netos = [l.neto for l in original.lineas if l.neto is not None]
+        if original.suma_lineas is not None and not _suma_cuadra(
+            original.suma_lineas, netos, copia.suma_lineas or Decimal(0)
+        ):
+            diferencias.append(f"suma de las líneas (BT-106): {_cifra(original.suma_lineas)} "
+                               f"según el original y {_cifra(copia.suma_lineas)} en la copia")
+        for nombre, suya, sumandos, de_copia in (
+            ("descuentos generales (BT-107)", original.suma_descuentos, original.descuentos,
+             copia.suma_descuentos),
+            ("cargos generales (BT-108)", original.suma_cargos, original.cargos,
+             copia.suma_cargos),
+        ):
+            # La suma es opcional en Facturae, y los descuentos pueden venir sin ella.
+            total = sum(sumandos, Decimal(0)) if suya is None else suya
+            if not _suma_cuadra(total, sumandos, de_copia or Decimal(0)):
+                diferencias.append(f"{nombre}: {_cifra(total)} según el original y "
+                                   f"{_cifra(de_copia)} en la copia")
     retenido = original.retenciones or Decimal(0)
     if not _igual(retenido, copia.retenciones or Decimal(0)):
         diferencias.append(f"retenciones (BT-ES-17): {_cifra(retenido)} en el original y "
@@ -653,6 +811,7 @@ def _nombre_de_entrada(clave: tuple[str, Decimal]) -> str:
 
 
 def _de_desglose(original: Lectura, copia: Lectura) -> list[str]:
+    """BG-23 por impuesto y tipo: la base (BT-116), la cuota (BT-117) y el tipo (BT-119)."""
     if original.otros_impuestos:
         return []
     de_copia = {clave: (base, cuota) for clave, base, cuota in copia.desglose}
@@ -698,9 +857,30 @@ def _de_lineas(original: Lectura, copia: Lectura) -> list[str]:
         if suya.cantidad != de_copia.cantidad:
             diferencias.append(f"línea {numero}, cantidad (BT-129): {_cifra(suya.cantidad)} en "
                                f"el original y {_cifra(de_copia.cantidad)} en la copia")
-        if suya.neto is not None and not _igual(suya.neto, de_copia.neto):
-            diferencias.append(f"línea {numero}, neto (BT-131): {_cifra(suya.neto)} en el "
+        cargos_suyos = sum(suya.cargos, Decimal(0))
+        cargos_de_copia = sum(de_copia.cargos, Decimal(0))
+        neto = suya.neto
+        # Un impuesto que no es IVA, escrito como cargo de la línea, suma en BT-131:
+        # la propia fila de la tabla lo dice, y una copia correcta salía acusada.
+        if neto is not None and original.otros_impuestos and cargos_de_copia > cargos_suyos:
+            neto += cargos_de_copia - cargos_suyos
+        if neto is not None and not _igual(neto, de_copia.neto):
+            diferencias.append(f"línea {numero}, neto (BT-131): {_cifra(neto)} en el "
                                f"original y {_cifra(de_copia.neto)} en la copia")
+        descuentos_de_copia = sum(de_copia.descuentos, Decimal(0))
+        descuentos_suyos = sum(suya.descuentos, Decimal(0))
+        if not _suma_cuadra(descuentos_suyos, suya.descuentos, descuentos_de_copia):
+            diferencias.append(f"línea {numero}, descuentos (BT-136): "
+                               f"{_cifra(descuentos_suyos)} en el original y "
+                               f"{_cifra(descuentos_de_copia)} en la copia")
+        if not original.otros_impuestos:
+            if not _suma_cuadra(cargos_suyos, suya.cargos, cargos_de_copia):
+                diferencias.append(f"línea {numero}, cargos (BT-141): {_cifra(cargos_suyos)} "
+                                   f"en el original y {_cifra(cargos_de_copia)} en la copia")
+            for tipo in suya.tipos_de_cargo:
+                if tipo and not any(_igual(tipo, t) for t in de_copia.tipos_de_cargo):
+                    diferencias.append(f"línea {numero}, porcentaje del cargo (BT-143): "
+                                       f"{cifras.tipo(tipo)} en el original, y no en la copia")
         if suya.precio is not None and not _igual(suya.precio, de_copia.precio):
             diferencias.append(f"línea {numero}, precio (BT-146): {_cifra(suya.precio)} en el "
                                f"original y {_cifra(de_copia.precio)} en la copia")
@@ -790,11 +970,12 @@ def _de_textos(original: Lectura, copia: Lectura) -> list[str]:
 
 
 _COMPARACIONES = (
-    ("COPIA-DATOS", _de_datos, "los datos", "Número, fecha, moneda y partes"),
+    ("COPIA-DATOS", _de_datos, "los datos",
+     "Número, fechas, monedas, periodo, factura rectificada y partes"),
     ("COPIA-PARTES", _de_las_partes, "la dirección o el contacto de las partes",
      "Dirección y contacto (BT-35 a BT-43 y BT-50 a BT-58)"),
     ("COPIA-IMPORTES", _de_importes, "los importes",
-     "Totales (BT-109, BT-110, BT-112 y BT-ES-17)"),
+     "Totales (BT-106 a BT-110, BT-112 y BT-ES-17)"),
     ("COPIA-DESGLOSE", _de_desglose, "el desglose de impuestos",
      "Desglose de impuestos (BG-23)"),
     ("COPIA-LINEAS", _de_lineas, "las líneas", "Líneas (BG-25)"),
@@ -877,11 +1058,13 @@ def reglas_de_lote(lecturas: list[Lectura],
             f"{_plural(comparadas, 'factura', 'facturas')} de "
             "Facturae con su copia en UBL de este lote: "
             f"{comparadas - con_diferencias} sin diferencias y {con_diferencias} con "
-            "alguna, que salen aparte. Se compara número, fecha, moneda, identificación, "
-            "razón social, dirección y contacto de las partes, base, cuotas, total con "
-            "impuestos, retenciones, desglose de impuestos, vencimiento, medio de pago, "
-            "cuenta de abono, motivos de descuentos y cargos y, línea a línea, nombre, "
-            "cantidad, precio, neto y tipo. No se compara el total a pagar, los anticipos, "
+            "alguna, que salen aparte. Se compara número, fechas de expedición y de "
+            "operación, moneda y moneda del IVA, periodo de facturación, factura "
+            "rectificada, identificación, razón social, dirección y contacto de las "
+            "partes, suma de las líneas, descuentos y cargos generales, base, cuotas, "
+            "total con impuestos, retenciones, desglose de impuestos, vencimiento, medio "
+            "de pago, cuenta de abono, motivos de descuentos y cargos y, línea a línea, "
+            "nombre, cantidad, precio, neto, tipo, descuentos y cargos. No se compara el total a pagar, los anticipos, "
             "los suplidos, el nombre de una persona física, el código postal y la población "
             "de fuera de España, los medios de pago que la tabla no sostiene por su nombre "
             "ni las notas de la factura. La "

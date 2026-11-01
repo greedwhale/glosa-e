@@ -5,12 +5,13 @@ siguiendo la tabla de `copia_fiel.py`, y cada prueba le cambia una sola cosa: si
 la copia intacta no saliera limpia, ninguna de las demás probaría nada.
 """
 
+import re
 from pathlib import Path
 
 import pytest
 from lxml import etree
 
-from validador import comprobar_copia, factura
+from validador import comprobar_copia, copia_fiel, factura
 from validador.formato import detectar, parser
 from validador.incidencias import AVISO, NOTA
 
@@ -718,3 +719,360 @@ def test_la_nota_ya_no_dice_que_no_se_comparan():
     mensaje = comparar()[0].mensaje
     assert "la dirección, el pago ni los textos" not in mensaje
     assert "vencimiento" in mensaje
+
+
+# Las filas que la tabla da por iguales y no se miraban: el 01-11-2026, diez copias
+# rotas en ellas pasaban sin un aviso.
+
+EMISION = "<IssueDate>2026-03-02</IssueDate>"
+TIPO_DE_FACTURA = "<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>"
+MONEDA = "<cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>"
+PERIODO_F = ("<InvoicingPeriod><StartDate>2026-01-01</StartDate>"
+             "<EndDate>2026-01-31</EndDate></InvoicingPeriod>")
+PERIODO_U = ("<cac:InvoicePeriod><cbc:StartDate>2026-01-01</cbc:StartDate>"
+             "<cbc:EndDate>2026-01-31</cbc:EndDate></cac:InvoicePeriod>")
+RECTIFICADA_F = ("<Corrective>{}<ReasonCode>01</ReasonCode></Corrective>"
+                 "</InvoiceHeader>")
+RECTIFICADA_U = ("<cac:BillingReference><cac:InvoiceDocumentReference><cbc:ID>{}</cbc:ID>{}"
+                 "</cac:InvoiceDocumentReference></cac:BillingReference>")
+
+
+def con_operacion(fecha: str = "2026-02-15") -> str:
+    return original().replace(EMISION, f"{EMISION}<OperationDate>{fecha}</OperationDate>", 1)
+
+
+def copia_con_operacion(fecha: str = "2026-02-15") -> str:
+    return COPIA.replace(TIPO_DE_FACTURA,
+                         f"<cbc:TaxPointDate>{fecha}</cbc:TaxPointDate>{TIPO_DE_FACTURA}")
+
+
+def test_la_fecha_de_la_operacion_se_compara():
+    assert not avisos(copia_con_operacion(), con_operacion())
+    assert "BT-7" in avisos(de_original=con_operacion())["COPIA-DATOS"].mensaje
+    assert "BT-7" in avisos(copia_con_operacion())["COPIA-DATOS"].mensaje
+    assert "BT-7" in avisos(copia_con_operacion("2026-02-16"), con_operacion())["COPIA-DATOS"].mensaje
+
+
+def test_sin_fecha_aparte_la_operacion_es_la_de_expedicion():
+    assert not avisos(copia_con_operacion("2026-03-02"))
+    assert not avisos(de_original=con_operacion("2026-03-02"))
+
+
+def test_una_fecha_de_expedicion_cambiada_no_sale_tambien_como_la_de_la_operacion():
+    mensaje = avisos(COPIA.replace("<cbc:IssueDate>2026-03-02", "<cbc:IssueDate>2026-03-03"))
+    assert "BT-7" not in mensaje["COPIA-DATOS"].mensaje
+
+
+def en_otra_moneda_del_iva() -> str:
+    return original().replace("<TaxCurrencyCode>EUR", "<TaxCurrencyCode>USD", 1)
+
+
+def copia_con_moneda_del_iva(moneda: str) -> str:
+    return COPIA.replace(MONEDA, f"{MONEDA}<cbc:TaxCurrencyCode>{moneda}</cbc:TaxCurrencyCode>")
+
+
+def test_la_moneda_del_iva_se_compara():
+    assert "BT-6" in avisos(copia_con_moneda_del_iva("USD"))["COPIA-DATOS"].mensaje
+    assert "BT-6" in avisos(de_original=en_otra_moneda_del_iva())["COPIA-DATOS"].mensaje
+    assert not avisos(copia_con_moneda_del_iva("USD"), en_otra_moneda_del_iva())
+
+
+def test_la_moneda_del_iva_que_es_la_de_la_factura_no_hace_falta_escribirla():
+    """Facturae obliga a escribirla y copiarla rompe la copia: `COPIA-MONEDA-DEL-IVA`."""
+    assert "<TaxCurrencyCode>EUR" in original()
+    assert not avisos()
+    assert not avisos(copia_con_moneda_del_iva("EUR"))
+
+
+def test_un_facturae_sin_moneda_del_iva_la_tiene_en_la_de_la_factura():
+    """Antes de la 3.2 el campo no existía."""
+    de_original = original().replace("<TaxCurrencyCode>EUR</TaxCurrencyCode>", "", 1)
+    assert not avisos(copia_con_moneda_del_iva("EUR"), de_original)
+    assert "BT-6" in avisos(copia_con_moneda_del_iva("USD"), de_original)["COPIA-DATOS"].mensaje
+
+
+def test_una_moneda_cambiada_no_sale_tambien_como_la_del_iva():
+    mensaje = avisos(COPIA.replace(MONEDA, MONEDA.replace("EUR", "USD")))["COPIA-DATOS"].mensaje
+    assert "BT-5" in mensaje and "BT-6" not in mensaje
+
+
+def con_periodo() -> str:
+    return original().replace(EMISION, EMISION + PERIODO_F, 1)
+
+
+def copia_con_periodo(periodo: str = PERIODO_U) -> str:
+    return COPIA.replace("<cac:AccountingSupplierParty>", periodo + "<cac:AccountingSupplierParty>")
+
+
+@pytest.mark.parametrize("cambio, termino", [
+    (("2026-01-01", "2026-01-02"), "BT-73"),
+    (("2026-01-31", "2026-01-30"), "BT-74"),
+])
+def test_el_periodo_de_facturacion_se_compara(cambio, termino):
+    assert not avisos(copia_con_periodo(), con_periodo())
+    assert termino in avisos(copia_con_periodo(PERIODO_U.replace(*cambio)),
+                             con_periodo())["COPIA-DATOS"].mensaje
+    assert termino in avisos(de_original=con_periodo())["COPIA-DATOS"].mensaje
+    assert termino in avisos(copia_con_periodo())["COPIA-DATOS"].mensaje
+
+
+def rectificativa(de_bloque: str) -> str:
+    return original().replace("</InvoiceHeader>", RECTIFICADA_F.format(de_bloque), 1)
+
+
+NUMERO_RECTIFICADO = ("<InvoiceNumber>0009</InvoiceNumber><InvoiceSeriesCode>FE</InvoiceSeriesCode>"
+                      "{}<InvoiceIssueDate>2026-01-10</InvoiceIssueDate>")
+
+
+def copia_con_rectificada(numero: str = "FE0009", fecha: str = "2026-01-10") -> str:
+    fecha = f"<cbc:IssueDate>{fecha}</cbc:IssueDate>" if fecha else ""
+    return COPIA.replace("<cac:AccountingSupplierParty>",
+                         RECTIFICADA_U.format(numero, fecha) + "<cac:AccountingSupplierParty>")
+
+
+def test_la_factura_rectificada_y_su_fecha_se_comparan():
+    de_original = rectificativa(NUMERO_RECTIFICADO.format(""))
+    assert not avisos(copia_con_rectificada(), de_original)
+    assert "BT-25" in avisos(de_original=de_original)["COPIA-DATOS"].mensaje
+    assert "BT-25" in avisos(copia_con_rectificada("FE0008"), de_original)["COPIA-DATOS"].mensaje
+    assert "BT-26" in avisos(copia_con_rectificada(fecha="2026-01-11"), de_original)["COPIA-DATOS"].mensaje
+    assert "BT-26" in avisos(copia_con_rectificada(fecha=""), de_original)["COPIA-DATOS"].mensaje
+
+
+def test_la_rectificada_con_otro_separador_es_la_misma():
+    de_original = rectificativa(NUMERO_RECTIFICADO.format(""))
+    assert not avisos(copia_con_rectificada("FE-0009"), de_original)
+
+
+def test_la_rectificada_sin_la_serie_no_es_la_misma():
+    de_original = rectificativa(NUMERO_RECTIFICADO.format(""))
+    assert "BT-25" in avisos(copia_con_rectificada("0009"), de_original)["COPIA-DATOS"].mensaje
+
+
+def test_rectificar_un_periodo_no_lleva_numero_y_no_se_exige():
+    """El criterio 03: sin número no hay BT-25 que comparar, y la copia puede escribir otro."""
+    de_original = rectificativa("<InvoiceIssueDate>2026-01-10</InvoiceIssueDate>")
+    assert not avisos(de_original=de_original)
+    assert not avisos(copia_con_rectificada(), de_original)
+
+
+def test_la_factura_asociada_ya_viene_junta_y_sin_fecha():
+    de_original = original().replace(
+        "</Items>", "</Items><AdditionalData><RelatedInvoice>FE0009</RelatedInvoice></AdditionalData>", 1)
+    assert "<RelatedInvoice>" in de_original
+    assert "BT-25" in avisos(de_original=de_original)["COPIA-DATOS"].mensaje
+    assert not avisos(copia_con_rectificada(), de_original)
+
+
+def copia_con_total(etiqueta: str, valor: str) -> str:
+    return COPIA.replace('<cbc:TaxExclusiveAmount currencyID="EUR">',
+                         f'<cbc:{etiqueta} currencyID="EUR">{valor}</cbc:{etiqueta}>'
+                         '<cbc:TaxExclusiveAmount currencyID="EUR">', 1)
+
+
+def con_general(grupo: str, elemento: str, razon: str, importe: str, *total: str) -> str:
+    """Un descuento o cargo general, y su suma si se le da. Sin tocar el resto."""
+    suma = f"<{total[0]}>{importe}</{total[0]}>" if total else ""
+    return original().replace(
+        "<PaymentDetails>",
+        f"<{grupo}><{elemento}><{elemento}Reason>{razon}</{elemento}Reason>"
+        f"<{elemento}Amount>{importe}</{elemento}Amount></{elemento}></{grupo}><PaymentDetails>", 1,
+    ).replace("<TotalGrossAmountBeforeTaxes>", f"{suma}<TotalGrossAmountBeforeTaxes>", 1)
+
+
+def test_la_suma_de_las_lineas_se_compara():
+    copia = COPIA.replace('<cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>\n    <cbc:TaxExclusive',
+                          '<cbc:LineExtensionAmount currencyID="EUR">90.00</cbc:LineExtensionAmount>\n    <cbc:TaxExclusive')
+    assert copia != COPIA
+    assert "BT-106" in avisos(copia)["COPIA-IMPORTES"].mensaje
+
+
+def tres_lineas_con_tercios() -> tuple[str, str]:
+    """Tres netos de 0,334: Facturae suma 1,002 y la copia, con BR-CO-10, 0,99."""
+    una = ("<InvoiceLine><ItemDescription>Revision anual del vehiculo</ItemDescription>"
+           "<Quantity>1</Quantity><UnitPriceWithoutTax>0.334</UnitPriceWithoutTax>"
+           "<TotalCost>0.334</TotalCost><GrossAmount>0.334</GrossAmount></InvoiceLine>")
+    de_original = original()
+    inicio, fin = de_original.index("<Items>"), de_original.index("</Items>")
+    de_original = de_original[:inicio] + "<Items>" + una * 3 + de_original[fin:]
+    de_original = de_original.replace("<TotalGrossAmount>100.00", "<TotalGrossAmount>1.002")
+    linea = ('<cac:InvoiceLine><cbc:ID>1</cbc:ID><cbc:InvoicedQuantity unitCode="C62">1</cbc:InvoicedQuantity>'
+             '<cbc:LineExtensionAmount currencyID="EUR">0.33</cbc:LineExtensionAmount>'
+             "<cac:Item><cbc:Name>Revision anual del vehiculo</cbc:Name></cac:Item></cac:InvoiceLine>")
+    inicio = COPIA.index("<cac:InvoiceLine>")
+    copia = COPIA[:inicio] + linea * 3 + "</Invoice>\n"
+    copia = copia.replace('<cbc:LineExtensionAmount currencyID="EUR">100.00', '<cbc:LineExtensionAmount currencyID="EUR">0.99', 1)
+    return de_original, copia
+
+
+def test_la_suma_de_las_lineas_ya_redondeadas_no_es_una_diferencia():
+    de_original, copia = tres_lineas_con_tercios()
+    assert "COPIA-IMPORTES" not in avisos(copia, de_original)
+    # Y otra suma cualquiera lo sigue siendo.
+    otra = copia.replace('<cbc:LineExtensionAmount currencyID="EUR">0.99', '<cbc:LineExtensionAmount currencyID="EUR">0.98', 1)
+    assert "BT-106" in avisos(otra, de_original)["COPIA-IMPORTES"].mensaje
+
+
+@pytest.mark.parametrize("etiqueta, termino", [
+    ("AllowanceTotalAmount", "BT-107"), ("ChargeTotalAmount", "BT-108"),
+])
+def test_un_total_general_de_mas_en_la_copia_se_detecta(etiqueta, termino):
+    assert termino in avisos(copia_con_total(etiqueta, "5.00"))["COPIA-IMPORTES"].mensaje
+    assert not avisos(copia_con_total(etiqueta, "0.00"))
+
+
+@pytest.mark.parametrize("grupo, elemento, etiqueta, de_total, termino, del_motivo", [
+    ("GeneralDiscounts", "Discount", "AllowanceTotalAmount", "TotalGeneralDiscounts", "BT-107", "false"),
+    ("GeneralSurcharges", "Charge", "ChargeTotalAmount", "TotalGeneralSurcharges", "BT-108", "true"),
+])
+def test_los_totales_generales_con_y_sin_la_suma_en_facturae(
+    grupo, elemento, etiqueta, de_total, termino, del_motivo,
+):
+    motivo = DESCUENTO_U.format("Rappel").replace(">false<", f">{del_motivo}<")
+    bien = copia_con_total(etiqueta, "0.00").replace("<cac:TaxTotal>", motivo + "<cac:TaxTotal>", 1)
+    con_suma = con_general(grupo, elemento, "Rappel", "0.00", de_total)
+    assert not avisos(bien, con_suma)
+    con_diez = con_general(grupo, elemento, "Rappel", "10.00", de_total)
+    assert f"{termino}): 10,00" in avisos(bien, con_diez)["COPIA-IMPORTES"].mensaje
+    # Sin la suma, que es opcional en Facturae, la suma es la de sus importes.
+    sin_suma = con_general(grupo, elemento, "Rappel", "10.00")
+    assert f"{termino}): 10,00" in avisos(bien, sin_suma)["COPIA-IMPORTES"].mensaje
+    bien_diez = bien.replace(f'<cbc:{etiqueta} currencyID="EUR">0.00', f'<cbc:{etiqueta} currencyID="EUR">10.00')
+    assert termino not in " ".join(i.mensaje for i in avisos(bien_diez, sin_suma).values())
+
+
+def test_un_total_general_sin_sus_descuentos_no_se_da_por_bueno():
+    """Sin sumandos, la suma de los redondeados es cero: no puede valer por el total."""
+    de_original = original().replace("<TotalGrossAmountBeforeTaxes>",
+                                     "<TotalGeneralDiscounts>10.00</TotalGeneralDiscounts>"
+                                     "<TotalGrossAmountBeforeTaxes>", 1)
+    assert "BT-107" in avisos(de_original=de_original)["COPIA-IMPORTES"].mensaje
+
+
+DE_LINEA = ('<cac:AllowanceCharge><cbc:ChargeIndicator>{}</cbc:ChargeIndicator>{}'
+            '<cbc:AllowanceChargeReason>Motivo</cbc:AllowanceChargeReason>'
+            '<cbc:Amount currencyID="EUR">{}</cbc:Amount></cac:AllowanceCharge>')
+
+
+def con_de_linea(*bloques: str) -> str:
+    return original().replace("<TotalCost>100.00</TotalCost>",
+                              "<TotalCost>100.00</TotalCost>" + "".join(bloques))
+
+
+def descuento_f(*importes: str) -> str:
+    return "<DiscountsAndRebates>" + "".join(
+        f"<Discount><DiscountReason>Motivo</DiscountReason><DiscountAmount>{i}</DiscountAmount></Discount>"
+        for i in importes) + "</DiscountsAndRebates>"
+
+
+def cargo_f(importe: str, tipo: str = "") -> str:
+    tipo = f"<ChargeRate>{tipo}</ChargeRate>" if tipo else ""
+    return (f"<Charges><Charge><ChargeReason>Motivo</ChargeReason>{tipo}"
+            f"<ChargeAmount>{importe}</ChargeAmount></Charge></Charges>")
+
+
+def copia_de_linea(*bloques: str) -> str:
+    return COPIA.replace("<cac:Item><cbc:Name>", "".join(bloques) + "<cac:Item><cbc:Name>")
+
+
+def test_los_descuentos_de_la_linea_se_comparan():
+    de_original = con_de_linea(descuento_f("10.00"))
+    bien = copia_de_linea(DE_LINEA.format("false", "", "10.00"))
+    assert not avisos(bien, de_original)
+    mensaje = avisos(copia_de_linea(DE_LINEA.format("false", "", "9.00")), de_original)["COPIA-LINEAS"].mensaje
+    assert "línea 1, descuentos (BT-136): 10,00 en el original y 9,00 en la copia" in mensaje
+    assert "BT-136" in avisos(de_original=de_original)["COPIA-LINEAS"].mensaje
+    assert "BT-136" in avisos(bien)["COPIA-LINEAS"].mensaje
+
+
+def test_dos_descuentos_juntados_en_uno_son_los_mismos():
+    de_original = con_de_linea(descuento_f("6.00", "4.00"))
+    assert not avisos(copia_de_linea(DE_LINEA.format("false", "", "10.00")), de_original)
+
+
+def test_los_descuentos_ya_redondeados_no_son_una_diferencia():
+    de_original = con_de_linea(descuento_f("0.334", "0.334", "0.334"))
+    tres = DE_LINEA.format("false", "", "0.33") * 3
+    assert not avisos(copia_de_linea(tres), de_original)
+
+
+def test_los_cargos_de_la_linea_se_comparan():
+    de_original = con_de_linea(cargo_f("10.00"))
+    assert not avisos(copia_de_linea(DE_LINEA.format("true", "", "10.00")), de_original)
+    mensaje = avisos(copia_de_linea(DE_LINEA.format("true", "", "9.00")), de_original)["COPIA-LINEAS"].mensaje
+    assert "línea 1, cargos (BT-141): 10,00 en el original y 9,00 en la copia" in mensaje
+    assert "BT-141" in avisos(copia_de_linea(DE_LINEA.format("true", "", "9.00")))["COPIA-LINEAS"].mensaje
+
+
+def test_un_descuento_escrito_como_cargo_no_cuadra():
+    de_original = con_de_linea(descuento_f("10.00"))
+    mensaje = avisos(copia_de_linea(DE_LINEA.format("true", "", "10.00")), de_original)["COPIA-LINEAS"].mensaje
+    assert "BT-136" in mensaje and "BT-141" in mensaje
+
+
+def test_el_porcentaje_del_cargo_se_compara_y_no_el_del_descuento():
+    con_tipo = "<cbc:MultiplierFactorNumeric>{}</cbc:MultiplierFactorNumeric>"
+    de_original = con_de_linea(cargo_f("10.00", "5.00"))
+    assert not avisos(copia_de_linea(DE_LINEA.format("true", con_tipo.format("5"), "10.00")), de_original)
+    otro = copia_de_linea(DE_LINEA.format("true", con_tipo.format("7"), "10.00"))
+    assert "BT-143): 5" in avisos(otro, de_original)["COPIA-LINEAS"].mensaje
+    assert "BT-143" in avisos(copia_de_linea(DE_LINEA.format("true", "", "10.00")), de_original)["COPIA-LINEAS"].mensaje
+    # Un cero no es un porcentaje que se haya perdido.
+    assert not avisos(copia_de_linea(DE_LINEA.format("true", "", "10.00")), con_de_linea(cargo_f("10.00", "0.00")))
+    # El de un descuento de la copia no vale por el del cargo.
+    con_los_dos = copia_de_linea(DE_LINEA.format("true", "", "10.00"),
+                                 DE_LINEA.format("false", con_tipo.format("5"), "0.00"))
+    assert "BT-143" in avisos(con_los_dos, de_original)["COPIA-LINEAS"].mensaje
+    # BT-138 es del descuento, y el anexo no lo recoge.
+    assert not avisos(copia_de_linea(DE_LINEA.format("false", con_tipo.format("7"), "10.00")),
+                      con_de_linea(descuento_f("10.00")))
+
+
+def test_un_abono_compara_descuentos_y_cargos_sin_el_signo():
+    de_original = en_negativo().replace("</TotalCost>", "</TotalCost>" + descuento_f("-10.00"), 1)
+    copia = COPIA.replace("<cbc:InvoiceTypeCode>380", "<cbc:InvoiceTypeCode>381")
+    bien = copia.replace("<cac:Item><cbc:Name>", DE_LINEA.format("false", "", "10.00") + "<cac:Item><cbc:Name>")
+    assert "COPIA-LINEAS" not in avisos(bien, de_original)
+    assert "BT-136" in avisos(bien.replace(">10.00</cbc:Amount>", ">9.00</cbc:Amount>"), de_original)["COPIA-LINEAS"].mensaje
+
+
+def copia_con_impuesto_en_la_linea(neto: str = "121.00") -> str:
+    return (COPIA.replace("<cac:Item><cbc:Name>", DE_LINEA.format("true", "", "21.00") + "<cac:Item><cbc:Name>")
+            .replace('</cbc:InvoicedQuantity>\n    <cbc:LineExtensionAmount currencyID="EUR">100.00',
+                     f'</cbc:InvoicedQuantity>\n    <cbc:LineExtensionAmount currencyID="EUR">{neto}'))
+
+
+def test_un_impuesto_escrito_como_cargo_de_la_linea_va_en_el_neto():
+    """La fila de la tabla lo dice, y hasta el 01-11-2026 esa copia salía acusada."""
+    assert not avisos(copia_con_impuesto_en_la_linea(), con_otro_impuesto())
+    assert "línea 1, neto (BT-131): 121,00" in avisos(
+        copia_con_impuesto_en_la_linea("122.00"), con_otro_impuesto())["COPIA-LINEAS"].mensaje
+
+
+def test_sin_impuestos_de_otro_tipo_un_cargo_no_explica_el_neto():
+    assert "BT-131" in avisos(copia_con_impuesto_en_la_linea())["COPIA-LINEAS"].mensaje
+
+
+def test_con_otros_impuestos_no_se_miran_los_totales_nuevos():
+    otro = con_otro_impuesto()
+    assert not avisos(copia_con_total("ChargeTotalAmount", "21.00"), otro)
+    assert not avisos(copia_con_total("AllowanceTotalAmount", "5.00"), otro)
+
+
+def test_ninguna_fila_igual_de_la_tabla_se_queda_sin_mirar():
+    """Hasta el 01-11-2026 las que faltaban estaban en una lista del README."""
+    fuente = Path(comprobar_copia.__file__).read_text(encoding="utf-8")
+    sin_mirar = {
+        termino
+        for fila in copia_fiel.CORRESPONDENCIAS if fila.efecto == copia_fiel.IGUAL
+        for termino in re.findall(r"BT-(?:ES-)?\d+", fila.destino)
+        if not re.search(rf"{termino}\b", fuente)
+    }
+    assert not sin_mirar
+
+
+def test_la_nota_dice_lo_nuevo_que_se_compara():
+    mensaje = comparar()[0].mensaje
+    for dicho in ("fechas de expedición y de operación", "moneda del IVA", "periodo de facturación",
+                  "factura rectificada", "suma de las líneas", "descuentos y cargos generales"):
+        assert dicho in mensaje

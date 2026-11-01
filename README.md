@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3927 tests, todos en verde.
+3960 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -5588,9 +5588,17 @@ inventar: datos, dirección y contacto, totales, desglose, líneas, pago y texto
 - **Lo que no se compara**, porque la tabla no lo deja: BT-115, BT-113, suplidos,
   el nombre de una persona física, la categoría al 0 %, la base del recargo, el código
   postal y la población de fuera de España, y las notas de la factura. Con impuestos
-  que no son IVA, IGIC ni IPSI, ni totales ni desglose. Tampoco, de momento, varias
-  filas que la tabla da por iguales: BT-6, BT-7, BG-14, BT-26, BT-106 a BT-108, y
-  los importes de los descuentos y cargos de línea.
+  que no son IVA, IGIC ni IPSI, ni totales ni desglose.
+- **Ninguna fila igual se queda sin mirar, y hay cepo.** Toda fila de la tabla marcada
+  como igual nombra sus términos, y `test_comprobar_copia.py` se niega si alguno no
+  aparece en el comparador. Hasta el 01-11-2026 faltaban BT-6, BT-7, BG-14, BG-3 con
+  BT-26, BT-106 a BT-108, BT-136, BT-141 y BT-143, escritas aquí en una lista que
+  pedía memoria.
+- **Lo que se escribe distinto y dice lo mismo.** Sin fecha aparte, la operación es la
+  de expedición; sin moneda aparte, el IVA va en la de la factura, y la copia no debe
+  escribirla si es esa (`COPIA-MONEDA-DEL-IVA`). Una suma vale también si es la de sus
+  sumandos ya redondeados. Y un impuesto que no es IVA, escrito como cargo de línea,
+  va dentro del neto: esa copia correcta salía acusada hasta ese día.
 - **Medido el 01-11-2026 con la salida real de un conversor ajeno**, `gobl` v0.511.2
   de Invopop, sobre sus 10 Facturae públicas: en HALLAZGOS. 4 hubo que retocarlas,
   porque su programa las rechaza sin datos que les faltan. Ese programa escribe UBL
@@ -5603,6 +5611,12 @@ inventar: datos, dirección y contacto, totales, desglose, líneas, pago y texto
   `gobl` y solo en recuentos, y 6 parejas de FACe con datos inventados. Ningún aviso
   falso una vez arreglada la calle repartida; el único aviso nuevo es cierto: FACe no
   escribe en su UBL el motivo de un descuento.
+- **Las filas que faltaban, medidas igual:** ningún aviso falso. En las 9 públicas, 0
+  avisos nuevos; 8 traen una fecha de operación igual a la de expedición que `gobl` no
+  escribe, y sin la regla de arriba habrían sido 8 falsos. En las 5 reales, 3 avisos
+  ciertos: `gobl` no lee el periodo de facturación de Facturae, comprobado en sus
+  fuentes. En FACe, 1 cierto: en una pareja, su Facturae escribe 0,00 en la suma de
+  las líneas y 105 en la línea, y su UBL, 100.
 
 ## Que a esto se llegue desde fuera
 
