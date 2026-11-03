@@ -233,6 +233,78 @@ class TestCadaFactura:
         assert '"NIF no censado"' in aviso.mensaje
         assert "no ha publicado" in aviso.mensaje
 
+    def test_un_codigo_que_no_es_de_ninguna_familia_no_se_adivina(self):
+        aviso = una(medir(acuse(cabecera("400", "", [factura_(estado="4711", descripcion="NIF no censado")]))),
+                    "SPFE-ACUSE-RECHAZADA")
+        assert "no es de ninguna regla" in aviso.mensaje
+        assert "norma europea" not in aviso.mensaje and "regla de negocio" not in aviso.mensaje
+
+    def test_una_factura_sin_estado_tampoco(self):
+        aviso = una(medir(acuse(cabecera("400", "", [factura_(estado="", descripcion="")]))),
+                    "SPFE-ACUSE-RECHAZADA")
+        assert "no le da ningún estado" in aviso.mensaje
+        assert "norma europea" not in aviso.mensaje and "regla de negocio" not in aviso.mensaje
+
+
+# --- Los códigos de error de cada factura ----------------------------------------
+#
+# La AEAT contestó el 02-11-2026, por escrito, que el código de una factura que
+# no se da de alta será de una de tres familias: el error del esquema tal cual,
+# la regla del esquematrón de la norma europea (su ejemplo: BR-CO-16) o una
+# regla de negocio suya, SPFE-CORE-XXXX, SPFE-LIST-XXX o BR-ES-XXXX. La lista
+# irá en el apartado de validaciones de su portal, sin terminar ese día, y no
+# dijo en qué campo del acuse va el código: se busca en el estado y en la
+# descripción.
+
+
+class TestLosCodigosDeRechazo:
+    def _aviso(self, estado, descripcion=""):
+        informe = medir(acuse(cabecera("400", "", [factura_(estado=estado, descripcion=descripcion)])))
+        return una(informe, "SPFE-ACUSE-RECHAZADA")
+
+    def test_la_regla_europea_se_explica_con_su_ficha(self):
+        aviso = self._aviso("BR-CO-16")
+        assert aviso.gravedad == AVISO
+        assert "la regla BR-CO-16 de la norma europea" in aviso.mensaje
+        assert '"El importe a pagar no cuadra."' in aviso.mensaje
+        assert "glosa-e.com/codigo-BR-CO-16" in aviso.mensaje
+        assert aviso.encontrado == "BR-CO-16"
+
+    def test_tambien_si_viene_en_la_descripcion(self):
+        aviso = self._aviso("4001", "BR-CO-16: el importe a pagar no cuadra")
+        assert "la regla BR-CO-16 de la norma europea" in aviso.mensaje
+        assert aviso.encontrado == "4001"
+
+    def test_la_del_estado_manda_sobre_la_de_la_descripcion(self):
+        aviso = self._aviso("BR-02", "Vea también BR-CO-16")
+        assert "BR-02" in aviso.mensaje.split("norma europea")[0]
+        assert "glosa-e.com/codigo-BR-CO-16" not in aviso.mensaje
+
+    def test_una_regla_europea_que_no_esta_en_el_glosario(self):
+        aviso = self._aviso("BR-CO-99")
+        assert "BR-CO-99" in aviso.mensaje and "no la tiene" in aviso.mensaje
+        assert "glosa-e.com/codigo-" not in aviso.mensaje
+
+    @pytest.mark.parametrize("codigo", ["SPFE-CORE-0012", "SPFE-LIST-004", "BR-ES-0101"])
+    def test_las_de_la_aeat_se_nombran_y_no_se_traducen(self, codigo):
+        aviso = self._aviso(codigo, "Campo mal informado")
+        assert f"{codigo} es una regla de negocio de la AEAT" in aviso.mensaje
+        assert "sin publicar" in aviso.mensaje
+        assert "norma europea" not in aviso.mensaje
+        assert '"Campo mal informado"' in aviso.mensaje
+
+    def test_un_codigo_dentro_de_otro_no_cuenta(self):
+        aviso = self._aviso("XBR-CO-16X")
+        assert "norma europea" not in aviso.mensaje
+
+    def test_el_glosario_cuenta_las_tres_familias(self):
+        from validador import glosario
+        ficha = glosario.CODIGOS["SPFE-ACUSE-RECHAZADA"]
+        for trozo in ("BR-CO-16", "SPFE-CORE", "SPFE-LIST", "BR-ES", "02-11-2026"):
+            assert trozo in ficha, trozo
+
+
+class TestUnaFacturaPorAviso:
     def test_una_nota_o_un_aviso_por_factura(self):
         facturas = [factura_(f"FAC-{n:04d}", "200" if n % 2 else "401") for n in range(1, 6)]
         codigos = [c for c, _ in de_acuse(medir(acuse(cabecera("406", "", facturas))))]

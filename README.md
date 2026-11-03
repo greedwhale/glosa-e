@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3962 tests, todos en verde.
+3974 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -594,10 +594,14 @@ la `InvoiceLine` estaban «cambiadas de sitio»: quien lo leyera movería un
 elemento que está bien puesto. Ahora, cuando falla contra su versión, se
 prueba contra las posteriores que haya instaladas, y si alguna la admite sale
 una sola incidencia, `XSD-VERSION`, en lugar de los `XSD-ORDEN`. Es ERROR con
-cualquier especificación, porque quien recibe UBL 2.1 la mide con la 2.1, y
-AVISO con una de la AEAT: su documento de validaciones dice que comprueba la
-forma con los esquemas de la 2.5, contra los que pasa, y no dice qué hace con
-una factura que declara una versión y usa elementos de otra. Sin ningún
+cualquier especificación. Quien recibe UBL 2.1 la mide con la 2.1. Con una
+de la AEAT fue AVISO hasta el 02-11-2026, porque su documento de validaciones
+comprueba la forma con los esquemas de la 2.5, contra los que pasa, y no decía
+qué hacía con una factura que declara una versión y usa elementos de otra. Lo
+contestó ese día por escrito, a una consulta de Glosa-e: no hay
+compatibilidad, hay que declarar la 2.5, y no acepta que esos conceptos se
+dejen fuera por usar la 2.1. Por eso, con la AEAT, el mensaje no ofrece
+quitarlos, que fuera de ella es una salida válida. Sin ningún
 esquema posterior instalado, se queda lo de la versión declarada. Medido con
 la factura de la orden: declarando 2.1, sale `XSD-VERSION` y nada más de
 forma; sin la retención (lo único de la 2.5 que lleva), ni eso. Cuesta compilar
@@ -704,10 +708,19 @@ el ejemplo:
 
 Lo que se decidió en cada una:
 
-- **Los códigos de error de una factura no se traducen.** La AEAT no los ha
-  publicado: el único estado de factura que se ha visto es el 200 del ejemplo.
-  Inventarles un significado sería prometer de más, así que el aviso trae el
-  código y la descripción tal cual vienen.
+- **Los códigos de error de una factura no se inventan.** El único estado de
+  factura que se ha visto es el 200 del ejemplo, y el aviso trae el código y
+  la descripción tal cual vienen. La AEAT contestó el 02-11-2026, por escrito
+  y a una consulta de Glosa-e, de qué familias serán: el error del esquema,
+  la regla del esquematrón europeo (su ejemplo, `BR-CO-16`) o una regla de
+  negocio suya, `SPFE-CORE-XXXX`, `SPFE-LIST-XXX` o `BR-ES-XXXX`, cuya lista
+  irá en el apartado de validaciones de su portal. Con eso, una regla europea
+  que tiene ficha se explica con la primera frase de la ficha y el enlace;
+  una de la AEAT se nombra como suya y no se traduce; y los errores de
+  esquema no se reconocen, porque no dijo cómo se escriben. Tampoco dijo en
+  qué campo va el código: se busca en el estado y, si no, en la descripción.
+  Ningún acuse con un rechazo de verdad se ha visto: lo de las pruebas es
+  nuestro.
 - **El acuse del ejemplo tiene un error de forma, y sale con él.** Le falta
   `cbc:IssueDate`, que `DocumentStatus` exige una vez. Medido el 26-10-2026
   con lxml contra el esquema de OASIS: es su único fallo, y con la fecha

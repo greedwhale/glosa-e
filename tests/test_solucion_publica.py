@@ -2916,6 +2916,12 @@ class TestElFcEnElRegistroLegal:
 # factura de la orden que declara 2.1 y no usa nada de la 2.5 pasaba limpia,
 # como debe; la que usa `CollectionInvoiceLine` salía con un XSD-ORDEN que
 # decía que estaba «cambiada de sitio» con la `InvoiceLine`.
+#
+# Hasta el 02-11-2026 era AVISO con una especificación de la AEAT, porque no
+# había dicho qué hacía con una factura que declara una versión y usa otra. Lo
+# contestó ese día por escrito, a una consulta de Glosa-e: no hay
+# compatibilidad, hay que declarar la 2.5, y no acepta que esos conceptos se
+# dejen fuera por usar la 2.1. Desde entonces es ERROR con cualquiera.
 
 _EN_LA_21 = cambia(DEL_BOE, "<cbc:UBLVersionID>2.5<", "<cbc:UBLVersionID>2.1<")
 
@@ -2938,20 +2944,32 @@ class TestEnUbl21:
         informe = factura.validar(_EN_LA_21.encode("utf-8"), catalogo=catalogo)
         assert [(i.codigo, i.campo) for i in informe.errores + informe.avisos] == [
             ("XSD-VERSION", "UBLVersionID")]
-        queja = informe.avisos[0]
+        queja = informe.errores[0]
         assert '"CollectionInvoiceLine"' in queja.mensaje
         assert "UBL 2.1" in queja.mensaje and "UBL 2.5 pasa" in queja.mensaje
         assert "cambiad" not in queja.mensaje
         assert (queja.esperado, queja.encontrado) == ("2.5 o posterior", "2.1")
 
-    def test_de_la_spfe_es_aviso_porque_la_aeat_mide_con_la_2_5(self, catalogo):
-        """Su documento de validaciones dice que comprueba la forma con los
-        esquemas de la 2.5, y contra la 2.5 pasa: un ERROR prometería un
-        rechazo que nadie ha dicho."""
+    def test_de_la_spfe_tambien_es_error_porque_la_aeat_lo_contesto(self, catalogo):
+        """Contestó el 02-11-2026 que no hay compatibilidad y que hay que
+        declarar la 2.5; y que no vale dejar fuera esos conceptos para
+        quedarse en la 2.1, que es lo que haría quien solo leyera «declara la
+        2.5 o quita lo que no es de la 2.1»."""
         queja = next(i for i in factura.validar(_EN_LA_21.encode("utf-8"), catalogo=catalogo).incidencias
                      if i.codigo == "XSD-VERSION")
-        assert queja.gravedad == AVISO
-        assert "no ha dicho" in queja.mensaje
+        assert queja.gravedad == ERROR
+        assert "no ha dicho" not in queja.mensaje
+        assert "02-11-2026" in queja.mensaje and "declarar 2.5" in queja.mensaje
+        assert "dejen fuera" in queja.mensaje
+        assert "se quita" not in queja.mensaje
+
+    def test_de_otro_sigue_dando_a_elegir(self, catalogo):
+        """Fuera de la solución pública, quitar lo que no es de la 2.1 vale si
+        quien lo recibe solo admite la 2.1: eso no lo ha contestado nadie."""
+        otro = cambia(_EN_LA_21, ESPECIFICACION, "urn:cen.eu:en16931:2017")
+        queja = next(i for i in factura.validar(otro.encode("utf-8"), catalogo=catalogo).incidencias
+                     if i.codigo == "XSD-VERSION")
+        assert "se quita" in queja.mensaje and "02-11-2026" not in queja.mensaje
 
     def test_de_otro_es_error(self, catalogo):
         otro = cambia(_EN_LA_21, ESPECIFICACION, "urn:cen.eu:en16931:2017")

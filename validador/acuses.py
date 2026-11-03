@@ -26,9 +26,25 @@ formatos:
 
 Y del ejemplo: una factura dada de alta lleva `cbc:DocumentStatusCode` 200,
 con la descripción «Factura Ok». **Es el único código de factura que se ha
-visto.** Los de error no están publicados y aquí no se inventan: de una
-factura con otro código se dice que no consta como dada de alta, que es lo que
-se sabe, y el código y su descripción van tal cual.
+visto.** De una factura con otro código se dice que no consta como dada de
+alta, que es lo que se sabe, y el código y su descripción van tal cual.
+
+Los códigos de error
+--------------------
+La AEAT contestó el 02-11-2026, por escrito y a una consulta de Glosa-e, de qué
+familias serán: el error del esquema tal cual, el código de la regla del
+esquematrón de la norma europea (su ejemplo: `BR-CO-16`) o una regla de
+negocio suya, `SPFE-CORE-XXXX` o `SPFE-LIST-XXX` para los tipos básicos y las
+listas, o `BR-ES-XXXX`. La lista irá en el apartado de validaciones de su
+portal de desarrolladores, que ese día no estaba terminado.
+
+Con eso se hace lo que se puede sin inventar. Una regla europea que tiene
+ficha se explica con la primera frase de la ficha, que es la de cualquier
+factura que la incumpla; una de la AEAT se nombra como suya y sin traducir,
+porque su significado no está publicado. No dijo en qué campo va el código,
+así que se busca en el estado y, si ahí no está, en la descripción. Los
+errores de esquema no se reconocen: no dijo cómo se escriben, y adivinarlo
+sería poner nombre a lo que no se ha visto.
 
 Lo que el ejemplo no trae
 -------------------------
@@ -49,9 +65,10 @@ el error se queda como estaba; cambia lo que se cuenta.
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
-from validador import cifras
+from validador import cifras, glosario
 from validador.formato import ACUSE
 from validador.incidencias import AVISO, NOTA, Incidencia
 
@@ -269,6 +286,48 @@ def _esperado(codigo: str) -> str:
     }[codigo]
 
 
+# Las reglas de negocio de la AEAT, con las familias que nombró el 02-11-2026.
+# Van antes que las europeas porque `BR-ES-` también empieza por `BR-`.
+_DE_LA_AEAT = re.compile(r"(?<![\w-])(?:SPFE-CORE|SPFE-LIST|BR-ES)-[A-Z0-9]+(?![\w-])")
+# Las del esquematrón de la norma europea, como `BR-CO-16` o `UBL-SR-43`.
+_EUROPEA = re.compile(r"(?<![\w-])(?:BR|UBL)(?:-[A-Z0-9]+)+(?![\w-])")
+# La primera frase de una ficha: lo que dice de cualquier factura que incumple
+# esa regla, sin lo que explica del porqué.
+_PRIMERA_FRASE = re.compile(r"(.+?[.!?])(?=\s|$)", re.S)
+
+
+def _regla(*textos: str) -> str:
+    """Qué se sabe del código de rechazo de una factura, o nada si no es de ninguna familia.
+
+    Se mira el primero de los textos que traiga un código: el estado manda
+    sobre la descripción, que puede citar otras reglas de pasada.
+    """
+    for texto in textos:
+        aeat = _DE_LA_AEAT.search(texto)
+        if aeat:
+            return (
+                f"{aeat.group(0)} es una regla de negocio de la AEAT, sin "
+                "publicar: irá en el apartado de validaciones de su portal de "
+                "desarrolladores, y aquí no se traduce."
+            )
+        europea = _EUROPEA.search(texto)
+        if europea:
+            codigo = europea.group(0)
+            ficha = glosario.CODIGOS.get(codigo)
+            if not ficha:
+                return (
+                    f"Es la regla {codigo} de la norma europea, por su nombre, "
+                    "pero Glosa-e no la tiene: el motivo es el que diga la "
+                    "descripción."
+                )
+            frase = _PRIMERA_FRASE.match(ficha).group(1)
+            return (
+                f"Es la regla {codigo} de la norma europea: \"{frase}\" La "
+                f"explicación entera, en glosa-e.com/codigo-{codigo}."
+            )
+    return ""
+
+
 def _quien(factura) -> str:
     """La factura, dicha por lo que la identifica: NIF, número y fecha."""
     numero = _texto(factura, "cbc:ID")
@@ -314,12 +373,15 @@ def _factura(factura) -> Incidencia:
         motivo = f"el acuse le da el estado {estado}{dice}"
     else:
         motivo = "el acuse no le da ningún estado"
+    regla = _regla(estado, descripcion) or (
+        "La AEAT no ha publicado todavía la lista de sus códigos de error, y "
+        "este no es de ninguna regla que Glosa-e reconozca: el motivo es el "
+        "que diga la descripción." if estado or descripcion else
+        "Sin estado no hay código que leer.")
     return Incidencia(
         "SPFE-ACUSE-RECHAZADA",
         AVISO,
-        f"{_quien(factura)}, no consta como dada de alta: {motivo}. La AEAT no "
-        "ha publicado qué quiere decir cada código de error de una factura, así "
-        "que el motivo es el que diga la descripción.",
+        f"{_quien(factura)}, no consta como dada de alta: {motivo}. {regla}",
         campo=f"Factura {numero}",
         esperado=f"el estado {DADA_DE_ALTA}",
         encontrado=estado or "(sin estado)",

@@ -932,11 +932,14 @@ CODIGOS: dict[str, str] = {
         'solución pública que declara UBL `2.1` y usa `CollectionInvoiceLine`, '
         'que solo existe en la `2.5`. El esquema de la `2.1` lo cuenta como un '
         'elemento fuera de sitio, y el informe decía que estaba cambiado de '
-        'orden con la línea de detalle. Es AVISO cuando el documento declara '
-        'una especificación de la AEAT, porque la AEAT comprueba la forma con '
-        'los esquemas de la `2.5` y admite versiones anteriores, pero no ha '
-        'dicho qué hace con una que declara una y usa otra; con cualquier '
-        'otra, ERROR, porque quien recibe UBL `2.1` lo mide con la `2.1`.'
+        'orden con la línea de detalle. Es ERROR con cualquier especificación. '
+        'Quien recibe UBL `2.1` lo mide con la `2.1`. La AEAT admite versiones '
+        'anteriores a la `2.5`, y contestó por escrito el 02-11-2026 que con '
+        'elementos de una posterior no hay compatibilidad: hay que declarar '
+        'esa versión. Tampoco acepta que esos conceptos se dejen fuera para '
+        'quedarse en la `2.1`: lo que solo cabe en la línea de cobro son las '
+        'retenciones, los suplidos y las minoraciones, y van si la factura los '
+        'tiene. Hasta ese día, con la especificación de la AEAT era AVISO.'
     ),
     "BR-04": (
         'El documento no dice de qué tipo es. Es lo que distingue una factura '
@@ -3956,10 +3959,15 @@ CODIGOS: dict[str, str] = {
         "Una factura que el acuse no da por dada de alta: su "
         "cbc:DocumentStatusCode no es 200, o no trae ninguno. Es un aviso y "
         "no un error porque el acuse está bien hecho; lo que dice es que esa "
-        "factura no ha entrado. La AEAT no ha publicado qué quiere decir cada "
-        "código de error de una factura, así que aquí no se traduce: el "
-        "aviso trae el código y la descripción tal cual vienen, y el motivo "
-        "es el que diga la descripción."
+        "factura no ha entrado. El aviso trae el código y la descripción tal "
+        "cual vienen. La AEAT contestó por escrito el 02-11-2026 que el código "
+        "será de una de tres familias: el error del esquema, una regla de la "
+        "norma europea como BR-CO-16, o una regla de negocio suya, "
+        "SPFE-CORE, SPFE-LIST o BR-ES, con su número. Si es una regla europea "
+        "que Glosa-e explica, el aviso dice qué incumple con la primera frase "
+        "de su ficha. Si es de la AEAT, la nombra como suya y no la traduce, "
+        "porque la lista no está publicada todavía. En los demás casos, el "
+        "motivo es el que diga la descripción."
     ),
     "SPFE-ACUSE-FECHA": (
         "Al acuse le falta su fecha, cbc:IssueDate, que el esquema de UBL "

@@ -9434,3 +9434,31 @@ salía como otra calle. Se juntan antes de comparar.
 Medido con 9 Facturae públicas por `gobl`, 5 facturas reales distintas por `gobl` (solo
 recuentos) y 6 parejas de FACe con datos inventados: ningún aviso falso. Un aviso nuevo y
 cierto: FACe no escribe el motivo de un descuento en su UBL, que es además su BR-42.
+
+## Lo que la AEAT contestó el 02-11-2026: la versión de UBL y los códigos de rechazo
+
+**Cómo salió.** De dos consultas al buzón de la AEAT del 28-10-2026, contestadas el
+02-11-2026 por escrito.
+
+**La versión.** `XSD-VERSION` era AVISO con una especificación de la AEAT, y el mensaje
+decía que la AEAT "no ha dicho qué hace" con una factura que declara UBL 2.1 y usa
+`CollectionInvoiceLine`. Lo dijo: no hay compatibilidad, hay que declarar la 2.5, y no
+acepta que esos conceptos se dejen fuera por usar la 2.1. El mensaje afirmaba algo que
+ya no era cierto, y aconsejaba lo que la AEAT no acepta a quien tomara "lo seguro"
+como la única salida. Reproducido antes de tocar nada: la prueba que pide ERROR, en
+rojo con `'aviso' == 'error'`. Ahora es ERROR con cualquier especificación, y con la de
+la AEAT el mensaje no ofrece quitar lo que no es de la 2.1.
+
+**Los códigos.** `SPFE-ACUSE-RECHAZADA` enseñaba el código tal cual. La AEAT dijo de
+qué familias serán: el error del esquema, la regla del esquematrón europeo (su
+ejemplo, `BR-CO-16`) o una suya, `SPFE-CORE-XXXX`, `SPFE-LIST-XXX` o `BR-ES-XXXX`.
+Reproducido: un acuse con `BR-CO-16` de estado salía sin una palabra de qué es. Ahora
+una regla europea con ficha sale con la primera frase de la ficha y su enlace, y una de
+la AEAT se nombra como suya, sin traducir, porque la lista no está publicada. Los
+errores de esquema no se reconocen y el campo del código se busca en el estado y, si
+no, en la descripción: lo uno y lo otro, porque no lo dijo.
+
+**Lo que no se sabe.** Ningún acuse con un rechazo de verdad se ha visto, y ni el
+documento de validaciones 0.1.0 ni este repositorio traen hoy ningún `SPFE-CORE`,
+`SPFE-LIST` ni `BR-ES`. El día que se publique la lista, este aviso es el sitio donde
+traducirla.

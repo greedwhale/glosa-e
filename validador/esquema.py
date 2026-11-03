@@ -935,13 +935,22 @@ def _otra_version(deteccion, version: str, incidencias: list[Incidencia]) -> Inc
     Una sola incidencia en lugar de las del esquema de su versión, que culpan
     al orden de lo que en realidad no existe en ella.
 
-    La gravedad no es la misma para todos. Quien recibe UBL 2.1 —Peppol,
-    FACeB2B— lo mide con el esquema 2.1, y ahí es un ERROR. La AEAT dice en su
-    documento de validaciones de la SPFE (versión 0.1.0, 16-10-2026, apartado
-    4.1) que la forma se comprueba con los esquemas de UBL 2.5 y que se admiten
-    versiones anteriores; contra la 2.5 pasa, así que acusarla de un rechazo
-    sería prometer de más. Qué hace la SPFE con una factura que declara una
-    versión y usa elementos de otra no está escrito en ninguna parte: AVISO.
+    Es ERROR para todos. Quien recibe UBL 2.1 —Peppol, FACeB2B— lo mide con
+    el esquema 2.1. La AEAT dice en su documento de validaciones de la SPFE
+    (versión 0.1.0, 16-10-2026, apartado 4.1) que la forma se comprueba con los
+    esquemas de UBL 2.5 y que se admiten versiones anteriores, y hasta el
+    02-11-2026 con su especificación era AVISO: contra la 2.5 pasa, y qué hacía
+    con una factura que declara una versión y usa elementos de otra no estaba
+    escrito. Lo contestó ese día por escrito, a una consulta de Glosa-e: con
+    elementos de una versión posterior a la 2.1, como `CollectionInvoiceLine`,
+    no hay compatibilidad y hay que adaptarse a esa versión; y no acepta que
+    esos conceptos se dejen fuera por usar la 2.1.
+
+    Lo que cambia según quién es qué se aconseja. Fuera de la solución pública
+    vale quitar lo que no es de la versión declarada, si quien lo recibe solo
+    admite esa; con la AEAT no, porque lo que no cabe en la 2.1 son las
+    retenciones, los suplidos y las minoraciones, y esos van si la factura los
+    tiene.
     """
     nombres = list(dict.fromkeys(
         i.encontrado for i in incidencias if i.codigo == "XSD-ORDEN" and i.encontrado))
@@ -952,10 +961,11 @@ def _otra_version(deteccion, version: str, incidencias: list[Incidencia]) -> Inc
     de_la_aeat = bool(deteccion.perfil) and NOMBRA_A_LA_AEAT in deteccion.perfil
     if de_la_aeat:
         que_hacer = (
-            "La AEAT comprueba la forma con los esquemas de UBL 2.5 y admite "
-            "versiones anteriores, pero no ha dicho qué hace con un documento "
-            "que declara una y usa elementos de otra. Lo seguro es declarar "
-            f"{version} en UBLVersionID."
+            "La AEAT admite versiones anteriores a la 2.5, pero contestó por "
+            "escrito el 02-11-2026 que con elementos de una posterior no hay "
+            f"compatibilidad: hay que declarar {version} en UBLVersionID. Y no "
+            "acepta que esos conceptos se dejen fuera para quedarse en la "
+            f"{deteccion.version}."
         )
     else:
         que_hacer = (
@@ -964,7 +974,7 @@ def _otra_version(deteccion, version: str, incidencias: list[Incidencia]) -> Inc
         )
     return Incidencia(
         "XSD-VERSION",
-        AVISO if de_la_aeat else ERROR,
+        ERROR,
         f"El documento declara UBL {deteccion.version} y {usa}. Contra el "
         f"esquema de UBL {version} pasa. {que_hacer}",
         campo="UBLVersionID",
