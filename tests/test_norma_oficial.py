@@ -54,7 +54,7 @@ import pytest
 from lxml import etree
 
 from herramientas.norma_oficial import huella
-from validador import en16931, iva, listas_de_codigos, modelo
+from validador import en16931, iva, listas_de_codigos, modelo, normas
 from validador.codigos import codigos_del_paquete
 from validador.sintaxis import (
     SINTAXIS_CII,
@@ -837,3 +837,22 @@ def test_lo_que_la_web_dice_de_la_norma_es_lo_de_hoy(pagina, patron, que):
         assert not DISCREPANCIAS, (
             f"{pagina} dice que en todos los casos oficiales se dice lo mismo "
             f"que la prueba, y hay {len(DISCREPANCIAS)} discrepancias declaradas")
+
+
+def test_la_version_del_informe_es_la_de_la_copia():
+    """El informe dice con qué versión de las reglas del CEN se ha comprobado,
+    y esa versión es la de la copia contra la que se mide el motor. Se compara
+    el commit, que es lo que fija la copia: quien traiga otra sin cambiar lo
+    que se anuncia, o al revés, ve esto en rojo."""
+    procedencia = (OFICIAL / "PROCEDENCIA.md").read_text(encoding="utf-8")
+    fijado = re.search(r"commit `([0-9a-f]{40})`", procedencia).group(1)
+    assert fijado == normas.COMMIT_DE_LA_EN16931
+
+
+def test_el_anexo_del_informe_es_el_del_boe_de_cius_es():
+    """La línea del informe dice de qué BOE sale el anexo, y `cius_es` se
+    genera de ese BOE. Si se regenera de otro, su cabecera cambia y esto se
+    entera."""
+    from validador import cius_es
+
+    assert f"del {normas.ANEXO_I_DEL_BOE}" in cius_es.__doc__

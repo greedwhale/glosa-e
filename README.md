@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3960 tests, todos en verde.
+3962 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4256,6 +4256,17 @@ cumplía el borrador; hasta el 11-10-2026, que se medía lo que ya pedía el
 borrador. En un lote sin ninguna no lo dice. Y cuelga de la nota, no de lo que
 el documento declara: un lote con solo un abono que declara la orden lo
 contaba como medido.
+
+**Y con qué versión, desde el 03-11-2026.** La misma línea dice «las reglas EN
+16931 de la versión 1.3.17 del CEN» y, cuando entra el anexo, «el del BOE del
+05-10-2026 leído con el del portal de la AEAT del 21-10-2026». Después de un
+rechazo lo primero que se pregunta es qué versión aplicó cada uno, y hasta ese
+día el informe decía «las reglas EN 16931» a secas. Las versiones están en
+`validador/normas.py` con el commit de la copia del esquematrón, y dos pruebas
+de `tests/test_norma_oficial.py` se niegan si la copia de
+`tests/en16931-oficial/` o la cabecera de `cius_es` no son las que se
+anuncian. Provocado: con otro commit, otra fecha del BOE y otra versión, las
+tres pruebas en rojo.
 
 ### La dirección del QR, contra la factura
 

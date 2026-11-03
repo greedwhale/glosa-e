@@ -811,6 +811,9 @@ class TestLasBuenas:
         # pedía el borrador de abril».
         assert "parte de lo que el anexo I de la solución pública pide" in con
         assert "SPFE-ALCANCE" in con and "borrador" not in con
+        # Y con qué versión de cada cosa (desde el 03-11-2026).
+        assert "las reglas EN 16931 de la versión 1.3.17 del CEN" in con
+        assert "el del BOE del 05-10-2026 leído con el del portal de la AEAT del 21-10-2026" in con
         (tmp_path / "otra.xml").write_text(cambia(DEL_BOE, ESPECIFICACION, "urn:cen.eu:en16931:2017"),
                                            encoding="utf-8")
         sin = factura.validar_lote([tmp_path / "otra.xml"]).alcance()

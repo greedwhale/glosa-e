@@ -38,6 +38,25 @@ CASA = "De la casa"
 _DETALLE_CASA = "no lo exige ninguna norma concreta, es criterio de este validador"
 
 EUROPEA = "EN 16931"
+# Con qué versión de las reglas se ha comprobado, para decirlo en el informe.
+# Después de un rechazo, lo primero que se pregunta es qué versión aplicó cada
+# uno: el comentario de FacturX API a la publicación de Phorm del 01-11-2026 lo
+# contaba con el paquete francés, que pasó de la 1.4.0 a la 1.4.0.04 en dos
+# meses. Hasta el 03-11-2026 el informe decía «las reglas EN 16931» a secas.
+#
+# La versión no se deduce del código: la dice la copia del esquematrón contra
+# la que se mide el motor, en `tests/en16931-oficial/`. Por eso va con su
+# commit, y `test_la_version_del_informe_es_la_de_la_copia` compara el de aquí
+# con el de su `PROCEDENCIA.md`: quien traiga una copia nueva sin cambiar la
+# versión que se anuncia ve la prueba en rojo. El 6e35e0ab es el de la etiqueta
+# `validation-1.3.17`, del 12-10-2026 (mirado en GitHub el 03-11-2026).
+VERSION_DE_LA_EN16931 = "1.3.17"
+COMMIT_DE_LA_EN16931 = "6e35e0ab8b09eb183f7d84b282e24ef95f9f5715"
+# El anexo I sale del BOE (`cius_es`, generado del XML del BOE) y se lee con el
+# que la AEAT publicó en su portal, que corrige erratas y cambia dos
+# cardinalidades. No es uno ni otro a secas, y la frase dice los dos.
+ANEXO_I_DEL_BOE = "05-10-2026"
+ANEXO_I_DEL_PORTAL = "21-10-2026"
 ESPANOLA = "RD 238/2026"
 # El contenido mínimo de la solución pública. No es el real decreto: es el
 # anexo I de la Orden HAC/1028/2026. Hasta el 07-10-2026 la etiqueta decía

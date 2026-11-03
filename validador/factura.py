@@ -717,8 +717,9 @@ class InformeLote:
             )
         if familias & {UBL, CII, EDIFACT}:
             contenido.append(
-                "las reglas EN 16931 (campos obligatorios, cuadre de totales y "
-                "desglose de IVA)"
+                f"las reglas EN 16931 de la versión {normas.VERSION_DE_LA_EN16931} "
+                "del CEN (campos obligatorios, cuadre de totales y desglose de "
+                "IVA)"
             )
         if FACTURAE in familias:
             contenido.append(
@@ -762,10 +763,14 @@ class InformeLote:
             # mide con el anexo, que solo define facturas, y hasta el
             # 11-10-2026 esta frase lo contaba como medido. Lo vio el revisor
             # de promesas.
+            # Con qué anexo, dentro del paréntesis: el del BOE leído con el
+            # del portal, que es lo que hacen las reglas (`normas`).
             contenido.append(
                 "parte de lo que el anexo I de la solución pública pide a las "
-                "facturas que la declaran (lo que se puede comprobar en UBL; lo "
-                "que no se mide lo dice la nota SPFE-ALCANCE)"
+                "facturas que la declaran (el del BOE del "
+                f"{normas.ANEXO_I_DEL_BOE} leído con el del portal de la AEAT "
+                f"del {normas.ANEXO_I_DEL_PORTAL}; lo que se puede comprobar en "
+                "UBL; lo que no se mide lo dice la nota SPFE-ALCANCE)"
             )
         if self._respuestas_medidas():
             # Cuelga de la nota, como lo del anexo I: solo se apunta si a
