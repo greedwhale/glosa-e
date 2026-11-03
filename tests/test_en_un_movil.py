@@ -16,6 +16,13 @@ página, y siempre por lo mismo: **algo que no se puede partir por un espacio**.
 | `codigo-*.html` | 40 de 390 páginas | la línea del fuente en «Lo escribe» |
 | la entrada de la copia fiel | 7 px | `TotalGrossAmountBeforeTaxes`, en negrita |
 
+Y una cuarta que entró después, el 05-10-2026, y nadie vio hasta que el titular
+la encontró en su móvil el 03-11-2026: la URN de la especificación de la AEAT,
+`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, en el
+texto de presentación de la familia SPFE de `incidencias.html`. Ese texto no
+es una ficha y no llevaba la regla: a 375 px la página medía 584. Medido ese
+día en glosa-e.com; con `break-word` en `section > .texto`, 375.
+
 En un móvil, una página que se sale obliga a leer cada renglón arrastrando de
 lado, y el catálogo es a donde llega quien acaba de ver un código en un
 informe y no sabe qué hacer con él.
@@ -75,6 +82,9 @@ def _regla(plantilla: str, selector: str) -> str:
     ("incidencias.html", ".codigo-ficha", "anywhere"),
     ("incidencias.html", ".ficha-codigo", "anywhere"),
     ("bitacora.html", "article.entrada", "break-word"),
+    # No es una rejilla: con `break-word` ya medía 375 px, igual que con
+    # `anywhere`, y es la que vale fuera de las rejillas.
+    ("incidencias.html", "section > .texto", "break-word"),
 ])
 def test_lo_que_no_cabe_se_deja_partir(plantilla, selector, como):
     cuerpo = _regla(plantilla, selector)

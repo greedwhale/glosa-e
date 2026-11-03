@@ -9462,3 +9462,22 @@ no, en la descripción: lo uno y lo otro, porque no lo dijo.
 documento de validaciones 0.1.0 ni este repositorio traen hoy ningún `SPFE-CORE`,
 `SPFE-LIST` ni `BR-ES`. El día que se publique la lista, este aviso es el sitio donde
 traducirla.
+
+## La página de los códigos se deslizaba de lado en el móvil
+
+**Cómo salió.** Lo encontró el titular en su móvil el 03-11-2026: la página de los
+códigos, `/incidencias`, se movía de lado entera.
+
+**Reproducido** en glosa-e.com a 375 px: la página medía 584. Lo único que se salía era
+la URN de la especificación de la AEAT, 67 caracteres sin un espacio, en el texto con que
+se presenta la familia SPFE. Ese texto entró el 05-10-2026, después de la medición del
+23-09 que dejó las 399 páginas a 0 px, y no es una ficha: las fichas ya dejaban partir
+lo que no cabe, y el texto de cada familia no. Es lo mismo de entonces en otro sitio.
+
+**Lo que lo cerró.** `overflow-wrap: break-word` en `section > .texto`. Medido antes de
+escribirlo: con `break-word` y con `anywhere`, 375; se queda la primera porque ahí no hay
+rejilla. `test_en_un_movil.py` lo vigila como a las fichas: sin la regla, en rojo. Visto
+en el sitio montado a 320 px: `/incidencias`, la ficha de `SPFE-ESPECIFICACION`, que
+también cita la URN, la portada, novedades, el blog y su entrada de la copia fiel,
+Sobre Glosa-e, el aviso legal y el banco, todas a 320. Las 446 de un tirón no se pudieron
+medir: el servidor local no deja meter sus páginas en un marco.

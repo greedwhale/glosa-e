@@ -118,6 +118,13 @@
 .codigo-ficha .cuerpo code, .ficha-codigo .dice code, section > .texto code {
   font-family: var(--mono); font-size: .9em;
 }
+/* El texto con que se presenta cada familia no es una ficha y no llevaba lo
+   de `.codigo-ficha`. El de SPFE escribe la URN de la especificación de la
+   AEAT, 67 caracteres sin un espacio, y a 375 px la página medía 584: se
+   deslizaba de lado entera. Lo encontró el titular en su móvil el 03-11-2026.
+   `break-word` y no `anywhere` porque aquí no hay rejilla que medir: con los
+   dos medía 375, y este no parte palabras que caben. */
+section > .texto { overflow-wrap: break-word; }
 .codigo-ficha .cuerpo strong, .ficha-codigo .dice strong, section > .texto strong {
   font-weight: 600; color: var(--tinta);
 }

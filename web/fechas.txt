@@ -11,4 +11,4 @@ index.html        2026-11-03  dffa7303ae08
 banco.html        2026-10-28  35c0a246dbed
 sobre.html        2026-11-03  0c5231e5c7e5
 legal.html        2026-10-28  41bf1dfdf271
-incidencias.html  2026-10-28  0158f8a1afb3
+incidencias.html  2026-11-03  bb62210b1ccb
