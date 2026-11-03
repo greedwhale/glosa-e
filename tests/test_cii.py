@@ -441,6 +441,13 @@ class TestLasMismasReglas:
         assert "urn:otra:cosa" in aviso.encontrado
         assert "BR-01" not in codigos(informe)
 
+    def test_lo_que_declara_y_no_se_mide_lleva_nota(self, montar):
+        """En las dos sintaxis: una XRechnung puede ir en UBL o en CII."""
+        perfil = "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0"
+        informe = en16931.validar(montar(perfil=perfil))
+        nota = next(i for i in informe.notas if i.codigo == "PERFIL-NO-MEDIDO")
+        assert "XRechnung" in nota.mensaje
+
     def test_la_linea_sin_importe_se_nombra_por_su_id(self, montar):
         informe = en16931.validar(montar(omitir=("importe_linea",)))
         problema = next(i for i in informe.errores if i.codigo == "BR-24")

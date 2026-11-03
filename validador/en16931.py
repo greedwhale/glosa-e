@@ -32,8 +32,10 @@ from decimal import Decimal
 
 from lxml import etree
 
-from validador import cifras, decimales, edifact, iva, listas_de_codigos, modelo
-from validador.formato import FACTURAE, RESPUESTAS, detectar, parser
+from validador import (
+    cifras, decimales, edifact, iva, listas_de_codigos, modelo, normas)
+from validador.formato import (
+    FACTURAE, NOMBRA_A_LA_AEAT, RESPUESTAS, detectar, parser)
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia, Informe
 from validador.sintaxis import (
     NS_CII,
@@ -860,6 +862,89 @@ def _regla_tipo_de_documento(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
     ]
 
 
+# --- Lo que la factura declara y aquí no se mide ----------------------------
+
+# Las especificaciones que la nota llama por su nombre. Los identificadores
+# están medidos el 03-11-2026 en los ficheros oficiales: las 66 facturas
+# estándar y las 6 de la extensión de la batería de XRechnung (KoSIT), los 10
+# ejemplos extendidos del paquete de la FNFE 1.4.0.04, y las facturas de Peppol
+# BIS Billing 3.0 del corpus. Las demás también reciben la nota, con el
+# identificador y sin nombre: la lista solo pone nombre, no decide.
+#
+# El orden importa: el identificador de la extensión de XRechnung lleva dentro
+# el de XRechnung, y tiene que ganar la extensión.
+_ESPECIFICACIONES_CONOCIDAS = (
+    ("urn:xeinkauf.de:kosit:extension:xrechnung", "la extensión de XRechnung (Alemania)"),
+    ("urn:xeinkauf.de:kosit:xrechnung", "XRechnung (Alemania)"),
+    ("urn.cpro.gouv.fr:1p0:extended-ctc-fr",
+     "el perfil extendido francés (EXTENDED-CTC-FR)"),
+    ("urn:fdc:peppol.eu:2017:poacc:billing", "Peppol BIS Billing"),
+)
+
+
+def _perfil_no_medido(deteccion, sintaxis) -> list[Incidencia]:
+    """La factura declara una especificación que añade reglas a la norma, y
+    esas reglas aquí no se miden.
+
+    Medido el 03-11-2026: a una XRechnung de la batería oficial se le quitó la
+    referencia del comprador (BT-10), que en Alemania es BR-DE-15 y fatal, y
+    salía «sin errores» sin que nada dijera que las reglas alemanas no se
+    habían mirado. La línea de alcance era cierta («las reglas EN 16931 de la
+    versión…»), pero quien llega con una factura alemana lee el veredicto. Con
+    Peppol pasaba igual. Callarse lo que no se mide es prometer de más.
+
+    Se decide por la forma del identificador, no por una lista: con
+    `#compliant#` declara un CIUS, que solo añade reglas; con `#conformant#`,
+    una extensión, que además puede cambiar alguna de la norma (la de
+    XRechnung sustituye la fórmula de BR-CO-16 por BR-DEX-09). A una extensión
+    se le dice también eso, porque los ERROR de esas reglas pueden no serlo
+    para ella: 2 de las 6 facturas de la extensión alemana y 8 de los 10
+    ejemplos extendidos franceses salen con alguno.
+
+    Es una NOTA y no un AVISO: no hay nada mal en la factura, lo que se dice es
+    hasta dónde llega lo comprobado. Lo que nombra a la AEAT queda fuera: la
+    solución pública sí se mide (`solucion_publica`), y un tercero de la AEAT
+    ya tiene su aviso, SPFE-ESPECIFICACION.
+    """
+    perfil = (deteccion.perfil or "").strip()
+    if not deteccion.conforme_en16931 or NOMBRA_A_LA_AEAT in perfil:
+        return []
+    extension = "#conformant#" in perfil
+    if not extension and "#compliant#" not in perfil:
+        return []
+    nombre = next(
+        (nombre for trozo, nombre in _ESPECIFICACIONES_CONOCIDAS if trozo in perfil),
+        None,
+    )
+    norma = (f"la norma europea (las reglas EN 16931 de la versión "
+             f"{normas.VERSION_DE_LA_EN16931} del CEN)")
+    if extension:
+        declara = nombre or "una extensión de la norma europea"
+        mensaje = (
+            f"La factura declara {declara}, que puede añadir reglas a la norma y "
+            f"cambiar alguna. Se ha comprobado contra {norma}, no contra las "
+            "reglas de la extensión: que aquí no salga un error no quiere decir "
+            "que las cumpla, y un ERROR de una regla que la extensión cambia "
+            "puede no serlo para ella."
+        )
+    else:
+        declara = nombre or "una especificación que añade reglas a la norma europea"
+        mensaje = (
+            f"La factura declara {declara}. Se ha comprobado contra {norma}, no "
+            "contra las reglas propias de esa especificación: que aquí no salga "
+            "un error no quiere decir que las cumpla."
+        )
+    return [
+        Incidencia(
+            "PERFIL-NO-MEDIDO",
+            NOTA,
+            mensaje,
+            campo=f"Identificador de especificación ({sintaxis.nombre_perfil})",
+            encontrado=perfil,
+        )
+    ]
+
+
 # --- Entrada pública -------------------------------------------------------
 
 
@@ -951,6 +1036,7 @@ def reglas(raiz, deteccion, espanola: bool = True,
                 encontrado=deteccion.perfil or "(falta)",
             )
         )
+    incidencias.extend(_perfil_no_medido(deteccion, sintaxis))
 
     incidencias.extend(_reglas_obligatorios(raiz, sintaxis))
     incidencias.extend(_regla_tipo_de_documento(raiz, sintaxis))

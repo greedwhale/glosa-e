@@ -577,6 +577,7 @@ class TestOrigen:
             # miente sobre eso.
             ("SIN-SOPORTE", factura.CASA),
             ("PERFIL-SIN-EN16931", factura.CASA),
+            ("PERFIL-NO-MEDIDO", factura.CASA),
             ("VALIDADOR-SE-ATRAGANTA", factura.CASA),
             # Se quedaba fuera de la lista de la firma y caia en el mismo
             # cajon, mientras la pagina publicada lo daba por firma.

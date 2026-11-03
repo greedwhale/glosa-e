@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3974 tests, todos en verde.
+3983 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4280,6 +4280,26 @@ de `tests/test_norma_oficial.py` se niegan si la copia de
 `tests/en16931-oficial/` o la cabecera de `cius_es` no son las que se
 anuncian. Provocado: con otro commit, otra fecha del BOE y otra versión, las
 tres pruebas en rojo.
+
+**Y lo que la factura declara y aquí no se mide, desde el 03-11-2026.** A una
+XRechnung de la batería oficial de KoSIT se le quitó la referencia del
+comprador (BT-10), que en Alemania es BR-DE-15 y fatal: salía sin errores, y
+nada decía que las reglas alemanas no se habían mirado. Con una factura de
+Peppol pasaba igual. Ahora lleva la nota `PERFIL-NO-MEDIDO`, de la casa,
+siempre que el identificador de especificación declare algo más que la norma:
+con `#compliant#` un CIUS, que añade reglas; con `#conformant#` una extensión,
+que además puede cambiar alguna, y entonces la nota dice que un ERROR de una
+regla cambiada puede no serlo para ella (la extensión de XRechnung sustituye
+BR-CO-16 por BR-DEX-09; 2 de sus 6 facturas de prueba y 8 de los 10 ejemplos
+extendidos franceses salen con algún ERROR del núcleo). Decide la forma del
+identificador y no una lista: la lista solo pone nombre a XRechnung, su
+extensión, el perfil extendido francés y Peppol BIS Billing, y lo demás sale
+con el identificador tal cual. Lo que nombra a la AEAT queda fuera, porque la
+solución pública se mide y un tercero de la AEAT ya tiene su aviso. Es nota y
+no aviso porque en la factura no hay nada mal: lo que se dice es hasta dónde
+llega lo comprobado. Medido después sobre lo oficial: las 66 XRechnung, las 6
+de la extensión y los 10 franceses extendidos llevan la nota; los 16 ejemplos
+franceses del perfil europeo, que declaran la norma a secas, no.
 
 ### La dirección del QR, contra la factura
 

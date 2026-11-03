@@ -253,6 +253,19 @@ CODIGOS: dict[str, str] = {
         'y no hay nada que arreglar: la sintaxis española no tiene ningún '
         'elemento con ese significado.'
     ),
+    "PERFIL-NO-MEDIDO": (
+        'La factura declara, en su identificador de especificación, que sigue '
+        'algo más que la norma europea: un CIUS, que le añade reglas (XRechnung '
+        'en Alemania, Peppol BIS Billing), o una extensión, que además puede '
+        'cambiar alguna (la de XRechnung, el perfil extendido francés). Aquí se '
+        'comprueba la norma europea y no esas reglas, y la nota lo dice para '
+        'que un sin errores no se lea como lo que no es. No hay nada que '
+        'arreglar en la factura: para sus reglas propias está el validador de '
+        'quien las publica. Con una extensión dice además que un ERROR de una '
+        'regla que la extensión cambia puede no serlo para ella. Lo que '
+        'declara la solución pública española no recibe esta nota, porque sus '
+        'reglas sí se miden.'
+    ),
     "PERFIL-SIN-EN16931": (
         'El identificador de especificación está, pero no nombra a EN 16931: '
         'ni la edición de 2017 ni la de 2026. No lo prohíbe ninguna regla '

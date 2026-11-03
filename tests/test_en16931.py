@@ -831,6 +831,65 @@ class TestOtrosFormatos:
         assert avisos
         assert "urn:otra:cosa" in avisos[0].encontrado
 
+    # PERFIL-NO-MEDIDO, desde el 03-11-2026: lo que se declara y no se mide.
+
+    XRECHNUNG = "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0"
+    EXTENSION_XR = (XRECHNUNG + "#conformant#"
+                    "urn:xeinkauf.de:kosit:extension:xrechnung_3.0")
+    FRANCES = "urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr"
+    PEPPOL = "urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0"
+
+    @staticmethod
+    def _no_medido(perfil):
+        informe = en16931.validar(factura(perfil=perfil))
+        return informe, [i for i in informe.incidencias if i.codigo == "PERFIL-NO-MEDIDO"]
+
+    def test_xrechnung_dice_que_lo_aleman_no_se_ha_mirado(self):
+        """El caso medido: una XRechnung salía sin errores y nada decía que
+        sus reglas no se habían comprobado."""
+        informe, notas = self._no_medido(self.XRECHNUNG)
+        assert len(notas) == 1 and notas[0].gravedad == NOTA
+        assert "XRechnung (Alemania)" in notas[0].mensaje
+        assert "versión 1.3.17 del CEN" in notas[0].mensaje
+        assert "no contra las reglas propias" in notas[0].mensaje
+        assert notas[0].encontrado == self.XRECHNUNG
+        # Es una nota: no cambia el veredicto.
+        assert not informe.errores
+
+    def test_la_extension_avisa_de_que_puede_cambiar_reglas(self):
+        for perfil, nombre in ((self.EXTENSION_XR, "la extensión de XRechnung"),
+                               (self.FRANCES, "perfil extendido francés")):
+            _, notas = self._no_medido(perfil)
+            assert len(notas) == 1, perfil
+            assert nombre in notas[0].mensaje
+            assert "puede no serlo para ella" in notas[0].mensaje
+
+    def test_peppol_por_su_nombre(self):
+        _, notas = self._no_medido(self.PEPPOL)
+        assert "Peppol BIS Billing" in notas[0].mensaje
+
+    def test_lo_que_no_se_conoce_tambien_y_sin_nombre(self):
+        """La lista pone nombre, no decide: decide la forma del identificador."""
+        _, notas = self._no_medido("urn:cen.eu:en16931:2017#compliant#urn:otro:cius")
+        assert "una especificación que añade reglas" in notas[0].mensaje
+        _, notas = self._no_medido("urn:cen.eu:en16931:2026#conformant#urn:otra:ext")
+        assert "una extensión de la norma europea" in notas[0].mensaje
+
+    def test_la_norma_a_secas_no_lleva_nota(self):
+        for perfil in ("urn:cen.eu:en16931:2017", "urn:cen.eu:en16931:2026",
+                       "urn:otra:cosa#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0"):
+            _, notas = self._no_medido(perfil)
+            assert not notas, perfil
+
+    def test_lo_de_la_aeat_no_la_lleva(self):
+        """La solución pública se mide; un tercero de la AEAT ya tiene su aviso."""
+        from validador import cius_es
+
+        for perfil in (cius_es.ESPECIFICACION,
+                       "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:otra:1.0.0"):
+            _, notas = self._no_medido(perfil)
+            assert not notas, perfil
+
     def test_br01_no_opina_de_lo_que_dice_el_campo(self):
         """BR-01 pide que el identificador esté; la prueba oficial acepta un «123»."""
         informe = en16931.validar(factura(perfil="123"))

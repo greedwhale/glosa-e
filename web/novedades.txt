@@ -13,6 +13,17 @@
 # desde 598f34c, el último del 06-10-2026. Las fechas son las de esos commits.
 
 fecha: 2026-11-03
+id: perfil-no-medido
+titulo: PERFIL-NO-MEDIDO: lo que la factura declara y no se comprueba
+nuevos: PERFIL-NO-MEDIDO
+texto: Una factura que declara XRechnung, Peppol BIS Billing, el perfil
+  extendido francés u otra especificación que añade reglas a la norma
+  europea lleva ahora una nota: se ha comprobado la norma europea, no esas
+  reglas. Si declara una extensión, la nota dice además que un error de una
+  regla que la extensión cambia puede no serlo para ella. Hasta hoy salía
+  sin errores y nada decía que sus reglas propias no se habían mirado.
+
+fecha: 2026-11-03
 id: version-de-ubl-y-rechazos-de-la-aeat
 titulo: XSD-VERSION es error también en la solución pública, y los rechazos se explican
 texto: Una factura de la solución pública que declara UBL 2.1 y usa una
