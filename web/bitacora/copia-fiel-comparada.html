@@ -1,0 +1,138 @@
+<article class="entrada"
+  data-fecha="2026-11-06"
+  data-titulo="Un Facturae y su copia para la AEAT, comparados campo a campo"
+  data-entradilla="Quien emita en Facturae por una plataforma privada mandará a la AEAT una copia de cada factura en UBL, y la orden no publica qué campo va en cuál. Glosa-e compara ahora las dos y dice en qué no coinciden, y también lo que no compara. Medido con 20 parejas de tres orígenes, entre ellas las de un conversor de código abierto ejecutado de verdad: ningún aviso falso.">
+
+  <time datetime="2026-11-06">6 de noviembre de 2026</time>
+  <h1>Un Facturae y su copia para la AEAT, comparados campo a campo</h1>
+  <p class="lema">Quien emita en Facturae por una plataforma privada mandará a
+  la AEAT una copia de cada factura en UBL, y la orden no publica qué campo va
+  en cuál. Glosa-e compara ahora las dos y dice en qué no coinciden, y también
+  lo que no compara. Medido con 20 parejas de tres orígenes: <b>ningún aviso
+  falso</b>.</p>
+
+  <p>La Orden HAC/1028/2026 pide que, cuando la factura no se emite por la
+  solución pública, se le mande una <b>copia fiel</b>: la misma
+  factura, en UBL, con los conceptos que tengan <i>correspondencia semántica
+  equivalente</i> (artículo 4.2). Se pide desde el 6 de octubre de 2027. La
+  orden dice qué lleva
+  la copia, en su anexo I, pero no trae una tabla que diga a qué campo de UBL va
+  cada campo de Facturae. Esa traducción la hace cada uno.</p>
+
+  <p>Una copia mal traducida no siempre da error. La de la
+  <a href="./bitacora-copia-fiel-nadie-traduce.html">entrada del 21 de
+  septiembre</a> es el ejemplo: el 19 de Facturae es la tarjeta, el 19 de la
+  lista europea es otra forma de pago, y la copia pasa todas las validaciones
+  diciendo que se paga de otra manera. Mirando solo la copia no se puede saber.
+  Mirando las dos, sí.</p>
+
+  <h2>Qué hace</h2>
+
+  <p>Si en el mismo lote van un Facturae y su copia en UBL, Glosa-e los
+  empareja por el NIF de quien emite y por el número con su serie, y los
+  compara. Basta con abrir los dos ficheros a la vez. No sale nada del
+  navegador.</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Lo que se compara, y el código que sale si no coincide</caption>
+    <thead><tr><th>Qué</th><th>Código</th></tr></thead>
+    <tbody>
+      <tr><td>Número, fechas, monedas, periodo, factura rectificada, NIF y razón social, y que la copia diga que es copia</td><td><code>COPIA-DATOS</code></td></tr>
+      <tr><td>Dirección y contacto de las dos partes</td><td><code>COPIA-PARTES</code></td></tr>
+      <tr><td>Suma de las líneas, descuentos y cargos, base, cuotas, total y retenciones</td><td><code>COPIA-IMPORTES</code></td></tr>
+      <tr><td>El desglose de impuestos, por impuesto y tipo</td><td><code>COPIA-DESGLOSE</code></td></tr>
+      <tr><td>Cada línea: cantidad, precio, neto, tipo, descuentos y cargos</td><td><code>COPIA-LINEAS</code></td></tr>
+      <tr><td>Vencimiento, medio de pago y cuenta de abono</td><td><code>COPIA-PAGO</code></td></tr>
+      <tr><td>El nombre de cada artículo y los motivos de descuentos y cargos</td><td><code>COPIA-TEXTOS</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Son <b>avisos, no errores</b>, porque la correspondencia es la lectura de
+  Glosa-e y no la de la orden. Y la nota <code>COPIA-COMPARADA</code> dice cada
+  vez cuántas parejas hay y <b>lo que no se compara</b>: el total a pagar, los
+  anticipos, los suplidos, el nombre de una persona física, el código postal y
+  la población de fuera de España, las notas de la factura y los medios de
+  pago cuya equivalencia no se sostiene por su nombre. De los medios de pago
+  se comparan cinco: al contado, domiciliación, transferencia, cheque y
+  tarjeta. Que no haya diferencias dice que los dos ficheros dicen lo mismo en
+  lo comparado, no que la copia sea válida: eso lo dice el informe de cada
+  fichero.</p>
+
+  <h2>Lo que se midió</h2>
+
+  <p>Un comprobador de diferencias tiene un riesgo que importa más que los
+  demás: avisar de una diferencia que no existe. Quien lo usa deja de mirar los
+  avisos a la tercera vez. Por eso se midió con copias que no salen de Glosa-e,
+  de tres orígenes:</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Parejas comparadas con el código publicado el 1 de noviembre</caption>
+    <thead><tr><th>De dónde</th><th>Parejas</th><th>Avisos falsos</th></tr></thead>
+    <tbody>
+      <tr><td>Las Facturae de prueba que publica Invopop, pasadas a UBL por su conversor de código abierto, ejecutado</td><td>9</td><td>0</td></tr>
+      <tr><td>La biblioteca FACe, de otro autor (no es el punto de entrada de la Administración), que saca el Facturae y el UBL de la misma factura, con datos inventados</td><td>6</td><td>0</td></tr>
+      <tr><td>Facturas reales, pasadas por el mismo conversor en esta máquina</td><td>5</td><td>0</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Cada aviso que salió se miró uno por uno contra el fichero, y todos eran
+  ciertos. El conversor de Invopop pasa Facturae a la norma europea, no a la
+  copia de la orden, y eso se ve: ninguna de sus copias dice que es copia
+  (<code>BT-ES-1</code>), y la retención va en el desglose de impuestos y no
+  en su sitio de la orden (<code>BT-ES-17</code>). En las parejas de la biblioteca FACe salió
+  lo que ese programa escribe distinto en cada formato, como el neto de una
+  línea con descuento.</p>
+
+  <p>Antes de publicar salieron <b>tres avisos falsos</b>, y por eso se mide
+  así:</p>
+
+  <ul>
+    <li><b>La retención como impuesto que sobra.</b> El IRPF salía como un
+    impuesto que estaba en la copia y no en el original. Estaba en los dos: en
+    el original, como retención.</li>
+    <li><b>La calle.</b> La copia puede repartir la dirección en dos líneas, y
+    una calle partida en dos salía como otra calle.</li>
+    <li><b>Un impuesto que no es IVA.</b> En la copia, un impuesto que no es
+    IVA, IGIC ni IPSI va como cargo de la línea, y eso acusaba al neto.</li>
+  </ul>
+
+  <p>Los tres se arreglaron, cada uno con su prueba.</p>
+
+  <p>Glosa-e es gratis, es código abierto y <b>corre entero en tu
+  navegador</b>: la factura no sale de tu ordenador. Está <b>en desarrollo y en
+  pruebas</b>. Si encuentras algo mal o tienes alguna propuesta,
+  <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20">escríbeme</a>.</p>
+
+  <footer class="fuentes">
+    <h2>De dónde sale</h2>
+    <ul>
+      <li><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-20587">Orden
+      HAC/1028/2026</a>, artículo 4 (la copia fiel y su correspondencia
+      semántica) y anexo I (lo que lleva, con <code>BT-ES-1</code> y
+      <code>BT-ES-17</code>).</li>
+      <li><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-7295">Real
+      Decreto 238/2026</a>, disposición final cuarta, apartado 2: la copia fiel,
+      doce meses después de la entrada en vigor de la orden.</li>
+      <li><a href="https://github.com/invopop/gobl.es.facturae">gobl.es.facturae</a>,
+      de Invopop: las Facturae de prueba (<code>test/data/parse</code>) y el
+      conversor, con la consola <code>gobl</code> v0.511.2.</li>
+      <li><a href="https://github.com/mdiago/FACe">FACe</a>, biblioteca de código abierto:
+      genera el Facturae y el UBL con el perfil de la solución pública desde
+      la misma factura.</li>
+      <li><a href="./incidencias.html">Los códigos de Glosa-e</a>, entre ellos
+      <code>COPIA-COMPARADA</code>, <code>COPIA-PAGO</code> y los demás de la
+      tabla, con lo que compara cada uno.</li>
+    </ul>
+    <p class="metodo"><b>Cómo se midió.</b> El 1 de noviembre de 2026, con el
+    código publicado ese día. Las Facturae públicas se pasaron a UBL con el
+    conversor de Invopop; a algunas les faltaba un dato que ese conversor
+    pide, como la forma de pago, y se puso a los dos lados. Las de FACe, con datos inventados.
+    Las facturas reales no salieron de esta máquina ni se publica nada de
+    ellas, solo el recuento.</p>
+  </footer>
+
+</article>
