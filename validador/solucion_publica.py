@@ -3,8 +3,8 @@
 A quién se aplica
 -----------------
 A las facturas UBL que declaran la solución pública en su `CustomizationID`:
-el identificador que fija la orden en su fila BT-24 (`cius_es.ESPECIFICACION`,
-letra a letra el que enseñó la AEAT en su ejemplo del 02-10-2026), o el CIUS
+el identificador que fija la orden en su fila BT-24 (`cius_es.ESPECIFICACION`),
+o el CIUS
 del borrador de abril (`urn:aeat.es:CIUS-ES-SPFE`). El de abril ya no vale, y
 se le mide igual para poder decírselo: `SPFE-ESPECIFICACION` sale en ERROR. Lo
 que nombre a la AEAT sin ser ninguno de los dos recibe un AVISO: no se le
@@ -17,14 +17,10 @@ nadie, y aplicarlo a otra sintaxis sería inventarse esa correspondencia. A un
 documento de otra sintaxis que declare la solución pública se le avisa de que
 no se ha comprobado, que es distinto de callar.
 
-Esto dejó de ser una ausencia el **17-09-2026**. Preguntada por escrito si
-pensaba publicar esa correspondencia, la AEAT contestó que no es suya: «cae en
-la responsabilidad de las plataformas privadas, o en su caso, de la definición
-por parte del Ministerio de Economía que regula la interconexión entre
-plataformas privadas y sus formatos». Y remitió, para la semántica europea, a
-las partes de CEN que sí existen —`16931-3-2` para UBL, `-3-3` para CII y
-`-3-4` para EDIFACT—, que mapean la EN 16931 y **no** los campos españoles del
-anexo. Para Facturae no hay ninguna.
+Ni la orden ni el portal de la AEAT traen esa correspondencia. Para la
+semántica europea existen las partes de CEN (`16931-3-2` para UBL, `-3-3` para
+CII y `-3-4` para EDIFACT), que mapean la EN 16931 y **no** los campos
+españoles del anexo. Para Facturae no hay ninguna.
 
 Tampoco se aplica a una factura UBL que no lo declare. Quien emite para Peppol
 o para una plataforma privada no se ha comprometido con la solución pública, y
@@ -39,9 +35,8 @@ en vigor desde el 06-10-2026, tal y como lo trae `cius_es`, que se genera del
 XML del BOE.
 
 Las reglas se escribieron contra el borrador de abril y se fueron poniendo al
-día por partes: el 22-09-2026 con la respuesta del buzón sobre las
-rectificativas, el 02-10-2026 con el ejemplo de la AEAT y el 07-10-2026 con
-la orden, a mano y solo para dejar de condenar lo que la orden admite. Desde
+día por partes, hasta el 07-10-2026 con la orden, a mano y solo para dejar
+de condenar lo que la orden admite. Desde
 el 11-10-2026 todo lo que se mide sale de la tabla del BOE, y dos reglas que
 solo existían en el borrador —el recargo de equivalencia y el grupo de
 entidades en sus propias líneas de cobro— ya no están. Qué cambió en cada paso
@@ -56,9 +51,8 @@ Lo que la orden no dice y aquí se decide
 ----------------------------------------
 - **La cuota de un cargo con más de un impuesto.** BT-ES-8 pide la misma
   cuota en el impuesto y en el total del cargo, que es uno por cargo: con dos
-  impuestos no se puede. Se le preguntó al buzón el 07-10-2026 si va la suma;
-  contestó que lo evaluaba, y el caso que se le mandó el 13-10-2026 sigue sin
-  respuesta. El anexo que la AEAT publicó en su portal el 21-10-2026 deja el
+  impuestos no se puede, y ningún texto publicado dice si va la suma. El
+  anexo que la AEAT publicó en su portal el 21-10-2026 deja el
   grupo en `0..1`, uno por cargo, y el BOE, en `0..n`. No se compara, y desde
   el 24-10-2026 lo dice un AVISO y no una NOTA.
 - **El margen de las cuotas que la orden define como una cuenta**, las
@@ -71,22 +65,22 @@ Lo que la orden no dice y aquí se decide
   orden deja el detalle en `0..n` y define la suma como el sumatorio de lo
   practicado: sin detalle no hay con qué compararla.
 
-Lo que dijo el buzón y sigue valiendo
--------------------------------------
+Lo que la orden dice de otra manera y aquí se decide
+----------------------------------------------------
 - **El `ProfileID` es el que no lleva `ubl:`** (13-10-2026),
-  `urn:aeat:names:specification:schema:profile:B2B`, como en el ejemplo del
-  02-10-2026 y como el resto de campos, aunque la orden publicada lo escriba
-  con él; el anexo del portal de la AEAT del 21-10-2026 ya va sin él. El del
-  BOE sale en AVISO, porque es lo que dice el texto publicado.
+  `urn:aeat:names:specification:schema:profile:B2B`, como el resto de campos,
+  aunque la orden publicada lo escriba con él; el anexo del portal de la AEAT
+  del 21-10-2026 ya va sin él. El del BOE sale en AVISO, porque es lo que
+  dice el texto publicado.
 - **Los valores de L7, L8 y L10 llevan el calificador de su lista delante**
-  (13-10-2026), en las tres listas, como escribió la AEAT los de L10 en su
-  ejemplo del 02-10-2026. Las filas dan solo el valor, y la lista el
-  calificador aparte. Se siguen reconociendo los dos, para medir lo demás, y
-  el valor solo sale en AVISO (`SPFE-CALIFICADOR`).
+  (13-10-2026), en las tres listas: es lo que dice de qué lista es cada valor.
+  Las filas dan solo el valor, y la lista el calificador aparte. Se siguen
+  reconociendo los dos, para medir lo demás, y el valor solo sale en AVISO
+  (`SPFE-CALIFICADOR`).
 - **El prefijo ES del NIF-IVA es también para el comprador** (13-10-2026). La
-  fila BT-48 lo pide y llama al comprador NIF del vendedor; la AEAT contestó
-  que es una errata de la descripción y la corrige. Hasta ese día salía en
-  AVISO; desde entonces, en ERROR, como el del vendedor.
+  fila BT-48 lo pide y llama al comprador NIF del vendedor, una errata a la
+  vista: BT-48 es el identificador del comprador en la norma europea. Hasta
+  ese día salía en AVISO; desde entonces, en ERROR, como el del vendedor.
 - **La edición de la norma es la de 2026 para todo el sistema** (22-09-2026):
   `UNE-EN 16931-1:2026` y `UNE-CEN/TS 16931-3-2:2026` valen también para las
   copias fieles y para el intercambio privado del artículo 7.1.
@@ -326,12 +320,9 @@ _obligatorio("BT-23")
 _obligatorio("BT-24")
 
 # El proceso que vale no es el de la fila BT-23, y por eso va escrito a mano.
-# La orden publicada lo escribe con ubl:, y el ejemplo que la AEAT mandó por
-# correo el 02-10-2026, sin él. El buzón contestó dos veces el 13-10-2026 que
-# el bueno es el del ejemplo, sin ubl:, como el resto de campos. No dijo que lo
-# corrija en el anexo, y el anexo 2.0 que mandó ese mismo día todavía lo lleva
-# con ubl: (medido). El que publicó en su portal el 21-10-2026 ya va sin él
-# (medido el 24-10-2026), pero `cius_es` sale del BOE, y el BOE no cambia. Si
+# La orden publicada lo escribe con ubl:, y el anexo que la AEAT publicó en su
+# portal el 21-10-2026 ya va sin él, como el resto de campos (medido el
+# 24-10-2026), pero `cius_es` sale del BOE, y el BOE no cambia. Si
 # la fila deja de decir lo que dice el BOE, el módulo no
 # se importa: o es la corrección, y el valor sale otra vez de la tabla, o es
 # otra cosa, y hay que mirarla.
@@ -409,14 +400,13 @@ _MAXIMO_DEL_DOCUMENTO["RECT:MODALIDAD"] = _cuantos(_DOCUMENTOS["RECT:MODALIDAD"]
 _MAXIMO_DEL_DOCUMENTO["RECT:IMPORTES"] = _cuantos(_DOCUMENTOS["RECT:IMPORTES"], "0..5")
 # La fila BT-3 dice "hasta tres grupos" de importes rectificados, y el grupo es
 # `0..5`: la orden se contradice. Hasta el 11-10-2026 se callaba (lo midió el
-# auditor), y hasta el 13-10-2026 cuatro o cinco salían en una NOTA. Ese día el
-# buzón contestó que el grupo pasa a `0..1`, y mandó un ejemplo con tres, uno
-# por código de L2.C: Base, Cuota y CuotaRecargo. Las tres cifras solo casan leídas así, uno
-# por código, y los tres de BT-3 son los tres de la lista; si la lista cambia,
+# auditor), y hasta el 13-10-2026 cuatro o cinco salían en una NOTA. Desde ese
+# día se leen como uno por código de L2.C: Base, Cuota y CuotaRecargo. Los
+# tres de BT-3 son los tres de la lista; si la lista cambia,
 # el módulo no importa. Un código repetido sale en AVISO, y más de cinco sigue
 # siendo ERROR, porque es lo que dice el BOE. El anexo que la AEAT publicó en
-# su portal el 21-10-2026 no le da `0..1` sino `0..3`, que casa con BT-3 y con
-# el ejemplo (medido el 24-10-2026): con tres códigos, cuatro o cinco ya
+# su portal el 21-10-2026 le da `0..3`, que casa con BT-3 (medido el
+# 24-10-2026): con tres códigos, cuatro o cinco ya
 # repiten uno, y salen en ese AVISO.
 _dice("BT-3", "hasta tres grupos de términos de negocio de importes rectificados")
 _IMPORTES_SEGUN_BT3 = 3
@@ -518,11 +508,9 @@ if _fila("BT-30").ruta:
 
 # El prefijo de España en el NIF-IVA de las dos partes (BT-31 y BT-48), según
 # los códigos ISO 3166-1, que para España es ES. La fila del comprador copia la
-# del vendedor hasta en decir "del vendedor"; se le señaló al buzón como errata
-# el 07-10-2026, y hasta su respuesta lo del comprador salía en AVISO. El
-# 13-10-2026 contestó que corrige la descripción, y su anexo 2.0 dice "del
-# comprador, con el prefijo correspondiente a España": desde ese día es ERROR,
-# como el del vendedor. Si el BOE corrige la fila, este módulo no importa
+# del vendedor hasta en decir "del vendedor", una errata a la vista: BT-48 es
+# el identificador del comprador en la norma europea. Hasta el 13-10-2026 lo
+# del comprador salía en AVISO; desde ese día es ERROR, como el del vendedor. Si el BOE corrige la fila, este módulo no importa
 # hasta que se mire otra vez.
 _PREFIJO_DE_ESPANA = "ES"
 for _identificador in ("BT-31", "BT-48"):
@@ -962,9 +950,9 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
                 AVISO,
                 f"El documento es {deteccion.familia} y dice ser de la "
                 "solución pública, que el anexo I solo define sobre UBL. Las "
-                "reglas del anexo no se han comprobado: no hay correspondencia "
-                "publicada de sus campos con esta sintaxis, y la AEAT contestó "
-                "el 17-09-2026 que escribirla es cosa de cada plataforma.",
+                "reglas del anexo no se han comprobado: ni la orden ni el "
+                "portal de la AEAT publican la correspondencia de sus campos "
+                "con esta sintaxis.",
                 campo="Identificador de especificación",
                 esperado="una factura UBL 2.5",
                 encontrado=deteccion.perfil,
@@ -1039,8 +1027,8 @@ def _de_la_aeat_sin_reconocer(deteccion) -> list[Incidencia]:
 
     No se le mide con el anexo: no dice ser lo que el anexo define, y medirlo
     sería afirmar algo que no se sabe. Pero callarse es peor, y es lo que pasó
-    con el ejemplo de la AEAT del 02-10-2026 hasta que se midió: un
-    identificador nuevo, sin que nada lo dijera, y todo en verde. Si mañana
+    con un ejemplo de la AEAT hasta que se midió: un identificador nuevo, sin
+    que nada lo dijera, y todo en verde. Si mañana
     sale un tercero, que se vea.
     """
     perfil = (deteccion.perfil if deteccion else "") or ""
@@ -1105,18 +1093,16 @@ def _proceso(raiz) -> list[Incidencia]:
     if declarado == PROCESO_DE_LA_ORDEN:
         # Un AVISO: es lo que dice el BOE, y la corrección solo está en el
         # anexo del portal de la AEAT (21-10-2026), que no es la orden. Pero no
-        # una NOTA, porque la AEAT ha dicho por escrito que el bueno es el otro.
+        # una NOTA, porque ese anexo, que es de la AEAT, escribe el otro.
         return [
             Incidencia(
                 "SPFE-PROCESO",
                 AVISO,
                 "El tipo de proceso de negocio es el que escribe la orden "
-                "publicada en el BOE el 05-10-2026, el que lleva ubl. La AEAT "
-                f"contestó por escrito el 13-10-2026 que el que vale es {PROCESO}, "
-                "sin ubl, como el resto de campos y como en su ejemplo del "
-                "02-10-2026, y así lo escribe el anexo que publicó en su portal el "
-                "21-10-2026. Es un aviso y no un error porque es lo que dice el "
-                "texto publicado en el BOE.",
+                "publicada en el BOE el 05-10-2026, el que lleva ubl. El anexo "
+                "que la AEAT publicó en su portal el 21-10-2026 escribe "
+                f"{PROCESO}, sin ubl, como el resto de campos. Es un aviso y no "
+                "un error porque es lo que dice el texto publicado en el BOE.",
                 campo="Tipo de proceso de negocio (BT-23)",
                 esperado=PROCESO,
                 encontrado=declarado,
@@ -1131,8 +1117,8 @@ def _proceso(raiz) -> list[Incidencia]:
                    "ese.")
     else:
         mensaje = ("El tipo de proceso de negocio no es el que vale. La orden "
-                   "admite un solo valor, y la AEAT contestó el 13-10-2026 que "
-                   "es el que no lleva ubl.")
+                   "admite un solo valor, y el anexo del portal de la AEAT del "
+                   f"21-10-2026 lo escribe sin ubl: {PROCESO}.")
     return [
         Incidencia(
             "SPFE-PROCESO",
@@ -1150,9 +1136,9 @@ def _calificadores(raiz) -> list[Incidencia]:
 
     Las filas de la orden dan solo el valor, "usar RETE", y cada lista trae su
     calificador aparte. Hasta el 13-10-2026 se aceptaban las dos formas sin
-    decir nada, porque la orden no dice cómo se juntan; ese día el buzón
-    contestó que se escriben con el calificador seguido del valor, en las tres
-    listas. Las demás reglas los siguen reconociendo de las dos maneras, para
+    decir nada, porque la orden no dice cómo se juntan; desde ese día se pide
+    el calificador seguido del valor, en las tres listas, que es lo que dice
+    de qué lista es cada valor. Las demás reglas los siguen reconociendo de las dos maneras, para
     no dejar de medir una retención por cómo se escribe su línea; esta dice,
     una vez por factura, cuáles van sin él.
     """
@@ -1178,10 +1164,9 @@ def _calificadores(raiz) -> list[Incidencia]:
             AVISO,
             f"{_y(list(solos))} {'va' if len(solos) == 1 else 'van'} sin el "
             "calificador de su lista delante. Las filas de la orden dan solo el "
-            "valor, y la AEAT contestó por escrito el 13-10-2026 que en las "
-            "listas L7, L8 y L10 se escribe el calificador seguido del valor, "
-            "como en su ejemplo del 02-10-2026. Se ha leído igual, y lo demás "
-            "se ha medido.",
+            "valor, y cada lista trae su calificador aparte: Glosa-e espera el "
+            "calificador seguido del valor, que es lo que dice de qué lista es. "
+            "Se ha leído igual, y lo demás se ha medido.",
             campo="Valores de las listas L7, L8 y L10",
             esperado=", ".join(f"{calificador}{valor}" for valor, calificador in solos.items()),
             encontrado=", ".join(solos),
@@ -1779,8 +1764,8 @@ def _prefijo_del_nif(raiz) -> list[Incidencia]:
          "europea admite el de cualquier país."),
         ("comprador", _ESQUEMAS_DEL_COMPRADOR, "BT-48", "BT-47", ERROR,
          "La orden lo pide con el prefijo de España (fila BT-48). La fila lo "
-         "llama NIF del vendedor, y la AEAT contestó por escrito el 13-10-2026 "
-         "que es una errata de la descripción: el prefijo es para el comprador."),
+         "llama NIF del vendedor, una errata a la vista: BT-48 es el "
+         "identificador del comprador en la norma europea."),
     ):
         otros = [nif for esquema in _nodos(raiz, esquemas)
                  if _valor(esquema, _IMPUESTO_DEL_ESQUEMA) == _IMPUESTO

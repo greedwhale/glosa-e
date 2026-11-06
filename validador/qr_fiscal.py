@@ -388,8 +388,8 @@ def _de_ticketbai(direccion, pares, valores, nifs_del_vendedor, numero, fecha, t
             else:
                 incidencias += _fecha_contra(del_qr, fecha)
 
-    # BT-1 es la serie y el número juntos, sin separador: como lo contestó el
-    # buzón de la AEAT el 13-10-2026, y como lo trata `codigo_unico`.
+    # BT-1 es la serie y el número juntos, sin separador, como lo trata
+    # `codigo_unico`.
     if (numero_tbai := valores.get("nf")) and numero:
         del_qr = valores.get("s", "") + numero_tbai
         if del_qr != numero:

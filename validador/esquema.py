@@ -938,13 +938,13 @@ def _otra_version(deteccion, version: str, incidencias: list[Incidencia]) -> Inc
     Es ERROR para todos. Quien recibe UBL 2.1 —Peppol, FACeB2B— lo mide con
     el esquema 2.1. La AEAT dice en su documento de validaciones de la SPFE
     (versión 0.1.0, 16-10-2026, apartado 4.1) que la forma se comprueba con los
-    esquemas de UBL 2.5 y que se admiten versiones anteriores, y hasta el
-    02-11-2026 con su especificación era AVISO: contra la 2.5 pasa, y qué hacía
-    con una factura que declara una versión y usa elementos de otra no estaba
-    escrito. Lo contestó ese día por escrito, a una consulta de Glosa-e: con
-    elementos de una versión posterior a la 2.1, como `CollectionInvoiceLine`,
-    no hay compatibilidad y hay que adaptarse a esa versión; y no acepta que
-    esos conceptos se dejen fuera por usar la 2.1.
+    esquemas de UBL 2.5 y que se admiten versiones anteriores si cumplen el
+    contenido mínimo del anexo I, y hasta el 03-11-2026 con su especificación
+    era AVISO: contra la 2.5 pasa. Desde ese día es ERROR, con criterio de
+    Glosa-e: un documento que usa elementos de una versión, como
+    `CollectionInvoiceLine`, es de esa versión y tiene que declararla; y una
+    2.1 no cumple el contenido mínimo cuando la factura lleva lo que solo cabe
+    en la línea de cobro.
 
     Lo que cambia según quién es qué se aconseja. Fuera de la solución pública
     vale quitar lo que no es de la versión declarada, si quien lo recibe solo
@@ -961,11 +961,13 @@ def _otra_version(deteccion, version: str, incidencias: list[Incidencia]) -> Inc
     de_la_aeat = bool(deteccion.perfil) and NOMBRA_A_LA_AEAT in deteccion.perfil
     if de_la_aeat:
         que_hacer = (
-            "La AEAT admite versiones anteriores a la 2.5, pero contestó por "
-            "escrito el 02-11-2026 que con elementos de una posterior no hay "
-            f"compatibilidad: hay que declarar {version} en UBLVersionID. Y no "
-            "acepta que esos conceptos se dejen fuera para quedarse en la "
-            f"{deteccion.version}."
+            f"Un documento que usa elementos de la {version} es de la "
+            f"{version}: hay que declararla en UBLVersionID. La AEAT admite "
+            "versiones anteriores si cumplen el contenido mínimo del anexo I "
+            "(documento de validaciones 0.1.0, apartado 4.1), y lo que solo "
+            "cabe en la línea de cobro (retenciones, suplidos, minoraciones) "
+            f"no se puede dejar fuera para quedarse en la {deteccion.version} "
+            "si la factura lo tiene."
         )
     else:
         que_hacer = (

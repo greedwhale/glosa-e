@@ -1782,8 +1782,9 @@ _ARREGLOS: tuple[Arreglo, ...] = (
 #
 # Los valores de L7, L8 y L10 se reconocen solos o con el calificador de su
 # lista delante. La orden da el valor en la fila y el calificador aparte, sin
-# decir cómo se juntan, y el buzón contestó el 13-10-2026 que con el
-# calificador seguido del valor. Aquí se reconocen los dos para encontrar el
+# decir cómo se juntan; desde el 13-10-2026 se espera el calificador seguido
+# del valor, que es lo que dice de qué lista es. Aquí se reconocen los dos para
+# encontrar el
 # elemento; que vaya sin él lo dice `SPFE-CALIFICADOR`.
 
 

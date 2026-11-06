@@ -37,8 +37,8 @@ from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 from tests.test_rutas_cius import _andar, _esquema_de_ubl, con_esquema
 
 ESPECIFICACION = cius_es.ESPECIFICACION
-# El que vale, sin ubl:, como contestó el buzón el 13-10-2026; el de la fila
-# BT-23 del BOE lo lleva.
+# El que vale, sin ubl:, como en el anexo del portal de la AEAT del
+# 21-10-2026; el de la fila BT-23 del BOE lo lleva.
 PROCESO = solucion_publica.PROCESO
 PROCESO_DEL_BOE = cius_es.PROCESO
 L7 = cius_es.LISTAS["L7"].calificador
@@ -312,8 +312,8 @@ CON_AE_Y_EL_COMPRADOR_EN_BT47 = cambia(cambia(cambia(cambia(cambia(cambia(
 CON_AE_Y_EL_COMPRADOR_EN_BT47 = cambia(CON_AE_Y_EL_COMPRADOR_EN_BT47, "importe=121.00", "importe=100.00")
 
 # La L8 de la orden da el valor, REGI, y aparte el calificador
-# urn:aeat:names:specification:schema:lin:. El buzón contestó el 13-10-2026 que
-# se escriben juntos, como en `DEL_BOE`; con el valor solo sale un AVISO.
+# urn:aeat:names:specification:schema:lin:. Desde el 13-10-2026 se esperan
+# juntos, como en `DEL_BOE`; con el valor solo sale un AVISO.
 CON_LA_CLAVE_SIN_CALIFICADOR = cambia(DEL_BOE, f"<cbc:Name>{L8}REGI</cbc:Name>",
                                       "<cbc:Name>REGI</cbc:Name>")
 
@@ -387,9 +387,9 @@ def adjunto(valor: str, codigo: str = "", descripcion: str = "", uuid: str = "",
             calificador: str = L10) -> str:
     """Un documento justificativo adicional (BG-24) de la lista L10.
 
-    El valor va con el calificador de L10 delante, como lo escribió la AEAT en
-    su ejemplo del 02-10-2026, salvo que se pida otro o ninguno: la orden da el
-    valor en la fila y el calificador en la lista, sin decir cómo se juntan.
+    El valor va con el calificador de L10 delante, salvo que se pida otro o
+    ninguno: la orden da el valor en la fila y el calificador en la lista, sin
+    decir cómo se juntan.
     """
     trozos = [f"    <cbc:ID>{calificador}{valor}</cbc:ID>\n"]
     if uuid:
@@ -841,9 +841,8 @@ class TestLosCalificadores:
     """Los valores de L7, L8 y L10, con el calificador de su lista delante.
 
     Las filas dan el valor solo y la lista el calificador aparte; hasta el
-    13-10-2026 valían las dos formas sin decir nada. Ese día el buzón contestó
-    que se escriben juntos, en las tres listas. Sin él, un AVISO, y lo demás se
-    mide igual.
+    13-10-2026 valían las dos formas sin decir nada. Desde ese día se esperan
+    juntos, en las tres listas. Sin él, un AVISO, y lo demás se mide igual.
     """
 
     SIN = {
@@ -861,7 +860,7 @@ class TestLosCalificadores:
         aviso = la(xml, "SPFE-CALIFICADOR")
         assert aviso.gravedad == AVISO and aviso.encontrado == valor
         assert aviso.esperado.endswith(":" + valor) and aviso.esperado != valor
-        assert "13-10-2026" in aviso.mensaje
+        assert "calificador seguido del valor" in aviso.mensaje
         assert limpia(xml) == [("SPFE-CALIFICADOR", "Valores de las listas L7, L8 y L10")]
 
     def test_uno_por_factura_con_todos(self):
@@ -933,8 +932,8 @@ class TestAQuienSeAplica:
 
     def test_otro_identificador_de_la_aeat_se_avisa_y_no_se_mide(self, tmp_path):
         """No se le aplica el anexo, porque no dice ser lo que el anexo define.
-        Pero no se calla, que es lo que pasó con el del ejemplo del 02-10-2026
-        hasta que se midió."""
+        Pero no se calla, que es lo que pasó con el que fijó la orden hasta que
+        se midió."""
         otro = "urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:2.0.0:extended"
         tercero = cambia(DEL_BOE, ESPECIFICACION, otro)
         quejas = spfe(tercero)
@@ -1075,9 +1074,8 @@ class TestCabecera:
         assert la(otro, "SPFE-PROCESO").encontrado.endswith("B2G")
 
     def test_el_proceso_es_el_que_no_lleva_ubl(self):
-        """El buzón contestó el 13-10-2026 que vale el del ejemplo del 02-10-2026,
-        sin ubl:. Hasta ese día era al revés: limpio el del BOE, y el del
-        ejemplo en NOTA."""
+        """Vale el que no lleva ubl:, como el resto de campos. Hasta el
+        13-10-2026 era al revés: limpio el del BOE, y el otro en NOTA."""
         assert PROCESO == "urn:aeat:names:specification:schema:profile:B2B"
         assert PROCESO_DEL_BOE == "urn:aeat:names:specification:ubl:schema:profile:B2B"
         assert las(DEL_BOE, "SPFE-PROCESO") == []
@@ -1088,8 +1086,7 @@ class TestCabecera:
         del_boe = cambia(DEL_BOE, PROCESO, PROCESO_DEL_BOE)
         aviso = la(del_boe, "SPFE-PROCESO")
         assert aviso.gravedad == AVISO and aviso.esperado == PROCESO
-        assert "13-10-2026" in aviso.mensaje and "texto publicado" in aviso.mensaje
-        # No dijo que lo corrija en el anexo, y su anexo 2.0 lo lleva con ubl:.
+        assert "texto publicado" in aviso.mensaje
         # Lo corrigió el anexo del portal del 21-10-2026, y eso es lo que se dice.
         assert "Portal" not in aviso.mensaje and "portal el 21-10-2026" in aviso.mensaje
         assert codigos(del_boe) == {"SPFE-PROCESO"}
@@ -1255,9 +1252,9 @@ class TestRectificativa:
     @pytest.mark.parametrize("cuantos", [2, 4, 5])
     def test_un_codigo_repetido_es_aviso(self, cuantos):
         """La fila BT-3 dice hasta tres grupos y el grupo es `0..5`; hasta el
-        13-10-2026, de cuatro a cinco salía una NOTA. La AEAT contestó ese día
-        que el grupo pasa a `0..1`, con un ejemplo de uno por código, y el anexo
-        de su portal del 21-10-2026 le da `0..3`."""
+        13-10-2026, de cuatro a cinco salía una NOTA. Desde ese día se lee uno
+        por código, y el anexo del portal de la AEAT del 21-10-2026 le da
+        `0..3`."""
         xml = rectificativa_con(adjunto("RECT:TIPO", "R1"), adjunto("RECT:MODALIDAD", "S"),
                                 *[adjunto("RECT:IMPORTES", "Base", "100.00")] * cuantos)
         aviso = la(xml, "SPFE-RECTIFICATIVA")
@@ -1384,12 +1381,10 @@ class TestRectificativa:
         assert queja.encontrado == "falta el tipo de rectificativa"
 
 
-# Lo que la AEAT mandó por correo el 02-10-2026, sobre el cuerpo de la factura de
-# la orden: la captura era solo la cabecera y los BG-24, sin partes, totales ni
-# líneas. Va sin `UBLVersionID` y con los calificadores de L10 delante; el
+# Una rectificativa sin `UBLVersionID`, con el identificador de la orden y los
+# calificadores de L10 delante, sobre el cuerpo de la factura de la orden; el
 # proceso sin ubl: ya lo lleva `DEL_BOE`, que es el que vale desde el
-# 13-10-2026. La URL del QR se deja la de la orden: la del ejemplo apunta a
-# un dominio, `gob.aeat`, que no existe.
+# 13-10-2026.
 _SIN_VERSION = cambia(DEL_BOE, "  <cbc:UBLVersionID>2.5</cbc:UBLVersionID>\n", "")
 SIN_LOS_BG24 = cambia(_SIN_VERSION, "<cbc:InvoiceTypeCode>380<", "<cbc:InvoiceTypeCode>384<")
 EJEMPLO = rectificativa_con(
@@ -1400,9 +1395,9 @@ EJEMPLO = rectificativa_con(
 
 
 class TestElEjemploDeLaAEAT:
-    """La respuesta del 02-10-2026: una captura, y ni una frase de criterio.
+    """Una factura sin versión y con el identificador nuevo.
 
-    Medido el 05-10-2026, antes de tocar nada: con su identificador no se
+    Medido el 05-10-2026, antes de tocar nada: con ese identificador no se
     aplicaba ni una regla del anexo y nada lo decía, se le suponía UBL 2.1, el
     QR sin `ubl:` no era el QR y la autorización no se reconocía. Una
     rectificativa que no dice qué rectifica salía «sin errores».
@@ -1480,10 +1475,8 @@ class TestLaDireccionDelQr:
         xml = cambia(DEL_BOE, "www2.agenciatributaria.gob.es", "prewww2.aeat.es")
         assert "pruebas" in la(xml, "SPFE-QR-URL").mensaje
 
-    def test_la_del_ejemplo_de_la_aeat(self):
-        """La del 02-10-2026 apuntaba a gob.aeat, según se anotó el 05-10-2026
-        (el correo no está en el repositorio). Que no existe sí se ha mirado:
-        aeat no está en la lista de dominios de primer nivel de la IANA,
+    def test_una_de_un_dominio_que_no_existe(self):
+        """A gob.aeat. Que no existe se ha mirado: aeat no está en la lista de dominios de primer nivel de la IANA,
         versión 2026102200."""
         xml = cambia(DEL_BOE, "www2.agenciatributaria.gob.es", "www.gob.aeat")
         assert "ninguna de las publicadas" in la(xml, "SPFE-QR-URL").mensaje
@@ -1692,12 +1685,12 @@ class TestPartes:
 
     def test_el_del_comprador_tambien_lleva_el_prefijo_de_espana(self):
         """Hasta el 11-10-2026 no se medía, y la nota del alcance lo decía. Hasta
-        el 13-10-2026 salía en AVISO, porque la fila dice NIF del vendedor; ese
-        día la AEAT contestó que es una errata de la descripción."""
+        el 13-10-2026 salía en AVISO, porque la fila dice NIF del vendedor, una
+        errata a la vista: BT-48 es el comprador en la norma europea."""
         frances = cambia(DEL_BOE, ">ESA12345674<", ">FRA12345674<")
         queja = la(frances, "SPFE-NIF")
         assert queja.gravedad == ERROR and queja.campo == "NIF-IVA del comprador (BT-48)"
-        assert "13-10-2026" in queja.mensaje and "BT-47" in queja.mensaje
+        assert "errata" in queja.mensaje and "BT-47" in queja.mensaje
         assert "BT-48" not in la(frances, "SPFE-ALCANCE").mensaje
 
     def test_en_espana_la_direccion_va_entera(self):
@@ -2010,7 +2003,7 @@ class TestLosImpuestosYTasas:
 
     def test_con_dos_impuestos_en_el_cargo_no_se_compara_y_se_dice(self, catalogo):
         """La cuota va también en el total del cargo, que es uno: con dos
-        impuestos no se puede. Es la pregunta 4 al buzón, del 07-10-2026. Hasta
+        impuestos no se puede, y ningún texto publicado dice qué va. Hasta
         el 24-10-2026 salía una NOTA; el anexo del portal de la AEAT del
         21-10-2026 deja el grupo en `0..1`, y el BOE en `0..n`: un AVISO, y
         ninguna otra queja."""
@@ -2867,8 +2860,7 @@ class TestElFcEnElRegistroLegal:
     se arregla: hasta el 18-10-2026 la queja era la genérica, «no es de ISO
     6523», y a quien había copiado el ejemplo oficial no le decía nada. Lo vio
     el auditor el 18-10-2026, con el ejemplo del 14-10 y con el del 15-10.
-    El 21-10-2026 la AEAT contestó que lo quita, para no ir contra la norma, y
-    su ejemplo nuevo va sin él; no dijo si la solución pública lo rechaza.
+    Ningún texto publicado dice si la solución pública lo rechaza.
     """
 
     def test_el_fc_en_el_registro_sigue_en_error(self):
@@ -2885,10 +2877,9 @@ class TestElFcEnElRegistroLegal:
         assert "BT-32" in queja.mensaje and "cac:PartyTaxScheme" in queja.mensaje
         assert "ejemplo" in queja.mensaje and "AEAT" in queja.mensaje
         assert "schemeID" in queja.mensaje
-        # Dice lo que contestó la AEAT y no promete lo que no dijo: ni que la
-        # solución pública lo rechace ni que lo acepte.
-        assert "21-10-2026" in queja.mensaje and "no ir contra la norma" in queja.mensaje
-        assert "no dijo si la solución pública lo rechaza" in queja.mensaje
+        # No promete lo que nadie ha publicado: ni que la solución pública lo
+        # rechace ni que lo acepte.
+        assert "Ningún texto publicado dice si la solución pública lo rechaza" in queja.mensaje
 
     def test_sin_el_atributo_no_sale(self):
         """La norma admite el registro legal sin esquema, que es como lo dejan
@@ -2917,11 +2908,10 @@ class TestElFcEnElRegistroLegal:
 # como debe; la que usa `CollectionInvoiceLine` salía con un XSD-ORDEN que
 # decía que estaba «cambiada de sitio» con la `InvoiceLine`.
 #
-# Hasta el 02-11-2026 era AVISO con una especificación de la AEAT, porque no
-# había dicho qué hacía con una factura que declara una versión y usa otra. Lo
-# contestó ese día por escrito, a una consulta de Glosa-e: no hay
-# compatibilidad, hay que declarar la 2.5, y no acepta que esos conceptos se
-# dejen fuera por usar la 2.1. Desde entonces es ERROR con cualquiera.
+# Hasta el 03-11-2026 era AVISO con una especificación de la AEAT. Desde ese
+# día es ERROR con cualquiera: lo que usa elementos de la 2.5 es de la 2.5, y
+# la AEAT admite versiones anteriores si cumplen el contenido mínimo del anexo
+# I (validaciones 0.1.0, apartado 4.1), que una 2.1 con retenciones no cumple.
 
 _EN_LA_21 = cambia(DEL_BOE, "<cbc:UBLVersionID>2.5<", "<cbc:UBLVersionID>2.1<")
 
@@ -2950,22 +2940,21 @@ class TestEnUbl21:
         assert "cambiad" not in queja.mensaje
         assert (queja.esperado, queja.encontrado) == ("2.5 o posterior", "2.1")
 
-    def test_de_la_spfe_tambien_es_error_porque_la_aeat_lo_contesto(self, catalogo):
-        """Contestó el 02-11-2026 que no hay compatibilidad y que hay que
-        declarar la 2.5; y que no vale dejar fuera esos conceptos para
+    def test_de_la_spfe_tambien_es_error(self, catalogo):
+        """Hay que declarar la 2.5, y no vale dejar fuera esos conceptos para
         quedarse en la 2.1, que es lo que haría quien solo leyera «declara la
         2.5 o quita lo que no es de la 2.1»."""
         queja = next(i for i in factura.validar(_EN_LA_21.encode("utf-8"), catalogo=catalogo).incidencias
                      if i.codigo == "XSD-VERSION")
         assert queja.gravedad == ERROR
         assert "no ha dicho" not in queja.mensaje
-        assert "02-11-2026" in queja.mensaje and "declarar 2.5" in queja.mensaje
-        assert "dejen fuera" in queja.mensaje
+        assert "declararla en UBLVersionID" in queja.mensaje and "apartado 4.1" in queja.mensaje
+        assert "no se puede dejar fuera" in queja.mensaje and "02-11-2026" not in queja.mensaje
         assert "se quita" not in queja.mensaje
 
     def test_de_otro_sigue_dando_a_elegir(self, catalogo):
         """Fuera de la solución pública, quitar lo que no es de la 2.1 vale si
-        quien lo recibe solo admite la 2.1: eso no lo ha contestado nadie."""
+        quien lo recibe solo admite la 2.1."""
         otro = cambia(_EN_LA_21, ESPECIFICACION, "urn:cen.eu:en16931:2017")
         queja = next(i for i in factura.validar(otro.encode("utf-8"), catalogo=catalogo).incidencias
                      if i.codigo == "XSD-VERSION")

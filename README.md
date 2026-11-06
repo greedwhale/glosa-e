@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-3989 tests, todos en verde.
+3990 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -595,13 +595,14 @@ elemento que está bien puesto. Ahora, cuando falla contra su versión, se
 prueba contra las posteriores que haya instaladas, y si alguna la admite sale
 una sola incidencia, `XSD-VERSION`, en lugar de los `XSD-ORDEN`. Es ERROR con
 cualquier especificación. Quien recibe UBL 2.1 la mide con la 2.1. Con una
-de la AEAT fue AVISO hasta el 02-11-2026, porque su documento de validaciones
-comprueba la forma con los esquemas de la 2.5, contra los que pasa, y no decía
-qué hacía con una factura que declara una versión y usa elementos de otra. Lo
-contestó ese día por escrito, a una consulta de Glosa-e: no hay
-compatibilidad, hay que declarar la 2.5, y no acepta que esos conceptos se
-dejen fuera por usar la 2.1. Por eso, con la AEAT, el mensaje no ofrece
-quitarlos, que fuera de ella es una salida válida. Sin ningún
+de la AEAT fue AVISO hasta el 03-11-2026, porque su documento de validaciones
+comprueba la forma con los esquemas de la 2.5, contra los que pasa. Desde ese
+día es ERROR, con criterio de Glosa-e: lo que usa elementos de la 2.5 es de la
+2.5. El mismo documento (0.1.0, apartado 4.1) admite versiones anteriores si
+cumplen el contenido mínimo del anexo I, y una 2.1 no lo cumple cuando la
+factura lleva retenciones, suplidos o minoraciones, que solo caben en la
+línea de cobro. Por eso, con la AEAT, el mensaje no ofrece quitarlos, que
+fuera de ella es una salida válida. Sin ningún
 esquema posterior instalado, se queda lo de la versión declarada. Medido con
 la factura de la orden: declarando 2.1, sale `XSD-VERSION` y nada más de
 forma; sin la retención (lo único de la 2.5 que lleva), ni eso. Cuesta compilar
@@ -710,15 +711,14 @@ Lo que se decidió en cada una:
 
 - **Los códigos de error de una factura no se inventan.** El único estado de
   factura que se ha visto es el 200 del ejemplo, y el aviso trae el código y
-  la descripción tal cual vienen. La AEAT contestó el 02-11-2026, por escrito
-  y a una consulta de Glosa-e, de qué familias serán: el error del esquema,
-  la regla del esquematrón europeo (su ejemplo, `BR-CO-16`) o una regla de
-  negocio suya, `SPFE-CORE-XXXX`, `SPFE-LIST-XXX` o `BR-ES-XXXX`, cuya lista
-  irá en el apartado de validaciones de su portal. Con eso, una regla europea
-  que tiene ficha se explica con la primera frase de la ficha y el enlace;
-  una de la AEAT se nombra como suya y no se traduce; y los errores de
-  esquema no se reconocen, porque no dijo cómo se escriben. Tampoco dijo en
-  qué campo va el código: se busca en el estado y, si no, en la descripción.
+  la descripción tal cual vienen. La lista de códigos de rechazo de la
+  solución pública no está publicada. Desde el 03-11-2026, una regla del
+  esquematrón europeo que tiene ficha, como `BR-CO-16`, se explica con la
+  primera frase de la ficha y el enlace; un código que no es de la norma
+  europea, como uno que empiece por `SPFE-CORE`, `SPFE-LIST` o `BR-ES`, se
+  nombra y no se traduce; y los errores de esquema no se reconocen, porque no
+  se sabe cómo se escriben. Nada publicado dice en qué campo va el código: se
+  busca en el estado y, si no, en la descripción.
   Ningún acuse con un rechazo de verdad se ha visto: lo de las pruebas es
   nuestro.
 - **El acuse del ejemplo tiene un error de forma, y sale con él.** Le falta
@@ -728,9 +728,7 @@ Lo que se decidió en cada una:
   venga de quien venga. Lo que contesta el esquema es `XSD-ORDEN` sobre
   `cac:DocumentResponse` («no puede ir en este sitio»), que no deja ver que lo
   que falta es la fecha, y por eso va con una NOTA, `SPFE-ACUSE-FECHA`, que lo
-  dice. La AEAT lo confirmó por correo el 28-10-2026: la fecha es necesaria y
-  corregirá el ejemplo publicado. El corregido que adjuntó la lleva y pasa sin
-  errores, medido ese día.
+  dice.
 - **Sin versión es de la 2.5**, no de la 2.1 como lo demás: quien contesta con
   `DocumentStatus` es la solución pública, cuya referencia es UBL 2.5, y el
   acuse del ejemplo no trae ni versión ni especificación.
@@ -4121,8 +4119,8 @@ quedaron en 22 al ponerlos al texto de la orden, y llegaron a 33 con lo que la
 orden pide y no se medía (en «La segunda tanda», «Lo que la orden pide y no se
 medía», «Los impuestos y tasas, y la información de la línea» y «La
 autorización, los ficheros embebidos y lo que se quitaba sin una queja», más
-abajo) y con `SPFE-CALIFICADOR`, que sale de la respuesta del buzón del
-13-10-2026 (en la sección de la consulta del 07-10-2026, más abajo), y con
+abajo) y con `SPFE-CALIFICADOR`, del 13-10-2026 (en «Lo que la orden deja
+sin escribir», más abajo), y con
 `SPFE-GARANTIA` y `SPFE-CANJE`, dos notas del 19-10-2026 (en la lista de lo
 que se comprueba, más abajo).
 
@@ -4132,8 +4130,8 @@ borrador de abril, que se reconoce para decir en ERROR que ya no vale. Otro
 identificador que nombre a la AEAT (`urn:aeat.es:`) recibe un AVISO,
 `SPFE-ESPECIFICACION`, que dice que el anexo no se ha comprobado. El
 anexo describe los campos en UBL y en nada más, y a qué corresponden en
-Facturae, CII o EDIFACT no lo publica nadie —la Agencia contestó el 17-09-2026
-que no le toca a ella, como se cuenta más abajo—: aplicarlo a otra sintaxis
+Facturae, CII o EDIFACT no lo publica nadie (ni la orden ni el portal de la
+AEAT, como se cuenta más abajo): aplicarlo a otra sintaxis
 sería inventarse esa correspondencia. Un documento de otra sintaxis que declare el
 CIUS recibe `SPFE-SINTAXIS`, un aviso de que no se ha comprobado, que es
 distinto de callar. Y una factura UBL que no lo declara no se mide con el
@@ -4146,8 +4144,8 @@ Lo que se comprueba:
 | Qué | Códigos |
 |---|---|
 | La cabecera: el identificador de la orden en `BT-24`, su proceso `B2B` en `BT-23`, el que no lleva `ubl:` (el del BOE, que lo lleva, en AVISO desde el 13-10-2026), el tipo de factura de L1, el euro como moneda del IVA y la fecha efectiva de pago (`BT-ES-2`), una como mucho y del día de la operación al de la expedición; y, en notas, la factura sin indicador de copia, el importe pagado y la fecha de pago que no se puede comparar o que no libera de comunicar el pago | `SPFE-ESPECIFICACION`, `-PROCESO`, `-TIPO-DE-FACTURA`, `-MONEDA-DEL-IVA`, `-FECHA-DE-PAGO`, `-COPIA`, `-IMPORTE-PAGADO` |
-| Los datos de la rectificativa en toda 384 y 471: un `BG-24` `RECT:TIPO` y uno `RECT:MODALIDAD`, con su código en `cbc:DocumentTypeCode`, de L2.A y L2.B; y, si los lleva, los `RECT:IMPORTES`, cada uno con su código de L2.C y su importe: más de cinco es ERROR, un código repetido un AVISO (`BT-3` dice hasta tres, el grupo es `0..5` en el BOE y `0..1` en el anexo corregido que mandó la AEAT el 13-10-2026, con un ejemplo de uno por código), y con la modalidad `I`, un AVISO, porque el grupo es para la sustitución | `SPFE-RECTIFICATIVA` |
-| Las partes: el NIF de las dos en un esquema «VAT», con el prefijo ES, o en uno «LOC» con «FC», y en ese caso el registro legal del vendedor (`BT-30`), que tiene que ser su NIF; la dirección entera cuando está en España; y el tercero que expide la factura, con su razón social, su NIF y su tipología. El prefijo del comprador va en ERROR, como el del vendedor: su fila dice NIF del vendedor, y la AEAT contestó el 13-10-2026 que es una errata de la descripción; hasta ese día iba en AVISO | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
+| Los datos de la rectificativa en toda 384 y 471: un `BG-24` `RECT:TIPO` y uno `RECT:MODALIDAD`, con su código en `cbc:DocumentTypeCode`, de L2.A y L2.B; y, si los lleva, los `RECT:IMPORTES`, cada uno con su código de L2.C y su importe: más de cinco es ERROR, un código repetido un AVISO (`BT-3` dice hasta tres, el grupo es `0..5` en el BOE y `0..3` en el anexo del portal de la AEAT del 21-10-2026, y L2.C tiene tres códigos), y con la modalidad `I`, un AVISO, porque el grupo es para la sustitución | `SPFE-RECTIFICATIVA` |
+| Las partes: el NIF de las dos en un esquema «VAT», con el prefijo ES, o en uno «LOC» con «FC», y en ese caso el registro legal del vendedor (`BT-30`), que tiene que ser su NIF; la dirección entera cuando está en España; y el tercero que expide la factura, con su razón social, su NIF y su tipología. El prefijo del comprador va en ERROR, como el del vendedor: su fila dice NIF del vendedor, una errata a la vista (`BT-48` es el comprador en la norma europea); hasta el 13-10-2026 iba en AVISO | `SPFE-NIF`, `-DIRECCION`, `-TERCERO` |
 | Lo que la norma deja opcional y el anexo no: la fecha de la factura referenciada y el motivo en texto de descuentos y cargos | `SPFE-FACTURA-REFERENCIADA`, `-MOTIVO` |
 | El IVA: «VAT» en los descuentos y cargos, las líneas y el desglose, y que esté; la categoría de L4, sin `K` ni `B`; el tipo también en la entrada no sujeta (`O`), que la norma deja sin él; el código de exención, solo VATEX-EU o VATEX-ES; y la `N`, la `D` y la `F` de la orden, en una nota | `SPFE-TIPO-DE-IMPUESTO`, `-CATEGORIA`, `-TIPO-DE-IVA`, `-EXENCION` |
 | Cada línea: una o dos claves de régimen en la lista de su impuesto (la L3A de la orden ya no tiene la 18, la 19 ni la 20), como mucho una referencia catastral con su situación de L6, y ninguna otra propiedad del artículo que la información adicional, `INFO` (en AVISO) | `SPFE-CLAVE-DE-REGIMEN`, `-REFERENCIA-CATASTRAL`, `-INFORMACION-ADICIONAL` |
@@ -4155,7 +4153,7 @@ Lo que se comprueba:
 | Las líneas de cobro: un valor de la L7 de la orden, con su calificador delante (sin él, lo dice `SPFE-CALIFICADOR`), y un solo grupo de retenciones; las retenciones con su suma, su línea de cobro y su concepto de L5, y sus dos cuentas: cada una es su base por su porcentaje, y la suma es la de todas, y si no se detalla ninguna, una nota; y el QR fiscal, uno como mucho, con su dirección y, si lleva descripción, VERIFACTU o TICKETBAI (el escrito con la URN de abril no es el QR, y una nota lo dice) | `SPFE-LINEA-DE-COBRO`, `-RETENCION`, `-QR` |
 | La dirección del QR (`BT-ES-25`) contra la factura: el NIF, la serie y el número, la fecha y el importe, y en TicketBAI sus dos CRC; una dirección que no es de la AEAT ni de una hacienda foral, y el entorno de pruebas de la AEAT. Todo en AVISO; en otra moneda que el euro el importe no se compara, y una nota lo dice | `SPFE-QR-URL` |
 | La autorización de facturación: cada `BG-24` `AUT`, los que haya, con su número (`BT-ES-26`) | `SPFE-AUTORIZACION` |
-| Los valores de L7, L8 y L10 con el calificador de su lista delante, como contestó la AEAT el 13-10-2026: sin él, un AVISO por factura con todos los que lo llevan solo. Se siguen reconociendo de las dos formas, para medir lo demás | `SPFE-CALIFICADOR` |
+| Los valores de L7, L8 y L10 con el calificador de su lista delante, desde el 13-10-2026: sin él, un AVISO por factura con todos los que lo llevan solo. Se siguen reconociendo de las dos formas, para medir lo demás | `SPFE-CALIFICADOR` |
 | Ningún fichero dentro de la factura, ni en la original ni en la copia fiel, que no lo dice el anexo sino los artículos 3 y 4 de la orden; la firma vale en la original, y en la copia fiel es un aviso | `SPFE-FICHERO-EMBEBIDO` |
 
 Y dos notas: `SPFE-ALCANCE`, que sale en cada factura que se mide con el
@@ -4326,7 +4324,7 @@ no se versionan.
   (`s`), el número (`nf`), el importe con IVA (`i`) y, la última, su CRC-8
   (`cr`). Los dos CRC se recalculan, con el algoritmo de su anexo 3 y
   comprobado con sus dos ejemplos. La serie y el número, juntos, son `BT-1`,
-  como contestó el buzón el 13-10-2026.
+  como los trata `codigo_unico`.
 
 Tres decisiones:
 
@@ -4341,69 +4339,46 @@ Tres decisiones:
   de cuál se elija.
 
 Lo que no se hace: validar el registro de VERI\*FACTU ni su encadenamiento, ni
-preguntar a la AEAT si la factura está registrada. Eso pide red y el registro,
+consultar en la AEAT si la factura está registrada. Eso pide red y el registro,
 que no viaja con la factura. Tampoco se publica una dirección de pruebas de
 TicketBAI, porque ninguna de las dos especificaciones la da: una dirección que
 no es de las publicadas sale como tal, sin comparar sus datos.
 
-### Lo que contestó la Agencia, y lo que dejó abierto
+### Lo que no está publicado, y lo que se decide aquí
 
-La pregunta de arriba —qué le corresponde en Facturae, CII o EDIFACT a cada
-campo del anexo— se le hizo por escrito al buzón técnico de la AEAT el
-**10-09-2026**, con acuse el 11 y respuesta el **17-09-2026**. Tres preguntas,
-tres respuestas, y es la única fuente directa de la Agencia que hay aquí:
-
-| Se preguntó | Contestó |
-|---|---|
-| Si la Agencia piensa publicar la correspondencia entre Facturae 3.2.2, CII y EDIFACT INVOIC y los elementos del anexo I, o si recae en cada plataforma al amparo del artículo 7.2 | Que «cae en la responsabilidad de las plataformas privadas, o en su caso, de la definición por parte del Ministerio de Economía que regula la interconexión entre plataformas privadas y sus formatos» |
-| Qué hacer en la copia fiel del artículo 4.2 con un concepto del original que no tiene equivalente en la sintaxis de la solución pública: omitirlo o recogerlo en una extensión | Que «se pueden omitir o incluirlos en una extensión», y que «si el concepto del original no es equivalente, no se realizará la validación del dato» |
-| Si los documentos de validación del portal de desarrolladores cubrirán las extensiones propias del anexo I o solo las reglas de negocio de la EN 16931 | Que «cubrirán principalmente las personalizaciones realizadas en el anexo I» |
-
-**Lo que cambia aquí es una frase, no una comprobación.** Hasta ese día el
-validador decía que no constaba publicada esa correspondencia, que es lo único
-que se puede sostener mirando lo que hay. Ahora consta que quien podría
-publicarla ha dicho que no lo hará, y `SPFE-SINTAXIS` lo dice con fecha. El
-aviso sigue saliendo igual: una correspondencia que cada plataforma escriba
-para sí misma no es una que este validador pueda dar por buena.
+Qué le corresponde en Facturae, CII o EDIFACT a cada campo del anexo no lo
+publica nadie: ni la orden ni el portal de la AEAT traen esa correspondencia.
+Para la semántica europea existen las partes de CEN (`16931-3-2` para UBL,
+`-3-3` para CII y `-3-4` para EDIFACT, ratificadas por UNE en septiembre de
+2026 y de pago), y esas partes mapean la EN 16931, no los campos españoles del
+anexo. **Facturae no tiene ninguna parte CEN**, que es exactamente lo que
+sostiene que el mapa de `SINTAXIS_FACTURAE` esté escrito aquí y sus decisiones
+sean de esta casa. `SPFE-SINTAXIS` dice que el anexo no se ha comprobado en
+otra sintaxis: una correspondencia que cada plataforma escriba para sí misma
+no es una que este validador pueda dar por buena.
 
 **Lo de la copia fiel es una decisión de diseño que se gana por adelantado.**
-El día que se mida una copia fiel, que le falte un concepto del original no
-puede ser un error: la propia Agencia dice que se puede omitir. Y tampoco puede
-serlo un dato que viaje en una extensión.
+Que a la copia le falte un concepto del original no puede ser un error: la
+orden (artículo 4.2) lleva a la copia los conceptos «que tengan
+correspondencia semántica equivalente», y lo que no la tiene no tiene campo del
+anexo contra el que comprobarse.
 
-**Y los documentos del portal son el contraste que hoy no existe.** Las
-reglas `SPFE-` salen de leer una tabla, la de la orden desde el 11-10-2026
-(hasta entonces, en buena parte, la de un borrador), y una tabla que se lee no
-es algo con qué comparar lo leído. Cuando se publiquen esos
-documentos habrá por fin con qué, y cubren justo lo español. Por eso el portal
-de desarrolladores entra en la vigilancia mensual de las fuentes.
+**Y los documentos del portal son el contraste.** Las reglas `SPFE-` salen de
+leer una tabla, la de la orden desde el 11-10-2026 (hasta entonces, en buena
+parte, la de un borrador), y una tabla que se lee no es algo con qué comparar
+lo leído. Los documentos de validación del portal de desarrolladores son con
+qué. Por eso el portal entra en la vigilancia mensual de las fuentes.
 
-**Dos cosas que hay que leer con cuidado, porque no las dice la respuesta.** La
-primera: la lista de normas que adjunta llama «Facturae» a
-`UNE-CEN/TS 16931-3-4:2026`, cuyo título propio —el que la respuesta copia a
-continuación— es el de UN/EDIFACT. **Facturae sigue sin ninguna parte CEN**, que
-es exactamente lo que sostiene que el mapa de `SINTAXIS_FACTURAE` esté escrito
-aquí y sus decisiones sean de esta casa. Es además el envoltorio desatendido de
-siempre, ahora dentro de la respuesta de la Agencia: esa portada dice `D16B` y
-la revisión de 2026 mapea `D.24A S4`. La segunda: lo que remite es la semántica
-europea —`16931-3-2` para UBL, `-3-3` para CII y `-3-4` para EDIFACT,
-ratificadas por UNE en septiembre de 2026 y de pago—, y esas partes mapean la
-EN 16931, no los campos españoles del anexo. Lo preguntado sigue sin existir.
+**El 381 y la `K`.** La orden publicada el 05-10-2026 no trae el 381 en su L1
+ni la `K` en su L4. Una factura válida según la EN 16931 (el 381 es el tipo
+con el que media Europa emite un abono, y la `K` es la categoría de las
+entregas intracomunitarias) no pasa el anexo español.
 
-Lo que la respuesta no toca, porque no estaba preguntado: a qué edición de la
-EN 16931 apunta el artículo 7.1, y si el anexo mantendrá el 381 fuera de L1 y la
-`K` fuera de L4. **Las dos se preguntaron después, y las dos están contestadas.**
-La edición, el 22-09-2026: son las de 2026, y para todo el sistema. El 381 y la
-`K`, el 23-09-2026, y siguen fuera: «no se aceptan InvoiceType de tipo 381 en
-L1. Tampoco se aceptará la categoría K en L4». Con eso el precio deja de ser
-una deducción de esta casa y pasa a ser una cita: una factura válida según la
-EN 16931 —el 381 es el tipo con el que media Europa emite un abono, y la `K` es
-la categoría de las entregas intracomunitarias— no pasa el anexo español. La
-Agencia añadía que **eleva la cuestión a gestión para que reevalúen el
-criterio**, así que quedó confirmado y vivo a la vez, y por eso se aparcaron
-aquí el `BT-3`/381 y la L4. La orden publicada el 05-10-2026 deja las dos
-listas como estaban —su L1 no tiene el 381 y su L4 no tiene la `K`—, así que
-cambiarlo pediría ya otra orden. Qué se hace con lo aparcado está por decidir.
+El registro de las consultas hechas a la AEAT, sus respuestas y
+lo que se decidió con ellas no se versiona: está en
+`informes/consultas-a-la-aeat/`. Lo que se publica cita solo lo que
+cualquiera puede leer; lo decidió el titular el 06-11-2026, y lo vigila
+`tests/test_sin_correos_privados.py`.
 
 ### El anexo cambió antes que el texto
 
@@ -4430,7 +4405,7 @@ Lo anunciado, y a qué regla le da:
 
 | Novedad del 10-09-2026 | Qué pasa aquí hoy |
 |---|---|
-| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | **Confirmado por escrito el 22-09-2026**. L10 entera —`QR`, `AUT`, `RECT:TIPO`, `RECT:MODALIDAD`, `RECT:IMPORTES`— la repitió el correo del **23**, pero ya estaba en la diapositiva 8 de este seminario, como imagen, y no se vio hasta el 05-10-2026. `SPFE-RECTIFICATIVA` ya no exige la extensión y **reconoce** los calificadores: dice cuáles hay y cuál falta, en una NOTA. Desde el ejemplo del **02-10-2026** comprueba también el **valor**, en `cbc:DocumentTypeCode`, y avisa del que no está en su L2 (ver «El ejemplo del 02-10-2026», abajo). La orden lo confirma: no tiene extensión de rectificativas. Desde el 11-10-2026 todo esto sale en ERROR, y la extensión de abril ya no cuenta |
+| La extensión de rectificativas **desaparece**: se usa `BG-24`, con L10 para el uso y las L2 para tipo, modalidad e importe | **Confirmado por la orden**: no tiene extensión de rectificativas. L10 entera (`QR`, `AUT`, `RECT:TIPO`, `RECT:MODALIDAD`, `RECT:IMPORTES`) ya estaba en la diapositiva 8 de este seminario, como imagen, y no se vio hasta el 05-10-2026. `SPFE-RECTIFICATIVA` ya no exige la extensión y **reconoce** los calificadores: dice cuáles hay y cuál falta, en una NOTA. Desde el **05-10-2026** comprueba también el **valor**, en `cbc:DocumentTypeCode`, y avisa del que no está en su L2 (ver «El identificador nuevo, y el valor de L10», abajo). Desde el 11-10-2026 todo esto sale en ERROR, y la extensión de abril ya no cuenta |
 | El indicador de copia pasa a `0..1` | Confirmado por la orden. Desde el 07-10-2026, `SPFE-COPIA` es una NOTA |
 | El **389** para la factura expedida por el destinatario, junto al 471: «La expedición de facturas por el destinatario o por tercero está plenamente contemplada en el Anexo I» | No es nuevo: la L1 de abril ya lo trae, y aquí se escribió que entraba. La de la orden es la misma, `380, 384, 388, 389, 471`, y `SPFE-TIPO-DE-FACTURA` mide con ella |
 | El NIF del vendedor va en `BT-31` o en `BT-32`, este con esquema «LOC» y `@schemeID` «FC» | Confirmado por la orden. Desde el 07-10-2026, `SPFE-NIF` admite las dos formas |
@@ -4456,63 +4431,49 @@ cambió en cada paso.
 Departamento de Informática Tributaria, dice contra qué valida la solución
 pública: `UNE-EN 16931-1:2026`, la de junio, y `UNE-CEN/TS 16931-3-2:2026`, la
 de septiembre. Es la **edición de 2026**, la misma pregunta que quedó abierta
-en `HALLAZGOS.md` al discutir a qué edición apunta el artículo 7.1. **Desde el
-22-09-2026 ya no está abierta**: preguntado el buzón, contesta que esas dos son
-las versiones ratificadas aplicables «al sistema español de facturación
-electrónica en su conjunto», y nombra los tres casos —la SPFE, el envío de
-copias fieles y el intercambio privado del artículo 7.1—. Sigue sin ser el
-boletín, que es la cautela que hay escrita allí, pero ya no es una
-transparencia de la solución pública: es la Agencia contestando por escrito por
-el sistema entero. La misma presentación dice que los documentos de validación, el
+en `HALLAZGOS.md` al discutir a qué edición apunta el artículo 7.1. Para la
+solución pública lo escribe también el documento de validaciones de la AEAT
+(versión 0.1.0, del 16-10-2026, apartado 3): documentos basados en UBL 2.5.
+Fuera de ella no lo dice ningún texto publicado, y aquí se mide con la de 2026
+desde el 22-09-2026, con criterio de la casa. La misma presentación dice que los documentos de validación, el
 catálogo de servicios y los WSDL se publicarán en ese portal antes de que haya
 entorno de pruebas, con octubre de 2026 como referencia. Por eso el portal
 entra ahora en la vigilancia mensual.
 
-### El ejemplo del 02-10-2026, y dos identificadores que nadie explicó
+### El identificador nuevo, y el valor de L10
 
-El 23-09-2026 se le preguntaron al buzón tres cosas de L10: si su esquema lleva
-`ubl:`, en qué campo del `BG-24` va el valor del calificador y dónde va el
-número de la autorización. La respuesta llegó el **02-10-2026** y es toda ella
-una captura de un XML de ejemplo, sin una frase de criterio: una cabecera y
-cuatro `AdditionalDocumentReference`, sin partes, totales ni líneas. Contesta
-las tres:
+Antes de la orden, tres cosas de L10 no estaban en ningún texto publicado: si
+su esquema lleva `ubl:`, en qué campo del `BG-24` va el valor del calificador
+y dónde va el número de la autorización. Aquí se había apostado por la
+descripción, por analogía con el QR, y no se programó porque razonable no es
+publicado. Fue lo correcto: la orden pone el valor en `cbc:DocumentTypeCode`
+(`BT-ES-27` a `BT-ES-29`), el número de la autorización en `cbc:UUID`
+(`BT-ES-26`), y el esquema de L10 sin `ubl:`, también el del QR.
 
-| Se preguntó | Lo que enseña el ejemplo |
-|---|---|
-| Si el esquema de L10 lleva `ubl:` | No, en los cuatro calificadores, el del QR incluido: `urn:aeat:names:specification:schema:QR` |
-| En qué campo va el valor | En `cbc:DocumentTypeCode`: `R1` en `RECT:TIPO`, `S` en `RECT:MODALIDAD`. La descripción lleva un texto libre |
-| Dónde va el número de la autorización | En `cbc:UUID`, como la dirección del QR. El calificador ocupa el `cbc:ID` |
-
-Aquí se había apostado por la descripción, por analogía con el QR, y no se
-programó porque razonable no es publicado. Fue lo correcto: programado, hoy
-daría por malas las facturas escritas como enseña la Agencia.
-
-**Y trae dos cosas que no se preguntaron.** Otro `CustomizationID`,
-`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, y otro
-`ProfileID`, `urn:aeat:names:specification:schema:profile:B2B`. Ninguno es el
-del anexo de abril, y el correo no explica el cambio. En la práctica de la
-EN 16931, `#compliant#` marca un CIUS y `#conformant#` una extensión; si va en
-serio, la AEAT declara su formato como extensión. Es inferencia: el texto de la
-norma que lo define no se ha podido leer. Iba en serio con el primero: la
-orden, tres días después, fija en `BT-24` ese mismo identificador, letra a
-letra. El segundo no: en `BT-23` pone
-`urn:aeat:names:specification:ubl:schema:profile:B2B`, con `ubl:`.
+**Y el identificador de la especificación cambió.** La orden fija en `BT-24`
+`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, que no
+es el del anexo de abril. En la práctica de la EN 16931, `#compliant#` marca
+un CIUS y `#conformant#` una extensión; si va en serio, la AEAT declara su
+formato como extensión. Es inferencia: el texto de la norma que lo define no
+se ha podido leer. En `BT-23` pone
+`urn:aeat:names:specification:ubl:schema:profile:B2B`, con `ubl:`, cuando el
+resto de identificadores de la orden va sin él.
 
 Medido el 05-10-2026 sobre `main`, antes de tocar nada: con el identificador
-del ejemplo **no se aplicaba ni una regla del anexo y nada lo decía**, se le
+nuevo **no se aplicaba ni una regla del anexo y nada lo decía**, se le
 suponía UBL 2.1 por no llevar `UBLVersionID`, el QR escrito sin `ubl:` no era
 el QR y la autorización no se reconocía. Una rectificativa que no dice qué
 rectifica salía «sin errores». Es el fallo de siempre, esta vez con el disfraz
-de un ejemplo de la propia Agencia. El detalle está en `HALLAZGOS.md`.
+de un identificador nuevo. El detalle está en `HALLAZGOS.md`.
 
 Lo que se hizo, sin ninguna regla nueva que dé ERROR:
 
 | Qué | Cómo sale |
 |---|---|
-| El identificador del ejemplo | Se reconoce por el valor entero y se mide con el anexo. Hasta el 07-10-2026 se medía con el de abril y `SPFE-ESPECIFICACION` lo decía en una NOTA; desde ese día no sale nota, porque es el de la orden |
+| El identificador nuevo | Se reconoce por el valor entero y se mide con el anexo. Hasta el 07-10-2026 se medía con el de abril y `SPFE-ESPECIFICACION` lo decía en una NOTA; desde ese día no sale nota, porque es el de la orden |
 | Otro identificador que nombre a la AEAT (`urn:aeat.es:`) y no lleve `CIUS-ES-SPFE` | `SPFE-ESPECIFICACION` como AVISO, y no se le aplica el anexo. La forma y la norma europea se miden como siempre, así que con líneas de cobro sale `BR-CO-16`, que solo se quita cuando se mide con el anexo. Si lleva `CIUS-ES-SPFE`, es otra versión del CIUS y sale ERROR, como antes |
 | Sin `UBLVersionID` | Se supone UBL 2.5 con cualquier identificador de la AEAT, y no solo con el de abril |
-| El `ProfileID` del ejemplo | `SPFE-PROCESO` como NOTA, con cualquiera de los dos identificadores |
+| El `ProfileID` sin `ubl:` | `SPFE-PROCESO` como NOTA, con cualquiera de los dos identificadores |
 | `QR` y `AUT` | Se reconocen con y sin `ubl:`, sin mirar los espacios de alrededor del identificador, y ninguno de los dos cuenta como dato de la rectificativa |
 | `RECT:TIPO` y `RECT:MODALIDAD` | El código se lee en `cbc:DocumentTypeCode` y se compara con L2.A y L2.B: el que está se dice comprobado, y el que no, AVISO. Si un calificador viene repetido se leen todos, y la nota lo dice |
 
@@ -4520,7 +4481,7 @@ Lo que se hizo, sin ninguna regla nueva que dé ERROR:
 ERROR, pero lo que antes se colaba por no reconocerse recibe ahora los ERROR
 que ya existían:
 
-- **Todo el anexo, con el identificador del ejemplo.** Antes no se le aplicaba
+- **Todo el anexo, con el identificador nuevo.** Antes no se le aplicaba
   ninguna regla `SPFE-`; ahora todas. Una factura así sin `ProfileID`, con el
   tipo 381, escrita como `CreditNote` o con la moneda del IVA en dólares da el
   ERROR de su regla, y una 384 que no dice qué rectifica, el de
@@ -4538,7 +4499,7 @@ que ya existían:
 
 Antes salían limpios porque no se miraban, no porque estuvieran bien.
 
-**Lo que no se hizo.** Un ejemplo no es el BOE, así que lo que enseñaba entró
+**Lo que no se hizo.** Lo que todavía no estaba en un texto publicado entró
 como NOTA o AVISO. El texto salió en el BOE el 05-10-2026, y la negativa de L10
 de `solucion_publica.py` salta el día que se regenere `cius_es` desde su XML,
 que trae L10: es la tanda siguiente. Ese día el módulo no se dejaría importar
@@ -4546,20 +4507,16 @@ hasta confirmar el sitio del valor, exigir los importes cuando la modalidad es
 S y pasar a ERROR lo que entonces no lo era. Se hizo el 11-10-2026: el sitio
 del valor sale de las filas de la orden, lo que era NOTA o AVISO es ERROR, y
 la modalidad S sin importes quedó en NOTA, porque la orden solo los prevé si
-se optó por una única factura. Tampoco se resuelve la regla UBL-SR-43
-del esquematrón de sintaxis de CEN, de la vinculación de 2017 y de nivel
-fatal, que en un `AdditionalDocumentReference` solo admite el código 130 (o el
-50 en un abono): `R1` y `S` la incumplen. Aquí no se cargan esas reglas, y si
-la vinculación de 2026 la mantiene no se sabe; eso queda por preguntar. Se
-preguntó, y el 13-10-2026 la AEAT contestó que se basa en la semántica de la
-EN 16931, que no impone esa restricción: la solución pública no la aplica, y
-aquí sigue sin cargarse. Las
-otras dos cosas que quedaban las contesta la orden. Los importes rectificados,
-que el ejemplo no enseñaba —es una S—: cada uno en su `BG-24`
-`RECT:IMPORTES`, con el importe en `BT-123`, como texto, y su código de L2.C
-(`Base`, `Cuota`, `CuotaRecargo`) en `cbc:DocumentTypeCode`. Se leen desde el
-11-10-2026. Y si L7 pierde también el `ubl:`: sí, su calificador es
-`urn:aeat:names:specification:schema:add:`.
+se optó por una única factura. Tampoco se carga la regla UBL-SR-43 del
+esquematrón de sintaxis de CEN, de la vinculación de 2017 y de nivel fatal,
+que en un `AdditionalDocumentReference` solo admite el código 130 (o el 50 en
+un abono): `R1` y `S` la incumplen. La semántica de la EN 16931, que es la que
+usa el anexo, no impone esa restricción, y si la vinculación de 2026 la
+mantiene no se sabe, porque no se ha podido leer. Los importes rectificados
+van cada uno en su `BG-24` `RECT:IMPORTES`, con el importe en `BT-123`, como
+texto, y su código de L2.C (`Base`, `Cuota`, `CuotaRecargo`) en
+`cbc:DocumentTypeCode`. Se leen desde el 11-10-2026. Y L7 pierde también el
+`ubl:`: su calificador es `urn:aeat:names:specification:schema:add:`.
 
 **Y una lección de proceso.** La L10 sin `ubl:` ya estaba en la diapositiva 8
 de «Principales novedades anexo I», la del 10-09-2026, como imagen: `pdftotext`
@@ -4588,8 +4545,8 @@ dos avisos de IVA.
 
 | Lo que la orden admite | Antes | Ahora |
 |---|---|---|
-| El proceso `urn:aeat:names:specification:ubl:schema:profile:B2B` | `SPFE-PROCESO`, ERROR | Se acepta. El del ejemplo del 02-10-2026, sin `ubl:`, sale en una NOTA que dice que la orden fija otro |
-| La especificación del ejemplo, que es letra a letra la de la orden | NOTA: «un ejemplo no es el BOE» | Sin nota |
+| El proceso `urn:aeat:names:specification:ubl:schema:profile:B2B` | `SPFE-PROCESO`, ERROR | Se acepta. El que no lleva `ubl:` sale en una NOTA que dice que la orden fija otro |
+| La especificación nueva, que es letra a letra la de la orden | NOTA: antes de la orden no estaba en un texto publicado | Sin nota |
 | La factura sin `CopyIndicator` (`0..1`, «False (o sin informar): original») | `SPFE-COPIA`, ERROR | NOTA: la orden la toma por el original, y una copia fiel tiene que decirlo ahí (artículo 4, apartado 3) |
 | Un importe pagado distinto de cero | `SPFE-IMPORTE-PAGADO`, ERROR | NOTA: lo que la orden prohíbe, un anticipo con el IVA devengado (artículo 75.Dos de la Ley del IVA), no se ve en la factura |
 | El NIF con «LOC» y el atributo `schemeID` «FC», en `BT-32`, en `BT-47` y en el tercero | `SPFE-NIF` y `SPFE-TERCERO`, ERROR | Se acepta. «LOC» sin «FC», no |
@@ -4686,8 +4643,8 @@ portada y la política. Arreglado todo, con la prueba en rojo antes.
   la propia clave ya se recortaban. Antes, una línea `RETE` con espacios era
   buena para `SPFE-LINEA-DE-COBRO` y le faltaba a `SPFE-RETENCION` en el mismo
   informe.
-- **La 384 con un `BG-24` ajeno** y **el proceso del ejemplo del
-  02-10-2026** siguen en NOTA. Pasarlos a ERROR es poner las reglas al texto,
+- **La 384 con un `BG-24` ajeno** y **el proceso sin `ubl:`** siguen en
+  NOTA. Pasarlos a ERROR es poner las reglas al texto,
   que es la tanda siguiente, y la nota lo dice: lo que la orden no admite
   todavía no siempre se rechaza.
 
@@ -4764,9 +4721,9 @@ son de la orden: una `X` junto a la `N` sale en la misma queja, sin la frase.
   calculada por líneas sería un ERROR que la norma no pondría en la cuota.
 - **Cuántos importes rectificados.** La orden dice tres en `BT-3` y cinco en el
   grupo. Hasta el 13-10-2026 se aceptaba con el grupo, y con cuatro o cinco una
-  NOTA decía la contradicción. Ese día la AEAT contestó que el grupo pasa a
-  `0..1`, y mandó un ejemplo con tres, uno por código de L2.C: las tres cifras
-  solo casan leídas como uno por código. Un código repetido sale en AVISO, y
+  NOTA decía la contradicción. Desde ese día se lee uno por código de L2.C,
+  que tiene tres: es la lectura en la que casan las tres cifras, y el anexo
+  del portal del 21-10-2026 le da hasta tres. Un código repetido sale en AVISO, y
   más de cinco sigue en ERROR, porque es lo que dice el BOE. Los importes con la
   modalidad `I` van en AVISO y no en ERROR: el grupo se describe para la
   sustitución, pero ninguna frase de la orden lo prohíbe en la otra.
@@ -4775,7 +4732,7 @@ son de la orden: una `X` junto a la `N` sale en la misma queja, sin la frase.
   solución pública diría lo contrario.
 - **El calificador de L10 delante o sin él**, como los de L7 y L8: la orden da
   el valor en la fila y el calificador en la lista, sin decir cómo se juntan.
-  Está entre lo preguntado al buzón el 07-10-2026.
+  Desde el 13-10-2026 se espera junto (`SPFE-CALIFICADOR`).
 
 El detalle de lo medido y las catorce roturas provocadas (diez y una frase de
 la tabla en la primera tanda, tres en la segunda), en HALLAZGOS.
@@ -4809,9 +4766,8 @@ y los esquemas de `web/paquete.zip`:
 - **El prefijo del comprador, en AVISO hasta el 13-10-2026, y desde entonces
   en ERROR.** La fila `BT-48` copia la `BT-31` hasta en la descripción, que
   dice NIF a efectos de IVA del vendedor, y no se sabía si el prefijo ES era
-  para el comprador. La AEAT contestó ese día que es una errata de la
-  descripción, y su anexo corregido dice del comprador, con el prefijo de
-  España. Esa frase del BOE se lee al importar: si la orden la corrige, el
+  para el comprador. Es una errata a la vista: `BT-48` es el identificador
+  del comprador en la norma europea. Esa frase del BOE se lee al importar: si la orden la corrige, el
   módulo no se monta hasta mirarlo otra vez.
 - **`BT-30` sale aunque salga `BR-CO-26`.** No dicen lo mismo: la norma pide
   uno de tres identificadores del vendedor, y la orden pide este cuando el
@@ -4826,7 +4782,7 @@ y los esquemas de `web/paquete.zip`:
   NIF de BT-32, en `cac:PartyTaxScheme`, sin darle esquema a BT-30. Como
   `BR-G-02`, la regla de la norma se queda. Desde el 18-10-2026 el mensaje dice
   de dónde sale el FC, que no se sabe si la solución pública lo acepta y que
-  basta quitar el atributo. Está en HALLAZGOS y se le pregunta al buzón.
+  basta quitar el atributo. Está en HALLAZGOS.
 - **`BT-119` solo en la no sujeta.** En las demás categorías, que falte el
   tipo ya lo dice `BR-48`, y dos quejas por lo mismo no dicen más que una.
   Medido: en Glosa, una entrada `O` con tipo 0 no hace saltar ninguna regla
@@ -4885,9 +4841,8 @@ nombre fijo `INFO`. Medido antes de tocar nada, sobre `93a88c6`:
 
 - **Con dos impuestos en un cargo, una nota.** La fila `BT-ES-8` pide «el
   mismo importe» en el impuesto y en el total del cargo, y un cargo de UBL
-  tiene un solo total: con dos impuestos no se puede cumplir. Es la pregunta 4
-  de la consulta del 07-10-2026, y hasta que la Agencia conteste no se
-  compara. Con un impuesto, sí, y en ERROR.
+  tiene un solo total: con dos impuestos no se puede cumplir. Ningún texto
+  publicado dice qué va, y no se compara. Con un impuesto, sí, y en ERROR.
 - **La cuota es la base por el tipo, con el margen de la del IVA.** Las filas
   `BT-ES-8` y `BT-ES-14` la definen así, como la de las retenciones, y se le
   da el mismo trato: hasta una unidad, una nota que dice cuánto se aparta. La
@@ -5115,13 +5070,13 @@ Si el BOE corrige una, la cuenta cambia y una prueba salta. Se cuentan
 también las celdas con dos rutas (8), la de la fecha y la de su condición,
 cada una en su párrafo, que no son una errata: hasta el 12-10-2026 se
 contaban entre ellas, porque al leer la celda los dos párrafos se juntan con
-un espacio. La tabla de la anulación trae además las dos que se le
-preguntaron al buzón el 07-10-2026 y que contestó el 13-10-2026 (en la sección
-de esa consulta, abajo): la factura colgada de `cac:Response`, que sobra, y
-cuyos datos se buscan donde los pone el anexo II, en `cac:DocumentResponse`, y
-también donde los pone la tabla, para no decir que faltan cuando están; y el
-nombre del vendedor dentro de `cac:PartyTaxScheme`, que va en
-`cac:PartyLegalEntity`, como en el anexo II. En el otro arreglo posible, el
+un espacio. La tabla de la anulación trae además dos que no tienen una sola
+corrección (en «Lo que la orden deja sin escribir», abajo): la factura
+colgada de `cac:Response`, cuyos datos se buscan donde los pone el anexo II,
+en `cac:DocumentResponse`, y también donde los pone la tabla, para no decir
+que faltan cuando están; y el nombre del vendedor dentro de
+`cac:PartyTaxScheme`, que el anexo del portal pone en `cac:PartyLegalEntity`,
+como el anexo II. En el otro arreglo posible, el
 `cbc:RegistrationName` de `cac:PartyTaxScheme`, se encuentra y sale un AVISO.
 Las dice la nota de cada anulación, porque un mensaje escrito al pie de la
 letra no pasa el esquema. Que las rutas arregladas andan por UBL 2.5, y las dos de la
@@ -5129,14 +5084,11 @@ anulación tal cual no, lo comprueba una prueba con el esquema.
 
 **Lo que se decidió sin preguntar, y por qué.**
 
-- **El NIF, sin el prefijo ES, y con el `cac:TaxScheme` vacío.** Hasta el
-  13-10-2026 se aceptaba con el prefijo y sin él, y con cualquier
-  `cac:TaxScheme`, porque la tabla lo pone donde la factura de la orden pone
-  el NIF-IVA y el NIF (`BT-31` y `BT-32`) y el esquema exige un
-  `cac:TaxScheme` que ninguna tabla da. Ese día la AEAT contestó que va sin
-  ES, y que `<cac:TaxScheme />` sin contenido vale. Con el prefijo se sigue
-  aceptando, porque del código único dijo que si viene el sistema lo trata
-  igual sin él. Si van los dos, se mira cada uno. Uno de otro país sale en
+- **El NIF, con el prefijo ES o sin él, y con el `cac:TaxScheme` vacío.** Se
+  acepta con el prefijo y sin él, y con cualquier `cac:TaxScheme`, también
+  vacío, porque la tabla lo pone donde la factura de la orden pone el NIF-IVA
+  y el NIF (`BT-31` y `BT-32`) y el esquema exige un `cac:TaxScheme` que
+  ninguna tabla da. Si van los dos, se mira cada uno. Uno de otro país sale en
   AVISO, y uno español con el control mal, en ERROR.
 - **La fecha de vencimiento, en su propia regla.** Es la única fecha
   obligatoria que va en un `cac:Status`, y es lo que el apartado 1 del
@@ -5173,79 +5125,42 @@ está medido: ningún mensaje real, porque los de las pruebas están escritos
 aquí, con las tablas. En el navegador se midió al publicar, en la página de
 producción, y sale lo mismo que en la consola (en HALLAZGOS).
 
-### La consulta del 07-10-2026, y la respuesta del 13-10-2026
+### Lo que la orden deja sin escribir, y lo que se decidió el 13-10-2026
 
-Con la orden publicada se le escribió otra vez al buzón el **07-10-2026**. Cada
-dato del correo se midió ese día contra el XML del BOE —el de la huella de
-arriba— y contra los esquemas de UBL 2.5, escribiendo cada variante y
-validándola. Lo que consta aquí es el borrador: si cambió algo al mandarlo, no
-está recogido. Lo que se preguntó, y qué cambia aquí con cada respuesta:
+Con la orden publicada, cada dato que su anexo no deja claro se midió el
+07-10-2026 contra el XML del BOE (el de la huella de arriba) y contra los
+esquemas de UBL 2.5, escribiendo cada variante y validándola. El 13-10-2026 se
+decidió qué hacer con cada uno, y esto es lo decidido y en qué se apoya:
 
-| Se preguntó | Por qué: lo medido | Qué cambia aquí con la respuesta |
+| Qué no está claro | Lo medido | Qué se hace aquí, y en qué se apoya |
 |---|---|---|
-| La ruta del mensaje de anulación del anexo I (`CANCELINVOICE`; la tabla se titula «Mensaje de anulación» y los artículos 3.5 y 5 lo llaman «mensaje de baja») | Toda la factura anulada cuelga de `cac:Response/cac:DocumentReference`, y en UBL 2.5 `cac:Response` no lo admite, mientras que `cac:DocumentResponse` lo exige: al pie de la letra, el esquema la rechaza. Los ocho mensajes del anexo II cuelgan lo mismo de `cac:DocumentResponse/cac:DocumentReference` | `validador/mensajes.py`, que desde el 12-10-2026 busca los datos de la factura en `cac:DocumentResponse`, donde los pone el anexo II, y también donde los pone la tabla, y lo dice en la nota de cada anulación |
-| Dónde va el nombre del vendedor en esa misma anulación | `cac:PartyLegalEntity` no puede ir dentro de `cac:PartyTaxScheme`, y caben dos rutas válidas: `cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName`, la del anexo II, y `cac:IssuerParty/cac:PartyTaxScheme/cbc:RegistrationName` | Lo mismo. Mientras no se sepa, no se puede dar por mala ninguna de las dos, y desde el 12-10-2026 se buscan las dos |
-| Qué `cac:TaxScheme/cbc:ID` lleva el NIF del vendedor en los nueve mensajes de estado —la anulación y los ocho del anexo II—, y si va con «ES» | Va en `cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID`; `cac:PartyTaxScheme` exige `cac:TaxScheme` y ninguna fila lo da: sin él, el esquema rechaza los nueve | La medida de los mensajes, que desde el 12-10-2026 acepta el NIF con «ES» y sin él y no mira el `cac:TaxScheme` |
-| Si en `BT-ES-8` va la suma de las cuotas | La fila pide el mismo importe en `cac:AllowanceCharge/cac:TaxTotal/cbc:TaxAmount` y en su `cac:TaxSubtotal`, y `BG-ES-2` es `0..n` dentro de cada cargo; `cac:AllowanceCharge` admite un solo `cac:TaxTotal` con un solo `cbc:TaxAmount`. Con dos impuestos en el mismo cargo no se puede cumplir | Lo que se mida de esos cargos cuando se midan los impuestos y tasas, que es de las reglas nuevas |
-| El `ProfileID`: el de `BT-23`, con `ubl:`, o el del ejemplo del 02-10-2026, sin él | `BT-23` es el único sitio del XML con `specification:ubl:schema:`; los calificadores de L7, L8 y L10 van sin `ubl:`. El `CustomizationID` del ejemplo sí es el de la orden | `SPFE-PROCESO`, que hoy acepta el de la orden y deja el del ejemplo en NOTA |
-| Si el servicio de validación de PRE pedirá certificado | El artículo 11.1 lo exige para «la utilización de la solución pública», y la orden no nombra ningún entorno de pruebas ni servicio de validación aparte del envío | Si PRE puede servir aquí de contraste sin certificado |
-| El formato del código único | El artículo 6 lo remite al anexo I, y el anexo I no lo trae: ni orden, ni separador, ni formato de fecha, ni qué NIF —`BT-31` con «ES» o `BT-32` sin él—, ni si serie y número son el `cbc:ID` entero. El título del artículo habla de su «inserción en la sintaxis de la factura», y no hay campo para él | `codigo_unico.py` y sus reglas `CU-`, que suponen lo de VeriFactu: serie y número pegados sin separador y un tope de 60 caracteres |
-| Si los calificadores de L7, L8 y L10 se escriben delante del valor | Las filas dan solo el valor —«usar «QR»» en `BT-122`, «usar «SUPL»» en `BT-ES-10`, «INFO» en `BT-160`— y cada lista trae aparte su calificador; el ejemplo del 02-10-2026 escribe los dos juntos en `cbc:ID`: `urn:aeat:names:specification:schema:RECT:TIPO` | Desde el 07-10-2026 se aceptan las dos formas donde se miran —las líneas de cobro de L7, la clave de régimen y la referencia catastral de L8, los `BG-24` de L10—; con la respuesta, solo una |
+| La ruta del mensaje de anulación del anexo I (`CANCELINVOICE`; la tabla se titula «Mensaje de anulación» y los artículos 3.5 y 5 lo llaman «mensaje de baja») | Toda la factura anulada cuelga de `cac:Response/cac:DocumentReference`, y en UBL 2.5 `cac:Response` no lo admite, mientras que `cac:DocumentResponse` lo exige: al pie de la letra, el esquema la rechaza. Los ocho mensajes del anexo II cuelgan lo mismo de `cac:DocumentResponse/cac:DocumentReference` | Los datos se buscan en los dos sitios, para no decir que faltan cuando están, y la forma la dice `XSD-ORDEN`. El anexo del portal del 21-10-2026 la pone en `cac:DocumentResponse` |
+| Dónde va el nombre del vendedor en esa misma anulación | `cac:PartyLegalEntity` no puede ir dentro de `cac:PartyTaxScheme`, y caben dos rutas válidas: `cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName`, la del anexo II, y `cac:IssuerParty/cac:PartyTaxScheme/cbc:RegistrationName` | En `cac:PartyTaxScheme/cbc:RegistrationName` se encuentra, y sale un AVISO de `SPFE-MENSAJE-FACTURA`: el anexo del portal lo pone en `cac:PartyLegalEntity`, como el anexo II |
+| Qué `cac:TaxScheme/cbc:ID` lleva el NIF del vendedor en los nueve mensajes de estado (la anulación y los ocho del anexo II), y si va con «ES» | Va en `cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID`; `cac:PartyTaxScheme` exige `cac:TaxScheme` y ninguna fila lo da: sin él, el esquema rechaza los nueve | El NIF se acepta con «ES» y sin él, y el `cac:TaxScheme` puede ir vacío, que el esquema admite. Criterio de la casa |
+| Si en `BT-ES-8` va la suma de las cuotas | La fila pide el mismo importe en `cac:AllowanceCharge/cac:TaxTotal/cbc:TaxAmount` y en su `cac:TaxSubtotal`, y `BG-ES-2` es `0..n` dentro de cada cargo; `cac:AllowanceCharge` admite un solo `cac:TaxTotal` con un solo `cbc:TaxAmount`. Con dos impuestos en el mismo cargo no se puede cumplir | La cuota de esos cargos no se compara, porque ningún texto publicado dice qué va. NOTA hasta el 24-10-2026, y desde entonces AVISO (abajo) |
+| El `ProfileID`: el de `BT-23`, con `ubl:`, o sin él | `BT-23` es el único sitio del XML con `specification:ubl:schema:`; los calificadores de L7, L8 y L10 van sin `ubl:` | `SPFE-PROCESO`: sin `ubl:`, limpio; el del BOE, AVISO. Hasta ese día era al revés. El anexo del portal lo escribe sin `ubl:` |
+| El entorno de pruebas (PRE) como contraste | El artículo 11.1 exige certificado para «la utilización de la solución pública», y la orden no nombra ningún entorno de pruebas ni servicio de validación aparte del envío | No se usa, porque aquí no hay certificado. Se mide contra el BOE, el anexo del portal y los ejemplos publicados de la AEAT |
+| El formato del código único | El artículo 6 lo remite al anexo I, y el anexo I no lo trae: ni orden, ni separador, ni formato de fecha, ni qué NIF (`BT-31` con «ES» o `BT-32` sin él), ni si serie y número son el `cbc:ID` entero. El título del artículo habla de su «inserción en la sintaxis de la factura», y no hay campo para él | `codigo_unico.py` y sus reglas `CU-`: los tres datos por separado, la fecha en AAAA-MM-DD, el NIF con ES o sin él y `BT-1` como la serie seguida del número, sin separador, como en VeriFactu, con su tope de 60 caracteres. Criterio de la casa |
+| Si los calificadores de L7, L8 y L10 se escriben delante del valor | Las filas dan solo el valor («usar «QR»» en `BT-122`, «usar «SUPL»» en `BT-ES-10`, «INFO» en `BT-160`) y cada lista trae aparte su calificador | `SPFE-CALIFICADOR`, nuevo: se espera el calificador seguido del valor, que es lo que dice de qué lista es; el valor solo sale en AVISO, una vez por factura, y se sigue reconociendo para medir lo demás. Criterio de la casa |
 
-Se dijeron además, sin pregunta, dos erratas menores —el grupo `RECT:IMPORTES`
-es `0..5` y `BT-3` habla de «hasta tres grupos»; la descripción de `BT-48`, el
-NIF-IVA del comprador, dice «del vendedor»— y las rutas que tienen una sola
-corrección posible, como se leen aquí salvo que la Agencia diga otra cosa: en
-`BT-ES-5`, `cbc:ServiceTypeCode` cuelga de `cac:ServiceProviderParty` y no de su
-`cac:Party`; en `BT-ES-6` a `BT-ES-9` sobra `cac:Invoice` y `cac:TaxSubTotal` es
-`cac:TaxSubtotal`; en `BT-ES-23` y `BT-ES-24`, `/in:invoice` es `/in:Invoice`.
+Hay además dos erratas menores, y rutas que tienen una sola corrección
+posible, que aquí se leen corregidas: en `BT-ES-5`, `cbc:ServiceTypeCode`
+cuelga de `cac:ServiceProviderParty` y no de su `cac:Party`; en `BT-ES-6` a
+`BT-ES-9` sobra `cac:Invoice` y `cac:TaxSubTotal` es `cac:TaxSubtotal`; en
+`BT-ES-23` y `BT-ES-24`, `/in:invoice` es `/in:Invoice`. El anexo del portal
+las corrige (abajo). Las dos erratas: el grupo `RECT:IMPORTES` es `0..5` y
+`BT-3` habla de «hasta tres grupos», y desde el 13-10-2026 se lee uno por
+código de L2.C, que tiene tres: un código repetido sale en AVISO, y más de
+cinco sigue en ERROR. Y la descripción de `BT-48`, el NIF-IVA del comprador,
+dice «del vendedor», una errata a la vista (`BT-48` es el comprador en la
+norma europea): desde ese día el prefijo ES del comprador va en ERROR, como el
+del vendedor.
 
-**La respuesta, el 13-10-2026.** Llegaron dos correos ese día. El de esta
-consulta empieza agradeciendo *las diferentes observaciones planteadas que nos
-permiten realizar nuevas correcciones*, contesta cada punto y adjunta el anexo
-I corregido, una versión 2.0 que dice que publicará en su Portal de
-Desarrolladores. El otro contesta la consulta anterior, la de la
-correspondencia y el ejemplo, y adjunta otro anexo y un ejemplo de los
-importes rectificados, `importes.xml`. Los adjuntos se guardan fuera del
-repositorio, en `informes/`, con su SHA-256, y no se publican aquí: son
-documentos que la AEAT todavía no ha publicado.
-
-| Se preguntó | Contestó | Qué cambió aquí |
-|---|---|---|
-| La ruta de la anulación | Sobra `cac:Response`, y lo corrige | Los datos se siguen buscando en los dos sitios, para no decir que faltan cuando están; la forma la dice `XSD-ORDEN`, y la nota de cada anulación dice lo que contestó |
-| El nombre del vendedor en la anulación | Como en el anexo II: `cac:PartyLegalEntity` | En `cac:PartyTaxScheme/cbc:RegistrationName` se encuentra, y sale un AVISO de `SPFE-MENSAJE-FACTURA` |
-| El `cac:TaxScheme` y el ES del NIF de los mensajes | `<cac:TaxScheme />` sin contenido vale, y el NIF va sin ES | La nota lo dice. Con ES se sigue aceptando, por lo que contestó del código único |
-| `BT-ES-8` con dos impuestos | Lo están evaluando, la duda es pertinente, y piden mandar el caso en dos semanas | Sigue la NOTA. El caso se manda antes del 27-10-2026 |
-| El `ProfileID` | Sin `ubl:`, como el resto de campos. El otro correo, lo mismo: los identificadores del ejemplo son los correctos | `SPFE-PROCESO`: el del ejemplo, limpio; el del BOE, AVISO. Hasta ese día era al revés |
-| El servicio de validación de PRE | Exigirá certificado | PRE no sirve aquí de contraste, porque no hay certificado. Se mide contra el BOE, el anexo corregido cuando se publique y los ejemplos de la AEAT |
-| El código único | La concatenación no es literal: son los tres datos por separado. La fecha, en AAAA-MM-DD; el NIF, sin ES, y si viene se trata igual; `BT-1`, la serie y luego el número, sin separador | Nada: es lo que `codigo_unico.py` ya hacía. La longitud no la dijo, y el tope de 60 sigue siendo el de VeriFactu |
-| Los calificadores de L7, L8 y L10 | Se escribirá tal y como lo habéis montado, es decir, el calificador seguido del valor. El otro correo lo dice de L7 con todas las letras: `urn:aeat:names:specification:schema:add:` más SUPL, MINO... | `SPFE-CALIFICADOR`, nuevo: el valor solo sale en AVISO, una vez por factura, y se sigue reconociendo para medir lo demás |
-| Las rutas con una sola corrección (`BT-ES-5`, `BT-ES-6` a `BT-ES-9`, `BT-ES-23` y `BT-ES-24`) | También corregido | Nada: ya se leían así |
-| `RECT:IMPORTES`, `0..5` contra los tres de `BT-3` | Corregido a `0..1` | Un código de L2.C repetido sale en AVISO, y más de cinco sigue en ERROR. El ejemplo de ese día lleva tres, uno por código, y es la única lectura en la que casan las tres cifras |
-| La descripción de `BT-48`, que dice del vendedor | Corregida | El prefijo ES del comprador pasa de AVISO a ERROR, como el del vendedor |
-
-**El anexo 2.0, medido contra el BOE.** Se pasaron los dos PDF a texto con
-`pdftotext` y con `pypdf`, y se compararon con el anexo del BOE. La versión
-2.0 trae cuatro de las correcciones: la descripción de `BT-48`, que ya dice
-del comprador; `cac:TaxSubtotal` en `BT-ES-6` a `BT-ES-8`; `/in:Invoice` en
-`BT-ES-23` y `BT-ES-24`; y el grupo `RECT:IMPORTES` en `0..1`. **Las demás no
-están en ella**: la anulación sigue colgando de `cac:Response`, el nombre sigue
-en `cac:PartyTaxScheme/cac:PartyLegalEntity`, `BT-ES-5` sigue con su
-`cac:Party`, `BT-ES-6` a `BT-ES-9` siguen con `cac:Invoice`, `BT-3` sigue
-diciendo hasta tres grupos y `BT-23` sigue con `ubl:`. Por eso nada de aquí
-sale de la versión 2.0 sin una respuesta escrita que lo diga, y lo que sale
-de una respuesta va en AVISO, no en ERROR, cuando el BOE dice otra cosa. El
-prefijo del comprador va en ERROR porque el BOE ya lo pide en su fila: lo que
-dudaba era de quién era la fila. El otro anexo,
-el que el segundo correo llama versión definitiva, es el texto del BOE. Al
-comparar con `pdftotext -layout`, las descripciones de `BT-ES-6` a `BT-ES-8`
-parecían corridas una fila en la 2.0; con `pypdf` están en su sitio. Era la
-maquetación de la extracción, no el anexo.
-
-**UBL-SR-43**, que no estaba en esta consulta, se había preguntado en la
-anterior, y la contestó el segundo correo: la solución pública se basa en la
-semántica de la EN 16931, que no impone esa restricción (en la sección del
-ejemplo del 02-10-2026, arriba).
+El registro de las consultas hechas a la AEAT, sus respuestas y
+lo que se decidió con ellas no se versiona: está en
+`informes/consultas-a-la-aeat/`. Lo que se publica cita solo lo que
+cualquiera puede leer; lo decidió el titular el 06-11-2026, y lo vigila
+`tests/test_sin_correos_privados.py`.
 
 ### El anexo del portal, del 21-10-2026
 
@@ -5254,26 +5169,24 @@ pública de su Portal de Entidades Desarrolladoras, como `A1-Proyecto-OM-FE.pdf`
 y `A2-Proyecto-OM-FE.pdf`. El nombre conserva el *Proyecto*, pero no es el
 borrador de abril: lleva los 29 `BT-ES` del BOE con su numeración. Se midió el
 24-10-2026. El anexo I se pasó a texto con `pdftotext -layout`, se comparó
-renglón a renglón con los dos que mandó el buzón el 13-10-2026, y cada errata
-medida en el BOE se buscó en él:
+renglón a renglón con el del BOE, y cada errata medida en el BOE se buscó en
+él:
 
-| Qué | BOE | Anexo 2.0, 13-10 | Portal, 21-10 |
-|---|---|---|---|
-| `BT-23`, el proceso | con `ubl:` | con `ubl:` | sin `ubl:` |
-| `BT-48`, la descripción | del vendedor | del comprador | del comprador |
-| `BT-ES-5`, `cbc:ServiceTypeCode` | bajo `cac:Party` | bajo `cac:Party` | bajo `cac:ServiceProviderParty` |
-| `BT-ES-6` a `BT-ES-9` | con `cac:Invoice` y `cac:TaxSubTotal` | con `cac:Invoice` | `/in:Invoice/cac:AllowanceCharge/cac:TaxTotal/cac:TaxSubtotal/…` |
-| `BG-ES-2`, impuestos o tasas por cargo | `0..n` | `0..n` | **`0..1`** |
-| `BT-ES-23` y `BT-ES-24` | `/in:invoice` | `/in:Invoice` | `/in:Invoice` |
-| `BG-24` de `RECT:IMPORTES` | `0..5` | `0..1` | **`0..3`** |
-| La anulación | la factura en `cac:Response`, el nombre en `cac:PartyTaxScheme` | igual | la factura en `cac:DocumentResponse`, el nombre en `cac:PartyLegalEntity` |
-| `BT-10` | `0..n` | `0..n` | `0..n`: la errata sigue |
+| Qué | BOE | Portal, 21-10 |
+|---|---|---|
+| `BT-23`, el proceso | con `ubl:` | sin `ubl:` |
+| `BT-48`, la descripción | del vendedor | del comprador |
+| `BT-ES-5`, `cbc:ServiceTypeCode` | bajo `cac:Party` | bajo `cac:ServiceProviderParty` |
+| `BT-ES-6` a `BT-ES-9` | con `cac:Invoice` y `cac:TaxSubTotal` | `/in:Invoice/cac:AllowanceCharge/cac:TaxTotal/cac:TaxSubtotal/…` |
+| `BG-ES-2`, impuestos o tasas por cargo | `0..n` | **`0..1`** |
+| `BT-ES-23` y `BT-ES-24` | `/in:invoice` | `/in:Invoice` |
+| `BG-24` de `RECT:IMPORTES` | `0..5` | **`0..3`** |
+| La anulación | la factura en `cac:Response`, el nombre en `cac:PartyTaxScheme` | la factura en `cac:DocumentResponse`, el nombre en `cac:PartyLegalEntity` |
+| `BT-10` | `0..n` | `0..n`: la errata sigue |
 
-Trae todo lo que el buzón dijo que corregía, también lo que la versión 2.0
-dejó sin corregir, y el `ProfileID`, que el buzón no dijo que fuera a
-corregir. Y dos cardinalidades que no salen de ninguna respuesta: un solo
-impuesto o tasa por cargo, y tres importes rectificados en vez del `0..1` que
-contestó el buzón. Los tres de `BT-3` y los tres códigos de L2.C casan ahora
+Corrige las rutas, la anulación, `BT-48` y el `ProfileID`, y cambia dos
+cardinalidades: un solo impuesto o tasa por cargo, y tres importes
+rectificados. Los tres de `BT-3` y los tres códigos de L2.C casan ahora
 con el grupo.
 
 El anexo II del portal, comparado palabra a palabra con el del BOE, solo
@@ -5283,22 +5196,22 @@ una de sus rutas. Los niveles de sus filas no se compararon.
 **Qué cambió aquí.**
 
 - `SPFE-IMPUESTO-O-TASA`, con más de un impuesto en un cargo, pasa de NOTA a
-  AVISO. No es un error porque el BOE lo admite; el anexo del portal no, y el
-  caso que se le mandó al buzón el 13-10-2026 sigue sin respuesta. La cuota
+  AVISO. No es un error porque el BOE lo admite; el anexo del portal no. La
+  cuota
   de esos cargos sigue sin compararse.
-- `SPFE-RECTIFICATIVA`: el aviso de un código repetido decía que la AEAT
-  dejaba el grupo en `0..1`, y su anexo publicado le da `0..3`. La regla no
+- `SPFE-RECTIFICATIVA`: el aviso de un código repetido decía que el grupo
+  quedaba en `0..1`, y el anexo publicado le da `0..3`. La regla no
   cambia: con tres códigos, cuatro o cinco grupos ya repiten uno y salen en
   ese aviso, y más de cinco sigue en ERROR.
-- Los textos que decían que la AEAT lo corregía en un anexo por publicar
-  (la anulación, el nombre del vendedor) dicen ahora que el del portal ya lo
-  escribe así, y el aviso del `ProfileID` del BOE lo dice también.
+- Los textos de la anulación y del nombre del vendedor dicen que el anexo
+  del portal ya lo escribe así, y el aviso del `ProfileID` del BOE lo dice
+  también.
 
 **Lo que no cambia.** Las tablas salen del BOE: `cius_es` se genera de su
 XML, que es la norma, y el anexo del portal no es la orden. Si la AEAT
 publica en el BOE una corrección de errores, `cius_es` se regenera y el
 módulo deja de importar en cada fila que cambie. Los PDF del portal se
-guardan en `informes/`, con su SHA-256, junto a los del buzón.
+guardan en `informes/`, con su SHA-256.
 
 ### La copia fiel, y el número que cambia
 
@@ -5310,10 +5223,11 @@ orden dice otra cosa, la fila lo dice con fecha.
 Quien no emita por la solución pública tiene que mandarle una **copia fiel** en
 UBL de cada factura, a la vez que la emite. El original sigue siendo el que es
 —Facturae, CII, EDIFACT— y a la AEAT viaja una copia escrita en otra sintaxis.
-Esa traducción **no la publica nadie**, y desde el 17-09-2026 consta que no la
-va a publicar la Agencia. La respuesta del buzón trae además la regla que
-decide el tono: un concepto sin equivalente **se puede omitir o llevar en una
-extensión**, y lo que no sea equivalente no se valida. Es decir, que a la copia
+Esa traducción **no la publica nadie**: ni la orden ni el portal de la AEAT la
+traen. La regla que decide el tono es de la orden (artículo 4.2): la copia
+lleva los conceptos del original «que tengan correspondencia semántica
+equivalente», y lo que no la tenga no tiene campo del anexo contra el que
+comprobarse. Es decir, que a la copia
 le falte algo del original no es el fallo de nadie. Por eso todo lo que sale de
 `validador/copia_fiel.py` es **NOTA**.
 

@@ -77,17 +77,16 @@ MARCADOR_CIUS_ES = "urn:aeat.es:CIUS-ES-SPFE"
 
 # El identificador de la orden se reconoce **entero**, y no por un trozo.
 #
-# Lo enseñó primero la AEAT, el 02-10-2026, en la captura de un XML de
-# ejemplo que fue toda la respuesta del buzón a la consulta del 23-09-2026; y
-# tres días después lo fijó la orden en su fila BT-24, letra a letra:
+# Lo fijó la orden (BOE del 05-10-2026) en su fila BT-24, letra a letra, y no
+# es el del borrador:
 #
 # | Dónde | Identificador |
 # |---|---|
 # | el borrador de abril | `urn:cen.eu:en16931:2026#compliant#urn:aeat.es:CIUS-ES-SPFE:1.0.0` |
-# | el ejemplo del 02-10-2026 y la orden | `urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended` |
+# | la orden | `urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended` |
 #
-# `MARCADOR_CIUS_ES` no está en el segundo, y medido el 02-10-2026: una
-# factura escrita como el ejemplo **no se reconocía** como de la solución
+# `MARCADOR_CIUS_ES` no está en el segundo, y medido: una factura escrita con
+# el identificador nuevo **no se reconocía** como de la solución
 # pública. No se le aplicaba ni una regla del anexo y nada lo decía, así que
 # una rectificativa que no dice qué rectifica salía «sin errores»; y sin
 # `UBLVersionID` se suponía la 2.1, con lo que unas líneas de cobro, que solo
@@ -479,9 +478,8 @@ def _detectar_ubl(raiz: etree._Element, namespace: str, nombre: str) -> Deteccio
     # contra un esquema que la rechaza entera, y el informe habría acusado de
     # inventarse elementos a una factura correcta.
     #
-    # Y volvió a pasar el 02-10-2026, con el ejemplo de la propia AEAT: la
-    # defensa colgaba de la cadena del CIUS de abril, y el ejemplo declara
-    # otro identificador. Ahora cuelga de que nombre a la AEAT
+    # Y volvió a pasar con el identificador que fijó la orden: la defensa
+    # colgaba de la cadena del CIUS de abril, y la orden declara otro. Ahora cuelga de que nombre a la AEAT
     # (`_supone_ubl_25`), que es lo que de verdad dice «solución pública».
     if version:
         motivo = "Formato reconocido."

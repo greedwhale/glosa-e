@@ -2575,23 +2575,16 @@ midiendo, porque es de derecho: **a qué edición de EN 16931 apunta el artícul
 es la que pide UBL 2.5, CII D.25A y EDIFACT D.24A S4. Si apunta a la de 2017,
 es otra. Hasta saberlo, aquí no se afirma ninguna de las dos.
 
-**Contestada el 22-09-2026**, y por escrito. Se preguntó al buzón de la AEAT si
-la edición de junio de 2026 vale también fuera de la solución pública, y la
-respuesta nombra las dos partes y dice a qué alcanzan: `UNE-EN 16931-1:2026`
-—junio, el modelo semántico— y `UNE-CEN/TS 16931-3-2:2026` —septiembre, la
-correspondencia sintáctica UBL 2.5 / ISO/IEC 19845— son las versiones
-ratificadas aplicables «al sistema español de facturación electrónica en su
-conjunto», y enumera los tres casos: la emisión e interconexión en la SPFE, el
-**envío de copias fieles** y el **intercambio privado entre plataformas
-regulado en el artículo 7.1**.
+**Decidido el 22-09-2026, con criterio de la casa**: la de 2026,
+`UNE-EN 16931-1:2026` (junio, el modelo semántico) y
+`UNE-CEN/TS 16931-3-2:2026` (septiembre, la correspondencia sintáctica UBL 2.5
+/ ISO/IEC 19845). Para la solución pública lo escribe el documento de
+validaciones de la AEAT (versión 0.1.0, del 16-10-2026, apartado 3), que
+recibe documentos basados en UBL 2.5.
 
 Con la cautela que este mismo apartado exige, porque es la que lo trajo aquí:
-**esto no es el boletín**. Que la Agencia diga a qué edición valida no es lo
-mismo que una referencia en el Diario Oficial, y la de 2017 sigue viva hasta el
-31-03-2029. Lo que cambia es que ya no hay que elegir a ciegas entre dos
-ediciones: hay una respuesta de la administración que lo aplica, por escrito y
-citable, y es la que se sigue aquí mientras no salga la orden. Las dos
-consecuencias que tiene dentro: la copia fiel es **UBL 2.5** y no «UBL» a
+**esto no es el boletín**, y la de 2017 sigue viva hasta el 31-03-2029. Las
+dos consecuencias que tiene dentro: la copia fiel es **UBL 2.5** y no «UBL» a
 secas, y `BT-179` y `BT-180` dejan de estar fuera de la edición aplicable —lo
 que les sigue faltando es la ruta del anexo, que es otra cosa—.
 
@@ -5138,8 +5131,8 @@ arriba.
 
 El 22-09-2026 se dejó de dar por mala la forma nueva de las rectificativas, y
 la NOTA que quedó decía lo único que entonces se podía decir: que había un
-`BG-24` y que no se había leído. El 23-09-2026 la AEAT contestó **qué
-calificadores lleva**, y eso convirtió aquella prudencia en pereza.
+`BG-24` y que no se había leído. Con la lista de **sus calificadores** en la
+mano, aquella prudencia se convirtió en pereza.
 
 ### Lo que se midió antes de tocar nada
 
@@ -6467,16 +6460,13 @@ arreglo; cada cosa pide una decisión o un cambio aparte:
 6.1.2, el mismo bloque de Python que corre la página; en Pyodide va lxml 6.0.2. Se verá en
 producción después de fusionar.
 
-## El ejemplo de la AEAT pasaba sin que se le mirara nada
+## El identificador nuevo de la AEAT pasaba sin que se le mirara nada
 
-**Qué pasó.** El 02-10-2026 el buzón técnico de la AEAT contestó a la consulta
-del 23-09-2026 con una captura de un XML de ejemplo y ni una frase de criterio.
-Se transcribió el 05-10-2026 de una grabación de pantalla que subió Jefe. El
-ejemplo resolvía las tres preguntas de L10 (ver
-el README, «El ejemplo del 02-10-2026») y traía, sin anunciarlo en el correo,
-otro `CustomizationID` y otro `ProfileID`. Se escribió la cabecera del ejemplo
-sobre el cuerpo de la factura de pruebas del CIUS y se pasó por el validador
-entero, en `main` (`08992a0`):
+**Qué pasó.** El 05-10-2026 se pasó por el validador entero, en `main`
+(`08992a0`), una cabecera con otro `CustomizationID`, el que la orden fijó ese
+día en `BT-24`, sin `UBLVersionID`, y con los calificadores de L10 y el
+`ProfileID` sin `ubl:` (ver el README, «El identificador nuevo, y el valor de
+L10»), escrita sobre el cuerpo de la factura de pruebas del CIUS:
 
 | Se midió | Salía |
 |---|---|
@@ -7072,9 +7062,9 @@ IVA vigente en España», que es el del recargo de equivalencia).
 
 **Lo que se hizo.** Dejar de condenar lo que la orden admite, y nada más:
 
-- `SPFE-PROCESO` acepta el de la orden; el del ejemplo del 02-10-2026 sigue en
+- `SPFE-PROCESO` acepta el de la orden; el que no lleva `ubl:` sigue en
   NOTA, que ahora dice que la orden fija otro, y el ERROR pide el de la orden.
-- `SPFE-ESPECIFICACION` deja de anotar el identificador del ejemplo, que es
+- `SPFE-ESPECIFICACION` deja de anotar el identificador nuevo, que es
   letra a letra el de la fila BT-24; su ERROR pide ese.
 - `SPFE-COPIA` e `SPFE-IMPORTE-PAGADO` pasan a NOTA: lo que la orden supone
   sin indicador (el original, y una copia fiel tiene que decirlo), y lo que
@@ -7310,8 +7300,7 @@ provocado sin haber provocado nada.
 
 **Lo que había.** El 07-10-2026 la nota `SPFE-BORRADOR` dejó de decir que la
 orden no estaba publicada, y con ella las frases que vio la revisión. Quedaron
-otras. El 11-10-2026, al guardar en el README la consulta al buzón,
-se vio que la cabecera de `codigo_unico.py` seguía diciendo que «la Orden
+otras. El 11-10-2026, al repasar el README, se vio que la cabecera de `codigo_unico.py` seguía diciendo que «la Orden
 Ministerial técnica del RD 238/2026 aún no se ha publicado». La ficha de
 `CU-03` decía lo mismo con «todavía», y esa se publica en la página.
 
@@ -7341,7 +7330,7 @@ Python y no con una expresión sobre el fichero.
 BOE el 05-10-2026 y no fija ningún tope: su anexo I describe `BT-1` sin
 longitud, y su artículo 6 remite el formato del código único a ese anexo, que
 no lo trae. Por eso el tope de 60 caracteres sigue tomado de Verifactu, y se
-dice de dónde sale y que se ha preguntado al buzón. La cabecera de la tabla de
+dice de dónde sale. La cabecera de la tabla de
 abril se cambió también en `herramientas/anexo_i.py`, que es quien la escribe:
 si no, la próxima vez que se generara volvería la frase vieja.
 
@@ -7801,7 +7790,7 @@ las diez que la orden da por malas:
 - `SPFE-IMPUESTO-O-TASA`, nuevo: el código de L9 en cada cargo de línea y en
   cada impuesto de un cargo del documento; en ese cargo, la misma cuota en el
   impuesto y en el total, y con dos impuestos una NOTA, porque no se puede
-  (la pregunta 4 al buzón, del 07-10-2026); «VAT» y «S» en el desglose de un
+  (ningún texto publicado dice qué va); «VAT» y «S» en el desglose de un
   cobro; y la cuota de cada uno, la base por el tipo.
 - La cuenta de la cuota se saca a `_cuenta_de_la_cuota`, con el margen de la
   del IVA (hasta una unidad, NOTA), y las retenciones pasan a usarla: la
@@ -8180,10 +8169,10 @@ sin una sola queja.
   `cac:DocumentResponse`, donde la pone el anexo II, y también donde la pone
   la tabla (abajo). El nombre del vendedor
   dentro de `cac:PartyTaxScheme/cac:PartyLegalEntity` tiene dos arreglos de
-  un paso, y se buscan los dos. Están preguntadas al buzón desde el
-  07-10-2026, y la nota de cada anulación dice cómo se han leído.
+  un paso, y se buscan los dos. La nota de cada anulación dice cómo se han
+  leído.
 - **El NIF, con el prefijo ES y sin él, y con cualquier `cac:TaxScheme`.**
-  También está preguntado; hasta la respuesta no se da por mala ninguna forma.
+  No se da por mala ninguna forma, porque ninguna tabla lo dice.
 - **Seis códigos**, de 395 a 401: `SPFE-MENSAJE-ALCANCE` (nota),
   `-FECHA`, `-VENCIMIENTO`, `-ESTADO`, `-MOTIVO` y `-FACTURA`. Lo que la tabla
   no prevé (`Duedate` por `DueDate`, un `cbc:StatusReason` libre) sale en
@@ -8550,16 +8539,16 @@ cuando la orden los recoge para el NIF desde el 05-10-2026; la comprobación
 de los destinos no lo veía porque los nombraba en el porqué y no en el
 destino. La base de «las 14» sigue sin rehacer en las filas viejas.
 
-## La respuesta del buzón del 13-10-2026: lo que cambia, y una frase de más
+## Lo que se decidió el 13-10-2026: lo que cambia, y una frase de más
 
-Dos correos de la AEAT el mismo día contestaron las dos consultas pendientes
-(el detalle, en el README, en la sección de la consulta del 07-10-2026). Seis
-reglas cambian de gravedad o nacen:
+El 13-10-2026 se decidió qué hacer con lo que la orden deja sin escribir (el
+detalle, en el README, en «Lo que la orden deja sin escribir»). Seis reglas
+cambian de gravedad o nacen:
 
 | Qué | Antes | Desde el 13-10-2026 |
 |---|---|---|
 | `ProfileID` del BOE, con `ubl:` | limpio | AVISO de `SPFE-PROCESO` |
-| `ProfileID` del ejemplo, sin `ubl:` | NOTA | limpio |
+| `ProfileID` sin `ubl:` | NOTA | limpio |
 | Valor de L7, L8 o L10 sin su calificador | limpio | AVISO de `SPFE-CALIFICADOR`, código nuevo |
 | NIF-IVA del comprador sin ES | AVISO | ERROR de `SPFE-NIF` |
 | Un código de L2.C repetido en `RECT:IMPORTES` | NOTA con cuatro o cinco, nada con dos o tres | AVISO de `SPFE-RECTIFICATIVA` |
@@ -8569,13 +8558,13 @@ Las facturas de prueba se escribieron de nuevo con el calificador delante,
 que es la forma que vale: con el valor solo, 40 pruebas salían en rojo por el
 AVISO nuevo, y casi todas por la misma `REGI` de la factura base.
 
-**La frase de más.** El primer borrador de estos mensajes decía que la AEAT
-corrige el `ProfileID` en el anexo que publicará en su Portal de
-Desarrolladores. No lo dijo: dijo que vale sin `ubl:`, y el anexo 2.0 que
-mandó ese mismo día todavía lo lleva con él. Se vio al medir el PDF, y la
-prueba del AVISO comprueba ahora que el mensaje no nombra el Portal. Es el
-mismo cuidado que pide la tesis: lo que se atribuye a otro tiene que ser lo
-que dijo.
+**La frase de más.** El primer borrador de estos mensajes atribuía a la AEAT
+una corrección del `ProfileID` en un anexo que todavía no estaba publicado, y
+nada publicado lo decía. Se vio al medir, y la prueba del AVISO comprueba que
+el mensaje no nombra el Portal. Desde el 21-10-2026 el anexo del portal sí lo
+escribe sin `ubl:`, y el mensaje lo cita a él. Es el mismo cuidado que pide la
+tesis: lo que se atribuye a otro tiene que estar escrito donde se pueda
+leer.
 
 **Provocado.** Cada regla, rota a mano y con su prueba en rojo: el `ProfileID`
 del BOE otra vez limpio; sin la negativa de la fila `BT-23`; el nombre de la
@@ -8659,22 +8648,9 @@ ejemplo de la AEAT lo pone también en el registro, no se sabe si la solución
 pública lo acepta y basta quitar el atributo. El glosario, lo mismo.
 
 **Provocado.** Con la frase quitada del mensaje, la prueba que la pide sale en
-rojo. Se le pregunta al buzón.
-
-**Contestado el 21-10-2026.** La AEAT dio la razón a la norma: no quiere ir
-contra ella y quita el `schemeID` del BT-30. Mandó el ejemplo nuevo,
-`factura_v0.1.xml` (5.295 bytes, SHA-256
-`d4bbdf58012a5b29e91c4efb3105483c0e07785fb2472192049aa6c4ee2d5099`), con el
-FC solo en `cac:PartyTaxScheme`. Medido ese día: tal cual llega, Glosa-e ya
-no saca `BR-CL-11`, y los dos errores que quedan salen de los huecos de la
-plantilla (`xxxx` donde va el NIF). Con un NIF de prueba en cada hueco, sale
-sin errores. No dijo si la solución pública rechazará el FC en el registro
-legal, así que el ERROR se queda como estaba y el mensaje cuenta la
-respuesta sin prometer más.
-
-En el mismo correo contestó la otra errata, que no toca al validador: los dos
-documentos que se contradecían sobre SOAP se corrigen a lo mismo, SOAP 1.2 en
-modo Document, salvo el `SoapFault`, que va en SOAP 1.1.
+rojo. Ningún texto publicado dice si la solución pública rechaza el FC en el
+registro legal, así que el ERROR se queda como estaba y el mensaje no promete
+más.
 
 ## Los precios con el IVA dentro: un ERROR justo que no decía por qué
 
@@ -8908,9 +8884,9 @@ limpia.
 
 **Reproducido** el 22-10-2026 sobre `44cc805`: la factura de la orden con el
 QR de otro NIF, de otro número, de otra fecha, con el importe a pagar en vez
-del total, con el servidor de pruebas de la AEAT, con la dirección del ejemplo
-del 02-10-2026 (a `gob.aeat`, según se anotó el 05-10-2026; `aeat` no es un
-dominio de primer nivel en la lista de la IANA), en dólares, o con la descripción
+del total, con el servidor de pruebas de la AEAT, con una dirección a
+`gob.aeat` (`aeat` no es un dominio de primer nivel en la lista de la IANA), en
+dólares, o con la descripción
 TICKETBAI y la dirección de la AEAT: ninguna queja. Nueve pruebas en rojo y
 ninguna más.
 
@@ -9102,14 +9078,6 @@ de error de cada factura se enseñan tal cual, porque no están publicados.
 **Provocado.** Cada comprobación rota a propósito, una cada vez y vuelta atrás:
 las diez roturas ponen `tests/test_acuses.py` en rojo. Detalle en el README,
 "Los acuses de la solución pública".
-
-**La respuesta, el 28-10-2026.** El titular le escribió el 26-10 al buzón de la
-AEAT. Contestó que tenían una versión equivocada, que el nodo `IssueDate` es
-necesario y que corregirán el ejemplo publicado, y adjuntó uno corregido.
-Medido ese día: con `cbc:IssueDate` del 28-10-2026, `DocumentStatus` de la 2.5
-sin errores, cabecera 200 y una factura dada de alta, salida 0. No se versiona,
-como ninguna factura ni acuse de terceros. El error se queda; la nota y la
-ficha citan la respuesta, y `tests/test_acuses.py` lo vigila.
 
 ## En el móvil, abrir el selector de ficheros tumbaba el arranque
 
@@ -9435,28 +9403,25 @@ Medido con 9 Facturae públicas por `gobl`, 5 facturas reales distintas por `gob
 recuentos) y 6 parejas de FACe con datos inventados: ningún aviso falso. Un aviso nuevo y
 cierto: FACe no escribe el motivo de un descuento en su UBL, que es además su BR-42.
 
-## Lo que la AEAT contestó el 02-11-2026: la versión de UBL y los códigos de rechazo
-
-**Cómo salió.** De dos consultas al buzón de la AEAT del 28-10-2026, contestadas el
-02-11-2026 por escrito.
+## La versión de UBL y los códigos de rechazo, el 03-11-2026
 
 **La versión.** `XSD-VERSION` era AVISO con una especificación de la AEAT, y el mensaje
 decía que la AEAT "no ha dicho qué hace" con una factura que declara UBL 2.1 y usa
-`CollectionInvoiceLine`. Lo dijo: no hay compatibilidad, hay que declarar la 2.5, y no
-acepta que esos conceptos se dejen fuera por usar la 2.1. El mensaje afirmaba algo que
-ya no era cierto, y aconsejaba lo que la AEAT no acepta a quien tomara "lo seguro"
+`CollectionInvoiceLine`. Se decidió que es ERROR: lo que usa elementos de la 2.5 es de
+la 2.5, y el documento de validaciones (0.1.0, apartado 4.1) admite versiones
+anteriores si cumplen el contenido mínimo del anexo I, que una 2.1 con retenciones no
+cumple. El mensaje aconsejaba además quitar esos conceptos a quien tomara "lo seguro"
 como la única salida. Reproducido antes de tocar nada: la prueba que pide ERROR, en
 rojo con `'aviso' == 'error'`. Ahora es ERROR con cualquier especificación, y con la de
 la AEAT el mensaje no ofrece quitar lo que no es de la 2.1.
 
-**Los códigos.** `SPFE-ACUSE-RECHAZADA` enseñaba el código tal cual. La AEAT dijo de
-qué familias serán: el error del esquema, la regla del esquematrón europeo (su
-ejemplo, `BR-CO-16`) o una suya, `SPFE-CORE-XXXX`, `SPFE-LIST-XXX` o `BR-ES-XXXX`.
-Reproducido: un acuse con `BR-CO-16` de estado salía sin una palabra de qué es. Ahora
-una regla europea con ficha sale con la primera frase de la ficha y su enlace, y una de
-la AEAT se nombra como suya, sin traducir, porque la lista no está publicada. Los
-errores de esquema no se reconocen y el campo del código se busca en el estado y, si
-no, en la descripción: lo uno y lo otro, porque no lo dijo.
+**Los códigos.** `SPFE-ACUSE-RECHAZADA` enseñaba el código tal cual. Reproducido: un
+acuse con `BR-CO-16` de estado salía sin una palabra de qué es. Ahora una regla
+europea con ficha sale con la primera frase de la ficha y su enlace, y un código que
+no es de la norma europea, como uno que empiece por `SPFE-CORE`, `SPFE-LIST` o
+`BR-ES`, se nombra sin traducir, porque la lista no está publicada. Los errores de
+esquema no se reconocen y el campo del código se busca en el estado y, si no, en la
+descripción: nada publicado dice cómo.
 
 **Lo que no se sabe.** Ningún acuse con un rechazo de verdad se ha visto, y ni el
 documento de validaciones 0.1.0 ni este repositorio traen hoy ningún `SPFE-CORE`,
@@ -9481,3 +9446,34 @@ en el sitio montado a 320 px: `/incidencias`, la ficha de `SPFE-ESPECIFICACION`,
 también cita la URN, la portada, novedades, el blog y su entrada de la copia fiel,
 Sobre Glosa-e, el aviso legal y el banco, todas a 320. Las 446 de un tirón no se pudieron
 medir: el servidor local no deja meter sus páginas en un marco.
+
+## Las respuestas privadas de la AEAT, citadas como aval en lo publicado
+
+**Cómo salió.** El 06-11-2026 el titular, validando una factura en la web, vio
+una nota, `COPIA-SIN-SITIO`, que se apoyaba en una respuesta privada de la
+AEAT, con su fecha. Quien lee el informe no la puede comprobar: citada en
+público es una afirmación sin prueba, aunque sea cierta, y no casa con lo que
+la marca promete.
+
+**Reproducido** antes de tocar nada, con una prueba nueva que recorre todo lo
+que git versiona: `tests/test_sin_correos_privados.py`, en rojo con 176 citas.
+Estaban en unos treinta textos del informe y de las fichas, en tres artículos
+del blog, en dos entradas de novedades, en el README, aquí y en los comentarios
+y docstrings del código y de las pruebas. Dos de ellas, las de `XSD-VERSION` y
+`SPFE-ACUSE-RECHAZADA`, entraron el 03-11-2026.
+
+**Lo que lo cerró.** Lo publicado dice qué hace Glosa-e y en qué se apoya, y
+cita solo lo que cualquiera puede leer: el BOE, los documentos y ejemplos del
+portal de la AEAT, los esquemas y la norma europea. Lo que solo se apoyaba en
+una respuesta privada se da como criterio de la casa. Ninguna regla cambia de
+gravedad. Los tres artículos del blog llevan su aviso de corrección, como
+cualquier otro cambio en lo publicado. El registro de lo preguntado, lo
+contestado y lo decidido con ello, y los tramos quitados, copiados de
+`203f16c`, están en `informes/consultas-a-la-aeat/`, que no se versiona.
+
+**Provocado.** Con una cita devuelta a un mensaje, la prueba sale en rojo y la
+nombra.
+
+**Lo que no se arregla aquí.** La historia de git sigue teniendo los textos
+viejos, y el repositorio es público: quitarlos de ahí pediría reescribir la
+historia, que es otra decisión.

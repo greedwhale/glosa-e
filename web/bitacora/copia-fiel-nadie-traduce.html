@@ -1,16 +1,24 @@
 <article class="entrada"
   data-fecha="2026-09-21"
   data-titulo="Habrá que mandar a la AEAT una copia de cada factura en otro formato, y nadie publica cómo se traduce"
-  data-entradilla="Quien no emita a través de la solución pública tendrá que mandarle una copia fiel de cada factura, escrita en la sintaxis que ella define. Se preguntó por escrito quién publica la correspondencia entre formatos: la Agencia contestó el 17 de septiembre que no es ella. Y mientras tanto, el total del formato español significa otra cosa en la copia: en 6 de cada 14 facturas reales analizadas, copiarlo tal cual pondría un total que no es el suyo. Corregida el 26 de septiembre: ese total mal copiado no pasa las validaciones de la copia, como decía; lo que pasa sin error es el medio de pago. Actualizada el 7 de octubre: con la orden en el BOE, el recargo de equivalencia va dentro de la cuota de IVA, y de las dos cifras que cambiaban al copiar queda una, el total. Corregida el 30 de octubre: el 19 de la lista europea es un abono, no un adeudo.">
+  data-entradilla="Quien no emita a través de la solución pública tendrá que mandarle una copia fiel de cada factura, escrita en la sintaxis que ella define. Ni la orden ni el portal de la AEAT publican la correspondencia entre formatos. Y mientras tanto, el total del formato español significa otra cosa en la copia: en 6 de cada 14 facturas reales analizadas, copiarlo tal cual pondría un total que no es el suyo. Corregida el 26 de septiembre: ese total mal copiado no pasa las validaciones de la copia, como decía; lo que pasa sin error es el medio de pago. Actualizada el 7 de octubre: con la orden en el BOE, el recargo de equivalencia va dentro de la cuota de IVA, y de las dos cifras que cambiaban al copiar queda una, el total. Corregida el 30 de octubre: el 19 de la lista europea es un abono, no un adeudo. Corregida el 6 de noviembre: solo cita lo que cualquiera puede leer.">
 
   <time datetime="2026-09-21">21 de septiembre de 2026</time>
   <h1>Habrá que mandar a la AEAT una copia de cada factura en otro formato, y
   nadie publica cómo se traduce</h1>
   <p class="lema">La factura original seguirá siendo la que es. A la Agencia
   viajará <b>otro documento</b>, escrito en otra sintaxis, que tiene que decir
-  lo mismo. Quién decide qué campo va en qué campo es una pregunta con
-  respuesta, y la respuesta llegó el 17 de septiembre: <b>no lo publica la
-  Agencia</b>.</p>
+  lo mismo. Quién decide qué campo va en qué campo es una pregunta sin
+  respuesta publicada: <b>ni la orden ni el portal de la AEAT traen esa
+  correspondencia</b>.</p>
+
+  <aside class="correccion">
+    <b>Corregida el 6 de noviembre de 2026.</b> Esta entrada citaba respuestas
+    privadas de la AEAT a preguntas hechas desde aquí, que quien la lee no
+    puede comprobar. Se han quitado. Lo que ya dice un texto publicado va con
+    su fuente, y la regla de la copia que se citaba de ellas la da la orden, en
+    su artículo 4.2. Las cifras y la conclusión no cambian.
+  </aside>
 
   <aside class="correccion">
     <b>Corregida el 30 de octubre de 2026.</b> Esta entrada decía que el 19 de
@@ -94,48 +102,17 @@
   <p>Si el original está en Facturae y la copia va en la sintaxis de la SPFE,
   alguien tiene que decir <b>qué campo del uno corresponde a qué campo del
   otro</b>. No es un detalle de implantación: de esa correspondencia depende
-  que la copia diga lo mismo que el original. Se preguntó por escrito al buzón
-  técnico de la AEAT el <b>10 de septiembre</b>, con acuse el 11 y respuesta el
-  <b>17 de septiembre de 2026</b>.</p>
+  que la copia diga lo mismo que el original.</p>
 
-  <div class="cuadro">
-  <table>
-    <caption>Tres preguntas al buzón técnico, y lo que se contestó</caption>
-    <thead><tr><th>Se preguntó</th><th>Se contestó</th></tr></thead>
-    <tbody>
-      <tr>
-        <td>Si la Agencia piensa publicar la correspondencia entre Facturae,
-        CII o EDIFACT y los elementos del anexo I, o si recae en cada
-        plataforma</td>
-        <td>Que <i><b>cae en la responsabilidad de las plataformas privadas</b>,
-        o en su caso, de la definición por parte del Ministerio de Economía que
-        regula la interconexión entre plataformas privadas y sus formatos</i></td>
-      </tr>
-      <tr>
-        <td>Qué hacer en la copia fiel con un concepto del original que no
-        tiene equivalente en la sintaxis de la solución pública</td>
-        <td>Que <i>se pueden omitir o incluirlos en una extensión</i>, y que <i>si el
-        concepto del original no es equivalente, <b>no se realizará la
-        validación del dato</b></i></td>
-      </tr>
-      <tr>
-        <td>Si los documentos de validación del portal de desarrolladores
-        cubrirán las extensiones propias del anexo I o solo las reglas de
-        EN 16931</td>
-        <td>Que <i>cubrirán <b>principalmente las personalizaciones realizadas en
-        el anexo I</b></i></td>
-      </tr>
-    </tbody>
-  </table>
-  </div>
-
-  <p>La primera respuesta es la que cambia el mapa. <b>La tabla oficial de
-  correspondencia entre las sintaxis que la ley admite y los campos del anexo
-  no la publica la Agencia</b>: la escribe cada plataforma para sí misma. La
-  respuesta deja abierta otra puerta (la definición del Ministerio de Economía
-  que regule la interconexión entre plataformas), y de esa no hay todavía nada
-  que citar. Mientras tanto, una correspondencia que cada uno se escriba a sí
-  mismo no es algo contra lo que un tercero pueda contrastar nada.</p>
+  <p>Esa tabla no está publicada. <b>La orden no trae la correspondencia entre
+  las sintaxis que la ley admite y los campos del anexo</b>, y el portal de la
+  AEAT para desarrolladores tampoco. Para la semántica europea existen las
+  partes de la norma que la vinculan a cada sintaxis (la
+  <code>16931-3-2</code> para UBL, la <code>-3-3</code> para CII y la
+  <code>-3-4</code> para EDIFACT), pero mapean la EN 16931 y no los campos
+  españoles del anexo. Para Facturae no hay ninguna. Así que cada plataforma
+  escribe la suya, y una correspondencia que cada uno se escriba a sí mismo no
+  es algo contra lo que un tercero pueda contrastar nada.</p>
 
   <h2>Por qué eso no es un detalle: un total que cambia por el camino</h2>
 
@@ -233,12 +210,12 @@
   española, y caen justo donde el formato español y la norma europea no se
   entienden.</p>
 
-  <h2>Lo que la Agencia sí dejó resuelto, y lo que no</h2>
+  <h2>Lo que la orden sí deja resuelto, y lo que no</h2>
 
-  <p>La segunda respuesta de arriba resuelve un problema de verdad y conviene
-  leerla entera: si un concepto del original no tiene equivalente, <b>se puede
-  omitir o llevar en una extensión</b>, y lo que no sea equivalente no se
-  valida. Dicho de otro modo: que a la copia le falte algo del original
+  <p>La orden resuelve un problema de verdad en su artículo 4.2: la copia
+  lleva los conceptos del original <i>que tengan correspondencia semántica
+  equivalente</i>. Lo que no la tenga no tiene campo en el anexo contra el que
+  comprobarlo. Dicho de otro modo: que a la copia le falte algo del original
   <b>no es el incumplimiento de nadie</b>. Es una buena noticia y no era
   evidente.</p>
 
@@ -308,10 +285,8 @@
       <code>BT-110</code>, <code>BT-112</code> y <code>BT-115</code> y los
       grupos <code>BG-34</code> de las retenciones y de los cargos en nombre
       de un tercero; el artículo 3.1, la EN 16931 en UBL como modelo de la
-      solución pública, y el 4, el de la copia fiel.</li>
-      <li>Respuesta del buzón técnico de la AEAT de 17-09-2026 a una consulta
-      escrita el 10-09-2026. No tiene dirección pública: es correo, y se cita
-      textual lo que contestó.</li>
+      solución pública, y el 4, el de la copia fiel, con la frase citada de su
+      apartado 2.</li>
     </ul>
     <p class="metodo"><b>Cómo se midió.</b> Las cifras de facturas reales salen
     de catorce ficheros Facturae de terceros validados en local el 20 de

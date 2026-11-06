@@ -286,10 +286,13 @@ class TestLaFechaDelUltimoCambio:
             bitacora.leer_entradas(tmp_path)
 
     def test_las_de_hoy_que_se_han_tocado_lo_dicen(self):
-        """Las dos que se tocaron el 7 y el 30 de octubre, leídas de verdad."""
+        """Las que se tocaron el 30 de octubre y el 6 de noviembre, leídas de verdad."""
         por_nombre = {e.slug: e for e in bitacora.leer_entradas(ARTICULOS)}
-        for slug in ("edifact-reglas-de-2018", "copia-fiel-nadie-traduce"):
-            assert por_nombre[slug].cambiada.isoformat() == "2026-10-30", slug
+        for slug, dia in (("edifact-reglas-de-2018", "2026-10-30"),
+                          ("copia-fiel-nadie-traduce", "2026-11-06"),
+                          ("rectificativas-sin-bg-es-1", "2026-11-06"),
+                          ("orden-contra-el-borrador", "2026-11-06")):
+            assert por_nombre[slug].cambiada.isoformat() == dia, slug
             assert por_nombre[slug].cambiada > por_nombre[slug].fecha, slug
 
 

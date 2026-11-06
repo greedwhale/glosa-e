@@ -9,29 +9,24 @@ la Orden HAC/1028/2026, en el BOE del 05-10-2026). La factura original sigue
 siendo la que es —Facturae, CII, EDIFACT—; lo que viaja a la AEAT es una copia
 escrita en otra sintaxis.
 
-En **UBL 2.5**, desde el 22-09-2026 y por escrito: preguntada si la edición de
-junio de 2026 de la norma vale también fuera de la solución pública, la AEAT
-contestó que `UNE-EN 16931-1:2026` y `UNE-CEN/TS 16931-3-2:2026` —la
-correspondencia sintáctica UBL 2.5 / ISO/IEC 19845— son las aplicables «al
-sistema español de facturación electrónica en su conjunto», y nombró entre los
-casos el envío de copias fieles. Aquí eso no cambia ninguna fila: esta tabla
+En **UBL 2.5**, desde el 22-09-2026: la copia se mide con `UNE-EN
+16931-1:2026` y `UNE-CEN/TS 16931-3-2:2026`, la correspondencia sintáctica
+UBL 2.5 / ISO/IEC 19845, que es la de la solución pública (documento de
+validaciones de la AEAT 0.1.0, apartado 3). Aquí eso no cambia ninguna fila: esta tabla
 dice a qué **término** del anexo va cada cosa, no en qué elemento se escribe.
 Lo que cambia es que ya no hay que decir «UBL» a secas.
 
-Esa traducción no la publica nadie. Preguntada por escrito si pensaba publicar
-la correspondencia entre las sintaxis del artículo 7.1 y los campos del anexo I,
-la AEAT contestó el **17-09-2026** que no: «cae en la responsabilidad de las
-plataformas privadas, o en su caso, de la definición por parte del Ministerio de
-Economía que regula la interconexión». Así que cada plataforma escribe la suya,
-y esta es la de aquí, con sus porqués a la vista.
+Esa traducción no la publica nadie: ni la orden ni el portal de la AEAT traen
+la correspondencia entre las sintaxis del artículo 7.1 y los campos del anexo
+I. Así que cada plataforma escribe la suya, y esta es la de aquí, con sus
+porqués a la vista.
 
-La respuesta trae además la regla que decide el tono de todo este módulo: un
-concepto del original que no tenga equivalente **se puede omitir o llevar en una
-extensión**, y «si el concepto del original no es equivalente, no se realizará
-la validación del dato». Es decir: que a la copia le falte algo del original no
-es un fallo de nadie. Por eso todo lo que sale de aquí es **NOTA**. La orden
-dice lo mismo con otras palabras (artículo 4.2): la copia lleva los conceptos
-del original «que tengan correspondencia semántica equivalente».
+La regla que decide el tono de todo este módulo es de la orden (artículo 4.2):
+la copia lleva los conceptos del original «que tengan correspondencia
+semántica equivalente». Lo que no la tenga se omite o va en una extensión, y
+no hay campo del anexo contra el que comprobarlo. Es decir: que a la copia le
+falte algo del original no es un fallo de nadie. Por eso todo lo que sale de
+aquí es **NOTA**.
 
 Lo que no es esto
 -----------------
@@ -1314,9 +1309,8 @@ CORRESPONDENCIAS: tuple[Correspondencia, ...] = (
         "`urn:cen.eu:en16931:2026#conformant#urn:aeat.es:spfe:1.0.0:extended`, "
         "y BT-23 qué proceso es, "
         "`urn:aeat:names:specification:schema:profile:B2B`, fijo (ni siquiera "
-        "distingue el B2G). La orden lo escribe con `ubl:` y la AEAT contestó "
-        "el 13-10-2026 que el bueno es sin él, como va en el anexo de su portal "
-        "del 21-10-2026. Una factura no dice eso de sí misma; "
+        "distingue el B2G). La orden lo escribe con `ubl:`, y el anexo del "
+        "portal de la AEAT del 21-10-2026, sin él. Una factura no dice eso de sí misma; "
         "lo dice quien la copia. Y de paso deja escrito que la copia se mide "
         "con la edición **2026** de la norma, que es la que trae términos como "
         "BT-179 y BT-180, a los que la orden pone sitio y no ruta. Hasta el "
@@ -2268,9 +2262,10 @@ def _de_una_factura(
                 NOTA,
                 "Esta factura lleva datos que en la copia no tienen dónde "
                 "ponerse: no hay término de la norma que les corresponda ni "
-                "campo del anexo donde escribirlos. Se pueden omitir o llevar "
-                "en una extensión, que es lo que contestó la AEAT el "
-                "17-09-2026 para los conceptos sin equivalente.",
+                "campo del anexo donde escribirlos. No es un fallo de la "
+                "conversión: la orden (artículo 4, apartado 2) lleva a la copia los "
+                "conceptos del original que tengan correspondencia equivalente, "
+                "y estos no la tienen. En el original siguen estando.",
                 campo=f"{etiqueta}Lo que se queda en el original",
                 encontrado=", ".join(se_quedan),
             )

@@ -492,7 +492,7 @@ class TestLaFactura:
 
     def test_en_la_anulacion_el_nombre_en_el_impuesto_es_un_aviso(self, catalogo):
         """Era uno de los dos arreglos de la errata, y hasta el 13-10-2026 se
-        aceptaba sin decir nada. Ese día la AEAT contestó que va en
+        aceptaba sin decir nada. El anexo del portal de la AEAT lo pone en
         cac:PartyLegalEntity: no falta, pero no está donde va."""
         en_el_impuesto = FACTURA.replace(
             "<cbc:CompanyID>B12345674</cbc:CompanyID>",
@@ -503,7 +503,7 @@ class TestLaFactura:
         informe = medir(mensaje("CANCELINVOICE", factura_=en_el_impuesto), catalogo)
         assert codigos(informe) == [("SPFE-MENSAJE-FACTURA", AVISO)]
         aviso = quejas(informe)[0]
-        assert "13-10-2026" in aviso.mensaje and "F-2026-0101" in aviso.mensaje
+        assert "21-10-2026" in aviso.mensaje and "F-2026-0101" in aviso.mensaje
         assert aviso.esperado == "cac:IssuerParty/cac:PartyLegalEntity/cbc:RegistrationName"
         # En el anexo II la ruta está bien escrita, y no se busca en otro sitio.
         assert codigos(medir(mensaje("CANCELPAYMENT", factura_=en_el_impuesto))) == [
@@ -534,8 +534,7 @@ class TestLaFactura:
         assert "debería ser 4" in quejas(informe)[0].mensaje
 
     def test_con_el_prefijo_es_vale(self):
-        """La AEAT contestó el 13-10-2026 que va sin él, y del código único, que
-        si viene se trata igual. La nota lo dice."""
+        """Se acepta con el prefijo y sin él. La nota lo dice."""
         assert codigos(medir(mensaje("CANCELPAYMENT", factura_=FACTURA.replace(
             "B12345674", "ESB12345674")))) == []
 
@@ -644,8 +643,8 @@ class TestLaNota:
         assert con == {"PAYMENT", "SETTLEMENT", "DEFAULT"}
 
     def test_el_tax_scheme_del_nif_puede_ir_vacio(self, catalogo):
-        """Preguntado al buzón el 07-10-2026, porque ninguna tabla dice cuál, y
-        contestado el 13-10-2026: puede ir vacío. El esquema lo admite."""
+        """Ninguna tabla dice cuál, y desde el 13-10-2026 puede ir vacío. El
+        esquema lo admite."""
         vacio = FACTURA.replace("<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>",
                                 "<cac:TaxScheme/>")
         assert vacio != FACTURA
@@ -656,12 +655,11 @@ class TestLaNota:
         con_loc = FACTURA.replace("<cbc:ID>VAT</cbc:ID>", "<cbc:ID>LOC</cbc:ID>")
         assert codigos(medir(mensaje("CANCELPAYMENT", factura_=con_loc))) == []
 
-    def test_el_nif_va_sin_el_prefijo(self):
-        """Hasta el 13-10-2026 decía que valían los dos, el NIF-IVA (BT-31) y el
-        NIF (BT-32), porque la ruta es la de los dos en la factura. Ese día la
-        AEAT contestó que va sin ES."""
+    def test_el_nif_se_acepta_con_el_prefijo_y_sin_el(self):
+        """La ruta es la de los dos en la factura, el NIF-IVA (BT-31) y el NIF
+        (BT-32), y la nota dice que vale con ES y sin él."""
         nota = medir(mensaje("CANCELPAYMENT")).incidencias[0].mensaje
-        assert "va sin el prefijo ES" in nota and "13-10-2026" in nota
+        assert "con el prefijo ES y sin él" in nota and "contest" not in nota
 
     def test_no_dice_lo_que_ha_hecho_la_sede(self):
         """Decía «que todavía no lo ha sacado», sin fecha y sin mirarlo, y lo

@@ -137,8 +137,9 @@ class TestSinFecha:
         assert nota.gravedad == NOTA
         assert "cbc:IssueDate" in nota.mensaje
         assert "ejemplo" in nota.mensaje
-        assert "28-10-2026" in nota.mensaje, (
-            "la nota ya no dice que la AEAT confirmó que la fecha es necesaria")
+        # Lo que cuenta es lo que cualquiera puede comprobar: el ejemplo
+        # publicado y el esquema. Nada de lo que se contestó por correo.
+        assert "15-10-2026" in nota.mensaje and "28-10-2026" not in nota.mensaje
 
     def test_con_fecha_no_hay_nota(self, catalogo):
         assert "SPFE-ACUSE-FECHA" not in [c for c, _ in de_acuse(medir(acuse(), catalogo))]
@@ -248,13 +249,11 @@ class TestCadaFactura:
 
 # --- Los códigos de error de cada factura ----------------------------------------
 #
-# La AEAT contestó el 02-11-2026, por escrito, que el código de una factura que
-# no se da de alta será de una de tres familias: el error del esquema tal cual,
-# la regla del esquematrón de la norma europea (su ejemplo: BR-CO-16) o una
-# regla de negocio suya, SPFE-CORE-XXXX, SPFE-LIST-XXX o BR-ES-XXXX. La lista
-# irá en el apartado de validaciones de su portal, sin terminar ese día, y no
-# dijo en qué campo del acuse va el código: se busca en el estado y en la
-# descripción.
+# La lista de códigos de rechazo de la solución pública no está publicada. Una
+# regla de la norma europea con ficha se explica; una que empiece por
+# SPFE-CORE, SPFE-LIST o BR-ES se nombra y no se traduce. Ningún texto
+# publicado dice en qué campo del acuse va el código: se busca en el estado y
+# en la descripción.
 
 
 class TestLosCodigosDeRechazo:
@@ -288,9 +287,9 @@ class TestLosCodigosDeRechazo:
     @pytest.mark.parametrize("codigo", ["SPFE-CORE-0012", "SPFE-LIST-004", "BR-ES-0101"])
     def test_las_de_la_aeat_se_nombran_y_no_se_traducen(self, codigo):
         aviso = self._aviso(codigo, "Campo mal informado")
-        assert f"{codigo} es una regla de negocio de la AEAT" in aviso.mensaje
-        assert "sin publicar" in aviso.mensaje
-        assert "norma europea" not in aviso.mensaje
+        assert f"{codigo} no es una regla de la norma europea" in aviso.mensaje
+        assert "no está publicada" in aviso.mensaje and "AEAT" not in aviso.mensaje
+        assert f"la regla {codigo} de la norma europea" not in aviso.mensaje
         assert '"Campo mal informado"' in aviso.mensaje
 
     def test_un_codigo_dentro_de_otro_no_cuenta(self):
@@ -300,7 +299,7 @@ class TestLosCodigosDeRechazo:
     def test_el_glosario_cuenta_las_tres_familias(self):
         from validador import glosario
         ficha = glosario.CODIGOS["SPFE-ACUSE-RECHAZADA"]
-        for trozo in ("BR-CO-16", "SPFE-CORE", "SPFE-LIST", "BR-ES", "02-11-2026"):
+        for trozo in ("BR-CO-16", "SPFE-CORE", "SPFE-LIST", "BR-ES", "no está publicada"):
             assert trozo in ficha, trozo
 
 

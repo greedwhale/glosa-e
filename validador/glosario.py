@@ -83,10 +83,10 @@ FAMILIAS: dict[str, str] = {
         "Quien no emita por ella tiene que mandarle una copia fiel en UBL, y "
         "hay conceptos de Facturae que en la copia cambian de sitio, cambian "
         "de importe o no tienen dónde ir. No son fallos de la factura: son "
-        "notas de lo que hay que decidir al copiarla. La correspondencia entre "
-        "sintaxis no la publica nadie (la AEAT contestó el 17-09-2026 que es "
-        "cosa de cada plataforma), así que esta es la de este validador, con "
-        "el porqué de cada fila escrito al lado."
+        "notas de lo que hay que decidir al copiarla. La correspondencia "
+        "entre sintaxis no la publica nadie (ni la orden ni el portal de la "
+        "AEAT la traen), así que esta es la de este validador, con el porqué "
+        "de cada fila escrito al lado."
     ),
     "EDI": (
         "Sintaxis EDIFACT. Es el cuarto formato de la ley y el único que no es "
@@ -939,20 +939,20 @@ CODIGOS: dict[str, str] = {
         'borrado uno sin arreglar nada.'
     ),
     "XSD-VERSION": (
-        'El documento declara una versión de UBL en `UBLVersionID` y usa '
-        'elementos que esa versión no tiene, y contra el esquema de una '
-        'versión posterior pasa. El caso que lo trajo: una factura de la '
-        'solución pública que declara UBL `2.1` y usa `CollectionInvoiceLine`, '
-        'que solo existe en la `2.5`. El esquema de la `2.1` lo cuenta como un '
-        'elemento fuera de sitio, y el informe decía que estaba cambiado de '
-        'orden con la línea de detalle. Es ERROR con cualquier especificación. '
-        'Quien recibe UBL `2.1` lo mide con la `2.1`. La AEAT admite versiones '
-        'anteriores a la `2.5`, y contestó por escrito el 02-11-2026 que con '
-        'elementos de una posterior no hay compatibilidad: hay que declarar '
-        'esa versión. Tampoco acepta que esos conceptos se dejen fuera para '
-        'quedarse en la `2.1`: lo que solo cabe en la línea de cobro son las '
-        'retenciones, los suplidos y las minoraciones, y van si la factura los '
-        'tiene. Hasta ese día, con la especificación de la AEAT era AVISO.'
+        "El documento declara una versión de UBL en `UBLVersionID` y usa "
+        "elementos que esa versión no tiene, y contra el esquema de una "
+        "versión posterior pasa. El caso que lo trajo: una factura de la "
+        "solución pública que declara UBL `2.1` y usa "
+        "`CollectionInvoiceLine`, que solo existe en la `2.5`. El esquema de "
+        "la `2.1` lo cuenta como un elemento fuera de sitio, y el informe "
+        "decía que estaba cambiado de orden con la línea de detalle. Es ERROR"
+        " con cualquier especificación: un documento que usa elementos de la "
+        "`2.5` es de la `2.5`, y tiene que declararlo. La AEAT admite "
+        "versiones anteriores si cumplen el contenido mínimo del anexo I "
+        "(documento de validaciones `0.1.0`, apartado `4.1`), y una `2.1` no lo "
+        "cumple cuando la factura lleva retenciones, suplidos o minoraciones:"
+        " solo caben en la línea de cobro, que la `2.1` no tiene. Hasta el "
+        "03-11-2026, con la especificación de la AEAT era AVISO."
     ),
     "BR-04": (
         'El documento no dice de qué tipo es. Es lo que distingue una factura '
@@ -3278,14 +3278,12 @@ CODIGOS: dict[str, str] = {
         'UBL y en CII: EDIFACT y Facturae no lo escriben.'
     ),
     "BR-CL-11": (
-        'El esquema del registro legal de una parte (BT-30, BT-47, BT-61) no es '
-        'de ISO 6523, la lista de esquemas de identificación. Si es FC: la '
-        'Orden HAC/1028/2026 lo pone al NIF del '
-        'identificador fiscal (BT-32), no al registro legal. El ejemplo UBL '
-        'de la AEAT lo ponía en los dos sitios hasta el 21-10-2026, cuando la '
-        'AEAT contestó que lo quita para no ir contra la norma. La norma admite el registro '
-        'legal sin esquema. Solo se mira en UBL y en CII: EDIFACT y Facturae no '
-        'lo escriben.'
+        "El esquema del registro legal de una parte (BT-30, BT-47, BT-61) no "
+        "es de ISO 6523, la lista de esquemas de identificación. Si es FC: la"
+        " Orden HAC/1028/2026 lo pone al NIF del identificador fiscal "
+        "(BT-32), no al registro legal. La norma admite el registro legal sin"
+        " esquema. Solo se mira en UBL y en CII: EDIFACT y Facturae no lo "
+        "escriben."
     ),
     "BR-CL-13": (
         'La lista de la clasificación de un artículo (BT-158), la que dice de '
@@ -3443,12 +3441,11 @@ CODIGOS: dict[str, str] = {
         "El documento dice ser de la solución pública, por el identificador "
         "de la orden o por el CIUS del borrador de abril, y no es UBL. El "
         "anexo I solo describe los campos en UBL, y a qué corresponden en "
-        "Facturae, CII o EDIFACT no lo publica nadie: preguntada por escrito, "
-        "la AEAT contestó el 17-09-2026 que esa correspondencia es cosa de "
-        "cada plataforma privada o de lo que defina el Ministerio de Economía "
-        "sobre interconexión. Así que las reglas del anexo no se han "
-        "comprobado. Para la solución pública, la AEAT ha dicho que solo "
-        "admitirá UBL 2.5."
+        "Facturae, CII o EDIFACT no lo publica nadie: ni la orden ni el "
+        "portal de la AEAT traen esa correspondencia. Así que las reglas del "
+        "anexo no se han comprobado. La solución pública recibe documentos "
+        "basados en UBL 2.5 (documento de validaciones de la AEAT, versión "
+        "`0.1.0`, apartado 3)."
     ),
     "SPFE-ESPECIFICACION": (
         "El identificador de especificación (cbc:CustomizationID) no es el que "
@@ -3464,29 +3461,28 @@ CODIGOS: dict[str, str] = {
     ),
     "SPFE-PROCESO": (
         "Falta el tipo de proceso de negocio (cbc:ProfileID) o no es el que "
-        "vale, que es uno solo: urn:aeat:names:specification:schema:profile:B2B. "
-        "En la norma europea este campo es opcional, y la orden lo hace "
-        "obligatorio. La orden publicada en el BOE el 05-10-2026 lo escribe con "
-        "`ubl:`, urn:aeat:names:specification:ubl:schema:profile:B2B, y la AEAT "
-        "contestó por escrito el 13-10-2026 que el bueno es sin él, como el "
-        "resto de campos y como en su ejemplo del 02-10-2026, y así lo escribe "
-        "el anexo que publicó en su portal el 21-10-2026. El del BOE sale "
-        "como aviso, y no como error, porque es lo que dice el texto publicado. "
-        "El del borrador de abril, urn:aeat:names:specification:ubl:schema:B2B, "
-        "sale como error."
+        "vale, que es uno solo: "
+        "urn:aeat:names:specification:schema:profile:B2B. En la norma europea"
+        " este campo es opcional, y la orden lo hace obligatorio. La orden "
+        "publicada en el BOE el 05-10-2026 lo escribe con `ubl:`, "
+        "urn:aeat:names:specification:ubl:schema:profile:B2B, y el anexo que "
+        "la AEAT publicó en su portal el 21-10-2026 lo escribe sin él, como "
+        "el resto de campos. El del BOE sale como aviso, y no como error, "
+        "porque es lo que dice el texto publicado. El del borrador de abril, "
+        "urn:aeat:names:specification:ubl:schema:B2B, sale como error."
     ),
     "SPFE-CALIFICADOR": (
-        "Un valor de las listas L7, L8 o L10 va sin el calificador de su lista "
-        "delante: una línea de cobro RETE en vez de "
-        "urn:aeat:names:specification:schema:add:RETE, una propiedad REGI en vez "
-        "de urn:aeat:names:specification:schema:lin:REGI, un documento QR en "
-        "vez de urn:aeat:names:specification:schema:QR. Las filas de la orden "
-        "dan solo el valor, y cada lista trae su calificador aparte; la AEAT "
-        "contestó por escrito el 13-10-2026 que se escribe el calificador "
-        "seguido del valor, en las tres listas, como en su ejemplo del "
-        "02-10-2026. Es un aviso y no un error porque lo que dice el BOE es el "
-        "valor solo. El valor se reconoce igual de las dos maneras, y lo demás "
-        "se mide: sale un aviso por factura, con todos los que van sin él."
+        "Un valor de las listas L7, L8 o L10 va sin el calificador de su "
+        "lista delante: una línea de cobro RETE en vez de "
+        "urn:aeat:names:specification:schema:add:RETE, una propiedad REGI en "
+        "vez de urn:aeat:names:specification:schema:lin:REGI, un documento QR"
+        " en vez de urn:aeat:names:specification:schema:QR. Las filas de la "
+        "orden dan solo el valor, y cada lista trae su calificador aparte. "
+        "Glosa-e espera el calificador seguido del valor, en las tres listas,"
+        " que es lo que dice de qué lista es cada valor. Es un aviso y no un "
+        "error porque lo que dice el BOE es el valor solo. El valor se "
+        "reconoce igual de las dos maneras, y lo demás se mide: sale un aviso"
+        " por factura, con todos los que van sin él."
     ),
     "SPFE-COPIA": (
         "La factura no dice si es el original o una copia. En UBL es el campo "
@@ -3498,12 +3494,11 @@ CODIGOS: dict[str, str] = {
         "escriba `True` y `False`: con mayúscula no pasa el esquema."
     ),
     "SPFE-TIPO-DE-FACTURA": (
-        "El tipo de factura no está en la lista L1 de la orden: 380, 384, 388, "
-        "389 o 471. El caso típico es el 381, el abono de la norma europea, "
-        "que en la solución pública no existe: una rectificativa es un Invoice "
-        "de tipo 384, o 471 si la expide el destinatario. La AEAT lo confirmó "
-        "por escrito el 23-09-2026: no se aceptan InvoiceType de tipo 381 en "
-        "L1. También sale si el documento es un CreditNote."
+        "El tipo de factura no está en la lista L1 de la orden: 380, 384, "
+        "388, 389 o 471. El caso típico es el 381, el abono de la norma "
+        "europea, que en la solución pública no existe: una rectificativa es "
+        "un Invoice de tipo 384, o 471 si la expide el destinatario. También "
+        "sale si el documento es un CreditNote."
     ),
     "SPFE-RECTIFICATIVA": (
         "Una factura rectificativa (384 o 471) no dice qué rectifica, o lo dice "
@@ -3560,24 +3555,25 @@ CODIGOS: dict[str, str] = {
     "SPFE-NIF": (
         "Falta el NIF del vendedor o del comprador donde lo pide la orden, o "
         "está sin lo que la orden le pide. Admite dos sitios: un "
-        "cac:PartyTaxScheme con cac:TaxScheme/cbc:ID `VAT` (BT-31 del vendedor, "
-        "BT-48 del comprador), o uno con `LOC` y el atributo schemeID `FC` en "
-        "el NIF (BT-32, BT-47). El borrador de abril solo admitía `VAT`. La "
-        "norma europea deja opcional el identificador fiscal; la orden lo hace "
-        "obligatorio para las dos partes. Si el NIF está con otro impuesto o "
-        "sin el atributo, el informe dice qué hay. Desde el 11-10-2026 sale "
-        "también cuando el NIF del vendedor va en BT-32 y falta su "
-        "identificador de inscripción legal (BT-30), que la orden pide en ese "
-        "caso y describe como su NIF; y cuando el NIF-IVA no lleva el prefijo "
-        "de España, ES, que la orden pide y la norma no (admite el de cualquier "
-        "país). Lo del comprador es un error desde el 13-10-2026: su fila lo "
-        "llama NIF del vendedor, y la AEAT contestó ese día que es una errata y "
-        "que el prefijo es para él; hasta entonces era un aviso. "
-        "Desde el 12-10-2026 se mira también qué lleva BT-30: el NIF del "
-        "vendedor, con el prefijo ES o sin él. Otra cosa, como un registro "
-        "mercantil o el NIF de otro, es un error con el NIF en BT-32 y un aviso "
-        "sin él, porque entonces la orden no lo pide y la norma admite ahí el "
-        "de cualquier registro oficial."
+        "cac:PartyTaxScheme con cac:TaxScheme/cbc:ID `VAT` (BT-31 del "
+        "vendedor, BT-48 del comprador), o uno con `LOC` y el atributo "
+        "schemeID `FC` en el NIF (BT-32, BT-47). El borrador de abril solo "
+        "admitía `VAT`. La norma europea deja opcional el identificador "
+        "fiscal; la orden lo hace obligatorio para las dos partes. Si el NIF "
+        "está con otro impuesto o sin el atributo, el informe dice qué hay. "
+        "Desde el 11-10-2026 sale también cuando el NIF del vendedor va en "
+        "BT-32 y falta su identificador de inscripción legal (BT-30), que la "
+        "orden pide en ese caso y describe como su NIF; y cuando el NIF-IVA "
+        "no lleva el prefijo de España, ES, que la orden pide y la norma no "
+        "(admite el de cualquier país). Lo del comprador es un error desde el"
+        " 13-10-2026: su fila, BT-48, lo llama NIF del vendedor, una errata a"
+        " la vista: BT-48 es el identificador del comprador en la norma "
+        "europea. Hasta ese día era un aviso. Desde el 12-10-2026 se mira "
+        "también qué lleva BT-30: el NIF del vendedor, con el prefijo ES o "
+        "sin él. Otra cosa, como un registro mercantil o el NIF de otro, es "
+        "un error con el NIF en BT-32 y un aviso sin él, porque entonces la "
+        "orden no lo pide y la norma admite ahí el de cualquier registro "
+        "oficial."
     ),
     "SPFE-DIRECCION": (
         "A la dirección del vendedor o del comprador le falta algo que el "
@@ -3843,19 +3839,16 @@ CODIGOS: dict[str, str] = {
         "especificación, y se miden con la tabla de cada uno, que sale del "
         "XML del BOE. No se mide lo que la orden deja a la Sede electrónica "
         "de la AEAT (las especificaciones técnicas y la volumetría), ni la "
-        "cabecera de la respuesta, ni que la factura "
-        "exista o que las fechas sean ciertas. El NIF del emisor va sin el "
-        "prefijo ES, y su cac:TaxScheme, que el esquema exige y ninguna tabla "
-        "da, puede ir vacío: lo contestó la AEAT por escrito el 13-10-2026. "
-        "Con el prefijo también se acepta. La tabla del mensaje de anulación "
-        "escribe dos rutas que no existen en UBL 2.5 (la factura anulada "
-        "dentro de cac:Response y el nombre del vendedor dentro de "
-        "cac:PartyTaxScheme). La AEAT contestó el 13-10-2026 que sobra "
-        "cac:Response y que el nombre va en cac:PartyLegalEntity, como en el "
-        "anexo II, y así lo escribe el anexo que publicó en su portal el "
-        "21-10-2026. En cada anulación la nota dice cómo se han leído. "
-        "Que no salga ninguna queja SPFE- no quiere decir que el "
-        "mensaje cumpla la orden."
+        "cabecera de la respuesta, ni que la factura exista o que las fechas "
+        "sean ciertas. El NIF del emisor se acepta con el prefijo ES y sin "
+        "él, y su cac:TaxScheme, que el esquema exige y ninguna tabla da, "
+        "puede ir vacío. La tabla del mensaje de anulación escribe dos rutas "
+        "que no existen en UBL 2.5 (la factura anulada dentro de cac:Response"
+        " y el nombre del vendedor dentro de cac:PartyTaxScheme). El anexo "
+        "que la AEAT publicó en su portal el 21-10-2026 las corrige: sin "
+        "cac:Response, y el nombre en cac:PartyLegalEntity, como en el anexo "
+        "II. En cada anulación la nota dice cómo se han leído. Que no salga "
+        "ninguna queja SPFE- no quiere decir que el mensaje cumpla la orden."
     ),
     "SPFE-MENSAJE-FECHA": (
         "Falta la fecha que el mensaje comunica, en el cbc:EffectiveDate de "
@@ -3896,8 +3889,8 @@ CODIGOS: dict[str, str] = {
         "anexo I, que es la de los tipos de factura."
     ),
     "SPFE-MENSAJE-FACTURA": (
-        "El mensaje no identifica bien la factura de la que informa. La lleva "
-        "en cac:DocumentResponse/cac:DocumentReference con cuatro datos, "
+        "El mensaje no identifica bien la factura de la que informa. La lleva"
+        " en cac:DocumentResponse/cac:DocumentReference con cuatro datos, "
         "todos obligatorios: el número (cbc:ID), la fecha de expedición "
         "(cbc:IssueDate), el NIF del emisor "
         "(cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID) y su nombre o "
@@ -3907,30 +3900,30 @@ CODIGOS: dict[str, str] = {
         "la orden). Sale también si el NIF no es válido, en aviso si es de "
         "otro país, y si un mensaje del anexo II, que informa de una sola "
         "factura, lleva más de una. Si el emisor lleva dos NIF, el NIF-IVA y "
-        "el NIF, se mira cada uno. La anulación admite varias facturas, y sus "
-        "datos se buscan también dentro de cac:Response, donde los pone su "
-        "tabla en el BOE, aunque la AEAT contestó el 13-10-2026 que ahí sobran "
-        "y el anexo de su portal del 21-10-2026 ya no los pone ahí. Si el "
-        "nombre del emisor de una anulación solo está en el cbc:RegistrationName "
-        "de cac:PartyTaxScheme, sale un aviso: va en cac:PartyLegalEntity, "
-        "contestó también la AEAT."
+        "el NIF, se mira cada uno. La anulación admite varias facturas, y sus"
+        " datos se buscan también dentro de cac:Response, donde los pone su "
+        "tabla en el BOE, aunque el anexo que la AEAT publicó en su portal el"
+        " 21-10-2026 ya no los pone ahí. Si el nombre del emisor de una "
+        "anulación solo está en el cbc:RegistrationName de "
+        "cac:PartyTaxScheme, sale un aviso: ese anexo lo pone en "
+        "cac:PartyLegalEntity."
     ),
     "SPFE-ACUSE-ALCANCE": (
         "El documento es un acuse de la solución pública, el DocumentStatus "
-        "de UBL con que la AEAT contesta a sus servicios web (a todos menos a "
-        "las descargas), y la nota dice con qué se ha leído y qué no. Es una "
-        "nota y no un fallo. Lo que se sabe de un acuse está en el documento "
-        "de formatos de entrada y salida que la AEAT publicó en su Portal de "
-        "Desarrolladores el 20-10-2026 y en su ejemplo de remisión del "
-        "15-10-2026: la cabecera dice 200 si todas las facturas se aceptaron, "
-        "406 si solo una parte y 400 si ninguna, y cada factura lleva su "
-        "número, su fecha, el NIF de quien la emite, su estado y su "
-        "localizador. De los estados de una factura solo está publicado el "
+        "de UBL con que la solución pública responde en sus servicios web (a "
+        "todos menos a las descargas), y la nota dice con qué se ha leído y "
+        "qué no. Es una nota y no un fallo. Lo que se sabe de un acuse está "
+        "en el documento de formatos de entrada y salida que la AEAT publicó "
+        "en su Portal de Desarrolladores el 20-10-2026 y en su ejemplo de "
+        "remisión del 15-10-2026: la cabecera dice 200 si todas las facturas "
+        "se aceptaron, 406 si solo una parte y 400 si ninguna, y cada factura"
+        " lleva su número, su fecha, el NIF de quien la emite, su estado y su"
+        " localizador. De los estados de una factura solo está publicado el "
         "200, el de dada de alta. Los códigos de error no, y se enseñan tal "
-        "cual. No se mira el sobre ebXML que acompaña al acuse, que es el que "
-        "dice a qué servicio y a qué envío contesta, ni que las facturas "
-        "existan o que el localizador valga. El acuse no dice de quién es: "
-        "se lee como de la solución pública porque es quien usa este documento."
+        "cual. No se mira el sobre ebXML que acompaña al acuse, que es el que"
+        " dice a qué servicio y a qué envío contesta, ni que las facturas "
+        "existan o que el localizador valga. El acuse no dice de quién es: se"
+        " lee como de la solución pública porque es quien usa este documento."
     ),
     "SPFE-ACUSE-RESULTADO": (
         "Lo que dice la cabecera del acuse, en castellano, y cuántas facturas "
@@ -3973,14 +3966,13 @@ CODIGOS: dict[str, str] = {
         "cbc:DocumentStatusCode no es 200, o no trae ninguno. Es un aviso y "
         "no un error porque el acuse está bien hecho; lo que dice es que esa "
         "factura no ha entrado. El aviso trae el código y la descripción tal "
-        "cual vienen. La AEAT contestó por escrito el 02-11-2026 que el código "
-        "será de una de tres familias: el error del esquema, una regla de la "
-        "norma europea como BR-CO-16, o una regla de negocio suya, "
-        "SPFE-CORE, SPFE-LIST o BR-ES, con su número. Si es una regla europea "
-        "que Glosa-e explica, el aviso dice qué incumple con la primera frase "
-        "de su ficha. Si es de la AEAT, la nombra como suya y no la traduce, "
-        "porque la lista no está publicada todavía. En los demás casos, el "
-        "motivo es el que diga la descripción."
+        "cual vienen. Si el código es el de una regla de la norma europea que"
+        " Glosa-e explica, como BR-CO-16, el aviso dice qué incumple con la "
+        "primera frase de su ficha. Si no es de la norma europea, como uno "
+        "que empiece por SPFE-CORE, SPFE-LIST o BR-ES, lo nombra y no lo "
+        "traduce, porque la lista de códigos de la solución pública no está "
+        "publicada todavía. En los demás casos, el motivo es el que diga la "
+        "descripción."
     ),
     "SPFE-ACUSE-FECHA": (
         "Al acuse le falta su fecha, cbc:IssueDate, que el esquema de UBL "
@@ -3989,9 +3981,7 @@ CODIGOS: dict[str, str] = {
         "que es lo que encuentra donde esperaba la fecha, y por eso su error "
         "dice que cac:DocumentResponse no puede ir ahí. El acuse del ejemplo "
         "de remisión que la AEAT publicó el 15-10-2026 no la lleva, y es su "
-        "único fallo de forma: con la fecha puesta, valida. La AEAT contestó "
-        "por correo el 28-10-2026 que la fecha es necesaria y que corregirá "
-        "el ejemplo; el corregido que envió la lleva y pasa sin errores."
+        "único fallo de forma: con la fecha puesta, valida."
     ),
     "COPIA-TOTAL": (
         "Cuando la factura lleva retenciones, su total no es el total con "
@@ -4023,15 +4013,15 @@ CODIGOS: dict[str, str] = {
         "salió en el BOE del 05-10-2026."
     ),
     "COPIA-SIN-SITIO": (
-        "La factura lleva conceptos que en la copia no tienen dónde ir: ni la "
-        "norma europea ni el anexo tienen campo para ellos. Salen todos en una "
-        "sola nota, con su importe los que lo tengan (un importe que se queda "
-        "fuera ya no cuadra con ningún total de la copia) y solo nombrados los "
-        "demás: el idioma, el lugar de expedición, el fax, la página web o el "
-        "CNAE de una de las partes. No es un fallo. Preguntada por escrito, la "
-        "AEAT contestó el 17-09-2026 que un concepto sin equivalente se puede "
-        "omitir o llevar en una extensión, y que lo que no sea equivalente no "
-        "se validará."
+        "La factura lleva conceptos que en la copia no tienen dónde ir: ni la"
+        " norma europea ni el anexo tienen campo para ellos. Salen todos en "
+        "una sola nota, con su importe los que lo tengan (un importe que se "
+        "queda fuera ya no cuadra con ningún total de la copia) y solo "
+        "nombrados los demás: el idioma, el lugar de expedición, el fax, la "
+        "página web o el CNAE de una de las partes. No es un fallo: la orden "
+        "(artículo 4, apartado 2) lleva a la copia los conceptos del original que "
+        "tengan correspondencia equivalente, y estos no la tienen. Como el "
+        "anexo no les da campo, no hay nada contra lo que comprobarlos."
     ),
     "COPIA-SERIE": (
         "Facturae guarda la serie y el número de la factura en dos campos, y "

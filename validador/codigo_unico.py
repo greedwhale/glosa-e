@@ -25,13 +25,12 @@ longitud, y su artículo 6 define el código único como la concatenación del N
 del emisor, la serie y número y la fecha de expedición según lo especificado
 en el anexo I, que no lo especifica: ni separador ni formato.
 
-Se le preguntó al buzón el 07-10-2026, y contestó el 13-10-2026 (en el README,
-en la sección de esa consulta). La concatenación no es literal: el
-identificador son los tres datos por separado. La fecha va en AAAA-MM-DD. El
-NIF, sin ES, y si viene el sistema lo trata igual sin él. Y `BT-1` es la serie
-seguida del número, sin separador. Es lo que aquí ya se hacía: los tres datos
-se comparan por separado, el NIF con `limpiar_nif`, y la serie y el número se
-pegan sin separador, como en Verifactu. La longitud no la dijo, y el tope
+Lo que aquí se decide, desde el 13-10-2026: la concatenación no es literal,
+el identificador son los tres datos por separado. La fecha va en AAAA-MM-DD.
+El NIF se acepta con ES y sin él. Y `BT-1` es la serie seguida del número, sin
+separador. Los tres datos se comparan por separado, el NIF con `limpiar_nif`,
+y la serie y el número se pegan sin separador, como en Verifactu. La longitud
+no la fija ningún texto publicado, y el tope
 sigue tomado del esquema de Verifactu (RD 1007/2023), donde el campo
 equivalente admite 60 caracteres. Si se fija otro, se cambia esta constante,
 y ya está.
@@ -142,9 +141,8 @@ class CodigoUnico:
         """Serie y número tal y como identifican la factura.
 
         Facturae los guarda en dos campos y UBL en uno solo. Se concatenan sin
-        separador, que es como los trata Verifactu y como contestó el buzón el
-        13-10-2026 que es `BT-1`: si la serie necesita un guion, ya lo lleva
-        dentro.
+        separador, que es como los trata Verifactu y como se lee `BT-1` desde
+        el 13-10-2026: si la serie necesita un guion, ya lo lleva dentro.
         """
         return f"{self.serie or ''}{self.numero}"
 

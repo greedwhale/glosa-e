@@ -31,19 +31,16 @@ alta, que es lo que se sabe, y el código y su descripción van tal cual.
 
 Los códigos de error
 --------------------
-La AEAT contestó el 02-11-2026, por escrito y a una consulta de Glosa-e, de qué
-familias serán: el error del esquema tal cual, el código de la regla del
-esquematrón de la norma europea (su ejemplo: `BR-CO-16`) o una regla de
-negocio suya, `SPFE-CORE-XXXX` o `SPFE-LIST-XXX` para los tipos básicos y las
-listas, o `BR-ES-XXXX`. La lista irá en el apartado de validaciones de su
-portal de desarrolladores, que ese día no estaba terminado.
-
-Con eso se hace lo que se puede sin inventar. Una regla europea que tiene
-ficha se explica con la primera frase de la ficha, que es la de cualquier
-factura que la incumpla; una de la AEAT se nombra como suya y sin traducir,
-porque su significado no está publicado. No dijo en qué campo va el código,
+La lista de códigos de rechazo de la solución pública no está publicada. Se
+hace lo que se puede sin inventar. Una regla del esquematrón de la norma
+europea que tiene ficha, como `BR-CO-16`, se explica con la primera frase de
+la ficha, que es la de cualquier factura que la incumpla. Un código que no es
+de la norma europea, como uno que empiece por `SPFE-CORE`, `SPFE-LIST` o
+`BR-ES` (las familias que se esperan para las reglas propias de la solución
+pública, desde el 03-11-2026), se nombra y no se traduce, porque su
+significado no está publicado. Nada publicado dice en qué campo va el código,
 así que se busca en el estado y, si ahí no está, en la descripción. Los
-errores de esquema no se reconocen: no dijo cómo se escriben, y adivinarlo
+errores de esquema no se reconocen: no se sabe cómo se escriben, y adivinarlo
 sería poner nombre a lo que no se ha visto.
 
 Lo que el ejemplo no trae
@@ -56,11 +53,6 @@ la fecha puesta valida. El error lo da el esquema, como a cualquier documento
 quien venga), y la nota `SPFE-ACUSE-FECHA` dice qué es, porque lo que el
 esquema contesta es `XSD-ORDEN` sobre `cac:DocumentResponse`, «no puede ir en
 este sitio», y eso no deja ver que lo que falta es la fecha.
-
-La AEAT lo confirmó por correo el 28-10-2026: tenía una versión equivocada, la
-fecha es necesaria y corregirá el ejemplo publicado. El corregido que adjuntó,
-con la fecha, pasa sin errores (medido ese día). Es lo que ya se hacía, así que
-el error se queda como estaba; cambia lo que se cuenta.
 """
 
 from __future__ import annotations
@@ -188,8 +180,7 @@ def _sin_fecha() -> Incidencia:
         "cac:DocumentResponse, que es lo que viene donde esperaba la fecha, y "
         "por eso su error dice que cac:DocumentResponse no puede ir ahí. El "
         "acuse del ejemplo de remisión que la AEAT publicó el 15-10-2026 "
-        "tampoco la lleva, y la AEAT contestó el 28-10-2026 que la fecha es "
-        "necesaria y que corregirá ese ejemplo.",
+        "tampoco la lleva.",
         campo="cbc:IssueDate",
         esperado="la fecha del acuse, detrás de cbc:ID",
         encontrado="(no está)",
@@ -286,8 +277,8 @@ def _esperado(codigo: str) -> str:
     }[codigo]
 
 
-# Las reglas de negocio de la AEAT, con las familias que nombró el 02-11-2026.
-# Van antes que las europeas porque `BR-ES-` también empieza por `BR-`.
+# Los códigos que no son de la norma europea y se esperan de la solución
+# pública. Van antes que las europeas porque `BR-ES-` también empieza por `BR-`.
 _DE_LA_AEAT = re.compile(r"(?<![\w-])(?:SPFE-CORE|SPFE-LIST|BR-ES)-[A-Z0-9]+(?![\w-])")
 # Las del esquematrón de la norma europea, como `BR-CO-16` o `UBL-SR-43`.
 _EUROPEA = re.compile(r"(?<![\w-])(?:BR|UBL)(?:-[A-Z0-9]+)+(?![\w-])")
@@ -306,9 +297,9 @@ def _regla(*textos: str) -> str:
         aeat = _DE_LA_AEAT.search(texto)
         if aeat:
             return (
-                f"{aeat.group(0)} es una regla de negocio de la AEAT, sin "
-                "publicar: irá en el apartado de validaciones de su portal de "
-                "desarrolladores, y aquí no se traduce."
+                f"{aeat.group(0)} no es una regla de la norma europea, y la "
+                "lista de códigos de la solución pública no está publicada: "
+                "aquí no se traduce."
             )
         europea = _EUROPEA.search(texto)
         if europea:

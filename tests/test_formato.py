@@ -566,7 +566,7 @@ class TestLaEdicionDe2026:
 
         Si el trozo dejara de estar en uno de los dos, a ese se le volvería a
         suponer la 2.1 sin que nada lo dijera, que es lo que pasó con el
-        ejemplo de la AEAT del 02-10-2026 hasta que se midió.
+        identificador de la orden hasta que se midió.
         """
         from validador import cius_es
 
@@ -622,9 +622,9 @@ class TestQueVersionDeUblSeSupone:
         assert "solución pública" in d.motivo
 
     def test_sin_version_y_con_el_identificador_de_la_orden_tambien_2_5(self):
-        """El ejemplo que mandó la AEAT el 02-10-2026 no lleva `UBLVersionID`.
+        """Una factura sin `UBLVersionID`.
 
-        Y declara el identificador que luego fijó la orden, sin el trozo del
+        Y con el identificador que fijó la orden, sin el trozo del
         CIUS de abril. Mientras la suposición colgó de ese trozo se le suponía
         la 2.1, y unas líneas de cobro, que solo existen en la 2.5, salían
         «cambiadas de sitio».

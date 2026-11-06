@@ -28,11 +28,11 @@ id: version-de-ubl-y-rechazos-de-la-aeat
 titulo: XSD-VERSION es error también en la solución pública, y los rechazos se explican
 texto: Una factura de la solución pública que declara UBL 2.1 y usa una
   línea de cobro, que es de la 2.5, sale ahora con un error y no con un
-  aviso: la AEAT ha contestado que no hay compatibilidad y que esos
-  conceptos no se pueden dejar fuera por usar la 2.1. Y en los acuses, una
-  factura rechazada por una regla de la norma europea, como BR-CO-16, sale
-  con lo que esa regla pide; si es una regla de negocio de la AEAT, se dice
-  que es suya y que su lista no está publicada.
+  aviso: lo que usa elementos de la 2.5 es de la 2.5, y esos conceptos no
+  se pueden dejar fuera por usar la 2.1. Y en los acuses, una factura
+  rechazada por una regla de la norma europea, como BR-CO-16, sale con lo
+  que esa regla pide; si el código no es de la norma europea, se nombra y se
+  dice que la lista de la solución pública no está publicada.
 
 fecha: 2026-11-01
 id: comprobador-de-copia-fiel-pago-y-textos
@@ -158,8 +158,8 @@ titulo: SPFE-CALIFICADOR: el calificador de las listas del anexo
 nuevos: SPFE-CALIFICADOR
 texto: Un aviso cuando un valor de las listas L7, L8 o L10 del anexo va sin
   el calificador de su lista delante, como RETE en vez de
-  urn:aeat:names:specification:schema:add:RETE. Sale de lo que contestó
-  la AEAT el 13-10-2026.
+  urn:aeat:names:specification:schema:add:RETE. El calificador seguido del
+  valor es lo que dice de qué lista es.
 
 fecha: 2026-10-12
 id: mensajes-de-la-orden

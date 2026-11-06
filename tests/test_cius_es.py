@@ -121,8 +121,8 @@ class TestLasConstantes:
         """El valor de BT-24 **es** la declaración de que esto es de la solución pública.
 
         Va escrito en la descripción del campo, no en una columna aparte, así
-        que se comprueba donde está. Es el que enseñó la AEAT en su ejemplo del
-        02-10-2026, y no el CIUS del borrador.
+        que se comprueba donde está. Es el de la orden, y no el CIUS del
+        borrador.
         """
         bt24 = [c for c in cius_es.CAMPOS if c.id == "BT-24"]
         assert len(bt24) == 1

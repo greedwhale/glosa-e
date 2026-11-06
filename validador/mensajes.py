@@ -66,12 +66,11 @@ eso las dice la nota `SPFE-MENSAJE-ALCANCE` en cada anulación:
   `cbc:RegistrationName`. Se buscan los dos, y solo falta si no está en
   ninguno; pero en el segundo es un AVISO.
 
-El buzón contestó el 13-10-2026 las dos: sobra `cac:Response`, y el nombre va
-en `cac:PartyLegalEntity`, como en el anexo II. El anexo que la AEAT publicó en
-su portal el 21-10-2026 ya lo escribe así (medido el 24-10-2026), pero las
-tablas salen del BOE, que no cambia, y se siguen buscando los dos sitios.
-Contestó también lo que ninguna
-tabla decía: el NIF del emisor va sin ES, y su `cac:TaxScheme` puede ir vacío.
+El anexo que la AEAT publicó en su portal el 21-10-2026 corrige las dos: sin
+`cac:Response`, y el nombre en `cac:PartyLegalEntity`, como en el anexo II
+(medido el 24-10-2026). Pero las tablas salen del BOE, que no cambia, y se
+siguen buscando los dos sitios. Lo que ninguna tabla dice se decide aquí: el
+NIF del emisor se acepta con ES y sin él, y su `cac:TaxScheme` puede ir vacío.
 
 Lo que no se mide
 -----------------
@@ -619,10 +618,9 @@ def _facturas(respuesta, plan: Plan) -> list[Incidencia]:
                 AVISO,
                 f"El nombre del emisor de {cual} va en el cbc:RegistrationName de "
                 "cac:PartyTaxScheme. La tabla de la anulación lo pone en un sitio "
-                "que no existe en UBL 2.5, y la AEAT contestó por escrito el "
-                "13-10-2026 que va en cac:PartyLegalEntity, como en el anexo II, "
-                "y así lo escribe el anexo que publicó en su portal el "
-                "21-10-2026.",
+                "que no existe en UBL 2.5, y el anexo que la AEAT publicó en su "
+                "portal el 21-10-2026 lo pone en cac:PartyLegalEntity, como en "
+                "el anexo II.",
                 campo="Nombre o razón social del emisor",
                 esperado=_RUTA_DEL_NOMBRE,
                 encontrado="en cac:PartyTaxScheme/cbc:RegistrationName",
@@ -685,10 +683,9 @@ def _alcance(medidas: list[Plan], otras: int) -> Incidencia:
         "exista y sea esa, ni que las fechas sean ciertas"
         + (": la de vencimiento se calcula con la Ley 3/2004, y eso no se ve en "
            "el mensaje." if vencimiento else "."),
-        "El NIF del emisor va sin el prefijo ES, y su cac:TaxScheme, que el "
-        "esquema exige y ninguna tabla da, puede ir vacío: lo contestó la AEAT "
-        "por escrito el 13-10-2026. Con el prefijo también se acepta, porque "
-        "del código único dijo que, si viene, el sistema lo trata igual.",
+        "El NIF del emisor se acepta con el prefijo ES y sin él, y su "
+        "cac:TaxScheme, que el esquema exige y ninguna tabla da, puede ir "
+        "vacío.",
     ]
     erratas = {e for c in codigos for e in PLANES[c].erratas}
     if erratas:
@@ -696,11 +693,10 @@ def _alcance(medidas: list[Plan], otras: int) -> Incidencia:
             "La tabla del mensaje de anulación escribe dos rutas que no existen "
             "en UBL 2.5, y un mensaje escrito así no pasa el esquema: cuelga la "
             "factura anulada de cac:Response y pone el nombre del vendedor en "
-            "cac:PartyTaxScheme/cac:PartyLegalEntity. La AEAT contestó el "
-            "13-10-2026 que sobra cac:Response y que el nombre va en "
-            "cac:PartyLegalEntity, como en el anexo II, y así lo escribe el anexo "
-            "que publicó en su portal el 21-10-2026. Los datos de la "
-            "factura se buscan donde los pone el anexo II, en "
+            "cac:PartyTaxScheme/cac:PartyLegalEntity. El anexo que la AEAT "
+            "publicó en su portal el 21-10-2026 las corrige: sin cac:Response, "
+            "y el nombre en cac:PartyLegalEntity, como en el anexo II. Los "
+            "datos de la factura se buscan donde los pone el anexo II, en "
             "cac:DocumentResponse/cac:DocumentReference, y también donde los "
             "pone esta tabla, para no decir que faltan cuando están; el nombre, "
             "en cac:PartyLegalEntity, y si solo está en el cbc:RegistrationName "
