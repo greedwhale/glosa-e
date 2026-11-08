@@ -46,11 +46,13 @@ versionan, como el resto de documentos de terceros:
 from __future__ import annotations
 
 import re
+from collections import Counter
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from urllib.parse import unquote_plus, urlsplit
 
 from validador import cifras
+from validador.sintaxis import a_decimal
 from validador.incidencias import AVISO, NOTA, Incidencia
 
 # El código va escrito en cada llamada, y no en una constante: `codigos.py` lee
@@ -129,16 +131,22 @@ def _parametros(consulta: str) -> tuple[list[tuple[str, str]], list[str]]:
             continue
         nombre, _, valor = trozo.partition("=")
         pares.append((unquote_plus(nombre), unquote_plus(valor)))
-    nombres = [nombre for nombre, _ in pares]
-    repetidos = sorted({nombre for nombre in nombres if nombres.count(nombre) > 1})
+    # Con `Counter` y no con `list.count` por cada nombre, que recorre la lista
+    # entera cada vez: con el doble de parámetros, cuatro veces más. Medido,
+    # 0,6 s con 20.000 (en HALLAZGOS).
+    veces = Counter(nombre for nombre, _ in pares)
+    repetidos = sorted(nombre for nombre, cuantas in veces.items() if cuantas > 1)
     return pares, repetidos
 
 
 def _importe(texto: str) -> Decimal | None:
-    try:
-        return Decimal(texto)
-    except InvalidOperation:
-        return None
+    """Con la misma lectura que el resto de importes: solo `xs:decimal`.
+
+    Era `Decimal(texto)` a secas, que acepta `1E-900000000`, `NaN` y `sNaN`. El
+    primero escribía novecientos millones de ceros al ponerlo en una frase, y
+    los otros dos tiraban la comparación y con ella el informe (en HALLAZGOS).
+    """
+    return a_decimal(texto)
 
 
 def revisar(

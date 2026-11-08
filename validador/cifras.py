@@ -55,15 +55,39 @@ from validador.sintaxis import redondear
 
 
 def _agrupar(entera: str) -> str:
-    """Los miles con punto, desde cinco cifras: 1234 se queda, 12345 no."""
+    """Los miles con punto, desde cinco cifras: 1234 se queda, 12345 no.
+
+    Por trozos y de una vez. Antes se iba recortando la cadena de tres en tres
+    y metiendo cada grupo al principio de la lista, y las dos cosas copian
+    todo lo que queda: con el doble de cifras, cuatro veces más. Medido, 0,8 s
+    con 200.000 cifras (en HALLAZGOS).
+    """
     if len(entera) < 5:
         return entera
-    grupos = []
-    while len(entera) > 3:
-        grupos.insert(0, entera[-3:])
-        entera = entera[:-3]
-    grupos.insert(0, entera)
-    return ".".join(grupos)
+    primero = len(entera) % 3 or 3
+    return ".".join(
+        [entera[:primero]]
+        + [entera[i:i + 3] for i in range(primero, len(entera), 3)]
+    )
+
+
+# Lo más largo que se escribe entero. Un importe de verdad no pasa de veinte
+# cifras, y una cuenta de las reglas, con su precisión de 400, tampoco de esto.
+# Lo que pasa de aquí solo puede venir de un fichero hecho para eso, y escribirlo
+# era el problema: `1E-900000000` son novecientos millones de ceros en una
+# frase (en HALLAZGOS).
+LARGO_MAXIMO = 1000
+
+
+def _desmesurada(valor: Decimal) -> str:
+    """Cómo decir una cifra demasiado larga para escribirla, o «» si cabe."""
+    _, digitos, exponente = valor.as_tuple()
+    if not isinstance(exponente, int):  # NaN o infinito: se escriben como son
+        return ""
+    largo = max(len(digitos) + exponente, 1) + max(-exponente, 0)
+    if largo <= LARGO_MAXIMO:
+        return ""
+    return f"una cifra de {_agrupar(str(largo))} dígitos, que no se escribe entera"
 
 
 def _castellano(escrita: str) -> str:
@@ -75,7 +99,7 @@ def _castellano(escrita: str) -> str:
 
 def calculada(valor: Decimal) -> str:
     """Una cifra que ha calculado el validador: «100,13», «12.345,67»."""
-    return _castellano(f"{redondear(valor):.2f}")
+    return _desmesurada(valor) or _castellano(f"{redondear(valor):.2f}")
 
 
 def en_castellano(valor: Decimal) -> str:
@@ -84,14 +108,24 @@ def en_castellano(valor: Decimal) -> str:
     Con dos decimales como mínimo, como se escribe un importe: un 106.0 del
     fichero sale 106,00, que es la misma cifra. Quitar no quita nunca.
     """
-    if valor.as_tuple().exponent > -2:
-        valor = valor.quantize(Decimal("0.01"))
-    return _castellano(format(valor, "f"))
+    desmesurada = _desmesurada(valor)
+    if desmesurada:
+        return desmesurada
+    # Los ceros se añaden al texto, no con `quantize`: ese redondeo trabaja con
+    # la precisión del contexto, 28 cifras por defecto, y con 27 cifras enteras
+    # o más lanzaba `InvalidOperation`. Desde la comparación entre ficheros,
+    # que no corre dentro de ningún `try`, eso se llevaba el lote entero.
+    if not valor.is_finite():
+        return format(valor, "f")
+    entera, _, decimales = format(valor, "f").partition(".")
+    return _castellano(entera + "." + decimales.ljust(2, "0"))
 
 
 def tiene(valor: Decimal | None) -> str:
     """Una cifra del fichero en «Tiene»: como está escrita, con su punto."""
-    return "(vacío)" if valor is None else format(valor, "f")
+    if valor is None:
+        return "(vacío)"
+    return _desmesurada(valor) or format(valor, "f")
 
 
 def tipo(valor: Decimal | None) -> str:

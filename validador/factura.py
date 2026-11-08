@@ -409,6 +409,19 @@ def _se_atraganta(camino: Path, error: Exception, nombre: str | None = None) -> 
     return informe
 
 
+def _el_lote_se_atraganta(error: Exception) -> Incidencia:
+    """Lo mismo que `_se_atraganta`, cuando el fallo es de las reglas del lote."""
+    return Incidencia(
+        "VALIDADOR-SE-ATRAGANTA",
+        ERROR,
+        f"Las comprobaciones entre ficheros han hecho fallar al validador: "
+        f"{type(error).__name__}: {error}. El fallo es del validador, no "
+        "necesariamente de las facturas, y hay que arreglarlo aquí. El informe "
+        "de cada fichero sí está completo.",
+        campo="Lote",
+    )
+
+
 def _no_se_puede_leer(camino: Path, error: OSError) -> Deteccion:
     if isinstance(error, FileNotFoundError):
         return Deteccion(motivo=f"No existe el fichero {camino}.")
@@ -1459,17 +1472,28 @@ class LoteEnMarcha:
         dentro_de_uno = {
             _senia(i) for _, informe in lote.informes for i in informe.incidencias
         }
-        lote.cruzadas = [
-            i
-            for i in (
-                codigo_unico.reglas_de_lote(todos, procedencias=procedencias)
-                + codigo_unico.reglas_de_lote(codigos_de_copias,
-                                              procedencias=de_donde_copias)
-                + cuentas_de_cobro.reglas_de_lote(cobros, procedencias=de_donde_cobros)
-                + comprobar_copia.reglas_de_lote(lecturas, procedencias=de_donde_lecturas)
-            )
-            if _senia(i) not in dentro_de_uno
-        ]
+        #
+        # Cada regla en su `try` y todas en el contexto de cuentas, igual que las
+        # de cada fichero. Corrían fuera de los dos, y una que se cayera dejaba
+        # sin informe a todo el lote, también a los ficheros que ya estaban
+        # revisados (en HALLAZGOS).
+        reglas = (
+            lambda: codigo_unico.reglas_de_lote(todos, procedencias=procedencias),
+            lambda: codigo_unico.reglas_de_lote(codigos_de_copias,
+                                                procedencias=de_donde_copias),
+            lambda: cuentas_de_cobro.reglas_de_lote(cobros,
+                                                    procedencias=de_donde_cobros),
+            lambda: comprobar_copia.reglas_de_lote(lecturas,
+                                                   procedencias=de_donde_lecturas),
+        )
+        cruzadas: list[Incidencia] = []
+        with sintaxis.cuentas():
+            for regla in reglas:
+                try:
+                    cruzadas.extend(regla())
+                except Exception as error:  # noqa: BLE001 - ver `_se_atraganta`
+                    cruzadas.append(_el_lote_se_atraganta(error))
+        lote.cruzadas = [i for i in cruzadas if _senia(i) not in dentro_de_uno]
         self.lote = lote
 
     def _uno(
@@ -1510,8 +1534,22 @@ class LoteEnMarcha:
         #
         # Las cuentas de cobro, en cambio, de todas: que un proveedor holandés
         # pida el pago en otra cuenta es la misma señal que si fuera español.
-        cobros = cuentas_de_cobro.extraer_de(raiz, deteccion)
-        leidas = comprobar_copia.extraer_de(raiz, deteccion)
-        if codigo_unico.obligado_en_espania(raiz, deteccion):
-            return informe, list(codigo_unico.extraer_de(raiz, deteccion)), cobros, leidas
-        return informe, [], cobros, leidas
+        #
+        # Dentro de un `try` y del mismo contexto de cuentas que las reglas. Iban
+        # fuera de los dos, y una excepción aquí se llevaba el lote entero: un
+        # solo fichero dejaba sin informe a los otros quinientos, sin decir cuál
+        # había sido (en HALLAZGOS). Si falla, el informe del fichero se queda
+        # como está y se le añade la queja de que el validador se atragantó.
+        try:
+            with sintaxis.cuentas():
+                cobros = cuentas_de_cobro.extraer_de(raiz, deteccion)
+                leidas = comprobar_copia.extraer_de(raiz, deteccion)
+                codigos = (
+                    list(codigo_unico.extraer_de(raiz, deteccion))
+                    if codigo_unico.obligado_en_espania(raiz, deteccion) else []
+                )
+        except Exception as error:  # noqa: BLE001 - ver `_se_atraganta`
+            informe.incidencias.extend(
+                _se_atraganta(camino, error, nombre).incidencias)
+            return informe, [], [], []
+        return informe, codigos, cobros, leidas

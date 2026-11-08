@@ -191,7 +191,10 @@ RESPUESTAS = (RESPUESTA, ACUSE)
 # separadores propios, y por eso esto aguantó tanto sin verse.
 @lru_cache(maxsize=16)
 def _regex_edifact(componente: str, elemento: str, terminador: str):
-    """Las dos expresiones, montadas con los separadores de este fichero."""
+    """La de la cabecera, montada con los separadores de este fichero.
+
+    Eran dos, y la del BGM se cambió por `_buscar_bgm`: ver allí por qué.
+    """
     comp = re.escape(componente.encode("latin-1"))
     elem = re.escape(elemento.encode("latin-1"))
     fin = re.escape(terminador.encode("latin-1"))
@@ -200,11 +203,44 @@ def _regex_edifact(componente: str, elemento: str, terminador: str):
         + comp + rb"[^" + fin + rb"]*)?",
         re.IGNORECASE,
     )
-    bgm = re.compile(
-        rb"(?:^|[" + fin + rb"\r\n])\s*BGM" + elem + rb"([0-9]{3})",
+    return unh
+
+
+@lru_cache(maxsize=16)
+def _regex_bgm(elemento: str):
+    return re.compile(
+        rb"BGM" + re.escape(elemento.encode("latin-1")) + rb"([0-9]{3})",
         re.IGNORECASE,
     )
-    return unh, bgm
+
+
+_BLANCOS = b" \t\n\r\f\v"  # los de `\s` en una expresión de bytes
+
+
+def _buscar_bgm(datos: bytes, elemento: str, terminador: str) -> bytes | None:
+    r"""El código del primer BGM que empieza un segmento, o `None`.
+
+    Dice lo mismo que la expresión de antes, `(?:^|[fin\r\n])\s*BGM...`: un
+    BGM al principio, o detrás de un terminador o de un salto de línea, con
+    los blancos que sea en medio. Esa expresión retrocedía: en cada salto de
+    línea, `\s*` se tragaba todos los blancos que venían detrás, no encontraba
+    el BGM y volvía hacia atrás de uno en uno. Con el doble de saltos tardaba
+    cuatro veces más; medido, 3,1 s con 20.000 saltos, y un fichero que empieza
+    por `UNH` seguido de 1 MB de saltos de línea eran unas dos horas con la
+    pestaña congelada (en HALLAZGOS). Aquí se busca el BGM y se mira hacia
+    atrás desde él, por los blancos que tiene delante y nada más: cada blanco
+    se mira una vez, y la búsqueda es lineal.
+    """
+    fin = terminador.encode("latin-1")
+    for hallado in _regex_bgm(elemento).finditer(datos):
+        inicio = atras = hallado.start()
+        while atras > 0 and datos[atras - 1] in _BLANCOS:
+            atras -= 1
+        blancos = datos[atras:inicio]
+        if (atras == 0 or datos[atras - 1:atras] == fin
+                or b"\n" in blancos or b"\r" in blancos):
+            return hallado.group(1)
+    return None
 
 
 def _separadores(datos: bytes) -> tuple[str, str, str]:
@@ -233,14 +269,6 @@ _MARCADORES_EDIFACT = tuple(
 
 # En EDIFACT el tipo va en el mismo código que en CII: 380 factura, 381 abono.
 _TIPOS_EDIFACT = {b"380": "factura", b"381": "abono"}
-
-
-class _Vacio:
-    def group(self, _):
-        return b""
-
-
-_VACIO = _Vacio()
 
 
 def _version_edifact(bruto: bytes | None) -> str | None:
@@ -680,7 +708,8 @@ def _detectar_edifact(datos: bytes) -> Deteccion | None:
     cabeza = sin_marca(datos).lstrip()[:3].upper()
     if cabeza not in (b"UNA", b"UNB", b"UNH"):
         return None
-    re_unh, re_bgm = _regex_edifact(*_separadores(datos))
+    separadores = _separadores(datos)
+    re_unh = _regex_edifact(*separadores)
     encontrado = re_unh.search(datos)
     if encontrado is None:
         return Deteccion(
@@ -689,6 +718,8 @@ def _detectar_edifact(datos: bytes) -> Deteccion | None:
             "tipo es.",
         )
     tipo = encontrado.group(1).decode("latin-1").upper()
+    # Una vez y no dos: antes se buscaba para el tipo y otra vez para el código.
+    bgm = _buscar_bgm(datos, separadores[1], separadores[2]) if tipo == "INVOIC" else None
     if tipo != "INVOIC":
         return Deteccion(
             familia=EDIFACT,
@@ -699,10 +730,8 @@ def _detectar_edifact(datos: bytes) -> Deteccion | None:
     return Deteccion(
         familia=EDIFACT,
         version=_version_edifact(encontrado.group(2)),
-        tipo_documento=_TIPOS_EDIFACT.get(
-            (re_bgm.search(datos) or _VACIO).group(1) or b"", None
-        ),
-        codigo_tipo=((re_bgm.search(datos) or _VACIO).group(1) or b"").decode("latin-1") or None,
+        tipo_documento=_TIPOS_EDIFACT.get(bgm or b"", None),
+        codigo_tipo=(bgm or b"").decode("latin-1") or None,
         conforme_en16931=any(m in datos for m in _MARCADORES_EDIFACT),
         motivo="Formato reconocido.",
     )
@@ -870,10 +899,34 @@ def por_que_no_abre(error: etree.XMLSyntaxError) -> str:
     return plantilla.format(nombre=cual) + donde
 
 
+# Lo más grande que se valida. No es un límite de la norma: está para que un
+# fichero no pueda colgar la página ni el lote por puro tamaño, que en el
+# navegador comparte hilo con lo que se pinta. Medido el 08-11-2026: de los 173
+# ficheros de muestras, el mayor pesa 3,3 MB, con sus adjuntos dentro; esto es
+# más de siete veces eso. Si algún día llega una factura de verdad que no
+# cabe, se sube el tope, y el mensaje dice cuál es para que se sepa.
+TAMANO_MAXIMO = 25_000_000
+
+
+def _megas(cuantos: int) -> int:
+    """Los megas, redondeando hacia arriba: 25.000.001 bytes son 26, no 25.
+
+    Enteros a propósito. Con decimales habría que pasar por `cifras`, y
+    `cifras` depende de `sintaxis`, que depende de este módulo.
+    """
+    return -(-cuantos // 1_000_000)
+
+
 def detectar(datos: bytes | str) -> Deteccion:
     """Identifica el formato de una factura a partir de su contenido."""
     if isinstance(datos, str):
         datos = datos.encode("utf-8")
+    if len(datos) > TAMANO_MAXIMO:
+        return Deteccion(
+            motivo=f"El fichero pesa {_megas(len(datos))} MB, y aquí no se "
+            f"valida nada de más de {_megas(TAMANO_MAXIMO)} MB. El tope está "
+            "para que un solo fichero no pueda colgar la página ni el lote."
+        )
     if not datos.strip():
         return Deteccion(motivo="El fichero está vacío.")
 

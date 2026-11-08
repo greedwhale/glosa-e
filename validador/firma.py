@@ -490,10 +490,31 @@ def leer_certificado(der: bytes) -> Certificado:
         algoritmo = pareja[0] if pareja else None
     valor_firma = partes[2][1][1:] if partes[2][1][:1] == b"\x00" else b""
 
+    modulo = int.from_bytes(numeros[0][1], "big")
+    exponente = int.from_bytes(numeros[1][1], "big")
+    # Una cota, antes de que la clave llegue a `pow`. El coste de verificar
+    # crece con el tamaño del módulo y con el del exponente, y los dos los
+    # escribe quien fabrica el certificado. Medido: con 16.384 bits de módulo y
+    # 256 de exponente, 0,14 s por verificación; con los dos de 32.768 bits,
+    # 64 s, y un fichero puede traer muchas (en HALLAZGOS). FIPS 186-4 no
+    # admite exponentes de más de 256 bits, y de los 339 certificados RSA de
+    # las anclas y las muestras el mayor es de 8.192 bits y ningún exponente
+    # pasa de 17.
+    if modulo.bit_length() > BITS_DE_MODULO:
+        raise ClaveNoSoportada(
+            f"la clave RSA tiene {modulo.bit_length()} bits, más de los "
+            f"{BITS_DE_MODULO} que aquí se comprueban"
+        )
+    if exponente.bit_length() > BITS_DE_EXPONENTE:
+        raise ClaveNoSoportada(
+            f"el exponente de la clave RSA tiene {exponente.bit_length()} bits, "
+            f"y la norma no admite más de {BITS_DE_EXPONENTE}"
+        )
+
     es_ca, profundidad, usos, criticas, todas = _leer_extensiones(campos, salto)
     return Certificado(
-        modulo=int.from_bytes(numeros[0][1], "big"),
-        exponente=int.from_bytes(numeros[1][1], "big"),
+        modulo=modulo,
+        exponente=exponente,
         desde=desde,
         hasta=hasta,
         sujeto=_nombre_der(campos[salto + 4][1]),
@@ -512,6 +533,11 @@ def leer_certificado(der: bytes) -> Certificado:
         extensiones=todas,
     )
 
+
+
+# Ver `leer_certificado`, donde se usan.
+BITS_DE_MODULO = 16384
+BITS_DE_EXPONENTE = 256
 
 
 def _certificado_de_curva(der, tbs, campos, salto, spki, tipo, partes):

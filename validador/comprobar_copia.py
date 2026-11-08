@@ -510,7 +510,14 @@ def _linea_ubl(linea, sintaxis) -> Linea:
     # BT-149: el precio puede ser el de varias unidades, y el de Facturae es de una.
     por_cuantas = _numero(linea, "Price", "BaseQuantity")
     if precio is not None and por_cuantas:
-        precio = precio / por_cuantas
+        try:
+            precio = precio / por_cuantas
+        except ArithmeticError:
+            # Un `BaseQuantity` de un millón de decimales es un `xs:decimal`
+            # válido, y dividir por él pasa del exponente máximo: `Overflow`.
+            # Salía fuera del `try` de cada fichero y se llevaba el lote (en
+            # HALLAZGOS). Un precio que no se puede calcular no se compara.
+            precio = None
     descuentos, cargos, tipos = _de_los_cargos_ubl(linea)
     return Linea(
         importe(linea, sintaxis.linea_cantidad, sintaxis),

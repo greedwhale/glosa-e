@@ -9702,3 +9702,89 @@ no hay ninguna que hacer así, porque su emisor no viaja en el documento.
 rojo; sin mirar el nombre relativo, 1; sin el nombre del emisor cuando el
 certificado no da puntos, 1; sin la vigencia del delegado, 2 por el camino
 directo y 1 por el de los certificados adjuntos.
+
+## Un fichero de otro podía colgar la página o llevarse el lote entero
+
+**Cómo salió.** En el escaneo de seguridad del 01 al 03-11-2026, en ocho
+puntos de gravedad baja. Ninguno falsea un veredicto: lo que hacen es que un
+fichero preparado congele la pestaña, donde Python comparte hilo con lo que se
+pinta, o deje sin informe a todo un lote. Son tres causas.
+
+**Coste cuadrático.** Tres caminos donde, con el doble de entrada, el tiempo se
+multiplicaba por cuatro. Medidos antes de tocarlos, doblando la entrada:
+
+| Dónde | Entrada | Tiempos |
+|---|---|---|
+| la búsqueda del BGM de un EDIFACT | 5.000, 10.000 y 20.000 saltos de línea | 0,20, 0,76 y 3,11 s |
+| escribir una cifra con sus miles, `en_castellano` | 50.000, 100.000 y 200.000 cifras | 0,06, 0,20 y 0,79 s |
+| los parámetros repetidos de la dirección del QR | 5.000, 10.000 y 20.000 parámetros | 0,04, 0,15 y 0,60 s |
+
+Con esa curva, un fichero que empieza por `UNH+1+INVOIC` seguido de 1 MB de
+saltos de línea eran unas dos horas. La expresión del BGM,
+`(?:^|[fin\r\n])\s*BGM`, se tragaba en cada salto todos los blancos que
+venían detrás y volvía atrás de uno en uno; ahora se busca el BGM y se mira
+hacia atrás desde él, una sola vez. Los miles se agrupan por trozos y no
+recortando la cadena, y los repetidos se cuentan con `Counter`.
+
+**Números sin cota.** El importe del QR se leía con `Decimal` a secas, que
+acepta `1E-900000000`, `NaN` y `sNaN`: el primero escribía novecientos millones
+de ceros al ponerlo en una frase, y los otros tiraban la comparación. Ahora se
+lee como todos los demás importes, con `sintaxis.a_decimal`. Además, una cifra
+de más de mil dígitos ya no se escribe entera en ninguna frase: se dice cuántos
+tiene. Y la clave RSA de un certificado llegaba a `pow` del tamaño que fuera.
+Medido: con módulo de 16.384 bits y exponente de 256, 0,14 s por verificación;
+con los dos de 16.384 bits, 8,6 s, y de 32.768, 64 s. Ahora `leer_certificado`
+no admite módulos de más de 16.384 bits ni exponentes de más de 256, que es lo
+que admite FIPS 186-4. De los 339 certificados RSA de las anclas y las
+muestras, el mayor es de 8.192 bits y ningún exponente pasa de 17.
+
+**El lote sin aislar.** Dos cosas corrían fuera del `try` de cada fichero y
+fuera del contexto de cuentas: lo que se saca de cada factura para las reglas
+del lote, y las propias reglas entre ficheros. Un `BaseQuantity` de un millón de
+decimales, que es un `xs:decimal` válido, daba `Overflow` al dividir el precio.
+Y una pareja de Facturae y copia UBL con un importe de 30 cifras daba
+`InvalidOperation` al escribir la diferencia, porque `en_castellano` redondeaba
+con `quantize` y la precisión por defecto es de 28 cifras. Cualquiera de las
+dos dejaba sin informe a todos los ficheros del lote, sin decir cuál había sido.
+Ahora `en_castellano` añade los ceros al texto, el precio que no se puede
+dividir no se compara, y las dos partes corren cada una en su `try` y dentro de
+`sintaxis.cuentas()`. Si algo falla, el fichero conserva su informe y lleva la
+queja VALIDADOR-SE-ATRAGANTA, y si falla una regla del lote, la queja va al lote
+y los informes de cada fichero siguen ahí.
+
+**Y un tope de tamaño**, que el escaneo pedía para el EDIFACT y que vale para
+todo: no se valida ningún fichero de más de 25 MB, y se dice por qué. De los 173
+ficheros de muestras, el mayor pesa 3,3 MB.
+
+**Reproducido** antes de tocar nada, con `tests/test_lo_que_no_se_cuelga.py`.
+Las pruebas de tiempo usan entradas con las que el código de antes pasaba del
+minuto, y un tope de 5 s: lo que vigilan es la forma de la curva. Contra el
+código de antes, el fichero tardó 5 min 36 s y dejó 27 en rojo. Diez de ellas
+son la comparación de la búsqueda del BGM con la expresión de antes, que
+fallaban solo porque la función nueva aún no existía, así que no cuentan como
+reproducción. Las otras 17: los tres caminos lentos, la cifra desmesurada, las
+30 cifras, los cinco importes del QR que no son `xs:decimal`, las dos claves,
+las dos del tamaño y las tres del lote. De esas, la que comprueba que la mayor
+de las muestras cabe en el tope fallaba solo porque el tope no existía.
+Con el arreglo, el fichero entero tarda poco más de un segundo, y la detección
+de 1 MB de saltos de línea, 0,011 s.
+
+**Medido** con las muestras, contra el commit anterior en un worktree aparte:
+la detección de los 183 ficheros, 85 de ellos EDIFACT y 80 de esos con su
+código de BGM, sale idéntica, y también las 333 incidencias del informe de los
+93 XML.
+
+**Provocado**, quitando cada parte por separado: las doce roturas (la expresión
+del BGM de antes, sin tope de tamaño, agrupar como antes, sin cortar lo
+desmesurado, con `quantize`, los repetidos con `count`, el importe con
+`Decimal`, sin cota de módulo, sin cota de exponente, el precio sin capturar, lo
+de después sin `try` y las reglas del lote sin `try`) ponen en rojo su prueba.
+Para que eso fuera cierto hubo que añadir tres pruebas a la primera versión:
+`_agrupar` por separado, porque con el corte delante una agrupación cuadrática
+ya no se notaba en `en_castellano`; que el fichero del `BaseQuantity` no salga
+con VALIDADOR-SE-ATRAGANTA, porque el `try` nuevo tapaba que faltara la captura
+del precio; y el `try` de cada fichero provocado aparte.
+
+**Lo que no se hizo.** El escaneo proponía además no trocear una dirección del
+QR más larga de lo que cabe en un código QR. Con `Counter` ya es lineal, y sería
+una regla nueva con su código; no se ha medido qué longitud tienen las reales.
