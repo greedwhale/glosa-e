@@ -591,6 +591,9 @@ class TestElMapaEsSoloUnMapa:
                     # Y otro: en cuáles el esquematrón de la sintaxis rechaza
                     # el tipo a cero que la norma admite. Tampoco es una ruta.
                     "cero_que_rechaza_su_esquematron",
+                    # Y otro: en cuáles ese esquematrón no compara nunca la
+                    # base del desglose. Tampoco es una ruta.
+                    "base_que_su_esquematron_no_mira",
                     # Cómo llama ese esquematrón a las familias del IGIC y del
                     # IPSI: un diccionario de códigos. Tampoco es una ruta.
                     "familias_de_su_esquematron",

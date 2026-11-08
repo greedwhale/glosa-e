@@ -1220,6 +1220,71 @@ class TestElCeroDelIgicEnCII:
             assert "IVA-CERO-ESQUEMATRON" in CODIGOS[f"BR-IG-{sufijo}"], sufijo
 
 
+def _base_del_igic(nombre, categoria="L", base="90.00", tipo="7"):
+    """Las reglas de IVA de una factura de una línea de 100 con la base que se diga."""
+    montar, sintaxis = CONSTRUCTORES[nombre]
+    cuota = f"{Decimal(base) * Decimal(tipo) / 100:.2f}"
+    xml = montar(
+        lineas=[Linea("1", "100.00", categoria=categoria, tipo=tipo)],
+        grupos=[Grupo(base, cuota, categoria=categoria, tipo=tipo)],
+        total_iva=cuota,
+    )
+    return iva.reglas(etree.fromstring(xml.encode("utf-8"), parser=parser()), sintaxis)
+
+
+class TestLaBaseQueElEsquematronDeCIINoMira:
+    """BR-IG-08 y BR-IP-08 en CII: aquí saltan, y el esquematrón oficial no.
+
+    Su regla tiene por contexto el `ApplicableTradeTax`, y la expresión sube
+    un nivel de más para buscar el tipo: no lo encuentra, y la base sale por
+    buena sin compararla. El error se da igual, y una nota dice por qué otro
+    validador no lo verá. Lo que dice la vinculación lo lee `test_norma_oficial`.
+    """
+
+    def test_el_error_se_da_y_lleva_la_nota(self):
+        incidencias = _base_del_igic("CII")
+        assert "BR-IG-08" in codigos(incidencias, ERROR)
+        nota = una(incidencias, "IVA-BASE-ESQUEMATRON")
+        assert nota.gravedad == NOTA
+        assert "BR-IP-08 (aquí, BR-IG-08)" in nota.mensaje and "CII" in nota.mensaje
+        assert "hay que corregirla" in nota.mensaje
+
+    def test_en_el_ipsi_los_nombres_van_al_reves(self):
+        nota = una(_base_del_igic("CII", categoria="M", tipo="4"), "IVA-BASE-ESQUEMATRON")
+        assert "BR-IG-08 (aquí, BR-IP-08)" in nota.mensaje
+
+    def test_la_base_fantasma_tambien(self):
+        """Una entrada de IGIC sin nada detrás: el esquematrón de CII tampoco la ve."""
+        montar, sintaxis = CONSTRUCTORES["CII"]
+        xml = montar(
+            lineas=[Linea("1", "100.00", categoria="L", tipo="7")],
+            grupos=[Grupo("100.00", "7.00", categoria="L", tipo="7"),
+                    Grupo("50.00", "1.50", categoria="L", tipo="3")],
+            total_iva="8.50",
+        )
+        incidencias = iva.reglas(etree.fromstring(xml.encode("utf-8"), parser=parser()), sintaxis)
+        assert "BR-IG-08" in codigos(incidencias, ERROR)
+        assert "al 3%" in una(incidencias, "IVA-BASE-ESQUEMATRON").campo
+
+    def test_con_la_base_bien_no_hay_nada_que_decir(self):
+        assert "IVA-BASE-ESQUEMATRON" not in codigos(_base_del_igic("CII", base="100.00"))
+
+    def test_en_ubl_no(self):
+        incidencias = _base_del_igic("UBL")
+        assert "BR-IG-08" in codigos(incidencias, ERROR)
+        assert "IVA-BASE-ESQUEMATRON" not in codigos(incidencias)
+
+    def test_con_el_iva_general_no(self):
+        """El BR-S-08 de CII mira desde el `CategoryCode` y sí compara."""
+        incidencias = _base_del_igic("CII", categoria="S", tipo="21")
+        assert "BR-S-08" in codigos(incidencias, ERROR)
+        assert "IVA-BASE-ESQUEMATRON" not in codigos(incidencias)
+
+    def test_las_fichas_lo_dicen(self):
+        for regla in ("BR-IG-08", "BR-IP-08"):
+            assert "IVA-BASE-ESQUEMATRON" in CODIGOS[regla], regla
+
+
 class TestPropias:
     def test_tipo_que_no_existe_en_espana(self, revisar):
         incidencias = revisar(

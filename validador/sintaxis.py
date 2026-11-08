@@ -277,6 +277,23 @@ class Sintaxis:
     # esquematrón se quedó en 2017 (lo prueba `test_norma_oficial`).
     cero_que_rechaza_su_esquematron: frozenset[str]
 
+    # En qué categorías el esquematrón oficial de esta sintaxis no compara
+    # nunca la base del desglose con lo que va a su tipo, para decirlo cuando
+    # aquí sí salta. Hoy son dos: el IGIC y el IPSI en CII. Su BR-{X}-08
+    # empieza por `every $rate in ../ram:RateApplicablePercent`, igual que el
+    # de la S, pero su regla tiene por contexto el `ApplicableTradeTax` y no
+    # su `CategoryCode`, como la de la S: `..` sube a
+    # `ApplicableHeaderTradeSettlement`, donde no hay tipo, el `every` recorre
+    # una lista vacía y la regla sale verdadera sin comparar nada. Medido el
+    # 08-11-2026 con lxml sobre cinco facturas CII de IGIC e IPSI: la
+    # expresión selecciona 0 nodos y, sin el `..`, 1. Está denunciado desde el
+    # 12-10-2026 en la issue 534 del repositorio oficial. Aquí la base se compara igual en
+    # todas, y el motor lo dice en una nota (IVA-BASE-ESQUEMATRON): quien pase
+    # la factura por ese esquematrón no verá el error, y conviene saber por
+    # qué. Lo lee de la vinculación oficial `test_norma_oficial`. EDIFACT va
+    # con UBL, como en todo lo de su esquematrón.
+    base_que_su_esquematron_no_mira: frozenset[str]
+
     # Cómo llama el esquematrón oficial de esta sintaxis a las familias del
     # IGIC (L) y del IPSI (M), que no es siempre como las llama el modelo de la
     # norma ni como se llaman aquí (`iva.REGLAS`). En la 1.3.17, UBL dice IG e
@@ -486,6 +503,7 @@ SINTAXIS_UBL = Sintaxis(
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
     cero_que_rechaza_su_esquematron=frozenset(),
+    base_que_su_esquematron_no_mira=frozenset(),
     familias_de_su_esquematron={"L": "IG", "M": "IP"},
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset(),
@@ -718,6 +736,7 @@ SINTAXIS_CII = Sintaxis(
     base_admite_una_unidad=frozenset({"Z", "E", "AE", "K", "G"}),
     comprueba_la_cuota_por_tipo=frozenset({"S"}),
     cero_que_rechaza_su_esquematron=frozenset({"L"}),  # su BR-IP-05 a 07: `> 0`
+    base_que_su_esquematron_no_mira=frozenset({"L", "M"}),  # su -08 sube de más
     familias_de_su_esquematron={"L": "IP", "M": "IG"},  # cruzadas en la 1.3.17
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset({"BR-DEC-13", "BR-DEC-15"}),
@@ -1020,6 +1039,7 @@ SINTAXIS_EDIFACT = Sintaxis(
     base_admite_una_unidad=frozenset({"S", "L", "M"}),
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),
     cero_que_rechaza_su_esquematron=frozenset(),
+    base_que_su_esquematron_no_mira=frozenset(),
     familias_de_su_esquematron={"L": "AF", "M": "AG"},
     medios_de_transferencia=frozenset({"30", "58"}),
     decimales_por_valor=frozenset(),
@@ -1387,6 +1407,7 @@ SINTAXIS_FACTURAE = Sintaxis(
     base_admite_una_unidad=frozenset({"S", "L", "M"}),  # también el de UBL
     comprueba_la_cuota_por_tipo=frozenset({"S", "L", "M"}),  # y aquí
     cero_que_rechaza_su_esquematron=frozenset(),  # y en esto
+    base_que_su_esquematron_no_mira=frozenset(),  # y en esto
     familias_de_su_esquematron={"L": "IG", "M": "IP"},  # y en esto
     # «04 Transferencia», en `PaymentMeansType` del esquema oficial.
     medios_de_transferencia=frozenset({"04"}),

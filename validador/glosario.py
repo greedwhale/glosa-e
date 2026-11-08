@@ -749,6 +749,19 @@ CODIGOS: dict[str, str] = {
         'la verá rechazada, y conviene saberlo antes de enviarla. En UBL no '
         'pasa.'
     ),
+    "IVA-BASE-ESQUEMATRON": (
+        'Una factura en CII trae una entrada del desglose de IGIC o de IPSI '
+        'cuya base no es la suma de lo que va a ese tipo, y aquí sale como '
+        'error (BR-IG-08 o BR-IP-08). El esquematrón oficial de CII no lo '
+        'habría dicho: esas dos reglas buscan el tipo un nivel por encima de '
+        'la entrada del desglose, no encuentran ninguno y dan la base por '
+        'buena sin compararla, así que no saltan nunca. Con el IVA general, y '
+        'en UBL con todas, sí saltan. La nota existe para que se entienda por '
+        'qué otro validador da por buena la misma factura: el error es real y '
+        'la base hay que corregirla. CII llama BR-IP al IGIC y BR-IG al IPSI, '
+        'al revés que aquí y que UBL, y la nota cita los dos nombres. Está '
+        'señalado en el repositorio oficial de la norma, en la issue 534.'
+    ),
     "IVA-PREFIJO-EL": (
         'Un identificador de IVA empieza por EL, que es como escribe Grecia '
         'su prefijo en el IVA europeo: el artículo 215 de la Directiva '
@@ -2632,7 +2645,9 @@ CODIGOS: dict[str, str] = {
         'aparta a propósito en Canarias y en Ceuta y Melilla). Lo que sí se '
         'comprueba es que la base declarada sea la de los conceptos que van '
         'ahí. Con menos de una unidad de margen en UBL y exacta en CII; lo '
-        'que pasa por el margen sale como IVA-BASE-TOLERADA.'
+        'que pasa por el margen sale como IVA-BASE-TOLERADA. El esquematrón '
+        'oficial de CII no compara esta base nunca: aquí sí, y lo dice la '
+        'nota IVA-BASE-ESQUEMATRON.'
     ),
     "BR-IG-09": (
         'La cuota de una entrada con IGIC se aparta una unidad o más de '
@@ -2729,7 +2744,9 @@ CODIGOS: dict[str, str] = {
         'hay una línea con la categoría o el tipo cambiados. El informe lo '
         'dice con esas palabras en vez de pedir una suma que daría cero. Con '
         'menos de una unidad de margen en UBL y exacta en CII; lo que pasa '
-        'por el margen sale como IVA-BASE-TOLERADA.'
+        'por el margen sale como IVA-BASE-TOLERADA. El esquematrón oficial '
+        'de CII no compara esta base nunca: aquí sí, y lo dice la nota '
+        'IVA-BASE-ESQUEMATRON.'
     ),
     "BR-IP-09": (
         'La cuota de una entrada con IPSI se aparta una unidad o más de '

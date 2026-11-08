@@ -12,6 +12,16 @@
 # leyendo el catálogo de cada commit con el lector de hoy (validador/codigos.py),
 # desde 598f34c, el último del 06-10-2026. Las fechas son las de esos commits.
 
+fecha: 2026-11-08
+id: base-que-cii-no-compara
+titulo: IVA-BASE-ESQUEMATRON: la base del IGIC y del IPSI que CII no compara
+nuevos: IVA-BASE-ESQUEMATRON
+texto: Una factura CII con la base del IGIC o del IPSI descuadrada salía, y
+  sigue saliendo, con un error. Ahora lleva además una nota: el esquematrón
+  oficial de CII no compara esa base nunca, porque su regla busca el tipo un
+  nivel por encima de donde está, y quien valide solo con él dará la factura
+  por buena en esto. La base hay que corregirla igual.
+
 fecha: 2026-11-03
 id: perfil-no-medido
 titulo: PERFIL-NO-MEDIDO: lo que la factura declara y no se comprueba

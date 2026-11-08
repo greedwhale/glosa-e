@@ -7,8 +7,8 @@
 # páginas, la suite se niega hasta que pongas aquí la fecha del día en que se
 # publica y la huella nueva, que te dice ella.
 
-index.html        2026-11-08  40db96ce8ce2
+index.html        2026-11-08  6a88df30017e
 banco.html        2026-10-28  35c0a246dbed
-sobre.html        2026-11-08  a75f679189d7
+sobre.html        2026-11-08  23d73b4fa7e8
 legal.html        2026-10-28  41bf1dfdf271
 incidencias.html  2026-11-03  bb62210b1ccb

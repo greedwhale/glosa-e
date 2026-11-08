@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4087 tests, todos en verde.
+4095 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -431,6 +431,7 @@ para quien factura en España:
 | `IVA-AJUSTES-SIN-DETALLAR` | Descuentos globales sin decir a qué tipo van |
 | `IVA-SIN-TOTAL` | No hay importe total de impuestos que comprobar |
 | `IVA-CERO-ESQUEMATRON` | El IGIC a cero en CII: la norma lo admite y su esquematrón oficial no (nota) |
+| `IVA-BASE-ESQUEMATRON` | La base del IGIC o del IPSI que no cuadra en CII, y que su esquematrón oficial no compara (nota) |
 
 La separación es deliberada: **que se vea de un vistazo qué exige la norma y
 qué opinamos nosotros.**
@@ -6785,6 +6786,32 @@ corpus no cambia nada: de las 19 facturas CII, ninguna lleva IGIC. De 394
 códigos a 395. Provocado once veces, las once en rojo (en HALLAZGOS), donde
 está también lo que se vio de paso: en `master` las reglas del IGIC y del IPSI
 cambian de nombre, y en CII el cambio salió cruzado.
+
+**Y la base que el esquematrón de CII no compara, desde el 08-11-2026.** En la
+vinculación de CII, BR-IG-08 y BR-IP-08 empiezan por `every $rate in
+../ram:RateApplicablePercent`, como BR-S-08, pero su regla se para en el
+`ApplicableTradeTax` y no en su `CategoryCode`: `..` sube a
+`ApplicableHeaderTradeSettlement`, donde no hay tipo, el `every` recorre una
+lista vacía y sale verdadero sin comparar la base. Está denunciado desde el
+12-10-2026 en la issue 534 del repositorio oficial, y se volvió a medir: con lxml
+sobre cinco facturas CII de IGIC e IPSI hechas de `ejemplos/cii-A-0001.xml`, la
+expresión selecciona 0 nodos y, sin el `..`, 1. No se ha ejecutado el XSLT
+oficial, que es XSLT 2.0 y aquí no hay con qué correrlo.
+
+Aquí la base se compara igual en todas las categorías, y una base de IGIC de
+140 con las líneas sumando 150 ya salía con BR-IG-08 en ERROR. Lo que faltaba
+es decir por qué otro validador da esa factura por buena: ahora lleva además
+la nota `IVA-BASE-ESQUEMATRON`, de la casa, que cita la regla con los dos
+nombres (en CII son cruzados) y dice que la base hay que corregirla. Es nota
+porque no rebaja nada: el error sigue siendo un error. Solo sale al lado de un
+error de la base; con la base bien, en UBL y con el IVA general de CII, no.
+Qué categorías no compara cada esquematrón está en
+`Sintaxis.base_que_su_esquematron_no_mira`, `{"L", "M"}` en CII, y
+`test_norma_oficial` lo lee de la vinculación desde el elemento en que se para
+cada regla. Provocado: con el campo vacío en CII, 4 pruebas en rojo; sin la
+llamada, 3; con Facturae distinto de UBL, 1; con la regla del IGIC de la
+vinculación movida al `CategoryCode`, como la arreglaría el comité, 1. De 431
+códigos a 432.
 
 **Y lo que se decía de esos nombres era falso.** Al pasar a `BR-AF-*` y
 `BR-AG-*`, el 26-08-2026, se contó que `BR-IG-*` y `BR-IP-*` eran un invento

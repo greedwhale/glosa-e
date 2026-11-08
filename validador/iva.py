@@ -1598,6 +1598,49 @@ _LO_QUE_PIDE = {POSITIVO: "un tipo mayor que cero", CERO: "el tipo, a cero",
                 NO_NEGATIVO: "el tipo, a cero o positivo"}
 
 
+def _nota_base_que_su_esquematron_no_mira(
+    grupos: list[Grupo], sintaxis: Sintaxis
+) -> list[Incidencia]:
+    """De la casa: la base que aquí no cuadra y el esquematrón de la sintaxis no compara.
+
+    Hoy es el IGIC y el IPSI en CII (`Sintaxis.base_que_su_esquematron_no_mira`):
+    su BR-{X}-08 busca el tipo un nivel por encima de la entrada del desglose,
+    no lo encuentra y da la base por buena. Aquí el error es el mismo que en
+    cualquier otra categoría, y la nota no lo rebaja: explica por qué otro
+    validador, que use ese esquematrón, da la factura por buena en esto. Cita
+    la regla con el nombre que le da ese esquematrón y con el de aquí, que en
+    CII van cruzados (`Sintaxis.familias_de_su_esquematron`). Solo sale al lado
+    de un error de la base: si la base cuadra, no hay nada que contar.
+
+    Una sola por factura, con todas las entradas: es una misma discrepancia.
+    """
+    if not grupos:
+        return []
+    reglas_ = set()
+    for grupo in grupos:
+        regla = REGLAS[grupo.categoria]
+        suya = sintaxis.familias_de_su_esquematron.get(grupo.categoria, regla.codigo)
+        nombre = f"BR-{suya}-08"
+        if suya != regla.codigo:
+            nombre += f" (aquí, BR-{regla.codigo}-08)"
+        reglas_.add(nombre)
+    return [
+        Incidencia(
+            "IVA-BASE-ESQUEMATRON",
+            NOTA,
+            f"El esquematrón oficial de {sintaxis.nombre} no habría dado este "
+            f"error de la base: su {' y su '.join(sorted(reglas_))} busca el "
+            "tipo un nivel por encima de la entrada del desglose, no lo "
+            "encuentra y da la base por buena sin compararla. Quien valide la "
+            "factura solo con ese esquematrón no lo verá, pero la base no "
+            "cuadra y hay que corregirla.",
+            campo="Base imponible de " + ", ".join(str(g) for g in grupos),
+            esperado="la base comparada con lo que va a ese tipo",
+            encontrado="una regla que no la compara",
+        )
+    ]
+
+
 def _regla_cero_que_rechaza_su_esquematron(
     apuntes: list[Apunte], sintaxis: Sintaxis
 ) -> list[Incidencia]:
@@ -1771,6 +1814,9 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True,
     # dice mejor (BR-CO-11 y BR-CO-12). En los dos casos se calla BR-{X}-08.
     a_ciegas = a_ciegas or _ajustes_no_cuadran(raiz, sintaxis, apuntes)
 
+    # Las entradas con un error de la base que el esquematrón de la sintaxis
+    # no habría dado, para decirlo en una nota al final.
+    sin_mirar: list[Grupo] = []
     for grupo in grupos:
         incidencias.extend(_reglas_campos_del_grupo(grupo, sintaxis))
         if grupo.categoria not in categorias_de_mas:
@@ -1784,11 +1830,16 @@ def reglas(raiz, sintaxis: Sintaxis, espanola: bool = True,
         # IVA-BASE en ERROR. Lo que sigue atando esas entradas es BR-CO-17, su
         # cuota con su base y su tipo, y BR-CO-14, la suma de las cuotas.
         if not a_ciegas and grupo.categoria not in categorias_de_mas:
-            incidencias.extend(_regla_base_por_grupo(grupo, apuntes, sintaxis))
+            de_la_base = _regla_base_por_grupo(grupo, apuntes, sintaxis)
+            incidencias.extend(de_la_base)
+            if (grupo.categoria in sintaxis.base_que_su_esquematron_no_mira
+                    and any(i.gravedad == ERROR for i in de_la_base)):
+                sin_mirar.append(grupo)
         incidencias.extend(_reglas_cuota(
             grupo, sintaxis, _total_con_iva_de_las_lineas(grupo, precios, apuntes)))
     incidencias.extend(_regla_tipo_de_los_conceptos(apuntes))
     incidencias.extend(_regla_cero_que_rechaza_su_esquematron(apuntes, sintaxis))
+    incidencias.extend(_nota_base_que_su_esquematron_no_mira(sin_mirar, sintaxis))
     incidencias.extend(_regla_identificadores(
         raiz, sintaxis, apuntes, comprador_registro_de_mas))
     incidencias.extend(_regla_hay_desglose(grupos, apuntes))

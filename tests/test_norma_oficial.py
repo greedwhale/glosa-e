@@ -538,6 +538,87 @@ def test_el_cero_que_la_norma_admite_y_cada_esquematron_rechaza():
         _rechazan_el_cero("CII") - _rechazan_el_cero("UBL"))
 
 
+# Una entrada del desglose de cada sintaxis, con la categoría por poner, para
+# evaluar desde ella lo que la vinculación selecciona.
+_ENTRADA_DEL_DESGLOSE = {
+    "CII": (
+        '<rsm:CrossIndustryInvoice'
+        ' xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"'
+        ' xmlns:ram="urn:un:unece:uncefact:data:standard:'
+        'ReusableAggregateBusinessInformationEntity:100">'
+        "<rsm:SupplyChainTradeTransaction><ram:ApplicableHeaderTradeSettlement>"
+        "<ram:ApplicableTradeTax><ram:BasisAmount>999</ram:BasisAmount>"
+        "<ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>{}</ram:CategoryCode>"
+        "<ram:RateApplicablePercent>7</ram:RateApplicablePercent></ram:ApplicableTradeTax>"
+        "</ram:ApplicableHeaderTradeSettlement></rsm:SupplyChainTradeTransaction>"
+        "</rsm:CrossIndustryInvoice>"),
+    "UBL": (
+        '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"'
+        ' xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"'
+        ' xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">'
+        "<cac:TaxTotal><cac:TaxSubtotal><cbc:TaxableAmount>999</cbc:TaxableAmount>"
+        "<cac:TaxCategory><cbc:ID>{}</cbc:ID><cbc:Percent>7</cbc:Percent>"
+        "<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>"
+        "</cac:TaxSubtotal></cac:TaxTotal></Invoice>"),
+}
+_PREFIJOS = {
+    "ram": "urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100",
+    "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+}
+_CUANTIFICADOR = re.compile(r"\s*every \$rate in (.+?) satisfies")
+
+
+def _base_que_no_mira(sintaxis: str) -> tuple[set[str], set[str]]:
+    """(las categorías cuyo BR-{X}-08 no compara nunca, las que se han medido).
+
+    Las que empiezan por `every $rate in <tipo>`: si desde el contexto de su
+    regla `<tipo>` no selecciona nada, el `every` sale verdadero sin mirar la
+    base. El contexto es el parámetro `VAT…` de la entrada del desglose de esa
+    categoría, y de él cuenta el último paso, el elemento desde el que se
+    evalúa (`ApplicableTradeTax`, `CategoryCode` o `TaxCategory`): las
+    expresiones de contexto llevan funciones de XPath 2.0 que lxml no evalúa,
+    y lo que decide es en qué elemento se para.
+    """
+    vinc = vinculacion(sintaxis)
+    no_mira, medidas = set(), set()
+    for familia, categoria in familias(sintaxis).items():
+        cuantificador = _CUANTIFICADOR.match(vinc[f"BR-{familia}-08"])
+        if not cuantificador:
+            continue
+        (contexto,) = [v for n, v in vinc.items()
+                       if re.fullmatch(r"VAT[A-Z]+", n) and f"'{categoria}'" in v]
+        sin_predicados = re.sub(r"\[[^\]]*\]", "", contexto).strip()
+        elemento = sin_predicados.rsplit("/", 1)[-1].split(":")[-1]
+        entrada = etree.fromstring(_ENTRADA_DEL_DESGLOSE[sintaxis].format(categoria))
+        (nodo,) = [e for e in entrada.iter() if etree.QName(e).localname == elemento
+                   and (elemento != "ID" or e.getparent().tag.endswith("TaxCategory"))]
+        tipo = cuantificador.group(1).strip()
+        tipo = re.sub(r"/xs:decimal\(\.\)$", "", tipo)
+        tipo = re.sub(r"^xs:decimal\((.*)\)$", r"\1", tipo)
+        medidas.add(categoria)
+        if not nodo.xpath(tipo, namespaces=_PREFIJOS):
+            no_mira.add(categoria)
+    return no_mira, medidas
+
+
+def test_la_base_que_cada_esquematron_no_compara_nunca():
+    """BR-IG-08 y BR-IP-08 de CII: el `every` recorre una lista vacía.
+
+    El BR-S-08 de CII y los tres de UBL seleccionan el tipo y comparan; los
+    del IGIC y el IPSI de CII suben un nivel de más desde su contexto y no
+    encuentran nada. Denunciado el 12-10-2026 en la issue 534. Si el comité lo
+    arregla, esto se pone en rojo y la nota IVA-BASE-ESQUEMATRON sobra.
+    """
+    no_mira, medidas = _base_que_no_mira("CII")
+    assert medidas == {"S", "L", "M"}
+    assert no_mira == set(SINTAXIS_CII.base_que_su_esquematron_no_mira) == {"L", "M"}
+    no_mira, medidas = _base_que_no_mira("UBL")
+    assert medidas == {"S", "L", "M"}
+    assert no_mira == set(SINTAXIS_UBL.base_que_su_esquematron_no_mira) == set()
+    for mapa in (SINTAXIS_EDIFACT, SINTAXIS_FACTURAE):
+        assert mapa.base_que_su_esquematron_no_mira == SINTAXIS_UBL.base_que_su_esquematron_no_mira
+
+
 def test_la_cuota_de_cada_categoria_es_la_de_su_esquematron():
     """BR-{X}-09: cero exacto en seis categorías, y base por tipo en tres.
 
