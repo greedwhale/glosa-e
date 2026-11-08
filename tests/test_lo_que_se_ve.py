@@ -111,6 +111,22 @@ class TestLaTerminal:
         salida = _salida(tmp_path, capsys)
         assert "\\x1b[2J\\x1b]0;titulo\\x07\\x9b2J" in salida
 
+    def test_ningun_separador_parte_la_linea(self, tmp_path, capsys):
+        # Visto en una terminal de verdad el 08-11-2026: el retorno de carro no
+        # salía como \x0d sino como una línea nueva, con su sangría, porque
+        # `_sangrar` partía con `splitlines()`, que corta también en \r, \x0b,
+        # \x0c, \x1c a \x1e y \x85. La queja ya no borraba nada, pero la
+        # factura podía añadir líneas que parecieran del informe.
+        tira = sobre(CUERPO).replace(
+            b"+260819:1200+1'", b"+260819:1200+1\rA\x0bB\x0cC\x1cD\x1dE\x1eF\x85G'", 1)
+        ruta = tmp_path / "separadores.edi"
+        ruta.write_bytes(tira)
+        consola.main([str(ruta), "--hoy", "2026-11-08"])
+        lineas = capsys.readouterr().out.split("\n")
+        deberia = [l for l in lineas if "Debería ser: 1" in l]
+        assert deberia == [
+            "    Debería ser: 1\\x0dA\\x0bB\\x0cC\\x1cD\\x1dE\\x1eF\\x85G"], deberia
+
     def test_lo_demas_queda_igual(self):
         texto = "Línea uno\n\tcon tabulador, ñ, €, ¿? y un 1E+3"
         assert consola.a_la_vista(texto) == texto

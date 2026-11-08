@@ -1312,7 +1312,12 @@ def _veces(cuantas: int) -> str:
 
 
 def _sangrar(texto: str, margen: str) -> str:
-    return "\n".join(margen + linea for linea in texto.splitlines())
+    # Por el salto de línea y nada más. Era `splitlines()`, que corta también
+    # en \r, \x0b, \x0c, \x1c a \x1e y \x85: lo que la factura trae en un valor
+    # salía como líneas nuevas, con su sangría, que parecían del informe. Visto
+    # en una terminal de verdad el 08-11-2026 (en HALLAZGOS). Así esos
+    # caracteres llegan a `__main__.a_la_vista`, que los escribe como \xNN.
+    return "\n".join(margen + linea for linea in texto.split("\n"))
 
 
 def nombres_unicos(

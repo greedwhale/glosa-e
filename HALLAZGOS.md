@@ -9804,8 +9804,15 @@ era la AEAT para el validador, que comparaba los datos y callaba, y
 `atacante.example` para quien la abre, que puede encontrarse una página de
 cotejo falsa. Reproducido sobre `5998df7`: esa dirección, una con usuario
 delante, una con el puerto 8443 y la misma trampa con el servidor de Bizkaia
-salían sin ninguna queja. Lo del navegador sale de leer la norma; no se ha
-probado con un lector de QR.
+salían sin ninguna queja.
+
+Lo del navegador, comprobado después con el `URL` de Chromium 152, el
+navegador del panel de la aplicación de escritorio de Claude: con la barra
+invertida, el servidor es `atacante.example` y la ruta empieza por
+`/@www2.agenciatributaria.gob.es`; lo mismo con `batuz.eus`, y con una barra
+invertida sin `@`. Con usuario, el servidor sí es el de la AEAT; el puerto 443
+lo quita y el 8443 lo deja. No se ha probado con un lector de QR ni con Firefox
+o Safari.
 
 Ahora, entre `//` y la ruta solo puede ir el nombre del servidor: se compara el
 trozo entero, y si lleva un usuario, un puerto o una barra invertida sale el
@@ -9820,8 +9827,13 @@ referencia del UNB, no pasa por lxml, que es quien rechaza los caracteres de
 control en lo demás, y la consola lo imprimía tal cual. Reproducido: una
 referencia con `ESC [2J` (borrar la pantalla), `ESC ] 0;... BEL` (cambiar el
 título de la ventana) y el byte 0x9B, que en UNOC llega como el CSI de un solo
-carácter, salía entera en la línea Debería ser del EDI-SOBRE-DESCUADRADO. No
-se ha probado en una terminal qué hace cada una.
+carácter, salía entera en la línea Debería ser del EDI-SOBRE-DESCUADRADO.
+
+Visto después en una terminal de verdad, la del panel de la aplicación de
+escritorio de Claude, con PowerShell, y el código de `5998df7`: una referencia
+que sube dos filas, las borra y vuelve al principio dejó el informe con las
+filas del mensaje y del campo borradas y, en su sitio, TODO EN ORDEN, NADA QUE
+CORREGIR. El cambio de título no se ha podido ver desde aquí.
 
 Ahora la consola escribe como `\xNN` los caracteres de control C0, DEL y los
 C1 antes de imprimir el informe; el salto de línea y el tabulador se quedan,
@@ -9830,8 +9842,17 @@ en la incidencia: la página ya escapa lo que pinta, y lo guardado tiene que
 seguir siendo lo que traía el fichero. El recuento no pasa por ahí porque no
 imprime nada del fichero (lo vigila `tests/test_recuento.py`).
 
+Esa misma prueba en la terminal destapó un segundo camino. El retorno de carro
+no salía como `\x0d` sino como una línea nueva, con su sangría: `_sangrar`
+partía cada queja con `splitlines()`, que corta también en `\r`, `\x0b`,
+`\x0c`, `\x1c` a `\x1e` y `\x85`, y los convertía en saltos antes de que la
+consola los viera. Ya no borraba nada, pero la factura podía añadir líneas que
+parecían del informe. Ahora parte solo por el salto de línea, y la referencia
+entera sale escrita en su línea; visto también en la terminal.
+
 **Reproducido** antes de tocar nada, con `tests/test_lo_que_se_ve.py`: 16 de
-19 en rojo. Siete son reproducciones: las cinco direcciones trucadas, la de
+19 en rojo, y la vigésima, la de los separadores, añadida después de verlo en
+la terminal y en rojo contra `959a187`. Siete son reproducciones: las cinco direcciones trucadas, la de
 Bizkaia y los caracteres de control en la salida. Las otras nueve fallaban
 porque la función nueva no existía. Pasaban las tres de control: la dirección
 buena, la de mayúsculas y que la referencia llega al informe, sin la cual la
@@ -9840,19 +9861,27 @@ prueba de la terminal no estaría mirando nada.
 **Medido** con las muestras, contra el commit anterior en un worktree aparte:
 la salida de consola de los 170 ficheros sale idéntica byte a byte, 465.924
 bytes, sin un solo carácter de control ni antes ni después. De QR real solo
-hay una dirección, de la AEAT y bien escrita, y da lo mismo.
+hay una dirección, de la AEAT y bien escrita, y da lo mismo. Con el cambio de
+`_sangrar`, la misma salida contra `959a187`: idéntica.
 
 **Provocado**, quitando cada parte por separado: sin mirar lo que va junto al
 servidor, comparando sin bajar a minúsculas, imprimiendo sin pasar a la vista,
-dejando el retorno de carro, sin los C1, sin DEL y escapando también el salto
-de línea. Las siete roturas ponen en rojo su prueba.
+dejando el retorno de carro, sin los C1, sin DEL, sangrando con `splitlines()`
+y escapando también el salto de línea. Las ocho roturas ponen en rojo su
+prueba.
 
 **Lo que no se hizo.** El escaneo proponía también rechazar los espacios y los
 caracteres de control de la dirección del QR. Probado dentro del servidor: el
 espacio y el 0x01 ya dan el aviso, porque el nombre no es ninguno de los
-publicados. El tabulador y el salto de línea no, porque Python los quita antes
-de leer la dirección; según la norma URL de WHATWG el navegador también los
-quita, así que los dos verían el mismo servidor, pero eso no se ha probado en
-un navegador. En la consulta no cambian a qué servidor se va. Y un salto de línea dentro de un valor sigue
-pudiendo empezar una línea que imite otra del informe: no borra nada de lo
-escrito, y no se ha medido si hay facturas reales que lo lleven.
+publicados, y para Chromium tampoco son la AEAT: con el espacio el servidor
+queda `www2.agencia%20tributaria.gob.es`, y con el 0x01 detrás la dirección no
+vale. El tabulador y el salto de línea no dan aviso, porque Python los quita
+antes de leer la dirección, y Chromium también: los dos ven el mismo servidor.
+Un 0x01 delante de todo, Chromium lo quita y va a la AEAT, y aquí da aviso: es
+un aviso de más, no uno de menos. En la consulta no cambian a qué servidor se
+va.
+
+Y un salto de línea de verdad dentro de un valor sigue pudiendo empezar una
+línea que imite otra del informe, sin borrar nada de lo escrito. Medido con las
+muestras: de las 1488 quejas de los 169 ficheros, ninguna lleva en el campo,
+lo que debería ser o lo que tiene un salto ni ningún otro de esos separadores.
