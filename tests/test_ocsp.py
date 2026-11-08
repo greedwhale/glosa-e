@@ -336,6 +336,57 @@ class TestCreersela:
         assert "no se sabe quién firmó" in porque
 
 
+# --- La vigencia del respondedor delegado ----------------------------------
+#
+# Un respondedor delegado es un certificado más, con su caducidad. Se miraba que
+# llevara el uso de firma OCSP y que lo hubiera emitido la autoridad, pero no que
+# estuviera vigente cuando se produjo la respuesta: con la clave de un
+# respondedor ya caducado, que se suele guardar con menos cuidado, se firmaba un
+# «está bien» para un certificado anulado.
+
+
+def _delegado(desde, hasta):
+    return certificado(
+        "Respondedor de la AC", "AC de prueba", HOJA, RAIZ, serie=8,
+        extensiones=_eku(_OID_FIRMA_OCSP), desde=desde, hasta=hasta,
+    )
+
+
+class TestLaVigenciaDelDelegado:
+    def test_vigente_al_responder_vale(self, mundo):
+        """El punto de partida: con fechas que abarcan la respuesta, vale."""
+        r = ocsp.leer_respuesta(_envuelta(_basica(
+            [_para_la_hoja()], "Respondedor de la AC", HOJA,
+            certificados=[_delegado(HOY - timedelta(days=30), HOY + timedelta(days=30))])))
+        assert ocsp.verificar_respuesta(r, mundo["autoridad"])[0]
+
+    def test_caducado_al_responder_no_vale(self, mundo):
+        r = ocsp.leer_respuesta(_envuelta(_basica(
+            [_para_la_hoja()], "Respondedor de la AC", HOJA,
+            certificados=[_delegado(HOY - timedelta(days=400), AYER)])))
+        vale, porque = ocsp.verificar_respuesta(r, mundo["autoridad"])
+        assert not vale
+        assert "caducado" in porque
+
+    def test_aun_no_vigente_al_responder_no_vale(self, mundo):
+        r = ocsp.leer_respuesta(_envuelta(_basica(
+            [_para_la_hoja()], "Respondedor de la AC", HOJA,
+            certificados=[_delegado(HOY + timedelta(days=1), HOY + timedelta(days=30))])))
+        vale, porque = ocsp.verificar_respuesta(r, mundo["autoridad"])
+        assert not vale
+        assert "anterior" in porque
+
+    def test_tampoco_por_el_otro_camino(self, mundo):
+        """Cuando el `ResponderID` no señala a nadie y el delegado se busca entre
+        los certificados adjuntos, la vigencia se mira igual."""
+        r = ocsp.leer_respuesta(_envuelta(_basica(
+            [_para_la_hoja()], "Un nombre que no casa", HOJA,
+            certificados=[_delegado(HOY - timedelta(days=400), AYER)])))
+        vale, porque = ocsp.verificar_respuesta(r, mundo["autoridad"])
+        assert not vale
+        assert "caducado" in porque
+
+
 # --- Sacarlas del documento ------------------------------------------------
 
 

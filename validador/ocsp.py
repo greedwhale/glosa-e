@@ -541,6 +541,34 @@ def _lo_firma(candidato: Certificado, emisor: Certificado) -> bool:
         return False
 
 
+def _fuera_de_vigencia(delegado: Certificado, respuesta: Respuesta) -> str:
+    """¿Estaba vigente el respondedor delegado cuando se produjo la respuesta?
+
+    El motivo si no, o «». Se mide con `producedAt`, que es la fecha que el
+    respondedor firma. Sin esto, la clave de un respondedor caducado, que se
+    suele guardar con menos cuidado que la de la autoridad, seguía firmando
+    respuestas que se creían (en HALLAZGOS). A la propia autoridad no se le
+    mira aquí: su vigencia es cosa de la cadena.
+    """
+    cuando = respuesta.producida
+    if cuando is None:
+        return (
+            "la respuesta no dice cuándo se produjo, así que no se puede saber "
+            "si su respondedor delegado estaba vigente"
+        )
+    if delegado.desde is not None and cuando < delegado.desde:
+        return (
+            "la respuesta es anterior al certificado de su respondedor "
+            "delegado: cuando se produjo, ese certificado aún no valía"
+        )
+    if delegado.hasta is not None and cuando > delegado.hasta:
+        return (
+            "el certificado del respondedor delegado ya había caducado cuando "
+            "se produjo la respuesta"
+        )
+    return ""
+
+
 def quien_la_firma(
     respuesta: Respuesta, emisor: Certificado
 ) -> tuple[Certificado | None, str]:
@@ -564,9 +592,14 @@ def quien_la_firma(
     #    ahí el nombre con una codificación distinta de la del certificado.
     #    Se admite, pero solo si la delegación se demuestra igual.
     if quien is None:
+        caducado = ""
         for uno in respuesta.certificados:
             if _delega(uno) and _lo_firma(uno, emisor):
-                return uno, "la firma un respondedor delegado por la autoridad"
+                caducado = _fuera_de_vigencia(uno, respuesta)
+                if not caducado:
+                    return uno, "la firma un respondedor delegado por la autoridad"
+        if caducado:
+            return None, caducado
         if respuesta.certificados:
             return None, (
                 "la respuesta trae certificados, pero ninguno está autorizado "
@@ -593,6 +626,9 @@ def quien_la_firma(
             "quien firma la respuesta dice estar delegado, pero su certificado "
             "no lo ha emitido esta autoridad"
         )
+    caducado = _fuera_de_vigencia(quien, respuesta)
+    if caducado:
+        return None, caducado
     return quien, "la firma un respondedor delegado por la autoridad"
 
 

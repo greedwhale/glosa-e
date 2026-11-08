@@ -106,8 +106,14 @@ def lista(
     solo_usuarios: bool = False,
     critica_rara: bool = False,
     alg: str = "sha256",
+    punto: bytes | None = None,
 ) -> bytes:
-    """Una CRL firmada de verdad por `clave_emisor`."""
+    """Una CRL firmada de verdad por `clave_emisor`.
+
+    `punto` es el `distributionPoint` del `issuingDistributionPoint`, ya
+    escrito: el de una lista particionada, que solo responde por los
+    certificados que la señalan. Ver `_punto_uri` y `_punto_relativo`.
+    """
     desde = desde or HOY - timedelta(days=1)
     if hasta is None:
         hasta = HOY + timedelta(days=30)
@@ -117,9 +123,11 @@ def lista(
     extensiones = [_extension(_OID_NUMERO, _entero(numero), critica=False)]
     if delta_de is not None:
         extensiones.append(_extension(_OID_DELTA, _entero(delta_de)))
-    if solo_autoridades or solo_usuarios:
-        campo = _der(0x82 if solo_autoridades else 0x81, b"\xff")
-        extensiones.append(_extension(_OID_ALCANCE, _secuencia(campo)))
+    if solo_autoridades or solo_usuarios or punto is not None:
+        campos = [punto] if punto is not None else []
+        if solo_autoridades or solo_usuarios:
+            campos.append(_der(0x82 if solo_autoridades else 0x81, b"\xff"))
+        extensiones.append(_extension(_OID_ALCANCE, _secuencia(*campos)))
     if critica_rara:
         extensiones.append(_extension(_OID_INVENTADO, _der(0x05, b"")))
 
@@ -151,6 +159,22 @@ def _puntos(url: str) -> bytes:
         _secuencia(_secuencia(_der(0xA0, _der(0xA0, _der(0x86, url.encode()))))),
         critica=False,
     )
+
+
+def _punto_uri(url: str) -> bytes:
+    """El `distributionPoint` de una lista: `[0]` con un `fullName` dentro."""
+    return _der(0xA0, _der(0xA0, _der(0x86, url.encode())))
+
+
+def _punto_del_emisor(nombre: str) -> bytes:
+    """El mismo campo, con el nombre X.500 de la autoridad en vez de una URL."""
+    return _der(0xA0, _der(0xA0, _der(0xA4, _nombre(nombre))))
+
+
+def _punto_relativo() -> bytes:
+    """El otro modo, `nameRelativeToCRLIssuer`, que aquí no se sabe leer."""
+    atributo = _secuencia(_der(0x06, b"\x55\x04\x03"), _der(0x0C, b"parte 2"))
+    return _der(0xA0, _der(0xA1, atributo))
 
 
 def _acceso_ocsp(url: str) -> bytes:
@@ -322,6 +346,63 @@ class TestLoQueTieneQueParar:
         )
         nueva = leer_lista(lista(desde=HOY, numero=2))
         assert comprobar(LA_HOJA, LA_INTERMEDIA, [vieja, nueva]).estado == "vigente"
+
+
+# --- Las listas particionadas ---------------------------------------------
+#
+# Una autoridad grande reparte sus anulados en varias listas, y cada una dice en
+# su `issuingDistributionPoint` qué parte cubre. El certificado dice en su
+# `cRLDistributionPoints` en cuál está. RFC 5280, 6.3.3: una lista solo puede
+# contestar por un certificado si uno de esos nombres coincide. Antes no se
+# miraba: una lista auténtica y reciente de otra parte de la misma autoridad,
+# en la que el certificado no puede salir nunca, lo daba por vigente.
+
+SUYA = "http://pki.ejemplo.es/parte1.crl"
+OTRA = "http://pki.ejemplo.es/parte2.crl"
+CON_SU_PUNTO = leer(hoja(extensiones=_puntos(SUYA)))
+
+
+class TestLasListasParticionadas:
+    def test_la_de_su_parte_contesta(self):
+        """El punto de partida: con su propia lista, todo como siempre."""
+        assert veredicto(cert=CON_SU_PUNTO, punto=_punto_uri(SUYA)).estado == "vigente"
+        assert veredicto(_linea(HOJA_SERIE), cert=CON_SU_PUNTO,
+                         punto=_punto_uri(SUYA)).estado == "anulado"
+
+    def test_la_de_otra_parte_no_absuelve(self):
+        """El caso del escaneo: firmada por la autoridad, reciente, y de otra
+        parte. Que no traiga el número de serie no prueba nada."""
+        salida = veredicto(cert=CON_SU_PUNTO, punto=_punto_uri(OTRA))
+        assert salida.estado == "sin_saber"
+        assert "otra parte" in salida.motivo
+
+    def test_la_mas_nueva_de_otra_parte_no_tapa_a_la_suya(self):
+        """Sin atacante: dos partes en la carpeta, y la más nueva decidía sola."""
+        suya = leer_lista(lista(lineas=[_linea(HOJA_SERIE)], punto=_punto_uri(SUYA),
+                                desde=HOY - timedelta(days=2)))
+        otra = leer_lista(lista(punto=_punto_uri(OTRA), desde=HOY, numero=2))
+        salida = comprobar(CON_SU_PUNTO, LA_INTERMEDIA, [otra, suya])
+        assert salida.estado == "anulado"
+
+    def test_un_certificado_sin_puntos_no_se_cubre_con_una_url(self):
+        """Sin `cRLDistributionPoints`, la lista tiene que nombrar a la
+        autoridad, no una dirección cualquiera (RFC 5280, 6.3.3 b)."""
+        salida = veredicto(cert=LA_HOJA, punto=_punto_uri(OTRA))
+        assert salida.estado == "sin_saber"
+
+    def test_pero_si_con_el_nombre_de_la_autoridad(self):
+        salida = veredicto(cert=LA_HOJA, punto=_punto_del_emisor("CA intermedia"))
+        assert salida.estado == "vigente"
+
+    def test_un_nombre_relativo_no_se_da_por_bueno(self):
+        """`nameRelativeToCRLIssuer` existe y aquí no se lee: no se adivina."""
+        salida = veredicto(cert=CON_SU_PUNTO, punto=_punto_relativo())
+        assert salida.estado == "sin_saber"
+        assert "relativo" in salida.motivo
+
+    def test_una_lista_sin_punto_sigue_cubriendo_todo(self):
+        """La lista corriente, sin partes, no cambia: cubre a toda la autoridad."""
+        assert veredicto(cert=CON_SU_PUNTO).estado == "vigente"
 
 
 # --- Las fechas ------------------------------------------------------------

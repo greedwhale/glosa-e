@@ -9642,3 +9642,63 @@ de otro espacio de nombres. No hace falta para esto: con la búsqueda por
 espacio, un hijo ajeno ya no decide nada, y eso es lo que prueban las tres
 pruebas del señuelo. Rechazarlo sería una regla nueva, con su código y su
 gravedad, y no se ha medido cuántas firmas reales la tocarían.
+
+## Una lista de otra parte de la autoridad daba por vigente a un anulado
+
+**Cómo salió.** En el escaneo de seguridad del 01 al 03-11-2026, en dos
+sitios de la revocación que fallan igual: una prueba auténtica, firmada por
+quien tiene que firmarla, se creía sobre un certificado del que no podía
+hablar.
+
+**Las dos causas.**
+
+- *Las listas particionadas.* Una autoridad grande reparte sus anulados en
+  varias CRL, y cada una dice en su `issuingDistributionPoint` qué parte
+  cubre; el certificado dice en su `cRLDistributionPoints` en cuál está.
+  `_alcance` leía los campos booleanos de esa extensión y se saltaba el
+  `[0]`, el que dice la parte, así que la tercera condición de la cabecera de
+  `revocacion.py` («cubre a ese certificado») no se miraba. Una lista
+  auténtica y reciente de otra parte, en la que el certificado no puede salir
+  nunca, lo daba por vigente. Y sin atacante: con varias partes en la
+  carpeta, la más nueva decidía sola y tapaba a la suya.
+- *El respondedor OCSP delegado.* Se exigía que llevara el uso de firma OCSP
+  y que lo hubiera emitido la autoridad, pero no que estuviera vigente cuando
+  se produjo la respuesta. Con la clave de un respondedor ya caducado, que se
+  suele guardar con menos cuidado que la de la autoridad, se firmaba un «está
+  bien» para un certificado anulado.
+
+**Reproducido** antes de tocar nada, con once pruebas nuevas: siete en
+`test_revocacion.py` y cuatro en `test_ocsp.py`, con listas y respuestas
+firmadas de verdad en la propia prueba. Con el código de antes, 7 en rojo: la
+lista de otra parte, la más nueva de otra parte, la que nombra una URL para un
+certificado que no da ninguna y la de nombre relativo salían vigentes, y las
+tres respuestas de un delegado caducado o aún no vigente se creían. Las otras
+cuatro son el punto de partida y pasaban ya.
+
+**Lo que lo cerró.**
+
+- La lista guarda los nombres de la parte que cubre, en DER y con su
+  etiqueta, y `_sirve` exige que alguno coincida con los del certificado
+  (RFC 5280, 6.3.3). Un punto sin nombre, o un certificado sin la extensión,
+  cuenta como el nombre X.500 de quien lo emitió, que es lo que el RFC manda
+  comparar entonces. Una lista que no cubre no es útil, así que tampoco entra
+  a competir por ser la más nueva.
+- Una lista con nombre relativo (`nameRelativeToCRLIssuer`) no se lee
+  todavía y no contesta: se dice por qué.
+- El respondedor delegado tiene que estar vigente en el `producedAt` de la
+  respuesta, por los dos caminos por los que se le encuentra. A la propia
+  autoridad no se le mira aquí, porque eso es cosa de la cadena.
+
+**Medido** con las muestras. Las 14 listas que traen los documentos son 3
+distintas, de dos autoridades raíz, y **las 3** llevan el nombre de su parte:
+el arreglo toca casos reales. Los documentos no traen ningún certificado de
+esas raíces, así que se cruzaron con los de `anclas*/`: las 3 cubren a los 7
+certificados que esas raíces emitieron. Y las 34 comprobaciones de OCSP que
+se pueden hacer con lo que traen los documentos, entre ellas 7 respuestas de
+respondedores delegados que se creen, salen idénticas antes y después. De CRL
+no hay ninguna que hacer así, porque su emisor no viaja en el documento.
+
+**Provocado**, quitando cada parte por separado: sin comparar la parte, 3 en
+rojo; sin mirar el nombre relativo, 1; sin el nombre del emisor cuando el
+certificado no da puntos, 1; sin la vigencia del delegado, 2 por el camino
+directo y 1 por el de los certificados adjuntos.

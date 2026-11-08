@@ -228,6 +228,11 @@ class Lista:
     solo_algunos_motivos: bool = False
     indirecta: bool = False
     criticas_sin_entender: frozenset[str] = frozenset()
+    # El `distributionPoint` del `issuingDistributionPoint`: los nombres de la
+    # parte de la autoridad que esta lista cubre, en DER. `None` es una lista
+    # sin partes, que cubre todo lo que emite la autoridad. Ver `_sirve`.
+    punto: frozenset[bytes] | None = None
+    punto_relativo: bool = False
 
     @property
     def parcial(self) -> str:
@@ -285,20 +290,80 @@ def _extensiones_de_linea(contenido: bytes):
     return motivo, invalida, otro
 
 
+def _nombres_del_punto(contenido: bytes) -> tuple[frozenset[bytes] | None, bool]:
+    """Un `DistributionPointName` abierto: sus nombres, o que es relativo.
+
+    Va con etiqueta explícita porque es una elección: dentro, `[0]` es el
+    `fullName` —una lista de `GeneralName`— y `[1]` el nombre relativo al
+    emisor. Cada nombre se devuelve en DER, con su etiqueta, que es como se
+    comparan: una URL y un nombre X.500 con los mismos bytes no son lo mismo.
+    """
+    try:
+        elementos = _elementos(contenido)
+    except ValueError:
+        return frozenset(), False
+    if not elementos:
+        return frozenset(), False
+    etiqueta, dentro = elementos[0]
+    if etiqueta == 0xA1:
+        return None, True
+    if etiqueta != 0xA0:
+        return frozenset(), False
+    try:
+        return frozenset(_reserializar(uno) for uno in _elementos(dentro)), False
+    except ValueError:
+        return frozenset(), False
+
+
+def puntos_del_certificado(cert: Certificado) -> frozenset[bytes]:
+    """Los nombres con que el certificado dice dónde está su lista, en DER.
+
+    De su `cRLDistributionPoints`. Un punto sin nombre, o un certificado sin la
+    extensión, cuenta como el nombre X.500 de quien lo emitió: es lo que
+    RFC 5280 (6.3.3 b) manda comparar entonces con la lista. Los nombres
+    relativos no se cuentan: no se saben leer, y contar con ellos sería
+    inventarse una coincidencia.
+    """
+    del_emisor = _reserializar((0xA4, cert.emisor_der)) if cert.emisor_der else b""
+    valor = cert.extension(_OID_PUNTOS)
+    if not valor:
+        return frozenset({del_emisor}) if del_emisor else frozenset()
+    salida: set[bytes] = set()
+    try:
+        _, puntos, _ = _tlv(valor)
+        for _, punto in _elementos(puntos):
+            nombre = [c for e, c in _elementos(punto) if e == 0xA0]
+            if not nombre:
+                if del_emisor:
+                    salida.add(del_emisor)
+                continue
+            nombres, _ = _nombres_del_punto(nombre[0])
+            salida |= nombres or frozenset()
+    except ValueError:
+        pass
+    return frozenset(salida)
+
+
 def _alcance(valor: bytes):
     """`issuingDistributionPoint`: a qué parte del mundo contesta la lista.
 
     Los campos booleanos van con etiqueta implícita —[1], [2], [4], [5]—, o sea
-    que llegan como primitivos de contexto con un byte de contenido.
+    que llegan como primitivos de contexto con un byte de contenido. El `[0]`
+    es la parte de la autoridad que la lista cubre, cuando la autoridad
+    reparte sus anulados en varias: se apunta para `_sirve`.
     """
     solo_usuarios = solo_autoridades = solo_motivos = indirecta = False
+    punto: frozenset[bytes] | None = None
+    relativo = False
     try:
         _, dentro, _ = _tlv(valor)
     except ValueError:
-        return False, False, False, False
+        return False, False, False, False, None, False
     for etiqueta, contenido in _elementos(dentro):
         cierto = contenido == bytes([0xFF])
-        if etiqueta == 0x81:
+        if etiqueta == 0xA0:
+            punto, relativo = _nombres_del_punto(contenido)
+        elif etiqueta == 0x81:
             solo_usuarios = cierto
         elif etiqueta == 0x82:
             solo_autoridades = cierto
@@ -306,7 +371,7 @@ def _alcance(valor: bytes):
             solo_motivos = True
         elif etiqueta == 0x84:
             indirecta = cierto
-    return solo_usuarios, solo_autoridades, solo_motivos, indirecta
+    return solo_usuarios, solo_autoridades, solo_motivos, indirecta, punto, relativo
 
 
 def leer_lista(der: bytes) -> Lista:
@@ -357,6 +422,8 @@ def leer_lista(der: bytes) -> Lista:
 
     numero = None
     es_delta = solo_usuarios = solo_autoridades = solo_motivos = indirecta = False
+    punto: frozenset[bytes] | None = None
+    punto_relativo = False
     criticas: set[str] = set()
     if i < len(campos) and campos[i][0] == 0xA0:
         _, dentro, _ = _tlv(campos[i][1])
@@ -378,6 +445,8 @@ def leer_lista(der: bytes) -> Lista:
                     solo_autoridades,
                     solo_motivos,
                     indirecta,
+                    punto,
+                    punto_relativo,
                 ) = _alcance(valor)
             elif critica:
                 criticas.add(cual)
@@ -405,6 +474,8 @@ def leer_lista(der: bytes) -> Lista:
         solo_algunos_motivos=solo_motivos,
         indirecta=indirecta,
         criticas_sin_entender=frozenset(criticas) - _ENTENDIDAS,
+        punto=punto,
+        punto_relativo=punto_relativo,
     )
 
 
@@ -640,6 +711,22 @@ def _sirve(lista: Lista, emisor: Certificado, cert: Certificado) -> str:
         return "solo cubre certificados de autoridad, y este no lo es"
     if lista.solo_usuarios and cert.es_autoridad is True:
         return "solo cubre certificados de usuario, y este es de autoridad"
+    # La tercera condición de la cabecera, «cubre a ese certificado», también
+    # cuando la autoridad reparte sus anulados en varias listas. Cada una dice
+    # qué parte cubre y el certificado dice en cuál está (RFC 5280, 6.3.3).
+    # Antes no se miraba: una lista auténtica y reciente de otra parte, en la
+    # que el certificado no puede salir nunca, lo daba por vigente, y en la
+    # carpeta la más nueva de las partes tapaba a la suya (en HALLAZGOS).
+    if lista.punto_relativo:
+        return (
+            "dice cubrir solo una parte de lo que emite la autoridad, con un "
+            "nombre relativo que aquí no se sabe leer"
+        )
+    if lista.punto is not None and not lista.punto & puntos_del_certificado(cert):
+        return (
+            "es la lista de otra parte de lo que emite la autoridad: no cubre "
+            "ninguno de los puntos de distribución que da el certificado"
+        )
     return ""
 
 
