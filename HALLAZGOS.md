@@ -9477,3 +9477,47 @@ nombra.
 **Lo que no se arregla aquí.** La historia de git sigue teniendo los textos
 viejos, y el repositorio es público: quitarlos de ahí pediría reescribir la
 historia, que es otra decisión.
+
+## Un comentario XML cambiaba lo que leían las reglas sin romper la firma
+
+**Cómo salió.** En el escaneo de seguridad de `validador/` y `web/` que se
+hizo del 01 al 03-11-2026 sobre `2ff61eb`. Lo señaló en tres sitios: las
+reglas de Facturae (`facturae._texto`), el lector común de UBL y CII
+(`sintaxis.texto`) y la fecha de la firma (`firma._fecha_de`).
+
+**La causa.** Los tres leían el valor de un elemento con `.text` de lxml, y
+`.text` es solo el trozo anterior al primer hijo: un comentario lo corta. La
+firma, en cambio, no ve el comentario, porque la canonicalización habitual lo
+quita antes de calcular el resumen. Medido el 08-11-2026 con el `parser()` de
+aquí sobre `<n>1<!-- x -->23<?pi y?>4</n>`: `.text` da `1`, `findtext` da `1`,
+`string()` de XPath da `1234`, y C14N escribe `123<?pi y?>4`. Así que un
+tercero sin ninguna clave podía coger una factura firmada, meterle un
+comentario dentro de un valor, y el informe seguía diciendo que nadie la había
+tocado mientras las reglas leían otra cosa: con `20<!-- -->26-03-02` en el
+`SigningTime` la fecha de firma desaparecía y con ella FIRMA-CADUCADA, y el
+número de la factura, el NIF o un importe se leían cortados.
+
+**Reproducido** antes de tocar nada, con una prueba nueva,
+`tests/test_comentarios_en_lo_firmado.py`, que no pregunta a ningún lector:
+mete un comentario en mitad de cada valor y exige que el informe sea el mismo,
+palabra por palabra. En rojo 10 de 11: los siete ejemplos XML publicados, y la
+firma de `test_firma`, que dejaba de dar fecha y de decir FIRMA-CADUCADA.
+
+**Lo que lo cerró.** No eran tres sitios: leían igual 38 líneas de 14 módulos,
+también los certificados, los resúmenes, las CRL, las respuestas OCSP, los
+sellos de tiempo y las listas de confianza, que se leían con rutas `text()` y
+se quedaban con los trozos sueltos. Todos leen ahora con `formato.como_texto`, que es
+`string()`, el valor del elemento según la norma de XML y lo que lee cualquier
+otro programa. Vivía en `sintaxis` y bajó a `formato` para que lo pudieran usar
+los módulos que no importan `sintaxis`. Lo que no se hizo es quitar los
+comentarios en `parser()`: una firma con `#WithComments` sí los cubre, y
+quitarlos daría por rota una firma buena.
+
+**Provocado.** Con `firma._fecha_de` devuelto a `.text`, cuatro pruebas en
+rojo; con `codigo_unico._local`, ocho, seis de ellas ejemplos publicados. Y como los ejemplos no pasan por todos
+los lectores, la misma prueba lee el código de `validador/` y se niega si
+encuentra un `.text` leído, un `findtext` o una ruta con `text()`, fuera de
+`edifact.py`, cuyo árbol se construye aquí y no puede traer comentarios.
+Devuelto a `.text` el lector de países retirados de Facturae, que ningún
+ejemplo dispara, sale en rojo y lo nombra. La primera versión del vigilante
+confundía `getcontext()` con una ruta: se ve en su propia prueba.

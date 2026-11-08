@@ -35,7 +35,7 @@ from lxml import etree
 from validador import (
     cifras, decimales, edifact, iva, listas_de_codigos, modelo, normas)
 from validador.formato import (
-    FACTURAE, NOMBRA_A_LA_AEAT, RESPUESTAS, detectar, parser)
+    FACTURAE, NOMBRA_A_LA_AEAT, RESPUESTAS, como_texto, detectar, parser)
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia, Informe
 from validador.sintaxis import (
     NS_CII,
@@ -610,7 +610,7 @@ def _reglas_cuadre(raiz, sintaxis: Sintaxis) -> list[Incidencia]:
                 campo="Importe total de impuestos",
                 esperado=f"uno solo en {moneda or 'la moneda de la factura'}",
                 encontrado=", ".join(
-                    cifras.tiene(a_decimal(n.text)) for n in en_su_moneda),
+                    cifras.tiene(a_decimal(como_texto(n))) for n in en_su_moneda),
             )
         )
     elif base is not None and con_impuestos is not None:
@@ -1068,8 +1068,8 @@ def _etiqueta_facturae(factura, cuantas: int) -> str:
     cabecera = factura.xpath("./InvoiceHeader")
     if not cabecera:
         return ""
-    serie = (cabecera[0].findtext("InvoiceSeriesCode") or "").strip()
-    numero = (cabecera[0].findtext("InvoiceNumber") or "").strip() or "(sin número)"
+    serie = "".join(como_texto(n) for n in cabecera[0].findall("InvoiceSeriesCode")[:1]).strip()
+    numero = "".join(como_texto(n) for n in cabecera[0].findall("InvoiceNumber")[:1]).strip() or "(sin número)"
     return f"Factura {serie}{numero} · "
 
 

@@ -96,6 +96,7 @@ from validador.formato import (
     FIRMA_SIN_COMPROBAR,
     NS_FIRMA,
     UBL,
+    como_texto,
     Deteccion,
 )
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
@@ -1008,10 +1009,10 @@ def factura_leida(raiz):
 
 
 def _texto_b64(nodo) -> bytes | None:
-    if nodo is None or nodo.text is None:
+    if nodo is None or not como_texto(nodo):
         return None
     try:
-        return base64.b64decode("".join(nodo.text.split()))
+        return base64.b64decode("".join(como_texto(nodo).split()))
     except (binascii.Error, ValueError):
         return None
 
@@ -1041,7 +1042,7 @@ def certificados_de(firma) -> list[Certificado]:
     documento correcto al que alguien haya colgado un certificado de adorno.
     """
     salida = []
-    for texto in firma.xpath("./ds:KeyInfo//ds:X509Certificate/text()", namespaces=_NS):
+    for texto in map(como_texto, firma.xpath("./ds:KeyInfo//ds:X509Certificate", namespaces=_NS)):
         # El `b64decode` **dentro** del try. Estaba fuera, y eso convertía un
         # certificado mal copiado en una caída del validador entero: medido el
         # 21-09-2026 con un `X509Certificate` de dos letras, el informe pasaba
@@ -1199,7 +1200,7 @@ def comprobar_referencia(raiz, firma, referencia) -> Comprobada:
     metodo = referencia.xpath("./ds:DigestMethod/@Algorithm", namespaces=_NS)
     alg = _RESUMEN.get(metodo[0] if metodo else "")
     declarado = _hijo_ds(referencia, "DigestValue")
-    if alg is None or declarado is None or declarado.text is None:
+    if alg is None or declarado is None or not como_texto(declarado):
         return Comprobada(
             uri,
             None,
@@ -1211,7 +1212,7 @@ def comprobar_referencia(raiz, firma, referencia) -> Comprobada:
     if octetos is None:
         return Comprobada(uri, alg, "sin_comprobar", motivo, objetivo)
     calculado = base64.b64encode(hashlib.new(alg, octetos).digest()).decode()
-    escrito = "".join(declarado.text.split())
+    escrito = "".join(como_texto(declarado).split())
     if calculado != escrito:
         return Comprobada(uri, alg, "alterada", "", objetivo, escrito, calculado)
     return Comprobada(uri, alg, "bien", "", objetivo, escrito, calculado)
@@ -1303,7 +1304,10 @@ def examinar(firma, raiz=None) -> Examen:
     cert = None
     crudo = None
     ilegible = False
-    textos = firma.xpath("./ds:KeyInfo//ds:X509Certificate/text()", namespaces=_NS)
+    textos = [
+        como_texto(nodo)
+        for nodo in firma.xpath("./ds:KeyInfo//ds:X509Certificate", namespaces=_NS)
+    ]
     if textos:
         try:
             crudo = base64.b64decode("".join(textos[0].split()))
@@ -1698,7 +1702,10 @@ def _regla_certificado(examen: Examen, donde: str) -> list[Incidencia]:
         ".//*[local-name()='SigningCertificate' or local-name()='SigningCertificateV2']"
     ):
         metodo = declarado.xpath(".//*[local-name()='DigestMethod']/@Algorithm")
-        valor = declarado.xpath(".//*[local-name()='DigestValue']/text()")
+        valor = [
+            como_texto(nodo)
+            for nodo in declarado.xpath(".//*[local-name()='DigestValue']")
+        ]
         if metodo and valor:
             guardado = (_RESUMEN.get(metodo[0]), "".join(valor[0].split()))
         break
@@ -1779,7 +1786,7 @@ def _fecha_de(propiedades) -> datetime | None:
     if propiedades is None:
         return None
     for nodo in propiedades.xpath(".//*[local-name()='SigningTime']"):
-        crudo = (nodo.text or "").strip()
+        crudo = como_texto(nodo).strip()
         if not crudo:
             continue
         try:

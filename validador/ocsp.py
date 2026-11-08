@@ -64,6 +64,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 
+from validador.formato import como_texto
 from validador.firma import (
     Certificado,
     ClaveNoSoportada,
@@ -438,11 +439,11 @@ def respuestas_del_documento(firma_xml) -> list[Respuesta]:
     """
     salida = []
     for nodo in firma_xml.xpath(".//*[local-name()='EncapsulatedOCSPValue']"):
-        if nodo.text is None:
+        if not como_texto(nodo):
             salida.append(Respuesta(estado_global=-1, ilegible="viene vacía"))
             continue
         try:
-            der = base64.b64decode("".join(nodo.text.split()))
+            der = base64.b64decode("".join(como_texto(nodo).split()))
         except (binascii.Error, ValueError):
             salida.append(
                 Respuesta(estado_global=-1, ilegible="el base64 no se descodifica")

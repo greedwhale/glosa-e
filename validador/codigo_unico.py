@@ -54,6 +54,7 @@ from validador.formato import (
     FACTURAE,
     RESPUESTAS,
     UBL,
+    como_texto,
     detectar,
     parser,
 )
@@ -710,7 +711,7 @@ def _local(nodo, *nombres: str) -> str | None:
     encontrados = nodo.xpath(ruta)
     if not encontrados:
         return None
-    texto = (encontrados[0].text or "").strip()
+    texto = como_texto(encontrados[0]).strip()
     return texto or None
 
 
@@ -766,7 +767,7 @@ def _extraer_cii(raiz) -> list[CodigoUnico]:
     fecha = leer_fecha(_local(cabecera[0], "IssueDateTime", "DateTimeString"))
     if numero is None or fecha is None:
         return []
-    texto = (documento[0].text or "").strip() if documento else None
+    texto = como_texto(documento[0]).strip() if documento else None
     return [CodigoUnico(limpiar_nif(texto), numero, fecha)]
 
 

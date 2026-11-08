@@ -60,7 +60,7 @@ from decimal import Decimal
 
 from validador import cifras, nif, paises
 from validador.sintaxis import a_decimal
-from validador.formato import FACTURAE, Deteccion
+from validador.formato import FACTURAE, Deteccion, como_texto
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
 
 __all__ = ["reglas"]
@@ -118,7 +118,7 @@ def _texto(nodo, *nombres: str) -> str | None:
     encontrados = _hijos(nodo, *nombres)
     if not encontrados:
         return None
-    crudo = (encontrados[0].text or "").strip()
+    crudo = como_texto(encontrados[0]).strip()
     return crudo or None
 
 
@@ -926,7 +926,7 @@ def _reglas_paises(raiz) -> list[Incidencia]:
     """
     incidencias: list[Incidencia] = []
     for nodo in raiz.xpath("//*[local-name()='CountryCode']"):
-        escrito = (nodo.text or "").strip().upper()
+        escrito = como_texto(nodo).strip().upper()
         if not escrito or paises.alpha2(escrito) is not None:
             continue
         if escrito not in _RETIRADOS:

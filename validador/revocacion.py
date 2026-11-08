@@ -90,6 +90,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from validador import cifras, ocsp
+from validador.formato import como_texto
 from validador.firma import (
     _OID_ALGORITMO,
     Certificado,
@@ -880,7 +881,7 @@ def listas_del_documento(firma) -> list[Lista]:
     eso se puede aceptar sin más ceremonia.
     """
     salida = []
-    for texto in firma.xpath(".//*[local-name()='EncapsulatedCRLValue']/text()"):
+    for texto in map(como_texto, firma.xpath(".//*[local-name()='EncapsulatedCRLValue']")):
         try:
             salida.append(leer_lista(base64.b64decode("".join(texto.split()))))
         except (ValueError, IndexError, binascii.Error):

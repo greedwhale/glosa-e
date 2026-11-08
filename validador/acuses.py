@@ -61,7 +61,7 @@ import re
 from datetime import date
 
 from validador import cifras, glosario
-from validador.formato import ACUSE
+from validador.formato import ACUSE, como_texto
 from validador.incidencias import AVISO, NOTA, Incidencia
 
 _CAC = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
@@ -88,7 +88,8 @@ _LOCALIZADOR = "cbc:ReferencedDocumentInternalAddress"
 
 
 def _texto(nodo, ruta: str) -> str:
-    return " ".join((nodo.findtext(ruta, default="", namespaces=_NS) or "").split())
+    encontrado = nodo.find(ruta, namespaces=_NS)
+    return " ".join((como_texto(encontrado) if encontrado is not None else "").split())
 
 
 def _fecha(texto: str) -> str:

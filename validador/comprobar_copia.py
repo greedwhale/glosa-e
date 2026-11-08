@@ -78,7 +78,7 @@ from lxml import etree
 
 from validador import cifras, codigo_unico, paises
 from validador.copia_fiel import MEDIOS_EN_LA_COPIA
-from validador.formato import FACTURAE, UBL
+from validador.formato import FACTURAE, UBL, como_texto
 from validador.incidencias import AVISO, NOTA, Incidencia, entre_comillas
 from validador.sintaxis import (
     SINTAXIS,
@@ -227,7 +227,7 @@ def _hijos(nodo, *nombres: str) -> list:
 
 def _texto(nodo, *nombres: str) -> str | None:
     for encontrado in _hijos(nodo, *nombres):
-        escrito = (encontrado.text or "").strip()
+        escrito = como_texto(encontrado).strip()
         if escrito:
             return escrito
     return None
@@ -238,7 +238,7 @@ def _numero(nodo, *nombres: str) -> Decimal | None:
 
 
 def _importes(nodo, *nombres: str) -> tuple[Decimal, ...]:
-    leidos = (a_decimal((uno.text or "").strip()) for uno in _hijos(nodo, *nombres))
+    leidos = (a_decimal(como_texto(uno).strip()) for uno in _hijos(nodo, *nombres))
     return tuple(valor for valor in leidos if valor is not None)
 
 

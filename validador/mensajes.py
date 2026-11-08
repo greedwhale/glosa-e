@@ -86,6 +86,7 @@ import re
 from dataclasses import dataclass
 
 from validador import mensajes_es, nif
+from validador.formato import como_texto
 from validador.codigo_unico import limpiar_nif, parece_de_fuera
 from validador.formato import RESPUESTA
 from validador.incidencias import AVISO, ERROR, NOTA, Incidencia
@@ -310,7 +311,16 @@ _MOTIVOS = {clave: lista.valores for clave, lista in mensajes_es.LISTAS.items()}
 
 
 def _texto(nodo, ruta: str) -> str:
-    return " ".join(" ".join(nodo.xpath(f"{ruta}//text()", namespaces=_NS)).split())
+    # Hoja a hoja y con `como_texto`, no con `//text()`: los nodos de texto
+    # sueltos los parte un comentario, y el espacio que los unía convertía
+    # «B1<!-- -->2345674» en «B1 2345674».
+    hojas = (
+        hoja
+        for encontrado in nodo.xpath(ruta, namespaces=_NS)
+        for hoja in encontrado.iter()
+        if isinstance(hoja.tag, str) and not len(hoja)
+    )
+    return " ".join(" ".join(como_texto(hoja) for hoja in hojas).split())
 
 
 def _y(cosas: list[str]) -> str:

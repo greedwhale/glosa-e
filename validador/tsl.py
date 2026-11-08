@@ -96,7 +96,7 @@ from validador.cadena import (
     NOMBRE_DE_ESTADOS,
 )
 from validador.firma import Certificado, ClaveNoSoportada, leer_certificado
-from validador.formato import parser
+from validador.formato import como_texto, parser
 from validador.incidencias import entre_comillas
 
 __all__ = [
@@ -170,7 +170,7 @@ def _texto(nodo, nombre: str) -> str:
     """
     if nodo is None:
         return ""
-    encontrados = nodo.xpath(f".//*[local-name()='{nombre}']/text()")
+    encontrados = [como_texto(n) for n in nodo.xpath(f".//*[local-name()='{nombre}']")]
     return _limpio(encontrados[0]) if encontrados else ""
 
 
@@ -185,7 +185,7 @@ def _de_dentro(nodo, nombre: str) -> str:
     """
     if nodo is None:
         return ""
-    encontrados = nodo.xpath(f"./*[local-name()='{nombre}']/text()")
+    encontrados = [como_texto(n) for n in nodo.xpath(f"./*[local-name()='{nombre}']")]
     return _limpio(encontrados[0]) if encontrados else ""
 
 
@@ -222,7 +222,9 @@ def _certificados(nodo) -> tuple[list[Certificado], list[str]]:
     salida: list[Certificado] = []
     no_usables: list[str] = []
     for identidad in nodo.xpath(".//*[local-name()='DigitalId']"):
-        crudo = identidad.xpath("./*[local-name()='X509Certificate']/text()")
+        crudo = [
+            como_texto(n) for n in identidad.xpath("./*[local-name()='X509Certificate']")
+        ]
         if not crudo:
             continue
         try:
@@ -417,7 +419,7 @@ def leer(datos: bytes) -> Lista:
     for puntero in raiz.xpath(".//*[local-name()='OtherTSLPointer']"):
         # El territorio va dentro de `AdditionalInformation`, no como atributo.
         territorio = ""
-        for otro in puntero.xpath(".//*[local-name()='SchemeTerritory']/text()"):
+        for otro in map(como_texto, puntero.xpath(".//*[local-name()='SchemeTerritory']")):
             territorio = otro.strip()
             break
         identidades = puntero.xpath(
@@ -429,11 +431,11 @@ def leer(datos: bytes) -> Lista:
                 territorio=territorio,
                 donde=_de_dentro(puntero, "TSLLocation"),
                 tipo=next(
-                    iter(puntero.xpath(".//*[local-name()='TSLType']/text()")), ""
+                    map(como_texto, puntero.xpath(".//*[local-name()='TSLType']")), ""
                 ),
                 firmantes=tuple(firmantes),
                 mime=next(
-                    iter(puntero.xpath(".//*[local-name()='MimeType']/text()")), ""
+                    map(como_texto, puntero.xpath(".//*[local-name()='MimeType']")), ""
                 ).strip(),
             )
         )

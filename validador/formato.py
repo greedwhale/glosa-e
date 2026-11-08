@@ -16,6 +16,7 @@ fallar.
 from __future__ import annotations
 
 import re
+import threading
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -342,6 +343,33 @@ def parser() -> etree.XMLParser:
     )
 
 
+# `string()` de XPath, que es lo que la norma llama el valor de un elemento:
+# el texto de dentro y el de todos sus hijos, sin comentarios. **Todo valor del
+# documento se lee con esto y no con `.text`**, y no es cuestión de gusto.
+# `.text` es solo el trozo anterior al primer hijo, y un comentario es un hijo:
+# en `<InvoiceNumber>1<!-- -->23</InvoiceNumber>` vale «1». La firma, en
+# cambio, no ve el comentario, porque la canonicalización habitual lo quita
+# antes de calcular el resumen. Con `.text` un tercero sin clave cambiaba lo que
+# leían las reglas sin romper la firma. Lo encontró el escaneo de seguridad del
+# 01 al 03-11-2026 en tres sitios, y leían igual 38 líneas de 14 módulos; lo
+# vigila `tests/test_comentarios_en_lo_firmado.py`.
+#
+# Lo que no se hace es quitar los comentarios en `parser()`: una firma con
+# `#WithComments` sí los cubre, y quitarlos daría por rota una firma buena.
+#
+# Se compila una vez por hilo —se llamaba 4.800 veces en una factura de 800
+# líneas— porque un `XPath` compilado no se comparte entre hilos.
+_COMO_TEXTO = threading.local()
+
+
+def como_texto(nodo) -> str:
+    """El `string()` de un nodo: su valor, con los comentarios fuera."""
+    cual = getattr(_COMO_TEXTO, "ruta", None)
+    if cual is None:
+        cual = _COMO_TEXTO.ruta = etree.XPath("string()")
+    return cual(nodo)
+
+
 def entidades_sin_resolver(raiz) -> list[str]:
     """Los elementos cuyo contenido es una entidad que aquí no se expande.
 
@@ -393,7 +421,7 @@ def _texto(raiz: etree._Element, ruta: str, espacios: dict[str, str]) -> str | N
     if not encontrados:
         return None
     valor = encontrados[0]
-    texto = valor if isinstance(valor, str) else (valor.text or "")
+    texto = valor if isinstance(valor, str) else como_texto(valor)
     texto = texto.strip()
     return texto or None
 
@@ -433,7 +461,10 @@ def _detectar_facturae(raiz: etree._Element, namespace: str | None) -> Deteccion
     # menos un documento rectificativo, se marca como abono.
     tipo = None
     if raiz.xpath("//*[local-name()='InvoiceDocumentType']"):
-        tipos = raiz.xpath("//*[local-name()='InvoiceDocumentType']/text()")
+        tipos = [
+            como_texto(nodo)
+            for nodo in raiz.xpath("//*[local-name()='InvoiceDocumentType']")
+        ]
         tipo = "abono" if any("RECTIFICATIVA" in t.upper() for t in tipos) else "factura"
     parejas = {
         " ".join(

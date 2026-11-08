@@ -83,6 +83,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from validador import cifras
+from validador.formato import como_texto
 from validador.firma import (
     _C14N,
     momento_de_firma,
@@ -683,9 +684,9 @@ def sellos_de(firma) -> list[Hallado]:
                         motivo="viene escrito como XML y no como un token de "
                                "RFC 3161, que es la forma que aquí se sabe leer"))
                 continue
-            for texto in nodo.xpath(
-                ".//*[local-name()='EncapsulatedTimeStamp']/text()"
-            ):
+            for texto in map(como_texto, nodo.xpath(
+                ".//*[local-name()='EncapsulatedTimeStamp']"
+            )):
                 try:
                     der = base64.b64decode("".join(texto.split()))
                 except (binascii.Error, ValueError):

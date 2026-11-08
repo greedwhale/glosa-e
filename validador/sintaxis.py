@@ -20,6 +20,7 @@ from decimal import ROUND_FLOOR, Decimal, InvalidOperation, localcontext
 from lxml import etree
 
 from validador import cius_es
+from validador.formato import como_texto
 
 NS_UBL = {
     "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
@@ -1484,20 +1485,10 @@ def buscar(nodo, ruta: str, espacios: dict):
     return _compilada(ruta, espacios)(nodo)
 
 
-# `string()` de XPath, que es lo que la norma llama el valor de un elemento:
-# el texto de dentro y el de todos sus hijos, sin comentarios. Se compila una
-# vez por lo mismo que lo demás —se llamaba 4.800 veces en una factura de 800
-# líneas— y vive aquí para que las tres copias de `_escrito` que hay repartidas
-# lean exactamente lo mismo.
-_COMO_TEXTO = threading.local()
-
-
-def como_texto(nodo) -> str:
-    """El `string()` de un nodo."""
-    cual = getattr(_COMO_TEXTO, "ruta", None)
-    if cual is None:
-        cual = _COMO_TEXTO.ruta = etree.XPath("string()")
-    return cual(nodo)
+# `como_texto` vive en `formato` desde el 08-11-2026, para que lo puedan usar
+# también los módulos que no importan este (la firma, Facturae, el código
+# único). Se importa arriba y sigue a mano desde aquí porque es donde lo
+# buscan los que ya lo usaban.
 
 
 def texto(nodo, ruta: str, sintaxis: Sintaxis) -> str | None:
@@ -1517,7 +1508,7 @@ def texto(nodo, ruta: str, sintaxis: Sintaxis) -> str | None:
     if not encontrados:
         return None
     valor = encontrados[0]
-    crudo = valor if isinstance(valor, str) else (valor.text or "")
+    crudo = valor if isinstance(valor, str) else como_texto(valor)
     crudo = crudo.strip()
     return crudo or None
 
@@ -1606,7 +1597,7 @@ def importe_en_moneda(
             if candidato.get("currencyID") == moneda:
                 elegido = candidato
                 break
-    return a_decimal(elegido.text)
+    return a_decimal(como_texto(elegido))
 
 
 def cuadra(a: Decimal, b: Decimal) -> bool:
@@ -1958,7 +1949,7 @@ def campos_es(nodo, identificador: str) -> list:
 def texto_es(nodo, identificador: str) -> str | None:
     """El contenido del primer elemento que le toca a un campo español."""
     for elemento in campos_es(nodo, identificador):
-        crudo = elemento if isinstance(elemento, str) else (elemento.text or "")
+        crudo = elemento if isinstance(elemento, str) else como_texto(elemento)
         crudo = crudo.strip()
         if crudo:
             return crudo

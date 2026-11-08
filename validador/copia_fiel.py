@@ -243,7 +243,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from validador import cifras
-from validador.formato import FACTURAE, Deteccion
+from validador.formato import FACTURAE, Deteccion, como_texto
 from validador.incidencias import NOTA, Incidencia
 from validador.sintaxis import a_decimal
 
@@ -1508,7 +1508,7 @@ def _hijos(nodo, *nombres: str) -> list:
 
 def _numero(nodo, *nombres: str) -> Decimal:
     for encontrado in _hijos(nodo, *nombres):
-        cantidad = a_decimal((encontrado.text or "").strip())
+        cantidad = a_decimal(como_texto(encontrado).strip())
         if cantidad is not None:
             return cantidad
     return Decimal(0)
@@ -1516,7 +1516,7 @@ def _numero(nodo, *nombres: str) -> Decimal:
 
 def _texto(nodo, *nombres: str) -> str:
     for encontrado in _hijos(nodo, *nombres):
-        escrito = (encontrado.text or "").strip()
+        escrito = como_texto(encontrado).strip()
         if escrito:
             return escrito
     return ""
@@ -1612,7 +1612,7 @@ def _suma_profunda(nodo, nombre: str) -> Decimal:
     """
     total = Decimal(0)
     for encontrado in nodo.xpath(f".//*[local-name()='{nombre}']"):
-        cantidad = a_decimal(" ".join(encontrado.itertext()).strip())
+        cantidad = a_decimal(como_texto(encontrado).strip())
         if cantidad is not None:
             total += cantidad
     return total
@@ -2311,7 +2311,7 @@ def _direcciones_de_fuera(raiz) -> list[Incidencia]:
             f"/*[local-name()='OverseasAddress']"
             f"/*[local-name()='PostCodeAndTown']"
         ):
-            escrito = (juntos.text or "").strip()
+            escrito = como_texto(juntos).strip()
             if not escrito:
                 continue
             incidencias.append(
