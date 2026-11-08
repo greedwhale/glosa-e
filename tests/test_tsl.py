@@ -487,6 +487,60 @@ class TestCreerselaOno:
         assert not una.verificada
 
 
+def _dentro_de_la_firma(datos: bytes, colado) -> bytes:
+    """Mete `colado` en un `ds:Object` nuevo de la firma de la lista.
+
+    La referencia `URI=""` se calcula sin la firma —es lo que dice la
+    transformación enveloped—, así que nada de lo que vaya ahí entra en ningún
+    resumen: la lista sigue verificándose."""
+    raiz = etree.fromstring(datos)
+    firma_el = raiz.xpath("//*[local-name()='Signature']")[0]
+    etree.SubElement(firma_el, f"{{{NS_DS}}}Object").append(colado)
+    return etree.tostring(raiz, xml_declaration=True, encoding="UTF-8")
+
+
+def _intrusa():
+    return certificado("CA intrusa", "CA intrusa", INTRUSO, INTRUSO, es_ca=True)
+
+
+class TestLoQueVaDentroDeLaFirmaNoEsDeLaLista:
+    """El escaneo de seguridad del 01 al 03-11-2026: `leer` recogía prestadores
+    y punteros con `.//`, en todo el árbol, también dentro de la firma. Con la
+    firma comprobada, lo colado allí acababa en el conjunto de anclas."""
+
+    def test_un_prestador_colado_en_la_firma_no_es_un_servicio(self):
+        buena = lista(servicios=[Serv(prestador="Buena", certificados=(intermedia(),))])
+        ajena = etree.fromstring(
+            lista(
+                servicios=[Serv(prestador="Colada", certificados=(_intrusa(),))],
+                sin_firmar=True,
+            )
+        )
+        prestador = ajena.xpath("//*[local-name()='TrustServiceProvider']")[0]
+        una = tsl.leer(_dentro_de_la_firma(buena, prestador))
+        assert tsl.comprobar_firma(una, [huella_de(firmante())]) == ""
+        assert [s.prestador for s in una.servicios] == ["Buena"]
+
+    def test_un_puntero_colado_en_la_firma_no_es_un_pais(self):
+        buena = lista(
+            tipo=TIPO_LISTA_DE_LISTAS,
+            punteros=[Punt("ES", "https://ejemplo.invalid/es.xml")],
+        )
+        ajena = etree.fromstring(
+            lista(
+                tipo=TIPO_LISTA_DE_LISTAS,
+                punteros=[Punt("XX", "https://ejemplo.invalid/xx.xml",
+                               firmantes=(_intrusa(),))],
+                sin_firmar=True,
+            )
+        )
+        puntero = ajena.xpath("//*[local-name()='OtherTSLPointer']")[0]
+        una = tsl.leer(_dentro_de_la_firma(buena, puntero))
+        assert tsl.comprobar_firma(una, [huella_de(firmante())]) == ""
+        assert [p.territorio for p in una.punteros] == ["ES"]
+        assert una.puntero_de("XX") is None
+
+
 # --- El conjunto que sale --------------------------------------------------
 
 

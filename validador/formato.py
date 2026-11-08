@@ -433,7 +433,12 @@ def _tiene_firma(raiz: etree._Element) -> bool:
 def _detectar_facturae(raiz: etree._Element, namespace: str | None) -> Deteccion:
     # SchemaVersion manda sobre el namespace. Puede venir con o sin namespace
     # según cómo se haya generado el fichero, así que se busca por nombre local.
-    version = _texto(raiz, "//*[local-name()='SchemaVersion']", {})
+    # Todo desde `raiz`, que es la factura y no por fuerza la raíz del
+    # documento, y paso a paso: con `//` se leía la versión o el tipo de
+    # cualquier copia que alguien colgara de la firma (ver `codigo_unico`).
+    version = _texto(
+        raiz, "./*[local-name()='FileHeader']/*[local-name()='SchemaVersion']", {}
+    )
     version_ns = NS_FACTURAE.get(namespace or "")
 
     if version and version_ns and version != version_ns:
@@ -460,18 +465,24 @@ def _detectar_facturae(raiz: etree._Element, namespace: str | None) -> Deteccion
     # En Facturae el tipo va en cada factura, no en la cabecera. Si hay al
     # menos un documento rectificativo, se marca como abono.
     tipo = None
-    if raiz.xpath("//*[local-name()='InvoiceDocumentType']"):
-        tipos = [
-            como_texto(nodo)
-            for nodo in raiz.xpath("//*[local-name()='InvoiceDocumentType']")
-        ]
+    cabeceras = raiz.xpath(
+        "./*[local-name()='Invoices']/*[local-name()='Invoice']"
+        "/*[local-name()='InvoiceHeader']"
+    )
+    escritos = [
+        nodo
+        for cabecera in cabeceras
+        for nodo in cabecera.xpath("./*[local-name()='InvoiceDocumentType']")
+    ]
+    if escritos:
+        tipos = [como_texto(nodo) for nodo in escritos]
         tipo = "abono" if any("RECTIFICATIVA" in t.upper() for t in tipos) else "factura"
     parejas = {
         " ".join(
             (cabecera.xpath(f"string(./*[local-name()='{hijo}'])") or "").strip()
             for hijo in ("InvoiceDocumentType", "InvoiceClass")
         )
-        for cabecera in raiz.xpath("//*[local-name()='InvoiceHeader']")
+        for cabecera in cabeceras
     }
 
     return Deteccion(
@@ -614,16 +625,19 @@ def _detectar_acuse(raiz: etree._Element, namespace: str) -> Deteccion:
 
 
 def _detectar_cii(raiz: etree._Element, namespace: str) -> Deteccion:
+    # Paso a paso desde la raíz, como en Facturae: con `//` mandaba la
+    # primera copia que apareciera, estuviera donde estuviera.
     perfil = _texto(
         raiz,
-        "//*[local-name()='GuidelineSpecifiedDocumentContextParameter']"
+        "./*[local-name()='ExchangedDocumentContext']"
+        "/*[local-name()='GuidelineSpecifiedDocumentContextParameter']"
         "/*[local-name()='ID']",
         {},
     )
     # En CII el tipo de documento va en un código: 380 factura, 381 abono.
     codigo = _texto(
         raiz,
-        "//*[local-name()='ExchangedDocument']/*[local-name()='TypeCode']",
+        "./*[local-name()='ExchangedDocument']/*[local-name()='TypeCode']",
         {},
     )
     tipo = {"380": "factura", "381": "abono"}.get(codigo or "")

@@ -80,11 +80,16 @@ class TestFacturae:
         assert d.version is None
 
     def test_rectificativa_es_abono(self):
+        # Dentro de `InvoiceHeader`, que es donde lo pone el esquema. Hasta el
+        # 08-11-2026 esto lo colgaba de `Invoice` y pasaba porque la detección
+        # lo buscaba con `//` en cualquier parte; desde que lo busca por su
+        # ruta, para no leer copias colgadas de la firma, hay que ponerlo bien.
         d = formato.detectar(
             facturae(
                 "http://www.facturae.es/Facturae/2009/v3.2/Facturae",
                 "3.2",
-                "<InvoiceDocumentType>FR</InvoiceDocumentType>",
+                "<InvoiceHeader><InvoiceDocumentType>FR</InvoiceDocumentType>"
+                "</InvoiceHeader>",
             )
         )
         assert d.tipo_documento == "factura"
@@ -93,7 +98,8 @@ class TestFacturae:
             facturae(
                 "http://www.facturae.es/Facturae/2009/v3.2/Facturae",
                 "3.2",
-                "<InvoiceDocumentType>RECTIFICATIVA</InvoiceDocumentType>",
+                "<InvoiceHeader><InvoiceDocumentType>RECTIFICATIVA"
+                "</InvoiceDocumentType></InvoiceHeader>",
             )
         )
         assert d2.tipo_documento == "abono"

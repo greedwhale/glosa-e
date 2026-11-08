@@ -9521,3 +9521,57 @@ encuentra un `.text` leído, un `findtext` o una ruta con `text()`, fuera de
 Devuelto a `.text` el lector de países retirados de Facturae, que ningún
 ejemplo dispara, sale en rojo y lo nombra. La primera versión del vigilante
 confundía `getcontext()` con una ruta: se ve en su propia prueba.
+
+## Un vendedor colgado de la firma decidía de quién era la factura
+
+**Cómo salió.** En el mismo escaneo de seguridad del 01 al 03-11-2026. Lo
+señaló en la lista de confianza (`tsl.leer`), en el país y el NIF del emisor
+de Facturae y de UBL (`codigo_unico.pais_emisor` y `_extraer_ubl`) y en el
+aviso de cambio de cuenta.
+
+**La causa.** Varios lectores buscaban las partes de la factura con `//`, en
+todo el documento, y se quedaban con la primera que apareciera. Eso incluye lo
+que cuelga de un `ds:Object` de la firma, que nadie firma, y lo que va en las
+extensiones de UBL, que van antes que las partes de verdad. Un vendedor
+señuelo puesto ahí, con otro país o con otro NIF, decidía si se aplicaban las
+reglas españolas y con qué NIF se componía el código único, y la firma seguía
+en pie porque lo tocado no estaba firmado. En una lista de confianza firmada
+pasaba lo mismo con los prestadores: la referencia `URI=""` se calcula sin la
+firma, así que uno metido en ella no rompía nada y, con la firma comprobada,
+acababa en el conjunto de anclas.
+
+**Reproducido** antes de tocar nada, con una prueba nueva,
+`tests/test_senuelos_fuera_de_la_factura.py`. Valida cada documento con un
+envoltorio vacío donde iría el señuelo y con el señuelo dentro, una copia de
+las partes de verdad con cada cifra corrida uno y España cambiada por Francia,
+y exige el mismo informe. En rojo 7 de 8: los cuatro UBL con el vendedor en
+las extensiones, el CII con las partes delante y los dos Facturae, el firmado
+con la firma dentro y el envolvente con un objeto delante. Para la lista, dos
+pruebas en `test_tsl.py`: con el código de antes, el prestador colado salía
+entre los servicios y el puntero colado entre los países.
+
+**Lo que no estaba en el escaneo.** La misma prueba encontró dos lectores más
+con la misma causa: la detección del formato tomaba la versión de Facturae y
+el tipo de documento de CII de la primera copia que apareciera.
+
+**Lo que lo cerró.** Las partes se leen por su ruta desde la raíz de la
+factura, paso a paso. En UBL y CII son las del mapa de `sintaxis`, con su
+espacio de nombres, para que el código único y las reglas lean al mismo
+vendedor. En Facturae van desde `firma.factura_leida`, que es la factura que se
+valida cuando la raíz es la firma. En la lista de confianza, prestadores,
+servicios y punteros por su ruta fija. Medido con las listas de `listas/`: la
+española da 71 prestadores y 436 servicios por las dos rutas, y la europea 43
+punteros.
+
+**Provocado.** Con `codigo_unico.py` y `cuentas_de_cobro.py` de antes, las 8
+en rojo; con `formato.py` de antes, 2; con `tsl.py` de antes, las 2 de la
+lista. Y una prueba vieja cayó con el arreglo: `test_formato.py` ponía el tipo
+de documento colgando de `Invoice` y no de `InvoiceHeader`, donde lo pone el
+esquema, y pasaba porque `//` lo encontraba en cualquier sitio. Se corrigió la
+prueba.
+
+**Lo que se dejó como estaba.** Quedan búsquedas con `//` que no deciden nada
+de esto: la de la factura dentro de una firma envolvente, que ya exige que la
+firma la cubra (FIRMA-NO-CUBRE); las de las pruebas de revocación y los sellos
+dentro de la firma, que se comprueban por su propia firma; y la de los países
+retirados de Facturae, que como mucho añade un aviso.

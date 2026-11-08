@@ -58,7 +58,9 @@ from validador.formato import (
     detectar,
     parser,
 )
+from validador.firma import factura_leida
 from validador.incidencias import AVISO, ERROR, Incidencia, Informe
+from validador.sintaxis import NS_CII, NS_UBL
 
 # Tope de longitud del número de factura, serie incluida. Tomado de Verifactu.
 LONGITUD_MAXIMA_NUMERO = 60
@@ -715,20 +717,74 @@ def _local(nodo, *nombres: str) -> str | None:
     return texto or None
 
 
+# --- Dónde está cada parte -------------------------------------------------
+#
+# Por su ruta desde la raíz de la factura, paso a paso, y nunca con `//`. Con
+# `//` la búsqueda recorría el documento entero y se quedaba con **la primera**
+# parte que apareciera, también la que cuelga de un `ds:Object` de la firma,
+# que nadie firma, o la de las extensiones de UBL, que van antes que la de
+# verdad. Un tercero sin clave metía ahí un vendedor señuelo y decidía el país
+# del emisor, con él si se aplican las reglas españolas, y el NIF con que se
+# compone el código único, mientras la firma seguía en pie porque lo tocado no
+# estaba firmado. Lo encontró el escaneo de seguridad del 01 al 03-11-2026, y
+# lo vigila `tests/test_senuelos_fuera_de_la_factura.py`.
+#
+# Las rutas de UBL y CII son las del mapa de `sintaxis`, con su espacio de
+# nombres: así el código único y las reglas leen al mismo vendedor. Las de
+# Facturae van por nombre local, como en `facturae.py`, y desde
+# `firma.factura_leida`, que es la factura que se valida cuando la raíz es la
+# firma.
+_ESPACIOS = {**NS_UBL, **NS_CII}
+_ACUERDO_CII = (
+    "./rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement"
+)
+_PARTES = {
+    UBL: {
+        "vendedor": "./cac:AccountingSupplierParty",
+        "comprador": "./cac:AccountingCustomerParty",
+    },
+    CII: {
+        "vendedor": f"{_ACUERDO_CII}/ram:SellerTradeParty",
+        "comprador": f"{_ACUERDO_CII}/ram:BuyerTradeParty",
+    },
+    FACTURAE: {
+        "vendedor": "./*[local-name()='Parties']/*[local-name()='SellerParty']",
+        "comprador": "./*[local-name()='Parties']/*[local-name()='BuyerParty']",
+    },
+}
+_FACTURAS_DE_FACTURAE = "./*[local-name()='Invoices']/*[local-name()='Invoice']"
+
+
+def _parte(raiz, familia: str | None, cual: str):
+    """El vendedor o el comprador de la factura, o None si no viene."""
+    ruta = _PARTES.get(familia or "", {}).get(cual)
+    if ruta is None or raiz is None:
+        return None
+    desde = factura_leida(raiz) if familia == FACTURAE else raiz
+    encontrados = desde.xpath(ruta, namespaces=_ESPACIOS)
+    return encontrados[0] if encontrados else None
+
+
+def facturas_de_facturae(raiz) -> list:
+    """Las facturas de un Facturae: las de la factura leída, no las de
+    cualquier `Invoices` del documento."""
+    return factura_leida(raiz).xpath(_FACTURAS_DE_FACTURAE) if raiz is not None else []
+
+
 def _extraer_ubl(raiz) -> list[CodigoUnico]:
     numero = _local(raiz, "ID")
     fecha = leer_fecha(_local(raiz, "IssueDate"))
     # El identificador fiscal del vendedor puede venir en tres sitios distintos
     # segun quien haya generado el fichero. Se prueban por orden de preferencia.
-    vendedor = raiz.xpath("//*[local-name()='AccountingSupplierParty']")
+    vendedor = _parte(raiz, UBL, "vendedor")
     documento = None
-    if vendedor:
+    if vendedor is not None:
         for camino in (
             ("Party", "PartyTaxScheme", "CompanyID"),
             ("Party", "PartyLegalEntity", "CompanyID"),
             ("Party", "PartyIdentification", "ID"),
         ):
-            documento = _local(vendedor[0], *camino)
+            documento = _local(vendedor, *camino)
             if documento:
                 break
     if numero is None or fecha is None:
@@ -738,14 +794,14 @@ def _extraer_ubl(raiz) -> list[CodigoUnico]:
 
 def _extraer_facturae(raiz) -> list[CodigoUnico]:
     """Un fichero Facturae puede llevar varias facturas del mismo emisor."""
-    vendedor = raiz.xpath("//*[local-name()='SellerParty']")
+    vendedor = _parte(raiz, FACTURAE, "vendedor")
     documento = (
-        _local(vendedor[0], "TaxIdentification", "TaxIdentificationNumber")
-        if vendedor
+        _local(vendedor, "TaxIdentification", "TaxIdentificationNumber")
+        if vendedor is not None
         else None
     )
     codigos = []
-    for factura in raiz.xpath("//*[local-name()='Invoices']/*[local-name()='Invoice']"):
+    for factura in facturas_de_facturae(raiz):
         numero = _local(factura, "InvoiceHeader", "InvoiceNumber")
         serie = _local(factura, "InvoiceHeader", "InvoiceSeriesCode")
         fecha = leer_fecha(_local(factura, "InvoiceIssueData", "IssueDate"))
@@ -756,11 +812,13 @@ def _extraer_facturae(raiz) -> list[CodigoUnico]:
 
 
 def _extraer_cii(raiz) -> list[CodigoUnico]:
-    documento = raiz.xpath(
-        "//*[local-name()='SellerTradeParty']"
-        "/*[local-name()='SpecifiedTaxRegistration']/*[local-name()='ID']"
+    vendedor = _parte(raiz, CII, "vendedor")
+    documento = (
+        vendedor.xpath("./ram:SpecifiedTaxRegistration/ram:ID", namespaces=_ESPACIOS)
+        if vendedor is not None
+        else []
     )
-    cabecera = raiz.xpath("//*[local-name()='ExchangedDocument']")
+    cabecera = raiz.xpath("./rsm:ExchangedDocument", namespaces=_ESPACIOS)
     if not cabecera:
         return []
     numero = _local(cabecera[0], "ID")
@@ -777,11 +835,8 @@ def _extraer_cii(raiz) -> list[CodigoUnico]:
 # porque es el formato nacional espaniol: si el documento es Facturae, la
 # respuesta ya la sabemos.
 _PAIS_DEL_EMISOR = {
-    UBL: (
-        "AccountingSupplierParty",
-        ("Party", "PostalAddress", "Country", "IdentificationCode"),
-    ),
-    CII: ("SellerTradeParty", ("PostalTradeAddress", "CountryID")),
+    UBL: ("Party", "PostalAddress", "Country", "IdentificationCode"),
+    CII: ("PostalTradeAddress", "CountryID"),
 }
 
 
@@ -808,13 +863,13 @@ def pais_emisor(raiz, deteccion) -> str | None:
         # Se lee `LegalEntity` y no `Individual` porque los dos cuelgan de
         # `SellerParty` y solo hay uno de los dos; se prueban los dos sitios
         # donde el esquema deja poner la direccion.
-        vendedores = raiz.xpath("//*[local-name()='SellerParty']")
-        if not vendedores:
+        vendedor = _parte(raiz, FACTURAE, "vendedor")
+        if vendedor is None:
             return None
         for envoltorio in ("LegalEntity", "Individual"):
             for donde in ("AddressInSpain", "OverseasAddress"):
                 escrito = _local(
-                    vendedores[0], envoltorio, donde, "CountryCode")
+                    vendedor, envoltorio, donde, "CountryCode")
                 if escrito:
                     # Se devuelve traducido o None: un `ZAR` que ISO ya
                     # retiro no se convierte en Congo por nuestra cuenta.
@@ -835,33 +890,24 @@ def pais_emisor(raiz, deteccion) -> str | None:
             raiz, sintaxis.SINTAXIS_EDIFACT.vendedor_pais, sintaxis.SINTAXIS_EDIFACT
         )
         return escrito.strip().upper() if escrito else None
-    camino = _PAIS_DEL_EMISOR.get(deteccion.familia)
-    if camino is None:
+    resto = _PAIS_DEL_EMISOR.get(deteccion.familia)
+    vendedor = _parte(raiz, deteccion.familia, "vendedor")
+    if resto is None or vendedor is None:
         return None
-    contenedor, resto = camino
-    nodos = raiz.xpath(f"//*[local-name()='{contenedor}']")
-    if not nodos:
-        return None
-    encontrado = _local(nodos[0], *resto)
+    encontrado = _local(vendedor, *resto)
     return encontrado.strip().upper() if encontrado else None
 
 
 # Donde guarda cada sintaxis el identificador fiscal del receptor. Se prueban
 # por orden: quien genera el fichero elige uno de los tres y no hay convención.
-_NIF_DEL_RECEPTOR: dict[str, tuple[str, tuple[tuple[str, ...], ...]]] = {
+_NIF_DEL_RECEPTOR: dict[str, tuple[tuple[str, ...], ...]] = {
     UBL: (
-        "AccountingCustomerParty",
-        (
-            ("Party", "PartyTaxScheme", "CompanyID"),
-            ("Party", "PartyLegalEntity", "CompanyID"),
-            ("Party", "PartyIdentification", "ID"),
-        ),
+        ("Party", "PartyTaxScheme", "CompanyID"),
+        ("Party", "PartyLegalEntity", "CompanyID"),
+        ("Party", "PartyIdentification", "ID"),
     ),
-    CII: ("BuyerTradeParty", (("SpecifiedTaxRegistration", "ID"),)),
-    FACTURAE: (
-        "BuyerParty",
-        (("TaxIdentification", "TaxIdentificationNumber"),),
-    ),
+    CII: (("SpecifiedTaxRegistration", "ID"),),
+    FACTURAE: (("TaxIdentification", "TaxIdentificationNumber"),),
 }
 
 
@@ -888,15 +934,12 @@ def nif_receptor(raiz, deteccion) -> str | None:
     """El identificador fiscal de quien recibe la factura, si lo lleva."""
     if raiz is None or not deteccion:
         return None
-    camino = _NIF_DEL_RECEPTOR.get(deteccion.familia or "")
-    if camino is None:
-        return None
-    contenedor, opciones = camino
-    nodos = raiz.xpath(f"//*[local-name()='{contenedor}']")
-    if not nodos:
+    opciones = _NIF_DEL_RECEPTOR.get(deteccion.familia or "")
+    comprador = _parte(raiz, deteccion.familia, "comprador")
+    if opciones is None or comprador is None:
         return None
     for ruta in opciones:
-        encontrado = _local(nodos[0], *ruta)
+        encontrado = _local(comprador, *ruta)
         if encontrado:
             return encontrado
     return None

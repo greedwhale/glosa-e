@@ -107,7 +107,7 @@ def extraer_de(raiz, deteccion) -> list[Cobro]:
     # y no se toma de `codigos`, que se salta las facturas sin fecha: las dos
     # listas no irían a la par.
     cobros = []
-    for factura in raiz.xpath("//*[local-name()='Invoices']/*[local-name()='Invoice']"):
+    for factura in codigo_unico.facturas_de_facturae(raiz):
         cabecera = "./*[local-name()='InvoiceHeader']/*[local-name()='{}']"
         numero = (factura.xpath(f"string({cabecera.format('InvoiceSeriesCode')})").strip()
                   + factura.xpath(f"string({cabecera.format('InvoiceNumber')})").strip())

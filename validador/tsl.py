@@ -382,14 +382,27 @@ def leer(datos: bytes) -> Lista:
 
     siguiente = cabecera.xpath("./*[local-name()='NextUpdate']")
     servicios: list[Servicio] = []
-    for prestador in raiz.xpath(".//*[local-name()='TrustServiceProvider']"):
+    # Prestadores, servicios y punteros por su ruta fija desde la raíz, y no
+    # con `.//`: así se recogían también los que alguien metiera en un
+    # `ds:Object` de la firma, que la referencia `URI=""` no cubre porque se
+    # calcula sin la firma. Con la firma comprobada, esa autoridad acababa en
+    # el conjunto de anclas. Lo encontró el escaneo de seguridad del 01 al
+    # 03-11-2026. Medido el 08-11-2026 con las listas de `listas/`: la
+    # española da 71 prestadores y 436 servicios, y la europea 43 punteros,
+    # por las dos rutas.
+    for prestador in raiz.xpath(
+        "./*[local-name()='TrustServiceProviderList']"
+        "/*[local-name()='TrustServiceProvider']"
+    ):
         quien = _texto(
             prestador.xpath("./*[local-name()='TSPInformation']")[0]
             if prestador.xpath("./*[local-name()='TSPInformation']")
             else None,
             "Name",
         )
-        for servicio in prestador.xpath(".//*[local-name()='TSPService']"):
+        for servicio in prestador.xpath(
+            "./*[local-name()='TSPServices']/*[local-name()='TSPService']"
+        ):
             actual = servicio.xpath("./*[local-name()='ServiceInformation']")
             if not actual:
                 continue
@@ -416,7 +429,9 @@ def leer(datos: bytes) -> Lista:
             )
 
     punteros: list[Puntero] = []
-    for puntero in raiz.xpath(".//*[local-name()='OtherTSLPointer']"):
+    for puntero in cabecera.xpath(
+        "./*[local-name()='PointersToOtherTSL']/*[local-name()='OtherTSLPointer']"
+    ):
         # El territorio va dentro de `AdditionalInformation`, no como atributo.
         territorio = ""
         for otro in map(como_texto, puntero.xpath(".//*[local-name()='SchemeTerritory']")):
