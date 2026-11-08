@@ -86,6 +86,32 @@ def expandir(patrones: list[str]) -> list[Path]:
     return caminos
 
 
+# Los caracteres de control C0 menos el salto de línea y el tabulador, DEL y
+# los C1, cada uno escrito como `\xNN`. Son los que una terminal obedece en vez
+# de pintar: ESC abre las secuencias que borran la pantalla, mueven el cursor
+# o cambian el título, el retorno de carro reescribe la línea, y U+009B es el
+# CSI de un solo carácter. El salto y el tabulador se quedan porque el informe
+# los usa, y ninguno de los dos borra lo que ya está escrito.
+_A_LA_VISTA = {
+    codigo: f"\\x{codigo:02x}"
+    for codigo in [*range(0x20), *range(0x7F, 0xA0)]
+    if chr(codigo) not in "\n\t"
+}
+
+
+def a_la_vista(texto: str) -> str:
+    """El informe tal como hay que imprimirlo: sin nada que la terminal obedezca.
+
+    Lo que un EDIFACT trae fuera del árbol XML, como la referencia del UNB, no
+    pasa por lxml, que es quien rechaza los caracteres de control en el resto,
+    y llegaba tal cual a la pantalla: medido, `ESC [2J` y `ESC ] 0;... BEL`
+    salían enteros (en HALLAZGOS). Se cambia aquí, al imprimir, y no en la
+    incidencia: la página ya escapa lo que pinta, y lo que se guarda tiene que
+    seguir siendo lo que traía el fichero.
+    """
+    return texto.translate(_A_LA_VISTA)
+
+
 def main(argumentos: list[str] | None = None) -> int:
     analizador = argparse.ArgumentParser(
         prog="python -m validador",
@@ -307,7 +333,7 @@ def main(argumentos: list[str] | None = None) -> int:
         print(lote.recuento(forma=not catalogo.vacio, anclas=not almacen.vacio))
         return 0 if lote.conforme else 1
 
-    print(lote.detalle(forma=not catalogo.vacio, anclas=not almacen.vacio))
+    print(a_la_vista(lote.detalle(forma=not catalogo.vacio, anclas=not almacen.vacio)))
     if catalogo.vacio:
         # Una sola línea al final, no un aviso por fichero: quien no tiene los
         # esquemas puestos ya lo sabe, y no hace falta repetírselo cien veces.

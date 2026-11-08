@@ -175,6 +175,23 @@ def revisar(
             "foral, con los datos de la factura.",
             "https://...", direccion)]
 
+    # Entre `//` y la ruta solo puede ir el nombre del servidor. `hostname`
+    # corta en `/ ? #` y se queda con lo que va tras la última `@`, y un
+    # navegador, por la norma URL de WHATWG, corta además en la barra
+    # invertida: `https://atacante.example\@www2.agenciatributaria.gob.es/...`
+    # era la AEAT aquí y atacante.example para quien la abre (en HALLAZGOS).
+    # Comparar el trozo entero con el nombre deja fuera eso, un usuario y un
+    # puerto, sin tener que imitar a ningún navegador: ninguna dirección
+    # publicada lleva otra cosa.
+    if partes.netloc.lower() != servidor:
+        return [_aviso(
+            "La dirección del QR fiscal lleva junto al servidor algo más que su "
+            "nombre: un usuario, un puerto o una barra invertida. Un navegador "
+            "puede abrir con ella otro servidor que el que se lee aquí, así que no "
+            "se da por la de la AEAT ni por la de una hacienda foral. Los datos de "
+            "la factura que lleve no se han comparado.",
+            "solo el nombre del servidor", partes.netloc)]
+
     if servidor in (_AEAT, _AEAT_PRUEBAS) and ruta in {r.lower() for r in _RUTAS_DE_LA_AEAT}:
         sistema = VERIFACTU
     elif servidor in _HACIENDAS_FORALES and ruta in _HACIENDAS_FORALES[servidor][1]:
