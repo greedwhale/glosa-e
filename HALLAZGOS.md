@@ -9833,7 +9833,14 @@ Visto después en una terminal de verdad, la del panel de la aplicación de
 escritorio de Claude, con PowerShell, y el código de `5998df7`: una referencia
 que sube dos filas, las borra y vuelve al principio dejó el informe con las
 filas del mensaje y del campo borradas y, en su sitio, TODO EN ORDEN, NADA QUE
-CORREGIR. El cambio de título no se ha podido ver desde aquí.
+CORREGIR.
+
+El título, medido el mismo día leyendo desde fuera el de cada ventana. Antes de
+validar se le pone uno con la llamada de Windows, sin secuencias de escape. En
+Windows Terminal, con el código de `5998df7`, la ventana acabó llamándose
+TITULO-CAMBIADO-POR-LA-FACTURA, y con el de ahora conserva el que se le puso.
+En la consola clásica de Windows, `conhost`, el código de antes tampoco lo
+cambió; por qué no se ha mirado.
 
 Ahora la consola escribe como `\xNN` los caracteres de control C0, DEL y los
 C1 antes de imprimir el informe; el salto de línea y el tabulador se quedan,
