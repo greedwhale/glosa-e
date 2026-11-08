@@ -90,7 +90,7 @@ from validador.firma import (
     Certificado,
     _canonicalizar,
     _elementos,
-    _hijo,
+    _hijo_ds,
     _nombre_der,
     _oid,
     _tlv,
@@ -119,6 +119,11 @@ _OID_TIPO_CONTENIDO = "2a864886f70d010903"  # 1.2.840.113549.1.9.3
 _OID_RESUMEN_MENSAJE = "2a864886f70d010904"  # 1.2.840.113549.1.9.4
 _OID_CERT_FIRMANTE = "2a864886f70d010910020c"  # 1.2.840.113549.1.9.16.2.12
 _OID_CERT_FIRMANTE_V2 = "2a864886f70d010910022f"  # 1.2.840.113549.1.9.16.2.47
+
+# Los atributos firmados de los que algo depende: tienen que venir una vez y con
+# un valor. Ver `_atributos_firmados`.
+_UNICOS = frozenset({_OID_TIPO_CONTENIDO, _OID_RESUMEN_MENSAJE,
+                     _OID_CERT_FIRMANTE, _OID_CERT_FIRMANTE_V2})
 
 _OID_USO_EXTENDIDO = "551d25"  # 2.5.29.37
 _OID_SELLAR_TIEMPO = "2b06010505070308"  # 1.3.6.1.5.5.7.3.8, id-kp-timeStamping
@@ -447,20 +452,30 @@ def _leer_signerinfo(contenido: bytes, certificados) -> dict:
     resumen_firma = _algoritmo(campos[2][1])
     firmante = _elegir_firmante((campos[1][0], campos[1][1]), certificados)
 
+    # El orden de CMS es fijo (RFC 5652, 5.3): un `[0]` opcional con los
+    # atributos firmados, el algoritmo de firma, la firma y un `[1]` opcional
+    # con los que no se firman. Antes se recorría todo lo que viniera detrás
+    # de los tres primeros, se apuntaban los atributos de **cada** `[0]` y se
+    # guardaba para verificar solo el último. Como `atributo()` devuelve el
+    # primero que encuentra, con un `[0]` falso delante el `messageDigest` que
+    # se comparaba no era el que la autoridad había firmado: un sello de
+    # verdad, copiado de cualquier XAdES-T, acreditaba la fecha que se
+    # quisiera (en HALLAZGOS). Ahora lo que no está en su sitio no se lee.
+    resto = campos[3:]
     atributos: list[tuple[str, bytes]] = []
     atributos_der = b""
-    valor_firma = b""
-    for etiqueta, valor, crudo in campos[3:]:
-        if etiqueta == 0xA0:
-            atributos_der = crudo
-            for _, uno in _elementos(valor):
-                partes = _elementos(uno)
-                if len(partes) == 2 and partes[0][0] == 0x06:
-                    dentro = _elementos(partes[1][1])
-                    if dentro:
-                        atributos.append((_oid(partes[0][1]), dentro[0][1]))
-        elif etiqueta == 0x04:
-            valor_firma = valor
+    if resto and resto[0][0] == 0xA0:
+        atributos_der = resto[0][2]
+        atributos = _atributos_firmados(resto[0][1])
+        resto = resto[1:]
+    if (len(resto) not in (2, 3) or resto[0][0] != 0x30 or resto[1][0] != 0x04
+            or (len(resto) == 3 and resto[2][0] != 0xA1)):
+        raise ValueError(
+            "el firmante del sello trae sus campos fuera del orden de CMS, o "
+            "más de un bloque de atributos firmados, así que no se puede decir "
+            "cuál es el que la autoridad firmó"
+        )
+    valor_firma = resto[1][1]
     return {
         "firmante": firmante,
         "resumen_firma": resumen_firma,
@@ -468,6 +483,45 @@ def _leer_signerinfo(contenido: bytes, certificados) -> dict:
         "atributos_der": atributos_der,
         "valor_firma": valor_firma,
     }
+
+
+def _atributos_firmados(bloque: bytes) -> list[tuple[str, bytes]]:
+    """Los atributos del `[0]`, cada uno con su único valor.
+
+    Un atributo repetido se rechaza en vez de elegir uno: CMS no deja repetir
+    el tipo de contenido ni el resumen (RFC 5652, 11.1 y 11.2), y ESS tampoco
+    el certificado del firmante. Elegir el primero es lo que hacía `atributo()`
+    y es justo lo que no se puede hacer: no hay forma de saber cuál de los dos
+    es el bueno. Lo mismo con un atributo de los que aquí se leen que traiga
+    más de un valor. Los demás se apuntan con el primero, como antes, porque
+    nadie decide nada con ellos.
+
+    Medido contra los 15 sellos legibles de las muestras: todos traen un solo
+    bloque, en su sitio, sin atributos repetidos y con un valor cada uno de
+    los que se leen.
+    """
+    salida: list[tuple[str, bytes]] = []
+    vistos: set[str] = set()
+    for _, uno in _elementos(bloque):
+        partes = _elementos(uno)
+        if len(partes) != 2 or partes[0][0] != 0x06:
+            continue
+        oid = _oid(partes[0][1])
+        if oid in vistos:
+            raise ValueError(
+                "la autoridad firmó dos veces el mismo atributo del sello, y no "
+                "hay forma de saber cuál de los dos vale"
+            )
+        vistos.add(oid)
+        valores = _elementos(partes[1][1])
+        if oid in _UNICOS and len(valores) != 1:
+            raise ValueError(
+                "un atributo firmado del sello trae más de un valor donde la "
+                "norma pide uno"
+            )
+        if valores:
+            salida.append((oid, valores[0][1]))
+    return salida
 
 
 # --- Creérselo o no --------------------------------------------------------
@@ -670,7 +724,7 @@ def sellos_de(firma) -> list[Hallado]:
         return salida
     for clase in CLASES:
         for nodo in firma.xpath(f".//*[local-name()='{clase}']"):
-            metodo = _hijo(nodo, "CanonicalizationMethod")
+            metodo = _hijo_ds(nodo, "CanonicalizationMethod")
             c14n = metodo.get("Algorithm") if metodo is not None else None
             # XAdES admite el sello en dos formas: el token de RFC 3161 en
             # base64 —`EncapsulatedTimeStamp`, que es la que se usa— y el
@@ -713,12 +767,18 @@ def entrada_del_sello(firma, c14n: str | None) -> tuple[bytes | None, str]:
     Devuelve también el motivo cuando no se ha podido, para poder decirlo en
     vez de dar el sello por bueno.
     """
-    valor = _hijo(firma, "SignatureValue")
+    # Los tres, del espacio de XML-DSig y de nadie más, igual que en
+    # `firma._valor_de_la_firma`. Antes se buscaban por el nombre local: un
+    # `<x:SignatureValue>` de otro espacio puesto delante del de verdad no
+    # toca la firma, porque la transformación envuelta la quita entera, y
+    # pasaba a ser lo que el sello tenía que cubrir. Un sello pedido de
+    # antemano sobre ese elemento valía para cualquier firma (en HALLAZGOS).
+    valor = _hijo_ds(firma, "SignatureValue")
     if valor is None:
         return None, "la firma no trae el valor que el sello tendría que cubrir"
     if c14n is None:
-        info = _hijo(firma, "SignedInfo")
-        metodo = _hijo(info, "CanonicalizationMethod") if info is not None else None
+        info = _hijo_ds(firma, "SignedInfo")
+        metodo = _hijo_ds(info, "CanonicalizationMethod") if info is not None else None
         c14n = metodo.get("Algorithm") if metodo is not None else None
     # Se mira contra la tabla de `firma.py` para no aceptar un algoritmo que
     # luego `_canonicalizar` resolvería por su cuenta: eso daría unos bytes que

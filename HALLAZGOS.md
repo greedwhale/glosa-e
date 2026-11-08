@@ -9575,3 +9575,70 @@ de esto: la de la factura dentro de una firma envolvente, que ya exige que la
 firma la cubra (FIRMA-NO-CUBRE); las de las pruebas de revocación y los sellos
 dentro de la firma, que se comprueban por su propia firma; y la de los países
 retirados de Facturae, que como mucho añade un aviso.
+
+## Un sello de tiempo de verdad acreditaba la fecha que se quisiera
+
+**Cómo salió.** En el escaneo de seguridad del 01 al 03-11-2026, en dos
+puntos de `sellos.py` que llevan al mismo sitio: la fecha de un sello se daba
+por acreditada por una autoridad cualificada sin que esa autoridad la hubiera
+firmado. De esa fecha cuelgan la caducidad y la revocación del certificado de
+la firma, así que con ella un certificado anulado pasaba de REVOCADO a una
+NOTA.
+
+**Las dos causas.**
+
+- *Dos bloques de atributos firmados.* En CMS, el firmante de un sello lleva
+  un solo `[0]` con los atributos que firma, y sus campos van en un orden fijo.
+  `_leer_signerinfo` recorría todo lo que viniera detrás, apuntaba los
+  atributos de cada `[0]` y guardaba para verificar solo el último. Como
+  `atributo()` devuelve el primero que encuentra, con un `[0]` falso delante
+  el resumen que se comparaba era el del bloque falso y la firma de la
+  autoridad se verificaba sobre el auténtico. Bastaba un sello de verdad,
+  sacado de cualquier XAdES-T: se le cambia la fecha, se pone delante un
+  bloque con el resumen del sello cambiado, y todo cuadra.
+- *Un `SignatureValue` de otro espacio de nombres.* `entrada_del_sello`, que
+  da los bytes que el sello tiene que cubrir, buscaba `SignatureValue`,
+  `SignedInfo` y `CanonicalizationMethod` por su nombre local, y la firma solo
+  mira los de XML-DSig. Un `<x:SignatureValue>` puesto delante del de verdad no
+  toca la firma, porque la transformación envuelta la quita entera, y pasaba a
+  ser lo que el sello cubría: un sello pedido de antemano sobre ese elemento
+  valía para cualquier firma.
+
+**Reproducido** antes de tocar nada, con siete pruebas nuevas en
+`test_sellos.py`. El sello amañado se monta con el sello bueno del propio
+fichero de pruebas: misma longitud, otra fecha (01-01-2026) y un bloque falso
+delante, y una prueba previa comprueba que la firma de la autoridad sigue
+cuadrando con el bloque auténtico. Con el código de antes, 6 en rojo:
+`comprobar` daba el sello por bueno, `momento_probado` devolvía el 01-01-2026,
+un atributo repetido se aceptaba sin decir nada, y con el señuelo el sello
+dejaba de cubrir la firma de verdad para cubrir el falso.
+
+**Lo que lo cerró.**
+
+- El firmante del sello se lee en el orden de CMS (RFC 5652, 5.3): un `[0]`
+  opcional, el algoritmo, la firma y un `[1]` opcional. Con cualquier otra
+  cosa, o con un segundo `[0]`, el sello no se lee, y se dice por qué. Los
+  atributos que se comparan y los bytes que se verifican salen del mismo
+  bloque.
+- Dentro del bloque, un atributo repetido se rechaza, y también uno de los
+  cuatro de los que algo depende (tipo de contenido, resumen y las dos
+  versiones del certificado del firmante) si trae más de un valor.
+- `SignatureValue`, `SignedInfo` y los dos `CanonicalizationMethod` se buscan
+  en el espacio de XML-DSig, igual que en `firma.py`.
+
+**Medido** con los sellos de las muestras: 17 sellos, 15 legibles y 2 escritos
+como XML. Las 17 líneas de lo que se dice de cada uno (si se lee, si se
+sostiene, si cubre la firma) salen idénticas antes y después, byte a byte.
+
+**Provocado**, quitando cada parte por separado: con `SignatureValue` por
+nombre local, 2 en rojo; con `SignedInfo` por nombre local, 1; volviendo a
+comparar el primer bloque y verificar el último, 2; sin mirar los repetidos,
+1. La primera versión de la prueba del `SignedInfo` no cazaba su rotura,
+porque el señuelo traía el método en el mismo espacio falso y no se llegaba a
+leer; ahora lo trae en el de XML-DSig.
+
+**Lo que no se hizo.** El escaneo proponía además rechazar una firma con hijos
+de otro espacio de nombres. No hace falta para esto: con la búsqueda por
+espacio, un hijo ajeno ya no decide nada, y eso es lo que prueban las tres
+pruebas del señuelo. Rechazarlo sería una regla nueva, con su código y su
+gravedad, y no se ha medido cuántas firmas reales la tocarían.

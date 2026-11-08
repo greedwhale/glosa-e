@@ -35,10 +35,10 @@ import pytest
 from lxml import etree
 
 from validador import sellos
-from validador.firma import _hijo, leer_certificado, verificar
+from validador.firma import _hijo, _tlv, leer_certificado, verificar
 from validador.formato import detectar, parser
 from validador.incidencias import AVISO, ERROR, NOTA
-from tests.test_firma import HOY, C14N, certificado, documento
+from tests.test_firma import HOY, C14N, _der, certificado, documento
 
 NS_DS = "http://www.w3.org/2000/09/xmldsig#"
 NS_XADES = "http://uri.etsi.org/01903/v1.3.2#"
@@ -368,6 +368,180 @@ class TestLoQueTieneQueParar:
         assert sellos.comprobar(sello) == ""
         otro = valor_firmado(documento(total="999.00"))
         assert "no es el de esta firma" in sellos.cubre(sello, otro)
+
+
+# --- Lo que se verifica tiene que ser lo que se compara --------------------
+#
+# Un `SignerInfo` de CMS lleva **un** bloque de atributos firmados, el `[0]`, y
+# el orden de sus campos es fijo. Antes se recorría entero, se apuntaban los
+# atributos de todos los `[0]` que hubiera y se guardaba para verificar solo el
+# último. `atributo()` devuelve el primero que encuentra, así que con un `[0]`
+# falso delante el `messageDigest` que se comparaba era el del bloque falso y la
+# firma se verificaba sobre el auténtico. Con eso, un sello de verdad de una
+# autoridad cualificada, sacado de cualquier XAdES-T, servía para acreditar la
+# fecha que se quisiera.
+
+
+def _sello_con_bloque_delante(fecha_nueva: bytes = b"20260101000000Z") -> bytes:
+    """El sello bueno, con otra fecha y un `[0]` falso que la respalda.
+
+    El TSTInfo se cambia solo en la fecha, con la misma longitud, para que el
+    resto del sello siga igual y la impronta siga siendo la de la firma del
+    documento. El bloque falso es una copia del auténtico con el
+    `messageDigest` del TSTInfo nuevo; el auténtico va detrás, intacto, y su
+    firma de la autoridad sigue cuadrando con él.
+    """
+    der = token()
+    real = sellos.leer(der)
+    falso_tst = real.contenido.replace(b"20260827223213Z", fecha_nueva)
+    assert falso_tst != real.contenido and len(falso_tst) == len(real.contenido)
+
+    viejo = hashlib.sha256(real.contenido).digest()
+    nuevo = hashlib.sha256(falso_tst).digest()
+    assert real.atributos_der.count(viejo) == 1
+    bloque_falso = real.atributos_der.replace(viejo, nuevo)
+
+    _, info, _ = _tlv(der)
+    oid_ci, explicito = sellos._partes(info)
+    _, firmado, _ = _tlv(explicito[1])
+    campos = sellos._partes(firmado)
+    oid_tst, _ = [crudo for _, _, crudo in sellos._partes(campos[2][1])]
+    encap = _der(0x30, oid_tst + _der(0xA0, _der(0x04, falso_tst)))
+    (_, firmante, _), = sellos._partes(campos[4][1])
+    trozos = [crudo for _, _, crudo in sellos._partes(firmante)]
+    assert trozos[3][0] == 0xA0
+    firmante_nuevo = _der(0x30, b"".join(trozos[:3] + [bloque_falso] + trozos[3:]))
+    signed = _der(0x30, campos[0][2] + campos[1][2] + encap + campos[3][2]
+                  + _der(0x31, firmante_nuevo))
+    return _der(0x30, oid_ci[2] + _der(0xA0, signed))
+
+
+class TestUnSoloBloqueFirmado:
+    def test_el_sello_amanado_se_hace_bien(self):
+        """Que el ataque esté bien montado: la firma de la autoridad cuadra.
+
+        Sin esto, la prueba de abajo podría ponerse verde porque el sello sale
+        roto por otra cosa, y no porque se haya cerrado el hueco.
+        """
+        bueno = sellos.leer(token())
+        mensaje = b"\x31" + bueno.atributos_der[1:]
+        assert verificar(bueno.valor_firma, mensaje, bueno.firmante,
+                         bueno.resumen_firma)
+        assert _sello_con_bloque_delante().count(bueno.atributos_der) == 1
+
+    def test_un_bloque_falso_delante_no_cambia_la_fecha(self):
+        """El caso del escaneo: con dos `[0]`, el sello no se cree."""
+        der = _sello_con_bloque_delante()
+        try:
+            sello = sellos.leer(der)
+        except ValueError as error:
+            assert "atributos firmados" in str(error)
+            return
+        assert sellos.comprobar(sello) != "", (
+            f"da por buena la fecha {sello.momento}, que la autoridad no firmó"
+        )
+
+    def test_en_una_factura_no_queda_fecha_probada(self):
+        """Lo mismo, visto desde el informe: la fecha falsa no llega."""
+        datos = con_sello(der=_sello_con_bloque_delante())
+        raiz = etree.fromstring(datos)
+        firma = raiz.xpath(".//*[local-name()='Signature']")[0]
+        assert sellos.momento_probado(firma) is None
+        assert "SELLO-TIEMPO" not in codigos(quejas(datos))
+
+    def test_un_atributo_repetido_dentro_del_bloque(self):
+        """Dentro del bloque bueno, un atributo dos veces tampoco vale.
+
+        Aquí la firma ya no cuadraría, porque el bloque ha cambiado; lo que se
+        prueba es que se diga por qué antes, con un motivo que se entiende,
+        y que no se elija uno de los dos en silencio.
+        """
+        bueno = sellos.leer(token())
+        _, dentro, _ = _tlv(bueno.atributos_der)
+        oid_resumen = bytes.fromhex("0609" + sellos._OID_RESUMEN_MENSAJE)
+        uno = next(crudo for _, _, crudo in sellos._partes(dentro)
+                   if oid_resumen in crudo)
+        repetido = _der(0xA0, uno + dentro)
+        der = _rehacer_longitudes(bueno.atributos_der, repetido)
+        with pytest.raises(ValueError, match="dos veces"):
+            sellos.leer(der)
+
+
+def _rehacer_longitudes(viejo: bytes, nuevo: bytes) -> bytes:
+    """El token con un trozo del `SignerInfo` cambiado por otro más largo."""
+    _, info, _ = _tlv(token())
+    oid_ci, explicito = sellos._partes(info)
+    _, firmado, _ = _tlv(explicito[1])
+    campos = sellos._partes(firmado)
+    (_, firmante, _), = sellos._partes(campos[4][1])
+    trozos = [crudo for _, _, crudo in sellos._partes(firmante)]
+    trozos = [nuevo if t == viejo else t for t in trozos]
+    signed = _der(0x30, b"".join(c[2] for c in campos[:4])
+                  + _der(0x31, _der(0x30, b"".join(trozos))))
+    return _der(0x30, oid_ci[2] + _der(0xA0, signed))
+
+
+# --- Lo que el sello tiene que cubrir es el valor de la firma ---------------
+#
+# `entrada_del_sello` buscaba `SignatureValue`, `SignedInfo` y
+# `CanonicalizationMethod` por su nombre local, en cualquier espacio de nombres,
+# mientras la verificación de la firma solo mira los de XML-DSig. Un
+# `<x:SignatureValue>` puesto delante del de verdad no toca la firma (la
+# transformación envuelta la quita entera) y pasaba a ser lo que el sello tenía
+# que cubrir: un sello pedido de antemano sobre ese elemento servía para
+# cualquier firma.
+
+
+def _firma_con_senuelo(datos: bytes, nombre: str, hijo: str = "",
+                       algoritmo: str = "") -> bytes:
+    raiz = etree.fromstring(datos)
+    firma = raiz.xpath(".//*[local-name()='Signature']")[0]
+    senuelo = etree.Element(f"{{urn:x}}{nombre}", nsmap={"x": "urn:x"})
+    if hijo:
+        # El hijo, en el espacio de XML-DSig: así el señuelo engaña a quien
+        # busque el `SignedInfo` por nombre local aunque el método sí lo mire
+        # por su espacio.
+        etree.SubElement(senuelo, f"{{{NS_DS}}}{hijo}").set("Algorithm", algoritmo)
+    else:
+        senuelo.text = "a"
+    firma.insert(0, senuelo)
+    return etree.tostring(raiz, xml_declaration=True, encoding="UTF-8")
+
+
+class TestLoQueElSelloCubre:
+    EXCLUSIVA = "http://www.w3.org/2001/10/xml-exc-c14n#"
+
+    def _entrada(self, datos):
+        raiz = etree.fromstring(datos)
+        firma = raiz.xpath(".//*[local-name()='Signature']")[0]
+        return sellos.entrada_del_sello(firma, None)
+
+    def test_un_signaturevalue_de_otro_espacio(self):
+        """El sello se compara con `ds:SignatureValue`, no con el primero."""
+        limpio = con_sello()
+        datos = _firma_con_senuelo(limpio, "SignatureValue")
+        assert self._entrada(datos) == self._entrada(limpio)
+        assert self._entrada(datos)[0] == valor_firmado(documento())
+
+    def test_y_el_sello_bueno_sigue_cubriendo(self):
+        """La otra cara: con el señuelo, el sello de verdad no se pierde."""
+        datos = _firma_con_senuelo(con_sello(), "SignatureValue")
+        entrada, motivo = self._entrada(datos)
+        assert motivo == ""
+        assert sellos.cubre(sellos.leer(token()), entrada) == ""
+
+    def test_un_signedinfo_de_otro_espacio_no_elige_la_canonicalizacion(self):
+        """Ni la canonicalización: sale del `ds:SignedInfo` de la firma."""
+        limpio = con_sello()
+        datos = _firma_con_senuelo(limpio, "SignedInfo", "CanonicalizationMethod",
+                                   self.EXCLUSIVA)
+        # Que el señuelo de verdad cambiaría lo que se compara, si se leyera.
+        raiz = etree.fromstring(datos)
+        valor = raiz.xpath(".//*[local-name()='SignatureValue']"
+                           "[namespace-uri()='http://www.w3.org/2000/09/xmldsig#']")[0]
+        assert (etree.tostring(valor, method="c14n", exclusive=True)
+                != self._entrada(limpio)[0])
+        assert self._entrada(datos) == self._entrada(limpio)
 
 
 class TestElPermisoParaSellar:
