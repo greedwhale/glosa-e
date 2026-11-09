@@ -1601,6 +1601,56 @@ class TestLosFicherosEmbebidos:
             "</cac:DigitalSignatureAttachment>\n  </cac:Signature>\n")
         assert las(_como_copia_fiel(nombrada), "SPFE-FICHERO-EMBEBIDO") == []
 
+    # Lo que va en `cac:Signature` y no es la firma. UBL 2.1 define
+    # `cac:DigitalSignatureAttachment` como «the actual encoded signature», y
+    # `cac:OriginalDocumentReference` como el documento al que se aplica la
+    # firma, que puede ser «the document image that the signatory party saw»:
+    # un fichero pegado, con otro nombre. Hasta el 09-11-2026 bastaba con que un
+    # fichero estuviera en cualquier rama de `cac:Signature` para no ser un
+    # fichero embebido. Salió del escaneo del 08-11-2026, y lo cuenta HALLAZGOS.
+    EL_DOCUMENTO_FIRMADO = _detras_de_los_documentos(
+        "  <cac:Signature>\n    <cbc:ID>firma</cbc:ID>\n    <cac:OriginalDocumentReference>"
+        "<cbc:ID>Factura-firmada</cbc:ID><cac:Attachment>" + PDF + "</cac:Attachment>"
+        "</cac:OriginalDocumentReference>\n  </cac:Signature>\n")
+    UN_PDF_COMO_FIRMA = _detras_de_los_documentos(cambia(
+        FIRMA_EN_UN_FICHERO, 'mimeCode="application/pkcs7-signature" filename="firma.p7s">MIAGCSqG',
+        'mimeCode="application/pdf" filename="firmada.pdf">JVBERi0xLjQK'))
+
+    def test_el_documento_firmado_no_es_la_firma(self):
+        queja = la(self.EL_DOCUMENTO_FIRMADO, "SPFE-FICHERO-EMBEBIDO")
+        assert queja.gravedad == ERROR
+        assert queja.encontrado == "contrato.pdf en el documento Factura-firmada"
+
+    def test_en_la_copia_fiel_tampoco(self):
+        """Y como no es la firma, no sale el aviso de la copia con firma."""
+        quejas = las(_como_copia_fiel(self.EL_DOCUMENTO_FIRMADO), "SPFE-FICHERO-EMBEBIDO")
+        assert [(q.gravedad, q.encontrado) for q in quejas] == [
+            (ERROR, "contrato.pdf en el documento Factura-firmada")]
+        assert "apartado 4 de su artículo 4" in quejas[0].mensaje
+
+    def test_un_pdf_en_el_sitio_de_la_firma_es_un_aviso(self):
+        """Va donde UBL pone la firma, y por eso no es un error: desde el
+        fichero no se sabe qué es. Pero dice ser un PDF, y eso no es como se
+        escribe una firma."""
+        queja = la(self.UN_PDF_COMO_FIRMA, "SPFE-FICHERO-EMBEBIDO")
+        assert queja.gravedad == AVISO and queja.encontrado == "firmada.pdf"
+        assert "cac:DigitalSignatureAttachment" in queja.mensaje
+
+    def test_en_la_copia_fiel_un_pdf_como_firma_da_los_dos_avisos(self):
+        quejas = las(_como_copia_fiel(self.UN_PDF_COMO_FIRMA), "SPFE-FICHERO-EMBEBIDO")
+        assert sorted((q.gravedad, q.encontrado) for q in quejas) == [
+            (AVISO, "firmada.pdf"), (AVISO, "la firma en un fichero (cac:Signature)")]
+
+    @pytest.mark.parametrize("dentro", [
+        PDF.replace('application/pdf" filename="contrato.pdf"', 'APPLICATION/PDF" filename="firma"'),
+        PDF.replace(' mimeCode="application/pdf"', ""),
+    ], ids=["por su tipo en mayúsculas", "solo por el nombre"])
+    def test_el_pdf_de_la_firma_se_reconoce_como_los_demas(self, dentro):
+        xml = _detras_de_los_documentos(
+            "  <cac:Signature>\n    <cbc:ID>firma</cbc:ID>\n    <cac:DigitalSignatureAttachment>"
+            + dentro + "</cac:DigitalSignatureAttachment>\n  </cac:Signature>\n")
+        assert la(xml, "SPFE-FICHERO-EMBEBIDO").gravedad == AVISO
+
 
 class TestPartes:
 

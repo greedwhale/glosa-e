@@ -448,9 +448,19 @@ _dice("BT-ES-26", "Número de referencia de la autorización concedida")
 # (apartado 4 del artículo 4). Esos dos textos no están en `cius_es`, que es
 # el anexo, y no hay fila que leer al importar. En UBL un fichero va dentro de
 # la factura en un `cac:Attachment`, en base64 o en texto; la firma, en
-# `cac:Signature` o envuelta en `ds:Signature`.
+# `cac:Signature/cac:DigitalSignatureAttachment` o envuelta en `ds:Signature`.
+#
+# La firma es solo esa rama de `cac:Signature`. El esquema de UBL 2.1 define
+# `DigitalSignatureAttachment` como «the actual encoded signature» y
+# `OriginalDocumentReference` como el documento al que se aplica la firma, que
+# puede ser «the document image that the signatory party saw»: eso es un
+# fichero pegado, aunque vaya dentro de `cac:Signature`. Hasta el 09-11-2026
+# valía cualquier rama, y un PDF en `OriginalDocumentReference` no daba ningún
+# error (el escaneo del 08-11-2026; está en HALLAZGOS).
 _EMBEBIDOS = ".//cbc:EmbeddedDocumentBinaryObject | .//cbc:EmbeddedDocument"
-_DENTRO_DE_LA_FIRMA = "ancestor::cac:Signature"
+# En los esquemas de UBL 2.1 y 2.5, `DigitalSignatureAttachment` solo cuelga de
+# `SignatureType`: no hace falta preguntar por el padre.
+_DENTRO_DE_LA_FIRMA = "ancestor::cac:DigitalSignatureAttachment"
 _FIRMAS_ENVUELTAS = ".//ds:Signature"
 _NS_CON_LA_FIRMA = dict(NS_CIUS_ES, ds=NS_FIRMA)
 
@@ -3051,6 +3061,10 @@ def _ficheros_embebidos(raiz) -> list[Incidencia]:
     es un fichero pegado, pero es la firma que el artículo 3 exceptúa, y se
     trata igual que la que va en un fichero.
 
+    La firma en un fichero es lo que va en `cac:DigitalSignatureAttachment`, y
+    nada más de `cac:Signature`; si eso dice ser un PDF, un aviso, porque un
+    PDF no es una firma.
+
     Cuando lo que va dentro es un PDF, el mensaje dice dónde va el PDF del
     primer año. El Real Decreto obliga a los de más de 8 millones a mandarlo
     con cada factura durante doce meses, y la tentación es pegarlo dentro, que
@@ -3084,6 +3098,27 @@ def _ficheros_embebidos(raiz) -> list[Incidencia]:
                 campo="Fichero embebido (cac:Attachment)",
                 esperado="ningún fichero dentro de la factura",
                 encontrado=", ".join(dict.fromkeys(_fichero(nodo) for nodo in fuera)),
+            )
+        )
+    # Un PDF donde va la firma. Se queda en aviso porque desde el fichero no se
+    # sabe qué es, pero un PDF no es como se escribe una firma: si es la
+    # factura firmada, o cualquier otro documento, es un fichero embebido con
+    # el nombre de la firma.
+    pdfs = [nodo for nodo in en_la_firma if _es_un_pdf(nodo)]
+    if pdfs:
+        incidencias.append(
+            Incidencia(
+                "SPFE-FICHERO-EMBEBIDO",
+                AVISO,
+                "Lo que va donde UBL pone la firma (cac:Signature/"
+                "cac:DigitalSignatureAttachment) dice ser un PDF. Ahí va la firma "
+                "codificada, y un PDF no es una firma: si es la factura firmada u "
+                "otro documento, es un fichero embebido, y la orden no los admite "
+                "salvo la firma (apartado 6 de su artículo 3). Desde el fichero no "
+                "se sabe cuál de las dos cosas es: por eso es un aviso.",
+                campo="Firma electrónica (cac:DigitalSignatureAttachment)",
+                esperado="la firma, no un PDF",
+                encontrado=", ".join(dict.fromkeys(_fichero(nodo) for nodo in pdfs)),
             )
         )
     if copia:

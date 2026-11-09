@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4105 tests, todos en verde.
+4111 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -4155,7 +4155,7 @@ Lo que se comprueba:
 | La dirección del QR (`BT-ES-25`) contra la factura: el NIF, la serie y el número, la fecha y el importe, y en TicketBAI sus dos CRC; una dirección que no es de la AEAT ni de una hacienda foral, y el entorno de pruebas de la AEAT. Todo en AVISO; en otra moneda que el euro el importe no se compara, y una nota lo dice | `SPFE-QR-URL` |
 | La autorización de facturación: cada `BG-24` `AUT`, los que haya, con su número (`BT-ES-26`) | `SPFE-AUTORIZACION` |
 | Los valores de L7, L8 y L10 con el calificador de su lista delante, desde el 13-10-2026: sin él, un AVISO por factura con todos los que lo llevan solo. Se siguen reconociendo de las dos formas, para medir lo demás | `SPFE-CALIFICADOR` |
-| Ningún fichero dentro de la factura, ni en la original ni en la copia fiel, que no lo dice el anexo sino los artículos 3 y 4 de la orden; la firma vale en la original, y en la copia fiel es un aviso | `SPFE-FICHERO-EMBEBIDO` |
+| Ningún fichero dentro de la factura, ni en la original ni en la copia fiel, que no lo dice el anexo sino los artículos 3 y 4 de la orden; la firma vale en la original, y en la copia fiel es un aviso. La firma es solo lo que va en `cac:DigitalSignatureAttachment`, y si eso dice ser un PDF, un aviso | `SPFE-FICHERO-EMBEBIDO` |
 
 Y dos notas: `SPFE-ALCANCE`, que sale en cada factura que se mide con el
 anexo y dice con qué se ha medido y, por su nombre, lo que no se puede
@@ -4942,6 +4942,14 @@ una palabra. Medido antes de tocar nada, sobre `d839f64`:
   no es un fichero pegado, pero es la firma que el artículo 3 exceptúa, y se
   trata como la que va en un fichero. Una `cac:Signature` que solo nombra la
   firma, sin llevarla, no es una firma.
+- **La firma en un fichero es solo `cac:DigitalSignatureAttachment`**
+  (añadido el 09-11-2026). El esquema de UBL 2.1 la define como la firma
+  codificada, y a `cac:OriginalDocumentReference`, la otra rama de
+  `cac:Signature` que puede llevar un fichero, como el documento al que se
+  aplica la firma: un fichero pegado, que da el error como cualquier otro.
+  Y si lo que va en el sitio de la firma dice ser un PDF, sale un aviso y
+  no un error, porque desde el fichero no se sabe qué es, pero un PDF no es
+  como se escribe una firma.
 - **Un documento por su dirección no es un fichero dentro**, y no se mira: la
   orden prohíbe incorporar ficheros, no nombrarlos.
 - **Si lo que va dentro es un PDF, el error dice dónde va el del primer

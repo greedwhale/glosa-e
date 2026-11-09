@@ -9946,3 +9946,41 @@ así que eso no mide estas reglas.
 **Provocado.** Cada prueba de tiempo llama a una sola regla, y con el código
 de antes de esa regla se pone en rojo: es la ejecución de arriba contra el
 worktree.
+
+## Un PDF dentro de cac:Signature pasaba por la firma
+
+**Cómo salió.** En el mismo escaneo del 08-11-2026, como quinto candidato. El
+tribunal lo rechazó como fallo de seguridad, porque lo que se cuela no llega
+a ninguna operación peligrosa, pero lo dio por cierto como fallo de
+conformidad. Para la orden, una factura emitida o interconectada no puede
+llevar ficheros dentro salvo la firma (apartado 6 del artículo 3), y
+`_ficheros_embebidos` daba por firma cualquier fichero con un `cac:Signature`
+por encima, fuera cual fuera la rama.
+
+**Reproducido** con la factura del BOE. Un PDF en
+`cac:Signature/cac:DigitalSignatureAttachment`, y otro en
+`cac:Signature/cac:OriginalDocumentReference/cac:Attachment`: ninguno daba
+SPFE-FICHERO-EMBEBIDO, y el informe entero salía igual que con una firma de
+verdad, con la sola nota FIRMA-POR-FUERA. En las 43 facturas UBL de las
+muestras no hay ningún `cac:Signature`, así que no hay con qué medir qué
+llevan las reales.
+
+**Lo que dice UBL.** En los esquemas de UBL 2.1 y 2.5 del repositorio,
+`DigitalSignatureAttachment` es "the actual encoded signature" y solo cuelga
+de `SignatureType`, y `OriginalDocumentReference` es el documento al que se
+aplica la firma, que puede ser la imagen que vio quien firmaba. Lo segundo es
+un fichero pegado con otro nombre.
+
+**Ahora** la firma en un fichero es solo lo que va en
+`DigitalSignatureAttachment`. Lo de `OriginalDocumentReference` da el ERROR
+como cualquier otro fichero, también en la copia fiel, donde además ya no
+sale el aviso de la copia con firma. Y si lo que va en el sitio de la firma
+dice ser un PDF, por su tipo o por su nombre, como en el resto de la regla,
+sale un AVISO: desde el fichero no se sabe si es la factura firmada u otra
+cosa, pero un PDF no es como se escribe una firma.
+
+**Provocado**, quitando cada parte por separado: la firma otra vez como
+todo `cac:Signature`, sin el aviso del PDF, y el PDF reconocido solo por su
+tipo. Las tres roturas ponen en rojo su prueba, de las seis nuevas de
+`tests/test_solucion_publica.py`, que antes del arreglo estaban las seis en
+rojo.
