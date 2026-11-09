@@ -1390,8 +1390,8 @@ def _rectificativa(raiz) -> list[Incidencia]:
                 f"Hay más de un importe rectificado con {_y(repetidos)}. La fila "
                 "BT-3 habla de hasta tres grupos y el BOE le da al grupo cinco "
                 "(0..5); el anexo que la AEAT publicó en su portal el 21-10-2026 "
-                "le da tres (0..3), y en el ejemplo que mandó el 13-10-2026 lleva "
-                "uno por código de la lista L2.C: "
+                "le da tres (0..3), tantos como códigos tiene la lista L2.C, y "
+                "aquí se lee uno por código: "
                 f"{_y(list(_CODIGOS_DE_IMPORTE))}. Es un aviso y no un error "
                 "porque el BOE lo admite.",
                 campo="Importes rectificados (BG-24 RECT:IMPORTES)",

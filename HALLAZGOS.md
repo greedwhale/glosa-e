@@ -6566,9 +6566,10 @@ Ninguna rotura pasó sin que la cazara una prueba.
 - **UBL-SR-43**, del esquematrón de sintaxis de CEN (2017, nivel fatal), solo
   admite 130, o 50 en un abono, en el `DocumentTypeCode` de un
   `AdditionalDocumentReference`, y el ejemplo pone `R1` y `S`. Aquí no se
-  cargan las reglas de sintaxis de CEN. Queda por preguntar. Preguntado, y
-  contestado el 13-10-2026: la solución pública se basa en la semántica de
-  la EN 16931, que no impone esa restricción.
+  cargan las reglas de sintaxis de CEN, y es criterio de Glosa-e: el
+  documento de validaciones de la AEAT (0.1.0, 16-10-2026) describe tres
+  niveles, el esquema XSD, las reglas semánticas de la EN 16931 y las suyas,
+  y las de sintaxis de CEN no están entre ellos.
 - **L7 sin `ubl:`**. Si las líneas de cobro pierden el `ubl:` como L10, Glosa
   daría ERROR falso: medido con `SUPL` sin `ubl:`. No se ha tocado porque nada
   publicado lo dice.

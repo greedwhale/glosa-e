@@ -49,6 +49,13 @@ CITAS = [
     # vino con la del 13-10-2026. El que vale es el del portal, del 21-10-2026.
     re.compile(r"ejemplo\s+(?:de\s+la\s+AEAT\s+)?del\s+(?:0?2-10-2026|2\s+de\s+octubre)", re.I),
     re.compile(r"\bmand[óo]\s+" + r"por\s+correo|\banexo\s+2\.0\b", re.I),
+    # Se colaron tres el 06-11 porque no nombraban a la AEAT ni al correo: «el
+    # ejemplo que mandó el 13-10-2026», «Preguntado, y contestado el
+    # 13-10-2026» y el nombre del fichero que vino adjunto. La fecha basta para
+    # saber que habla de un envío concreto.
+    re.compile(r"\b(?:mand|envi)[óo]\s+" + r"el\s+\d{1,2}-\d{2}-20\d\d", re.I),
+    re.compile(r"\bpreguntad[oa],?\s+" + r"y\s+contestad", re.I),
+    re.compile("importes" + r"\.xml", re.I),
 ]
 
 _TEXTO = {".py", ".md", ".html", ".txt", ".js", ".json", ".toml", ".yml", ".css", ".xml"}

@@ -1262,8 +1262,9 @@ class TestRectificativa:
         assert "0..3" in aviso.mensaje and "21-10-2026" in aviso.mensaje
         assert "0..1" not in aviso.mensaje
 
-    def test_uno_por_codigo_no_dice_nada_como_en_el_ejemplo_de_la_aeat(self):
-        """El de importes.xml, del 13-10-2026: Base, Cuota y CuotaRecargo."""
+    def test_uno_por_codigo_no_dice_nada(self):
+        """Base, Cuota y CuotaRecargo, uno de cada: los tres códigos de L2.C,
+        que son los tres (`0..3`) del anexo del portal del 21-10-2026."""
         xml = rectificativa_con(adjunto("RECT:TIPO", "R1"), adjunto("RECT:MODALIDAD", "S"),
                                 adjunto("RECT:IMPORTES", "Base", "0.0"),
                                 adjunto("RECT:IMPORTES", "Cuota", "0.0"),

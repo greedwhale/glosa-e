@@ -3532,7 +3532,7 @@ CODIGOS: dict[str, str] = {
         "un documento, es un error. Cuántos importes caben lo dice la orden de "
         "dos formas: hasta tres grupos en la fila BT-3 y cinco en el grupo. El "
         "anexo que la AEAT publicó en su portal el 21-10-2026 le da tres (0..3), "
-        "y en el ejemplo que mandó el 13-10-2026 lleva uno por código de L2.C. Más de cinco es un "
+        "tantos como códigos tiene la L2.C, y aquí se lee uno por código. Más de cinco es un "
         "error, y un código repetido, un aviso. Los importes con "
         "la modalidad I son un aviso, porque el grupo es para la sustitución. "
         "Sale como nota cuando la modalidad es S y no trae los importes: la "
