@@ -20,6 +20,11 @@ nombrar al culpable en la tercera.
 Las pruebas de tiempo usan entradas con las que el código de antes tardaba más
 de un minuto, y un tope holgado: lo que se vigila es la forma de la curva, no
 los milisegundos de esta máquina.
+
+El escaneo del 08-11-2026, solo de `solucion_publica.py`, encontró el mismo
+coste cuadrático en cuatro reglas más. Esas se miden de otra manera, por la
+razón que se da al llegar a ellas: cuántas veces más tardan con cuatro veces
+más entrada.
 """
 
 from __future__ import annotations
@@ -30,12 +35,16 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from lxml import etree
 
-from validador import cifras, factura, firma, formato, qr_fiscal
+from validador import cifras, factura, firma, formato, qr_fiscal, solucion_publica
 from validador.firma import ClaveNoSoportada
+from validador.incidencias import AVISO, ERROR
 from test_cadena import HOJA, RAIZ, certificado
 from test_comprobar_copia import COPIA, ORIGINAL
 from test_firma import _der, _entero, _secuencia
+from test_solucion_publica import (DEL_BOE, FIRMA_EN_UN_FICHERO, PDF, _como_copia_fiel,
+                                   _contrato, _detras_de_los_documentos, cambia)
 
 TOPE = 5.0  # segundos; el código de antes pasaba del minuto con estas entradas
 
@@ -252,6 +261,138 @@ class TestElLote:
         assert len(lote.informes) == 2
         caida = [i for i in lote.cruzadas if i.codigo == "VALIDADOR-SE-ATRAGANTA"]
         assert caida and "provocado" in caida[0].mensaje
+
+
+# --- Las reglas de la solución pública -------------------------------------
+
+# Cuatro reglas de `solucion_publica` quitaban los repetidos de una lista con
+# `x not in lista`, y la lista crecía con algo que escribe quien hace la
+# factura: el nombre de cada línea, o cada esquema de impuesto distinto. Lo
+# encontró el escaneo del 08-11-2026 y lo cuenta HALLAZGOS. Se llama a la
+# regla sola, sobre el árbol ya leído, para que el resto del validador no tape
+# la curva.
+#
+# Aquí no vale un tope en segundos como arriba. Lo que queda después del
+# arreglo es lineal, pero caro: cada llamada a `xpath` cuesta unos 20 µs
+# (medido; no depende del tamaño del documento), y una regla hace dos o tres
+# por línea. Con 60.000 líneas, el código de antes tardaba de 41 a 53 s y el de
+# ahora, de 4 a 10 s, según lo ocupada que estuviera la máquina, y en GitHub la
+# suite corre unas cuatro veces más deprisa: un tope que separe las dos cosas
+# aquí las confunde allí. Así que se mide la forma: con cuatro veces más
+# entrada, lo lineal tarda cuatro veces más y lo cuadrático, dieciséis.
+# Medido el 08-11-2026, de 20.000 a 80.000: el arreglo da de 3,1 a 4,8; el
+# código de antes, de 20.000 a 40.000, ya daba de 3,1 a 3,7 por cada doble.
+
+_LINEA = "  <cac:InvoiceLine>"
+POCAS = 20_000
+CRECE_COMO_MUCHO = 8  # entre el 4 de lo lineal y el 16 de lo cuadrático
+
+
+def _con_lineas(*lineas: str) -> str:
+    return cambia(DEL_BOE, _LINEA, "".join(lineas) + _LINEA)
+
+
+def _linea(ident, dentro: str) -> str:
+    return f"<cac:InvoiceLine><cbc:ID>{ident}</cbc:ID><cac:Item>{dentro}</cac:Item></cac:InvoiceLine>"
+
+
+def _categoria(codigo: str, esquema: str = "VAT") -> str:
+    return (f"<cac:ClassifiedTaxCategory><cbc:ID>{codigo}</cbc:ID><cac:TaxScheme>"
+            f"<cbc:ID>{esquema}</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory>")
+
+
+def _propiedad(nombre: str) -> str:
+    return (f"<cac:AdditionalItemProperty><cbc:Name>{nombre}</cbc:Name>"
+            "<cbc:Value>v</cbc:Value></cac:AdditionalItemProperty>")
+
+
+def _crece(regla, hacer) -> tuple[float, list]:
+    """Cuántas veces más tarda la regla con cuatro veces más entrada, y lo que
+    dice con la mayor."""
+    tiempos, salida = [], []
+    for cuantas in (POCAS, 4 * POCAS):
+        raiz = etree.fromstring(hacer(cuantas).encode("utf-8"))
+        salida, tarda = _cronometro(lambda: regla(raiz))
+        tiempos.append(tarda)
+    return tiempos[1] / tiempos[0], salida
+
+
+def _resumen(incidencias) -> list[tuple[str, str, str, str]]:
+    return [(i.codigo, i.gravedad, i.campo, i.encontrado) for i in incidencias]
+
+
+class TestLaSolucionPublica:
+    def test_muchas_lineas_K_no_cuelgan_las_categorias(self):
+        """F1: el lugar de cada línea con una categoría que L4 no tiene."""
+        veces, salida = _crece(solucion_publica._categorias, lambda cuantas: _con_lineas(
+            *(_linea(n, _categoria("K")) for n in range(cuantas))))
+        assert veces < CRECE_COMO_MUCHO, f"con cuatro veces más líneas, {veces:.1f} veces más tiempo"
+        assert [i.encontrado for i in salida] == ["K"]
+
+    def test_muchos_impuestos_distintos_no_cuelgan_el_tipo(self):
+        """F3: cada `cac:TaxScheme/cbc:ID` distinto de VAT."""
+        veces, salida = _crece(solucion_publica._tipo_de_impuesto, lambda cuantas: _con_lineas(
+            *(_linea(n, _categoria("S", f"X{n}")) for n in range(cuantas))))
+        assert veces < CRECE_COMO_MUCHO, f"con cuatro veces más esquemas, {veces:.1f} veces más tiempo"
+        assert salida[0].encontrado.count(",") == 4 * POCAS - 1
+
+    def test_muchas_propiedades_no_cuelgan_la_informacion_adicional(self):
+        """F4: el lugar de cada línea con una propiedad fuera de L8."""
+        veces, salida = _crece(solucion_publica._informacion_adicional, lambda cuantas: _con_lineas(
+            *(_linea(n, _propiedad("Color")) for n in range(cuantas))))
+        assert veces < CRECE_COMO_MUCHO, f"con cuatro veces más líneas, {veces:.1f} veces más tiempo"
+        assert len(salida) == 1
+
+    def test_muchos_ficheros_en_una_copia_no_cuelgan(self):
+        """F2: en una copia fiel, los ficheros de dentro de la firma se
+        buscaban uno a uno en la lista de los de fuera."""
+        veces, salida = _crece(solucion_publica._ficheros_embebidos, lambda cuantas: _como_copia_fiel(
+            _detras_de_los_documentos(_contrato("<cbc:EmbeddedDocument/>" * cuantas))))
+        assert veces < CRECE_COMO_MUCHO, f"con cuatro veces más ficheros, {veces:.1f} veces más tiempo"
+        assert [i.gravedad for i in salida] == [ERROR]
+
+    # Lo que dicen con pocas líneas, sacado del código de antes del arreglo
+    # (a51d53e): el orden es el de la primera vez que sale cada cosa, y los
+    # repetidos, una vez.
+
+    def test_las_categorias_dicen_lo_mismo(self):
+        xml = _con_lineas(_linea(3, _categoria("K")), _linea(2, _categoria("B")),
+                          _linea(3, _categoria("K")), _linea(4, _categoria("K")))
+        assert _resumen(solucion_publica._categorias(etree.fromstring(xml.encode()))) == [(
+            "SPFE-CATEGORIA", ERROR,
+            "Categoría de IVA (BT-95, BT-102, BT-118, BT-151) · línea 3, línea 2, línea 4", "K, B")]
+
+    def test_el_tipo_de_impuesto_dice_lo_mismo(self):
+        xml = _con_lineas(_linea(3, _categoria("S", "IGIC")), _linea(4, _categoria("S", "GST")),
+                          _linea(5, _categoria("S", "IGIC")))
+        assert _resumen(solucion_publica._tipo_de_impuesto(etree.fromstring(xml.encode()))) == [(
+            "SPFE-TIPO-DE-IMPUESTO", ERROR, "Tipo de impuesto (cac:TaxScheme/cbc:ID) · líneas",
+            "IGIC, GST")]
+
+    def test_la_informacion_adicional_dice_lo_mismo(self):
+        xml = _con_lineas(_linea(3, _propiedad("Color") + _propiedad("Lote")),
+                          _linea(2, _propiedad("Color")), _linea(3, _propiedad("Talla")))
+        assert _resumen(solucion_publica._informacion_adicional(etree.fromstring(xml.encode()))) == [(
+            "SPFE-INFORMACION-ADICIONAL", AVISO, "Código de la propiedad (BT-160) · línea 3, línea 2",
+            "Color, Lote, Talla")]
+
+    @pytest.mark.parametrize("copia, trozos, esperado", [
+        (True, (_contrato(PDF), FIRMA_EN_UN_FICHERO, _contrato(PDF)), [
+            ("SPFE-FICHERO-EMBEBIDO", ERROR, "Fichero embebido (cac:Attachment)",
+             "contrato.pdf en el documento Contrato-2026-7"),
+            ("SPFE-FICHERO-EMBEBIDO", AVISO, "Firma electrónica",
+             "la firma en un fichero (cac:Signature)")]),
+        (True, (FIRMA_EN_UN_FICHERO,), [
+            ("SPFE-FICHERO-EMBEBIDO", AVISO, "Firma electrónica",
+             "la firma en un fichero (cac:Signature)")]),
+        (False, (_contrato(PDF), FIRMA_EN_UN_FICHERO), [
+            ("SPFE-FICHERO-EMBEBIDO", ERROR, "Fichero embebido (cac:Attachment)",
+             "contrato.pdf en el documento Contrato-2026-7")]),
+    ])
+    def test_los_ficheros_embebidos_dicen_lo_mismo(self, copia, trozos, esperado):
+        xml = _detras_de_los_documentos(*trozos)
+        xml = _como_copia_fiel(xml) if copia else xml
+        assert _resumen(solucion_publica._ficheros_embebidos(etree.fromstring(xml.encode()))) == esperado
 
 
 # --- El tamaño del fichero -------------------------------------------------

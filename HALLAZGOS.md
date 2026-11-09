@@ -9892,3 +9892,57 @@ Y un salto de línea de verdad dentro de un valor sigue pudiendo empezar una
 línea que imite otra del informe, sin borrar nada de lo escrito. Medido con las
 muestras: de las 1488 quejas de los 169 ficheros, ninguna lleva en el campo,
 lo que debería ser o lo que tiene un salto ni ningún otro de esos separadores.
+
+## Cuatro reglas de la solución pública tardaban el cuadrado de lo que leían
+
+**Cómo salió.** El escaneo del 01 al 03-11-2026 dejó `solucion_publica.py`
+casi sin leer, y el 08-11-2026 se escaneó solo ese fichero, con esfuerzo alto.
+Salieron cuatro puntos de gravedad baja con la misma causa que el primero de
+la tanda de arriba: una factura preparada congela la pestaña, sin cambiar
+ningún veredicto. Cada regla quitaba los repetidos de una lista con
+`x not in lista`, y la lista crecía con algo que escribe quien hace la
+factura:
+
+| Regla | Lo que crecía |
+|---|---|
+| `_categorias` | el nombre de cada línea con una categoría que la norma tiene y L4 no, como la K |
+| `_tipo_de_impuesto` | cada `cac:TaxScheme/cbc:ID` distinto de VAT |
+| `_informacion_adicional` | el nombre de cada línea con una propiedad fuera de L8 |
+| `_ficheros_embebidos` | en una copia fiel, los ficheros de dentro de la firma, que se sacaban buscando cada uno en la lista de los de fuera |
+
+Ahora las tres primeras guardan lo visto en un diccionario, que conserva el
+orden de la primera vez igual que la lista, y la cuarta separa los de fuera y
+los de dentro en una sola pasada. Las listas que solo reciben códigos de
+UNCL5305 o las ubicaciones fijas de `_CATEGORIAS_CON_IMPUESTO` se quedan como
+estaban: no crecen con la factura.
+
+**Reproducido** antes de tocar nada, llamando a cada regla sola sobre el árbol
+ya leído. Con 60.000 elementos, el código de antes tardaba 42,5 s en
+`_categorias`, 41,4 s en `_tipo_de_impuesto`, 48,5 s en
+`_informacion_adicional` y 52,8 s en `_ficheros_embebidos`. De 20.000 a
+40.000, cada doble multiplicaba el tiempo por 3,1 a 3,7; después del arreglo,
+de 20.000 a 80.000 se multiplica por 3,1 a 4,8, que es lineal.
+
+**Lo que queda es lineal, pero caro.** Cada llamada a `xpath` cuesta unos 20
+µs, medido, y no depende del tamaño del documento. Una regla hace dos o tres
+por línea, así que con 60.000 líneas el arreglo aún tarda de 4 a 10 s en una
+sola regla, según lo ocupada que esté la máquina. Por eso las pruebas nuevas
+de `tests/test_lo_que_no_se_cuelga.py` no usan el tope de 5 s de las de arriba:
+la suite corre en GitHub unas cuatro veces más deprisa que aquí, y un tope que
+separa las dos versiones en esta máquina las confunde allí. Miden la forma de
+la curva, cuántas veces más tarda la regla con cuatro veces más entrada, de
+20.000 a 80.000, y piden menos de 8, entre el 4 de lo lineal y el 16 de lo
+cuadrático. Contra el código de antes, en un worktree aparte: 24,4, 15,9, 14,0
+y 11,0 veces, las cuatro en rojo. Con el arreglo, en verde.
+
+**Medido** que no cambia lo que se dice: seis pruebas fijan la salida de las
+cuatro reglas con pocas líneas repetidas (el orden de la primera vez y cada
+repetido una vez, y en los ficheros embebidos, la copia fiel con firma y PDF,
+solo con firma, y la original), y pasan igual con el código de antes y con el
+de ahora. Las incidencias de los 93 XML de las muestras salen idénticas
+contra `a51d53e`, 321, pero ninguno de esos ficheros es de la solución pública,
+así que eso no mide estas reglas.
+
+**Provocado.** Cada prueba de tiempo llama a una sola regla, y con el código
+de antes de esa regla se pone en rojo: es la ejecución de arriba contra el
+worktree.

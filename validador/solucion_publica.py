@@ -1837,7 +1837,12 @@ def _tipo_de_impuesto(raiz) -> list[Incidencia]:
     tiene que estar: una categoría sin `cac:TaxScheme/cbc:ID` no lo dice.
     """
     lugares: list[str] = []
-    malos: list[str] = []
+    # Un diccionario y no una lista: el esquema lo escribe quien hace la
+    # factura, y con `not in` sobre una lista, 60.000 distintos tardaban 41 s
+    # (medido el 08-11-2026; está en HALLAZGOS). Guarda el orden de la primera
+    # vez igual que la lista. `lugares` sí es lista porque sale de
+    # `_CATEGORIAS_CON_IMPUESTO`, que es fija y corta.
+    malos: dict[str, None] = {}
     for ruta, lugar in _CATEGORIAS_CON_IMPUESTO:
         for categoria in _nodos(raiz, ruta):
             escritos = _nodos(categoria, "./" + _ESQUEMA_DE_LA_CATEGORIA)
@@ -1846,8 +1851,7 @@ def _tipo_de_impuesto(raiz) -> list[Incidencia]:
                 continue
             if lugar not in lugares:
                 lugares.append(lugar)
-            if escrito not in malos:
-                malos.append(escrito)
+            malos[escrito] = None
     if not malos:
         return []
     return [
@@ -2070,7 +2074,11 @@ def _categorias(raiz) -> list[Incidencia]:
     BR-CL-17 y BR-CL-18. Aquí quedan los que la norma tiene y el anexo quita.
     """
     europeas = lista("UNCL_5305", SINTAXIS_UBL)
-    lugares: list[str] = []
+    # Los lugares, en un diccionario: hay uno por línea, con el nombre que le
+    # pone quien hace la factura, y con `not in` sobre una lista 60.000 líneas
+    # tardaban 42 s (08-11-2026, en HALLAZGOS). `malos` y `nuevas` pueden ser
+    # listas: solo entran códigos de UNCL5305, que son una docena.
+    lugares: dict[str, None] = {}
     malos: list[str] = []
     nuevas: list[str] = []
     for grupo, campo in _CATEGORIAS_EN:
@@ -2084,8 +2092,7 @@ def _categorias(raiz) -> list[Incidencia]:
                 if codigo in _CATEGORIAS or codigo not in europeas:
                     continue
                 lugar = nombre or ("desglose" if grupo == "desglose" else "")
-                if lugar not in lugares:
-                    lugares.append(lugar)
+                lugares[lugar] = None
                 if codigo not in malos:
                     malos.append(codigo)
     incidencias: list[Incidencia] = []
@@ -2101,7 +2108,7 @@ def _categorias(raiz) -> list[Incidencia]:
                 "SPFE-CATEGORIA",
                 ERROR,
                 mensaje,
-                campo=_donde("Categoría de IVA (BT-95, BT-102, BT-118, BT-151)", lugares),
+                campo=_donde("Categoría de IVA (BT-95, BT-102, BT-118, BT-151)", list(lugares)),
                 esperado=_o(_L["L4"].valores),
                 encontrado=", ".join(malos),
             )
@@ -2436,14 +2443,15 @@ def _informacion_adicional(raiz) -> list[Incidencia]:
     es un aviso.
     """
     otros: list[str] = []
-    lugares: list[str] = []
+    # Un diccionario: hay un lugar por línea, y con `not in` sobre una lista
+    # 60.000 líneas tardaban 48 s (08-11-2026, en HALLAZGOS).
+    lugares: dict[str, None] = {}
     for nombre, linea in grupos(raiz, SINTAXIS_UBL, "lineas"):
         for propiedad in _nodos(linea, _PROPIEDADES):
             escrito = _valor(propiedad, "./cbc:Name")
             if escrito and escrito.removeprefix(_CALIFICADOR_L8) not in _NOMBRES_L8:
                 otros.append(escrito)
-                if nombre not in lugares:
-                    lugares.append(nombre)
+                lugares[nombre] = None
     if not otros:
         return []
     return [
@@ -2459,7 +2467,7 @@ def _informacion_adicional(raiz) -> list[Incidencia]:
             "2 del artículo 3) y esto no cabe. Si va interconectada, la orden "
             "admite contenido adicional que cumpla la norma europea (apartado 3), "
             "y la norma deja el nombre libre: por eso es un aviso.",
-            campo=_donde("Código de la propiedad (BT-160)", lugares),
+            campo=_donde("Código de la propiedad (BT-160)", list(lugares)),
             esperado=f"{_o(_NOMBRES_L8)}, con el calificador de L8 delante o sin él",
             encontrado=", ".join(dict.fromkeys(otros)),
         )
@@ -3052,8 +3060,14 @@ def _ficheros_embebidos(raiz) -> list[Incidencia]:
     """
     incidencias: list[Incidencia] = []
     copia = _es_copia(raiz)
-    embebidos = _nodos(raiz, _EMBEBIDOS)
-    fuera = [nodo for nodo in embebidos if not nodo.xpath(_DENTRO_DE_LA_FIRMA, namespaces=NS_CIUS_ES)]
+    # Los de fuera y los de dentro de la firma, en una pasada. Antes los de
+    # dentro se sacaban buscando cada fichero en la lista de los de fuera, y
+    # con 60.000 `cbc:EmbeddedDocument` vacíos en una copia fiel tardaba 53 s
+    # (08-11-2026, en HALLAZGOS).
+    fuera: list = []
+    en_la_firma: list = []
+    for nodo in _nodos(raiz, _EMBEBIDOS):
+        (en_la_firma if nodo.xpath(_DENTRO_DE_LA_FIRMA, namespaces=NS_CIUS_ES) else fuera).append(nodo)
     if fuera:
         articulo = ("el apartado 4 de su artículo 4, de las copias fieles" if copia else
                     "el apartado 6 de su artículo 3, de las facturas emitidas o "
@@ -3075,7 +3089,7 @@ def _ficheros_embebidos(raiz) -> list[Incidencia]:
     if copia:
         firmas = [que for que, hay in (
             ("la firma envuelta (ds:Signature)", raiz.xpath(_FIRMAS_ENVUELTAS, namespaces=_NS_CON_LA_FIRMA)),
-            ("la firma en un fichero (cac:Signature)", [n for n in embebidos if n not in fuera]),
+            ("la firma en un fichero (cac:Signature)", en_la_firma),
         ) if hay]
         if firmas:
             incidencias.append(
