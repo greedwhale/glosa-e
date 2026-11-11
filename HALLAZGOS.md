@@ -10108,3 +10108,41 @@ documentos, abriendo uno con cualquier documento, sin el motivo del sobre,
 contando referencias y sin la familia nueva de códigos. Las ocho, en rojo; la
 quinta salió verde la primera vez, porque la prueba solo miraba `detectar`, y
 se añadió la comprobación por `validar`.
+
+## Los sobres de la solución pública, leídos con sus WSDL
+
+**Cómo salió.** Al contrastar el motor con los WSDL del 29-10-2026, el
+11-11-2026, antes de publicar lo de arriba. Dos cosas:
+
+- **La nota del sobre veía una contradicción que no hay.** SPFE-ACUSE-SOBRE
+  decía que el ejemplo traía el acuse en un sobre "aunque" el catálogo dijera
+  que lo devuelve directamente. El WSDL del validador previo dice que es "SOAP
+  1.2 document/literal (sin mensajería ebXML)" y que el `Body` de la respuesta
+  es el `DocumentStatus`: el "directamente" del catálogo es sin ebXML, frente
+  a los demás servicios. Se escribió leyendo el catálogo y el ejemplo, sin el
+  WSDL, que llevaba doce días publicado.
+- **Los 17 sobres ebXML de los ejemplos salían con "no trae nada dentro de su
+  Body".** Cierto y sin ayuda: en ebMS el `Body` va vacío a propósito, la
+  acción va en la cabecera `eb3:Messaging` y los documentos van como adjuntos
+  MIME. Y un SOAP Fault, que es como los nueve WSDL devuelven los errores del
+  servicio, habría salido como "un sobre que trae Fault", sin su texto.
+
+Al mirarlos salió una cosa más de la AEAT: tres de las peticiones de ejemplo
+(la anulación y las dos de estados) son SOAP 1.1, y los WSDL dicen que los
+mensajes son SOAP 1.2.
+
+**Reproducido** en `tests/test_acuses.py`, `TestLoQueDicenLosWsdl`: tres de
+las cuatro primeras pruebas, en rojo antes del arreglo (la cuarta guarda el
+motivo de siempre para el sobre vacío de otro).
+
+**Ahora** la nota y su ficha citan el WSDL y no ven contradicción. El motivo de
+un sobre que no se abre dice, según lo que traiga: la acción ebMS, cuántos
+adjuntos cita y que no se leen; que los WSDL piden SOAP 1.2 si es 1.1; el texto
+y el código de un SOAP Fault, como error del servicio y no de la factura; y,
+con una factura dentro, que es la petición al validador previo y que la
+factura se valida fuera. Ninguno se abre: lo que se abre sigue siendo solo un
+`DocumentStatus` que venga solo.
+
+**Provocado**, rompiendo cada pieza: sin el SOAP Fault, sin buscar la cabecera
+ebMS, sin la frase de SOAP 1.1, sin el caso de la factura y con el "aunque" de
+vuelta en la nota. Las cinco, en rojo.

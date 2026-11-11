@@ -926,12 +926,100 @@ def _lo_que_trae_el_sobre(raiz) -> list:
     return [hijo for hijo in cuerpo if isinstance(hijo.tag, str)]
 
 
+NS_EBMS = "http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/"
+
+# Lo que dicen los WSDL de la solución pública del 29-10-2026, los nueve, y
+# que el motivo cita: con qué se contesta un error del servicio y por dónde
+# viajan los documentos. Se miró el 11-11-2026.
+_LOS_WSDL = "según los WSDL de la solución pública de la AEAT del 29-10-2026"
+
+
+def _texto_de(elemento) -> str:
+    return " ".join("".join(elemento.itertext()).split()) if elemento is not None else ""
+
+
+def _motivo_del_sobre(raiz, namespace: str, dentro: list) -> str:
+    """Qué trae un sobre SOAP que no se abre, dicho para quien lo tiene.
+
+    Hasta el 11-11-2026 se decía solo el nombre de lo que traía el Body, y de
+    los 17 sobres ebXML de los ejemplos de la AEAT, que «no trae nada dentro
+    de su Body». Era cierto y no ayudaba: en la mensajería ebMS el Body va
+    vacío a propósito y los documentos van aparte, como adjuntos MIME, que un
+    XML suelto no lleva. Lo mismo un SOAP Fault: es un error del servicio, y
+    lo que hay que leer es su texto.
+    """
+    version = NS_SOAP[namespace]
+    principio = f"XML válido, y es un sobre SOAP {version}"
+    nombres = [_partir_nombre(hijo.tag)[1] for hijo in dentro]
+
+    if nombres == ["Fault"]:
+        (fallo,) = dentro
+        if version == "1.2":
+            texto = _texto_de(fallo.find(f"{{{namespace}}}Reason/{{{namespace}}}Text"))
+            codigo = _texto_de(fallo.find(f"{{{namespace}}}Code/{{{namespace}}}Value"))
+        else:
+            texto = _texto_de(fallo.find("faultstring"))
+            codigo = _texto_de(fallo.find("faultcode"))
+        dice = f'"{texto}"' if texto else "sin texto"
+        con_codigo = f" (código {codigo})" if codigo else ""
+        return (
+            f"{principio} con un SOAP Fault, un error del servicio que "
+            f"contesta y no de la factura: {dice}{con_codigo}. Así devuelven "
+            f"los errores los servicios de la solución pública, {_LOS_WSDL}, "
+            "con un HTTP 400 o 500. No hay ningún documento que validar."
+        )
+
+    mensajeria = raiz.find(f"{{{namespace}}}Header/{{{NS_EBMS}}}Messaging")
+    if mensajeria is not None:
+        accion = _texto_de(mensajeria.find(f".//{{{NS_EBMS}}}Action"))
+        adjuntos = len(mensajeria.findall(f".//{{{NS_EBMS}}}PartInfo"))
+        con_accion = f", con la acción {accion}" if accion else ", sin acción"
+        cuantos = ("no cita ningún adjunto" if adjuntos == 0
+                   else "cita un adjunto" if adjuntos == 1
+                   else f"cita {adjuntos} adjuntos")
+        body = ("y el Body vacío" if not nombres
+                else f"y en el Body {', '.join(nombres)}")
+        # Tres de las peticiones de ejemplo del 10-11-2026 (la anulación y
+        # los dos estados) son SOAP 1.1, y los WSDL dicen que los mensajes
+        # son SOAP 1.2. Quien copie el ejemplo tiene que saberlo.
+        version_de_los_wsdl = (
+            " Los WSDL dicen que los mensajes son SOAP 1.2, y este es 1.1."
+            if version == "1.1" else "")
+        return (
+            f"{principio} de mensajería ebMS 3.0{con_accion} {body}. "
+            f"{_LOS_WSDL[0].upper()}{_LOS_WSDL[1:]}, los documentos UBL no "
+            "van en el Body: van como adjuntos MIME, fuera del XML del "
+            f"sobre. Este mensaje {cuantos}.{version_de_los_wsdl} Glosa-e no "
+            "lee los adjuntos de un mensaje: cada documento se valida por "
+            "separado."
+        )
+
+    if nombres == ["Invoice"]:
+        return (
+            f"{principio} que trae una factura UBL, Invoice, en su Body. Así va la "
+            "petición al validador previo de la AEAT, según su WSDL del "
+            "29-10-2026. La factura se valida fuera del sobre: sacarla lo "
+            "cambiaría, y una firma dentro de ella ya no cuadraría."
+        )
+
+    trae = (f"trae {', '.join(nombres)}" if nombres
+            else "no trae nada dentro de su Body")
+    return (
+        f"{principio} que {trae}. De un sobre SOAP solo se abre un acuse "
+        "DocumentStatus que venga solo, como el del validador previo de la "
+        "AEAT; lo demás se valida fuera del sobre."
+    )
+
+
 def sacar_del_sobre(datos: bytes) -> tuple[bytes, str | None]:
     """El acuse que viene dentro de un sobre SOAP, y la versión del sobre.
 
     El validador previo de la AEAT (catálogo de servicios 0.1.5, apartado
     6.10) devuelve, dice el catálogo, «Directamente XML (DocumentStatus)», y su
-    ejemplo del 10-11-2026 lo trae dentro de un sobre SOAP 1.2. Hasta el
+    ejemplo del 10-11-2026 lo trae dentro de un sobre SOAP 1.2. No se
+    contradicen: su WSDL del 29-10-2026 dice que es «SOAP 1.2 document/literal
+    (sin mensajería ebXML)» y que el Body de la respuesta es el DocumentStatus;
+    el «directamente» es sin ebXML, frente a los demás servicios. Hasta el
     11-11-2026 salía SIN COMPROBAR, por la raíz.
 
     Solo se abre un sobre cuyo Body trae un único elemento y que es un
@@ -1032,18 +1120,8 @@ def detectar(datos: bytes | str) -> Deteccion:
     # sería cierto, pero no diría qué hay dentro.
     dentro = _lo_que_trae_el_sobre(raiz)
     if dentro is not None:
-        nombres = [_partir_nombre(hijo.tag)[1] for hijo in dentro]
-        trae = (f"trae {', '.join(nombres)}" if nombres
-                else "no trae nada dentro de su Body")
-        return Deteccion(
-            namespace=namespace,
-            motivo=(
-                f"XML válido, y es un sobre SOAP {NS_SOAP[namespace]} que {trae}. "
-                "De un sobre SOAP solo se abre un acuse DocumentStatus que "
-                "venga solo, como el del validador previo de la AEAT; lo "
-                "demás se valida fuera del sobre."
-            ),
-        )
+        return Deteccion(namespace=namespace,
+                         motivo=_motivo_del_sobre(raiz, namespace, dentro))
 
     # Con el nombre de uno de ellos y otro namespace, lo que está mal es el
     # namespace, y decir que la raíz no es de nada que se valide mandaría a

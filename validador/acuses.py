@@ -297,9 +297,11 @@ def sobre(version: str) -> Incidencia:
         NOTA,
         f"El acuse viene dentro de un sobre SOAP {version} (env:Envelope), y se "
         "ha leído lo que trae en su Body. Así contesta el validador previo de "
-        "la AEAT en su ejemplo del 10-11-2026, aunque su catálogo de servicios "
-        "(versión 0.1.5, apartado 6.10) dice que devuelve el DocumentStatus "
-        "directamente. Ese validador solo existe en el entorno de pruebas de "
+        "la AEAT: su WSDL del 29-10-2026 dice que es un servicio SOAP 1.2 "
+        "document/literal, sin mensajería ebXML, cuyo Body es el "
+        "DocumentStatus, y así viene en su ejemplo del 10-11-2026. Es lo que "
+        "su catálogo de servicios (versión 0.1.5, apartado 6.10) llama "
+        "devolverlo directamente. Ese validador solo existe en el entorno de pruebas de "
         "la AEAT, y el catálogo dice que validar con él no garantiza que la "
         "factura se acepte después. Del sobre no se mira nada más que dónde "
         "va el acuse; las líneas que citen los errores son las del fichero.",

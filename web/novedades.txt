@@ -16,7 +16,7 @@ fecha: 2026-11-11
 id: acuses-y-peticiones-de-la-solucion-publica
 titulo: SPFE-PETICION: las peticiones de consulta y de descarga, y un acuse para cada servicio
 nuevos: SPFE-ACUSE-CONSULTA SPFE-ACUSE-SOBRE SPFE-PETICION-ALCANCE SPFE-PETICION-FACTURA SPFE-PETICION-LIMITE
-texto: Con los ejemplos que la AEAT publicó el 10-11-2026, cuatro arreglos. La
+texto: Con los ejemplos que la AEAT publicó el 10-11-2026, cinco arreglos. La
   respuesta de su validador previo, que viene dentro de un sobre SOAP, ya se
   abre y se lee, y la factura que trae una vez por cada error se cuenta como
   una sola. Un
@@ -27,7 +27,9 @@ texto: Con los ejemplos que la AEAT publicó el 10-11-2026, cuatro arreglos. La
   dice qué es y cuántas facturas encontró. Y las peticiones de consulta y de
   descarga, que pasaban sin una nota, dicen qué son y avisan si piden más
   facturas de las que admite el catálogo de servicios o si alguna no viene
-  identificada.
+  identificada. Y los demás mensajes de la solución pública, que llevan los
+  documentos como adjuntos y no dentro, dicen qué acción son y que cada
+  documento se valida por separado; un error del servicio dice su texto.
 
 fecha: 2026-11-08
 id: base-que-cii-no-compara

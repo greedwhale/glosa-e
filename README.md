@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4187 tests, todos en verde.
+4195 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -762,9 +762,10 @@ Lo que se decidió en cada una:
   una, porque una consulta por filtro trae hasta 1.000.
 - **El acuse del validador previo viene en un sobre SOAP.** El catálogo
   (apartado 6.10) dice que ese servicio, que solo existe en pruebas, devuelve
-  el `DocumentStatus` directamente; su ejemplo del 10-11-2026 lo trae dentro
-  de un `env:Envelope` SOAP 1.2, y hasta el 11-11-2026 salía SIN COMPROBAR por
-  la raíz. Ahora `formato.sacar_del_sobre` lo saca antes de detectar, en
+  "Directamente XML (DocumentStatus)", y su WSDL del 29-10-2026 lo precisa: es
+  SOAP 1.2 document/literal, sin mensajería ebXML, y el `Body` de la respuesta
+  es el `DocumentStatus`. Así viene en su ejemplo del 10-11-2026, y hasta el
+  11-11-2026 salía SIN COMPROBAR por la raíz. Ahora `formato.sacar_del_sobre` lo saca antes de detectar, en
   `validar` y en el lote, y una NOTA, `SPFE-ACUSE-SOBRE`, lo dice. Solo se abre
   un sobre (1.1 o 1.2) cuyo `Body` trae un único `DocumentStatus`: una factura
   firmada dentro de un sobre ya no es la misma fuera de él, y con cualquier
@@ -772,6 +773,18 @@ Lo que se decidió en cada una:
   "línea 9" en un error del esquema sea la del fichero. Medido con la forma del
   ejemplo: le falta `cbc:IssueDate` y no pasa el esquema (la errata 6 del
   informe del 10-11), con su `SPFE-ACUSE-FECHA`.
+- **Los demás sobres dicen qué son.** Los otros ocho servicios, según sus WSDL
+  del 29-10-2026, son mensajería ebMS 3.0 sobre SOAP 1.2: el `Body` va vacío,
+  la cabecera `eb3:Messaging` dice la acción, y los documentos UBL viajan como
+  adjuntos MIME, fuera del XML. De los 17 sobres de ejemplo Glosa-e decía que
+  no traían nada en su `Body`, que era cierto y no ayudaba. Ahora el motivo
+  dice la acción, cuántos adjuntos cita, que los adjuntos no se leen y que
+  cada documento se valida por separado; y si el sobre es SOAP 1.1, que los
+  WSDL piden 1.2 (tres de las peticiones de ejemplo lo son). Un SOAP Fault,
+  que es como esos WSDL devuelven los errores del servicio, dice su texto y su
+  código, y que es un error del servicio y no de la factura. Un sobre con una
+  factura dentro, que es la petición al validador previo, dice que la factura
+  se valida fuera del sobre. Ninguno de estos sobres se abre.
 - **Una factura repetida se cuenta una vez.** La misma respuesta trae la misma
   factura una vez por cada código que le da, cuatro en el ejemplo, y la cuenta
   decía "4 facturas". Ahora una factura es su NIF, su número y su fecha, y la

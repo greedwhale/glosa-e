@@ -616,3 +616,83 @@ class TestLaRespuestaDelValidador:
         (aviso,) = avisos
         assert f"{codigo} no es una regla de la norma europea" in aviso.mensaje
         assert "no es de ninguna regla" not in aviso.mensaje
+
+
+# --- Lo que dicen los WSDL de la AEAT del 29-10-2026 -------------------------------
+#
+# Mirados el 11-11-2026. El del validador previo dice que es "SOAP 1.2
+# document/literal (sin mensajería ebXML)": el "Directamente XML" del catálogo
+# quiere decir sin ebXML, en el Body del sobre, y no es una contradicción. Los
+# demás servicios son ebMS 3.0 sobre SOAP 1.2, con el Body vacío y los
+# documentos UBL como adjuntos MIME. Y en todos, los errores del servicio
+# llegan como SOAP Fault. Glosa-e decía de los 17 sobres ebXML de los ejemplos
+# que no traían nada en su Body, que es cierto y no ayuda.
+
+EBMS = "http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/"
+
+
+def cabecera_ebms(accion="CANCELINVOICE"):
+    return (f'<soapenv:Envelope xmlns:soapenv="{SOAP_12}"><soapenv:Header>'
+            f'<eb:Messaging xmlns:eb="{EBMS}"><eb:UserMessage><eb:CollaborationInfo>'
+            f"<eb:Action>{accion}</eb:Action></eb:CollaborationInfo>"
+            "</eb:UserMessage></eb:Messaging></soapenv:Header><soapenv:Body/>"
+            "</soapenv:Envelope>")
+
+
+def fallo_soap(texto="Error interno del servicio"):
+    return (f'<env:Envelope xmlns:env="{SOAP_12}"><env:Body><env:Fault>'
+            "<env:Code><env:Value>env:Receiver</env:Value></env:Code>"
+            f'<env:Reason><env:Text xml:lang="es">{texto}</env:Text></env:Reason>'
+            "</env:Fault></env:Body></env:Envelope>")
+
+
+class TestLoQueDicenLosWsdl:
+    def test_la_nota_del_sobre_no_ve_una_contradiccion(self):
+        nota = una(medir(sobre(VALIDADOR)), "SPFE-ACUSE-SOBRE")
+        assert "aunque" not in nota.mensaje
+        assert "sin mensajería ebXML" in nota.mensaje and "29-10-2026" in nota.mensaje
+
+    def test_la_cabecera_ebms_dice_que_es_y_su_accion(self):
+        deteccion = detectar(cabecera_ebms().encode("utf-8"))
+        assert not deteccion
+        assert "ebMS" in deteccion.motivo and "CANCELINVOICE" in deteccion.motivo
+        assert "adjunto" in deteccion.motivo
+        assert "no trae nada" not in deteccion.motivo
+
+    def test_un_fallo_soap_dice_su_motivo(self):
+        deteccion = detectar(fallo_soap().encode("utf-8"))
+        assert not deteccion
+        assert "SOAP Fault" in deteccion.motivo
+        assert "Error interno del servicio" in deteccion.motivo
+        assert "no de la factura" in deteccion.motivo
+
+    def test_un_sobre_vacio_de_otro_sigue_diciendo_lo_de_antes(self):
+        vacio = f'<env:Envelope xmlns:env="{SOAP_12}"><env:Body/></env:Envelope>'
+        assert "no trae nada dentro de su Body" in detectar(vacio.encode("utf-8")).motivo
+
+    def test_un_fallo_soap_11_tambien(self):
+        fallo = (f'<s:Envelope xmlns:s="{SOAP_11}"><s:Body><s:Fault>'
+                 "<faultcode>s:Server</faultcode><faultstring>No disponible</faultstring>"
+                 "</s:Fault></s:Body></s:Envelope>")
+        motivo = detectar(fallo.encode("utf-8")).motivo
+        assert "SOAP Fault" in motivo and "No disponible" in motivo
+
+    def test_la_peticion_al_validador_dice_que_la_factura_va_fuera(self):
+        peticion = (f'<env:Envelope xmlns:env="{SOAP_12}"><env:Body>'
+                    '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"/>'
+                    "</env:Body></env:Envelope>")
+        motivo = detectar(peticion.encode("utf-8")).motivo
+        assert "petición al validador previo" in motivo
+
+    def test_los_adjuntos_se_cuentan(self):
+        con = cabecera_ebms().replace(
+            "</eb:CollaborationInfo>",
+            '</eb:CollaborationInfo><eb:PayloadInfo><eb:PartInfo href="cid:a"/>'
+            '<eb:PartInfo href="cid:b"/></eb:PayloadInfo>')
+        assert "2 adjuntos" in detectar(con.encode("utf-8")).motivo
+        assert "no cita ningún adjunto" in detectar(cabecera_ebms().encode("utf-8")).motivo
+
+    def test_un_mensaje_ebms_en_soap_11_dice_que_los_wsdl_piden_12(self):
+        once = cabecera_ebms().replace(SOAP_12, SOAP_11)
+        assert "y este es 1.1" in detectar(once.encode("utf-8")).motivo
+        assert "y este es 1.1" not in detectar(cabecera_ebms().encode("utf-8")).motivo
