@@ -10023,3 +10023,45 @@ el catálogo 0.1.5 y los ejemplos del 10-11-2026.
 de alta", el "cada factura lo lleva", la cuenta en altas, el desacuerdo en
 altas, el catálogo 0.1.3 y la ficha vieja. Las seis roturas ponen en rojo su
 prueba.
+
+## Las consultas salían con un aviso falso, y sus peticiones, sin una nota
+
+**Cómo salió.** En la misma pasada del 10-11-2026 por los ejemplos de la AEAT,
+sobre `e559f22`. Dos fallos con la misma raíz: Glosa-e solo conocía de la
+solución pública lo que había publicado antes, la remisión y los mensajes de
+la orden.
+
+- **Las respuestas de consulta** (`RespuestaConsultaFacturasPorIDs.xml` y
+  `RespuestaConsultaConFiltro.xml`) son un `DocumentStatus`, pero su cabecera
+  trae `cac:Status` con `cbc:StatusReasonCode` 200 y no `cbc:ResponseCode`, y
+  las facturas encontradas van en `cac:AdditionalDocumentResponse`. Glosa-e
+  avisaba con SPFE-ACUSE-CABECERA de que faltaba el código, que para este
+  documento es falso, y decía de las facturas que "no se leen".
+- **Las peticiones** (`ConsultaFacturasPorIDs.xml`, `DescargarFacturaPorID.xml`
+  y `DescargarFacturaPorLOC.xml`) son `ApplicationResponse` con QUERYBYID,
+  DOWNLOADBYID y DOWNLOADBYLOC. `mensajes.py` solo mira los nueve códigos de
+  la orden, y con cualquier otro se callaba: "sin errores" y ni una nota que
+  dijera qué eran. La frase del lote sí decía que el contenido de las
+  respuestas no se comprueba, pero un fichero suelto no decía nada. Es el
+  mismo fallo que el de las facturas alemanas del 03-11.
+
+**Reproducido** con documentos de la forma de esos cinco y datos inventados:
+siete pruebas de la consulta en `tests/test_acuses.py` y las de
+`tests/test_peticiones.py`, en rojo antes del arreglo (las de las peticiones,
+porque el módulo no existía).
+
+**Ahora** la respuesta a una consulta lleva una NOTA, SPFE-ACUSE-CONSULTA, con
+el código de su cabecera, cuántas facturas encontró y con qué estados, tal
+cual, y la explicación del error de forma que sale con ella: UBL 2.5 pide un
+`cac:DocumentReference` dentro de `cac:DocumentResponse`, y los ejemplos no lo
+traen. Las peticiones las mide `peticiones.py` con el catálogo de servicios
+0.1.5 y nada más: una NOTA que dice qué es cada una y qué no se mide, un
+AVISO si pide más facturas de las que admite (1.000 en la consulta, 100 en la
+descarga) y otro por cada factura que no venga identificada.
+
+**Provocado**, rompiendo cada pieza por separado: sin el enganche en
+`factura.py`, sin reconocer la cabecera de la consulta, con el "no se leen"
+de vuelta, con la explicación del error de forma siempre, con la clave de
+página siempre, con el máximo contado de más, sin la fecha entre los datos
+que identifican, sin mirar el localizador, sin el aviso de la petición vacía
+y con la norma de las fichas cambiada. Las diez roturas, en rojo.

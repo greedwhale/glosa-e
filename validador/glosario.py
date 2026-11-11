@@ -52,8 +52,10 @@ FAMILIAS: dict[str, str] = {
         "el 12-10-2026 se miden también los mensajes de la orden, la anulación "
         "de una factura y los ocho estados del anexo II, que se reconocen por "
         "su código de respuesta y llevan su propia nota, SPFE-MENSAJE-ALCANCE. "
-        "Y desde el 26-10-2026, los acuses con que contesta la solución "
-        "pública, que llevan la suya, SPFE-ACUSE-ALCANCE."
+        "Desde el 26-10-2026, los acuses con que contesta la solución "
+        "pública, que llevan la suya, SPFE-ACUSE-ALCANCE. Y desde el "
+        "11-11-2026, las peticiones de consulta y de descarga, con "
+        "SPFE-PETICION-ALCANCE."
     ),
     "XSD": (
         "La forma del fichero, comprobada contra el esquema oficial de su "
@@ -4004,6 +4006,49 @@ CODIGOS: dict[str, str] = {
         "traduce, porque la lista de códigos de la solución pública no está "
         "publicada todavía. En los demás casos, el motivo es el que diga la "
         "descripción."
+    ),
+    "SPFE-ACUSE-CONSULTA": (
+        "El acuse es la respuesta a una consulta de facturas, por "
+        "identificador o por filtro de fechas: su cabecera no trae "
+        "cbc:ResponseCode sino cac:Status, con su código y su texto, y las "
+        "facturas encontradas van en cac:AdditionalDocumentResponse, cada una "
+        "con su estado. Así vienen en los ejemplos que la AEAT publicó el "
+        "10-11-2026. Es una nota y no un fallo: dice el código de la "
+        "cabecera, cuántas facturas trae y con qué estados, tal cual, porque "
+        "sus códigos no están publicados. Si la cabecera no trae "
+        "cac:DocumentReference, la nota dice que es el error de forma que sale "
+        "con ella: el esquema de UBL lo exige, y las respuestas de los "
+        "ejemplos de la AEAT no lo traen."
+    ),
+    "SPFE-PETICION-ALCANCE": (
+        "El documento es una petición a la solución pública: la consulta por "
+        "identificador (QUERYBYID), la descarga por identificador "
+        "(DOWNLOADBYID) o la descarga por localizador (DOWNLOADBYLOC). Es un "
+        "ApplicationResponse, como los mensajes de la orden, pero la orden no "
+        "le da tabla: lo que se sabe de ella está en el catálogo de servicios "
+        "que la AEAT publica en su Portal de Desarrolladores. Es una nota y no "
+        "un fallo, y dice qué se ha mirado: cuántas facturas pide y que cada "
+        "una venga identificada. No se mira el sobre ebXML, ni el rol con que "
+        "se actúa, ni que las facturas existan."
+    ),
+    "SPFE-PETICION-FACTURA": (
+        "Una factura de la petición no viene identificada como pide el "
+        "catálogo de servicios de la AEAT: en la consulta y en la descarga "
+        "por identificador, por el NIF del emisor, el número y la fecha de "
+        "expedición, los tres; en la descarga por localizador, por su "
+        "localizador. O la petición no pide ninguna factura. Dónde va cada "
+        "dato se toma de los ejemplos de la AEAT: el número en cbc:ID, la "
+        "fecha en cbc:IssueDate y el NIF en el cbc:CompanyID de "
+        "cac:IssuerParty; el localizador, en cbc:ID. Es un aviso y no un "
+        "error porque el catálogo todavía cambia de versión."
+    ),
+    "SPFE-PETICION-LIMITE": (
+        "La petición pide más facturas de las que admite el catálogo de "
+        "servicios de la AEAT: mil identificadores en la consulta por "
+        "identificador y cien facturas en cada descarga. La descarga por "
+        "localizador no tiene un máximo propio, y se le aplica el de la "
+        "descarga por identificador porque el catálogo dice que la única "
+        "diferencia entre las dos es cómo se identifica la factura."
     ),
     "SPFE-ACUSE-FECHA": (
         "Al acuse le falta su fecha, cbc:IssueDate, que el esquema de UBL "

@@ -434,3 +434,85 @@ class TestLoQueElInformeDice:
     def test_la_fecha_que_falta_no_sale_correcta(self, tmp_path, catalogo):
         lote = _lote(tmp_path, catalogo, acuse(fecha=""))
         assert not lote.conforme
+
+
+# --- La respuesta a una consulta ---------------------------------------------------
+#
+# Las dos consultas, por identificador y por filtro de fechas, contestan con un
+# DocumentStatus de otra forma: la cabecera trae cac:Status con
+# cbc:StatusReasonCode, y no cbc:ResponseCode, y las facturas encontradas van
+# en cac:AdditionalDocumentResponse. Medido el 10-11-2026 con los ejemplos de
+# la AEAT: Glosa-e avisaba con SPFE-ACUSE-CABECERA de que faltaba el código, y
+# no decía nada de las facturas. Las de aquí tienen la forma de esos dos, con
+# datos inventados.
+
+
+def encontrada(numero="F0001-000030717", estado="ACCEPTED", localizador=LOCALIZADOR):
+    return ("<cac:AdditionalDocumentResponse><cac:Response>"
+            f"<cbc:ResponseCode>{estado}</cbc:ResponseCode></cac:Response>"
+            "<cac:DocumentReference>"
+            f"<cbc:ID>{numero}</cbc:ID><cbc:IssueDate>2026-10-05</cbc:IssueDate>"
+            "<cbc:DocumentType>Invoice</cbc:DocumentType>"
+            f"<cbc:ReferencedDocumentInternalAddress>{localizador}"
+            "</cbc:ReferencedDocumentInternalAddress>"
+            "<cac:IssuerParty><cac:PartyTaxScheme><cbc:CompanyID>B12345674</cbc:CompanyID>"
+            "<cac:TaxScheme/></cac:PartyTaxScheme></cac:IssuerParty>"
+            "</cac:DocumentReference></cac:AdditionalDocumentResponse>")
+
+
+def consulta(facturas=None, codigo="200", secuencia=""):
+    status = (f"<cbc:StatusReasonCode>{codigo}</cbc:StatusReasonCode>"
+              "<cbc:StatusReason>Búsqueda realizada correctamente</cbc:StatusReason>")
+    if secuencia:
+        status += f"<cbc:SequenceID>{secuencia}</cbc:SequenceID>"
+    cabecera_ = (f"<cac:DocumentResponse><cac:Response><cac:Status>{status}"
+                 "</cac:Status></cac:Response></cac:DocumentResponse>")
+    return acuse(cabecera_, despues="".join(facturas if facturas is not None
+                                             else [encontrada()]))
+
+
+class TestLaRespuestaAUnaConsulta:
+    def test_no_avisa_de_que_falte_el_codigo(self):
+        assert "SPFE-ACUSE-CABECERA" not in [c for c, _ in de_acuse(medir(consulta()))]
+
+    def test_dice_que_es_y_cuenta_lo_que_encontro(self):
+        nota = una(medir(consulta([encontrada(), encontrada("F2"),
+                                    encontrada("F3", "REJECTED")])), "SPFE-ACUSE-CONSULTA")
+        assert nota.gravedad == NOTA
+        assert nota.encontrado == "200"
+        assert '"Búsqueda realizada correctamente"' in nota.mensaje
+        assert "consulta" in nota.mensaje
+        assert "3 facturas: 2 con el estado ACCEPTED y 1 con el estado REJECTED." in nota.mensaje
+
+    def test_una_y_ninguna(self):
+        assert "1 factura, con el estado ACCEPTED." in una(
+            medir(consulta()), "SPFE-ACUSE-CONSULTA").mensaje
+        assert "no trae ninguna factura" in una(
+            medir(consulta([])), "SPFE-ACUSE-CONSULTA").mensaje
+
+    def test_la_nota_del_alcance_no_dice_que_no_se_leen(self):
+        nota = una(medir(consulta()), "SPFE-ACUSE-ALCANCE")
+        assert "no se leen" not in nota.mensaje
+
+    def test_la_clave_de_la_pagina_siguiente(self):
+        con = una(medir(consulta(secuencia="1791197075934_0001")), "SPFE-ACUSE-CONSULTA")
+        assert "1791197075934_0001" in con.mensaje and "SECUENCE_ID" in con.mensaje
+        assert "SECUENCE_ID" not in una(medir(consulta()), "SPFE-ACUSE-CONSULTA").mensaje
+
+    def test_el_error_de_forma_de_los_ejemplos_se_explica(self, catalogo):
+        """La errata 1 del informe: a cac:DocumentResponse le falta
+        cac:DocumentReference, que UBL 2.5 exige."""
+        informe = medir(consulta(), catalogo)
+        assert "XSD-FALTA" in [i.codigo for i in informe.incidencias if i.gravedad == ERROR]
+        assert "cac:DocumentReference" in una(informe, "SPFE-ACUSE-CONSULTA").mensaje
+
+    def test_con_referencia_no_se_explica_lo_que_no_pasa(self):
+        cabecera_ = ("<cac:DocumentResponse><cac:Response><cac:Status>"
+                     "<cbc:StatusReasonCode>200</cbc:StatusReasonCode></cac:Status>"
+                     "</cac:Response><cac:DocumentReference><cbc:ID>X</cbc:ID>"
+                     "</cac:DocumentReference></cac:DocumentResponse>")
+        nota = una(medir(acuse(cabecera_)), "SPFE-ACUSE-CONSULTA")
+        assert "cac:DocumentReference" not in nota.mensaje
+
+    def test_sin_codigo_ni_status_sigue_avisando(self):
+        assert una(medir(acuse(cabecera(""))), "SPFE-ACUSE-CABECERA").gravedad == AVISO

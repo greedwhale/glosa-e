@@ -79,6 +79,7 @@ este sitio», y eso no deja ver que lo que falta es la fecha.
 from __future__ import annotations
 
 import re
+from collections import Counter
 from datetime import date
 
 from validador import cifras, glosario
@@ -110,6 +111,13 @@ _DESCRIPCION = "cac:Response/cbc:Description"
 _FACTURA = "cac:DocumentReference"
 _NIF = "cac:IssuerParty/cac:PartyTaxScheme/cbc:CompanyID"
 _LOCALIZADOR = "cbc:ReferencedDocumentInternalAddress"
+# La cabecera de la respuesta a una consulta: cac:Status y no cbc:ResponseCode.
+# Así vienen las dos de los ejemplos de la AEAT del 10-11-2026, por
+# identificador y por filtro de fechas, y en ningún otro acuse.
+_ESTADO_DE_LA_CONSULTA = "cac:Response/cac:Status/cbc:StatusReasonCode"
+_MOTIVO_DE_LA_CONSULTA = "cac:Response/cac:Status/cbc:StatusReason"
+_PAGINA = "cac:Response/cac:Status/cbc:SequenceID"
+_ENCONTRADA = "cac:AdditionalDocumentResponse"
 
 
 def _texto(nodo, ruta: str) -> str:
@@ -137,10 +145,15 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
     """Lo que se puede leer de un acuse: la cabecera y cada factura."""
     if raiz is None or not deteccion or deteccion.familia != ACUSE:
         return []
-    incidencias = [_alcance(raiz)]
+    cabecera = raiz.find(_CABECERA, _NS)
+    es_consulta = (cabecera is not None and not _texto(cabecera, _CODIGO)
+                   and cabecera.find(_ESTADO_DE_LA_CONSULTA, _NS) is not None)
+    incidencias = [_alcance(raiz, es_consulta)]
     if raiz.find("cbc:IssueDate", _NS) is None:
         incidencias.append(_sin_fecha())
-    cabecera = raiz.find(_CABECERA, _NS)
+    if es_consulta:
+        incidencias.append(_consulta(raiz, cabecera))
+        return incidencias
     if cabecera is None:
         incidencias.append(
             Incidencia(
@@ -164,7 +177,7 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
     return incidencias
 
 
-def _alcance(raiz) -> Incidencia:
+def _alcance(raiz, es_consulta: bool = False) -> Incidencia:
     partes = [
         "Es un acuse de la solución pública de la AEAT (DocumentStatus), y se "
         "ha leído con lo que la AEAT ha publicado en su Portal de "
@@ -173,8 +186,9 @@ def _alcance(raiz) -> Incidencia:
         "0.1.5, del 10-11-2026) y los ejemplos de remisión, anulación y "
         "comunicación de estados que publicó con él.",
         "Con este mismo acuse contesta la solución pública a la remisión, a "
-        "la anulación y a las comunicaciones de estado, y el acuse no dice a "
-        "cuál: eso va en el sobre ebXML que lo acompaña, que aquí no se lee. "
+        "la anulación y a las comunicaciones de estado, y con otra cabecera a "
+        "las consultas, y el acuse no dice a cuál: eso va en el sobre ebXML "
+        "que lo acompaña, que aquí no se lee. "
         "Por eso, de cada factura se dice si se aceptó lo que se pedía sobre "
         "ella, y no qué se pedía.",
         "La cabecera dice 200 si se aceptó todo, 406 si solo una parte y 400 "
@@ -187,8 +201,9 @@ def _alcance(raiz) -> Incidencia:
         "El acuse no dice de quién es: si no es de la solución pública, lo de "
         "esta nota no le aplica.",
     ]
-    otras = raiz.findall("cac:AdditionalDocumentResponse", _NS)
-    if otras:
+    otras = raiz.findall(_ENCONTRADA, _NS)
+    # En la respuesta a una consulta son las facturas encontradas, y se leen.
+    if otras and not es_consulta:
         partes.append(
             f"Trae {len(otras)} cac:AdditionalDocumentResponse, que los "
             "ejemplos de remisión, anulación y estados de la AEAT no usan, y "
@@ -200,6 +215,68 @@ def _alcance(raiz) -> Incidencia:
         " ".join(partes),
         campo="Acuse",
         encontrado="DocumentStatus",
+    )
+
+
+def _consulta(raiz, cabecera) -> Incidencia:
+    """La respuesta a una consulta: qué dice su cabecera y qué encontró.
+
+    No se dice nada de cada factura, una por una: una consulta por filtro trae
+    hasta 1.000 (catálogo 0.1.5, apartado 6.5.3), y lo que trae de cada una
+    es su estado, que no es un rechazo ni un fallo. Se cuentan por estado, y
+    los estados van tal cual: el catálogo dice que son «los estados finales
+    que pueda tener por parte del emisor y/o destinatario», y no publica sus
+    códigos. En los ejemplos solo sale ACCEPTED.
+    """
+    codigo = _texto(cabecera, _ESTADO_DE_LA_CONSULTA)
+    motivo = _texto(cabecera, _MOTIVO_DE_LA_CONSULTA)
+    dice = f' ("{motivo}")' if motivo else ""
+    estados = [_texto(e, "cac:Response/cbc:ResponseCode") or "(sin estado)"
+               for e in raiz.findall(_ENCONTRADA, _NS)]
+    if not estados:
+        cuenta = "no trae ninguna factura."
+    else:
+        por_estado = Counter(estados)
+        if len(por_estado) == 1:
+            (estado,) = por_estado
+            cuenta = (f"trae {_facturas(len(estados))}, "
+                      + ("con" if len(estados) == 1 else "todas con")
+                      + f" el estado {estado}.")
+        else:
+            trozos = [f"{n} con el estado {e}" for e, n in por_estado.items()]
+            cuenta = (f"trae {_facturas(len(estados))}: "
+                      + ", ".join(trozos[:-1]) + f" y {trozos[-1]}.")
+    partes = [
+        f"La cabecera no trae cbc:ResponseCode sino cac:Status, con el código "
+        f"{codigo or '(vacío)'}{dice}: es la forma de la respuesta a una "
+        "consulta de facturas, por identificador o por filtro de fechas, en "
+        "los ejemplos de la AEAT del 10-11-2026. Las facturas encontradas van "
+        f"en cac:AdditionalDocumentResponse, y esta {cuenta} Según el catálogo "
+        "de servicios, de cada factura trae sus datos y los estados finales "
+        "que tenga por parte del emisor o del destinatario. Qué quiere decir "
+        "cada estado no está publicado, y van tal cual."
+    ]
+    pagina = _texto(cabecera, _PAGINA)
+    if pagina:
+        partes.append(
+            f"Trae cbc:SequenceID ({pagina}). El catálogo dice que, si hay más "
+            "de 1.000 facturas, se piden las siguientes con una clave que "
+            "llama SECUENCE_ID, y no dice dónde va: que sea esta no se ha "
+            "medido."
+        )
+    if cabecera.find(_FACTURA, _NS) is None:
+        partes.append(
+            "El esquema de UBL 2.5 pide al menos un cac:DocumentReference "
+            "dentro de cac:DocumentResponse, y esta respuesta no lo trae, como "
+            "las de los ejemplos de la AEAT: es el error de forma que sale con "
+            "ella."
+        )
+    return Incidencia(
+        "SPFE-ACUSE-CONSULTA",
+        NOTA,
+        " ".join(partes),
+        campo="Cabecera",
+        encontrado=codigo or "(vacío)",
     )
 
 

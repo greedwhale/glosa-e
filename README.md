@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4128 tests, todos en verde.
+4174 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -749,9 +749,46 @@ Lo que se decidió en cada una:
   acuse y a qué envío, ni que las facturas existan o que el localizador valga.
   Lo dice la nota que va siempre, `SPFE-ACUSE-ALCANCE`, y también que el acuse
   no dice de quién es.
+- **La respuesta a una consulta tiene otra cabecera.** Desde el 11-11-2026 se
+  reconoce: en vez de `cbc:ResponseCode` trae `cac:Status`, con
+  `cbc:StatusReasonCode`, y las facturas encontradas van en
+  `cac:AdditionalDocumentResponse`, cada una con su estado. Así vienen las dos
+  de los ejemplos de la AEAT del 10-11-2026, y hasta ese día salían con un
+  `SPFE-ACUSE-CABECERA` falso, que decía que faltaba el código. Ahora llevan
+  una NOTA, `SPFE-ACUSE-CONSULTA`, con el código, la cuenta de facturas por
+  estado (tal cual, porque los códigos no están publicados) y, si no trae
+  `cac:DocumentReference`, que ese es el error de forma que sale con ella: UBL
+  2.5 lo exige y los ejemplos no lo traen. No se habla de cada factura una por
+  una, porque una consulta por filtro trae hasta 1.000.
 - **La norma de las fichas es «Servicios web de la AEAT»** y no la orden: la
   orden no define estos acuses, dice que sus servicios se ajustarán a lo que
   la AEAT publique en su Sede.
+
+### Las peticiones de consulta y de descarga
+
+La consulta por identificador, la descarga por identificador y la descarga
+por localizador se piden con un `ApplicationResponse`, como los mensajes de la
+orden, con los códigos `QUERYBYID`, `DOWNLOADBYID` y `DOWNLOADBYLOC` (catálogo
+de servicios 0.1.5, apartados 6.4, 6.6 y 6.7). La orden no les da tabla, y
+**hasta el 11-11-2026 pasaban en silencio**: "sin errores" y ni una nota. Lo
+mide `validador/peticiones.py`, solo con lo que dice el catálogo:
+
+- **qué es**, en una NOTA que va siempre, `SPFE-PETICION-ALCANCE`, con lo que
+  no se mide: el sobre ebXML, el rol con que se actúa (el catálogo lo pide y no
+  dice dónde va), que las facturas existan y la forma del localizador, que no
+  está publicada;
+- **cuántas facturas pide**: 1.000 como mucho en la consulta (6.4.3) y 100 en
+  la descarga (6.6.3). La descarga por localizador no tiene máximo propio, y
+  se le aplica el de la otra porque el catálogo dice que solo cambia cómo se
+  identifica la factura. Si pasa, un AVISO, `SPFE-PETICION-LIMITE`;
+- **que cada factura venga identificada**: por el NIF del emisor, el número y
+  la fecha de expedición, o por su localizador. Si falta uno, o no pide
+  ninguna, un AVISO, `SPFE-PETICION-FACTURA`. Dónde va cada dato sale de los
+  ejemplos, que es lo único publicado.
+
+La consulta por filtro de fechas no tiene documento: sus filtros van en el
+sobre ebXML. Las pruebas están en `tests/test_peticiones.py`; cada
+comprobación se ha roto una vez y salta.
 
 Las pruebas están en `tests/test_acuses.py`, y cada comprobación se ha roto a
 propósito una vez para verla en rojo: sin la detección, sin el esquema, sin las

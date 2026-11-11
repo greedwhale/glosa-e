@@ -44,6 +44,7 @@ from validador import (
     firma,
     mensajes,
     normas,
+    peticiones,
     revocacion,
     sellos,
     sintaxis,
@@ -271,6 +272,9 @@ def _reglas_con_cuentas(
     # Los acuses con que contesta la solución pública: la cabecera y el estado
     # de cada factura. Tampoco son facturas.
     incidencias.extend(acuses.reglas(raiz, deteccion))
+    # Las peticiones de consulta y de descarga a la solución pública: tampoco
+    # son mensajes de la orden, y hasta el 11-11-2026 pasaban sin una nota.
+    incidencias.extend(peticiones.reglas(raiz, deteccion))
     incidencias.extend(edifact.totales_de_otra_guia(raiz, deteccion))
     incidencias.extend(edifact.iva_fuera_del_desglose(raiz, deteccion))
     incidencias.extend(facturae.reglas(raiz, deteccion))

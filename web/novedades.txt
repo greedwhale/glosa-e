@@ -12,6 +12,20 @@
 # leyendo el catálogo de cada commit con el lector de hoy (validador/codigos.py),
 # desde 598f34c, el último del 06-10-2026. Las fechas son las de esos commits.
 
+fecha: 2026-11-11
+id: acuses-y-peticiones-de-la-solucion-publica
+titulo: SPFE-PETICION: las peticiones de consulta y de descarga, y un acuse para cada servicio
+nuevos: SPFE-ACUSE-CONSULTA SPFE-PETICION-ALCANCE SPFE-PETICION-FACTURA SPFE-PETICION-LIMITE
+texto: Con los ejemplos que la AEAT publicó el 10-11-2026, tres arreglos. Un
+  acuse con el estado 200 ya no dice que la factura se dio de alta: el mismo
+  acuse contesta a la remisión, a la anulación y a las comunicaciones de
+  estado, y ahora dice que se aceptó lo que se pedía, sin adivinar qué. La
+  respuesta a una consulta ya no sale con un aviso falso por su cabecera:
+  dice qué es y cuántas facturas encontró. Y las peticiones de consulta y de
+  descarga, que pasaban sin una nota, dicen qué son y avisan si piden más
+  facturas de las que admite el catálogo de servicios o si alguna no viene
+  identificada.
+
 fecha: 2026-11-08
 id: base-que-cii-no-compara
 titulo: IVA-BASE-ESQUEMATRON: la base del IGIC y del IPSI que CII no compara

@@ -124,6 +124,12 @@ NORMAS: tuple[tuple[str, str, str], ...] = (
     # especificaciones, condiciones técnicas y volumetría previstos en la Sede
     # electrónica» de la AEAT, y lo que se sabe de su respuesta está en los
     # documentos que la AEAT publicó en su portal.
+    # Las peticiones de consulta y de descarga, lo mismo: no son mensajes de la
+    # orden, y lo que se sabe de ellas está en el catálogo de servicios.
+    ("SPFE-PETICION-", ACUSES,
+     "las peticiones de consulta y de descarga a la solución pública: el "
+     "catálogo de servicios web que la AEAT publica en su Portal de "
+     "Desarrolladores"),
     ("SPFE-ACUSE-", ACUSES,
      "los acuses de la solución pública: el documento de formatos de entrada "
      "y salida y el catálogo de servicios web que la AEAT publica en su "
