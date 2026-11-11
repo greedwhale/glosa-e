@@ -393,6 +393,16 @@ def _ficha(uno: Codigo, todos: list[Codigo]) -> str:
             "exigencia, no qué ha pasado exactamente en tu factura. Este "
             "código todavía no tiene una suya."
         )
+    if uno.codigo.startswith("SPFE-"):
+        # Desde el 10-11-2026 la AEAT publica códigos de rechazo con el mismo
+        # prefijo. Los de Glosa-e no se renombran (decidido por el titular el
+        # 11-11-2026): se dice aquí cómo se distinguen, y una prueba vigila
+        # que ninguno de Glosa-e lleve números.
+        matices.append(
+            "Este código es de Glosa-e, no de la AEAT. Los códigos de rechazo "
+            "de la solución pública también empiezan por SPFE-, pero acaban en "
+            "un número, como SPFE-CORE-18; los de Glosa-e no llevan números."
+        )
     if len(uno.gravedades) > 1:
         matices.append(
             "Sale con más de una gravedad según el caso, y eso no es un "

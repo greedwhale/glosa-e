@@ -270,3 +270,45 @@ class TestQueSigaSiendoUnaConsulta:
         texto = (destino / escritas[0]).read_text(encoding="utf-8")
         assert "pyodide" not in texto.lower()
         assert "glosa.js" not in texto
+
+
+# --- Los SPFE- de Glosa-e no son los de la AEAT ----------------------------------
+#
+# Desde el 10-11-2026 la AEAT publica códigos de rechazo con el mismo prefijo:
+# SPFE-CORE-18, SPFE-IDEN-02, SPFE-IDEN-05 y SPFE-REPR-01, en la respuesta de
+# ejemplo de su validador. Los de Glosa-e se quedan como están (lo decidió el
+# titular el 11-11-2026), y lo que los separa es que los oficiales acaban en un
+# número y los de Glosa-e no llevan ninguno. Eso es lo que se guarda aquí, y
+# que la ficha de cada uno lo diga.
+
+_FORMA_DE_LA_AEAT = re.compile(r"^SPFE-.*\d")
+
+
+class TestLosSpfeDeGlosaE:
+
+    def test_ningun_codigo_de_glosa_e_tiene_la_forma_de_los_oficiales(self):
+        propios = {c.codigo for c in codigos_del_paquete()} | set(glosario.CODIGOS)
+        con_numero = sorted(c for c in propios if _FORMA_DE_LA_AEAT.match(c))
+        assert not con_numero, (
+            f"{con_numero}: un código de Glosa-e que empieza por SPFE- y lleva "
+            "un número se confunde con los de rechazo de la AEAT, como "
+            "SPFE-CORE-18. Ponle un nombre sin números.")
+
+    def test_la_forma_distingue_los_oficiales(self):
+        for oficial in ("SPFE-CORE-18", "SPFE-IDEN-02", "SPFE-IDEN-05", "SPFE-REPR-01"):
+            assert _FORMA_DE_LA_AEAT.match(oficial)
+        assert not _FORMA_DE_LA_AEAT.match("SPFE-QR-URL")
+
+    def test_la_ficha_de_cada_spfe_dice_que_es_de_glosa_e(self, montadas):
+        destino, escritas = montadas
+        spfe = [n for n in escritas if n.startswith("codigo-SPFE-")]
+        assert spfe
+        for nombre in spfe:
+            texto = (destino / nombre).read_text(encoding="utf-8")
+            assert "es de Glosa-e, no de la AEAT" in texto, nombre
+            assert "SPFE-CORE-18" in texto, nombre
+
+    def test_y_la_de_los_demas_no(self, montadas):
+        destino, escritas = montadas
+        otra = next(n for n in escritas if n.startswith("codigo-BR-"))
+        assert "no de la AEAT" not in (destino / otra).read_text(encoding="utf-8")
