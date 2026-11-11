@@ -516,3 +516,103 @@ class TestLaRespuestaAUnaConsulta:
 
     def test_sin_codigo_ni_status_sigue_avisando(self):
         assert una(medir(acuse(cabecera(""))), "SPFE-ACUSE-CABECERA").gravedad == AVISO
+
+
+# --- El acuse dentro de un sobre SOAP ------------------------------------------------
+#
+# Según el catálogo de servicios (0.1.5, apartado 6.10), el validador previo,
+# que solo existe en pruebas, devuelve «Directamente XML (DocumentStatus)».
+# Su ejemplo del 10-11-2026 lo trae dentro de un sobre SOAP 1.2, env:Envelope,
+# y Glosa-e lo dejaba SIN COMPROBAR: «su elemento raíz "Envelope" no es de
+# ningún documento que se valide aquí». Era justo el documento que más interesa
+# leer. Los de aquí tienen su forma, con datos inventados: la misma factura una
+# vez por cada código, sin cbc:IssueDate y con los códigos de la AEAT.
+
+SOAP_12 = "http://www.w3.org/2003/05/soap-envelope"
+SOAP_11 = "http://schemas.xmlsoap.org/soap/envelope/"
+
+
+def sobre(dentro, ns=SOAP_12):
+    return (f'<env:Envelope xmlns:env="{ns}">\n   <env:Header/>\n'
+            f'   <env:Body Id="Body">\n{dentro}\n   </env:Body>\n</env:Envelope>')
+
+
+def sin_declaracion(xml):
+    return xml.split("?>", 1)[1].lstrip("\n")
+
+
+VALIDADOR = sin_declaracion(acuse(cabecera("400", "Todas las facturas han fallado", [
+    factura_("CLASEA00000182", "SPFE-CORE-18", "El IBAN no es válido", localizador=""),
+    factura_("CLASEA00000182", "SPFE-IDEN-02", "El NIF tiene un formato erróneo", localizador=""),
+    factura_("CLASEA00000182", "SPFE-IDEN-05", "El NIF tiene un formato erróneo", localizador=""),
+    factura_("CLASEA00000182", "SPFE-REPR-01", "El titular del certificado no vale", localizador=""),
+]), fecha=""))
+
+
+class TestElSobreSoap:
+    @pytest.mark.parametrize("ns", [SOAP_12, SOAP_11], ids=["soap-1.2", "soap-1.1"])
+    def test_se_abre_y_se_lee_el_acuse(self, ns):
+        informe = medir(sobre(VALIDADOR, ns))
+        assert informe.deteccion.familia == ACUSE
+        nota = una(informe, "SPFE-ACUSE-SOBRE")
+        assert nota.gravedad == NOTA
+        assert "6.10" in nota.mensaje and "SOAP" in nota.mensaje
+        assert "SPFE-ACUSE-RESULTADO" in [c for c, _ in de_acuse(informe)]
+
+    def test_tambien_en_un_lote(self, tmp_path):
+        ruta = tmp_path / "respuesta.xml"
+        ruta.write_text(sobre(VALIDADOR), encoding="utf-8")
+        (_, informe, _), = factura.validar_lote([ruta]).nombrados
+        assert "SPFE-ACUSE-SOBRE" in [c for c, _ in de_acuse(informe)]
+
+    def test_los_errores_dicen_la_linea_del_fichero(self, catalogo):
+        """La errata 6 del informe, medida: sin cbc:IssueDate no pasa el
+        esquema. Y la línea es la del fichero, no la del acuse sacado."""
+        xml = sobre(VALIDADOR)
+        informe = medir(xml, catalogo)
+        (orden,) = [i for i in informe.incidencias if i.codigo == "XSD-ORDEN"]
+        linea = 1 + xml.split("<cac:DocumentResponse>")[0].count("\n")
+        assert f"(línea {linea})" in orden.campo
+        assert "SPFE-ACUSE-FECHA" in [c for c, _ in de_acuse(informe)]
+
+    def test_un_sobre_con_otra_cosa_no_se_abre(self):
+        factura_ue = ('<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:'
+                      'Invoice-2"><ID xmlns="x">1</ID></Invoice>')
+        deteccion = detectar(sobre(factura_ue).encode("utf-8"))
+        assert not deteccion
+        assert "sobre SOAP" in deteccion.motivo and "Invoice" in deteccion.motivo
+        # Y al validarla tampoco se saca: una factura firmada dentro de un
+        # sobre ya no es la misma fuera de él.
+        informe = factura.validar(sobre(factura_ue).encode("utf-8"))
+        assert not informe.deteccion and "sobre SOAP" in informe.deteccion.motivo
+
+    def test_ni_uno_con_dos_documentos(self):
+        dos = VALIDADOR + "\n" + VALIDADOR
+        deteccion = detectar(sobre(dos).encode("utf-8"))
+        assert factura.validar(sobre(dos).encode("utf-8")).deteccion.familia is None
+        assert "sobre SOAP" in deteccion.motivo
+
+    def test_un_acuse_sin_sobre_no_lleva_la_nota(self):
+        assert "SPFE-ACUSE-SOBRE" not in [c for c, _ in de_acuse(medir(acuse()))]
+
+
+class TestLaRespuestaDelValidador:
+    def test_cuenta_una_factura_y_no_cuatro(self):
+        nota = una(medir(sobre(VALIDADOR)), "SPFE-ACUSE-RESULTADO")
+        assert "4 referencias de 1 factura" in nota.mensaje
+        assert "4 facturas" not in nota.mensaje
+
+    def test_sin_repetidas_se_cuenta_como_siempre(self):
+        nota = una(medir(acuse(cabecera("406", "", [
+            factura_(), factura_("FAC-0002"), factura_("FAC-0003", "401")]))),
+            "SPFE-ACUSE-RESULTADO")
+        assert "referencias" not in nota.mensaje
+
+    @pytest.mark.parametrize("codigo", ["SPFE-CORE-18", "SPFE-IDEN-02", "SPFE-IDEN-05",
+                                        "SPFE-REPR-01"])
+    def test_los_cuatro_codigos_de_la_aeat_se_reconocen(self, codigo):
+        avisos = [i for i in medir(sobre(VALIDADOR)).incidencias
+                  if i.codigo == "SPFE-ACUSE-RECHAZADA" and i.encontrado == codigo]
+        (aviso,) = avisos
+        assert f"{codigo} no es una regla de la norma europea" in aviso.mensaje
+        assert "no es de ninguna regla" not in aviso.mensaje

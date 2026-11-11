@@ -4002,7 +4002,8 @@ CODIGOS: dict[str, str] = {
         "cual vienen. Si el código es el de una regla de la norma europea que"
         " Glosa-e explica, como BR-CO-16, el aviso dice qué incumple con la "
         "primera frase de su ficha. Si no es de la norma europea, como uno "
-        "que empiece por SPFE-CORE, SPFE-LIST o BR-ES, lo nombra y no lo "
+        "que empiece por SPFE-CORE, SPFE-LIST o BR-ES, o cualquier SPFE- con "
+        "su familia y un número, como SPFE-IDEN-02, lo nombra y no lo "
         "traduce, porque la lista de códigos de la solución pública no está "
         "publicada todavía. En los demás casos, el motivo es el que diga la "
         "descripción."
@@ -4049,6 +4050,16 @@ CODIGOS: dict[str, str] = {
         "localizador no tiene un máximo propio, y se le aplica el de la "
         "descarga por identificador porque el catálogo dice que la única "
         "diferencia entre las dos es cómo se identifica la factura."
+    ),
+    "SPFE-ACUSE-SOBRE": (
+        "El acuse venía dentro de un sobre SOAP, y se ha sacado de él para "
+        "leerlo. Así contesta el validador previo de la AEAT, el que solo "
+        "existe en su entorno de pruebas, en el ejemplo que publicó el "
+        "10-11-2026, aunque su catálogo de servicios dice que devuelve el "
+        "acuse directamente. Es una nota y no un fallo. Solo se abre un sobre "
+        "que trae un único acuse en su Body: con cualquier otra cosa dentro, "
+        "el fichero no se valida y se dice qué trae. Del sobre no se mira nada "
+        "más, y las líneas que citen los errores son las del fichero entero."
     ),
     "SPFE-ACUSE-FECHA": (
         "Al acuse le falta su fecha, cbc:IssueDate, que el esquema de UBL "

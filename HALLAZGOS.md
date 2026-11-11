@@ -10065,3 +10065,46 @@ de vuelta, con la explicación del error de forma siempre, con la clave de
 página siempre, con el máximo contado de más, sin la fecha entre los datos
 que identifican, sin mirar el localizador, sin el aviso de la petición vacía
 y con la norma de las fichas cambiada. Las diez roturas, en rojo.
+
+## La respuesta del validador de la AEAT no se abría, y contaba cuatro facturas de una
+
+**Cómo salió.** En la pasada del 10-11-2026 por los ejemplos de la AEAT, sobre
+`e559f22`. El validador previo de la solución pública (catálogo de servicios
+0.1.5, apartado 6.10, solo en pruebas) devuelve, dice el catálogo,
+"Directamente XML (DocumentStatus)". Su ejemplo, `RespuestaFacturaValidation.xml`,
+lo trae dentro de un sobre SOAP 1.2, y Glosa-e veía la raíz `Envelope` y lo
+dejaba SIN COMPROBAR. Era el documento que más interesa leer: el que dice por
+qué la AEAT rechaza una factura.
+
+Al abrirlo salieron dos fallos más, que el sobre tapaba:
+
+- **Contaba referencias y no facturas.** La respuesta trae la misma factura
+  cuatro veces, una por cada código (`SPFE-CORE-18`, `SPFE-IDEN-02`,
+  `SPFE-IDEN-05` y `SPFE-REPR-01`), y la nota habría dicho "4 facturas".
+- **Dos de los cuatro códigos no se reconocían como de la AEAT.** La lista era
+  `SPFE-CORE`, `SPFE-LIST` y `BR-ES`, escrita el 03-11 con lo que se esperaba;
+  `SPFE-IDEN` y `SPFE-REPR` salían como "no es de ninguna regla que Glosa-e
+  reconozca".
+
+**Reproducido** con un sobre de la misma forma y datos inventados, en
+`tests/test_acuses.py`: once pruebas, en rojo antes del arreglo.
+
+**Ahora** `formato.sacar_del_sobre` saca el acuse antes de detectar, por los
+dos caminos por los que entra un fichero, y la nota SPFE-ACUSE-SOBRE lo dice.
+Solo se abre un sobre SOAP, 1.1 o 1.2, cuyo `Body` trae un único
+`DocumentStatus`; con otra cosa dentro el fichero no se valida y el motivo dice
+qué trae. Lo sacado lleva delante los saltos de línea que lo separaban del
+principio, para que las líneas de los errores sean las del fichero. Una
+factura es su NIF, su número y su fecha, y la nota dice "4 referencias de 1
+factura". Y todo `SPFE-` con familia y número es un código de la AEAT.
+
+**La errata 6, medida.** Con el sobre abierto, la respuesta del validador no
+pasa el esquema: le falta `cbc:IssueDate`, el mismo fallo que tuvo el acuse de
+remisión hasta el 29-10. Sale `XSD-ORDEN` con su `SPFE-ACUSE-FECHA`.
+
+**Provocado**, rompiendo cada pieza: sin sacar el acuse en `validar`, sin
+sacarlo en el lote, sin conservar las líneas, abriendo un sobre con dos
+documentos, abriendo uno con cualquier documento, sin el motivo del sobre,
+contando referencias y sin la familia nueva de códigos. Las ocho, en rojo; la
+quinta salió verde la primera vez, porque la prueba solo miraba `detectar`, y
+se añadió la comprobación por `validar`.

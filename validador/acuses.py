@@ -172,7 +172,13 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
     descripcion = _texto(cabecera, _DESCRIPCION)
     facturas = cabecera.findall(_FACTURA, _NS)
     estados = [_texto(factura, "cbc:DocumentStatusCode") for factura in facturas]
-    incidencias.extend(_cabecera(codigo, descripcion, estados))
+    # La respuesta del validador previo de la AEAT trae la misma factura una
+    # vez por cada código que le da (cuatro en su ejemplo del 10-11-2026), y
+    # contar referencias decía «4 facturas» de una sola. Una factura es su
+    # NIF, su número y su fecha, como en el catálogo.
+    distintas = len({(_texto(f, _NIF), _texto(f, "cbc:ID"), _texto(f, "cbc:IssueDate"))
+                     for f in facturas})
+    incidencias.extend(_cabecera(codigo, descripcion, estados, distintas))
     incidencias.extend(_factura(factura) for factura in facturas)
     return incidencias
 
@@ -280,6 +286,28 @@ def _consulta(raiz, cabecera) -> Incidencia:
     )
 
 
+def sobre(version: str) -> Incidencia:
+    """La nota de un acuse que llegó dentro de un sobre SOAP.
+
+    Lo saca `formato.sacar_del_sobre`, y quien lo valida pone esta nota: el
+    acuse, una vez fuera, ya no sabe que venía dentro de nada.
+    """
+    return Incidencia(
+        "SPFE-ACUSE-SOBRE",
+        NOTA,
+        f"El acuse viene dentro de un sobre SOAP {version} (env:Envelope), y se "
+        "ha leído lo que trae en su Body. Así contesta el validador previo de "
+        "la AEAT en su ejemplo del 10-11-2026, aunque su catálogo de servicios "
+        "(versión 0.1.5, apartado 6.10) dice que devuelve el DocumentStatus "
+        "directamente. Ese validador solo existe en el entorno de pruebas de "
+        "la AEAT, y el catálogo dice que validar con él no garantiza que la "
+        "factura se acepte después. Del sobre no se mira nada más que dónde "
+        "va el acuse; las líneas que citen los errores son las del fichero.",
+        campo="Sobre",
+        encontrado=f"SOAP {version}",
+    )
+
+
 def _sin_fecha() -> Incidencia:
     return Incidencia(
         "SPFE-ACUSE-FECHA",
@@ -296,7 +324,8 @@ def _sin_fecha() -> Incidencia:
     )
 
 
-def _cabecera(codigo: str, descripcion: str, estados: list[str]) -> list[Incidencia]:
+def _cabecera(codigo: str, descripcion: str, estados: list[str],
+              distintas: int | None = None) -> list[Incidencia]:
     dice = f' ("{descripcion}")' if descripcion else ""
     if not codigo:
         return [
@@ -332,7 +361,15 @@ def _cabecera(codigo: str, descripcion: str, estados: list[str]) -> list[Inciden
     # inicialmente aceptadas»), y de una factura anulada no se puede decir eso.
     altas = sum(1 for estado in estados if estado == ACEPTADA)
     otras = len(estados) - altas
-    cuenta = f"El acuse trae {_facturas(len(estados))}"
+    repetidas = distintas is not None and distintas < len(estados)
+    if repetidas:
+        cuenta = (f"El acuse trae {len(estados)} referencias de "
+                  f"{_facturas(distintas)}, porque "
+                  + ("la misma factura sale" if distintas == 1
+                     else "alguna factura sale")
+                  + " una vez por cada código que se le da")
+    else:
+        cuenta = f"El acuse trae {_facturas(len(estados))}"
     if otras == 0:
         cuenta += (", con el estado 200." if altas == 1
                    else ", todas con el estado 200.")
@@ -341,6 +378,8 @@ def _cabecera(codigo: str, descripcion: str, estados: list[str]) -> list[Inciden
                    else ", ninguna con el estado 200.")
     else:
         cuenta += f": {altas} con el estado 200 y {otras} sin él."
+    if repetidas:
+        cuenta = cuenta.replace("se le da, ", "se le da: ", 1)
     incidencias = [
         Incidencia(
             "SPFE-ACUSE-RESULTADO",
@@ -392,7 +431,13 @@ def _esperado(codigo: str) -> str:
 
 # Los códigos que no son de la norma europea y se esperan de la solución
 # pública. Van antes que las europeas porque `BR-ES-` también empieza por `BR-`.
-_DE_LA_AEAT = re.compile(r"(?<![\w-])(?:SPFE-CORE|SPFE-LIST|BR-ES)-[A-Z0-9]+(?![\w-])")
+# Desde el 11-11-2026, también todo `SPFE-` con familia y número: en la
+# respuesta de ejemplo del validador previo de la AEAT, del 10-11-2026, salen
+# SPFE-CORE-18, SPFE-IDEN-02, SPFE-IDEN-05 y SPFE-REPR-01, y las dos familias
+# del medio no estaban en la lista. Los códigos de Glosa-e no llevan números
+# (lo guarda `tests/test_paginas_de_codigo.py`), así que no se confunden.
+_DE_LA_AEAT = re.compile(
+    r"(?<![\w-])(?:SPFE-[A-Z]+-[0-9]+|(?:SPFE-CORE|SPFE-LIST|BR-ES)-[A-Z0-9]+)(?![\w-])")
 # Las del esquematrón de la norma europea, como `BR-CO-16` o `UBL-SR-43`.
 _EUROPEA = re.compile(r"(?<![\w-])(?:BR|UBL)(?:-[A-Z0-9]+)+(?![\w-])")
 # La primera frase de una ficha: lo que dice de cualquier factura que incumple

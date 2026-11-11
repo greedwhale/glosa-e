@@ -62,6 +62,7 @@ from validador.formato import (
     UBL,
     Deteccion,
     detectar,
+    sacar_del_sobre,
     entidades_sin_resolver,
     parser,
 )
@@ -312,12 +313,15 @@ def validar(
     listas: AlmacenDeListas | None = None,
 ) -> Informe:
     """Valida un documento: su forma, las reglas europeas y las españolas."""
+    if isinstance(datos, str):
+        datos = datos.encode("utf-8")
+    datos, sobre = sacar_del_sobre(datos)
     deteccion = detectar(datos)
     informe = Informe(deteccion=deteccion)
     if not deteccion:
         return informe
-    if isinstance(datos, str):
-        datos = datos.encode("utf-8")
+    if sobre:
+        informe.incidencias.append(acuses.sobre(sobre))
     raiz, sintacticas = _arbol(datos, deteccion)
     # Uno solo para las reglas y para `_mirado`: `Catalogo.por_defecto()` en cada
     # sitio compilaba dos veces el esquema de una respuesta.
@@ -1521,9 +1525,15 @@ class LoteEnMarcha:
             return Informe(deteccion=_no_se_puede_leer(camino, error)), [], [], []
 
         try:
+            # El acuse del validador previo de la AEAT llega en un sobre SOAP:
+            # se saca antes de detectar, aquí y en `validar`, que son los dos
+            # caminos por los que entra un fichero.
+            datos, sobre = sacar_del_sobre(datos)
             deteccion = detectar(datos)
             raiz, sintacticas = _arbol(datos, deteccion)
             informe = Informe(deteccion=deteccion)
+            if deteccion and sobre:
+                informe.incidencias.append(acuses.sobre(sobre))
             if deteccion:
                 incidencias, informe.firma, informe.firmas_verificadas = _reglas(
                     raiz, deteccion, self._hoy, self._catalogo, self._almacen,

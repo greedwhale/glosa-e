@@ -41,6 +41,13 @@ NS_UBL_RESPUESTA = "urn:oasis:names:specification:ubl:schema:xsd:ApplicationResp
 NS_UBL_ACUSE = "urn:oasis:names:specification:ubl:schema:xsd:DocumentStatus-2"
 NS_UBL_CBC = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
 
+# Los dos sobres SOAP, el 1.2 del ejemplo del validador previo de la AEAT y el
+# 1.1, que es el mismo sobre con otro namespace. Ver `sacar_del_sobre`.
+NS_SOAP = {
+    "http://www.w3.org/2003/05/soap-envelope": "1.2",
+    "http://schemas.xmlsoap.org/soap/envelope/": "1.1",
+}
+
 NS_CII = "urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
 NS_CII_RAM = (
     "urn:un:unece:uncefact:data:standard:"
@@ -908,6 +915,57 @@ def por_que_no_abre(error: etree.XMLSyntaxError) -> str:
 TAMANO_MAXIMO = 25_000_000
 
 
+def _lo_que_trae_el_sobre(raiz) -> list:
+    """Los elementos dentro del Body de un sobre SOAP, o None si no es uno."""
+    namespace, nombre = _partir_nombre(raiz.tag)
+    if nombre != "Envelope" or namespace not in NS_SOAP:
+        return None
+    cuerpo = raiz.find(f"{{{namespace}}}Body")
+    if cuerpo is None:
+        return []
+    return [hijo for hijo in cuerpo if isinstance(hijo.tag, str)]
+
+
+def sacar_del_sobre(datos: bytes) -> tuple[bytes, str | None]:
+    """El acuse que viene dentro de un sobre SOAP, y la versión del sobre.
+
+    El validador previo de la AEAT (catálogo de servicios 0.1.5, apartado
+    6.10) devuelve, dice el catálogo, «Directamente XML (DocumentStatus)», y su
+    ejemplo del 10-11-2026 lo trae dentro de un sobre SOAP 1.2. Hasta el
+    11-11-2026 salía SIN COMPROBAR, por la raíz.
+
+    Solo se abre un sobre cuyo Body trae un único elemento y que es un
+    `DocumentStatus`: es lo único que se ha visto así, y abrir cualquier cosa
+    sería meterse en lo que no se ha medido. Una factura firmada dentro de un
+    sobre, por ejemplo, firma un documento que al sacarla ya no es el mismo.
+    Con cualquier otra cosa se devuelve lo que llegó, y `detectar` dice qué
+    trae el sobre.
+
+    Lo que se devuelve conserva las líneas: delante del acuse van los saltos
+    de línea que lo separaban del principio del fichero, para que «línea 7»
+    en un error del esquema sea la línea 7 del fichero que tiene quien lo
+    lee, no la del acuse suelto. Un XML puede empezar con espacios si no lleva
+    declaración, y `tostring` no la pone.
+    """
+    if (len(datos) > TAMANO_MAXIMO or b"Envelope" not in datos
+            or _detectar_edifact(datos) is not None):
+        return datos, None
+    try:
+        raiz = etree.fromstring(datos, parser=_parser())
+    except (etree.XMLSyntaxError, ValueError):
+        return datos, None
+    dentro = _lo_que_trae_el_sobre(raiz)
+    if not dentro or len(dentro) != 1:
+        return datos, None
+    (acuse,) = dentro
+    if _partir_nombre(acuse.tag) != (NS_UBL_ACUSE, "DocumentStatus"):
+        return datos, None
+    version = NS_SOAP[_partir_nombre(raiz.tag)[0]]
+    sacado = etree.tostring(acuse, encoding="utf-8", xml_declaration=False,
+                            with_tail=False)
+    return b"\n" * ((acuse.sourceline or 1) - 1) + sacado, version
+
+
 def _megas(cuantos: int) -> int:
     """Los megas, redondeando hacia arriba: 25.000.001 bytes son 26, no 25.
 
@@ -969,6 +1027,24 @@ def detectar(datos: bytes | str) -> Deteccion:
     if namespace is None and nombre.startswith("M_"):
         return _detectar_edifact_xml(raiz, nombre)
 
+    # Un sobre SOAP que no trae un acuse solo (ese lo saca `sacar_del_sobre`
+    # antes de llegar aquí). Decir que «Envelope» no es nada que se valide
+    # sería cierto, pero no diría qué hay dentro.
+    dentro = _lo_que_trae_el_sobre(raiz)
+    if dentro is not None:
+        nombres = [_partir_nombre(hijo.tag)[1] for hijo in dentro]
+        trae = (f"trae {', '.join(nombres)}" if nombres
+                else "no trae nada dentro de su Body")
+        return Deteccion(
+            namespace=namespace,
+            motivo=(
+                f"XML válido, y es un sobre SOAP {NS_SOAP[namespace]} que {trae}. "
+                "De un sobre SOAP solo se abre un acuse DocumentStatus que "
+                "venga solo, como el del validador previo de la AEAT; lo "
+                "demás se valida fuera del sobre."
+            ),
+        )
+
     # Con el nombre de uno de ellos y otro namespace, lo que está mal es el
     # namespace, y decir que la raíz no es de nada que se valide mandaría a
     # buscar a otro sitio.
@@ -994,7 +1070,8 @@ def detectar(datos: bytes | str) -> Deteccion:
             f"XML válido, pero su elemento raíz \"{nombre}\" no es de ningún "
             "documento que se valide aquí: facturas Facturae, UBL, CII o "
             "EDIFACT, respuestas ApplicationResponse de UBL y acuses "
-            "DocumentStatus de la solución pública."
+            "DocumentStatus de la solución pública, también dentro de un "
+            "sobre SOAP."
         ),
     )
 

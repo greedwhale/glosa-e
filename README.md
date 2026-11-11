@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4174 tests, todos en verde.
+4187 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -760,6 +760,24 @@ Lo que se decidió en cada una:
   `cac:DocumentReference`, que ese es el error de forma que sale con ella: UBL
   2.5 lo exige y los ejemplos no lo traen. No se habla de cada factura una por
   una, porque una consulta por filtro trae hasta 1.000.
+- **El acuse del validador previo viene en un sobre SOAP.** El catálogo
+  (apartado 6.10) dice que ese servicio, que solo existe en pruebas, devuelve
+  el `DocumentStatus` directamente; su ejemplo del 10-11-2026 lo trae dentro
+  de un `env:Envelope` SOAP 1.2, y hasta el 11-11-2026 salía SIN COMPROBAR por
+  la raíz. Ahora `formato.sacar_del_sobre` lo saca antes de detectar, en
+  `validar` y en el lote, y una NOTA, `SPFE-ACUSE-SOBRE`, lo dice. Solo se abre
+  un sobre (1.1 o 1.2) cuyo `Body` trae un único `DocumentStatus`: una factura
+  firmada dentro de un sobre ya no es la misma fuera de él, y con cualquier
+  otra cosa el motivo dice qué trae. Lo sacado conserva sus líneas, para que
+  "línea 9" en un error del esquema sea la del fichero. Medido con la forma del
+  ejemplo: le falta `cbc:IssueDate` y no pasa el esquema (la errata 6 del
+  informe del 10-11), con su `SPFE-ACUSE-FECHA`.
+- **Una factura repetida se cuenta una vez.** La misma respuesta trae la misma
+  factura una vez por cada código que le da, cuatro en el ejemplo, y la cuenta
+  decía "4 facturas". Ahora una factura es su NIF, su número y su fecha, y la
+  nota dice "4 referencias de 1 factura". Y todo `SPFE-` con familia y número
+  (`SPFE-IDEN-02`, `SPFE-REPR-01`) se reconoce como código de la AEAT, no solo
+  `SPFE-CORE` y `SPFE-LIST`: los de Glosa-e no llevan números.
 - **La norma de las fichas es «Servicios web de la AEAT»** y no la orden: la
   orden no define estos acuses, dice que sus servicios se ajustarán a lo que
   la AEAT publique en su Sede.

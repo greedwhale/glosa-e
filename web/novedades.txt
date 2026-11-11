@@ -15,8 +15,11 @@
 fecha: 2026-11-11
 id: acuses-y-peticiones-de-la-solucion-publica
 titulo: SPFE-PETICION: las peticiones de consulta y de descarga, y un acuse para cada servicio
-nuevos: SPFE-ACUSE-CONSULTA SPFE-PETICION-ALCANCE SPFE-PETICION-FACTURA SPFE-PETICION-LIMITE
-texto: Con los ejemplos que la AEAT publicó el 10-11-2026, tres arreglos. Un
+nuevos: SPFE-ACUSE-CONSULTA SPFE-ACUSE-SOBRE SPFE-PETICION-ALCANCE SPFE-PETICION-FACTURA SPFE-PETICION-LIMITE
+texto: Con los ejemplos que la AEAT publicó el 10-11-2026, cuatro arreglos. La
+  respuesta de su validador previo, que viene dentro de un sobre SOAP, ya se
+  abre y se lee, y la factura que trae una vez por cada error se cuenta como
+  una sola. Un
   acuse con el estado 200 ya no dice que la factura se dio de alta: el mismo
   acuse contesta a la remisión, a la anulación y a las comunicaciones de
   estado, y ahora dice que se aceptó lo que se pedía, sin adivinar qué. La
