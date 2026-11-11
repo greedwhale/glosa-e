@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4111 tests, todos en verde.
+4124 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -686,7 +686,7 @@ que podría hacer un validador.
 A todos sus servicios menos a las dos descargas, la solución pública contesta
 con un `DocumentStatus` de UBL: lo dicen el documento de formatos de entrada y
 salida de la AEAT (versión 0.1.2, del 20-10-2026, apartado 5.1.1) y su
-catálogo de servicios (versión 0.1.3). **Hasta el 26-10-2026 no se
+catálogo de servicios (versión 0.1.5, del 10-11-2026). **Hasta el 26-10-2026 no se
 reconocía**: el acuse del ejemplo oficial de remisión (`SendInvoicesSOAP.zip`,
 del 15-10-2026) salía SIN COMPROBAR y con salida 1, como un fichero que no se
 sabe qué es.
@@ -697,14 +697,15 @@ poco que está publicado, que es el apartado 5.2.2 del documento de formatos y
 el ejemplo:
 
 - **La cabecera**, `cac:DocumentResponse/cac:Response/cbc:ResponseCode`: 200
-  si todas las facturas se aceptaron, 406 si solo una parte y 400 si ninguna.
+  si se aceptó todo lo que se pedía, 406 si solo una parte y 400 si nada.
   Sale en una NOTA, `SPFE-ACUSE-RESULTADO`, con la cuenta de facturas. Si falta
   o es otro, un AVISO, `SPFE-ACUSE-CABECERA`.
 - **Cada factura**, un `cac:DocumentReference`. Con `cbc:DocumentStatusCode`
-  200, que es el del ejemplo, una NOTA con su localizador, que es con lo que se
-  descarga después (el catálogo recomienda la descarga por localizador frente
-  a la descarga por identificador). Con otro, o sin ninguno, un AVISO: no
-  consta como dada de alta.
+  200, que es el de los ejemplos, una NOTA: se le aceptó lo que se pedía. Con
+  su localizador, si lo trae, que es con lo que se descarga después (el
+  catálogo recomienda la descarga por localizador frente a la descarga por
+  identificador). Con otro estado, o sin ninguno, un AVISO: no consta que se
+  aceptara.
 - **Que digan lo mismo**: un 200 con alguna factura que no lo es, un 400 con
   alguna que sí o un 406 con todas iguales salen con `SPFE-ACUSE-NO-CUADRA`.
 
@@ -733,6 +734,17 @@ Lo que se decidió en cada una:
 - **Sin versión es de la 2.5**, no de la 2.1 como lo demás: quien contesta con
   `DocumentStatus` es la solución pública, cuya referencia es UBL 2.5, y el
   acuse del ejemplo no trae ni versión ni especificación.
+- **No se adivina a qué contesta.** Con el mismo `DocumentStatus` contesta la
+  solución pública a la remisión, a la anulación y a las comunicaciones de
+  estado, y lo que dice cuál es va en el `Action` del sobre ebXML. Hasta el
+  11-11-2026 todo acuse con 200 se leía como de una remisión, y de una
+  factura anulada se decía que "consta como dada de alta"; se vio con los
+  ejemplos de la AEAT del 10-11-2026 (está en HALLAZGOS). Ahora de cada
+  factura se dice que se le aceptó lo que se pedía, sin decir qué. La
+  descripción no sirve para saberlo: es texto libre, y el acuse de pago del
+  ejemplo dice "Factura SETTLEMENT Ok", que es el código del cobro. Y sin
+  localizador no se da por un fallo: lo trae el acuse de una remisión, y en los
+  de anulación, pago y cobro de los ejemplos viene vacío.
 - **No se mira el sobre ebXML**, que es el que dice a qué servicio contesta el
   acuse y a qué envío, ni que las facturas existan o que el localizador valga.
   Lo dice la nota que va siempre, `SPFE-ACUSE-ALCANCE`, y también que el acuse

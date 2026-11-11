@@ -9985,3 +9985,41 @@ todo `cac:Signature`, sin el aviso del PDF, y el PDF reconocido solo por su
 tipo. Las tres roturas ponen en rojo su prueba, de las seis nuevas de
 `tests/test_solucion_publica.py`, que antes del arreglo estaban las seis en
 rojo.
+
+## Un acuse de anulación decía que la factura constaba como dada de alta
+
+**Cómo salió.** El 10-11-2026 la AEAT publicó en su Portal de
+Desarrolladores el catálogo de servicios 0.1.5 y los ejemplos de anulación,
+consultas, descargas, comunicación de estados y validación. Pasados por la
+consola, sin tocar el código (commit `e559f22`), el acuse de anulación
+(`RespuestaCancelarFact.xml`, "Anulacion correcta") daba la nota
+SPFE-ACUSE-ACEPTADA con "consta como dada de alta en la solución pública", y
+los de pago y cobro ("Factura SETTLEMENT Ok"), lo mismo. Además, de los tres
+decía que no traían localizador "y el documento de formatos dice que cada
+factura lo lleva", cuando lo traen vacío.
+
+**Por qué.** `acuses.py` se escribió el 26-10 con el único acuse publicado,
+el de una remisión, y daba por hecho que todo acuse con 200 era un alta. El
+catálogo da el mismo `DocumentStatus` de salida a la remisión, la anulación,
+las consultas y las dos comunicaciones de estado, y el acuse no dice a cuál
+contesta: eso va en el `Action` del sobre ebXML. Y la descripción no sirve
+para adivinarlo: el acuse de pago, que contesta a un `PAYMENT`, dice
+SETTLEMENT, que es el código del cobro.
+
+**Reproducido** con acuses de la forma de esos tres y datos inventados, en
+`tests/test_acuses.py`: las 13 pruebas nuevas, en rojo antes del arreglo.
+
+**Ahora** de una factura con 200 se dice que la solución pública aceptó lo
+que se le pedía sobre ella, con la descripción tal cual, y no qué se pedía.
+La cabecera dice "se aceptó todo lo que se pedía", una parte o nada, y la
+cuenta va por el estado ("2 con el estado 200 y 1 sin él") y no por
+"aceptadas", porque "aceptada" es también un estado de la factura en el
+catálogo y no se puede decir de una anulada. Sin localizador, la nota dice
+que lo lleva el acuse de una remisión y que en los de anulación y estados
+viene vacío, sin darlo por un fallo. La nota del alcance y las fichas citan
+el catálogo 0.1.5 y los ejemplos del 10-11-2026.
+
+**Provocado**, devolviendo cada frase vieja una a una: el "consta como dada
+de alta", el "cada factura lo lleva", la cuenta en altas, el desacuerdo en
+altas, el catálogo 0.1.3 y la ficha vieja. Las seis roturas ponen en rojo su
+prueba.
