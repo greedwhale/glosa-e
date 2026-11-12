@@ -301,7 +301,10 @@ def sobre(version: str) -> Incidencia:
         "document/literal, sin mensajería ebXML, cuyo Body es el "
         "DocumentStatus, y así viene en su ejemplo del 10-11-2026. Es lo que "
         "su catálogo de servicios (versión 0.1.5, apartado 6.10) llama "
-        "devolverlo directamente. Ese validador solo existe en el entorno de pruebas de "
+        "devolverlo directamente."
+        + (" Este sobre es SOAP 1.1, y ese WSDL dice SOAP 1.2: si viene de "
+           "ese validador, no es como él lo describe." if version == "1.1" else "")
+        + " Ese validador solo existe en el entorno de pruebas de "
         "la AEAT, y el catálogo dice que validar con él no garantiza que la "
         "factura se acepte después. Del sobre no se mira nada más que dónde "
         "va el acuse; las líneas que citen los errores son las del fichero.",
@@ -318,8 +321,9 @@ def _sin_fecha() -> Incidencia:
         "exige, y sin ella el acuse no pasa su forma. El esquema lo marca en "
         "cac:DocumentResponse, que es lo que viene donde esperaba la fecha, y "
         "por eso su error dice que cac:DocumentResponse no puede ir ahí. El "
-        "acuse del ejemplo de remisión que la AEAT publicó el 15-10-2026 "
-        "tampoco la lleva.",
+        "acuse del ejemplo de remisión que la AEAT publica la lleva desde el "
+        "29-10-2026; la respuesta de ejemplo de su validador previo, del "
+        "10-11-2026, no.",
         campo="cbc:IssueDate",
         esperado="la fecha del acuse, detrás de cbc:ID",
         encontrado="(no está)",
@@ -372,7 +376,10 @@ def _cabecera(codigo: str, descripcion: str, estados: list[str],
                   + " una vez por cada código que se le da")
     else:
         cuenta = f"El acuse trae {_facturas(len(estados))}"
-    if otras == 0:
+    # Sin ninguna, «0 facturas, todas con el estado 200» (visto el 12-11-2026).
+    if not estados:
+        cuenta = "El acuse no trae ninguna factura."
+    elif otras == 0:
         cuenta += (", con el estado 200." if altas == 1
                    else ", todas con el estado 200.")
     elif altas == 0:

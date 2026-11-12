@@ -12,6 +12,19 @@
 # leyendo el catálogo de cada commit con el lector de hoy (validador/codigos.py),
 # desde 598f34c, el último del 06-10-2026. Las fechas son las de esos commits.
 
+fecha: 2026-11-12
+id: respuesta-no-medida
+titulo: RESPUESTA-NO-MEDIDA: una respuesta con un código que no se mide
+nuevos: RESPUESTA-NO-MEDIDA
+texto: Una respuesta (ApplicationResponse) con un código que no es de los
+  mensajes de la orden ni de las peticiones a la solución pública lleva ahora
+  una nota: dice qué código trae y que de su contenido no se mira nada. Si el
+  código es uno conocido escrito en minúsculas, lo dice. Hasta hoy solo lo
+  decía la línea final del informe. Y tres frases de los acuses, corregidas:
+  un acuse sin facturas ya no dice que todas tienen el estado 200, la nota de
+  la fecha cita el ejemplo que hay publicado hoy, y un acuse en un sobre SOAP
+  1.1 dice que el validador previo de la AEAT es SOAP 1.2.
+
 fecha: 2026-11-11
 id: acuses-y-peticiones-de-la-solucion-publica
 titulo: SPFE-PETICION: las peticiones de consulta y de descarga, y un acuse para cada servicio

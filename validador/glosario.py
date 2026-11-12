@@ -150,6 +150,12 @@ FAMILIAS: dict[str, str] = {
     "VALIDADOR": (
         "Algo que le ha pasado al propio validador, no a la factura."
     ),
+    "RESPUESTA": (
+        "Las respuestas (ApplicationResponse) cuyo contenido no se mide aquí: "
+        "las que no son mensajes de la orden ni peticiones a la solución "
+        "pública. No lo exige ninguna norma; es para que un sin errores no se "
+        "lea como que se ha mirado lo que dicen."
+    ),
     "PERFIL": (
         "Lo que la factura dice de sí misma en su identificador de "
         "especificación: a qué norma o a qué uso dice ajustarse. No lo exige "
@@ -4051,6 +4057,16 @@ CODIGOS: dict[str, str] = {
         "descarga por identificador porque el catálogo dice que la única "
         "diferencia entre las dos es cómo se identifica la factura."
     ),
+    "RESPUESTA-NO-MEDIDA": (
+        "La respuesta (un ApplicationResponse) trae un código que Glosa-e no "
+        "mide: no es ninguno de los nueve mensajes de la orden, la anulación "
+        "y los estados, ni de las tres peticiones de consulta y descarga a la "
+        "solución pública. De lo que dice no se ha mirado nada; su forma, "
+        "contra el esquema, sí, como la de cualquier otro fichero. Puede ser de otra red, como las "
+        "respuestas de Peppol, o un código mal escrito: si coincide con uno "
+        "conocido salvo en las mayúsculas, la nota lo dice, porque la orden y "
+        "el catálogo los escriben en mayúsculas y aquí se comparan tal cual."
+    ),
     "SPFE-ACUSE-SOBRE": (
         "El acuse venía dentro de un sobre SOAP, y se ha sacado de él para "
         "leerlo. Así contesta el validador previo de la AEAT, el que solo "
@@ -4069,8 +4085,9 @@ CODIGOS: dict[str, str] = {
         "forma que sale con él: el esquema lo marca en cac:DocumentResponse, "
         "que es lo que encuentra donde esperaba la fecha, y por eso su error "
         "dice que cac:DocumentResponse no puede ir ahí. El acuse del ejemplo "
-        "de remisión que la AEAT publicó el 15-10-2026 no la lleva, y es su "
-        "único fallo de forma: con la fecha puesta, valida."
+        "de remisión que publica la AEAT la lleva desde el 29-10-2026; la "
+        "respuesta de ejemplo de su validador previo, del 10-11-2026, no la "
+        "lleva, y es su único fallo de forma."
     ),
     "COPIA-TOTAL": (
         "Cuando la factura lleva retenciones, su total no es el total con "

@@ -3,7 +3,10 @@
 Nada más salvo que sea uno de los mensajes de la orden, por su código: a esos
 se les mide además su tabla desde el 12-10-2026, y eso está en
 `test_mensajes.py`. Las respuestas de aquí llevan `AP`, que no es de la orden,
-y por eso lo de este fichero sigue valiendo tal cual.
+y por eso lo de este fichero sigue valiendo tal cual. Desde el 12-11-2026
+llevan una nota, `RESPUESTA-NO-MEDIDA`, que dice que su contenido no se mira:
+no las acusa de nada, y por eso las cuentas de aquí no la cuentan (`ajenas`).
+Que salga lo exige `test_y_dice_que_su_contenido_no_se_mira`.
 
 Hasta el 29-09-2026 un `ApplicationResponse` salía «No se ha podido validar.
 XML válido, pero su elemento raíz no corresponde a Facturae, UBL, CII ni
@@ -100,8 +103,16 @@ def sin_esquemas(tmp_path):
     return Catalogo(tmp_path / "no-hay-esquemas")
 
 
+NO_MEDIDA = "RESPUESTA-NO-MEDIDA"
+
+
+def ajenas(informe: Informe) -> list:
+    """Lo que sale, salvo la nota que dice que el contenido no se mira."""
+    return [i for i in informe.incidencias if i.codigo != NO_MEDIDA]
+
+
 def codigos(informe: Informe) -> list[str]:
-    return [i.codigo for i in informe.incidencias]
+    return [i.codigo for i in ajenas(informe)]
 
 
 def escribir(carpeta: Path, nombre: str, texto: str | bytes) -> Path:
@@ -225,8 +236,15 @@ class TestSeReconoce:
 class TestNoSeLeAcusaDeSerUnaFactura:
     def test_una_respuesta_que_valida_sale_limpia(self, catalogo):
         informe = factura.validar(respuesta(), catalogo=catalogo)
-        assert informe.incidencias == [], informe.detalle()
+        assert ajenas(informe) == [], informe.detalle()
         assert informe.validado and informe.conforme
+
+    def test_y_dice_que_su_contenido_no_se_mira(self, catalogo):
+        """Lo único que lleva: la nota del 12-11-2026, que ni acusa ni quita
+        el sin errores."""
+        informe = factura.validar(respuesta(), catalogo=catalogo)
+        assert [(i.codigo, i.gravedad) for i in informe.incidencias] == [(NO_MEDIDA, "nota")]
+        assert informe.conforme
 
     @pytest.mark.parametrize("perfil", [
         PERFIL_EN16931, PERFIL_CIUS, PERFIL_DE_LA_ORDEN,
@@ -239,7 +257,7 @@ class TestNoSeLeAcusaDeSerUnaFactura:
         dar a entender que se le habría aplicado.
         """
         informe = factura.validar(respuesta(perfil=perfil), catalogo=catalogo)
-        assert informe.incidencias == [], informe.detalle()
+        assert ajenas(informe) == [], informe.detalle()
 
     def test_las_reglas_europeas_no_le_tocan_aunque_alguien_amplie_el_mapa(
         self, monkeypatch
@@ -268,7 +286,7 @@ class TestNoSeLeAcusaDeSerUnaFactura:
 
     def test_el_codigo_unico_no_le_saca_un_cu_00(self):
         informe = codigo_unico.validar(respuesta())
-        assert informe.incidencias == []
+        assert ajenas(informe) == []
 
     def test_dos_respuestas_seguidas_no_hacen_una_serie_con_huecos(
         self, tmp_path, catalogo
@@ -323,7 +341,7 @@ class TestSeLeMiraLaForma:
         y con esto se comprueba en vez de quedarse sin mirar.
         """
         informe = factura.validar(respuesta(version=version), catalogo=catalogo)
-        assert informe.incidencias == [], informe.detalle()
+        assert ajenas(informe) == [], informe.detalle()
         assert informe.validado
 
     def test_de_la_2_0_no_se_sube_y_no_se_da_por_buena(self, catalogo):
@@ -559,7 +577,7 @@ class TestSinEsquemaNoEsCorrecta:
 
         monkeypatch.setattr(esquema.etree, "XMLSchema", contando)
         informe = factura.validar(respuesta())
-        assert informe.validado and not informe.incidencias, informe.detalle()
+        assert informe.validado and not ajenas(informe), informe.detalle()
         assert len(compilados) == 1
 
 

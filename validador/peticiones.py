@@ -46,6 +46,21 @@ La forma del localizador: solo se ha visto `LOCGENV1:`, y darla por buena o
 mala sería poner nombre a lo que no está publicado. Tampoco el rol con que se
 actúa, emisor o destinatario, que el catálogo exige y no dice dónde va, ni que
 las facturas existan. Lo dice la nota `SPFE-PETICION-ALCANCE`.
+
+Y una respuesta con cualquier otro código
+-----------------------------------------
+Un `ApplicationResponse` cuyo código no es de los tres de aquí ni de los nueve
+mensajes de la orden (`mensajes.PLANES`) no se mide, y hasta el 12-11-2026 eso
+solo lo decía la línea final del informe, la de lo que no se comprueba: el
+ejemplo de consulta de la AEAT con BORRARTODO, o con `querybyid` en
+minúsculas, salía "sin errores" sin una nota. Lo vio la verificación hecha
+desde otra sesión ese día: se habían cerrado los tres códigos del 10-11 y no
+la clase. Ahora lleva `RESPUESTA-NO-MEDIDA`, una por documento, con sus
+códigos, y si alguno coincide con uno conocido salvo en las mayúsculas, lo
+dice: Glosa-e compara los códigos tal cual, y la orden y el catálogo los
+escriben en mayúsculas. Es de la casa y no `SPFE-`, porque la respuesta puede
+ser de otra red, como las de Peppol, y entonces no tiene nada de la solución
+pública.
 """
 
 from __future__ import annotations
@@ -143,6 +158,53 @@ def reglas(raiz, deteccion) -> list[Incidencia]:
         incidencias.extend(_factura(f, codigo, peticion) for f in facturas
                            if _falta(f, peticion))
     return incidencias
+
+
+def no_medidas(raiz, deteccion) -> list[Incidencia]:
+    """La nota de las respuestas cuyo código no mide nadie aquí."""
+    if raiz is None or not deteccion or deteccion.familia != RESPUESTA:
+        return []
+    # Aquí y no arriba: `mensajes` trae la orden entera al importarse, y
+    # `peticiones` no la necesita para nada más.
+    from validador.mensajes import PLANES
+
+    conocidos = {**{c: "la solución pública" for c in PETICIONES},
+                 **{c: "la orden" for c in PLANES}}
+    codigos = []
+    for respuesta in raiz.findall("cac:DocumentResponse", _NS):
+        codigo = _texto(respuesta, _CODIGO)
+        if codigo not in conocidos and codigo not in codigos:
+            codigos.append(codigo)
+    if not codigos:
+        return []
+    parecidos = [(codigo, bueno) for codigo in codigos
+                 for bueno in conocidos if codigo and codigo != bueno
+                 and codigo.upper() == bueno]
+    nombres = _y([c or "(vacío)" for c in codigos])
+    mensaje = (
+        f"La respuesta trae {'el código' if len(codigos) == 1 else 'los códigos'} "
+        f"{nombres}, que no es ninguno de los que se miden aquí: los nueve "
+        "mensajes de la orden (la anulación y los estados) y las tres "
+        "peticiones de consulta y descarga a la solución pública. De su "
+        "contenido no se mira nada."
+    )
+    if len(codigos) > 1:
+        mensaje = mensaje.replace("que no es ninguno", "que no son ninguno", 1)
+    for codigo, bueno in parecidos:
+        mensaje += (
+            f" {codigo} es el {bueno} de {conocidos[bueno]} escrito en minúsculas: Glosa-e "
+            "compara los códigos tal cual, y la orden y el catálogo de "
+            "servicios los escriben en mayúsculas."
+        )
+    return [
+        Incidencia(
+            "RESPUESTA-NO-MEDIDA",
+            NOTA,
+            mensaje,
+            campo="Código de respuesta",
+            encontrado=", ".join(c or "(vacío)" for c in codigos),
+        )
+    ]
 
 
 def _falta(factura, peticion: Peticion) -> list[str]:

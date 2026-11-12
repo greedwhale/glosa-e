@@ -276,6 +276,9 @@ def _reglas_con_cuentas(
     # Las peticiones de consulta y de descarga a la solución pública: tampoco
     # son mensajes de la orden, y hasta el 11-11-2026 pasaban sin una nota.
     incidencias.extend(peticiones.reglas(raiz, deteccion))
+    # Y la respuesta con cualquier otro código, que hasta el 12-11-2026 salía
+    # sin una nota que dijera que su contenido no se mira.
+    incidencias.extend(peticiones.no_medidas(raiz, deteccion))
     incidencias.extend(edifact.totales_de_otra_guia(raiz, deteccion))
     incidencias.extend(edifact.iva_fuera_del_desglose(raiz, deteccion))
     incidencias.extend(facturae.reglas(raiz, deteccion))
@@ -458,6 +461,7 @@ PARTE_DE_LA_FAMILIA: dict[str, str | None] = {
     "CUENTA": PARTE_CONTENIDO,
     "EDI": PARTE_CONTENIDO, "FE": PARTE_CONTENIDO, "IVA": PARTE_CONTENIDO,
     "NIF": PARTE_CONTENIDO, "PERFIL": PARTE_CONTENIDO, "SIN": PARTE_CONTENIDO,
+    "RESPUESTA": PARTE_CONTENIDO,
     "SPFE": PARTE_CONTENIDO,
     "ANCLAS": PARTE_FIRMA, "CADENA": PARTE_FIRMA, "CONFIANZA": PARTE_FIRMA,
     "FIRMA": PARTE_FIRMA, "REVOCACION": PARTE_FIRMA, "REVOCADO": PARTE_FIRMA,

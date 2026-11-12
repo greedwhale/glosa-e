@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4195 tests, todos en verde.
+4212 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -820,6 +820,17 @@ mide `validador/peticiones.py`, solo con lo que dice el catálogo:
 La consulta por filtro de fechas no tiene documento: sus filtros van en el
 sobre ebXML. Las pruebas están en `tests/test_peticiones.py`; cada
 comprobación se ha roto una vez y salta.
+
+**Y una respuesta con cualquier otro código.** Un `ApplicationResponse` cuyo
+código no es de estos tres ni de los nueve mensajes de la orden lleva, desde
+el 12-11-2026, la NOTA de la casa `RESPUESTA-NO-MEDIDA`: una por documento,
+con sus códigos, y diciendo que de su contenido no se mira nada. Hasta ese
+día solo lo decía la línea final del informe, y el ejemplo de consulta de la
+AEAT con `BORRARTODO`, o con `querybyid`, salía "sin errores" sin una nota. Si
+un código coincide con uno conocido salvo en las mayúsculas, la nota lo dice:
+aquí se comparan tal cual, y la orden y el catálogo los escriben en
+mayúsculas. No es `SPFE-` porque la respuesta puede ser de otra red, como
+las de Peppol.
 
 Las pruebas están en `tests/test_acuses.py`, y cada comprobación se ha roto a
 propósito una vez para verla en rojo: sin la detección, sin el esquema, sin las

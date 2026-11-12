@@ -10146,3 +10146,49 @@ factura se valida fuera. Ninguno se abre: lo que se abre sigue siendo solo un
 **Provocado**, rompiendo cada pieza: sin el SOAP Fault, sin buscar la cabecera
 ebMS, sin la frase de SOAP 1.1, sin el caso de la factura y con el "aunque" de
 vuelta en la nota. Las cinco, en rojo.
+
+## Lo que vio la verificación del 12-11-2026, desde otra sesión
+
+**Cómo salió.** El titular pidió verificar lo publicado el 11-11 (`826ddf8`)
+desde otra sesión que la que lo arregló. Los cinco fallos del 10-11 ya no
+salían. Quedaron cuatro, reproducidos allí y otra vez aquí:
+
+- **Una respuesta con un código que no se conoce salía sin una nota.** El
+  ejemplo de consulta de la AEAT con `BORRARTODO`, o con `querybyid` en
+  minúsculas, daba "sin errores": `peticiones.py` saltaba lo que no estaba en
+  su lista. Lo único que decía que el contenido no se había mirado era la
+  línea final del informe. Se habían cerrado los tres códigos del 10-11, no
+  la clase, que es el mismo fallo de las facturas alemanas del 03-11.
+- **"El acuse trae 0 facturas, todas con el estado 200"**, con una cabecera
+  200 y ninguna factura dentro.
+- **La nota `SPFE-ACUSE-FECHA` citaba un ejemplo que ya no está**: el acuse
+  de remisión del 15-10, que el portal sustituyó el 29-10 por uno con fecha.
+- **Un acuse en un sobre SOAP 1.1 se abría con la frase "así contesta el
+  validador previo"**, cuyo WSDL es SOAP 1.2. En los sobres ebMS esa
+  diferencia ya se avisaba.
+
+**Ahora** una respuesta cuyo código no es de los nueve mensajes de la orden
+ni de las tres peticiones lleva `RESPUESTA-NO-MEDIDA`, nota de la casa: una
+por documento, con sus códigos sin repetir, y diciendo a cuál se parece si
+solo cambian las mayúsculas. Un acuse sin facturas dice que no trae ninguna.
+La nota de la fecha cita el acuse que hay publicado y la respuesta del
+validador del 10-11, que tampoco la lleva; el 29-10 y no el 28-10, porque ese
+día llegó por correo y lo que se cita es lo que cualquiera puede ver. Y en un
+sobre SOAP 1.1 la nota dice que ese WSDL pide 1.2.
+
+**Reproducido** en `tests/test_peticiones.py`, `TestUnCodigoQueNoSeConoce`, y
+en `tests/test_acuses.py`, `TestLoQueVioLaVerificacion`: once pruebas en rojo
+antes del arreglo.
+
+**Provocado**, rompiendo cada pieza: sin llamar a la nota, sin el parecido en
+mayúsculas, sin quitar códigos repetidos, sin el caso del acuse vacío, con el
+ejemplo del 15-10 de vuelta, sin la frase de SOAP 1.1 y sin la familia nueva
+en las partes del informe. Las siete en rojo; la de los repetidos salió verde
+la primera vez, porque ninguna prueba repetía un código, y se añadió una.
+
+La suite entera salió con 16 fallos en `tests/test_respuesta.py`: exigían que
+una respuesta de Peppol (`AP`) saliera sin ninguna incidencia, y ahora lleva
+la nota. Lo que guardan esas pruebas es que no se la acuse de ser una factura,
+y una NOTA que dice que su contenido no se mira no la acusa de nada; es lo
+mismo que hace `PERFIL-NO-MEDIDO` con una factura de Peppol. Las cuentas de
+ese fichero dejan fuera esa nota, y una prueba nueva exige que salga.

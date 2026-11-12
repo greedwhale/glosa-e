@@ -24,7 +24,7 @@ import pathlib
 
 import pytest
 
-from validador import acuses, factura
+from validador import acuses, factura, glosario
 from validador.esquema import Catalogo
 from validador.formato import ACUSE, detectar
 from validador.incidencias import AVISO, ERROR, NOTA
@@ -143,8 +143,11 @@ class TestSinFecha:
         assert "cbc:IssueDate" in nota.mensaje
         assert "ejemplo" in nota.mensaje
         # Lo que cuenta es lo que cualquiera puede comprobar: el ejemplo
-        # publicado y el esquema. Nada de lo que se contestó por correo.
-        assert "15-10-2026" in nota.mensaje and "28-10-2026" not in nota.mensaje
+        # publicado y el esquema. Nada de lo que se contestó por correo: el
+        # acuse corregido llegó por correo el 28-10, y la nota cita el 29-10,
+        # cuando lo publicó el portal. Hasta el 12-11-2026 citaba el del
+        # 15-10, que ya no está publicado.
+        assert "29-10-2026" in nota.mensaje and "28-10-2026" not in nota.mensaje
 
     def test_con_fecha_no_hay_nota(self, catalogo):
         assert "SPFE-ACUSE-FECHA" not in [c for c, _ in de_acuse(medir(acuse(), catalogo))]
@@ -696,3 +699,26 @@ class TestLoQueDicenLosWsdl:
         once = cabecera_ebms().replace(SOAP_12, SOAP_11)
         assert "y este es 1.1" in detectar(once.encode("utf-8")).motivo
         assert "y este es 1.1" not in detectar(cabecera_ebms().encode("utf-8")).motivo
+
+
+# --- Lo que vio la verificación del 12-11-2026 --------------------------------
+
+
+class TestLoQueVioLaVerificacion:
+    def test_un_acuse_sin_facturas_no_dice_que_todas_son_200(self):
+        informe = medir(acuse(cabecera("200", "Todas las facturas correctas", [])))
+        mensajes = " ".join(i.mensaje for i in informe.incidencias)
+        assert "0 facturas" not in mensajes and "todas con el estado 200" not in mensajes
+        assert "no trae ninguna factura" in mensajes
+
+    def test_la_nota_de_la_fecha_no_cita_un_ejemplo_que_ya_no_esta(self):
+        nota = una(medir(acuse(fecha="")), "SPFE-ACUSE-FECHA")
+        for texto in (nota.mensaje, glosario.CODIGOS["SPFE-ACUSE-FECHA"]):
+            assert "15-10-2026" not in texto
+            assert "29-10-2026" in texto and "10-11-2026" in texto
+
+    def test_un_acuse_en_soap_11_dice_que_el_validador_es_12(self):
+        nota = una(medir(sobre(VALIDADOR, ns=SOAP_11)), "SPFE-ACUSE-SOBRE")
+        assert "SOAP 1.1" in nota.mensaje and "dice SOAP 1.2" in nota.mensaje
+        nota12 = una(medir(sobre(VALIDADOR)), "SPFE-ACUSE-SOBRE")
+        assert "dice SOAP 1.2" not in nota12.mensaje

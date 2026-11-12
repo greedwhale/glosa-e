@@ -196,3 +196,61 @@ class TestLoDeAlrededor:
 
     def test_los_tres_y_nada_mas(self):
         assert set(peticiones.PETICIONES) == set(CODIGOS)
+
+
+# --- Lo que no es ningún código conocido, 12-11-2026 -------------------------
+#
+# Verificado desde otra sesión el 12-11-2026: el ejemplo de consulta de la AEAT
+# con QUERYBYID cambiado por BORRARTODO, o escrito querybyid, salía "sin
+# errores" y ni una nota. Se cerraron los tres códigos el 11-11, no la clase.
+
+
+class TestUnCodigoQueNoSeConoce:
+    @pytest.mark.parametrize("codigo", ["BORRARTODO", "querybyid", "AP"])
+    def test_lleva_su_nota(self, codigo):
+        informe = medir(peticion(codigo))
+        (nota,) = [i for i in informe.incidencias if i.codigo == "RESPUESTA-NO-MEDIDA"]
+        assert nota.gravedad == NOTA
+        assert codigo in nota.mensaje and nota.encontrado == codigo
+        assert "no se mira" in nota.mensaje
+
+    def test_en_minusculas_dice_a_cual_se_parece(self):
+        informe = medir(peticion("querybyid"))
+        (nota,) = [i for i in informe.incidencias if i.codigo == "RESPUESTA-NO-MEDIDA"]
+        assert "QUERYBYID" in nota.mensaje and "mayúsculas" in nota.mensaje
+
+    def test_tambien_un_mensaje_de_la_orden_en_minusculas(self):
+        (nota,) = [i for i in medir(peticion("payment")).incidencias
+                   if i.codigo == "RESPUESTA-NO-MEDIDA"]
+        assert "PAYMENT" in nota.mensaje
+
+    def test_uno_que_no_se_parece_a_nada_no_dice_que_se_parece(self):
+        (nota,) = [i for i in medir(peticion("BORRARTODO")).incidencias
+                   if i.codigo == "RESPUESTA-NO-MEDIDA"]
+        assert "mayúsculas" not in nota.mensaje
+
+    @pytest.mark.parametrize("codigo", ["QUERYBYID", "DOWNLOADBYLOC", "PAYMENT", "CANCELINVOICE"])
+    def test_los_conocidos_no_la_llevan(self, codigo):
+        assert "RESPUESTA-NO-MEDIDA" not in [i.codigo for i in medir(peticion(codigo)).incidencias]
+
+    def test_varios_codigos_desconocidos_dan_una_sola_nota(self):
+        dos = peticion("UNO").replace(
+            "</ApplicationResponse>",
+            "<cac:DocumentResponse><cac:Response><cbc:ResponseCode>DOS"
+            "</cbc:ResponseCode></cac:Response></cac:DocumentResponse></ApplicationResponse>")
+        notas = [i for i in medir(dos).incidencias if i.codigo == "RESPUESTA-NO-MEDIDA"]
+        assert len(notas) == 1 and "UNO" in notas[0].mensaje and "DOS" in notas[0].mensaje
+
+    def test_el_mismo_codigo_dos_veces_se_nombra_una(self):
+        """La rotura que salió verde el 12-11-2026: sin quitar repetidos, la
+        nota decía "los códigos UNO y UNO"."""
+        dos = peticion("UNO").replace(
+            "</ApplicationResponse>",
+            "<cac:DocumentResponse><cac:Response><cbc:ResponseCode>UNO"
+            "</cbc:ResponseCode></cac:Response></cac:DocumentResponse></ApplicationResponse>")
+        (nota,) = [i for i in medir(dos).incidencias if i.codigo == "RESPUESTA-NO-MEDIDA"]
+        assert nota.encontrado == "UNO" and "el código UNO," in nota.mensaje
+
+    def test_tiene_ficha_y_es_de_la_casa(self):
+        assert "RESPUESTA-NO-MEDIDA" in glosario.CODIGOS
+        assert normas.norma("RESPUESTA-NO-MEDIDA")[0] == normas.CASA
