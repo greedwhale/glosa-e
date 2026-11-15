@@ -57,7 +57,7 @@ from validador.cadena import (
     SUFIJO_DE_SELLOS,
     Almacen,
 )
-from validador import bitacora, cifras, novedades, pagina_incidencias
+from validador import alojamiento, bitacora, cifras, novedades, pagina_incidencias
 from validador.codigos import codigos_del_paquete
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
@@ -788,6 +788,16 @@ class SinPaquete(NoSeMonta):
     sin tener que armar 389 anclas. Lo que no puede pasar es **publicar** así
     sin enterarse, y un aviso por pantalla no lo impide cuando quien monta es
     una construcción automática que solo mira el código de salida.
+    """
+
+
+class AlojamientoQueNoSeTraduce(NoSeMonta):
+    """Una regla de `vercel.json` que no se sabe escribir para Cloudflare.
+
+    Desde el 15-11-2026 el sitio se prepara para servirse también desde
+    Cloudflare, y las dos configuraciones salen de `vercel.json`: ver
+    `validador/alojamiento.py`. Una regla traducida a medias no da error en
+    ningún sitio; sirve otra cosa. Por eso no se monta.
     """
 
 
@@ -1684,6 +1694,7 @@ def montar_sitio(
     ejemplos: str | Path = "ejemplos",
     pyodide: str | Path = CARPETA_DE_PYODIDE,
     exigir_paquete: bool = False,
+    configuracion: str | Path = alojamiento.CONFIGURACION,
 ) -> Sitio:
     """Deja en `destino` lo que hay que subir, y nada más.
 
@@ -1812,6 +1823,18 @@ def montar_sitio(
     # Y el nombre de la ficha de la portada, por lo mismo: se sabe ya si falta,
     # y si se descubre al final queda media carpeta montada.
     nombre_del_titular = _nombre_del_titular(pagina)
+
+    # Las reglas del alojamiento, traducidas para Cloudflare. Por lo mismo que
+    # todo lo de arriba: si una no se sabe traducir, se sabe ya, antes de
+    # escribir el primer byte. Se escriben al final, detrás del manifiesto, y
+    # fuera de él a propósito: Cloudflare los lee y no los sirve, así que una
+    # huella suya en `rueda.json` sería una dirección que da 404.
+    try:
+        reglas = alojamiento.leer(Path(configuracion))
+        reglas_de_cabeceras = alojamiento.cabeceras(reglas)
+        reglas_de_redirecciones = alojamiento.redirecciones(reglas)
+    except (ValueError, KeyError) as error:
+        raise AlojamientoQueNoSeTraduce(str(error)) from error
 
     _se_puede_borrar(destino)
     if destino.exists():
@@ -2127,6 +2150,9 @@ def montar_sitio(
                    indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    (destino / alojamiento.CABECERAS).write_text(reglas_de_cabeceras, encoding="utf-8")
+    (destino / alojamiento.REDIRECCIONES).write_text(
+        reglas_de_redirecciones, encoding="utf-8")
 
     return Sitio(
         carpeta=destino,

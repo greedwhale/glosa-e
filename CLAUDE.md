@@ -84,6 +84,7 @@ qué cambió. Son dos juegos distintos y conviene no confundirlos:
 |---|---|---|
 | en el navegador | Pyodide 314.0.6 y su lxml 6.0.2 | `paquete.py` y `glosa.js`, que tienen que decir lo mismo |
 | en lo que construye | lxml 6.1.2, setuptools 84.0.0 | `vercel.json`, `requisitos-pruebas.txt` y `[build-system]` |
+| en Cloudflare, preparado y sin usar | wrangler 4.155.0, Python 3.14.6 | `package.json`; el Python lo exige `herramientas/construir.py` contra el del flujo de GitHub |
 
 setuptools va en `pyproject.toml` y no en la orden de Vercel porque `pip wheel`
 construye en un entorno aislado y se trae el que diga `requires`. Y los seis
@@ -223,6 +224,11 @@ tampoco prueba que corran: prueba que están escritos.
   dominio canónico es **`www.glosa-e.com`** y el ápice redirige a él con un
   308; <https://glosa-dhm7.vercel.app> sigue sirviendo lo mismo. El porqué del
   nombre y los vecinos, en `MARCA.md`.
+- **La mudanza a Cloudflare está preparada y sin hacer** (15-11-2026). Las
+  reglas del alojamiento se escriben solo en `vercel.json`: `--sitio` las
+  traduce a `_headers` y `_redirects` y se niega si no sabe. Los pasos, y cuáles
+  son del titular, en el README («La mudanza a Cloudflare»). Ningún alojamiento
+  se da por bueno sin `herramientas/comparar_alojamiento.py` limpio contra él.
 - **Después de publicar, se avisa a Bing** con
   `./.venv/Scripts/python.exe -m validador --avisar-indexnow`, con `sitio/`
   montado desde el commit de `main`. Solo manda las páginas que cambiaron

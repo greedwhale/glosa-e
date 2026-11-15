@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4212 tests, todos en verde.
+4243 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -7366,6 +7366,80 @@ obliga a que quien la distribuya juegue con las mismas cartas.
 
 Glosa y Glosa-e son marcas del titular; la licencia AGPL cubre el código, no el
 nombre.
+
+## La mudanza a Cloudflare
+
+Preparada el 15-11-2026 y **sin hacer**: hasta el paso 6, el sitio lo sigue
+sirviendo Vercel y nada cambia para quien lo visita.
+
+**Por qué.** El plan gratuito de Vercel es solo para uso personal y no
+comercial. Las condiciones de Cloudflare (Self-Serve Subscription Agreement,
+releídas ese día) no ponen esa condición; solo prohíben recoger datos de
+tarjeta en una propiedad gratuita. Va a Workers con ficheros estáticos y no a
+Pages porque la documentación de Pages dice, ese mismo día, que los proyectos
+nuevos empiecen en Workers.
+
+**Lo que se comprobó antes, en la documentación de Cloudflare del 15-11-2026:**
+
+| Qué | Plan gratuito | El sitio, medido |
+|---|---|---|
+| Ficheros por versión | 20.000 | 488 |
+| Tamaño por fichero | 25 MiB | el mayor, `pyodide.asm.wasm`, 9,6 MB |
+| Reglas de cabeceras | 100 | 13 |
+| Redirecciones fijas | 2.000 | 141 |
+| Peticiones a ficheros | gratis y sin límite | sin script, todas lo son |
+| Construcción | Python a elegir con `PYTHON_VERSION` | el de la suite, 3.14.6 |
+
+**Cómo está hecho, y por qué así.** Las reglas del alojamiento se siguen
+escribiendo una vez, en `vercel.json`. `--sitio` las traduce a `_headers` y
+`_redirects`, que es lo que lee Cloudflare, y se niega a montar
+(`AlojamientoQueNoSeTraduce`) si una no se sabe traducir. Cloudflare construye
+con `herramientas/construir.py`, que corre la orden de `vercel.json` y se niega
+si el Python no es el de la suite. `wrangler.jsonc` dice qué carpeta se publica
+y cómo se tratan las direcciones; `package.json` solo fija la versión de
+wrangler. Lo que no es traducción literal, y por qué, está en
+`validador/alojamiento.py`: el `no-transform`, que impide que Cloudflare
+reescriba los correos de las páginas.
+
+**La prueba que vale** es `herramientas/comparar_alojamiento.py`: baja los 488
+ficheros y los compara con las huellas de `rueda.json`, y mira la caché de cada
+regla, las cabeceras de seguridad, las 141 redirecciones, las direcciones
+limpias, el 404, las mayúsculas, las cookies y los scripts ajenos. Contra
+producción en Vercel, el 15-11-2026: limpio, en 3 min 50 s.
+
+**Los pasos, en orden.** Los marcados *(titular)* son clics en paneles con su
+sesión; ninguno pide pasar una clave a nadie.
+
+1. *(titular)* Crear la cuenta de Cloudflare, plan gratuito.
+2. *(titular)* En **Workers & Pages → Create → Import a repository**, conectar
+   GitHub y elegir `greedwhale/glosa-e`, rama `main`. Nombre del Worker:
+   **`glosa`** (si no, el despliegue se niega). Orden de construcción:
+   `python3 herramientas/construir.py`. Orden de despliegue: la que trae,
+   `npx wrangler deploy`. Variable de construcción: `PYTHON_VERSION` =
+   `3.14.6`.
+3. Cuando la primera construcción acabe, comparar la dirección de prueba que da
+   (`https://glosa.<cuenta>.workers.dev`):
+   `./.venv/Scripts/python.exe -m herramientas.comparar_alojamiento https://glosa.<cuenta>.workers.dev`.
+   **Si no sale limpio, no se sigue.**
+4. *(titular)* **Add a site** con `glosa-e.com`, plan gratuito. Antes de
+   aceptar, comprobar que la lista de registros que encuentra lleva los del
+   correo, o el correo deja de llegar el día del paso 6: los tres MX de Zoho
+   (`mx.zoho.com` 10, `mx2.zoho.com` 20, `mx3.zoho.com` 50), el TXT de SPF
+   (`v=spf1 include:zohomail.com ~all`), el DKIM de `zmail._domainkey`, el de
+   `_dmarc`, y el TXT de verificación de Google. Leídos del DNS el 15-11-2026.
+5. *(titular)* En el Worker, **Settings → Domains & Routes → Add → Custom
+   domain**: `www.glosa-e.com`. Para el ápice, una **Redirect Rule** de la
+   plantilla *Redirect from root to WWW* con código **308** y la ruta y la
+   consulta conservadas, que es lo que hace hoy Vercel. En **Security**, dejar
+   apagado *Bot Fight Mode*: pone la cookie `__cf_bm`, y la política de
+   privacidad dice que no hay cookies.
+6. *(titular)* En Vercel, **Domains → glosa-e.com → Nameservers**, poner los dos
+   que da Cloudflare. Desde aquí, lo que se sirva lo sirve Cloudflare.
+7. Comparar otra vez, ahora contra `https://www.glosa-e.com`. Y el mismo día:
+   cambiar el proveedor de alojamiento en `web/legal.html` (hoy dice Vercel
+   Inc.), y en este README, CLAUDE.md y la habilidad `comprobar-produccion`.
+8. Unos días después, con todo limpio, quitar el proyecto de Vercel. El dominio
+   sigue registrado allí: solo cambian sus servidores de nombres.
 
 ## Fuentes
 

@@ -81,3 +81,8 @@ anexos/
 # como factura y como cobra—. Si el repositorio se hace publico, lo que este
 # en la historia ya no se puede retirar. Que hay y por que, en informes/LEEME.md.
 informes/
+
+# Lo que dejan wrangler y npm si alguien despliega a Cloudflare desde esta copia
+# (ver «La mudanza a Cloudflare» en el README). Se construye; no se versiona.
+node_modules/
+.wrangler/

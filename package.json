@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Solo fija la versión de wrangler con la que Cloudflare despliega el sitio. El sitio no usa Node: ver wrangler.jsonc y validador/alojamiento.py.",
+  "devDependencies": {
+    "wrangler": "4.155.0"
+  }
+}

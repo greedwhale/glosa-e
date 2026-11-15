@@ -1,0 +1,38 @@
+// La configuración del sitio en Cloudflare (Workers con ficheros estáticos),
+// preparada el 15-11-2026 para la mudanza desde Vercel. El porqué, en
+// `validador/alojamiento.py`; los pasos, en el README.
+//
+// No hay script: solo ficheros. Las peticiones a ficheros estáticos son
+// gratuitas y sin límite en el plan gratuito; las que ejecutan un script
+// cuentan contra una cuota diaria. Sin `main`, ninguna lo ejecuta.
+{
+  // Tiene que llamarse igual que el Worker creado en el panel: si no,
+  // Workers Builds se niega a desplegar.
+  "name": "glosa",
+
+  // Fijada, como todo lo que se prueba: ver «Las versiones se fijan» en
+  // CLAUDE.md. Con un sitio sin script apenas cambia nada, pero así no se
+  // mueve sola.
+  "compatibility_date": "2026-11-15",
+
+  "assets": {
+    // Lo que monta `python -m validador --sitio sitio`, igual que el
+    // `outputDirectory` de `vercel.json`. Lo vigila
+    // `tests/test_alojamiento.py`.
+    "directory": "./sitio",
+
+    // Lo que en Vercel son `cleanUrls` y `trailingSlash: false`: `/legal`
+    // sirve `legal.html`, y `/legal.html` y `/legal/` redirigen a `/legal`.
+    // Cloudflare redirige con 307 y Vercel con 308; los enlaces del sitio
+    // ya van a la dirección limpia (ver `_a_la_limpia` en `paquete.py`).
+    "html_handling": "drop-trailing-slash",
+
+    // Lo que no existe contesta 404 con nuestra `404.html`, como en Vercel.
+    "not_found_handling": "404-page"
+  },
+
+  // La dirección `glosa.<cuenta>.workers.dev` se queda encendida: es donde se
+  // prueba el sitio antes de mover el dominio, con
+  // `herramientas/comparar_alojamiento.py`.
+  "workers_dev": true
+}
