@@ -9,12 +9,12 @@ disable-model-invocation: true
 Esto es el ritual de después de desplegar, escrito para no tener que acordarse
 de las siete cosas que hay que mirar. **Se comprueba contra producción, no
 contra local**, porque lo que se rompe al publicar es justo lo que en local no
-se ve: las cabeceras que pone Vercel, las rutas reales y lo que el navegador de
+se ve: las cabeceras que pone el alojamiento (Cloudflare desde el 15-11-2026), las rutas reales y lo que el navegador de
 un desconocido pide de verdad.
 
 Sitio: **<https://www.glosa-e.com>**, que es el dominio canónico desde el
-31-08-2026 —el ápice redirige a él con un 308—. <https://glosa-dhm7.vercel.app>
-sigue sirviendo el mismo despliegue, pero lo que hay que comprobar es lo que
+31-08-2026 —el ápice redirige a él con un 308—. <https://glosa.greedwhale.workers.dev>
+sirve el mismo despliegue, pero lo que hay que comprobar es lo que
 visita la gente: las cabeceras y las redirecciones son del dominio, no del
 despliegue.
 

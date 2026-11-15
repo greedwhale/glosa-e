@@ -30,7 +30,7 @@ El detalle está en cuatro documentos y este fichero no los repite:
 - **La excepción, decidida a propósito:** `web/paquete.zip` y
   `web/PAQUETE.json` **sí** se versionan, con su SHA-256 publicado al lado.
   Es lo que hace que el sitio se pueda construir sin tener las carpetas fuente.
-- **Nunca pedir ni manejar tokens, contraseñas ni claves.** GitHub y Vercel los
+- **Nunca pedir ni manejar tokens, contraseñas ni claves.** GitHub, Vercel y Cloudflare los
   autentica el usuario en su navegador. No se piden, no se reciben, no se
   escriben. **La de IndexNow no es de estas**, y está en
   `paquete.CLAVE_DE_INDEXNOW` a propósito: el protocolo la publica en la raíz
@@ -84,7 +84,7 @@ qué cambió. Son dos juegos distintos y conviene no confundirlos:
 |---|---|---|
 | en el navegador | Pyodide 314.0.6 y su lxml 6.0.2 | `paquete.py` y `glosa.js`, que tienen que decir lo mismo |
 | en lo que construye | lxml 6.1.2, setuptools 84.0.0 | `vercel.json`, `requisitos-pruebas.txt` y `[build-system]` |
-| en Cloudflare, preparado y sin usar | wrangler 4.155.0, Python 3.14.6 | `package.json`; el Python lo exige `herramientas/construir.py` contra el del flujo de GitHub |
+| en Cloudflare, desde el 15-11-2026 | wrangler 4.155.0, Python 3.14.6 | `package.json`; el Python lo exige `herramientas/construir.py` contra el del flujo de GitHub |
 
 setuptools va en `pyproject.toml` y no en la orden de Vercel porque `pip wheel`
 construye en un entorno aislado y se trae el que diga `requires`. Y los seis
@@ -136,7 +136,7 @@ fuera de su carpeta temporal o que dependa de cómo ordena rutas el sistema pasa
 aquí y falla allí (lo que destapó al montarla está en HALLAZGOS).
 `tests/test_pruebas_en_github.py` vigila que allí corra la suite entera, con el
 Python del flujo, las versiones de `requisitos-pruebas.txt` y la comprobación
-llamada `suite`. **No está enganchado a Vercel, a propósito**: lo que la
+llamada `suite`. **No está enganchado a Vercel ni a Cloudflare, a propósito**: lo que la
 convierte en puerta es la **protección de `main`**, que exige `suite` de la
 aplicación de GitHub Actions (no basta otra que pinte un verde con el mismo
 nombre), también al dueño, y no admite pushes forzados ni que se borre. Se
@@ -209,7 +209,7 @@ tampoco prueba que corran: prueba que están escritos.
   En local se monta **sin** el paquete de esquemas y anclas si no está: se
   avisa por pantalla y se sale con 0, que es lo que hace falta para probar sin
   armar 389 anclas. **El despliegue pasa `--exigir-paquete`** y entonces se
-  niega: Vercel solo mira el código de salida, así que un aviso perfecto y un
+  niega: el alojamiento solo mira el código de salida, así que un aviso perfecto y un
   `return 0` publicaban igual un validador que no comprueba ni la forma ni de
   quién es la firma.
 - **La bitácora se escribe en `web/bitacora/`**, un fichero por artículo y
@@ -218,22 +218,27 @@ tampoco prueba que corran: prueba que están escritos.
   enlace, **el sitio no se monta**. Lo que se publique ahí no lleva datos de
   terceros ni nada que perjudique el negocio: recuentos agregados, nunca un
   nombre, un NIF ni un GLN.
-- **Un push a `main` despliega a producción** (Vercel lee `vercel.json`), y
-  solo entra lo que ya pasó `suite` en GitHub: los dos pasos, arriba.
-  La dirección es **`glosa-e.com`**, registrada en Vercel el 31-08-2026. El
-  dominio canónico es **`www.glosa-e.com`** y el ápice redirige a él con un
-  308; <https://glosa-dhm7.vercel.app> sigue sirviendo lo mismo. El porqué del
-  nombre y los vecinos, en `MARCA.md`.
-- **La mudanza a Cloudflare está preparada y sin hacer** (15-11-2026). Las
-  reglas del alojamiento se escriben solo en `vercel.json`: `--sitio` las
-  traduce a `_headers` y `_redirects` y se niega si no sabe. Los pasos, y cuáles
-  son del titular, en el README («La mudanza a Cloudflare»). Ningún alojamiento
-  se da por bueno sin `herramientas/comparar_alojamiento.py` limpio contra él.
+- **Un push a `main` despliega a producción**, y solo entra lo que ya pasó
+  `suite` en GitHub: los dos pasos, arriba. **Desde el 15-11-2026 la sirve
+  Cloudflare** (Workers con ficheros estáticos, el Worker `glosa`, que
+  construye con `herramientas/construir.py`). Vercel sigue construyendo cada
+  push hasta que se quite su proyecto (paso 8 de la mudanza, en el README).
+  La dirección es **`glosa-e.com`**, registrada en Vercel el 31-08-2026 y con
+  los servidores de nombres en Cloudflare desde la mudanza. El dominio
+  canónico es **`www.glosa-e.com`** y el ápice redirige a él con un 308 (una
+  Redirect Rule de Cloudflare). La dirección de prueba es
+  <https://glosa.greedwhale.workers.dev>. El porqué del nombre y los vecinos,
+  en `MARCA.md`.
+- **Las reglas del alojamiento se escriben solo en `vercel.json`**: `--sitio`
+  las traduce a `_headers` y `_redirects` y se niega si no sabe. Ningún
+  alojamiento se da por bueno sin `herramientas/comparar_alojamiento.py`
+  limpio contra él. Lo medido en la mudanza, y la única diferencia aceptada
+  (307 y no 308 para las variantes `.html`), en el README.
 - **Después de publicar, se avisa a Bing** con
   `./.venv/Scripts/python.exe -m validador --avisar-indexnow`, con `sitio/`
   montado desde el commit de `main`. Solo manda las páginas que cambiaron
   desde el último aviso, y se niega con código 2 si producción no sirve lo
-  montado. No va en la construcción de Vercel porque esa corre antes de que el
+  montado. No va en la construcción del alojamiento porque esa corre antes de que el
   despliegue esté en el aire.
 - **El repositorio es `greedwhale/glosa-e`** desde el 21-10-2026. Se rehízo la
   historia para poder abrirla sin datos personales (el porqué, en el commit

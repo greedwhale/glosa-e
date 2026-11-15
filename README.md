@@ -7369,8 +7369,32 @@ nombre.
 
 ## La mudanza a Cloudflare
 
-Preparada el 15-11-2026 y **sin hacer**: hasta el paso 6, el sitio lo sigue
-sirviendo Vercel y nada cambia para quien lo visita.
+**Hecha el 15-11-2026**: desde ese día `www.glosa-e.com` lo sirve Cloudflare.
+Vercel sigue construyendo cada push a `main` hasta el paso 8, y sirve lo mismo
+a quien aún tenga en caché sus servidores de nombres.
+
+**Medido ese día, después del paso 6:**
+
+- `https://glosa.greedwhale.workers.dev` contra Vercel: 486 de los 487
+  ficheros del manifiesto, idénticos byte a byte. El otro es la rueda, que
+  lleva dentro lo mismo y solo cambia la fecha que guarda el zip al
+  construirse (los wheels no son reproducibles, y por eso viajan bajo su
+  huella).
+- `https://www.glosa-e.com`, ya servido por Cloudflare: la comparación,
+  limpia. El ápice redirige a `www` con un 308 y conserva la ruta y la
+  consulta. Sin cookies y sin scripts de Cloudflare en las páginas.
+- El correo de Zoho (los tres MX, SPF, DKIM y DMARC) y la verificación de
+  Google, en los servidores de Cloudflare.
+- Una diferencia, aceptada por el titular: la variante `.html` o con barra
+  final de una página lleva a la dirección limpia con un **307** y no con el
+  308 de Vercel. Lo hace `html_handling` y su documentación no deja cambiar el
+  código. Pesa poco porque las canónicas, el sitemap y los enlaces internos ya
+  usan la dirección limpia: solo lo nota quien llegue con un enlace viejo.
+  Igualarlo pediría reglas en `_redirects`, y la documentación no dice si se
+  aplican antes que `html_handling`: habría que medirlo.
+- Durante la propagación, la primera comparación se cortó con `getaddrinfo
+  failed`: el DNS de este equipo dejó de resolver el dominio un momento. La
+  segunda salió limpia.
 
 **Por qué.** El plan gratuito de Vercel es solo para uso personal y no
 comercial. Las condiciones de Cloudflare (Self-Serve Subscription Agreement,
