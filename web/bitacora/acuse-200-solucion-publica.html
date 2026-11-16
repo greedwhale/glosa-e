@@ -1,0 +1,173 @@
+<article class="entrada"
+  data-fecha="2026-11-16"
+  data-titulo="Qué quiere decir un 200 en el acuse de la solución pública de la AEAT"
+  data-entradilla="La AEAT publicó el 10 de noviembre los ejemplos de casi todos los servicios de la solución pública. Con ellos se ve que el mismo acuse contesta a la remisión, a la anulación y a los estados de la factura, y que un 200 dice que se aceptó lo que se pedía, no que la factura se dio de alta. Lo que dicen los ejemplos, lo que hace su validador previo y las erratas que traen.">
+
+  <time datetime="2026-11-16">16 de noviembre de 2026</time>
+  <h1>Qué quiere decir un 200 en el acuse de la solución pública de la AEAT</h1>
+  <p class="lema">El mismo acuse sirve para la remisión, para la anulación y para
+  los estados de la factura. Un 200 dice que <b>se aceptó lo que se pedía</b>, no
+  que la factura se diera de alta. Leído en los ejemplos que la AEAT publicó el
+  10 de noviembre.</p>
+
+  <p>El 10 de noviembre la AEAT publicó en su portal de desarrolladores la
+  versión 0.1.5 del catálogo de servicios de la solución pública y ocho
+  ejemplos nuevos: anulación, consulta por identificador, consulta con filtro,
+  descarga por identificador, descarga por localizador, los estados que
+  comunica quien recibe la factura, los que comunica quien la emite y la
+  validación previa. Hasta ese día había un solo ejemplo de respuesta, el de la
+  remisión, y con uno solo era fácil sacar una conclusión equivocada.</p>
+
+  <h2>Un mismo acuse para casi todo</h2>
+
+  <p>La solución pública contesta a la remisión, a la anulación y a las
+  comunicaciones de estado con el mismo documento: un <code>DocumentStatus</code>
+  de UBL 2.5, con la misma cabecera. En los ejemplos, las cuatro respuestas
+  llevan un 200. Lo único que cambia es la frase que acompaña a cada
+  factura:</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Las cuatro respuestas de ejemplo con un 200</caption>
+    <thead><tr><th>Qué se pidió</th><th>Cabecera</th><th>Lo que dice de la factura</th></tr></thead>
+    <tbody>
+      <tr><td>Remisión, el alta</td><td>200, <i>Todas las facturas correctas</i></td><td><i>Factura Ok</i></td></tr>
+      <tr><td>Anulación</td><td>200, <i>Todas las facturas correctas</i></td><td><i>Anulación correcta</i> (en el fichero, sin tilde)</td></tr>
+      <tr><td>El pago, que comunica quien recibe (<code>PAYMENT</code>)</td><td>200, <i>Todas las Acciones correctas</i></td><td><i>Factura SETTLEMENT Ok</i></td></tr>
+      <tr><td>El cobro, que comunica quien emite (<code>SETTLEMENT</code>)</td><td>200, <i>Todas las Acciones correctas</i></td><td><i>Factura SETTLEMENT Ok</i></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>El acuse <b>no dice a qué servicio contesta</b>: eso va en el sobre ebXML
+  que lo acompaña. Así que un 200 no quiere decir que la factura conste como
+  dada de alta. Quiere decir que se aceptó lo que se pedía sobre ella, fuera
+  darla de alta, anularla o decir que está pagada. Quien guarde el estado de
+  sus facturas leyendo solo el acuse tiene que cruzarlo con lo que mandó.</p>
+
+  <p>La cabecera puede decir tres cosas, según el documento de formatos de
+  entrada y salida (versión 0.1.2): <b>200</b> si se aceptó todo, <b>406</b> si
+  solo una parte y <b>400</b> si nada. De cada factura, el único estado
+  publicado es el 200; los demás códigos no tienen lista. El localizador, que
+  es con lo que luego se descarga la factura, solo viene en el acuse de la
+  remisión: en los de anulación y estados va vacío.</p>
+
+  <p>Las consultas contestan con otra cabecera: en lugar del código de la
+  respuesta llevan un estado con el 200 y la frase <i>Búsqueda realizada
+  correctamente</i>, y cada factura encontrada viene marcada como
+  <code>ACCEPTED</code>.</p>
+
+  <h2>El validador previo, solo en pruebas</h2>
+
+  <p>El catálogo describe un servicio para validar una factura antes de
+  mandarla (apartado 6.10). Hace tres comprobaciones seguidas: la forma del
+  XML, la norma europea EN 16931 y las reglas de negocio de la solución
+  pública. Admite <b>una sola factura por petición</b>, pide la misma
+  autorización que los demás servicios (apoderamiento o colaborador social) y
+  estará disponible únicamente en el entorno de pruebas: <b>en producción no
+  existe</b>. Y el propio catálogo avisa de que pasarlo no garantiza que la
+  factura se acepte después, porque entre la validación y la remisión pueden
+  cambiar las condiciones.</p>
+
+  <p>Su respuesta de ejemplo trae un 400 con cuatro motivos para una sola
+  factura, que sale una vez por cada motivo. Ahí aparecen por primera vez los
+  códigos de rechazo de la AEAT:</p>
+
+  <ul>
+    <li><code>SPFE-CORE-18</code>: la cuenta de pago (BT-84) no es un IBAN
+    válido.</li>
+    <li><code>SPFE-IDEN-02</code> y <code>SPFE-IDEN-05</code>: el NIF de quien
+    emite y el de quien recibe tienen un formato erróneo.</li>
+    <li><code>SPFE-REPR-01</code>: el titular del certificado tiene que ser el
+    obligado a emitir, un colaborador social, un apoderado o un sucesor.</li>
+  </ul>
+
+  <p>La lista entera no está publicada: no viene en el catálogo, ni en el
+  documento de formatos, ni en el de validaciones.</p>
+
+  <h2>Los límites</h2>
+
+  <ul>
+    <li><b>5.120 KB</b> por factura (catálogo, apartado 6.2.3).</li>
+    <li><b>1.000</b> identificadores por consulta (apartado 6.4.3).</li>
+    <li><b>1.000</b> facturas como mucho en la respuesta a una consulta con
+    filtro (apartado 6.5.3).</li>
+  </ul>
+
+  <h2>Lo que traen mal los ejemplos</h2>
+
+  <p>Conviene saberlo antes de escribir un lector estricto que rechace lo que
+  devuelve la AEAT:</p>
+
+  <ul>
+    <li><b>El acuse del pago</b> contesta a un <code>PAYMENT</code> y dice
+    <i>Factura SETTLEMENT Ok</i>, que es el código del cobro.</li>
+    <li><b>Las dos respuestas de consulta</b> no pasan el esquema
+    <code>UBL-DocumentStatus-2.5.xsd</code>: a su
+    <code>cac:DocumentResponse</code> le falta
+    <code>cac:DocumentReference</code>.</li>
+    <li><b>La respuesta del validador previo</b> no lleva
+    <code>cbc:IssueDate</code>, la fecha que el esquema exige. El acuse de
+    ejemplo de la remisión sí la lleva desde el 29 de octubre. Además, esa
+    respuesta viene dentro de un sobre SOAP 1.2, sin ebXML, como dice su
+    WSDL.</li>
+  </ul>
+
+  <h2>Lo que hace Glosa-e con ellos</h2>
+
+  <p>Hasta el 11 de noviembre, Glosa-e decía de un acuse de anulación que la
+  factura constaba como dada de alta: se había escrito con el único ejemplo
+  que había, el de la remisión. Afirmaba lo contrario de lo que había pasado.
+  Desde ese día lee estos documentos con lo que la AEAT ha publicado, y dice
+  también lo que no mira:</p>
+
+  <ul>
+    <li><a href="./codigo-SPFE-ACUSE-ALCANCE.html"><code>SPFE-ACUSE-ALCANCE</code></a>:
+    con qué se ha leído el acuse y lo que no se comprueba, como que las
+    facturas existan.</li>
+    <li><a href="./codigo-SPFE-ACUSE-ACEPTADA.html"><code>SPFE-ACUSE-ACEPTADA</code></a>
+    y <a href="./codigo-SPFE-ACUSE-RECHAZADA.html"><code>SPFE-ACUSE-RECHAZADA</code></a>:
+    cada factura, con lo que se aceptó o el código que le dieron, sin adivinar
+    qué se pedía.</li>
+    <li><a href="./codigo-SPFE-ACUSE-SOBRE.html"><code>SPFE-ACUSE-SOBRE</code></a>:
+    abre el sobre SOAP de la respuesta del validador previo.</li>
+    <li><a href="./codigo-SPFE-ACUSE-CONSULTA.html"><code>SPFE-ACUSE-CONSULTA</code></a>
+    y <a href="./codigo-SPFE-PETICION-ALCANCE.html"><code>SPFE-PETICION-ALCANCE</code></a>:
+    las respuestas de consulta y las peticiones de consulta y descarga, que
+    antes pasaban sin una nota.</li>
+  </ul>
+
+  <p>Glosa-e es gratis, es código abierto y <b>corre entero en tu
+  navegador</b>: el fichero no sale de tu ordenador. Está <b>en desarrollo y en
+  pruebas</b>. Si encuentras algo mal o tienes alguna propuesta,
+  <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20">escríbeme</a>.</p>
+
+  <footer class="fuentes">
+    <h2>De dónde sale</h2>
+    <ul>
+      <li><a href="https://www.agenciatributaria.es/AEAT.desarrolladores/Desarrolladores/_menu_/Documentacion/Solucion_Publica_de_Facturacion_Electronica__SPFE_/Solucion_Publica_de_Facturacion_Electronica__SPFE_.html">Portal
+      de desarrolladores de la AEAT, solución pública de facturación
+      electrónica</a>, y su página de <a href="https://www.agenciatributaria.es/AEAT.desarrolladores/Desarrolladores/_menu_/Documentacion/Solucion_Publica_de_Facturacion_Electronica__SPFE_/SPFE___Descripcion_de_servicios_web/Ejemplos_de_peticiones_y_respuestas_de_servicios_web/Ejemplos_de_peticiones_y_respuestas_de_servicios_web.html">ejemplos
+      de peticiones y respuestas</a>, con la petición y la respuesta de cada
+      servicio.</li>
+      <li><a href="https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/Facturacion-electronica/CatalogoServicios.pdf">Catálogo
+      de servicios</a>, versión 0.1.5: el apartado 6.10 (el validador previo)
+      y las restricciones de los apartados 6.2.3, 6.4.3 y 6.5.3.</li>
+      <li><a href="https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/Facturacion-electronica/FormatosEntradaSalida.pdf">Formatos
+      de entrada y salida</a>, versión 0.1.2: el 200, el 406 y el 400 de la
+      cabecera.</li>
+      <li><a href="./novedades.html">Las novedades de Glosa-e</a> del 11 y el
+      12 de noviembre, y <a href="./incidencias.html">los códigos</a>, con lo
+      que mira cada uno.</li>
+    </ul>
+    <p class="metodo"><b>Cómo se midió.</b> Los ficheros se bajaron el 10 de
+    noviembre de 2026 y se guardó su huella. Los 19 de negocio de los ejemplos
+    se pasaron por Glosa-e el 15 de noviembre, con el código que se sirve hoy
+    en glosa-e.com; los sobres ebXML no se validan. El esquema de los acuses es
+    el <code>UBL-DocumentStatus-2.5.xsd</code> de OASIS. El catálogo cambió el
+    11 de noviembre sin subir de versión, en una sola línea, la dirección del
+    validador; lo que cita este artículo no cambió. El 16 de noviembre se
+    volvieron a bajar los ejemplos citados y son los mismos.</p>
+  </footer>
+
+</article>

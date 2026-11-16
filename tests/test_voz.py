@@ -408,6 +408,38 @@ def test_la_licencia_solo_en_el_aviso_legal(pagina):
         "no en las páginas ni en el cierre de la bitácora.")
 
 
+# --- Frases que no se publican ---------------------------------------------
+#
+# El 16-11-2026 el titular pidió quitar "byte a byte" del cierre de un artículo
+# de la bitácora y que no volviera a publicarse. En el código, el README y
+# HALLAZGOS sigue valiendo, porque ahí describe lo que compara una prueba; en lo
+# que lee el público, no. Se vigila con lo que se lee de la página, sin
+# etiquetas ni comentarios, y en el JavaScript que pinta textos.
+
+FRASES_QUE_NO_SE_PUBLICAN = re.compile(r"\bbytes?\s+a\s+bytes?\b", re.IGNORECASE)
+
+
+def test_la_red_de_frases_caza_lo_que_ya_se_colo():
+    assert FRASES_QUE_NO_SE_PUBLICAN.search("y son los mismos, byte a byte.")
+    assert FRASES_QUE_NO_SE_PUBLICAN.search("Byte a\nbyte, iguales")
+    assert not FRASES_QUE_NO_SE_PUBLICAN.search("y son los mismos.")
+
+
+@pytest.mark.parametrize("pagina", PAGINAS, ids=lambda p: p.name)
+def test_las_paginas_sin_frases_que_no_se_publican(pagina):
+    textos = " ".join(_lo_que_se_lee_de_la_pagina(pagina))
+    encontradas = FRASES_QUE_NO_SE_PUBLICAN.findall(textos)
+    assert not encontradas, (
+        f"{pagina.name} dice {encontradas}. El titular pidió el 16-11-2026 que "
+        "no se publique: basta con decir que son iguales.")
+
+
+def test_glosa_js_sin_frases_que_no_se_publican():
+    textos = _sin_comentarios((WEB / "glosa.js").read_text(encoding="utf-8"))
+    encontradas = FRASES_QUE_NO_SE_PUBLICAN.findall(textos)
+    assert not encontradas, f"glosa.js dice {encontradas}"
+
+
 def test_el_respaldo_de_un_valor_que_falta_va_a_secas():
     """Un certificado sin nombre salía como "el emisor", con comillas."""
     from validador.incidencias import entre_comillas

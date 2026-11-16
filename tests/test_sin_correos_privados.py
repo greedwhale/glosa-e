@@ -62,7 +62,15 @@ _TEXTO = {".py", ".md", ".html", ".txt", ".js", ".json", ".toml", ".yml", ".css"
 
 
 def _versionados() -> list[Path]:
-    salida = subprocess.run(["git", "ls-files"], cwd=RAIZ, capture_output=True,
+    """Lo versionado y lo que está por versionar: lo nuevo que git no ignora.
+
+    Hasta el 16-11-2026 solo miraba `git ls-files`. Un artículo nuevo de la
+    bitácora pasó la suite entera antes del commit, porque aún no estaba
+    versionado, y lo paró el gancho de git después, con el commit ya hecho. Lo
+    que se va a publicar se mira antes de commitearlo, no después.
+    """
+    salida = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+                            cwd=RAIZ, capture_output=True,
                             text=True, encoding="utf-8", check=True).stdout
     return [RAIZ / r for r in salida.splitlines()
             if Path(r).suffix in _TEXTO and Path(r).name != Path(__file__).name]
