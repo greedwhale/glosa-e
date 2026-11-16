@@ -10,5 +10,5 @@
 index.html        2026-11-12  7bf8bd5633ef
 banco.html        2026-10-28  35c0a246dbed
 sobre.html        2026-11-12  20130dfbb9f7
-legal.html        2026-10-28  41bf1dfdf271
+legal.html        2026-11-15  3f2fa8619467
 incidencias.html  2026-11-03  bb62210b1ccb
