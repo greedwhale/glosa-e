@@ -448,3 +448,246 @@ footer .firma-pie { margin-top: 1.1rem; }
 }
 .escribir a:hover { background: var(--panel); }
 .escribir a:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+
+/* --- El guía ----------------------------------------------------------------
+   El asistente de la esquina, que pinta `guia.js` en todas las páginas. Desde
+   el 17-11-2026. La forma es la que la gente ya conoce de otros sitios (un
+   botón redondo abajo a la derecha, un panel con pestañas abajo), y lo de
+   dentro es de aquí: el signo de la marca en el botón, la cabecera del color
+   de los botones llenos, y cada respuesta con el filete al margen, que es el
+   gesto de la glosa. No hay caras ni nombres de personas: no contesta nadie,
+   se consulta un texto. */
+.guia {
+  position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 50;
+  display: flex; flex-direction: column; align-items: flex-end; gap: .75rem;
+  font: var(--t2)/1.5 var(--sans); color: var(--tinta);
+}
+.guia [hidden] { display: none !important; }
+.guia-dibujo {
+  width: 1.25rem; height: 1.25rem; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.guia .guia-signo { width: 1.7rem; height: 1.45rem; stroke-width: 3.5; }
+.guia button:focus-visible, .guia a:focus-visible, .guia textarea:focus-visible {
+  outline: 2px solid var(--acento); outline-offset: 2px;
+}
+
+/* El botón es un globo de mensaje con el signo dentro, desde el 17-11-2026
+   por decisión del titular (antes, un círculo). El globo es un dibujo y no
+   un `border-radius`: con esquinas solo sale un rectángulo con una esquina
+   picada, y lo que hace que se lea como un mensaje es la cola. La sombra va
+   en el dibujo con `drop-shadow` porque `box-shadow` sombrearía la caja del
+   botón, que es un rectángulo, y no el globo. */
+.guia-lanzador {
+  position: relative; width: 3.75rem; height: 3.5rem; padding: 0;
+  border: 0; border-radius: 14px; cursor: pointer;
+  background: none; color: var(--sobre-acento);
+}
+.guia-globo {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  fill: var(--acento); stroke: none;
+  filter: drop-shadow(0 8px 12px rgba(20,24,28,.3)) drop-shadow(0 1px 2px rgba(20,24,28,.12));
+}
+.guia-lanzador:hover .guia-globo { fill: color-mix(in srgb, var(--acento) 86%, var(--tinta)); }
+/* En el centro del cuerpo del globo y no del botón, porque la cola ocupa la
+   parte de abajo: el cuerpo mide 44 de los 56 de alto, y 22 de 56 es 39,3 %. */
+.guia-lanzador .guia-signo, .guia-lanzador .guia-bajar {
+  position: absolute; left: 50%; top: 39.3%; transform: translate(-50%, -50%);
+}
+.guia-lanzador:focus-visible { outline-offset: 3px; }
+.guia-lanzador .guia-bajar { display: none; width: 1.5rem; height: 1.5rem; stroke-width: 2.4; }
+.guia[data-abierto] .guia-lanzador .guia-signo { display: none; }
+.guia[data-abierto] .guia-lanzador .guia-bajar { display: block; }
+
+/* El aviso del minuto. */
+.guia-aviso {
+  display: flex; align-items: center; gap: .15rem;
+  /* La esquina de abajo a la derecha, casi recta: es la que da al globo, que
+     es quien lo dice. */
+  background: var(--panel); border: 1px solid var(--borde); border-radius: 12px 12px 4px 12px;
+  padding: .3rem .3rem .3rem 1rem;
+  box-shadow: 0 10px 28px -12px rgba(20,24,28,.35), var(--sombra);
+}
+.guia-aviso-texto {
+  font: 600 var(--t2)/1.3 var(--sans); color: var(--tinta);
+  background: none; border: 0; padding: .45rem 0; cursor: pointer; text-align: left;
+}
+.guia-aviso-texto:hover { color: var(--acento); }
+.guia-aviso-quitar {
+  width: 2.25rem; height: 2.25rem; border: 0; border-radius: 8px; cursor: pointer;
+  display: grid; place-items: center; background: none; color: var(--tenue);
+}
+.guia-aviso-quitar:hover { background: var(--panel-2); color: var(--tinta); }
+.guia-aviso-quitar .guia-dibujo { width: 1rem; height: 1rem; }
+
+/* El panel. */
+.guia-panel {
+  width: min(23.5rem, calc(100vw - 2rem));
+  height: min(40rem, calc(100vh - 7.5rem));
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--papel); border: 1px solid var(--borde); border-radius: 16px;
+  box-shadow: 0 24px 56px -20px rgba(20,24,28,.45), var(--sombra);
+}
+.guia-cabeza {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+  padding: .85rem .85rem 1.1rem 1.25rem;
+  background: var(--acento); color: var(--sobre-acento);
+}
+.guia-firma {
+  display: flex; align-items: center; gap: .55rem; margin: 0;
+  font: 600 var(--t1)/1 var(--sans);
+}
+.guia-firma .guia-signo { width: 1.35rem; height: 1.15rem; }
+.guia-cerrar {
+  width: 2.25rem; height: 2.25rem; border: 0; border-radius: 8px; cursor: pointer;
+  display: grid; place-items: center; background: none; color: inherit;
+}
+.guia-cerrar:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
+.guia-cabeza .guia-cerrar:focus-visible { outline-color: var(--sobre-acento); }
+.guia-titulo {
+  grid-column: 1 / -1; margin: 1.6rem 0 0;
+  font: 400 var(--t5)/1.1 var(--serif); letter-spacing: -.015em;
+}
+.guia-entradilla { grid-column: 1 / -1; margin: .55rem 0 0; font-size: var(--t1); line-height: 1.5; }
+.guia-panel:not([data-vista="inicio"]) .guia-titulo { margin-top: .5rem; font-size: var(--t3); }
+.guia-panel:not([data-vista="inicio"]) .guia-entradilla { display: none; }
+
+.guia-cuerpo { position: relative; flex: 1; min-height: 0; overflow-y: auto; padding: 1rem; }
+.guia-inicio { display: grid; gap: .6rem; }
+.guia-tapada {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* Las tarjetas de Inicio. */
+.guia-tarjeta {
+  display: flex; align-items: center; gap: .75rem; width: 100%; box-sizing: border-box;
+  text-align: left; text-decoration: none; color: var(--tinta); font: inherit;
+  background: var(--panel); border: 1px solid var(--borde); border-radius: 12px;
+  padding: .85rem 1rem; box-shadow: var(--sombra);
+}
+.guia-salida { cursor: pointer; }
+.guia-salida:hover { border-color: var(--acento); }
+.guia-salida > .guia-dibujo { margin-left: auto; color: var(--acento); }
+.guia-textos { display: grid; gap: .1rem; }
+.guia-principal { font-weight: 600; }
+.guia-secundario { font-size: var(--t1); color: var(--tenue); }
+.guia-buscador { padding: .3rem .3rem .3rem 1rem; }
+.guia-buscador:focus-within, .guia-escribir:focus-within {
+  border-color: var(--acento); box-shadow: 0 0 0 1px var(--acento);
+}
+.guia-buscador input, .guia-escribir input {
+  flex: 1; min-width: 0; border: 0; background: transparent; padding: .5rem 0;
+  font: var(--t2)/1.4 var(--sans); color: var(--tinta);
+}
+.guia-buscador input:focus, .guia-escribir input:focus { outline: 0; }
+.guia-buscador input::placeholder, .guia-escribir input::placeholder { color: var(--tenue); opacity: 1; }
+.guia-icono {
+  width: 2.5rem; height: 2.5rem; flex: none; border: 0; border-radius: 8px; cursor: pointer;
+  display: grid; place-items: center; background: none; color: var(--acento);
+}
+.guia-icono:hover { background: var(--acento-flojo); }
+
+/* Preguntas: el hilo y la caja de abajo. */
+.guia-preguntas { display: flex; flex-direction: column; min-height: 100%; }
+.guia-hilo { flex: 1; display: grid; align-content: start; gap: 1.25rem; }
+.guia-vacio { margin: 2rem .5rem; text-align: center; font-size: var(--t1); color: var(--tenue); }
+.guia-entrada { display: grid; gap: .5rem; }
+.guia-tuya {
+  justify-self: end; max-width: 85%; margin: 0; overflow-wrap: anywhere;
+  padding: .45rem .8rem; border-radius: 12px 12px 4px 12px;
+  background: var(--acento); color: var(--sobre-acento); font-size: var(--t1);
+}
+.guia-respuesta {
+  background: var(--panel); border: 1px solid var(--borde);
+  border-left: 2px solid var(--borde-fuerte); border-radius: 4px 12px 12px 12px;
+  padding: .85rem 1rem; font-size: var(--t1); line-height: 1.55; overflow-wrap: anywhere;
+}
+.guia-respuesta h3 { margin: 0 0 .15rem; font: 400 var(--t3)/1.3 var(--serif); color: var(--tinta); }
+.guia-respuesta p { margin: 0 0 .6rem; color: var(--tinta-2); }
+.guia-respuesta > :last-child, .guia-respuesta p:last-child { margin-bottom: 0; }
+.guia-respuesta .guia-de-donde { font-size: var(--t0); color: var(--tenue); }
+.guia-respuesta .guia-corta { font-weight: 600; color: var(--tinta); margin-bottom: .25rem; }
+.guia-respuesta .guia-advertencia { font-size: var(--t0); color: var(--tenue); }
+.guia-respuesta .guia-paso { color: var(--tinta); }
+.guia-respuesta .guia-elegido { color: var(--tenue); font-style: italic; }
+.guia-ir a { font-weight: 600; }
+.guia-fuentes, .guia-tambien ul { list-style: none; margin: 0 0 .6rem; padding: 0; }
+.guia-fuentes li { margin-bottom: .2rem; color: var(--tenue); }
+.guia-tambien { margin-top: .7rem; padding-top: .6rem; border-top: 1px solid var(--borde); }
+.guia-tambien p { font-size: var(--t0); color: var(--tenue); margin-bottom: .3rem; }
+.guia-tambien li { margin-bottom: .25rem; }
+.guia-otra {
+  font: inherit; color: var(--acento); background: none; border: 0; padding: 0;
+  cursor: pointer; text-align: left;
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .18em;
+}
+.guia-opciones { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 .6rem; }
+.guia-opcion, .guia-boton {
+  font: 600 var(--t1)/1.2 var(--sans); cursor: pointer; border-radius: 8px; padding: .5rem .75rem;
+}
+.guia-opcion { color: var(--tinta); background: none; border: 1px solid var(--borde-fuerte); font-weight: 400; text-align: left; }
+.guia-opcion:hover { border-color: var(--acento); color: var(--acento); }
+.guia-boton { color: var(--acento); background: var(--acento-flojo); border: 1px solid var(--acento); margin-bottom: .6rem; }
+.guia-area {
+  display: block; width: 100%; box-sizing: border-box; min-height: 6rem; resize: vertical;
+  margin: 0 0 .6rem; padding: .5rem .6rem; border: 1px solid var(--borde-fuerte); border-radius: 8px;
+  font: var(--t1)/1.5 var(--mono); color: var(--tinta); background: var(--panel-2);
+}
+.guia-codigos { display: grid; gap: .8rem; margin: .4rem 0 0; }
+.guia-codigo { padding-left: .7rem; border-left: 1px solid var(--borde-fuerte); }
+.guia-codigo a { font: 600 var(--t1)/1.4 var(--mono); }
+.guia-codigo .guia-gravedad { margin-left: .4rem; font-size: var(--t0); color: var(--tenue); }
+.guia-codigo p { margin: .15rem 0 0; }
+.guia-escribir {
+  position: sticky; bottom: -1rem; display: flex; align-items: center; gap: .25rem;
+  margin: 1rem -1rem -1rem; padding: .6rem .6rem .6rem 1.25rem;
+  background: var(--panel); border-top: 1px solid var(--borde);
+}
+
+/* Ayuda. */
+.guia-subtitulo { margin: 0 0 .7rem; font: 600 var(--t1)/1.3 var(--sans); color: var(--tinta); }
+.guia-filas + .guia-subtitulo { margin-top: 1.5rem; }
+.guia-filas, .guia-donde { list-style: none; margin: 0; padding: 0; }
+.guia-filas { display: grid; gap: .85rem; }
+.guia-filas li { display: grid; gap: .15rem; padding-left: .75rem; border-left: 2px solid var(--borde-fuerte); font-size: var(--t1); }
+.guia-filas b { color: var(--tinta); font-weight: 600; }
+.guia-filas span { color: var(--tinta-2); line-height: 1.5; }
+.guia-donde li { border-bottom: 1px solid var(--borde); }
+.guia-donde a { display: block; padding: .6rem 0; font-size: var(--t1); }
+
+/* Las pestañas. */
+.guia-pestanas {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  background: var(--panel); border-top: 1px solid var(--borde);
+}
+.guia-pestana {
+  display: grid; justify-items: center; gap: .2rem; padding: .55rem 0 .6rem;
+  font: 500 var(--t0)/1.2 var(--sans); color: var(--tenue);
+  background: none; border: 0; cursor: pointer;
+}
+.guia-pestana .guia-dibujo { width: 1.35rem; height: 1.35rem; }
+.guia-pestana:hover { color: var(--tinta); }
+.guia-pestana[aria-current] { color: var(--acento); font-weight: 600; }
+.guia .guia-pestana:focus-visible { outline-offset: -3px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .guia-panel, .guia-aviso { animation: guia-entra .2s ease-out; }
+}
+@keyframes guia-entra { from { opacity: 0; transform: translateY(8px); } }
+@media (max-width: 34rem) {
+  .guia { right: 1rem; bottom: 1rem; }
+  .guia-panel {
+    position: fixed; left: .5rem; right: .5rem; top: .5rem; bottom: 5.25rem;
+    width: auto; height: auto;
+  }
+}
+@media (forced-colors: active) {
+  .guia-tuya { border: 1px solid CanvasText; }
+  /* El globo es un relleno, y en alto contraste el sistema no pinta los
+     rellenos de un dibujo: se le dan los colores de un botón del sistema. */
+  .guia-globo { fill: ButtonFace; stroke: ButtonText; stroke-width: 1.5; filter: none; }
+  .guia-lanzador .guia-dibujo { stroke: ButtonText; }
+}
+@media print { .guia { display: none; } }

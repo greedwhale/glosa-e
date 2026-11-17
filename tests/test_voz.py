@@ -269,6 +269,17 @@ def test_glosa_js_lleva_sus_tildes():
     assert not encontradas, f"glosa.js lleva sin tilde: {', '.join(encontradas)}"
 
 
+def test_el_guia_habla_con_la_misma_voz():
+    """El asistente está en todas las páginas desde el 17-11-2026, pero no en
+    ninguna de `web/`: lo pone el montaje. Sin esto, su texto no lo leería
+    ninguna de las pruebas de arriba."""
+    codigo = (WEB / "guia.js").read_text(encoding="utf-8")
+    plural = en_plural(_sin_comentarios(codigo))
+    assert not plural, f"guia.js habla en plural: {', '.join(plural)}"
+    sin = sorted({p for t in _literales_js(codigo) for p in sin_tilde(t)})
+    assert not sin, f"guia.js lleva sin tilde: {', '.join(sin)}"
+
+
 @pytest.mark.parametrize(
     "fuente", sorted((RAIZ / "validador").glob("*.py")) + [WEB / "prueba.py"],
     ids=lambda p: p.name)

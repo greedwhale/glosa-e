@@ -2440,3 +2440,142 @@ class TestLasNovedadesSeMontan:
         with pytest.raises(paquete.SinNovedades, match="ya no lleva"):
             _montar(repositorio)
         assert not (repositorio / "sitio").exists()
+
+
+def _con_guia(repositorio, cambiar=None):
+    """El repositorio con el asistente, el de verdad."""
+    from validador import guia
+
+    texto = (_WEB_DE_VERDAD / guia.CODIGO).read_text(encoding="utf-8")
+    if cambiar:
+        texto = cambiar(texto)
+    (repositorio / "web" / guia.CODIGO).write_text(texto, encoding="utf-8")
+    return repositorio
+
+
+def _con_enlace(repositorio, a_donde):
+    banco = repositorio / "web" / "banco.html"
+    banco.write_text(banco.read_text(encoding="utf-8").replace(
+        "</body>", f'<a href="{a_donde}">x</a></body>'), encoding="utf-8")
+
+
+class TestElGuia:
+    """El asistente no está escrito en ninguna página: lo pone el montaje en
+    todas. Lo que puede romperse en silencio es lo de siempre: que una página
+    se quede sin él, que pida el índice de ayer, o que mande a donde no hay
+    nada."""
+
+    def test_cada_pagina_lo_carga_con_su_huella(self, repositorio):
+        from validador import guia
+
+        raiz = _montar(_con_guia(repositorio)).carpeta
+        datos = (raiz / guia.DATOS).read_bytes()
+        codigo = (raiz / guia.CODIGO).read_text(encoding="utf-8")
+        assert f'const DATOS_EN = "./{guia.DATOS}?v={hashlib.sha256(datos).hexdigest()[:8]}";' in codigo
+        assert guia.LLAMADA_A_LOS_DATOS not in codigo
+        etiqueta = '<script src="./{}?v={}"></script>'.format(
+            guia.CODIGO, hashlib.sha256(codigo.encode("utf-8")).hexdigest()[:8])
+        paginas = sorted(raiz.glob("*.html"))
+        assert [p.name for p in paginas] == ["banco.html", "index.html", "legal.html"]
+        for pagina in paginas:
+            montada = pagina.read_text(encoding="utf-8")
+            assert montada.count(etiqueta) == 1, pagina.name
+            assert montada.count(guia.CODIGO) == 1, pagina.name
+            # Delante del cierre, detrás de los scripts de la propia página.
+            assert montada.index(etiqueta) < montada.index("</body>")
+        # Y el manifiesto lo firma como a todo lo demás que se sirve.
+        huellas = json.loads((raiz / "dist" / paquete.NOMBRE_DE_LA_RUEDA).read_text(
+            encoding="utf-8"))["huellas"]
+        assert huellas[guia.DATOS] == hashlib.sha256(datos).hexdigest()
+        assert guia.CODIGO in huellas
+
+    def test_sin_el_asistente_no_se_pone_nada(self, repositorio):
+        from validador import guia
+
+        raiz = _montar(repositorio).carpeta
+        assert not (raiz / guia.CODIGO).exists() and not (raiz / guia.DATOS).exists()
+        for pagina in raiz.glob("*.html"):
+            assert guia.CODIGO not in pagina.read_text(encoding="utf-8")
+
+    @pytest.mark.parametrize("cambiar", [
+        lambda t: t.replace('const DATOS_EN = "./guia.json";', 'const DATOS_EN = "./guia.json" ;'),
+        lambda t: t.replace('const DATOS_EN = "./guia.json";',
+                            'const DATOS_EN = "./guia.json";\n  const DATOS_EN = "./guia.json";'),
+    ], ids=["escrita de otra forma", "dos veces"])
+    def test_si_no_dice_donde_busca_no_se_monta(self, repositorio, cambiar):
+        """Provocado: sin esa línea no hay dónde poner la huella, y el
+        asistente serviría de la caché un índice viejo sin dar ningún error."""
+        _con_guia(repositorio, cambiar)
+        with pytest.raises(paquete.SinPagina, match="DATOS_EN"):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+    @pytest.mark.parametrize("cambiar", [
+        lambda t: t.replace("</body>", ""),
+        lambda t: t.replace("</body>", "</body></body>"),
+    ], ids=["sin cierre", "con dos"])
+    def test_una_pagina_sin_un_cierre_claro_no_se_monta(self, repositorio, cambiar):
+        """Provocado: es donde va la etiqueta. Sin la negativa, la página se
+        publicaría sin el asistente y no lo diría nada."""
+        _con_guia(repositorio)
+        banco = repositorio / "web" / "banco.html"
+        banco.write_text(cambiar(banco.read_text(encoding="utf-8")), encoding="utf-8")
+        with pytest.raises(paquete.SinPagina, match="banco.html"):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+    def test_una_generada_sin_cierre_claro_tampoco_y_no_deja_nada(self, repositorio, monkeypatch):
+        """Provocado: lo que se genera también puede quedarse con dos. Se ve
+        al final, y a esas alturas hay que llevarse lo montado."""
+        _con_guia(repositorio)
+        de_verdad = paquete._con_lo_ultimo
+
+        def con_dos(portada, entradas):
+            de_verdad(portada, entradas)
+            portada.write_text(portada.read_text(encoding="utf-8") + "</body>",
+                               encoding="utf-8")
+
+        monkeypatch.setattr(paquete, "_con_lo_ultimo", con_dos)
+        with pytest.raises(paquete.SinPagina, match="index.html"):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+    def test_un_subdominio_que_no_existe_no_se_publica(self, repositorio):
+        """Provocado: una página que enlaza un subdominio que no contesta."""
+        _con_enlace(_con_guia(repositorio), "https://tienda.glosa-e.com/")
+        with pytest.raises(paquete.GuiaQueNoCuadra, match="tienda") as error:
+            _montar(repositorio)
+        assert isinstance(error.value, paquete.NoSeMonta)
+        assert not (repositorio / "sitio").exists()
+
+    def test_la_segunda_mirada_no_deja_la_carpeta_a_medias(self, repositorio, monkeypatch):
+        """Provocado: se le quita la primera mirada, la de antes de escribir,
+        para que el subdominio llegue hasta el final. Tiene que negarse igual
+        y llevarse lo montado, que a esas alturas es casi el sitio entero."""
+        from validador import guia
+
+        de_verdad = guia.revisar_los_subdominios
+        llamadas = []
+
+        def solo_la_segunda(carpeta, datos=None):
+            llamadas.append(Path(carpeta).name)
+            if len(llamadas) > 1:
+                de_verdad(carpeta, datos)
+
+        monkeypatch.setattr(guia, "revisar_los_subdominios", solo_la_segunda)
+        _con_enlace(_con_guia(repositorio), "https://tienda.glosa-e.com/")
+        with pytest.raises(paquete.GuiaQueNoCuadra, match="tienda"):
+            _montar(repositorio)
+        assert llamadas == ["web", "sitio"]
+        assert not (repositorio / "sitio").exists()
+
+    def test_un_tema_sin_fuente_oficial_no_se_publica(self, repositorio, monkeypatch):
+        from validador import guia
+
+        de_verdad = guia._temas()
+        trucado = [dict(de_verdad[0], fuentes=[("Un blog", "https://example.org/")])]
+        monkeypatch.setattr(guia, "_temas", lambda: trucado + de_verdad[1:])
+        _con_guia(repositorio)
+        with pytest.raises(paquete.GuiaQueNoCuadra):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()

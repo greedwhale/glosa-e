@@ -57,7 +57,7 @@ from validador.cadena import (
     SUFIJO_DE_SELLOS,
     Almacen,
 )
-from validador import alojamiento, bitacora, cifras, novedades, pagina_incidencias
+from validador import alojamiento, bitacora, cifras, guia, novedades, pagina_incidencias
 from validador.codigos import codigos_del_paquete
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
@@ -724,6 +724,26 @@ class SinPagina(NoSeMonta):
 
 class SinFecha(NoSeMonta):
     """`web/fechas.txt` no se puede leer, o nombra una página que no hay."""
+
+
+_CIERRE_DEL_CUERPO = "</body>"
+
+
+def _sin_cierre_del_cuerpo(nombres: list[str]) -> str:
+    return (
+        "{} no lleva{} un `</body>`, o lleva{} más de uno, así que no hay "
+        "dónde poner el guía. Se publicaría sin él y no lo diría nada.".format(
+            ", ".join(f"«{n}»" for n in nombres),
+            "n" if len(nombres) > 1 else "", "n" if len(nombres) > 1 else "")
+    )
+
+
+class GuiaQueNoCuadra(NoSeMonta):
+    """El guía contestaría con algo que no está, o mandaría a donde no hay nada.
+
+    Un tema sin su cita del BOE, una ficha que ya no existe, o una página
+    montada que nombra un subdominio que no contesta.
+    """
 
 
 class SinNovedades(NoSeMonta):
@@ -1824,6 +1844,42 @@ def montar_sitio(
     # y si se descubre al final queda media carpeta montada.
     nombre_del_titular = _nombre_del_titular(pagina)
 
+    # El guía, por lo mismo. Lo que sabe se arma **aquí** y se escribe al
+    # final: armarlo no toca el disco, y es donde saltan sus negativas (un
+    # tema sin su cita del BOE, palabras para una ficha que ya no existe).
+    # Y los subdominios se miran dos veces a propósito, como la bitácora:
+    # aquí en lo que se va a montar, y al final en lo montado, que lleva
+    # además lo que se genera.
+    codigo_del_guia = pagina / guia.CODIGO
+    datos_del_guia = None
+    try:
+        if codigo_del_guia.is_file():
+            if codigo_del_guia.read_text(encoding="utf-8").count(
+                    guia.LLAMADA_A_LOS_DATOS) != 1:
+                raise SinPagina(
+                    "«{}» ya no dice dónde busca lo que sabe con la línea `{}`, "
+                    "o lo dice más de una vez, así que no se le puede poner la "
+                    "huella y serviría de la caché un índice viejo.".format(
+                        codigo_del_guia, guia.LLAMADA_A_LOS_DATOS)
+                )
+            # La etiqueta que lo carga va delante del `</body>` de cada página,
+            # y de las plantillas salen las demás: una sin `</body>`, o con
+            # dos, se sabe ya y no a mitad del montaje.
+            sin_cierre = [h.name for h in sorted(pagina.glob("*.html"))
+                          if h.read_text(encoding="utf-8").count(_CIERRE_DEL_CUERPO) != 1]
+            if sin_cierre:
+                raise SinPagina(_sin_cierre_del_cuerpo(sin_cierre))
+            con_blog = ((pagina / bitacora.NOMBRE).is_file()
+                        and (pagina / bitacora.CARPETA).is_dir())
+            datos_del_guia = guia.armar(
+                pagina, codigos_del_paquete(),
+                bitacora.leer_entradas(pagina / bitacora.CARPETA) if con_blog else [],
+                pagina_incidencias.nombre_de, pagina_incidencias.NOMBRE,
+                _correo_del_titular(pagina))
+        guia.revisar_los_subdominios(pagina, datos_del_guia)
+    except guia.GuiaMal as error:
+        raise GuiaQueNoCuadra(str(error)) from error
+
     # Las reglas del alojamiento, traducidas para Cloudflare. Por lo mismo que
     # todo lo de arriba: si una no se sabe traducir, se sabe ya, antes de
     # escribir el primer byte. Se escriben al final, detrás del manifiesto, y
@@ -2060,6 +2116,39 @@ def montar_sitio(
         if leidas_novedades.entradas:
             cambios[novedades.NOMBRE] = max(e.fecha for e in leidas_novedades.entradas)
 
+    # El guía, detrás de todo lo que se genera, porque contesta con ello: los
+    # códigos, las preguntas de la portada y los artículos del blog. Lo que
+    # sabe se armó arriba, antes de escribir nada, y viaja en `guia.json`; el
+    # asistente solo busca.
+    #
+    # No se escribe en ninguna página de `web/`: la etiqueta que lo carga se
+    # pone aquí, en todas las montadas, también en las 438 fichas y en cada
+    # artículo. Escrita a mano serían ocho copias que vigilar, y la página que
+    # se añada mañana se quedaría sin él sin que nada fallara.
+    #
+    # Las dos direcciones llevan su huella, por lo de siempre: la de los datos
+    # va dentro del asistente, y la del asistente, en la etiqueta. Si se añade
+    # una regla, cambia el índice, cambia el asistente y cambia la etiqueta, y
+    # nadie se queda contestando con lo de ayer.
+    if datos_del_guia is not None:
+        huella_de_los_datos, _ = guia.escribir(datos_del_guia, destino)
+        codigo_guia = codigo_del_guia.read_text(encoding="utf-8").replace(
+            guia.LLAMADA_A_LOS_DATOS,
+            f'const DATOS_EN = "./{guia.DATOS}?v={huella_de_los_datos}";')
+        (destino / guia.CODIGO).write_text(codigo_guia, encoding="utf-8", newline="\n")
+        etiqueta = f'<script src="./{guia.CODIGO}?v={_huella(codigo_guia)}"></script>\n'
+        sin_cierre = []
+        for montada in sorted(destino.glob("*.html")):
+            texto_montada = montada.read_text(encoding="utf-8")
+            if texto_montada.count(_CIERRE_DEL_CUERPO) != 1:
+                sin_cierre.append(montada.name)
+                continue
+            montada.write_text(texto_montada.replace(
+                _CIERRE_DEL_CUERPO, etiqueta + _CIERRE_DEL_CUERPO), encoding="utf-8")
+        if sin_cierre:
+            shutil.rmtree(destino)
+            raise SinPagina(_sin_cierre_del_cuerpo(sin_cierre))
+
     # Las fechas apuntadas a mano. El catálogo lista todos los códigos, así que
     # una regla nueva también lo cambia: lleva la más nueva de las dos.
     for nombre, (dia, _) in fechas.items():
@@ -2129,6 +2218,16 @@ def montar_sitio(
     # La política, después de todo lo que reescribe una página: las huellas de
     # los scripts tienen que ser las del texto que se publica.
     _con_politica(destino)
+    # Y con todo ya escrito, que nada mande a un subdominio que no existe. Es
+    # la segunda mirada: la primera fue antes de escribir, sobre lo que hay en
+    # `web/`, y esta ve además lo generado. Si salta aquí se borra lo montado,
+    # porque una carpeta a medias con cara de sitio es lo que el paso
+    # siguiente publica sin enterarse.
+    try:
+        guia.revisar_los_subdominios(destino)
+    except guia.GuiaMal as error:
+        shutil.rmtree(destino)
+        raise GuiaQueNoCuadra(str(error)) from error
 
     huellas = {}
     for camino in sorted(destino.rglob("*")):
