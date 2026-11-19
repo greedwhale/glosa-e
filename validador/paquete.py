@@ -1238,6 +1238,40 @@ def _con_las_fichas(portada: Path, fichas: list[str]) -> None:
         encoding="utf-8")
 
 
+# --- Cuántos códigos explica, en el titular de la portada --------------------
+#
+# Desde el 19-11-2026 el titular de la portada dice cuántos códigos explica:
+# es lo que se busca (validar una factura y entender el aviso) y lo que nadie
+# más ofrece en castellano. La cifra no se escribe a mano: una regla nueva la
+# dejaría vieja sin que nada fallara, y un titular que promete 438 cuando son
+# 440 es de las cosas que se publican con todo en verde. En `web/index.html`
+# va entre dos comentarios con la última que se montó, para que la página se
+# lea bien sin montar, y al montar se cambia por la de las fichas escritas.
+#
+# Cuenta los códigos con explicación **propia**, no los que tienen ficha: una
+# ficha con la explicación de la familia dice de dónde viene la exigencia,
+# no qué ha pasado, y no es un código explicado.
+_RE_HUECO_DE_LA_CIFRA = re.compile(r"<!--cifra-->\d*<!--/cifra-->")
+
+
+def _sin_hueco_de_la_cifra(nombre: str) -> str:
+    return (
+        f"«{nombre}» no lleva una vez `<!--cifra-->438<!--/cifra-->` en el "
+        "titular, así que no se le puede poner cuántos códigos explica: se "
+        "publicaría con la cifra escrita a mano, y esa se queda vieja con la "
+        "primera regla nueva sin que falle nada."
+    )
+
+
+def _con_la_cifra(portada: Path, explicados: int) -> None:
+    """Pone en el titular de la portada cuántos códigos explica."""
+    texto = portada.read_text(encoding="utf-8")
+    if len(_RE_HUECO_DE_LA_CIFRA.findall(texto)) != 1:
+        raise SinPagina(_sin_hueco_de_la_cifra(portada.name))
+    portada.write_text(_RE_HUECO_DE_LA_CIFRA.sub(str(explicados), texto, count=1),
+                       encoding="utf-8")
+
+
 # --- Sigue las novedades -----------------------------------------------------
 #
 # La línea con que acaba cada artículo de la bitácora y cada ficha de código:
@@ -1837,6 +1871,8 @@ def montar_sitio(
     if (pagina / pagina_incidencias.NOMBRE).is_file():
         if indice.read_text(encoding="utf-8").count(HUECO_DE_LAS_FICHAS) != 1:
             raise SinPagina(_sin_hueco_de_las_fichas(indice.name))
+        if len(_RE_HUECO_DE_LA_CIFRA.findall(indice.read_text(encoding="utf-8"))) != 1:
+            raise SinPagina(_sin_hueco_de_la_cifra(indice.name))
         cuantos = (pagina / pagina_incidencias.NOMBRE).read_text(
             encoding="utf-8").count(_FIN_DEL_ARTICULO)
         if cuantos:
@@ -2096,6 +2132,11 @@ def montar_sitio(
             salida.write_text(_con_seguir(generada, nombre, con_novedades),
                               encoding="utf-8")
         _con_las_fichas(destino / "index.html", fichas)
+        escritas = set(fichas)
+        _con_la_cifra(destino / "index.html", sum(
+            1 for c in codigos_del_paquete()
+            if pagina_incidencias.nombre_de(c.codigo) in escritas
+            and pagina_incidencias.explicar(c.codigo, c.familia)[1]))
 
     # Las novedades, al final de lo que se genera: necesitan las fichas ya
     # escritas, para enlazar solo los códigos que las tienen, y saber si hay

@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4368 tests, todos en verde.
+4371 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -6191,7 +6191,10 @@ Lo que se decidió con el titular ese día, por tandas, con un commit cada una:
    descripción nombra los cuatro formatos y que es gratis y sin subir el
    fichero; el titular dice cuántos códigos explica, con la cifra calculada al
    montar; y el lema pasa de *mirar* a *comprobar*, en todas sus copias a la
-   vez.
+   vez. El titular es el doble de largo, y en la columna de 19rem salía en
+   cinco líneas con "factura" sola en una; a 2rem sale en cuatro, las mismas
+   que la tarjeta. La cifra va en `web/index.html` entre `<!--cifra-->` y
+   `<!--/cifra-->`, y sin ellas, con catálogo, no se monta. — *Hecha.*
 3. **Títulos y descripciones cortos en los artículos**, con negativa al montar
    si un `<title>` pasa de 70 caracteres con la marca o una descripción de 160.
 
@@ -7388,7 +7391,7 @@ fuera todo nombre que signifique certificar o dar fe: el valor de este informe
 es que **no afirma de más**, y un nombre que prometa fe pública pelea con el
 producto todos los días. Una glosa explica; no certifica.
 
-> Glosa-e — lo que dice tu factura, y lo que no se ha podido mirar.
+> Glosa-e: lo que dice tu factura, y lo que no se ha podido comprobar.
 
 ## La licencia
 

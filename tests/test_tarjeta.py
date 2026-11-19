@@ -40,6 +40,7 @@ def test_la_portada_dice_su_titular_y_su_lema():
     un anzuelo. El salto de línea del titular cuenta como un espacio."""
     portada = (WEB / "index.html").read_text(encoding="utf-8")
     h1 = re.search(r"<h1>(.*?)</h1>", portada, re.S)[1].replace("<br>", " ")
+    h1 = re.sub(r"<!--.*?-->", "", h1)   # el hueco de la cifra, que se lee igual
     lema = re.search(r'<p class="lema"><b>(.*?)</b>', portada, re.S)[1]
     _, alt = tarjetas._pintar("index.html", portada, LETRA, set(), set())
     assert alt == " ".join(f"{h1} {lema}".split())

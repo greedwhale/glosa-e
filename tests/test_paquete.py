@@ -2256,6 +2256,7 @@ class TestLasFechasApuntadas:
 
 _WEB_DE_VERDAD = Path(paquete.__file__).parent.parent / "web"
 _INFORME_CON_HUECO = '<div id="informe" data-fichas=""></div>'
+_TITULAR_CON_HUECO = "<h1><!--cifra-->1<!--/cifra--> códigos explicados</h1>"
 
 
 def _con_catalogo(repositorio):
@@ -2267,7 +2268,8 @@ def _con_catalogo(repositorio):
         (_WEB_DE_VERDAD / "incidencias.html").read_text(encoding="utf-8"),
         encoding="utf-8")
     (web / "index.html").write_text(
-        PAGINA.replace("</body>", _INFORME_CON_HUECO + "\n</body>"),
+        PAGINA.replace("</body>", _INFORME_CON_HUECO + "\n</body>")
+        .replace("<h1>La de prueba</h1>", _TITULAR_CON_HUECO),
         encoding="utf-8")
     return repositorio
 
@@ -2320,6 +2322,35 @@ class TestElInformeEnlazaSuFicha:
         with pytest.raises(paquete.SinPagina, match="sin un solo enlace"):
             _montar(repositorio)
         assert not (repositorio / "sitio").exists()
+
+    def test_el_titular_dice_cuantos_codigos_explica(self, sitio_con_catalogo):
+        """Los que tienen explicación propia entre las fichas escritas, y no
+        la cifra que traía la plantilla."""
+        from validador import glosario
+
+        portada = (sitio_con_catalogo / "index.html").read_text(encoding="utf-8")
+        titular = re.search(r"<h1>(\d+) códigos explicados</h1>", portada)
+        assert titular, "el titular se ha montado sin la cifra, o con el hueco"
+        escritas = [p.name.removeprefix("codigo-").removesuffix(".html")
+                    for p in sitio_con_catalogo.glob("codigo-*.html")]
+        explicados = sum(1 for c in escritas if glosario.CODIGOS.get(c))
+        assert int(titular[1]) == explicados > 400
+        assert "<!--cifra-->" not in portada
+
+    def test_sin_el_hueco_de_la_cifra_no_se_monta_ni_se_escribe_nada(self, repositorio):
+        _con_catalogo(repositorio)
+        portada = repositorio / "web" / "index.html"
+        portada.write_text(portada.read_text(encoding="utf-8").replace(
+            "<!--cifra-->1<!--/cifra-->", "438"), encoding="utf-8")
+        with pytest.raises(paquete.SinPagina, match="cuántos códigos explica"):
+            _montar(repositorio)
+        assert not (repositorio / "sitio").exists()
+
+    def test_la_portada_de_verdad_lleva_la_cifra_en_el_titular(self):
+        portada = (_WEB_DE_VERDAD / "index.html").read_text(encoding="utf-8")
+        titular = re.search(r"<h1>(.*?)</h1>", portada, re.S)[1]
+        assert len(paquete._RE_HUECO_DE_LA_CIFRA.findall(portada)) == 1
+        assert paquete._RE_HUECO_DE_LA_CIFRA.search(titular)
 
     def test_sin_catalogo_no_hace_falta_el_hueco(self, repositorio):
         # El repositorio pequeño no trae la plantilla de los códigos: no hay

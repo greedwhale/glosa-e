@@ -48,7 +48,7 @@ base**.
 
 ## La frase
 
-> **Glosa-e — lo que dice tu factura, y lo que no se ha podido mirar.**
+> **Glosa-e: lo que dice tu factura, y lo que no se ha podido comprobar.**
 
 Las dos mitades hacen falta. La primera es lo que se compra; la segunda es por
 qué se puede creer la primera. Casi nadie pone la segunda, y ahí está el hueco.
