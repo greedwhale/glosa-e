@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4340 tests, todos en verde.
+4368 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -6077,65 +6077,126 @@ se avisa la próxima vez, porque se compara con lo último avisado y no con el
 último despliegue. Si el sitio se monta y se publica sin correr esto, no se
 pierde nada; se queda esperando.
 
-### La tarjeta social
+### La tarjeta social, una por página
 
 Cuando alguien pega la dirección en LinkedIn, en un grupo de WhatsApp o en un
 correo, lo que sale no es la página: es lo que digan las etiquetas `og:`. Sin
 `og:image` sale un rectángulo gris, y un rectángulo gris al lado de un enlace
-es lo que la gente no pulsa.
+es lo que la gente no pulsa. Ninguna red social admite SVG ahí (ni X, ni
+LinkedIn, ni WhatsApp, ni Facebook), así que tiene que ser un PNG de 1200×630.
 
-Ninguna red social admite SVG ahí —ni X, ni LinkedIn, ni WhatsApp, ni
-Facebook—, así que tiene que ser un PNG de 1200×630. Lo genera
-`herramientas/tarjeta.py` con la Literata que sirve la página y los mismos
-colores de `glosa.css`, y va versionado ya hecho: armarlo al montar obligaría
-a instalar Pillow **en cada despliegue**, para producir un fichero que cambia
-una vez cada seis meses. Es lo mismo que ya hacía `web/marca/trazar.py` con el
-logotipo.
+**Desde el 19-11-2026 cada página lleva la suya**, y se pintan al montar, en
+`validador/tarjetas.py`, de la página ya montada. Hasta ese día había una sola,
+`web/marca/tarjeta.png`, versionada ya hecha: quien pegaba el enlace de la
+ficha de BR-CO-15 o de un artículo del blog veía la portada, y la vista previa
+no decía de qué iba lo que se compartía. De 455 páginas, 454 se presentaban con
+la cara de otra. La de error, `404.html`, no lleva: no se indexa ni se comparte.
 
-Hasta el 24-09-2026 el guion pedía bajar Literata de Google Fonts, y por eso,
-cuando la hoja cambió de gris el 23-09-2026, la tarjeta se quedó con el viejo.
-Ahora pinta con `web/letra/literata.woff2`, que ya viene con el eje óptico en
-12 y los pesos de 400 a 600, y `tests/test_tarjeta.py` pinta la tarjeta y la
-compara con la publicada: 0 píxeles distintos con la de hoy, 5475 con la del
-gris viejo.
+Tres moldes, elegidos por el titular sobre maquetas el mismo día:
 
-La marca de la tarjeta es la de la cabecera —el signo en `--acento`, con sus
-tres líneas, y el nombre en Literata 600— y no el bloque del favicon, que es
-lo que pintaba hasta el 24-09-2026: la cabecera lo dejó el 23-09-2026 y la
-tarjeta se quedó atrás. El guion copia las cifras de `.marca` y la prueba las
-lee de la hoja y las compara, sin Pillow, así que corre también en GitHub.
+| Página | Lo que pinta | De dónde lo lee |
+|---|---|---|
+| la portada | el titular y el lema a un lado, y el folio con la glosa de BR-CO-15 al otro | su `<h1>` y la negrita de `p.lema` |
+| cada ficha de código | gravedad, código, norma y la primera frase de la explicación, con el corchete del color de la gravedad | lo que escribe `pagina_incidencias._ficha` |
+| cada artículo | Blog encima, el titular, la primera frase de la descripción si cabe entera, y la fecha | su `<h1>`, el `<time>` de justo delante y su descripción |
+| las demás | el titular y la primera frase de la descripción | lo mismo |
 
-Y va con negativa, por lo mismo que la letra: un `og:image` que apunta a una
-dirección que da 404 no rompe nada y no da error **aquí**. Da error en la casa
-de otro, ya publicado.
+Se leen **de la página** y no de una tabla escrita aparte por lo de siempre:
+una tabla se queda atrás y entonces la tarjeta anuncia una página que ya no es
+esa. Lo mismo vale para lo que dice a quien no ve la imagen: el
+`og:image:alt` de cada página es el texto de su tarjeta, y no la frase fija
+de antes. Una ficha de la casa no dice "De la casa", que suelto no dice de qué
+casa, sino *Criterio de Glosa-e*.
 
-**Y la dirección lleva la huella de la imagen** desde el 25-09-2026: `og:image`
-dice `tarjeta.png?v=` con los ocho primeros del SHA-256 de la tarjeta que se
-publica, como el estilo y el cargador. Hasta ese día decía `tarjeta.png` a
-secas, y Telegram enseñó la tarjeta de antes dos horas después de publicar la
-nueva: quien pinta la vista previa de un enlace la guarda por dirección, y una
-dirección que no cambia no tiene por qué volver a pedirse. Lo que la huella no
-arregla, y no se puede arreglar desde aquí: Telegram guarda también la vista
-previa **de la página**, y hasta que vuelva a leerla enseña la que tiene. Para
-eso está su @WebpageBot, que la vuelve a leer cuando se le manda el enlace.
+**Por qué ahora al montar, y no versionada como antes.** El argumento de
+entonces era no instalar Pillow en cada despliegue por un fichero que cambiaba
+una vez cada seis meses. Con una por página son 454 ficheros que cambian con
+lo que cambia cada página, y no se pueden versionar hechos sin que se queden
+atrás. Pillow 12.3.0 pasa a ser de la construcción, fijada como lxml en
+`vercel.json` y en `requisitos-pruebas.txt`, y `test_cadena_de_suministro.py`
+vigila que digan lo mismo: otra Pillow trae otro FreeType, y otro FreeType
+puede mover píxeles.
 
-Desde el 25-09-2026 la tarjeta es **la glosa al margen**: el titular de la
-portada a la izquierda y, a la derecha, un trozo de factura de muestra con la
-glosa que le pondría la página —BR-CO-15, un total que no es la base más el
-IVA—. La eligió el titular entre tres propuestas porque es la única que enseña
-lo que hace la herramienta en vez de decirlo. La frase sale del glosario y la
-cuenta la hace el guion, y `tests/test_tarjeta.py` comprueba las dos cosas:
-una tarjeta que explicara un código de otra manera que la página sería la peor
-forma de presentarse. Todo va en Literata, también las cifras y el código,
-aunque la página los ponga en su mono: la mono de la página es la del sistema,
-y una tarjeta pintada con la letra de la máquina que la regenera sale distinta
-en cada una.
+Medido el 19-11-2026 en el equipo del titular, sobre el sitio entero:
 
-Hasta ese día, abajo decía *forma, contenido y firma* y el porqué escrito aquí
-era que **la firma es la que no hace ningún otro validador gratuito**. No era
-verdad: el estudio de mercado del 24-09-2026 encontró a B2Brouter y a
-FacturaView verificándola gratis. La tarjeta nueva no presume de nada que no
-enseñe.
+| | Tiempo | Peso |
+|---|---|---|
+| pintar las 454 | 5,4 s | |
+| guardarlas con paleta de 256 colores | 8,3 s | 6,6 MB, 14 kB de media, 26 kB la mayor |
+| guardarlas en RGB, para comparar | 17,5 s | 18,3 MB |
+
+Van con paleta porque se aparta del original como mucho 13/255, en unos 180
+píxeles del suavizado de los bordes, y pesan la tercera parte. En este equipo
+el montaje entero tarda bastante más que eso, pero no por pintar: abrir cada
+fichero cuesta unos 64 ms (medido con cProfile sobre 40 fichas: 2,5 de los
+4,3 s eran `open`), que es lo que cobra el antivirus, y en la construcción del
+alojamiento no está.
+
+**La dirección lleva la huella de los píxeles, no la del PNG.** Desde el
+25-09-2026 la dirección de la tarjeta lleva `?v=` con la huella de la imagen:
+Telegram enseñó ese día la tarjeta de antes dos horas después de publicar la
+nueva, porque quien pinta la vista previa de un enlace la guarda por dirección
+y una dirección que no cambia no tiene por qué volver a pedirse. Ahora la
+dirección es `tarjetas/<página>.png?v=<huella>`, y la huella es la de los
+píxeles y su paleta. El PNG lo comprime el zlib que traiga cada Pillow, y no
+está medido que el de Windows y el de Linux den los mismos bytes con los
+mismos píxeles; si no los dieran, cada página montada aquí diría una dirección
+distinta de la de producción, y `--avisar-indexnow`, que compara las dos, se
+negaría siempre. Lo que la huella no arregla, y no se puede arreglar desde
+aquí: Telegram guarda también la vista previa **de la página**, y hasta que
+vuelva a leerla enseña la que tiene. Para eso está su @WebpageBot.
+
+**Y con negativa, en dos tiempos**, por lo mismo que la letra: un `og:image`
+que apunta a lo que no está no da error aquí, da error en la casa de otro.
+Antes de escribir el primer byte, `SinTarjetas` si falta Pillow o si la letra
+no se abre (se abre de verdad: un FreeType sin brotli no lee woff2, y eso no
+se ve mirando si el fichero está). Y al final, con el sitio escrito, si una
+página no dice lo que su molde necesita o su titular no cabe; entonces se
+borra lo montado, porque una carpeta a medias con cara de sitio es lo que el
+paso siguiente publica sin enterarse.
+
+Lo que no ha cambiado de la tarjeta de antes:
+
+- **La letra es la de la página**, `web/letra/literata.woff2`, con el eje
+  óptico ya en 12 y los pesos de 400 a 600. Hasta el 24-09-2026 la tarjeta
+  pedía bajar Literata de Google Fonts, y por eso, cuando la hoja cambió de
+  gris el 23-09-2026, se quedó con el viejo.
+- **La marca es la de la cabecera**: el signo en `--acento`, con sus tres
+  líneas, y el nombre en Literata 600, y no el bloque del favicon, que es lo
+  que pintaba hasta el 24-09-2026. `tests/test_tarjeta.py` lee las cifras de
+  `.marca` en la hoja y las compara, y `tests/test_contraste.py` hace lo
+  mismo con los colores.
+- **La portada es la glosa al margen** desde el 25-09-2026: un trozo de
+  factura de muestra con la glosa que le pondría la página (BR-CO-15, un total
+  que no es la base más el IVA). La eligió el titular entre tres propuestas
+  porque es la única que enseña lo que hace la herramienta en vez de decirlo.
+  La frase sale del glosario, la cuenta la hace el código, y
+  `tests/test_tarjeta.py` comprueba las dos cosas. Hasta ese día, abajo decía
+  *forma, contenido y firma* y el porqué escrito aquí era que **la firma es la
+  que no hace ningún otro validador gratuito**. No era verdad: el estudio de
+  mercado del 24-09-2026 encontró a B2Brouter y a FacturaView verificándola
+  gratis. La tarjeta no presume de nada que no enseñe.
+- **Todo va en Literata**, también las cifras y los códigos, aunque la página
+  los ponga en su mono: la mono de la página es la del sistema, y una tarjeta
+  pintada con la letra de la máquina que la monta saldría distinta en cada una.
+
+#### La tanda del 19-11-2026: cómo se presenta cada página fuera
+
+Lo que se decidió con el titular ese día, por tandas, con un commit cada una:
+
+1. **Una tarjeta por página, pintada al montar.** Lo de arriba. Era la mejora
+   3 del repaso del 25-11-2026, adelantada. — *Hecha.*
+2. **El título, la descripción, el titular y el lema de la portada.** Título
+   "Validar factura electrónica, cada código explicado · Glosa-e"; la
+   descripción nombra los cuatro formatos y que es gratis y sin subir el
+   fichero; el titular dice cuántos códigos explica, con la cifra calculada al
+   montar; y el lema pasa de *mirar* a *comprobar*, en todas sus copias a la
+   vez.
+3. **Títulos y descripciones cortos en los artículos**, con negativa al montar
+   si un `<title>` pasa de 70 caracteres con la marca o una descripción de 160.
+
+Fuera del repositorio: la imagen de cabecera de LinkedIn con el titular nuevo,
+y el lema nuevo en los perfiles, que los cambia el titular.
 
 ### El buzón para quien encuentre un fallo
 

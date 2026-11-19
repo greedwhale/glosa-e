@@ -83,7 +83,7 @@ qué cambió. Son dos juegos distintos y conviene no confundirlos:
 | Dónde | Qué | Escrito en |
 |---|---|---|
 | en el navegador | Pyodide 314.0.6 y su lxml 6.0.2 | `paquete.py` y `glosa.js`, que tienen que decir lo mismo |
-| en lo que construye | lxml 6.1.2, setuptools 84.0.0 | `vercel.json`, `requisitos-pruebas.txt` y `[build-system]` |
+| en lo que construye | lxml 6.1.2, Pillow 12.3.0 (pinta las tarjetas sociales), setuptools 84.0.0 | `vercel.json`, `requisitos-pruebas.txt` y `[build-system]` |
 | en Cloudflare, desde el 15-11-2026 | wrangler 4.155.0, Python 3.14.6 | `package.json`; el Python lo exige `herramientas/construir.py` contra el del flujo de GitHub |
 
 setuptools va en `pyproject.toml` y no en la orden de Vercel porque `pip wheel`
@@ -104,6 +104,9 @@ Cinco veces ha pasado lo mismo con distinto disfraz: **algo servido de una
 caché haciéndose pasar por lo de hoy**. Un wheel viejo, un `prueba.py` viejo,
 una comprobación incapaz de detectar el wheel viejo, un `index.html` viejo, y
 la tarjeta social vieja en la vista previa de Telegram.
+Las tarjetas, una por página desde el 19-11-2026, llevan la huella de sus
+píxeles y no la del PNG: el `?v=` tiene que salir igual montando aquí que en
+el alojamiento, o `--avisar-indexnow` vería todas las páginas distintas.
 Nunca se rompe nada: sale todo verde y no es lo que crees que has probado.
 
 Ante cualquier cosa que se sirva al navegador, la pregunta es *cómo se entera

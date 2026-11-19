@@ -7,8 +7,13 @@
 #
 # No es la lxml de la página: esa la trae Pyodide, con su propia versión.
 #
+# Pillow es de la construcción y no de la página: con ella se pintan al montar
+# las tarjetas sociales, una por página, desde el 19-11-2026. Va también en
+# `vercel.json`, con la misma versión, y la suite pinta tarjetas.
+#
 #   .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
 lxml==6.1.2
+pillow==12.3.0
 pytest==9.1.1
 iniconfig==2.3.0
 packaging==26.3

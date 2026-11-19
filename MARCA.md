@@ -193,8 +193,10 @@ legal no se nota hasta que ya está publicada.
 decisión del titular: es lo primero que se ve de la página antes de abrirla,
 y tiene que ser la página. La que llevaba ni siquiera era el bloque: era el
 dibujo del favicon —dos líneas y no tres, en blanco sobre la plata— con el
-nombre fuera y en 400. `herramientas/tarjeta.py` copia las cifras de
-`.marca` y `tests/test_tarjeta.py` las compara con la hoja.
+nombre fuera y en 400. `validador/tarjetas.py` copia las cifras de
+`.marca` y `tests/test_tarjeta.py` las compara con la hoja. Desde el
+19-11-2026 hay una tarjeta por página, pintada al montar, y todas llevan la
+misma marca arriba.
 
 **Y se regenera, no se redibuja.** `web/marca/trazar.py` vuelve a trazar el
 bloque de la fuente. Hasta el 23-09-2026 escribía además su copia en la hoja

@@ -162,6 +162,18 @@ class TestLoQueSeInstalaAlConstruirTieneVersion:
             "misma, así que lo que se prueba no es lo que se publica"
         )
 
+    def test_pillow_va_con_version_y_es_la_de_la_suite(self):
+        """Pinta las tarjetas sociales al montar, desde el 19-11-2026. Otra
+        Pillow trae otro FreeType, y otro FreeType puede mover píxeles: la
+        tarjeta publicada no sería la que se ha visto en las pruebas."""
+        en_vercel = re.search(r"\bpillow==(\d+\.\d+\.\d+)", _orden_de_construccion(), re.I)
+        assert en_vercel, (
+            "`vercel.json` no instala Pillow con versión, y sin Pillow el "
+            f"sitio no se monta. Orden: {_orden_de_construccion()}")
+        assert en_vercel.group(1) == _version_en_requisitos("pillow"), (
+            "la Pillow que construye el sitio y la que corre la suite no son "
+            "la misma, así que lo que se prueba no es lo que se publica")
+
     def test_setuptools_va_fijado_donde_de_verdad_se_lee(self):
         """En `pyproject.toml`, no en la orden de Vercel.
 

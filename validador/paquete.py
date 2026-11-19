@@ -57,7 +57,8 @@ from validador.cadena import (
     SUFIJO_DE_SELLOS,
     Almacen,
 )
-from validador import alojamiento, bitacora, cifras, guia, novedades, pagina_incidencias
+from validador import (alojamiento, bitacora, cifras, guia, novedades, pagina_incidencias,
+                       tarjetas)
 from validador.codigos import codigos_del_paquete
 from validador.cadena import CARPETA_POR_DEFECTO as ANCLAS_POR_DEFECTO
 from validador.esquema import CARPETA_POR_DEFECTO as ESQUEMAS_POR_DEFECTO
@@ -661,15 +662,11 @@ PERFIL_DEL_TITULAR = "https://www.linkedin.com/in/dunior-hernandez-martinez"
 # novedades lo ofrece el primero, porque es lo único que llega por correo.
 BOLETIN_DE_LINKEDIN = ""
 
-# La tarjeta que se enseña cuando alguien pega el enlace en un sitio ajeno.
-# La genera `herramientas/tarjeta.py` y va versionada, como la marca: no se
-# arma al montar porque haría falta una biblioteca de imágenes en el
-# despliegue para producir un fichero que cambia una vez cada seis meses.
-_MARCA = "marca"
-_TARJETA = "tarjeta.png"
-# Lo que se copia de `web/marca/`, y nada más: ahí viven también los guiones
-# que generan la marca y la letra, que son herramientas y no se publican.
-_DE_LA_MARCA = (_TARJETA,)
+# La tarjeta que se enseña cuando alguien pega el enlace en un sitio ajeno:
+# una por página desde el 19-11-2026, pintada al montar con la letra de la
+# página. El porqué, en `validador/tarjetas.py`. De `web/marca/` ya no se
+# copia nada: ahí viven los guiones que generan la marca y la letra, que son
+# herramientas y no se publican.
 
 _LETRA = "letra"
 _TIPOGRAFIA = "literata.woff2"
@@ -724,6 +721,16 @@ class SinPagina(NoSeMonta):
 
 class SinFecha(NoSeMonta):
     """`web/fechas.txt` no se puede leer, o nombra una página que no hay."""
+
+
+class SinTarjetas(NoSeMonta):
+    """No se puede pintar la tarjeta social de alguna página.
+
+    Falta Pillow o la letra, o una página no dice lo que su tarjeta necesita
+    (su titular, su lema, su fecha), o su titular no cabe. Un `og:image` que
+    apunta a lo que no está no da error aquí: el día que alguien pega el
+    enlace sale un rectángulo gris, y eso se ve fuera y ya publicado.
+    """
 
 
 _CIERRE_DEL_CUERPO = "</body>"
@@ -1031,12 +1038,14 @@ def _direccion(nombre: str) -> str:
     return DOMINIO + "/" + nombre.removesuffix(".html")
 
 
-def _con_tarjeta(texto: str, url: str, nombre: str, huella_de_la_tarjeta: str) -> str:
+def _con_tarjeta(texto: str, url: str, nombre: str, tarjeta: tarjetas.Tarjeta) -> str:
     """Le pone a una página su canónica y su tarjeta social.
 
     Se saca de lo que la propia página ya dice —su `<title>` y su
     `description`—, y no de una tabla escrita aparte: una tabla se queda
-    atrás y entonces la tarjeta anuncia una página que ya no es esa.
+    atrás y entonces la tarjeta anuncia una página que ya no es esa. La
+    imagen y lo que dice para quien no la ve, también: los pinta
+    `tarjetas.fabricar` de la página montada.
     """
     if _FIN_DE_LA_CABECERA not in texto:
         raise SinPagina(
@@ -1063,7 +1072,8 @@ def _con_tarjeta(texto: str, url: str, nombre: str, huella_de_la_tarjeta: str) -
     # dirección: el 25-09-2026 Telegram enseñaba la tarjeta de antes con la
     # nueva publicada hacía dos horas. Una dirección que no cambia no tiene por
     # qué volver a pedirse, y nadie de fuera nos va a avisar de que no lo hizo.
-    tarjeta = f"{DOMINIO}/{_MARCA}/{_TARJETA}?v={huella_de_la_tarjeta}"
+    imagen = f"{DOMINIO}/{tarjeta.ruta}?v={tarjeta.huella}"
+    alt = html.escape(tarjeta.alt, quote=True)
     bloque = (
         f'<link rel="canonical" href="{url}">\n'
         f'<meta property="og:type" content="website">\n'
@@ -1072,11 +1082,10 @@ def _con_tarjeta(texto: str, url: str, nombre: str, huella_de_la_tarjeta: str) -
         f'<meta property="og:url" content="{url}">\n'
         f'<meta property="og:title" content="{limpio}">\n'
         f'<meta property="og:description" content="{resumen}">\n'
-        f'<meta property="og:image" content="{tarjeta}">\n'
-        f'<meta property="og:image:width" content="1200">\n'
-        f'<meta property="og:image:height" content="630">\n'
-        f'<meta property="og:image:alt" content="Glosa-e, la factura '
-        f'electrónica en castellano">\n'
+        f'<meta property="og:image" content="{imagen}">\n'
+        f'<meta property="og:image:width" content="{tarjetas.ANCHO}">\n'
+        f'<meta property="og:image:height" content="{tarjetas.ALTO}">\n'
+        f'<meta property="og:image:alt" content="{alt}">\n'
         f'<meta name="twitter:card" content="summary_large_image">\n'
     )
     return texto.replace(_FIN_DE_LA_CABECERA, bloque + _FIN_DE_LA_CABECERA, 1)
@@ -1656,7 +1665,8 @@ def _para_investigadores(destino: Path, correo: str, hoy: date) -> Path:
     return fichero
 
 
-def _para_buscadores(destino: Path, cambios: dict[str, date] | None = None) -> int:
+def _para_buscadores(destino: Path, cambios: dict[str, date] | None = None,
+                     de_cada_una: dict[str, tarjetas.Tarjeta] | None = None) -> int:
     """Canónica, tarjeta, enlaces de salida y enlaces de casa en su forma
     limpia en cada página, y los ficheros de rigor: `robots.txt`, el sitemap
     y la clave de IndexNow (ver `CLAVE_DE_INDEXNOW`)."""
@@ -1667,15 +1677,21 @@ def _para_buscadores(destino: Path, cambios: dict[str, date] | None = None) -> i
             "No ha quedado ni una página HTML que indexar, así que algo se ha "
             "montado mal antes de llegar aquí."
         )
-    # La huella es de la tarjeta que se publica y no de la del repositorio:
-    # es la que va a pedir quien pegue el enlace.
-    huella = hashlib.sha256((destino / _MARCA / _TARJETA).read_bytes()).hexdigest()[:8]
+    de_cada_una = de_cada_una or {}
+    sin_la_suya = [n for n in paginas if n not in de_cada_una]
+    if sin_la_suya:
+        raise SinTarjetas(
+            "{} página(s) se publicarían sin su tarjeta social: {}. Las pinta "
+            "`tarjetas.fabricar` antes de llegar aquí.".format(
+                len(sin_la_suya), ", ".join(sin_la_suya[:5]))
+        )
     for nombre in paginas:
         ruta = destino / nombre
         texto, _ = _hacia_fuera(ruta.read_text(encoding="utf-8"))
         texto, _ = _a_la_limpia(texto)
         ruta.write_text(
-            _con_tarjeta(texto, _direccion(nombre), nombre, huella), encoding="utf-8")
+            _con_tarjeta(texto, _direccion(nombre), nombre, de_cada_una[nombre]),
+            encoding="utf-8")
     # La de error no se indexa, pero se lee, y sus enlaces llevan a páginas
     # que sí: también a la limpia.
     for nombre in _FUERA_DEL_INDICE:
@@ -1880,6 +1896,16 @@ def montar_sitio(
     except guia.GuiaMal as error:
         raise GuiaQueNoCuadra(str(error)) from error
 
+    # Las tarjetas sociales se pintan al final, de las páginas montadas, pero
+    # con qué se pintan se sabe ya: Pillow, y la letra de la página abierta de
+    # verdad. Descubrirlo al final dejaba media carpeta montada.
+    ruta_de_la_letra = pagina / _LETRA / _TIPOGRAFIA
+    falta_para_las_tarjetas = tarjetas.que_falta(ruta_de_la_letra)
+    if falta_para_las_tarjetas:
+        raise SinTarjetas(
+            "No se pueden pintar las tarjetas sociales: " + falta_para_las_tarjetas)
+    letra_de_las_tarjetas = tarjetas.Letra(ruta_de_la_letra.read_bytes())
+
     # Las reglas del alojamiento, traducidas para Cloudflare. Por lo mismo que
     # todo lo de arriba: si una no se sabe traducir, se sabe ya, antes de
     # escribir el primer byte. Se escriben al final, detrás del manifiesto, y
@@ -1964,24 +1990,6 @@ def montar_sitio(
         )
     if letra.is_dir():
         shutil.copytree(letra, destino / _LETRA, dirs_exist_ok=True)
-
-    # La tarjeta social. Con negativa por lo mismo que la letra: un `og:image`
-    # que apunta a lo que no está no rompe nada y no da error. Lo que pasa es
-    # que el día que alguien pegue el enlace en LinkedIn o en un grupo sale un
-    # rectángulo gris, y eso no se ve desde aquí: se ve fuera y ya publicado.
-    marca = pagina / _MARCA
-    faltan_de_la_marca = [n for n in _DE_LA_MARCA if not (marca / n).is_file()]
-    if faltan_de_la_marca:
-        raise SinPagina(
-            "En «{}» falta {}, que es la imagen que se enseña cuando alguien "
-            "pega el enlace fuera. Sin ella el sitio se publica con un "
-            "`og:image` apuntando a una dirección que da 404, y eso no falla "
-            "aquí: falla en la casa de otro. Genérala con `python -m "
-            "herramientas.tarjeta`.".format(marca, ", ".join(faltan_de_la_marca))
-        )
-    (destino / _MARCA).mkdir(parents=True, exist_ok=True)
-    for nombre in _DE_LA_MARCA:
-        shutil.copy2(marca / nombre, destino / _MARCA / nombre)
 
     def _huella(texto: str) -> str:
         return hashlib.sha256(texto.encode("utf-8")).hexdigest()[:8]
@@ -2209,10 +2217,23 @@ def montar_sitio(
     #
     # Con la huella del contenido se consiguen las dos cosas: cambia cuando el
     # fichero cambia, y no cambia cuando no. La pagina la lee de aqui.
+    # Las tarjetas sociales, de las páginas ya escritas: dicen lo que dice
+    # cada una porque lo leen de ella. Si una no se puede pintar, se borra lo
+    # montado, por lo de siempre: una carpeta a medias con cara de sitio es lo
+    # que el paso siguiente publica sin enterarse.
+    try:
+        de_cada_una = tarjetas.fabricar(
+            destino, letra_de_las_tarjetas,
+            set(fichas) if plantilla.is_file() else set(),
+            {e.nombre for e in publicadas})
+    except tarjetas.TarjetaMal as error:
+        shutil.rmtree(destino)
+        raise SinTarjetas(f"No se puede pintar la tarjeta social de {error}") from error
+
     # Lo último que se toca de cada página: la canónica y la tarjeta. Va antes
     # de las huellas a propósito, porque las huellas tienen que ser las del
     # fichero que de verdad se publica.
-    _para_buscadores(destino, cambios)
+    _para_buscadores(destino, cambios, de_cada_una)
     _con_ficha_de_la_portada(destino, nombre_del_titular)
     _para_investigadores(destino, _correo_del_titular(pagina), date.today())
     # La política, después de todo lo que reescribe una página: las huellas de

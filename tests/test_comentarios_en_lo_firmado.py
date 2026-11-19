@@ -160,7 +160,11 @@ class TestUnaFirmaDeVerdad:
 # EDIFACT se queda fuera con nombre y razón: su árbol lo construye
 # `edifact.py` a partir de los segmentos, y ahí no hay comentarios que puedan
 # partir nada.
-EXENTOS = {"edifact.py"}
+#
+# Y `tarjetas.py`, desde el 19-11-2026: no lee XML. Su `.text` es el de
+# Pillow, `ImageDraw.text`, que pinta una línea en la tarjeta social; las
+# páginas que lee son el HTML que el propio montaje acaba de escribir.
+EXENTOS = {"edifact.py", "tarjetas.py"}
 
 # La palabra entera: `getcontext()` también acaba en «text()».
 _RUTA_CON_TEXT = re.compile(r"(?<!\w)text\(\)")

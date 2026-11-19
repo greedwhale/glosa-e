@@ -1,74 +1,145 @@
 # -*- coding: utf-8 -*-
-"""La tarjeta social que se publica es la que pinta hoy su guion.
+"""Las tarjetas sociales dicen lo que dice su página, con la marca de la página.
 
 Por qué existe
 --------------
-`web/marca/tarjeta.png` se versiona ya hecha y `herramientas/tarjeta.py` está
-para rehacerla. El 23-09-2026 la hoja cambió de gris, el guion se puso al día
-—`tests/test_contraste.py` lo exige— y el PNG no: regenerarlo pedía bajar
-Literata, y se quedó con el gris viejo hasta el 24-09-2026. Nada se rompía;
-la tarjeta que ve quien pega el enlace decía una cosa y la hoja otra.
+Hasta el 19-11-2026 había una sola tarjeta, `web/marca/tarjeta.png`,
+versionada ya hecha, y su guion escribía el titular de la portada a mano. El
+23-09-2026 la hoja cambió de gris, el guion se puso al día y el PNG no, y la
+tarjeta que veía quien pegaba el enlace decía una cosa y la hoja otra. Aquí se
+comparaba la publicada con la que pintaba el guion.
 
-Desde ese día el guion pinta con la Literata que sirve la página, sin bajar
-nada, y esto lo vigila: pinta la tarjeta y la compara con la publicada. Medido
-al escribirlo: 0 píxeles distintos con la de hoy, 5475 con la del gris viejo.
-
-Pillow no es dependencia del proyecto, así que donde no está —en GitHub— la
-comparación se salta. La del titular no la necesita y corre siempre.
+Desde ese día hay una por página y se pintan al montar, de la página montada
+(el porqué, en `validador/tarjetas.py`), así que ya no hay una publicada que
+pueda quedarse atrás. Lo que queda por vigilar es lo que se copia a mano: la
+marca, de la hoja, y la glosa del folio, del glosario. Y que cada molde sepa
+leer las páginas de verdad: si cambia cómo se escribe una ficha o un artículo,
+tiene que ponerse rojo aquí y no al montar el sitio en el despliegue.
 """
 from __future__ import annotations
 
 import ast
+import hashlib
+import html
 import re
 from pathlib import Path
 
 import pytest
 
+from validador import bitacora, pagina_incidencias, tarjetas
+from validador.codigos import codigos_del_paquete
+
 RAIZ = Path(__file__).resolve().parents[1]
-GUION = RAIZ / "herramientas" / "tarjeta.py"
-PUBLICADA = RAIZ / "web" / "marca" / "tarjeta.png"
-
-# Lo que se tolera: un cambio de versión de FreeType puede mover algún píxel
-# del suavizado de los bordes. Un color de la hoja cambia miles.
-UMBRAL, TOLERADOS = 2, 100
+GUION = RAIZ / "validador" / "tarjetas.py"
+WEB = RAIZ / "web"
+LETRA = tarjetas.Letra((WEB / "letra" / "literata.woff2").read_bytes())
 
 
-def test_la_tarjeta_publicada_es_la_que_pinta_el_guion(monkeypatch):
-    pytest.importorskip("PIL")
-    from PIL import Image, ImageChops
-
-    monkeypatch.chdir(RAIZ)   # el guion busca la letra desde la raíz
-    monkeypatch.syspath_prepend(str(RAIZ))
-    from herramientas import tarjeta
-
-    pintada = tarjeta.dibujar(str(tarjeta.LETRA))
-    publicada = Image.open(PUBLICADA).convert("RGB")
-    assert publicada.size == pintada.size == (1200, 630)
-    distintos = sum(1 for p in ImageChops.difference(pintada, publicada).get_flattened_data()
-                    if max(p) > UMBRAL)
-    assert distintos <= TOLERADOS, (
-        f"web/marca/tarjeta.png no es la que pinta hoy su guion: {distintos} "
-        "píxeles distintos. Rehazla desde la raíz con "
-        "`python -m herramientas.tarjeta`; ya no hay que bajar nada.")
-
-
-def test_la_tarjeta_dice_el_titular_de_la_portada():
-    """El guion dice que el titular es el de la portada, palabra por palabra."""
-    guion = GUION.read_text(encoding="utf-8")
-    portada = (RAIZ / "web" / "index.html").read_text(encoding="utf-8")
+def test_la_portada_dice_su_titular_y_su_lema():
+    """La tarjeta promete lo que la página cumple: si dijera otra cosa sería
+    un anzuelo. El salto de línea del titular cuenta como un espacio."""
+    portada = (WEB / "index.html").read_text(encoding="utf-8")
     h1 = re.search(r"<h1>(.*?)</h1>", portada, re.S)[1].replace("<br>", " ")
     lema = re.search(r'<p class="lema"><b>(.*?)</b>', portada, re.S)[1]
-    lineas = re.findall(r'dibujo\.text\(\(MARGEN, \d+\), "([^"]+)", font=titular', guion)
-    assert " ".join(lineas) == " ".join(h1.split()), (
-        f"la tarjeta dice «{' '.join(lineas)}» y la portada «{h1}»")
-    assert f'"{lema}"' in guion, f"la tarjeta ya no lleva el lema de la portada: «{lema}»"
+    _, alt = tarjetas._pintar("index.html", portada, LETRA, set(), set())
+    assert alt == " ".join(f"{h1} {lema}".split())
+
+
+def test_cada_ficha_dice_su_codigo_su_gravedad_y_su_primera_frase():
+    """Se lee de la ficha escrita como la escribe `pagina_incidencias`."""
+    from validador import glosario
+
+    todos = codigos_del_paquete()
+    uno = next(c for c in todos if c.codigo == "BR-CO-15")
+    escrita = pagina_incidencias._ficha(uno, todos)
+    nombre = pagina_incidencias.nombre_de(uno.codigo)
+    _, alt = tarjetas._pintar(nombre, escrita, LETRA, {nombre}, set())
+    frase = tarjetas.primera_frase(glosario.CODIGOS["BR-CO-15"])
+    assert alt == f"BR-CO-15 (error, EN 16931): {frase}"
+
+
+def test_una_ficha_de_la_casa_dice_de_quien_es_el_criterio():
+    """De la casa se entiende en la página; suelto en una tarjeta, no."""
+    todos = codigos_del_paquete()
+    for uno in todos:
+        if pagina_incidencias._norma(uno.codigo)[0] == "De la casa":
+            break
+    else:
+        pytest.skip("no queda ningún código de la casa")
+    nombre = pagina_incidencias.nombre_de(uno.codigo)
+    _, alt = tarjetas._pintar(nombre, pagina_incidencias._ficha(uno, todos), LETRA,
+                              {nombre}, set())
+    assert "Criterio de Glosa-e" in alt and "De la casa" not in alt
+
+
+@pytest.mark.parametrize(
+    "entrada", bitacora.leer_entradas(WEB / bitacora.CARPETA), ids=lambda e: e.slug)
+def test_cada_articulo_dice_su_titulo_y_su_fecha(entrada):
+    """La tarjeta de un artículo lee su `<h1>` y la fecha de justo delante;
+    tienen que ser los que el artículo declara en `data-titulo` y
+    `data-fecha`, que son los del índice, el canal y el `<title>`."""
+    texto = (f'<meta name="description" content="{html.escape(entrada.entradilla)}">\n'
+             + entrada.cuerpo)
+    _, alt = tarjetas._pintar(entrada.nombre, texto, LETRA, set(), {entrada.nombre})
+    assert alt == f"Blog de Glosa-e, {entrada.dicha}: {entrada.titulo}"
+
+
+@pytest.mark.parametrize("pagina", sorted(
+    p.name for p in WEB.glob("*.html")
+    if p.name not in tarjetas.SIN_TARJETA + ("index.html", bitacora.NOMBRE)))
+def test_el_titular_de_cada_pagina_cabe(pagina):
+    texto = (WEB / pagina).read_text(encoding="utf-8")
+    imagen, alt = tarjetas._pintar(pagina, texto, LETRA, set(), set())
+    assert imagen.size == (tarjetas.ANCHO, tarjetas.ALTO) and alt
+
+
+def test_un_titular_que_no_cabe_no_se_pinta():
+    """Cortado no se publica: se dice, y el titular se acorta a mano."""
+    with pytest.raises(tarjetas.TarjetaMal, match="no cabe"):
+        tarjetas.pagina("Un titular larguísimo " * 12, LETRA)
+    with pytest.raises(tarjetas.TarjetaMal, match="no cabe"):
+        tarjetas.portada("Un titular larguísimo " * 12, "El lema.", LETRA)
+
+
+def test_sin_titular_no_hay_tarjeta():
+    with pytest.raises(tarjetas.TarjetaMal, match="<h1>"):
+        tarjetas._pintar("legal.html", "<p>sin titular</p>", LETRA, set(), set())
+
+
+def test_la_huella_es_de_los_pixeles_y_no_de_como_se_comprimen(tmp_path):
+    """La dirección de la tarjeta tiene que salir igual montando aquí que en
+    el alojamiento, o `--avisar-indexnow` vería todas las páginas distintas.
+    Los mismos píxeles comprimidos de otra manera son otros bytes y la misma
+    huella."""
+    from PIL import Image
+
+    def de_los_pixeles(ruta):
+        leida = Image.open(ruta)
+        return hashlib.sha256(f"{leida.width}x{leida.height}".encode()
+                              + bytes(leida.getpalette()) + leida.tobytes()).hexdigest()[:8]
+
+    huella = tarjetas._guardar(tarjetas.pagina("Un titular", LETRA), tmp_path / "a.png")
+    Image.open(tmp_path / "a.png").save(tmp_path / "b.png", compress_level=1)
+    assert (tmp_path / "a.png").read_bytes() != (tmp_path / "b.png").read_bytes()
+    assert huella == de_los_pixeles(tmp_path / "a.png") == de_los_pixeles(tmp_path / "b.png")
+
+
+def test_sin_pillow_se_sabe_antes_de_montar(monkeypatch):
+    monkeypatch.setattr(tarjetas, "Image", None)
+    assert "Pillow" in tarjetas.que_falta(WEB / "letra" / "literata.woff2")
+
+
+def test_una_letra_que_no_se_abre_se_sabe_antes_de_montar(tmp_path):
+    (tmp_path / "literata.woff2").write_bytes(b"wOF2 de mentira")
+    assert "no sabe abrir" in tarjetas.que_falta(tmp_path / "literata.woff2")
+    assert tarjetas.que_falta(WEB / "letra" / "literata.woff2") is None
 
 
 def _constantes_del_guion() -> dict:
-    """Las cifras de la marca de `tarjeta.py`, leídas sin importarlo.
+    """Las cifras de la marca de `tarjetas.py`, leídas de su texto.
 
-    Importarlo pide Pillow, y esta comparación tiene que correr también donde
-    no está —en GitHub—: es aritmética sobre dos textos.
+    Se leen sin importarlo porque son las asignaciones lo que se compara: una
+    cifra calculada en otro sitio no sería la copia a mano que hay que vigilar.
     """
     valores = {}
     for nodo in ast.parse(GUION.read_text(encoding="utf-8")).body:

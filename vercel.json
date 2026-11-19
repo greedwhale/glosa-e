@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "echo 'sin dependencias de node'",
-  "buildCommand": "python3 -m pip install --quiet --disable-pip-version-check --break-system-packages lxml==6.1.2 && python3 -m pip wheel . --no-deps --wheel-dir dist && python3 -m validador --traer-pyodide && python3 -m validador --sitio sitio --exigir-paquete",
+  "buildCommand": "python3 -m pip install --quiet --disable-pip-version-check --break-system-packages lxml==6.1.2 pillow==12.3.0 && python3 -m pip wheel . --no-deps --wheel-dir dist && python3 -m validador --traer-pyodide && python3 -m validador --sitio sitio --exigir-paquete",
   "outputDirectory": "sitio",
   "framework": null,
   "cleanUrls": true,

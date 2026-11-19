@@ -359,6 +359,8 @@ CANDADO = {
 # Lleva los tres enlaces que hay que distinguir: uno que se va del sitio, uno
 # de casa y uno que ya trae `rel`. Sin ellos, la prueba de que los de fuera se
 # abren aparte no probaría nada.
+# Y su titular y el lema de la portada, porque de ahí sale la tarjeta social
+# de cada página desde el 19-11-2026: una sin `<h1>` no se monta.
 PAGINA = """<!doctype html>
 <head><meta charset="utf-8">
 <title>glosa</title>
@@ -366,11 +368,15 @@ PAGINA = """<!doctype html>
 <link rel="stylesheet" href="./glosa.css">
 <script src="./glosa.js"></script>
 </head><body>
+<h1>La de prueba</h1>
+<p class="lema"><b>Lo que dice la de prueba.</b></p>
 <a href="https://www.boe.es/uno">el BOE</a>
 <a href="./legal.html">de casa</a>
 <a href="https://aidoks.eu/dos" rel="nofollow">con rel</a>
 </body>
 """
+
+LETRA_DE_VERDAD = Path(paquete.__file__).parent.parent / "web" / "letra" / "literata.woff2"
 
 ESTILO = ('@font-face { src: url("./letra/literata.woff2?v=abc12345"); }\n'
           ":root { --papel: #fbfaf7; }\n")
@@ -403,16 +409,12 @@ def _armar_repositorio(tmp_path):
     (tmp_path / "web" / "glosa.css").write_text(ESTILO, encoding="utf-8")
     (tmp_path / "web" / "prueba.py").write_text("# el banco\n", encoding="utf-8")
     (tmp_path / "web" / "LEEME.md").write_text("# la pagina\n", encoding="utf-8")
-    # La tarjeta social. Va con negativa en el montaje, así que sin ella aquí
-    # no se monta nada: es un PNG de mentira, que para esto vale.
-    (tmp_path / "web" / "marca").mkdir()
-    (tmp_path / "web" / "marca" / "tarjeta.png").write_bytes(
-        bytes([137, 80, 78, 71, 13, 10, 26, 10])
-    )
     # La letra y su licencia. Van juntas porque la OFL obliga a que la segunda
-    # viaje con la primera, y el montaje lo comprueba.
+    # viaje con la primera, y el montaje lo comprueba. La letra es la de
+    # verdad: con ella se pintan las tarjetas sociales, y el montaje la abre
+    # antes de escribir nada, así que una de mentira no lo deja montar.
     (tmp_path / "web" / "letra").mkdir()
-    (tmp_path / "web" / "letra" / "literata.woff2").write_bytes(b"wOF2 de mentira")
+    (tmp_path / "web" / "letra" / "literata.woff2").write_bytes(LETRA_DE_VERDAD.read_bytes())
     (tmp_path / "web" / "letra" / "OFL.txt").write_text("OFL 1.1\n", encoding="utf-8")
     (tmp_path / "dist").mkdir()
     _rueda_de_verdad(tmp_path / "dist" / "factura_e-0.1.0-py3-none-any.whl")
@@ -795,12 +797,16 @@ class TestElSitioQueSePublica:
 
     def test_sin_la_letra_no_se_monta(self, repositorio):
         """De los fallos que no dan error: un `@font-face` que apunta a lo que
-        no está compone con la del sistema y la página parece correcta."""
+        no está compone con la del sistema y la página parece correcta.
+
+        Desde el 19-11-2026 lo dice antes la de las tarjetas sociales, que se
+        pintan con ella, y lo dice antes de escribir nada.
+        """
         (repositorio / "web" / "letra" / "literata.woff2").unlink()
-        with pytest.raises(paquete.SinPagina) as fallo:
+        with pytest.raises(paquete.SinTarjetas) as fallo:
             _montar(repositorio)
-        assert "no da error" in str(fallo.value)
         assert "web/marca/letra.py" in str(fallo.value)
+        assert not (repositorio / "sitio").exists()
 
     def test_sin_la_licencia_tampoco(self, repositorio):
         """Publicar la fuente sin su licencia incumple la unica condicion que
@@ -811,14 +817,18 @@ class TestElSitioQueSePublica:
             _montar(repositorio)
         assert "OFL" in str(fallo.value)
 
-    def test_una_pagina_que_no_pida_letra_se_monta_igual(self, repositorio):
-        """La negativa mira el CSS, no la carpeta: si nadie pide la letra, no
-        hay nada que echar en falta."""
+    def test_una_pagina_que_no_pida_letra_no_echa_en_falta_la_licencia(self, repositorio):
+        """La negativa de la letra mira el CSS, no la carpeta: si nadie pide
+        la letra, no hay licencia que echar en falta. La letra sí hace falta
+        desde el 19-11-2026, porque con ella se pintan las tarjetas sociales,
+        y eso no depende de lo que pida la hoja."""
         (repositorio / "web" / "glosa.css").write_text(
             ":root { --papel: #fbfaf7; }\n", encoding="utf-8")
-        (repositorio / "web" / "letra" / "literata.woff2").unlink()
         (repositorio / "web" / "letra" / "OFL.txt").unlink()
         assert _montar(repositorio).carpeta.is_dir()
+        (repositorio / "web" / "letra" / "literata.woff2").unlink()
+        with pytest.raises(paquete.SinTarjetas):
+            _montar(repositorio, destino="otro")
 
     def test_un_wheel_de_anteayer_no_se_monta(self, repositorio):
         """Salió montando el sitio de verdad, no leyendo el código.
@@ -1195,9 +1205,12 @@ class TestLaBitacoraSeComprueba:
             PAGINA.replace("</body>", paquete.HUECO_DE_LO_ULTIMO + "\n</body>"),
             encoding="utf-8")
 
+    # Con su fecha y su titular delante, como los de verdad: de ahí sale la
+    # tarjeta social del artículo.
     BUENA = ('<article class="entrada" data-fecha="2026-09-07" '
              'data-titulo="Un titulo" data-entradilla="Una entradilla.">'
-             '<p>Cuerpo.</p><footer class="fuentes"><ul><li>'
+             '<time datetime="2026-09-07">7 de septiembre de 2026</time>'
+             '<h1>Un titulo</h1><p>Cuerpo.</p><footer class="fuentes"><ul><li>'
              '<a href="https://www.boe.es/">BOE</a></li></ul></footer></article>')
 
     def test_con_una_entrada_completa_se_monta(self, repositorio):
@@ -1419,59 +1432,107 @@ class TestParaQueSeLlegueDesdeFuera:
         ]
         assert len(set(canonicas)) == len(canonicas)
 
-    def test_la_tarjeta_viaja(self, repositorio):
+    def test_cada_pagina_lleva_la_suya(self, repositorio):
+        """Una por página desde el 19-11-2026, y la de error sin ninguna."""
+        (repositorio / "web" / "404.html").write_text(PAGINA, encoding="utf-8")
         sitio = _montar(repositorio).carpeta
-        assert (sitio / "marca" / "tarjeta.png").is_file()
+        pintadas = sorted(p.name for p in (sitio / "tarjetas").glob("*.png"))
+        assert pintadas == ["banco.png", "index.png", "legal.png"]
+        assert 'property="og:image"' not in (sitio / "404.html").read_text("utf-8")
 
-    def test_la_tarjeta_lleva_la_huella_de_la_que_se_publica(self, repositorio):
+    def test_la_tarjeta_lleva_la_huella_de_sus_pixeles(self, repositorio):
         """Telegram enseñó el 25-09-2026 la tarjeta de antes, con la nueva ya
-        publicada: quien pinta la vista previa guarda la imagen por dirección,
-        y `tarjeta.png` a secas era la misma dirección para siempre."""
+        publicada: quien pinta la vista previa guarda la imagen por dirección.
+
+        La huella es la de los píxeles y no la del PNG (el porqué, en
+        `tarjetas._guardar`): la que se calcula de lo publicado, al leerlo,
+        tiene que ser la que dice la dirección.
+        """
+        from PIL import Image
+
         sitio = _montar(repositorio).carpeta
-        huella = hashlib.sha256(
-            (sitio / "marca" / "tarjeta.png").read_bytes()).hexdigest()[:8]
-        esperada = f"{paquete.DOMINIO}/marca/tarjeta.png?v={huella}"
-        vistas = 0
         for pagina in sorted(sitio.glob("*.html")):
             imagen = re.search(r'property="og:image" content="([^"]*)"',
-                               pagina.read_text(encoding="utf-8"))
-            if imagen:
-                vistas += 1
-                assert imagen[1] == esperada, (pagina.name, imagen[1])
-        assert vistas, "ninguna página lleva og:image"
+                               pagina.read_text(encoding="utf-8"))[1]
+            ruta, huella = imagen.removeprefix(paquete.DOMINIO + "/").split("?v=")
+            assert ruta == f"tarjetas/{pagina.stem}.png"
+            leida = Image.open(sitio / ruta)
+            assert leida.mode == "P" and leida.size == (1200, 630)
+            de_lo_leido = hashlib.sha256(
+                b"1200x630" + bytes(leida.getpalette()) + leida.tobytes()).hexdigest()[:8]
+            assert huella == de_lo_leido, pagina.name
 
-    def test_otra_tarjeta_es_otra_direccion(self, repositorio):
-        """Lo que importa de la huella: que cambie cuando cambia la imagen."""
-        def direccion(sitio):
-            texto = (sitio / "index.html").read_text(encoding="utf-8")
-            return re.search(r'property="og:image" content="([^"]*)"', texto)[1]
+    def test_cambia_la_direccion_de_la_que_cambia_y_solo_de_esa(self, repositorio):
+        """Lo que importa de la huella: que cambie cuando cambia la imagen, y
+        no cuando no. Cada página que cambia se avisa a los buscadores."""
+        def direcciones(sitio):
+            return {p.name: re.search(r'property="og:image" content="([^"]*)"',
+                                      p.read_text(encoding="utf-8"))[1]
+                    for p in sorted(sitio.glob("*.html"))}
 
-        antes = direccion(_montar(repositorio).carpeta)
-        (repositorio / "web" / "marca" / "tarjeta.png").write_bytes(b"otra tarjeta")
-        despues = direccion(_montar(repositorio, destino="otro").carpeta)
-        assert antes != despues
+        antes = direcciones(_montar(repositorio).carpeta)
+        (repositorio / "web" / "legal.html").write_text(
+            PAGINA.replace("<h1>La de prueba</h1>", "<h1>Otro titular</h1>"),
+            encoding="utf-8")
+        despues = direcciones(_montar(repositorio, destino="otro").carpeta)
+        assert antes["legal.html"] != despues["legal.html"]
+        assert antes["index.html"] == despues["index.html"]
+        assert antes["banco.html"] == despues["banco.html"]
 
-    def test_los_guiones_de_la_marca_no_se_publican(self, repositorio):
-        """En `web/marca/` viven también los que generan la marca y la letra.
+    def test_lo_que_dice_va_en_el_texto_alternativo(self, repositorio):
+        """Quien no ve la imagen lee lo mismo que pinta: el titular de la
+        página, y en la portada, su lema."""
+        sitio = _montar(repositorio).carpeta
+        alt = lambda n: re.search(r'property="og:image:alt" content="([^"]*)"',
+                                  (sitio / n).read_text(encoding="utf-8"))[1]
+        assert alt("index.html") == "La de prueba. Lo que dice la de prueba."
+        assert alt("legal.html") == "La de prueba. La de prueba."
 
-        Son herramientas, no página. Se copia lo que se nombra y nada más.
+    def test_de_la_marca_no_se_publica_nada(self, repositorio):
+        """En `web/marca/` viven los que generan la marca y la letra.
+
+        Son herramientas, no página, y desde que las tarjetas se pintan al
+        montar no queda nada de ahí que publicar.
         """
+        (repositorio / "web" / "marca").mkdir()
         (repositorio / "web" / "marca" / "trazar.py").write_text(
             "# la herramienta\n", encoding="utf-8")
         sitio = _montar(repositorio).carpeta
-        assert not (sitio / "marca" / "trazar.py").exists()
+        assert not (sitio / "marca").exists()
 
-    def test_sin_la_tarjeta_no_se_monta(self, repositorio):
-        """Un `og:image` a una dirección que da 404 no falla aquí: falla fuera."""
-        (repositorio / "web" / "marca" / "tarjeta.png").unlink()
-        with pytest.raises(paquete.SinPagina) as motivo:
+    def test_sin_una_letra_que_se_abra_no_se_monta(self, repositorio):
+        """Se sabe antes de escribir el primer byte, y abriéndola: un FreeType
+        sin brotli no lee woff2, y eso no se ve mirando si el fichero está."""
+        (repositorio / "web" / "letra" / "literata.woff2").write_bytes(b"wOF2 de mentira")
+        with pytest.raises(paquete.SinTarjetas) as motivo:
             _montar(repositorio)
-        assert "herramientas.tarjeta" in str(motivo.value)
+        assert "letra" in str(motivo.value)
+        assert not (repositorio / "sitio").exists()
+
+    def test_sin_pillow_no_se_monta(self, repositorio, monkeypatch):
+        from validador import tarjetas
+
+        monkeypatch.setattr(tarjetas, "Image", None)
+        with pytest.raises(paquete.SinTarjetas) as motivo:
+            _montar(repositorio)
+        assert "Pillow" in str(motivo.value)
+        assert not (repositorio / "sitio").exists()
+
+    def test_una_pagina_sin_titular_no_se_monta(self, repositorio):
+        """Sin `<h1>` no hay qué poner en su tarjeta. Salta con el sitio ya
+        escrito, y lo escrito se borra: una carpeta a medias con cara de
+        sitio es lo que el paso siguiente publica sin enterarse."""
+        (repositorio / "web" / "legal.html").write_text(
+            PAGINA.replace("<h1>La de prueba</h1>", ""), encoding="utf-8")
+        with pytest.raises(paquete.SinTarjetas) as motivo:
+            _montar(repositorio)
+        assert "legal.html" in str(motivo.value) and "<h1>" in str(motivo.value)
+        assert not (repositorio / "sitio").exists()
 
     def test_una_pagina_sin_cabecera_no_se_monta(self, repositorio):
         """`replace` sobre lo que no está no falla: devuelve el texto igual."""
         (repositorio / "web" / "legal.html").write_text(
-            "<!doctype html><title>x</title>", encoding="utf-8")
+            "<!doctype html><title>x</title><h1>x</h1>", encoding="utf-8")
         with pytest.raises(paquete.SinPagina) as motivo:
             _montar(repositorio)
         assert "</head>" in str(motivo.value)
@@ -1479,7 +1540,7 @@ class TestParaQueSeLlegueDesdeFuera:
     def test_una_pagina_sin_descripcion_no_se_monta(self, repositorio):
         """En un buscador saldría sin resumen, que se ve y se ve mal."""
         (repositorio / "web" / "legal.html").write_text(
-            "<!doctype html><head><title>x</title></head><body></body>",
+            "<!doctype html><head><title>x</title></head><body><h1>x</h1></body>",
             encoding="utf-8")
         with pytest.raises(paquete.SinPagina) as motivo:
             _montar(repositorio)
@@ -2067,7 +2128,8 @@ class TestLaPaginaDeCuandoNoHayNada:
 def _articulo(slug: str, fecha: str, marca: str = "") -> tuple[str, str]:
     return slug, (
         f'<article class="entrada" data-fecha="{fecha}" data-titulo="Sobre {slug}" '
-        f'data-entradilla="Lo de {slug}.">\n  <h1>Sobre {slug}</h1>\n'
+        f'data-entradilla="Lo de {slug}.">\n  <time datetime="{fecha}">{fecha}</time>\n'
+        f'  <h1>Sobre {slug}</h1>\n'
         f"  <p>{marca}Cuerpo.</p>\n"
         '  <footer class="fuentes"><a href="https://www.boe.es/">BOE</a></footer>\n'
         "</article>\n"

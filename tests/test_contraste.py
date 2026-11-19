@@ -27,7 +27,7 @@ import pytest
 
 RAIZ = Path(__file__).resolve().parents[1]
 HOJA = RAIZ / "web" / "glosa.css"
-TARJETA = RAIZ / "herramientas" / "tarjeta.py"
+TARJETA = RAIZ / "validador" / "tarjetas.py"
 
 # Lo que se pinta como letra y sobre qué se pinta. Los bordes y la sombra no
 # están: un filete no se lee.
@@ -96,7 +96,7 @@ def test_todo_texto_se_lee_sobre_todo_fondo(tema):
 
 
 def test_la_tarjeta_pinta_con_los_colores_de_la_hoja():
-    """`herramientas/tarjeta.py` copia los colores del tema claro a mano.
+    """`validador/tarjetas.py` copia los colores del tema claro a mano.
 
     Lo dice su propio comentario —«no se inventa ninguno»—, y el día que se
     cambió `--tenue` la copia se quedó en el gris viejo. Aquí se compara.
