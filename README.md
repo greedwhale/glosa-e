@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4371 tests, todos en verde.
+4375 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -6197,6 +6197,11 @@ Lo que se decidió con el titular ese día, por tandas, con un commit cada una:
    `<!--/cifra-->`, y sin ellas, con catálogo, no se monta. — *Hecha.*
 3. **Títulos y descripciones cortos en los artículos**, con negativa al montar
    si un `<title>` pasa de 70 caracteres con la marca o una descripción de 160.
+   Los nueve pasaban de los dos topes: títulos de 71 a 112 con la marca y
+   descripciones de 254 a 867. El titular y la entradilla se quedan, que son
+   los de la página, el índice y el canal; para el buscador van
+   `data-titulo-corto` y `data-descripcion`, y `bitacora.leer_entradas` se
+   niega, antes de escribir nada, con el artículo que no quepa. — *Hecha.*
 
 Fuera del repositorio: la imagen de cabecera de LinkedIn con el titular nuevo,
 y el lema nuevo en los perfiles, que los cambia el titular.

@@ -80,6 +80,22 @@ PREFIJO = "bitacora-"
 
 _FECHA = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+# Lo que un buscador enseña de cada artículo: el `<title>`, con la marca detrás,
+# y la descripción. Desde el 19-11-2026 tienen tope, porque los nueve artículos
+# de ese día pasaban de los dos: títulos de 71 a 112 caracteres con la marca y
+# descripciones de 254 a 867, y lo que pasa del corte sale con puntos
+# suspensivos o Google escribe otro. Los topes son los de práctica habitual
+# (Google corta por píxeles y no por letras, y aquí no está medido dónde); son
+# los mismos que cumple la portada.
+#
+# El titular del artículo, `data-titulo`, se queda como está: es el que se lee
+# en la página, en el índice y en el canal, y ahí no estorba que sea largo.
+# Para el buscador va `data-titulo-corto`, y `data-descripcion` en vez de la
+# entradilla; las dos solo hacen falta si lo de siempre no cabe.
+MARCA_DEL_TITULO = " · Glosa-e"
+MAXIMO_DEL_TITULO = 70
+MAXIMO_DE_LA_DESCRIPCION = 160
+
 
 class SinEntrada(Exception):
     """Una entrada no dice de cuándo es, o no dice de dónde sale."""
@@ -99,6 +115,20 @@ class Entrada:
     # La fecha del último cambio que la entrada **dice** que tuvo: la suya, o
     # la de su último «Corregida el…» o «Actualizada el…», si es más tarde.
     cambiada: _dt.date
+    # Lo que se le da al buscador cuando el titular o la entradilla no caben
+    # (ver `MAXIMO_DEL_TITULO`). Vacíos, va lo de siempre.
+    titulo_corto: str = ""
+    descripcion: str = ""
+
+    @property
+    def en_el_buscador(self) -> str:
+        """El título del `<title>`, sin la marca."""
+        return self.titulo_corto or self.titulo
+
+    @property
+    def resumen(self) -> str:
+        """La descripción de la cabecera."""
+        return self.descripcion or self.entradilla
 
     @property
     def nombre(self) -> str:
@@ -217,6 +247,25 @@ def leer_entradas(carpeta: Path) -> list[Entrada]:
                 "entrada existe y no la encuentra nadie."
             )
 
+        titulo_corto = _atributo(cuerpo, "titulo-corto")
+        largo = len(html.unescape(titulo_corto or titulo)) + len(MARCA_DEL_TITULO)
+        if largo > MAXIMO_DEL_TITULO:
+            raise SinEntrada(
+                f"{ruta.name} tendría un título de {largo} caracteres con la "
+                f"marca, y el tope es {MAXIMO_DEL_TITULO}: el buscador lo cortaría "
+                "o escribiría otro. Pon uno más corto en `data-titulo-corto`; el "
+                "titular de la página se queda como está."
+            )
+        descripcion = _atributo(cuerpo, "descripcion")
+        largo = len(html.unescape(descripcion or entradilla))
+        if largo > MAXIMO_DE_LA_DESCRIPCION:
+            raise SinEntrada(
+                f"{ruta.name} tendría una descripción de {largo} caracteres, y "
+                f"el tope es {MAXIMO_DE_LA_DESCRIPCION}: el buscador la cortaría "
+                "o escribiría otra. Pon una más corta en `data-descripcion`; la "
+                "entradilla del índice se queda como está."
+            )
+
         cuantas = _fuentes_de(cuerpo)
         if not cuantas:
             raise SinEntrada(
@@ -230,6 +279,7 @@ def leer_entradas(carpeta: Path) -> list[Entrada]:
             ruta=ruta, slug=slug, titulo=titulo, fecha=fecha,
             entradilla=entradilla, fuentes=cuantas, cuerpo=cuerpo,
             cambiada=max([fecha, *_cambios(ruta, cuerpo)]),
+            titulo_corto=titulo_corto, descripcion=descripcion,
         ))
 
     repetidos = sorted({e.slug for e in entradas
@@ -319,7 +369,7 @@ def montar_bitacora(plantilla: Path, carpeta: Path, destino: Path) -> list[Entra
             "Todas las entradas</a></p>"
         )
         (destino / e.nombre).write_text(
-            _pagina(texto, e.titulo, e.entradilla, volver + "\n" + e.cuerpo),
+            _pagina(texto, e.en_el_buscador, e.resumen, volver + "\n" + e.cuerpo),
             encoding="utf-8",
         )
 

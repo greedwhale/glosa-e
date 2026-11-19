@@ -94,6 +94,44 @@ def _entrada(fecha: str = "2026-09-07", titulo: str = "Un título",
             f"  <h1>{titulo}</h1>\n  <p>Cuerpo.</p>\n  {fuentes}\n</article>\n")
 
 
+class TestLoQueVeElBuscador:
+    """Desde el 19-11-2026, el título y la descripción con tope: el titular y
+    la entradilla se quedan, y para el buscador va su versión corta."""
+
+    LARGO = "Un titular largo de verdad, de los que se leen bien en la página entera"
+
+    def test_un_titulo_que_no_cabe_no_se_publica(self, tmp_path):
+        (tmp_path / "x.html").write_text(_entrada(titulo=self.LARGO), encoding="utf-8")
+        with pytest.raises(bitacora.SinEntrada, match="data-titulo-corto"):
+            bitacora.leer_entradas(tmp_path)
+
+    def test_con_el_corto_si(self, tmp_path):
+        (tmp_path / "x.html").write_text(_entrada(titulo=self.LARGO).replace(
+            "data-entradilla=", 'data-titulo-corto="Un titular corto" data-entradilla='),
+            encoding="utf-8")
+        e, = bitacora.leer_entradas(tmp_path)
+        assert (e.titulo, e.en_el_buscador) == (self.LARGO, "Un titular corto")
+
+    def test_el_tope_cuenta_la_marca(self, tmp_path):
+        cabe = "x" * (bitacora.MAXIMO_DEL_TITULO - len(bitacora.MARCA_DEL_TITULO))
+        (tmp_path / "x.html").write_text(_entrada(titulo=cabe), encoding="utf-8")
+        assert bitacora.leer_entradas(tmp_path)
+        (tmp_path / "x.html").write_text(_entrada(titulo=cabe + "x"), encoding="utf-8")
+        with pytest.raises(bitacora.SinEntrada, match="tope"):
+            bitacora.leer_entradas(tmp_path)
+
+    def test_una_descripcion_que_no_cabe_no_se_publica(self, tmp_path):
+        larga = "Una entradilla larga. " * 8
+        (tmp_path / "x.html").write_text(_entrada(entradilla=larga), encoding="utf-8")
+        with pytest.raises(bitacora.SinEntrada, match="data-descripcion"):
+            bitacora.leer_entradas(tmp_path)
+        (tmp_path / "x.html").write_text(_entrada(entradilla=larga).replace(
+            "data-entradilla=", 'data-descripcion="La corta." data-entradilla='),
+            encoding="utf-8")
+        e, = bitacora.leer_entradas(tmp_path)
+        assert (e.entradilla, e.resumen) == (larga.strip(), "La corta.")
+
+
 class TestLoQueNoSePublica:
     def test_sin_fecha(self, tmp_path):
         (tmp_path / "x.html").write_text(_entrada(fecha=None), encoding="utf-8")
@@ -179,8 +217,8 @@ def test_el_indice_enlaza_todas_las_entradas(montado):
 def test_cada_entrada_lleva_su_titulo_y_su_descripcion(montado):
     for e in bitacora.leer_entradas(ARTICULOS):
         texto = (montado / e.nombre).read_text(encoding="utf-8")
-        assert f"<title>{e.titulo} &middot; Glosa-e</title>" in texto
-        assert f'<meta name="description" content="{e.entradilla}">' in texto
+        assert f"<title>{e.en_el_buscador} &middot; Glosa-e</title>" in texto
+        assert f'<meta name="description" content="{e.resumen}">' in texto
         assert texto.count("<title>") == 1
 
 
