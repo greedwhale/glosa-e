@@ -140,18 +140,35 @@ def cabeceras(datos: dict) -> str:
     return "\n".join(lineas) + "\n"
 
 
+def _formas(origen: str) -> list[str]:
+    """Las direcciones que en Vercel acaban en la misma redirección.
+
+    Vercel, con `cleanUrls` y sin barra final, lleva `/tesis.html` y `/tesis/`
+    a `/tesis` antes de mirar las redirecciones, así que las tres llegan a
+    `/sobre`. En Cloudflare `html_handling` solo hace eso con los ficheros que
+    existen, y la fuente de una redirección es justo una página que ya no
+    está: `/tesis.html` daba 404. Medido el 19-11-2026, cuatro días después
+    de la mudanza, cuando Search Console avisó de páginas nuevas en 404: de
+    las 141 fuentes de `vercel.json`, 114 con su `.html` en 404, y la barra
+    final igual. Por eso cada redirección se escribe tres veces, y las tres
+    van directas al destino (un salto, no los dos de Vercel)."""
+    if origen == "/" or origen.endswith((".html", "/")):
+        return [origen]
+    return [origen, f"{origen}.html", f"{origen}/"]
+
+
 def redirecciones(datos: dict) -> str:
     """El `_redirects` de Cloudflare con las de Vercel, con el mismo código."""
     reglas = datos.get("redirects", [])
-    if len(reglas) > MAXIMO_DE_REDIRECCIONES:
-        raise ValueError(
-            f"`vercel.json` tiene {len(reglas)} redirecciones y Cloudflare solo "
-            f"lee {MAXIMO_DE_REDIRECCIONES}."
-        )
     lineas = [
         "# Generado por `python -m validador --sitio` a partir de `vercel.json`.",
         "# No se edita a mano: ver `validador/alojamiento.py`.",
     ]
+    # Una forma que `vercel.json` ya escribe como regla propia manda sobre la
+    # que se deduce de otra: si no, Cloudflare se quedaría con la primera que
+    # encuentra y no se sabría cuál.
+    escritas = {regla["source"] for regla in reglas}
+    reglas_escritas = 0
     for regla in reglas:
         origen, destino = regla["source"], regla["destination"]
         for cual in (origen, destino):
@@ -163,5 +180,17 @@ def redirecciones(datos: dict) -> str:
         # Vercel contesta `permanent` con 308 y lo demás con 307. En
         # Cloudflare, sin código, sería un 302: hay que decirlo.
         codigo = 308 if regla.get("permanent") else 307
-        lineas.append(f"{origen} {destino} {codigo}")
+        for forma in _formas(origen):
+            if forma != origen and forma in escritas:
+                continue
+            lineas.append(f"{forma} {destino} {codigo}")
+            reglas_escritas += 1
+    # El límite cuenta las líneas que se escriben, no las reglas de
+    # `vercel.json`: con las formas, cada una son tres.
+    if reglas_escritas > MAXIMO_DE_REDIRECCIONES:
+        raise ValueError(
+            f"Las redirecciones de `vercel.json`, con sus formas `.html` y con "
+            f"barra, son {reglas_escritas} líneas y Cloudflare solo lee "
+            f"{MAXIMO_DE_REDIRECCIONES}: las de más se ignorarían sin error."
+        )
     return "\n".join(lineas) + "\n"

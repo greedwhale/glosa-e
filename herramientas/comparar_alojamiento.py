@@ -38,6 +38,7 @@ import re
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -86,12 +87,17 @@ def pedir(url: str, seguir: bool = True) -> Respuesta:
     ultimo: Exception | None = None
     for intento in range(_INTENTOS):
         try:
-            with abridor.open(peticion, timeout=_PLAZO) as r:
-                return Respuesta(r.status, {k.lower(): v for k, v in r.headers.items()},
+            try:
+                with abridor.open(peticion, timeout=_PLAZO) as r:
+                    return Respuesta(r.status, {k.lower(): v for k, v in r.headers.items()},
+                                     r.read(), r.headers.get_all("Set-Cookie") or [])
+            except urllib.error.HTTPError as r:
+                # El cuerpo de un 3xx o un 4xx también se lee por la red, y
+                # también se corta. Leído fuera del reintento, un corte ahí
+                # tumbaba la comparación entera: pasó el 19-11-2026 a mitad de
+                # las 423 redirecciones, con un `TimeoutError` en `r.read()`.
+                return Respuesta(r.code, {k.lower(): v for k, v in r.headers.items()},
                                  r.read(), r.headers.get_all("Set-Cookie") or [])
-        except urllib.error.HTTPError as r:
-            return Respuesta(r.code, {k.lower(): v for k, v in r.headers.items()},
-                             r.read(), r.headers.get_all("Set-Cookie") or [])
         except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
             ultimo = error
             time.sleep(1 + intento)
@@ -114,6 +120,50 @@ def cache_esperada(ruta: str, reglas: list[dict]) -> str | None:
                 if c["key"].lower() == "cache-control":
                     valor = c["value"]
     return valor
+
+
+def limpia_de(huellas: dict[str, str]) -> str | None:
+    """Una página cualquiera del sitio, sin su `.html`, para las pruebas que
+    necesitan una dirección limpia que exista."""
+    return next((p[:-5] for p in sorted(huellas) if p.endswith(".html")
+                 and "/" not in p and p not in ("index.html", "404.html")), None)
+
+
+def _servidor(url: str) -> str:
+    return urllib.parse.urlsplit(url).hostname or ""
+
+
+def _formas_de_la_fuente(fuente: str) -> list[str]:
+    """La fuente de una redirección y las dos formas que Vercel lleva al mismo
+    sitio. Las mismas que escribe `validador/alojamiento.py`, pero contadas
+    aquí aparte: si esta herramienta las sacara de allí, un error en la
+    traducción saldría también en la comprobación y no se vería."""
+    if fuente == "/" or fuente.endswith((".html", "/")):
+        return [fuente]
+    return [fuente, f"{fuente}.html", f"{fuente}/"]
+
+
+_SALTOS = 4
+
+
+def _cadena(base: str, ruta: str, destino: str) -> str | None:
+    """Sigue las redirecciones de `ruta` sin dejar que lo haga urllib. None si
+    todos los saltos son permanentes y la cadena acaba en `destino`; si no,
+    lo que falla."""
+    actual = ruta
+    for _ in range(_SALTOS):
+        r = pedir(base + actual, seguir=False)
+        hacia = r.cabeceras.get("location", "")
+        if r.estado not in (301, 308):
+            return (f"contesta {r.estado} hacia «{hacia}», y debería ser "
+                    f"permanente hacia {destino}.")
+        partes = urllib.parse.urlsplit(hacia)
+        if partes.hostname and partes.hostname != _servidor(base):
+            return f"lleva a otro servidor, «{hacia}», y debería llevar a {destino}."
+        actual = partes.path or "/"
+        if actual == destino:
+            return None
+    return f"no llega a {destino} en {_SALTOS} saltos (va por «{actual}»)."
 
 
 def comprobar(base: str, configuracion: Path = CONFIGURACION) -> list[str]:
@@ -168,17 +218,37 @@ def comprobar(base: str, configuracion: Path = CONFIGURACION) -> list[str]:
                         fallos.append(f"{regla['source']}: Content-Type llega como "
                                       f"«{r.cabeceras.get('content-type')}».")
 
-    # Las redirecciones, una a una y sin seguirlas.
+    # Las redirecciones, una a una y con sus formas `.html` y con barra, que
+    # en Vercel llegan al mismo sitio. Hasta el 19-11-2026 solo se miraba la
+    # fuente, y Cloudflare contestaba 404 a `/tesis.html` sin que esto lo
+    # viera: Search Console lo vio antes. Se sigue la cadena a mano, salto a
+    # salto, porque Vercel da dos (quita el `.html` y luego redirige) y
+    # Cloudflare uno, y los dos valen si todos son permanentes y acaban en el
+    # destino.
     for regla in datos.get("redirects", []):
-        r = pedir(base + regla["source"], seguir=False)
-        destino = r.cabeceras.get("location", "")
-        if r.estado not in (301, 308) or not destino.endswith(regla["destination"]):
-            fallos.append(f"{regla['source']}: contesta {r.estado} hacia «{destino}», "
-                          f"y debería ser permanente hacia {regla['destination']}.")
+        for forma in _formas_de_la_fuente(regla["source"]):
+            mal = _cadena(base, forma, regla["destination"])
+            if mal:
+                fallos.append(f"{forma}: {mal}")
+
+    # `http://` lleva a `https://`. Vercel lo hacía solo, con un 308; en
+    # Cloudflare es "Usar siempre HTTPS", un interruptor de la zona, y la
+    # mudanza del 15-11-2026 lo dejó apagado: medido el 19-11, `http://`
+    # servía cada página con un 200. No se mira en `*.workers.dev`, que no es
+    # la dirección que conoce Google ni hereda los ajustes de la zona.
+    if base.startswith("https://") and not _servidor(base).endswith(".workers.dev"):
+        plana = "http://" + base[len("https://"):]
+        for ruta in ("/", f"/{limpia_de(huellas)}" if limpia_de(huellas) else None):
+            if ruta is None:
+                continue
+            r = pedir(plana + ruta, seguir=False)
+            destino = r.cabeceras.get("location", "")
+            if r.estado not in (301, 308) or destino != base + ruta:
+                fallos.append(f"{plana}{ruta}: contesta {r.estado} hacia «{destino}», "
+                              f"y debería llevar a {base}{ruta} de forma permanente.")
 
     # Las direcciones limpias: la buena se sirve y las otras dos llevan a ella.
-    limpia = next((p[:-5] for p in sorted(huellas) if p.endswith(".html")
-                   and "/" not in p and p not in ("index.html", "404.html")), None)
+    limpia = limpia_de(huellas)
     if limpia:
         if pedir(f"{base}/{limpia}").estado != 200:
             fallos.append(f"/{limpia}: la dirección limpia no se sirve.")

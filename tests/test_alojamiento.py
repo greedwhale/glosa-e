@@ -80,13 +80,41 @@ class TestLaTraduccion:
     def test_las_redirecciones_van_todas_y_permanentes(self):
         lineas = [l for l in alojamiento.redirecciones(VERCEL).splitlines()
                   if l and not l.startswith("#")]
-        assert len(lineas) == len(VERCEL["redirects"])
-        for linea, regla in zip(lineas, VERCEL["redirects"]):
-            assert linea == f"{regla['source']} {regla['destination']} 308"
+        assert len(lineas) == 3 * len(VERCEL["redirects"])
+        for regla in VERCEL["redirects"]:
+            assert f"{regla['source']} {regla['destination']} 308" in lineas
+
+    def test_la_forma_html_y_la_de_la_barra_llevan_al_mismo_sitio(self):
+        """El 19-11-2026, cuatro días después de la mudanza, Search Console
+        avisó de páginas nuevas en 404: `/tesis.html` o `/codigo-BR-AE-1.html`,
+        que en Vercel llevaban a la página nueva (su `cleanUrls` quita el
+        `.html` y luego aplica la redirección) y en Cloudflare no encajaban
+        con ninguna regla. Lo mismo con la barra final."""
+        lineas = set(alojamiento.redirecciones(VERCEL).splitlines())
+        for regla in VERCEL["redirects"]:
+            for forma in (f"{regla['source']}.html", f"{regla['source']}/"):
+                assert f"{forma} {regla['destination']} 308" in lineas, forma
+
+    def test_una_forma_que_ya_es_regla_no_se_repite(self):
+        datos = {"redirects": [
+            {"source": "/a", "destination": "/b", "permanent": True},
+            {"source": "/a.html", "destination": "/c", "permanent": True},
+        ]}
+        lineas = [l for l in alojamiento.redirecciones(datos).splitlines()
+                  if l and not l.startswith("#")]
+        assert lineas.count("/a.html /c 308") == 1
+        assert not any(l.startswith("/a.html /b") for l in lineas)
 
     def test_dentro_de_los_limites_del_plan_gratuito(self):
         assert len(VERCEL["headers"]) <= alojamiento.MAXIMO_DE_REGLAS_DE_CABECERAS
-        assert len(VERCEL["redirects"]) <= alojamiento.MAXIMO_DE_REDIRECCIONES
+        lineas = [l for l in alojamiento.redirecciones(VERCEL).splitlines()
+                  if l and not l.startswith("#")]
+        assert len(lineas) <= alojamiento.MAXIMO_DE_REDIRECCIONES
+
+    def test_pasarse_del_limite_con_las_formas_se_niega(self, monkeypatch):
+        monkeypatch.setattr(alojamiento, "MAXIMO_DE_REDIRECCIONES", 3 * len(VERCEL["redirects"]) - 1)
+        with pytest.raises(ValueError, match="redirecciones"):
+            alojamiento.redirecciones(VERCEL)
 
     @pytest.mark.parametrize("fuente", ["/:camino*", "/(a|b)", "/x/(.*)/y/(.*)"])
     def test_lo_que_no_se_sabe_traducir_se_niega(self, fuente):
@@ -214,10 +242,16 @@ class TestLaComparacion:
 
         def servir(url, seguir=True):
             ruta = url.split("://", 1)[1].split("/", 1)[1] if "/" in url.split("://", 1)[1] else ""
+            if url.startswith("http://"):
+                return estropear("http://" + ruta, R(301, {"location": "https://" + url[7:]}, b""))
             if ruta == "dist/rueda.json":
                 r = R(200, dict(revalida), manifiesto)
             elif ruta == "tesis":
                 r = R(308, {"location": "/sobre"}, b"")
+            elif ruta in ("tesis.html", "tesis/"):
+                # Como Vercel: primero quita el `.html` o la barra, y luego
+                # redirige. Dos saltos permanentes valen.
+                r = R(308, {"location": "https://prueba/tesis"}, b"")
             elif ruta in ("legal.html", "legal/") and not seguir:
                 r = R(308, {"location": "/legal"}, b"")
             elif ruta in ("legal", "legal.html"):
@@ -275,6 +309,82 @@ class TestLaComparacion:
             return r
         fallos = self._comprobar(tmp_path, self._alojamiento(monkeypatch, temporal))
         assert any("/tesis" in f for f in fallos)
+
+    @pytest.mark.parametrize("forma", ["tesis.html", "tesis/"])
+    def test_ve_la_forma_vieja_de_una_redireccion_en_404(self, monkeypatch, tmp_path, forma):
+        """Lo que se escapó en la mudanza: Cloudflare contestaba 404 a
+        `/tesis.html` y la comparación solo miraba `/tesis`."""
+        def sin_forma(ruta, r):
+            if ruta == forma:
+                r.estado, r.cabeceras = 404, {}
+            return r
+        fallos = self._comprobar(tmp_path, self._alojamiento(monkeypatch, sin_forma))
+        assert any(f"/{forma}" in f for f in fallos)
+
+    def test_ve_una_cadena_que_no_acaba_en_el_destino(self, monkeypatch, tmp_path):
+        def a_otro_sitio(ruta, r):
+            if ruta == "tesis.html":
+                r.cabeceras = {"location": "https://prueba/legal"}
+            return r
+        fallos = self._comprobar(tmp_path, self._alojamiento(monkeypatch, a_otro_sitio))
+        assert any("/tesis.html" in f for f in fallos)
+
+    def test_ve_http_sin_pasar_a_https(self, monkeypatch, tmp_path):
+        """La otra que se escapó: `http://` servía la página con un 200, y en
+        Vercel llevaba a `https://` con un 308."""
+        def sin_https(ruta, r):
+            if ruta.startswith("http://"):
+                r.estado, r.cabeceras = 200, {}
+            return r
+        fallos = self._comprobar(tmp_path, self._alojamiento(monkeypatch, sin_https))
+        assert any(f.startswith("http://") for f in fallos)
+
+    def test_la_direccion_de_prueba_no_se_mira_por_http(self, monkeypatch, tmp_path):
+        """`*.workers.dev` no es la que conoce Google, y "Usar siempre HTTPS"
+        es de la zona `glosa-e.com`: medido el 19-11-2026, la de prueba
+        contesta 200 por `http://`."""
+        def sin_https(ruta, r):
+            if ruta.startswith("http://"):
+                r.estado, r.cabeceras = 200, {}
+            return r
+        configuracion = self._alojamiento(monkeypatch, sin_https)
+        fichero = tmp_path / "vercel.json"
+        fichero.write_text(json.dumps(configuracion), encoding="utf-8")
+        fallos = comparar_alojamiento.comprobar("https://glosa.prueba.workers.dev", fichero)
+        assert not any(f.startswith("http://") for f in fallos)
+
+    def test_un_corte_al_leer_un_3xx_se_reintenta(self, monkeypatch):
+        """El 19-11-2026 la comparación contra producción se cayó entera por un
+        `TimeoutError` al leer el cuerpo de una redirección: esa lectura iba
+        fuera del reintento."""
+        import io
+        import urllib.error
+
+        class Cuerpo(io.BytesIO):
+            def __init__(self, cortar):
+                super().__init__(b"")
+                self.cortar = cortar
+
+            def read(self, *a):
+                if self.cortar:
+                    raise TimeoutError("The read operation timed out")
+                return b""
+
+        import email.message
+
+        cabeceras = email.message.Message()
+        cabeceras["Location"] = "/sobre"
+        veces = []
+
+        def abrir(peticion, timeout=None):
+            veces.append(1)
+            raise urllib.error.HTTPError(peticion.full_url, 308, "Permanent Redirect",
+                                         cabeceras, Cuerpo(len(veces) == 1))
+
+        monkeypatch.setattr(comparar_alojamiento._NO_SIGUE, "open", abrir)
+        monkeypatch.setattr(comparar_alojamiento.time, "sleep", lambda s: None)
+        r = comparar_alojamiento.pedir("https://prueba/tesis.html", seguir=False)
+        assert (r.estado, r.cabeceras["location"], len(veces)) == (308, "/sobre", 2)
 
     def test_ve_un_404_que_no_es_el_nuestro(self, monkeypatch, tmp_path):
         def generico(ruta, r):

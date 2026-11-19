@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4331 tests, todos en verde.
+4340 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -7396,6 +7396,18 @@ a quien aún tenga en caché sus servidores de nombres.
   failed`: el DNS de este equipo dejó de resolver el dominio un momento. La
   segunda salió limpia.
 
+**Lo que se escapó, visto el 19-11-2026.** Search Console avisó de páginas
+nuevas en 404 y duplicadas sin canónica. Medido contra Vercel, que sigue
+sirviendo lo mismo: la forma `.html` y la de barra final de una dirección
+antigua con redirección (`/tesis.html`, `/codigo-BR-AE-1/`) llevaban en Vercel
+a la página nueva y en Cloudflare daban 404 (las 141, con `.html` y con barra), y
+`http://` servía cada página con un 200 en vez de llevar a `https://`. La
+comparación salió limpia el 15-11 porque no miraba ninguna de las dos cosas.
+Desde el 19-11 `_redirects` lleva las tres formas de cada redirección, y la
+comparación sigue las cadenas de las tres y prueba `http://`. Lo de `http://`
+no se arregla con ficheros: es "Usar siempre HTTPS" en SSL/TLS de la zona, un
+clic del titular. El detalle, en HALLAZGOS.
+
 **Por qué.** El plan gratuito de Vercel es solo para uso personal y no
 comercial. Las condiciones de Cloudflare (Self-Serve Subscription Agreement,
 releídas ese día) no ponen esa condición; solo prohíben recoger datos de
@@ -7410,7 +7422,7 @@ nuevos empiecen en Workers.
 | Ficheros por versión | 20.000 | 488 |
 | Tamaño por fichero | 25 MiB | el mayor, `pyodide.asm.wasm`, 9,6 MB |
 | Reglas de cabeceras | 100 | 13 |
-| Redirecciones fijas | 2.000 | 141 |
+| Redirecciones fijas | 2.000 | 141 (423 líneas desde el 19-11, con sus formas `.html` y con barra) |
 | Peticiones a ficheros | gratis y sin límite | sin script, todas lo son |
 | Construcción | Python a elegir con `PYTHON_VERSION` | el de la suite, 3.14.6 |
 
@@ -7427,7 +7439,7 @@ reescriba los correos de las páginas.
 
 **La prueba que vale** es `herramientas/comparar_alojamiento.py`: baja los 488
 ficheros y los compara con las huellas de `rueda.json`, y mira la caché de cada
-regla, las cabeceras de seguridad, las 141 redirecciones, las direcciones
+regla, las cabeceras de seguridad, las 141 redirecciones (desde el 19-11, con sus formas `.html` y con barra, y `http://`), las direcciones
 limpias, el 404, las mayúsculas, las cookies y los scripts ajenos. Contra
 producción en Vercel, el 15-11-2026: limpio, en 3 min 50 s.
 

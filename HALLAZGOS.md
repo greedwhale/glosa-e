@@ -10192,3 +10192,62 @@ la nota. Lo que guardan esas pruebas es que no se la acuse de ser una factura,
 y una NOTA que dice que su contenido no se mira no la acusa de nada; es lo
 mismo que hace `PERFIL-NO-MEDIDO` con una factura de Peppol. Las cuentas de
 ese fichero dejan fuera esa nota, y una prueba nueva exige que salga.
+
+## La mudanza dejó en 404 las direcciones viejas y `http://` sin pasar a `https://`
+
+**Cómo salió.** El 19-11-2026 Search Console mandó al titular un correo,
+"Nuevos motivos que impiden la indexación": **No se ha encontrado (404)** y
+**Duplicada: el usuario no ha indicado ninguna versión canónica**. Cuatro días
+después de mudar el sitio a Cloudflare, con la comparación de alojamientos
+limpia.
+
+**Reproducido** en producción y contra Vercel, que sigue construyendo cada
+push y sirve lo mismo en `glosa-zeta.vercel.app`:
+
+- `/tesis.html` y `/codigo-BR-AE-1.html`: en Vercel, 308 a la dirección sin
+  `.html` y de ahí a la nueva; en Cloudflare, **404**. Lo mismo con la barra
+  final (`/tesis/`). Las 141 fuentes de `vercel.json`, con `.html` y con barra,
+  en 404 (un primer recuento con `curl` dio 114: se cortaban peticiones). Vercel quita el `.html` y la barra antes de mirar las
+  redirecciones; `html_handling` de Cloudflare solo lo hace con ficheros que
+  existen, y la fuente de una redirección es una página que ya no está.
+- `http://www.glosa-e.com/codigo-SPFE-NIF`: en Vercel, 308 a `https://`; en
+  Cloudflare, **200**. Las páginas llevan HSTS, pero solo lo aprende quien ya
+  entró por `https://`.
+
+Las 454 páginas del sitemap llevan su canónica, también servidas por
+`http://`. Lo de "duplicada" queda sin explicar hasta leer los ejemplos del
+informe de indexación.
+
+**Por qué no se vio.** `herramientas/comparar_alojamiento.py` miraba cada
+fuente de redirección, pero no sus formas, y solo pedía `https://`. Salió
+limpio el 15-11 contra los dos alojamientos. Es el disfraz de siempre: todo en
+verde, y no era lo que se creía probado.
+
+**Ahora** `validador/alojamiento.py` escribe cada redirección tres veces en
+`_redirects` (la fuente, con `.html` y con barra), las tres directas al
+destino: 423 líneas, dentro de las 2.000 del plan gratuito, y el límite se
+cuenta sobre las líneas y no sobre las reglas. Una forma que `vercel.json` ya
+escribe como regla propia no se duplica. La comparación saca las formas por su
+cuenta, sin importarlas de la traducción, sigue cada cadena salto a salto
+(Vercel da dos, Cloudflare uno; valen los dos si todos son permanentes y
+acaban en el destino) y pide `http://` de la portada y de una página, salvo en
+`*.workers.dev`, que no es la dirección que conoce Google ni hereda los
+ajustes de la zona. Lo de `http://` no lo arregla un fichero: es "Usar siempre
+HTTPS" en la zona, que activa el titular.
+
+**Reproducido** en `tests/test_alojamiento.py`: siete pruebas en rojo antes
+del arreglo, tres de la traducción y cuatro de la comparación.
+
+**Provocado** contra los dos alojamientos de verdad con la comparación nueva,
+antes de publicar. Contra Vercel, limpia: no se inventa nada. Contra producción
+en Cloudflare, 284 cosas: las 141 formas `.html`, las 141 con barra y
+`http://` en la portada y en una página. Lo mismo que Search Console, y nada
+más.
+
+**Y otro que salió al provocarlo.** La primera pasada contra producción se cayó
+entera con un `TimeoutError`: `pedir()` reintentaba al abrir, pero el cuerpo de
+un 3xx o un 4xx se leía fuera del reintento, y con 423 redirecciones seguidas
+desde una conexión que se corta a ratos acabó pasando. Ahora esa lectura va
+dentro. Prueba nueva con un corte en la primera lectura; con el código de
+antes, en rojo.
+
