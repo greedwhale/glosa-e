@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4375 tests, todos en verde.
+4377 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -6089,8 +6089,8 @@ LinkedIn, ni WhatsApp, ni Facebook), así que tiene que ser un PNG de 1200×630.
 `validador/tarjetas.py`, de la página ya montada. Hasta ese día había una sola,
 `web/marca/tarjeta.png`, versionada ya hecha: quien pegaba el enlace de la
 ficha de BR-CO-15 o de un artículo del blog veía la portada, y la vista previa
-no decía de qué iba lo que se compartía. De 455 páginas, 454 se presentaban con
-la cara de otra. La de error, `404.html`, no lleva: no se indexa ni se comparte.
+no decía de qué iba lo que se compartía. De las 454 páginas con tarjeta, 453
+se presentaban con la cara de la portada. La de error, `404.html`, no lleva: no se indexa ni se comparte.
 
 Tres moldes, elegidos por el titular sobre maquetas el mismo día:
 

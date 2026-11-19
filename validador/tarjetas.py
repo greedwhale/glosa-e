@@ -18,7 +18,7 @@ hecha y generada a mano con `herramientas/tarjeta.py`. Se hacía así para no
 instalar Pillow en cada despliegue por un fichero que cambiaba una vez cada
 seis meses. Con una sola, quien pegaba el enlace de la ficha de BR-CO-15 veía
 la portada, y la vista previa no decía de qué iba la página que se compartía:
-de 455 páginas, 454 se presentaban con la cara de otra.
+de las 454 páginas con tarjeta, 453 se presentaban con la cara de la portada.
 
 Una por página son 454 imágenes, y cambian con lo que cambia la página, así
 que ya no se pueden versionar hechas: se pintan **de la página montada**, al
@@ -198,7 +198,17 @@ class Letra:
 
 
 def _abrir(datos: bytes, tamano: int, peso: int) -> "ImageFont.FreeTypeFont":
-    fuente = ImageFont.truetype(io.BytesIO(datos), tamano)
+    # El motor de composición, fijado. Sin decirlo, Pillow usa RAQM donde
+    # encuentra libfribidi y BASIC donde no: en el equipo del titular es BASIC
+    # (medido el 19-11-2026), y en la construcción del alojamiento no se sabe.
+    # La Literata servida lleva el interletraje solo en GPOS, que BASIC no
+    # aplica y RAQM sí, así que con motores distintos cambian los avances, los
+    # cortes de línea, los píxeles y el `?v=` de las 454 páginas, y
+    # `--avisar-indexnow` vería todas distintas. Se fija el que hay aquí, que
+    # es con el que se aprobaron las maquetas; `tests/test_tarjeta.py` lleva
+    # las huellas de tres tarjetas, y GitHub las comprueba en Linux.
+    fuente = ImageFont.truetype(io.BytesIO(datos), tamano,
+                                layout_engine=ImageFont.Layout.BASIC)
     # El eje óptico fijo en 12, el mismo que usa `trazar.py` para la marca y
     # `letra.py` para la que sirve la página. Así el titular de la tarjeta y el
     # logotipo salen de la misma forma de letra.

@@ -108,10 +108,9 @@ def test_sin_titular_no_hay_tarjeta():
 
 
 def test_la_huella_es_de_los_pixeles_y_no_de_como_se_comprimen(tmp_path):
-    """La dirección de la tarjeta tiene que salir igual montando aquí que en
-    el alojamiento, o `--avisar-indexnow` vería todas las páginas distintas.
-    Los mismos píxeles comprimidos de otra manera son otros bytes y la misma
-    huella."""
+    """Los mismos píxeles comprimidos de otra manera son otros bytes y la misma
+    huella. Que los píxeles salgan iguales en otra máquina lo vigila la de
+    abajo."""
     from PIL import Image
 
     def de_los_pixeles(ruta):
@@ -123,6 +122,46 @@ def test_la_huella_es_de_los_pixeles_y_no_de_como_se_comprimen(tmp_path):
     Image.open(tmp_path / "a.png").save(tmp_path / "b.png", compress_level=1)
     assert (tmp_path / "a.png").read_bytes() != (tmp_path / "b.png").read_bytes()
     assert huella == de_los_pixeles(tmp_path / "a.png") == de_los_pixeles(tmp_path / "b.png")
+
+
+# Las huellas de tres tarjetas, una por molde, pintadas en el equipo del
+# titular el 19-11-2026 con Pillow 12.3.0 y el motor de composición BASIC.
+HUELLAS_FIJADAS = {"portada": "48b25f6e", "ficha": "6c61d03c", "pagina": "27230b81"}
+
+
+def test_las_tarjetas_salen_iguales_en_cualquier_maquina(tmp_path):
+    """La dirección de cada tarjeta tiene que salir igual montando aquí que en
+    el alojamiento, o `--avisar-indexnow`, que compara las huellas de las
+    páginas, las vería todas distintas. Esta corre también en GitHub, en
+    Linux: si allí falla, es que otro sistema pinta otros píxeles (otro
+    FreeType, otro motor de composición, otro remuestreo), y hay que saberlo
+    antes de publicar y no al avisar a los buscadores."""
+    pintadas = {
+        "portada": tarjetas.portada(
+            "438 códigos de la factura electrónica, explicados en castellano.",
+            "Lo que dice tu factura, y lo que no se ha podido comprobar.", LETRA),
+        "ficha": tarjetas.ficha(
+            "BR-CO-15", ("error",), "EN 16931",
+            "El total con impuestos no es la base imponible más el importe de impuestos.",
+            LETRA),
+        "pagina": tarjetas.pagina(
+            "Qué dice un 200 en el acuse de la solución pública", LETRA, rotulo="Blog",
+            entradilla="Una entradilla corta.", pie="16 de noviembre de 2026"),
+    }
+    huellas = {n: tarjetas._guardar(i, tmp_path / f"{n}.png") for n, i in pintadas.items()}
+    assert huellas == HUELLAS_FIJADAS, (
+        "estas tarjetas no salen con los mismos píxeles que en el equipo del "
+        f"titular: {huellas}. Si es por un cambio a propósito, se apuntan las "
+        "nuevas; si es otra máquina, lo montado aquí y lo publicado no "
+        "coincidirán.")
+
+
+def test_el_motor_de_composicion_esta_fijado():
+    """Sin fijarlo, Pillow usa RAQM donde encuentra libfribidi, y la Literata
+    lleva el interletraje en GPOS, que solo aplica RAQM."""
+    from PIL import ImageFont
+
+    assert LETRA(20, 400).layout_engine == ImageFont.Layout.BASIC
 
 
 def test_sin_pillow_se_sabe_antes_de_montar(monkeypatch):
