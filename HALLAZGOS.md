@@ -10251,3 +10251,47 @@ desde una conexión que se corta a ratos acabó pasando. Ahora esa lectura va
 dentro. Prueba nueva con un corte en la primera lectura; con el código de
 antes, en rojo.
 
+## Las tarjetas salían con los mismos colores y otra huella en Linux
+
+**Cómo salió.** El 19-11-2026, la primera vez que GitHub pintó tarjetas
+sociales en Linux, `suite` se puso roja en
+`test_las_tarjetas_salen_iguales_en_cualquier_maquina`: las tres tarjetas que
+fija la prueba daban otras huellas que en Windows (portada `8b7719f9` y no
+`48b25f6e`). La prueba se había escrito ese mismo día para esto. Sin ella,
+cada página montada aquí habría dicho otro `?v=` que la de producción, y
+`--avisar-indexnow`, que compara las dos, se habría negado siempre.
+
+**La causa, reproducida.** El color de cada píxel salía igual; lo que cambiaba
+era el orden de la paleta. `quantize(FASTOCTREE)` ordena los cubos de color
+por cuántos píxeles tiene cada uno, con el `qsort` de la biblioteca de C
+(`QuantOctree.c` de Pillow 12.3.0, que solo compara la cuenta). Cuando dos
+cuentas empatan, el estándar de C no dice en qué orden quedan: la de glibc
+conserva el de llegada, y la de Windows no. En las tres tarjetas había entre
+22 y 42 empates. Reescrita en Python la cuantización de Pillow con un orden de
+llegada, y aplicada a los píxeles pintados en Windows, salen exactamente las
+tres huellas de GitHub; con el orden contrario, otras tres. La huella de
+entonces era la de la paleta y sus índices, así que mismos colores en otro
+orden era otra huella. Las versiones de FreeType, HarfBuzz, libpng y zlib-ng
+de los dos wheels son las mismas (`.github/dependencies.json` de Pillow
+12.3.0).
+
+**Ahora** la huella sale de la imagen pasada a RGB, que no sabe en qué orden
+estaba la paleta, y la paleta se guarda ordenada por color, así que el PNG
+tampoco depende de eso. Y el orden de los empates podría decidir también
+**qué** colores entran, si no cupieran todos: FASTOCTREE mete primero los
+cubos gruesos usados y llena lo que queda con los finos de más píxeles. Por
+eso `_guardar` se niega con `TarjetaMal` si los cubos finos y gruesos pasan
+de 256. Medido en las 454 tarjetas: la más justa usa 141, y todas salen con
+los mismos colores que antes del arreglo.
+
+**Provocado.** Una prueba le da a `_guardar` una paleta barajada: con la
+huella de antes, en rojo. Otra pinta ruido, que no cabe: sin la negativa, en
+rojo. Las huellas fijas llevan ahora también la del RGB recién pintado, antes
+de cuantizar, para que si vuelve a fallar se sepa en qué capa.
+
+**Lo que no está medido.** Que la letra se pinte igual en todos los textos:
+la Literata servida no lleva instrucciones de hinting, FreeType la ajusta con
+su autohinter, y el de Linux puede apoyarse en HarfBuzz para los acentos.
+Las tres tarjetas fijadas salen con los mismos colores en los dos sistemas;
+las otras 451 no se han comparado, y la puerta que queda es que
+`--avisar-indexnow` se niegue si producción no sirve lo montado.

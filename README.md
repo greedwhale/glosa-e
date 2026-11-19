@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4377 tests, todos en verde.
+4380 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -6137,12 +6137,18 @@ alojamiento no está.
 Telegram enseñó ese día la tarjeta de antes dos horas después de publicar la
 nueva, porque quien pinta la vista previa de un enlace la guarda por dirección
 y una dirección que no cambia no tiene por qué volver a pedirse. Ahora la
-dirección es `tarjetas/<página>.png?v=<huella>`, y la huella es la de los
-píxeles y su paleta. El PNG lo comprime el zlib que traiga cada Pillow, y no
-está medido que el de Windows y el de Linux den los mismos bytes con los
-mismos píxeles; si no los dieran, cada página montada aquí diría una dirección
-distinta de la de producción, y `--avisar-indexnow`, que compara las dos, se
-negaría siempre. Lo que la huella no arregla, y no se puede arreglar desde
+dirección es `tarjetas/<página>.png?v=<huella>`, y la huella es la del color
+de cada píxel: ni la del PNG ni la de la paleta. Tiene que salir igual montando
+aquí que en producción, porque va dentro de cada página y `--avisar-indexnow`
+compara las páginas montadas aquí con las servidas; si no, se negaría siempre.
+La primera versión miraba la paleta y sus índices, y GitHub la pilló en Linux
+antes de publicar: mismos colores, otra huella, porque Pillow ordena la paleta
+con el `qsort` del sistema y los empates salen en otro orden en cada uno (lo
+medido, en HALLAZGOS). Ahora la paleta se guarda ordenada por color y el
+montaje se niega si los colores de una tarjeta no caben en ella, que es el
+único caso en que el orden cambiaría los píxeles. El PNG lo comprime el zlib
+que traiga cada Pillow, y no está medido que dé los mismos bytes en los dos
+sistemas; la huella no depende de eso. Lo que la huella no arregla, y no se puede arreglar desde
 aquí: Telegram guarda también la vista previa **de la página**, y hasta que
 vuelva a leerla enseña la que tiene. Para eso está su @WebpageBot.
 

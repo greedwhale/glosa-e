@@ -707,24 +707,68 @@ def _pintar(nombre: str, texto: str, letra: Letra, fichas: set[str],
     return pagina(titulo, letra, entradilla=entradilla), alt
 
 
+# Los cubos de color con los que cuantiza FASTOCTREE: 16 niveles por canal
+# para los finos y 4 para los gruesos (`QuantOctree.c` de Pillow 12.3.0).
+_FINO, _GRUESO = 4, 6
+
+
+def _cubos(rgb, bits: int) -> int:
+    """Cuántos cubos de color usa la imagen, con `8 - bits` bits por canal."""
+    return len(rgb.point(lambda v: v >> bits).getcolors(256 ** 3 >> (3 * bits)))
+
+
 def _guardar(imagen, ruta: Path) -> str:
     """Guarda la imagen con paleta y devuelve su huella para el `?v=`.
 
-    La huella es la de **los píxeles**, no la del PNG. La que manda en una
-    dirección es la del fichero, pero aquí el PNG lo comprime el zlib que
-    traiga cada Pillow, y no está medido que el de Windows y el de Linux den
-    los mismos bytes con los mismos píxeles. Si no los dieran, cada página
-    montada aquí diría una dirección distinta de la de producción, y
-    `--avisar-indexnow`, que compara las dos, se negaría siempre. Con la de los
-    píxeles la dirección cambia cuando la imagen cambia, que es lo que hace
-    falta, y no cuando cambia quien la comprime.
+    La huella es la de **los píxeles**, el color que acaba teniendo cada uno,
+    y no la del PNG ni la de la paleta. Tiene que salir igual montando aquí
+    que en el alojamiento, porque el `?v=` va dentro de cada página y
+    `--avisar-indexnow` compara las páginas montadas aquí con las que sirve
+    producción: con otra huella allí, se negaría siempre.
+
+    Medido el 19-11-2026, la primera vez que GitHub pintó tarjetas en Linux:
+    los colores salían iguales y las huellas no, porque la de entonces miraba
+    la paleta y sus índices. Pillow ordena la paleta por cuántos píxeles tiene
+    cada color, con el `qsort` de la biblioteca de C del sistema, y cuando dos
+    cuentas empatan cada sistema las deja en otro orden: la de glibc conserva
+    el de llegada y la de Windows no. Mismos colores, otro orden, otros
+    índices, otra huella. Se arregla en dos sitios:
+
+    - La huella sale de la imagen pasada a RGB, que no sabe en qué orden
+      estaba la paleta.
+    - La paleta se guarda ordenada por color, para que el PNG tampoco dependa
+      de eso (dos colores idénticos en la paleta quedarían en cualquier orden,
+      pero eso no toca la huella).
+
+    El orden de los empates puede decidir también **qué** colores entran, y
+    eso sí cambiaría los píxeles: FASTOCTREE mete primero los cubos gruesos
+    usados y llena lo que queda con los finos de más píxeles. Mientras quepan
+    todos los finos, ningún empate deja uno fuera, y cada píxel acaba con la
+    media de su cubo fino, que no depende del orden. Si no cupieran, se niega:
+    medido ese día en las 454 tarjetas, la más justa (la de
+    SPFE-RECTIFICATIVA) usa 122 finos y 19 gruesos, 115 por debajo del tope,
+    y las 454 salen con los mismos colores que antes del arreglo.
     """
-    paleta = imagen.quantize(colors=256, method=Image.Quantize.FASTOCTREE,
-                             dither=Image.Dither.NONE)
+    rgb = imagen.convert("RGB")
+    finos, gruesos = _cubos(rgb, _FINO), _cubos(rgb, _GRUESO)
+    if finos + gruesos > 256:
+        raise TarjetaMal(
+            f"la tarjeta usa {finos} cubos de color finos y {gruesos} gruesos, "
+            "más de los 256 de la paleta, y cuáles entran dependería de cómo "
+            "ordene el sistema: aquí y en el alojamiento saldrían píxeles "
+            "distintos. Se arregla con menos colores (un degradado, una foto) en "
+            "el molde."
+        )
+    cuantizada = rgb.quantize(colors=256, method=Image.Quantize.FASTOCTREE,
+                              dither=Image.Dither.NONE)
+    colores = cuantizada.getpalette()
+    usados = sorted((i for _, i in cuantizada.getcolors(256)),
+                    key=lambda i: tuple(colores[3 * i:3 * i + 3]))
+    ordenada = cuantizada.remap_palette(usados)
     huella = hashlib.sha256(
-        f"{paleta.width}x{paleta.height}".encode()
-        + bytes(paleta.getpalette()) + paleta.tobytes()).hexdigest()[:8]
-    paleta.save(ruta, optimize=True)
+        f"{ordenada.width}x{ordenada.height}".encode()
+        + ordenada.convert("RGB").tobytes()).hexdigest()[:8]
+    ordenada.save(ruta, optimize=True)
     return huella
 
 

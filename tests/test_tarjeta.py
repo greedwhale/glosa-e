@@ -94,6 +94,25 @@ def test_el_titular_de_cada_pagina_cabe(pagina):
     assert imagen.size == (tarjetas.ANCHO, tarjetas.ALTO) and alt
 
 
+def test_se_pinta_la_tarjeta_de_cada_ficha():
+    """Las fichas solo se escriben al montar, y montar no corre en GitHub: sin
+    esta, una ficha que no se pudiera pintar en otro sistema (el mensaje se
+    corta, pero el código tiene que caber en una línea, y la ficha tiene que
+    decir su gravedad y su norma) se sabía en el despliegue, con el sitio
+    entero negándose, y no aquí. Se dicen todas las que fallan, no la
+    primera."""
+    todos = codigos_del_paquete()
+    fichas = {pagina_incidencias.nombre_de(c.codigo): c for c in todos}
+    malas = []
+    for nombre, codigo in fichas.items():
+        try:
+            tarjetas._pintar(nombre, pagina_incidencias._ficha(codigo, todos), LETRA,
+                             set(fichas), set())
+        except tarjetas.TarjetaMal as error:
+            malas.append(f"{nombre}: {error}")
+    assert not malas, "\n".join(malas)
+
+
 def test_un_titular_que_no_cabe_no_se_pinta():
     """Cortado no se publica: se dice, y el titular se acorta a mano."""
     with pytest.raises(tarjetas.TarjetaMal, match="no cabe"):
@@ -116,7 +135,7 @@ def test_la_huella_es_de_los_pixeles_y_no_de_como_se_comprimen(tmp_path):
     def de_los_pixeles(ruta):
         leida = Image.open(ruta)
         return hashlib.sha256(f"{leida.width}x{leida.height}".encode()
-                              + bytes(leida.getpalette()) + leida.tobytes()).hexdigest()[:8]
+                              + leida.convert("RGB").tobytes()).hexdigest()[:8]
 
     huella = tarjetas._guardar(tarjetas.pagina("Un titular", LETRA), tmp_path / "a.png")
     Image.open(tmp_path / "a.png").save(tmp_path / "b.png", compress_level=1)
@@ -124,18 +143,64 @@ def test_la_huella_es_de_los_pixeles_y_no_de_como_se_comprimen(tmp_path):
     assert huella == de_los_pixeles(tmp_path / "a.png") == de_los_pixeles(tmp_path / "b.png")
 
 
+def test_la_huella_no_depende_del_orden_de_la_paleta(monkeypatch, tmp_path):
+    """Lo que pasó el 19-11-2026, reproducido aquí: Pillow ordena la paleta con
+    el `qsort` del sistema, y en Linux los empates salían en otro orden que en
+    Windows. Se le da a `_guardar` una paleta barajada y la huella, y el PNG,
+    tienen que salir igual. Con la huella de antes (la paleta y sus índices),
+    esta se ponía roja."""
+    import random
+
+    from PIL import Image
+
+    imagen = tarjetas.pagina("Un titular", LETRA)
+    huella = tarjetas._guardar(imagen, tmp_path / "a.png")
+
+    cuantizar = Image.Image.quantize
+
+    def barajada(self, *args, **kwargs):
+        hecha = cuantizar(self, *args, **kwargs)
+        orden = list(range(256))
+        random.Random(15).shuffle(orden)
+        return hecha.remap_palette(orden)
+
+    monkeypatch.setattr(Image.Image, "quantize", barajada)
+    assert tarjetas._guardar(imagen, tmp_path / "b.png") == huella
+    assert (Image.open(tmp_path / "a.png").getpalette()
+            == Image.open(tmp_path / "b.png").getpalette())
+
+
+def test_si_los_colores_no_caben_en_la_paleta_no_se_pinta(tmp_path):
+    """Con más cubos de color de los que caben, el orden de los empates decide
+    cuáles entran, y eso sí cambia los píxeles de un sistema a otro."""
+    import random
+
+    from PIL import Image
+
+    azar = random.Random(19)
+    ruido = Image.frombytes("RGB", (200, 200), bytes(azar.randrange(256) for _ in range(120000)))
+    with pytest.raises(tarjetas.TarjetaMal, match="cubos de color"):
+        tarjetas._guardar(ruido, tmp_path / "ruido.png")
+    assert not (tmp_path / "ruido.png").exists()
+
+
 # Las huellas de tres tarjetas, una por molde, pintadas en el equipo del
-# titular el 19-11-2026 con Pillow 12.3.0 y el motor de composición BASIC.
-HUELLAS_FIJADAS = {"portada": "48b25f6e", "ficha": "6c61d03c", "pagina": "27230b81"}
+# titular el 19-11-2026 con Pillow 12.3.0 y el motor de composición BASIC: la
+# del RGB recién pintado, antes de cuantizar, y la del `?v=`. Si falla, la
+# primera dice si es el pintado (la letra, el remuestreo) o la cuantización.
+HUELLAS_FIJADAS = {
+    "portada": ("50ca7c6c", "b8ccd069"),
+    "ficha": ("fa9f9261", "ba6c8933"),
+    "pagina": ("5113876f", "06551a0c"),
+}
 
 
 def test_las_tarjetas_salen_iguales_en_cualquier_maquina(tmp_path):
     """La dirección de cada tarjeta tiene que salir igual montando aquí que en
-    el alojamiento, o `--avisar-indexnow`, que compara las huellas de las
-    páginas, las vería todas distintas. Esta corre también en GitHub, en
-    Linux: si allí falla, es que otro sistema pinta otros píxeles (otro
-    FreeType, otro motor de composición, otro remuestreo), y hay que saberlo
-    antes de publicar y no al avisar a los buscadores."""
+    el alojamiento, o `--avisar-indexnow`, que compara las páginas, las vería
+    todas distintas. Esta corre también en GitHub, en Linux, y es la que
+    destapó lo de la paleta: si allí falla, otro sistema pinta otros píxeles,
+    y hay que saberlo antes de publicar y no al avisar a los buscadores."""
     pintadas = {
         "portada": tarjetas.portada(
             "438 códigos de la factura electrónica, explicados en castellano.",
@@ -148,7 +213,10 @@ def test_las_tarjetas_salen_iguales_en_cualquier_maquina(tmp_path):
             "Qué dice un 200 en el acuse de la solución pública", LETRA, rotulo="Blog",
             entradilla="Una entradilla corta.", pie="16 de noviembre de 2026"),
     }
-    huellas = {n: tarjetas._guardar(i, tmp_path / f"{n}.png") for n, i in pintadas.items()}
+    huellas = {
+        n: (hashlib.sha256(i.convert("RGB").tobytes()).hexdigest()[:8],
+            tarjetas._guardar(i, tmp_path / f"{n}.png"))
+        for n, i in pintadas.items()}
     assert huellas == HUELLAS_FIJADAS, (
         "estas tarjetas no salen con los mismos píxeles que en el equipo del "
         f"titular: {huellas}. Si es por un cambio a propósito, se apuntan las "

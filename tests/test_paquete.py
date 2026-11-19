@@ -1459,7 +1459,7 @@ class TestParaQueSeLlegueDesdeFuera:
             leida = Image.open(sitio / ruta)
             assert leida.mode == "P" and leida.size == (1200, 630)
             de_lo_leido = hashlib.sha256(
-                b"1200x630" + bytes(leida.getpalette()) + leida.tobytes()).hexdigest()[:8]
+                b"1200x630" + leida.convert("RGB").tobytes()).hexdigest()[:8]
             assert huella == de_lo_leido, pagina.name
 
     def test_cambia_la_direccion_de_la_que_cambia_y_solo_de_esa(self, repositorio):
