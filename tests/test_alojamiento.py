@@ -197,6 +197,20 @@ class TestLaConstruccion:
     def test_corre_la_orden_de_vercel(self):
         assert construir.orden_de_construccion() == VERCEL["buildCommand"]
 
+    # El tope del esquema de `vercel.json`, `"maxLength": 256` en
+    # https://openapi.vercel.sh/vercel.json, leído el 19-11-2026.
+    MAXIMO_DE_LA_ORDEN = 256
+
+    def test_la_orden_cabe_en_lo_que_admite_vercel(self):
+        """El 19-11-2026 la orden pasó de 242 a 257 caracteres al añadir
+        Pillow, y Vercel dejó de construir: rechaza el `vercel.json` antes de
+        empezar, sin un registro, y en GitHub solo se ve "Deployment failed"
+        con un enlace a la documentación. Aquí no se ponía nada rojo."""
+        largo = len(VERCEL["buildCommand"])
+        assert largo <= self.MAXIMO_DE_LA_ORDEN, (
+            f"la orden de construcción tiene {largo} caracteres y Vercel admite "
+            f"{self.MAXIMO_DE_LA_ORDEN}: acórtala, o lleva lo que sobra a un guion.")
+
     def test_el_python_es_el_de_la_suite(self):
         flujo = (RAIZ / ".github" / "workflows" / "pruebas.yml").read_text(encoding="utf-8")
         assert f'python-version: "{construir.python_de_la_suite()}"' in flujo

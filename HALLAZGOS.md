@@ -10295,3 +10295,25 @@ su autohinter, y el de Linux puede apoyarse en HarfBuzz para los acentos.
 Las tres tarjetas fijadas salen con los mismos colores en los dos sistemas;
 las otras 451 no se han comparado, y la puerta que queda es que
 `--avisar-indexnow` se niegue si producción no sirve lo montado.
+
+## Vercel dejó de construir por un carácter, y Cloudflare no publica las ramas
+
+**Cómo salió.** Al empujar la rama de las tarjetas, el 19-11-2026, Vercel
+marcó "Deployment failed" en GitHub al instante, sin llegar a construir, con
+un enlace a la documentación de `vercel.json` y sin registro. Hasta ese día
+construía cada push.
+
+**La causa, medida.** El esquema de `vercel.json`
+(<https://openapi.vercel.sh/vercel.json>) limita `buildCommand` a 256
+caracteres, y al añadir `pillow==12.3.0` la orden pasó de 242 a 257. Ahora
+dice `-q` en vez de `--quiet` y tiene 252. `tests/test_alojamiento.py` mide la
+orden contra ese tope; con la de 257, en rojo.
+
+**Y lo de Cloudflare, que parecía lo mismo y no lo era.** También marcó la
+rama como fallida, pero el registro (captura del titular, 20-11-2026) dice
+otra cosa: el sitio se montó entero en Linux, "Montado sitio (32.86 MB)", y
+lo que falló fue publicar la rama. En las ramas que no son `main`, Workers
+Builds publica con `npx wrangler preview`, una orden en beta que pide un
+bloque `previews` en `wrangler.jsonc`, y no lo hay. No toca a `main`, que
+publica con otra orden. Hasta que se decida si se quieren vistas previas de
+las ramas, ese rojo en GitHub es esperado y no dice nada del código.
