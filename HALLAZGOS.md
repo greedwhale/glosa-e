@@ -10326,5 +10326,6 @@ publica con otra orden.
 apagó "Builds para ramas de vista previa" (Configuración, Compilaciones,
 pestaña Base de vistas previas). La pestaña Producción, con `npx wrangler
 deploy` para `main`, sigue como estaba. Las ramas se prueban en GitHub con
-`suite`, y Vercel las sigue construyendo hasta que se quite. Sin comprobar
-todavía: que en la próxima rama ya no salga la comprobación de Cloudflare.
+`suite`, y Vercel las sigue construyendo hasta que se quite. Comprobado ese
+mismo día en la rama siguiente, `portada-dos-publicos`: GitHub mostró `suite`
+y Vercel, y ninguna comprobación de Cloudflare.
