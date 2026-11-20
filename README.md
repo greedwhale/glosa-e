@@ -6147,8 +6147,10 @@ con el `qsort` del sistema y los empates salen en otro orden en cada uno (lo
 medido, en HALLAZGOS). Ahora la paleta se guarda ordenada por color y el
 montaje se niega si los colores de una tarjeta no caben en ella, que es el
 único caso en que el orden cambiaría los píxeles. El PNG lo comprime el zlib
-que traiga cada Pillow, y no está medido que dé los mismos bytes en los dos
-sistemas; la huella no depende de eso. Lo que la huella no arregla, y no se puede arreglar desde
+que traiga cada Pillow, y no da los mismos bytes en los dos sistemas (medido
+el 20-11-2026: ninguna de las 454 tarjetas de producción coincide con la
+montada aquí, y las 454 tienen los colores que dice su dirección); la huella
+no depende de eso. Lo que la huella no arregla, y no se puede arreglar desde
 aquí: Telegram guarda también la vista previa **de la página**, y hasta que
 vuelva a leerla enseña la que tiene. Para eso está su @WebpageBot.
 

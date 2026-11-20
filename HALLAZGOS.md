@@ -10289,12 +10289,17 @@ huella de antes, en rojo. Otra pinta ruido, que no cabe: sin la negativa, en
 rojo. Las huellas fijas llevan ahora también la del RGB recién pintado, antes
 de cuantizar, para que si vuelve a fallar se sepa en qué capa.
 
-**Lo que no está medido.** Que la letra se pinte igual en todos los textos:
-la Literata servida no lleva instrucciones de hinting, FreeType la ajusta con
-su autohinter, y el de Linux puede apoyarse en HarfBuzz para los acentos.
-Las tres tarjetas fijadas salen con los mismos colores en los dos sistemas;
-las otras 451 no se han comparado, y la puerta que queda es que
-`--avisar-indexnow` se niegue si producción no sirve lo montado.
+**Medido en producción**, el 20-11-2026, con el sitio publicado desde
+Cloudflare (Linux) y el mismo commit montado aquí (Windows): de las 454
+tarjetas servidas, ninguna tiene otros colores que los que dice su `?v=`, y
+`--avisar-indexnow` encontró las 454 páginas iguales a las montadas. Los PNG,
+en cambio, no coinciden en ningún caso: cada sistema los comprime de otra
+manera, que es por lo que la huella no se toma del fichero. Lo que sigue sin
+medir es otra letra u otro tamaño: la Literata servida no lleva instrucciones
+de hinting, FreeType la ajusta con su autohinter, y el de Linux puede
+apoyarse en HarfBuzz para los acentos. Si un día pinta distinto, se pone
+rojo `test_las_tarjetas_salen_iguales_en_cualquier_maquina` en GitHub o,
+como última puerta, `--avisar-indexnow` se niega.
 
 ## Vercel dejó de construir por un carácter, y Cloudflare no publica las ramas
 
