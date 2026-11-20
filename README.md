@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4381 tests, todos en verde.
+4387 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -6213,6 +6213,28 @@ Lo que se decidió con el titular ese día, por tandas, con un commit cada una:
 
 Fuera del repositorio: la imagen de cabecera de LinkedIn con el titular nuevo,
 y el lema nuevo en los perfiles, que los cambia el titular.
+
+### El guía, y lo único suyo que no se rehace solo
+
+El asistente de la esquina (`validador/guia.py` y `web/guia.js`, desde el
+17-11-2026) no es un modelo de lenguaje: busca en `guia.json`, que se arma en
+cada montaje con lo que el sitio ya publica. Los códigos salen del catálogo,
+las preguntas de la portada, los apartados de Sobre y los artículos del blog,
+así que un artículo nuevo o una ficha corregida entran en el guía en la misma
+publicación, y unas palabras que apunten a una ficha que ya no existe no
+dejan montar (`GuiaQueNoCuadra`).
+
+Lo único escrito a mano son los seis temas de la obligación y el
+cuestionario de si me obliga, con su cita del BOE. Si la norma cambia, eso
+no se entera. Por eso, desde el 20-11-2026, **la lectura caduca**:
+`TEMAS_LEIDOS_EL` dice cuándo se leyeron las fuentes y, pasados
+`TEMAS_VALEN_DIAS` (30), el montaje se niega con `GuiaQueNoCuadra` hasta que
+se vuelvan a leer y se ponga la fecha nueva. Treinta días para que caiga en
+el repaso de cada mes. También se niega si la fecha está en el futuro, que
+es la errata que dejaría el plazo sin vencer nunca. Provocado: quitando la
+llamada al freno de `armar`, dos pruebas en rojo; con la lectura llevada a
+hace un año, `--sitio` se niega y no deja carpeta. La lectura de hoy, la del
+16-11-2026, vale hasta el 16-12-2026.
 
 ### El buzón para quien encuentre un fallo
 

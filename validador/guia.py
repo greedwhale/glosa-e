@@ -38,7 +38,8 @@ De dónde sale cada respuesta
 - **Los temas**, escritos a mano más abajo. Son lo único que el sitio no
   publicaba ya: las fechas y el alcance de la obligación. Cada uno lleva la
   cita del BOE de la que sale y el día en que se leyó, y **un tema sin fuente
-  oficial no se monta** (`GuiaMal`).
+  oficial no se monta** (`GuiaMal`). Tampoco **un tema leído hace más de
+  `TEMAS_VALEN_DIAS`**: lo demás se rehace solo en cada montaje, y esto no.
 
 Lo que el guía no hace, a propósito
 -----------------------------------
@@ -71,8 +72,9 @@ from validador.glosario import FAMILIAS, explicar
 
 __all__ = [
     "CODIGO", "DATOS", "LLAMADA_A_LOS_DATOS", "SUBDOMINIOS", "GuiaMal",
+    "TEMAS_LEIDOS_EL", "TEMAS_VALEN_DIAS",
     "armar", "escribir", "montar", "buscar", "trocear",
-    "revisar_los_subdominios",
+    "revisar_la_lectura", "revisar_los_subdominios",
 ]
 
 # El asistente, que el montaje pone en todas las páginas, y lo que sabe.
@@ -95,8 +97,21 @@ RD = ("Real Decreto 238/2026", "https://www.boe.es/diario_boe/txt.php?id=BOE-A-2
 ORDEN = ("Orden HAC/1028/2026", "https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-20587")
 ORDEN_EN_VIGOR = _dt.date(2026, 10, 6)
 _FUENTES_OFICIALES = ("https://www.boe.es/",)
-# El día en que se leyeron esos dos textos para escribir los temas.
+# El día en que se leyeron esos dos textos para escribir los temas y el
+# cuestionario. Cuando se vuelvan a leer, se cambia aquí, y si dicen otra cosa,
+# también el texto de los temas.
 TEMAS_LEIDOS_EL = _dt.date(2026, 11, 16)
+# Cuánto vale esa lectura. Todo lo demás que sabe el guía sale de lo publicado
+# y se rehace en cada montaje; los temas y el cuestionario no, porque los
+# escribe una persona leyendo el BOE. Si la norma cambia (otra orden, un
+# aplazamiento), el guía seguiría contestando lo de antes, con su cita y su
+# fecha, sin que nada lo delatara: es el fallo de esta casa, lo de ayer
+# haciéndose pasar por lo de hoy. Por eso, pasado el plazo, el sitio no se
+# monta hasta que alguien vuelva a leerlo. Treinta días, decidido el
+# 20-11-2026, para que caiga dentro del repaso de cada mes y no se acumule.
+# La página del estado de la norma tendrá su propio freno, más corto, cuando
+# se haga: aquello lo comprueba una máquina y esto una persona.
+TEMAS_VALEN_DIAS = 30
 
 _MESES = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
           "agosto", "septiembre", "octubre", "noviembre", "diciembre")
@@ -104,6 +119,30 @@ _MESES = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
 
 class GuiaMal(ValueError):
     """El guía no se puede armar sin faltar a lo que promete."""
+
+
+def revisar_la_lectura(hoy: _dt.date | None = None) -> None:
+    """Se niega si los temas llevan demasiado sin leerse en el BOE.
+
+    También si dicen haberse leído en el futuro: es una errata al cambiar la
+    fecha, y con ella el plazo no vencería nunca.
+    """
+    dia = hoy or _dt.date.today()
+    if TEMAS_LEIDOS_EL > dia:
+        raise GuiaMal(
+            f"`TEMAS_LEIDOS_EL` dice {cifras.fecha(TEMAS_LEIDOS_EL)}, y hoy es "
+            f"{cifras.fecha(dia)}. Una lectura que todavía no ha pasado no "
+            "vale como lectura, y el plazo de los temas no vencería nunca.")
+    vence = TEMAS_LEIDOS_EL + _dt.timedelta(days=TEMAS_VALEN_DIAS)
+    if dia > vence:
+        raise GuiaMal(
+            f"Los temas del guía se leyeron en el BOE el "
+            f"{cifras.fecha(TEMAS_LEIDOS_EL)} y esa lectura valía hasta el "
+            f"{cifras.fecha(vence)}. Son lo único del guía que no se rehace "
+            "solo: si la norma ha cambiado desde entonces, el guía seguiría "
+            "contestando lo de antes con su cita. Vuelve a leer las fuentes de "
+            "cada tema y del cuestionario en `validador/guia.py`, corrige lo "
+            "que haya cambiado y pon la fecha de hoy en `TEMAS_LEIDOS_EL`.")
 
 
 def _meses_despues(dia: _dt.date, meses: int) -> _dt.date:
@@ -755,9 +794,10 @@ _PREGUNTAS_DE_COMPROBACION = (
 
 
 def armar(pagina: Path, codigos: list[Codigo], entradas, nombre_de,
-          catalogo: str, correo: str) -> dict:
+          catalogo: str, correo: str, hoy: _dt.date | None = None) -> dict:
     """Todo lo que la página necesita, en un diccionario listo para escribir."""
     pagina = Path(pagina)
+    revisar_la_lectura(hoy)
     fichas = _fichas_de_temas()
     portada = pagina / "index.html"
     if portada.is_file():

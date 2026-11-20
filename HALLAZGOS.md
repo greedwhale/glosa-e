@@ -10329,3 +10329,25 @@ deploy` para `main`, sigue como estaba. Las ramas se prueban en GitHub con
 `suite`, y Vercel las sigue construyendo hasta que se quite. Comprobado ese
 mismo día en la rama siguiente, `portada-dos-publicos`: GitHub mostró `suite`
 y Vercel, y ninguna comprobación de Cloudflare.
+
+## Los temas del guía no se enteraban si cambiaba la norma
+
+**Cómo salió.** Lo preguntó el titular el 20-11-2026: si el asistente de la
+web se actualiza con lo nuevo y con lo corregido, porque si no funcionaría
+mal. Casi todo sí: `guia.json` se arma en cada montaje con lo publicado. Pero
+los seis temas de la obligación y el cuestionario están escritos a mano a
+partir del BOE, leídos el 16-11-2026, y nada miraba cuánto hacía de eso. Una
+orden nueva o un aplazamiento en el BOE y el guía seguiría contestando lo de
+antes, con su cita y su fecha de lectura a la vista. Nada se rompía: es el
+fallo de siempre, lo de ayer haciéndose pasar por lo de hoy.
+
+**Lo que lo cierra.** `guia.revisar_la_lectura`, llamada desde `armar`: si
+han pasado más de `TEMAS_VALEN_DIAS` (30) desde `TEMAS_LEIDOS_EL`, o si esa
+fecha está en el futuro, `GuiaMal`, que el montaje convierte en
+`GuiaQueNoCuadra` y `--sitio` en `exit 2`. Las pruebas pasan la fecha a mano,
+para no ponerse rojas solas un día cualquiera.
+
+**Provocado.** Sin la llamada en `armar`, `test_armar_pasa_por_el_freno` y
+`test_unos_temas_sin_releer_no_se_publican` en rojo; con ella, en verde. La
+lectura actual vence el 16-12-2026; desde el 17-12, no se publica nada hasta
+volver a leer las fuentes.

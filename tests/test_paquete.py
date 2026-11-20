@@ -2662,6 +2662,19 @@ class TestElGuia:
         assert llamadas == ["web", "sitio"]
         assert not (repositorio / "sitio").exists()
 
+    def test_unos_temas_sin_releer_no_se_publican(self, repositorio, monkeypatch):
+        """Provocado: la lectura de los temas se lleva a hace un año, y el
+        sitio no se monta ni deja la carpeta a medias."""
+        from validador import guia
+
+        monkeypatch.setattr(guia, "TEMAS_LEIDOS_EL",
+                            guia.TEMAS_LEIDOS_EL.replace(year=guia.TEMAS_LEIDOS_EL.year - 1))
+        _con_guia(repositorio)
+        with pytest.raises(paquete.GuiaQueNoCuadra, match="TEMAS_LEIDOS_EL") as error:
+            _montar(repositorio)
+        assert isinstance(error.value, paquete.NoSeMonta)
+        assert not (repositorio / "sitio").exists()
+
     def test_un_tema_sin_fuente_oficial_no_se_publica(self, repositorio, monkeypatch):
         from validador import guia
 

@@ -139,6 +139,45 @@ class TestDeDondeLoSaca:
         with pytest.raises(guia.GuiaMal):
             _armar()
 
+
+class TestLaLecturaDeLosTemas:
+    """Los temas son lo único del guía que no se rehace solo al montar, así
+    que su lectura del BOE caduca. Las fechas se pasan a mano: una prueba que
+    dependiera del día en que corre fallaría sola un día cualquiera."""
+
+    def test_el_ultimo_dia_del_plazo_todavia_vale(self):
+        vence = guia.TEMAS_LEIDOS_EL + dt.timedelta(days=guia.TEMAS_VALEN_DIAS)
+        guia.revisar_la_lectura(guia.TEMAS_LEIDOS_EL)
+        guia.revisar_la_lectura(vence)
+
+    def test_el_dia_despues_no_se_monta(self):
+        """Provocado: un día después del plazo, el guía no se arma."""
+        despues = guia.TEMAS_LEIDOS_EL + dt.timedelta(days=guia.TEMAS_VALEN_DIAS + 1)
+        with pytest.raises(guia.GuiaMal, match="TEMAS_LEIDOS_EL"):
+            guia.revisar_la_lectura(despues)
+
+    def test_armar_pasa_por_el_freno(self):
+        """Provocado por el camino de verdad: `armar` con un hoy pasado el
+        plazo. Si alguien quitara la llamada, esta es la que se pondría roja."""
+        despues = guia.TEMAS_LEIDOS_EL + dt.timedelta(days=guia.TEMAS_VALEN_DIAS + 1)
+        with pytest.raises(guia.GuiaMal, match="se leyeron en el BOE"):
+            guia.armar(
+                WEB, codigos_del_paquete(), bitacora.leer_entradas(WEB / bitacora.CARPETA),
+                pagina_incidencias.nombre_de, pagina_incidencias.NOMBRE,
+                "alguien@example.org", hoy=despues)
+
+    def test_una_lectura_en_el_futuro_tampoco(self):
+        """Provocado: la errata de poner un año de más al cambiar la fecha
+        dejaría el plazo sin vencer nunca."""
+        antes = guia.TEMAS_LEIDOS_EL - dt.timedelta(days=1)
+        with pytest.raises(guia.GuiaMal, match="no ha pasado"):
+            guia.revisar_la_lectura(antes)
+
+    def test_el_plazo_es_de_treinta_dias(self):
+        """Decidido el 20-11-2026: cabe en el repaso de cada mes. Si se cambia,
+        que sea a propósito y con su porqué al lado de la constante."""
+        assert guia.TEMAS_VALEN_DIAS == 30
+
     def test_cada_respuesta_del_cuestionario_cita_el_boe(self, datos):
         todo = datos["cuestionario"]
         assert todo["aviso"] == guia._NO_CERTIFICA
