@@ -64,9 +64,10 @@ class TestNoSePintaDeMas:
     def test_pasado_el_limite_cada_fichero_sale_cerrado(self):
         pagina = _pagina()
         assert re.search(r"const ABIERTOS_HASTA = \d+;", pagina)
-        cuerpo = _cuerpo(pagina, "function pintarInforme(")
+        cuerpo = _cuerpo(pagina, "function pintarDocumentos(")
         assert "datos.documentos.length > ABIERTOS_HASTA" in cuerpo
         assert "<details class='documento' data-n='" in cuerpo
+        assert "pintarDocumentos(datos)" in _cuerpo(pagina, "function pintarInforme(")
 
     def test_y_dice_donde_esta_el_recuento(self):
         """Con miles de ficheros cerrados, el recuento queda muy abajo."""

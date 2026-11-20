@@ -477,6 +477,36 @@ details.documento > summary > header .estado { grid-column: 1; }
   .folio .glosa .margen { padding: .75rem .5rem .75rem 1.6rem; align-self: center; }
 }
 
+/* Un lote, en corto: cada error o aviso en una línea, y las notas de cada
+   factura juntas en otra. Las mismas columnas que la glosa, gravedad y código,
+   en los mismos colores, para que se reconozca lo que es; la explicación la
+   pone la ficha del código. En el móvil, la gravedad a la izquierda y el
+   resto debajo del código: medido a 375 px el 20-11-2026, nada se sale del
+   ancho, ni en claro ni en oscuro. */
+.corto { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: .5rem 1.5rem; margin: 0 0 1rem; font-size: var(--t1); color: var(--tinta-2); }
+.corto p { margin: 0; max-width: 40rem; }
+.corto label { display: inline-flex; gap: .45rem; align-items: center; font-weight: 600;
+  color: var(--tinta); cursor: pointer; white-space: nowrap; }
+.corto input { accent-color: var(--acento); width: 1rem; height: 1rem; margin: 0; }
+.apunte { display: grid; grid-template-columns: 4.25rem 12rem minmax(0, 1fr); gap: .15rem 1rem;
+  align-items: baseline; padding: .5rem 1.25rem; border-top: 1px dashed var(--borde); font-size: var(--t1); }
+.documento > header + .apunte, summary + .apunte { border-top: 0; }
+.apunte .grave { font-size: var(--t0); text-transform: uppercase; letter-spacing: .09em; font-weight: 700; }
+.apunte .codigo { font-family: var(--mono); font-weight: 600; overflow-wrap: anywhere; }
+.apunte a.codigo { text-decoration: underline dotted 1px; text-underline-offset: 3px; }
+.apunte a.codigo:hover, .apunte a.codigo:focus-visible { text-decoration-style: solid; }
+.apunte .donde { color: var(--tinta-2); overflow-wrap: anywhere; }
+.apunte .donde b { font-family: var(--mono); font-weight: 600; color: var(--tinta); }
+.apunte .codigos { display: flex; flex-wrap: wrap; gap: .2rem .9rem; grid-column: 2 / -1; }
+.apunte.error .grave, .apunte.error .codigo { color: var(--error); }
+.apunte.aviso .grave, .apunte.aviso .codigo { color: var(--aviso); }
+.apunte.nota .grave, .apunte.nota .codigo { color: var(--nota); }
+@media (max-width: 34rem) {
+  .apunte { grid-template-columns: 4.25rem minmax(0, 1fr); padding: .6rem 1rem; }
+  .apunte .donde, .apunte .codigos { grid-column: 2; }
+}
+
 /* --- Ver un informe sin soltar nada -------------------------------------- */
 .probar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; margin: 1rem 0 0; }
 .probar span { font-size: var(--t1); color: var(--tenue); }
@@ -1590,6 +1620,53 @@ function pintarGlosa(inc) {
   );
 }
 
+// Un lote, en corto.
+//
+// Con una factura, cada glosa entera: son unas líneas. Con un lote, la misma
+// explicación se repetía factura tras factura. Medido el 20-11-2026 con las
+// 169 de muestra: 1.488 glosas y unas 389.000 letras; las notas eran 302 y
+// solo 33 textos distintos (una de ellas, 82 veces el mismo párrafo). Con 20
+// facturas, el informe medía 28.657 px de alto en el escritorio y 51.153 en el
+// móvil. Desde entonces, en un lote cada error o aviso va en una línea, con su
+// gravedad, su código, el campo y lo que tiene; y las notas de cada factura,
+// juntas en otra. Con esas 20, 8.991 px y 16.709.
+//
+// La explicación no se pierde, se lleva a su sitio: el código enlaza su ficha,
+// que dice qué significa y cómo se arregla. Por eso un código sin ficha sale
+// entero, con su explicación, aunque el resto vaya en corto: una línea que no
+// explica nada y no lleva a ningún sitio no sirve. Y sin montar no hay fichas,
+// así que todo sale entero, como antes. La casilla "Con la explicación"
+// devuelve el lote entero a quien lo quiera leer aquí.
+let conExplicacion = false;
+
+function vaEnCorto(datos) {
+  return datos.documentos.length > 1 && CON_FICHA.size > 0 && !conExplicacion;
+}
+
+function pintarLinea(inc) {
+  let donde = inc.campo ? escapar(inc.campo) : "";
+  if (inc.encontrado !== null && inc.encontrado !== undefined)
+    donde += (donde ? ": " : "") + "tiene <b>" + escapar(inc.encontrado) + "</b>";
+  if (inc.esperado !== null && inc.esperado !== undefined)
+    donde += (donde ? ", " : "") + "debería ser <b>" + escapar(inc.esperado) + "</b>";
+  return "<div class='apunte " + escapar(inc.gravedad) + "'>" +
+    "<span class='grave'>" + escapar(inc.gravedad) + "</span>" + pintarCodigo(inc.codigo) +
+    "<span class='donde'>" + donde + "</span></div>";
+}
+
+function pintarIncidencias(incidencias, corto) {
+  if (!corto) return incidencias.map(pintarGlosa).join("");
+  const conFicha = (i) => CON_FICHA.has(i.codigo);
+  const notas = incidencias.filter((i) => i.gravedad === "nota" && conFicha(i));
+  const resto = incidencias.filter((i) => !(i.gravedad === "nota" && conFicha(i)));
+  return resto.map((i) => conFicha(i) ? pintarLinea(i) : pintarGlosa(i)).join("") +
+    (notas.length
+      ? "<div class='apunte nota'><span class='grave'>" + (notas.length === 1 ? "nota" : "notas") +
+        "</span><span class='codigos'>" + notas.map((i) => pintarCodigo(i.codigo)).join("") +
+        "</span></div>"
+      : "");
+}
+
 // Hasta cuántos ficheros cada uno sale abierto, con todo lo que dice.
 //
 // Pasado esto, cada fichero sale cerrado y lo suyo se pinta al abrirlo.
@@ -1608,6 +1685,7 @@ const ABIERTOS_HASTA = 50;
 // lote de 3.000 se abría vacío porque el lote viejo tenía 200 (provocado el
 // 20-10-2026). `toggle` no burbujea, así que se coge en la fase de captura.
 let documentosCerrados = null;
+let cerradosEnCorto = false;
 
 $("informe").addEventListener("toggle", (evento) => {
   const caja = evento.target;
@@ -1616,8 +1694,29 @@ $("informe").addEventListener("toggle", (evento) => {
   const doc = documentosCerrados[Number(caja.dataset.n)];
   if (!doc) return;
   caja.dataset.pintado = "1";
-  caja.insertAdjacentHTML("beforeend", doc.incidencias.map(pintarGlosa).join(""));
+  caja.insertAdjacentHTML("beforeend", pintarIncidencias(doc.incidencias, cerradosEnCorto));
 }, true);
+
+// Los ficheros del informe, enteros o en corto. Aparte de `pintarInforme`
+// porque la casilla los repinta sin tocar lo demás.
+function pintarDocumentos(datos) {
+  const cerrados = datos.documentos.length > ABIERTOS_HASTA;
+  const corto = vaEnCorto(datos);
+  documentosCerrados = cerrados ? datos.documentos : null;
+  cerradosEnCorto = corto;
+  return datos.documentos.map((doc, n) => {
+    let estado = escapar(doc.resumen);
+    if (doc.choca && doc.conforme) estado += " Choca con otro fichero (ver abajo).";
+    const cabecera =
+      "<header><div class='nombre'>" + escapar(doc.nombre) + "</div>" +
+      "<div class='estado'>" + estado + "</div></header>";
+    return cerrados
+      ? "<details class='documento' data-n='" + n + "'><summary>" + cabecera +
+        "</summary></details>"
+      : "<div class='documento'>" + cabecera +
+        pintarIncidencias(doc.incidencias, corto) + "</div>";
+  }).join("");
+}
 
 function pintarInforme(datos) {
   const partes = [];
@@ -1700,6 +1799,15 @@ function pintarInforme(datos) {
   );
 
   const cerrados = datos.documentos.length > ABIERTOS_HASTA;
+  // La casilla sale en todo lote con fichas, también con la explicación ya
+  // puesta: si no, quien la marca no tendría por dónde volver.
+  if (datos.documentos.length > 1 && CON_FICHA.size > 0) {
+    partes.push(
+      "<div class='corto'><p>En un lote, cada aviso va en una línea. Pulsa el código " +
+      "para leer qué significa y cómo se arregla.</p>" +
+      "<label><input type='checkbox' id='con-explicacion'" + (conExplicacion ? " checked" : "") +
+      "> Con la explicación</label></div>");
+  }
   if (cerrados) {
     partes.push(
       "<p class='texto' style='color:var(--tinta-2)'>Son " +
@@ -1708,18 +1816,7 @@ function pintarInforme(datos) {
       (datos.recuento ? " El recuento de todo el lote está " +
                         "<a href='#recuento-lote'>al final</a>." : "") + "</p>");
   }
-  datos.documentos.forEach((doc, n) => {
-    let estado = escapar(doc.resumen);
-    if (doc.choca && doc.conforme) estado += " Choca con otro fichero (ver abajo).";
-    const cabecera =
-      "<header><div class='nombre'>" + escapar(doc.nombre) + "</div>" +
-      "<div class='estado'>" + estado + "</div></header>";
-    partes.push(cerrados
-      ? "<details class='documento' data-n='" + n + "'><summary>" + cabecera +
-        "</summary></details>"
-      : "<div class='documento'>" + cabecera +
-        doc.incidencias.map(pintarGlosa).join("") + "</div>");
-  });
+  partes.push("<div id='documentos'>" + pintarDocumentos(datos) + "</div>");
 
   if (datos.cruzadas.length) {
     partes.push(
@@ -1763,7 +1860,13 @@ function pintarInforme(datos) {
 
   $("informe").innerHTML = partes.join("");
   if (datos.recuento) $("copiar-recuento").addEventListener("click", copiarRecuento);
-  documentosCerrados = cerrados ? datos.documentos : null;
+  // Cambiar la casilla repinta solo los ficheros: el resto del informe no
+  // cambia, y repintarlo entero lo llevaría otra vez arriba.
+  const casilla = $("con-explicacion");
+  if (casilla) casilla.addEventListener("change", () => {
+    conExplicacion = casilla.checked;
+    $("documentos").innerHTML = pintarDocumentos(datos);
+  });
   pintarLectura();
   $("informe").scrollIntoView({ behavior: "smooth", block: "start" });
 }

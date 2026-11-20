@@ -184,6 +184,41 @@ lista está vacía y el informe sale en texto. Medido el 25-10-2026 con
 `f-0006.xml` en el servidor `sitio`: cada código del informe salió enlazado,
 y cada enlace contestó 200.
 
+## El lote en corto
+
+Desde el 20-11-2026, con más de una factura, cada error o aviso va en una
+línea: gravedad, código enlazado a su ficha, el campo y lo que tiene (y lo que
+debería tener, si se sabe). Las notas de cada factura van juntas en otra
+línea, solo con sus códigos. La explicación está en la ficha, a un clic; lo
+que la ficha no puede decir, en qué campo y con qué valor falla esa factura,
+sigue en la línea. Una factura sola sale entera, como antes. Lo propuso el
+titular: con un lote, la página se llenaba de la misma explicación repetida.
+
+Dos cosas para que ir en corto no cueste nada. Un código sin ficha sale
+entero aunque el resto vaya en corto, y servida `web/` a secas (sin fichas)
+todo sale entero. Y la casilla **Con la explicación** devuelve el lote entero
+a quien lo quiera leer ahí; repinta solo los ficheros, también los cerrados de
+un lote grande, para que la página no salte arriba.
+
+Medido el 20-11-2026:
+
+| Qué | Entero | En corto |
+|---|---|---|
+| Las 169 facturas de muestra, letras de las glosas (contadas sobre los datos, sin pintar) | unas 389.000 | unas 100.600 |
+| 20 de ellas, alto del informe, escritorio (1100 px) | 28.657 px | 8.991 px |
+| Las mismas 20, móvil (375 px) | 51.153 px | 16.709 px |
+| Las 4 de ejemplo en el servidor `sitio`, alto de los ficheros, escritorio | 4.245 px | 834 px |
+| Las mismas 4, móvil | 8.511 px | 1.481 px |
+
+De las 169, las notas eran 302 y solo 33 textos distintos; una sola, 82 veces
+el mismo párrafo. Las cuatro de ejemplo se validaron de verdad, con Pyodide, en
+Edge sin ventana: 19 glosas en 10 líneas, y en el móvil, claro y oscuro, nada
+más ancho que la pantalla. Con 52 ficheros (cerrados), uno abierto salió en 3
+líneas, y con la casilla marcada en 3 glosas enteras. Lo vigila
+`tests/test_lote_en_corto.py`, provocado: sin el respaldo de los códigos sin
+ficha, con los cerrados pintados siempre enteros o con una factura sola en
+corto, en rojo.
+
 ## Las novedades y su canal Atom
 
 Desde el 25-10-2026, `novedades.html` junta cada regla nueva o retirada, por
