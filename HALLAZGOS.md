@@ -10320,5 +10320,11 @@ otra cosa: el sitio se montó entero en Linux, "Montado sitio (32.86 MB)", y
 lo que falló fue publicar la rama. En las ramas que no son `main`, Workers
 Builds publica con `npx wrangler preview`, una orden en beta que pide un
 bloque `previews` en `wrangler.jsonc`, y no lo hay. No toca a `main`, que
-publica con otra orden. Hasta que se decida si se quieren vistas previas de
-las ramas, ese rojo en GitHub es esperado y no dice nada del código.
+publica con otra orden.
+
+**Ahora** las ramas no se construyen en Cloudflare: el 20-11-2026 el titular
+apagó "Builds para ramas de vista previa" (Configuración, Compilaciones,
+pestaña Base de vistas previas). La pestaña Producción, con `npx wrangler
+deploy` para `main`, sigue como estaba. Las ramas se prueban en GitHub con
+`suite`, y Vercel las sigue construyendo hasta que se quite. Sin comprobar
+todavía: que en la próxima rama ya no salga la comprobación de Cloudflare.
