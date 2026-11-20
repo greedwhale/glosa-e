@@ -6195,7 +6195,13 @@ Lo que se decidió con el titular ese día, por tandas, con un commit cada una:
 1. **Una tarjeta por página, pintada al montar.** Lo de arriba. Era la mejora
    3 del repaso del 25-11-2026, adelantada. — *Hecha.*
 2. **El título, la descripción, el titular y el lema de la portada.** Título
-   "Validar factura electrónica, cada código explicado · Glosa-e"; la
+   "Validador de factura electrónica con cada código explicado · Glosa-e"
+   (68 caracteres) desde el 20-11-2026. El del 19-11, "Validar factura
+   electrónica, cada código explicado", lo vio el titular en la barra de su
+   navegador y se leía como dos trozos pegados, una orden sin artículo y una
+   etiqueta: ahora es un nombre, dice qué es la página y lleva "validador", la
+   palabra con que se busca (la única consulta que trajo una impresión fue
+   "validador facturae"). El montaje lo copia a `og:title`; la
    descripción nombra los cuatro formatos y que es gratis y sin subir el
    fichero; el titular dice cuántos códigos explica, con la cifra calculada al
    montar; y el lema pasa de *mirar* a *comprobar*, en todas sus copias a la
