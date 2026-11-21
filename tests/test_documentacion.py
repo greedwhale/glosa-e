@@ -172,27 +172,36 @@ def test_sobre_dice_cuantos_codigos_tienen_ficha():
         f"Sobre Glosa-e dice que {hallados[0]} códigos tienen ficha y hay {hay}.")
 
 
-def test_el_cierre_de_contacto_es_el_mismo_en_la_portada_y_en_sobre():
-    """Los tres botones de correo, letra por letra en las dos páginas.
+def test_los_botones_de_contacto_estan_solo_en_sobre():
+    """Los tres botones de correo, en Sobre Glosa-e y en ninguna otra página.
 
-    Desde el 25-10-2026 la portada cierra con el mismo contacto que Sobre
-    Glosa-e. Copiado en dos sitios y sin plantilla, como el menú: si uno
-    cambia un asunto y el otro no, llegan correos con dos asuntos para lo
-    mismo y nadie se entera.
+    Del 25-10-2026 al 21-11-2026 la portada cerraba con el mismo contacto que
+    Sobre Glosa-e, copiado. El 21-11 el titular lo quitó de la portada: el
+    correo sigue a un clic en la barra, que desde ese día dice Contacto. Si
+    vuelve a aparecer una copia, vuelven los dos asuntos para lo mismo que
+    nadie compara.
     """
-    def botones(pagina):
+    def bloques(pagina):
         texto = (RAIZ / "web" / pagina).read_text(encoding="utf-8")
-        hallados = re.findall(r'<p class="escribir">(.*?)</p>', texto, re.S)
-        assert len(hallados) == 1, (
-            f"{pagina} lleva {len(hallados)} bloques de botones de correo y "
-            "tiene que llevar uno")
-        return " ".join(hallados[0].split())
+        return re.findall(r'<p class="escribir">(.*?)</p>', texto, re.S)
 
-    portada, sobre = botones("index.html"), botones("sobre.html")
-    assert portada == sobre, (
-        "los botones de correo de la portada y los de Sobre Glosa-e ya no "
-        f"dicen lo mismo:{NL}  portada: {portada}{NL}  sobre:   {sobre}")
-    assert portada.count("mailto:") == 3
+    con_botones = {p: len(bloques(p)) for p in PAGINAS if bloques(p)}
+    assert con_botones == {"sobre.html": 1}, (
+        f"los botones de correo tienen que ir una vez, en Sobre Glosa-e, y van en {con_botones}")
+    assert bloques("sobre.html")[0].count("mailto:") == 3
+
+
+def test_la_barra_dice_contacto():
+    """Desde el 21-11-2026 la entrada del correo en la barra es Contacto.
+
+    Lo pidió el titular. Va en la barra y en el menú del móvil de las ocho
+    páginas, que se copian enteros; esta prueba mira la portada y la del
+    menú común se encarga del resto.
+    """
+    texto = (RAIZ / "web" / "index.html").read_text(encoding="utf-8")
+    menu = _menu_de(RAIZ / "web" / "index.html")
+    assert ">Contacto</a>" in texto and "<b>Contacto</b>" in texto
+    assert "Escríbeme" not in menu
 
 
 def test_la_tesis_lleva_a_sobre_glosa_e():

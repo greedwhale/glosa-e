@@ -164,7 +164,8 @@ testigo no cambia.
 ## La barra y el pie
 
 Desde el 25-10-2026 la barra de arriba enseña cinco entradas fijas: Validar,
-Qué significa cada aviso, Sobre Glosa-e, Bitácora y Escríbeme. Hasta ese día
+Qué significa cada aviso, Sobre Glosa-e, Blog y Contacto (Bitácora y
+Escríbeme hasta que se renombraron). Hasta el 25-10
 todo iba en una pestaña desplegable, y quien llegaba no veía qué había en el
 sitio sin abrirla. En el móvil las cinco no caben y sigue la pestaña, con las
 mismas cinco; cada ancho enseña una y esconde la otra, sin JavaScript.
