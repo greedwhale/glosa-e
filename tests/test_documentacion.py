@@ -172,23 +172,20 @@ def test_sobre_dice_cuantos_codigos_tienen_ficha():
         f"Sobre Glosa-e dice que {hallados[0]} códigos tienen ficha y hay {hay}.")
 
 
-def test_los_botones_de_contacto_estan_solo_en_sobre():
-    """Los tres botones de correo, en Sobre Glosa-e y en ninguna otra página.
+def test_no_vuelven_los_botones_de_correo():
+    """Ninguna página lleva el apartado de los tres botones de correo.
 
-    Del 25-10-2026 al 21-11-2026 la portada cerraba con el mismo contacto que
-    Sobre Glosa-e, copiado. El 21-11 el titular lo quitó de la portada: el
-    correo sigue a un clic en la barra, que desde ese día dice Contacto. Si
-    vuelve a aparecer una copia, vuelven los dos asuntos para lo mismo que
-    nadie compara.
+    Del 25-10-2026 al 21-11-2026 la portada y Sobre Glosa-e cerraban con
+    Preguntas, propuestas o errores: tres botones con el asunto puesto y una
+    nota sobre el recuento. El 21-11 el titular los quitó de las dos: el
+    correo está a un clic en la barra, que desde ese día dice Contacto, y en
+    el aviso legal. Su estilo se borró con ellos, así que si uno vuelve
+    copiado de una versión vieja saldría sin forma.
     """
-    def bloques(pagina):
-        texto = (RAIZ / "web" / pagina).read_text(encoding="utf-8")
-        return re.findall(r'<p class="escribir">(.*?)</p>', texto, re.S)
-
-    con_botones = {p: len(bloques(p)) for p in PAGINAS if bloques(p)}
-    assert con_botones == {"sobre.html": 1}, (
-        f"los botones de correo tienen que ir una vez, en Sobre Glosa-e, y van en {con_botones}")
-    assert bloques("sobre.html")[0].count("mailto:") == 3
+    con_botones = [p for p in PAGINAS
+                   if 'class="escribir"' in (RAIZ / "web" / p).read_text(encoding="utf-8")]
+    assert not con_botones, f"vuelven los botones de correo en {con_botones}"
+    assert ".escribir" not in (RAIZ / "web" / "glosa.css").read_text(encoding="utf-8")
 
 
 def test_la_barra_dice_contacto():

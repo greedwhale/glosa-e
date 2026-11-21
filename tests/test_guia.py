@@ -56,7 +56,7 @@ class TestLoQueContesta:
         ("me rechazan la factura por el IVA", "pregunta-rechaza"),
         ("¿esto certifica que mi factura es válida?", "pregunta-certifica"),
         ("mis datos se suben a algun sitio", "pregunta-sube"),
-        ("como te contacto", "sobre-escribeme"),
+        ("como te contacto", "pagina-legal"),
         ("certificado revocado", "REVOCADO"),
         ("que es una glosa", "sobre-que-es"),
         ("¿sirve para VeriFactu?", "sobre-no-hace"),

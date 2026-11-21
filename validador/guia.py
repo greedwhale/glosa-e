@@ -674,8 +674,6 @@ def _fichas_de_temas() -> list[dict]:
 # título de la ficha para buscar, no a lo que se enseña: lo que se lee sigue
 # siendo lo que dice la página.
 PALABRAS_DE_MAS = {
-    "sobre-escribeme": "contacto contactar escribir escribo correo email mail "
-                       "hablar consulta duda telefono",
     "pregunta-formatos": "formato tipo fichero xml xsig cual clase ubl cii "
                          "facturae edifact",
     "pregunta-sube": "privacidad datos seguro confidencial guardar",
@@ -684,7 +682,11 @@ PALABRAS_DE_MAS = {
     "sobre-no-hace": "limite limites alcance verifactu glosa",
     "sobre-que-es": "glosa nombre",
     "sobre-que-hace": "glosa",
-    "pagina-legal": "detras titular responsable autor cookies rgpd",
+    # El contacto: desde el 21-11-2026 no hay apartado propio en Sobre, y el
+    # correo está en la ficha del titular del aviso legal.
+    "pagina-legal": "detras titular responsable autor cookies rgpd contacto "
+                    "contactar escribir escribo correo email mail hablar "
+                    "consulta duda telefono",
 }
 
 
