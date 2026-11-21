@@ -31,7 +31,9 @@ haya desaparecido sin decirlo. La partida son los códigos que había el
 06-10-2026, el día que entró en vigor la orden, medidos sobre el commit de
 ese día; la lista empieza al siguiente. Lo que esto **no** vigila es el
 cambio de una regla que ya estaba: no hay forma de medirlo desde fuera, y sale
-cuando se apunta. La página lo dice.
+cuando se apunta. La página lo contaba hasta el 21-11-2026; ese día el titular
+dejó su entradilla en una frase, que no promete más que esto: cada regla nueva
+o retirada, con su fecha.
 
 El formato de `novedades.txt`
 -----------------------------
