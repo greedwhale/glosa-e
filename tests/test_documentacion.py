@@ -838,6 +838,27 @@ def test_el_validador_no_dice_que_la_orden_este_por_publicar():
         "sigue diciendo que no:\n" + "\n".join(encontradas))
 
 
+def test_el_validador_no_dice_que_la_lista_de_la_aeat_este_por_publicar():
+    """La lista de errores de la solución pública salió el 23-11-2026.
+
+    Hasta ese día, «la lista de códigos de la solución pública no está
+    publicada» estaba en los avisos de los acuses, en su ficha, en la cabecera
+    de `acuses.py` y en el README. Es la misma frase en varios sitios que
+    llevó a la prueba de arriba; aquí, la que nombra una lista de códigos o de
+    mensajes de error.
+    """
+    encontradas = [
+        f"{modulo.relative_to(RAIZ)}: «{frase[:160]}»"
+        for modulo in sorted((RAIZ / "validador").glob("*.py"))
+        for frase in _frases_de(modulo)
+        if _POR_PUBLICAR.search(frase)
+        and re.search(r"lista de (?:sus )?(?:códigos|mensajes) de (?:error|rechazo)|"
+                      r"lista de códigos de la solución pública", frase, re.I)]
+    assert not encontradas, (
+        "La AEAT publicó su lista de mensajes de error el 23-11-2026 y esto "
+        "sigue diciendo que no:\n" + "\n".join(encontradas))
+
+
 # --- Lo que se dice de BR-IG y BR-IP ------------------------------------------
 #
 # El 26-08-2026 las reglas del IGIC y del IPSI pasaron aquí de BR-IG y BR-IP a

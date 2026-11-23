@@ -27,11 +27,12 @@ formatos:
   identificador y, la de una remisión, su localizador.
 
 Y de los ejemplos: una factura con `cbc:DocumentStatusCode` 200 es una a la
-que se le aceptó lo que se pedía. **Es el único código de factura que se ha
+que se le aceptó lo que se pedía. **Es el único código de aceptación que se ha
 visto**, con la descripción «Factura Ok» en la remisión, «Anulacion correcta»
-en la anulación y «Factura SETTLEMENT Ok» en el pago y en el cobro. De una
-factura con otro código se dice que no consta que se aceptara, que es lo que
-se sabe, y el código y su descripción van tal cual.
+en la anulación y «Factura SETTLEMENT Ok» en el cobro (y en el pago, hasta que
+la AEAT lo corrigió el 19-11-2026). De una factura con otro código se dice que
+no consta que se aceptara, que es lo que se sabe, y el código y su
+descripción van tal cual.
 
 Lo que el acuse no dice: a qué contesta
 ---------------------------------------
@@ -43,8 +44,9 @@ de que les faltara el localizador a los acuses de anulación, de pago y de
 cobro, que lo traen vacío. Está en HALLAZGOS.md.
 
 **No se adivina el servicio por la descripción.** Es texto libre, y el
-ejemplo lo demuestra: el acuse de pago (`RespuestaPagar.xml`, contestación a
-un `PAYMENT`) dice «Factura SETTLEMENT Ok», que es el código del cobro. Lo que
+ejemplo lo demostró: el acuse de pago (`RespuestaPagar.xml`, contestación a
+un `PAYMENT`) decía «Factura SETTLEMENT Ok», que es el código del cobro,
+hasta el 19-11-2026. Lo que
 se dice de una factura con 200 vale para cualquier servicio: que se aceptó lo
 que se pedía sobre ella. El localizador, si viene, se enseña con lo que
 sirve. Si no viene, se dice que el acuse de una remisión lo lleva, como
@@ -52,22 +54,34 @@ condición y no como defecto, porque este acuse puede ser de otro servicio.
 
 Los códigos de error
 --------------------
-La lista de códigos de rechazo de la solución pública no está publicada. Se
-hace lo que se puede sin inventar. Una regla del esquematrón de la norma
-europea que tiene ficha, como `BR-CO-16`, se explica con la primera frase de
-la ficha, que es la de cualquier factura que la incumpla. Un código que no es
-de la norma europea, como uno que empiece por `SPFE-CORE`, `SPFE-LIST` o
-`BR-ES` (las familias que se esperan para las reglas propias de la solución
-pública, desde el 03-11-2026), se nombra y no se traduce, porque su
-significado no está publicado. Nada publicado dice en qué campo va el código,
-así que se busca en el estado y, si ahí no está, en la descripción. Los
-errores de esquema no se reconocen: no se sabe cómo se escriben, y adivinarlo
-sería poner nombre a lo que no se ha visto.
+Una regla del esquematrón de la norma europea que tiene ficha, como
+`BR-CO-16`, se explica con la primera frase de la ficha, que es la de
+cualquier factura que la incumpla. Un código propio de la solución pública,
+como `SPFE-CORE-18` o `BR-ES-01`, se busca desde el 23-11-2026 en la lista de
+mensajes de error que la AEAT publicó ese día (`errores_de_la_aeat`, generado
+de su fichero): se dice qué mensaje o mensajes le da la lista y si la
+descripción que trae el acuse es uno de ellos. Hasta ese día se nombraba y no
+se traducía, porque la lista no existía.
 
-Lo que el ejemplo no trae
--------------------------
-El acuse del ejemplo oficial no pasa el esquema de UBL 2.5: le falta
-`cbc:IssueDate`, que `DocumentStatus` exige una vez. Medido el 26-10-2026 con
+**No se traduce más allá de la lista.** La lista es el fichero de mensajes
+del programa de la AEAT, no una explicación de cada código, y el mensaje que
+llega no es siempre el de la regla: en su propio ejemplo, `SPFE-IDEN-02`
+llega con «El NIF tiene un formato erróneo», que es un mensaje general, y la
+lista da para esa regla «Nif del Emisor no permitido». Se dicen las dos cosas
+y no se elige entre ellas. Un código con la forma de los de la AEAT que no
+está en la lista se dice así, sin más.
+
+Nada publicado dice en qué campo va el código, así que se busca en el estado
+y, si ahí no está, en la descripción. Los errores de esquema no se
+reconocen: no se sabe cómo se escriben, y adivinarlo sería poner nombre a lo
+que no se ha visto.
+
+Lo que el ejemplo no traía
+--------------------------
+El acuse del ejemplo oficial no pasaba el esquema de UBL 2.5: le faltaba
+`cbc:IssueDate`, que `DocumentStatus` exige una vez. La AEAT la puso en el de
+remisión el 29-10-2026 y en la respuesta de su validador previo el
+19-11-2026. Medido el 26-10-2026 con
 lxml contra el `UBL-DocumentStatus-2.5.xsd` de OASIS: es su único fallo, y con
 la fecha puesta valida. El error lo da el esquema, como a cualquier documento
 (lo decidió el titular el 26-10-2026: un fallo de forma es un error, venga de
@@ -78,11 +92,12 @@ este sitio», y eso no deja ver que lo que falta es la fecha.
 
 from __future__ import annotations
 
+import functools
 import re
 from collections import Counter
 from datetime import date
 
-from validador import cifras, glosario
+from validador import cifras, errores_de_la_aeat, glosario
 from validador.formato import ACUSE, como_texto
 from validador.incidencias import AVISO, NOTA, Incidencia
 
@@ -200,9 +215,10 @@ def _alcance(raiz, es_consulta: bool = False) -> Incidencia:
         "La cabecera dice 200 si se aceptó todo, 406 si solo una parte y 400 "
         "si nada, y cada factura lleva su número, su fecha, el NIF de quien "
         "la emite y su estado; en la remisión, también el localizador con que "
-        "se descarga. De los estados de cada factura solo está publicado el "
-        "200. Los códigos de error no lo están, y se enseñan tal cual, con la "
-        "descripción que traigan.",
+        "se descarga. Una factura aceptada lleva el estado 200, el único de "
+        "aceptación que sale en los ejemplos. Una con error lleva el código "
+        "de la regla que incumple: se busca en " + _LISTA + ", y se enseña "
+        "con la descripción que traiga.",
         "No se mira que las facturas existan o que el localizador sea válido. "
         "El acuse no dice de quién es: si no es de la solución pública, lo de "
         "esta nota no le aplica.",
@@ -322,8 +338,8 @@ def _sin_fecha() -> Incidencia:
         "cac:DocumentResponse, que es lo que viene donde esperaba la fecha, y "
         "por eso su error dice que cac:DocumentResponse no puede ir ahí. El "
         "acuse del ejemplo de remisión que la AEAT publica la lleva desde el "
-        "29-10-2026; la respuesta de ejemplo de su validador previo, del "
-        "10-11-2026, no.",
+        "29-10-2026, y la respuesta de ejemplo de su validador previo, desde "
+        "el 19-11-2026.",
         campo="cbc:IssueDate",
         esperado="la fecha del acuse, detrás de cbc:ID",
         encontrado="(no está)",
@@ -454,20 +470,85 @@ _EUROPEA = re.compile(r"(?<![\w-])(?:BR|UBL)(?:-[A-Z0-9]+)+(?![\w-])")
 _PRIMERA_FRASE = re.compile(r"(.+?[.!?])(?=\s|$)", re.S)
 
 
-def _regla(*textos: str) -> str:
+# Cómo se nombra la lista en los avisos, con su fecha: si la AEAT la cambia y
+# se vuelve a generar, la fecha cambia sola.
+_LISTA = ("la lista de mensajes de error que la AEAT publicó el "
+          f"{errores_de_la_aeat.PUBLICADA}")
+# Lo mínimo que tiene que traer un mensaje antes de su primer hueco para
+# reconocerlo en una descripción. Tres generales empiezan por el hueco
+# («%s en la línea %s») y casarían con casi cualquier descripción.
+_SIN_HUECO = 8
+
+
+@functools.cache
+def _patron(mensaje: str):
+    """El mensaje de la lista como patrón: cada `%s`, cualquier texto.
+
+    Casa con el principio de la descripción, que lleva detrás lo que añade la
+    solución pública (en sus ejemplos, dos puntos y la ruta del campo).
+    """
+    limpio = " ".join(mensaje.strip().strip('"').split())
+    return re.compile(".*?".join(re.escape(t) for t in limpio.split("%s")), re.S)
+
+
+def _es_uno_de(descripcion: str, mensajes) -> bool:
+    return any(_patron(m).match(descripcion) for m in mensajes)
+
+
+def _general(descripcion: str) -> bool:
+    return _es_uno_de(descripcion, [
+        m for _, m in errores_de_la_aeat.GENERALES
+        if len(m.strip().strip('"').split("%s")[0].strip()) >= _SIN_HUECO])
+
+
+def _a_la_vista(mensaje: str) -> str:
+    """El mensaje entre comillas: sin sus comillas sueltas, sin el punto final
+    y con «…» en cada hueco."""
+    return '"' + mensaje.strip().strip('"').strip().rstrip(".").replace("%s", "…") + '"'
+
+
+def _mensajes(mensajes) -> str:
+    if len(mensajes) == 1:
+        return f"un mensaje, {_a_la_vista(mensajes[0])}"
+    if len(mensajes) <= 3:
+        vistos = [_a_la_vista(m) for m in mensajes]
+        return f"{len(mensajes)} mensajes: " + ", ".join(vistos[:-1]) + f" y {vistos[-1]}"
+    return f"{len(mensajes)} mensajes; el primero, {_a_la_vista(mensajes[0])}"
+
+
+def _de_la_lista(codigo: str, descripcion: str) -> str:
+    """Lo que dice de un código propio de la solución pública la lista de la AEAT."""
+    mensajes = errores_de_la_aeat.REGLAS.get(codigo)
+    if not mensajes:
+        return (f"{codigo} tiene la forma de los códigos de la solución "
+                f"pública, pero no está en {_LISTA}: aquí no se traduce, y el "
+                "motivo es el que diga la descripción.")
+    if descripcion and _es_uno_de(descripcion, mensajes):
+        cual = ("su mensaje" if len(mensajes) == 1
+                else f"uno de sus {len(mensajes)} mensajes")
+        return (f"{codigo} es una regla propia de la solución pública, y la "
+                f"descripción es {cual} en {_LISTA}.")
+    texto = (f"{codigo} es una regla propia de la solución pública, y {_LISTA} "
+             f"le da {_mensajes(mensajes)}.")
+    if descripcion:
+        texto += (" La descripción que trae no es "
+                  + ("ese" if len(mensajes) == 1 else "ninguno de ellos")
+                  + (": es uno de los mensajes generales de la lista, que no "
+                     "son de ninguna regla" if _general(descripcion) else "")
+                  + ". La lista no dice cuándo se usa cada mensaje.")
+    return texto
+
+
+def _regla(estado: str, descripcion: str) -> str:
     """Qué se sabe del código de rechazo de una factura, o nada si no es de ninguna familia.
 
     Se mira el primero de los textos que traiga un código: el estado manda
     sobre la descripción, que puede citar otras reglas de pasada.
     """
-    for texto in textos:
+    for texto in (estado, descripcion):
         aeat = _DE_LA_AEAT.search(texto)
         if aeat:
-            return (
-                f"{aeat.group(0)} no es una regla de la norma europea, y la "
-                "lista de códigos de la solución pública no está publicada: "
-                "aquí no se traduce."
-            )
+            return _de_la_lista(aeat.group(0), descripcion)
         europea = _EUROPEA.search(texto)
         if europea:
             codigo = europea.group(0)
@@ -539,9 +620,9 @@ def _factura(factura) -> Incidencia:
     else:
         motivo = "el acuse no le da ningún estado"
     regla = _regla(estado, descripcion) or (
-        "La AEAT no ha publicado todavía la lista de sus códigos de error, y "
-        "este no es de ninguna regla que Glosa-e reconozca: el motivo es el "
-        "que diga la descripción." if estado or descripcion else
+        f"Este código no es de ninguna regla de {_LISTA}, ni de ninguna que "
+        "Glosa-e reconozca: el motivo es el que diga la descripción."
+        if estado or descripcion else
         "Sin estado no hay código que leer.")
     return Incidencia(
         "SPFE-ACUSE-RECHAZADA",

@@ -240,7 +240,7 @@ class TestCadaFactura:
         assert aviso.gravedad == AVISO
         assert aviso.encontrado == "4711"
         assert '"NIF no censado"' in aviso.mensaje
-        assert "no ha publicado" in aviso.mensaje
+        assert "la lista de mensajes de error que la AEAT publicó el 23-11-2026" in aviso.mensaje
 
     def test_un_codigo_que_no_es_de_ninguna_familia_no_se_adivina(self):
         aviso = una(medir(acuse(cabecera("400", "", [factura_(estado="4711", descripcion="NIF no censado")]))),
@@ -323,11 +323,11 @@ class TestNoTodoAcuseEsUnaRemision:
 
 # --- Los códigos de error de cada factura ----------------------------------------
 #
-# La lista de códigos de rechazo de la solución pública no está publicada. Una
-# regla de la norma europea con ficha se explica; una que empiece por
-# SPFE-CORE, SPFE-LIST o BR-ES se nombra y no se traduce. Ningún texto
-# publicado dice en qué campo del acuse va el código: se busca en el estado y
-# en la descripción.
+# Una regla de la norma europea con ficha se explica. Una de la solución
+# pública (SPFE-, BR-ES) se busca, desde el 23-11-2026, en la lista de
+# mensajes de error que la AEAT publicó ese día; hasta entonces se nombraba y
+# no se traducía. Ningún texto publicado dice en qué campo del acuse va el
+# código: se busca en el estado y en la descripción.
 
 
 class TestLosCodigosDeRechazo:
@@ -359,12 +359,61 @@ class TestLosCodigosDeRechazo:
         assert "glosa-e.com/codigo-" not in aviso.mensaje
 
     @pytest.mark.parametrize("codigo", ["SPFE-CORE-0012", "SPFE-LIST-004", "BR-ES-0101"])
-    def test_las_de_la_aeat_se_nombran_y_no_se_traducen(self, codigo):
+    def test_las_de_la_aeat_que_no_estan_en_su_lista_se_nombran(self, codigo):
         aviso = self._aviso(codigo, "Campo mal informado")
-        assert f"{codigo} no es una regla de la norma europea" in aviso.mensaje
-        assert "no está publicada" in aviso.mensaje and "AEAT" not in aviso.mensaje
+        assert (f"{codigo} tiene la forma de los códigos de la solución pública, pero "
+                "no está en la lista de mensajes de error que la AEAT publicó el "
+                "23-11-2026") in aviso.mensaje
         assert f"la regla {codigo} de la norma europea" not in aviso.mensaje
         assert '"Campo mal informado"' in aviso.mensaje
+
+    # Lo que sigue sale del ejemplo de la AEAT (el 09, ValidationInvoiceSOAP,
+    # corregido el 19-11-2026) y de su lista del 23-11-2026.
+
+    def test_con_el_mensaje_de_su_regla(self):
+        aviso = self._aviso("SPFE-CORE-18", "El valor del identificador de la cuenta de "
+                            "pago (BT-84) debe ser un IBAN válido: /Invoice/cac:PaymentMeans")
+        assert ("SPFE-CORE-18 es una regla propia de la solución pública, y la "
+                "descripción es uno de sus 4 mensajes en la lista de mensajes de "
+                "error que la AEAT publicó el 23-11-2026.") in aviso.mensaje
+        assert "no es ese" not in aviso.mensaje and "ninguno de ellos" not in aviso.mensaje
+
+    def test_con_un_mensaje_general_lo_dice_y_no_elige(self):
+        """Como en el ejemplo de la AEAT: SPFE-IDEN-02 con el mensaje general del NIF."""
+        aviso = self._aviso("SPFE-IDEN-02", "El NIF tiene un formato erróneo. NIF:XXXX. "
+                            "NOMBRE_RAZON:aaa: /Invoice/cac:AccountingSupplierParty")
+        assert 'le da un mensaje, "Nif del Emisor no permitido".' in aviso.mensaje
+        assert "La descripción que trae no es ese: es uno de los mensajes generales" in aviso.mensaje
+        assert "La lista no dice cuándo se usa cada mensaje." in aviso.mensaje
+
+    def test_con_otro_mensaje_no_lo_llama_general(self):
+        aviso = self._aviso("SPFE-IDEN-02", "Campo mal informado")
+        assert "La descripción que trae no es ese." in aviso.mensaje
+        assert "generales" not in aviso.mensaje
+
+    def test_un_general_que_empieza_por_su_hueco_no_casa_con_todo(self):
+        """«%s en la línea %s» es general, y casaría con cualquier descripción
+        que acabe en un número de línea, como las de los ejemplos."""
+        aviso = self._aviso("SPFE-IDEN-02", "Algo que no cuadra en la línea 3")
+        assert "generales" not in aviso.mensaje
+
+    def test_sin_descripcion_da_lo_que_dice_la_lista(self):
+        aviso = self._aviso("SPFE-LIST-01")
+        assert ('la lista de mensajes de error que la AEAT publicó el 23-11-2026 le da '
+                'un mensaje, "El valor del campo Código de tipo de factura es '
+                'incorrecto".') in aviso.mensaje
+        assert "La descripción" not in aviso.mensaje
+
+    def test_los_huecos_casan_con_lo_que_sea(self):
+        aviso = self._aviso("SPFE-ACTION-02", "Acción PAYMENT no permitida para el "
+                            "servicio SupplierInvoiceEvents")
+        assert "la descripción es uno de sus 5 mensajes" in aviso.mensaje
+
+    def test_con_muchos_mensajes_da_el_primero_con_sus_huecos_a_la_vista(self):
+        aviso = self._aviso("SPFE-ACTION-02")
+        assert 'le da 5 mensajes; el primero, "No existe factura sobre la que actuar".' in aviso.mensaje
+        aviso = self._aviso("BR-ES-07")
+        assert 'le da 2 mensajes: "Si se ha cumplimentado BillingReference' in aviso.mensaje
 
     def test_un_codigo_dentro_de_otro_no_cuenta(self):
         aviso = self._aviso("XBR-CO-16X")
@@ -373,7 +422,8 @@ class TestLosCodigosDeRechazo:
     def test_el_glosario_cuenta_las_tres_familias(self):
         from validador import glosario
         ficha = glosario.CODIGOS["SPFE-ACUSE-RECHAZADA"]
-        for trozo in ("BR-CO-16", "SPFE-CORE", "SPFE-LIST", "BR-ES", "no está publicada"):
+        for trozo in ("BR-CO-16", "SPFE-CORE", "SPFE-LIST", "BR-ES", "23-11-2026",
+                      "mensajes generales"):
             assert trozo in ficha, trozo
 
 
@@ -617,7 +667,7 @@ class TestLaRespuestaDelValidador:
         avisos = [i for i in medir(sobre(VALIDADOR)).incidencias
                   if i.codigo == "SPFE-ACUSE-RECHAZADA" and i.encontrado == codigo]
         (aviso,) = avisos
-        assert f"{codigo} no es una regla de la norma europea" in aviso.mensaje
+        assert f"{codigo} es una regla propia de la solución pública" in aviso.mensaje
         assert "no es de ninguna regla" not in aviso.mensaje
 
 
@@ -715,7 +765,7 @@ class TestLoQueVioLaVerificacion:
         nota = una(medir(acuse(fecha="")), "SPFE-ACUSE-FECHA")
         for texto in (nota.mensaje, glosario.CODIGOS["SPFE-ACUSE-FECHA"]):
             assert "15-10-2026" not in texto
-            assert "29-10-2026" in texto and "10-11-2026" in texto
+            assert "29-10-2026" in texto and "19-11-2026" in texto
 
     def test_un_acuse_en_soap_11_dice_que_el_validador_es_12(self):
         nota = una(medir(sobre(VALIDADOR, ns=SOAP_11)), "SPFE-ACUSE-SOBRE")

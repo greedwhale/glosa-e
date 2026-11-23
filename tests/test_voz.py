@@ -42,6 +42,15 @@ PLURAL = re.compile(
 # Sin «os» suelto: el JavaScript lleva código Python en cadenas —`import os`— y
 # la red gritaría por eso. El vosotros se caza por los verbos.
 
+# Módulos que son texto de otro, copiado tal cual por un generador: ni su
+# voz ni sus tildes son de este sitio, y el informe los cita entre comillas.
+# Cada uno con su motivo, y una prueba abajo de que sigue existiendo.
+MODULOS_COPIADOS = {
+    "errores_de_la_aeat.py": "los mensajes de error de la AEAT, generados de su "
+                             "fichero con sus erratas y sin sus tildes "
+                             "(«identificacion», «validacion»)",
+}
+
 # Palabras que caen en la red sin ser de nadie. Cada una con su motivo.
 NO_SON_VERBOS = {
     "tramos": "sustantivo: los tramos de una numeración que faltan",
@@ -72,6 +81,14 @@ def _cadenas_sin_docstrings(fuente: Path) -> list[str]:
 
 def en_plural(texto: str) -> list[str]:
     return sorted({p for p in PLURAL.findall(texto) if p.lower() not in NO_SON_VERBOS})
+
+
+def test_los_modulos_copiados_existen_y_lo_dicen():
+    """Que la excepción no se quede apuntando a un módulo que ya no está, ni a
+    uno escrito a mano."""
+    for nombre in MODULOS_COPIADOS:
+        cabecera = (RAIZ / "validador" / nombre).read_text(encoding="utf-8")[:400]
+        assert "no se escribe a mano" in cabecera, nombre
 
 
 def test_la_red_caza_lo_que_ya_se_colo():
@@ -106,6 +123,8 @@ def test_el_javascript_que_pinta_textos_tambien():
     "fuente", sorted((RAIZ / "validador").glob("*.py")) + [WEB / "prueba.py"],
     ids=lambda p: p.name)
 def test_el_informe_y_el_banco_tambien(fuente):
+    if fuente.name in MODULOS_COPIADOS:
+        pytest.skip(MODULOS_COPIADOS[fuente.name])
     encontradas = sorted({p for cadena in _cadenas_sin_docstrings(fuente)
                           for p in en_plural(cadena)})
     assert not encontradas, (
@@ -284,6 +303,8 @@ def test_el_guia_habla_con_la_misma_voz():
     "fuente", sorted((RAIZ / "validador").glob("*.py")) + [WEB / "prueba.py"],
     ids=lambda p: p.name)
 def test_el_informe_el_banco_y_la_consola_llevan_sus_tildes(fuente):
+    if fuente.name in MODULOS_COPIADOS:
+        pytest.skip(MODULOS_COPIADOS[fuente.name])
     encontradas = sorted({p for cadena in _cadenas_sin_docstrings(fuente)
                           if " " in cadena for p in sin_tilde(cadena)})
     assert not encontradas, (

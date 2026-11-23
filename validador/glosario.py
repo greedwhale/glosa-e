@@ -4009,10 +4009,16 @@ CODIGOS: dict[str, str] = {
         " Glosa-e explica, como BR-CO-16, el aviso dice qué incumple con la "
         "primera frase de su ficha. Si no es de la norma europea, como uno "
         "que empiece por SPFE-CORE, SPFE-LIST o BR-ES, o cualquier SPFE- con "
-        "su familia y un número, como SPFE-IDEN-02, lo nombra y no lo "
-        "traduce, porque la lista de códigos de la solución pública no está "
-        "publicada todavía. En los demás casos, el motivo es el que diga la "
-        "descripción."
+        "su familia y un número, como SPFE-IDEN-02, lo busca en la lista de "
+        "mensajes de error que la AEAT publicó el 23-11-2026, y dice qué "
+        "mensaje o mensajes da la lista a esa regla y si la descripción es "
+        "uno de ellos. Si no lo es, puede ser uno de los mensajes generales "
+        "de la lista, que la solución pública manda también con el código de "
+        "una regla (en su propio ejemplo, SPFE-IDEN-02 llega con \"El NIF "
+        "tiene un formato erróneo\" y la lista le da \"Nif del Emisor no "
+        "permitido\"): el aviso lo dice, y no elige entre los dos. Si el "
+        "código no está en la lista, lo nombra y no lo traduce. En los demás "
+        "casos, el motivo es el que diga la descripción."
     ),
     "SPFE-ACUSE-CONSULTA": (
         "El acuse es la respuesta a una consulta de facturas, por "
@@ -4085,9 +4091,9 @@ CODIGOS: dict[str, str] = {
         "forma que sale con él: el esquema lo marca en cac:DocumentResponse, "
         "que es lo que encuentra donde esperaba la fecha, y por eso su error "
         "dice que cac:DocumentResponse no puede ir ahí. El acuse del ejemplo "
-        "de remisión que publica la AEAT la lleva desde el 29-10-2026; la "
-        "respuesta de ejemplo de su validador previo, del 10-11-2026, no la "
-        "lleva, y es su único fallo de forma."
+        "de remisión que publica la AEAT la lleva desde el 29-10-2026, y la "
+        "respuesta de ejemplo de su validador previo, desde el 19-11-2026: la "
+        "del 10-11-2026 no la llevaba, y era su único fallo de forma."
     ),
     "COPIA-TOTAL": (
         "Cuando la factura lleva retenciones, su total no es el total con "

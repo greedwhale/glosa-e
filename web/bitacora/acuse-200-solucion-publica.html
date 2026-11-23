@@ -84,8 +84,18 @@
     obligado a emitir, un colaborador social, un apoderado o un sucesor.</li>
   </ul>
 
-  <p>La lista entera no está publicada: no viene en el catálogo, ni en el
-  documento de formatos, ni en el de validaciones.</p>
+  <p>El 16 de noviembre, la lista entera no estaba publicada: no venía en el
+  catálogo, ni en el documento de formatos, ni en el de validaciones.</p>
+
+  <p><b>Actualizado el 23 de noviembre.</b> La AEAT la publicó ese día en su
+  Portal de Desarrolladores, en <i>Validaciones y errores</i>: 316 reglas con
+  461 mensajes, y 52 mensajes generales que no son de ninguna regla. Contra
+  este ejemplo, <code>SPFE-CORE-18</code> llega con uno de sus mensajes, pero
+  <code>SPFE-IDEN-02</code> y <code>SPFE-IDEN-05</code> llegan con un mensaje
+  general (<i>El NIF tiene un formato erróneo</i>), y la lista les da
+  <i>Nif del Emisor no permitido</i> y <i>Nif del Destinatario no
+  permitido</i>. <code>SPFE-REPR-01</code> también llega con uno general. La
+  regla la dice el código; el texto puede ser uno general.</p>
 
   <h2>Los límites</h2>
 
@@ -114,6 +124,11 @@
     respuesta viene dentro de un sobre SOAP 1.2, sin ebXML, como dice su
     WSDL.</li>
   </ul>
+
+  <p><b>Actualizado el 23 de noviembre.</b> La AEAT corrigió las tres el 19 de
+  noviembre: el pago dice ya <i>Factura PAYMENT Ok</i>, las consultas traen
+  <code>cac:DocumentReference</code> y la respuesta del validador previo,
+  <code>cbc:IssueDate</code>. Las tres pasan ahora el esquema.</p>
 
   <h2>Lo que hace Glosa-e con ellos</h2>
 

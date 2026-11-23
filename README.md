@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4397 tests, todos en verde.
+4424 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -712,15 +712,31 @@ el ejemplo:
 Lo que se decidió en cada una:
 
 - **Los códigos de error de una factura no se inventan.** El único estado de
-  factura que se ha visto es el 200 del ejemplo, y el aviso trae el código y
-  la descripción tal cual vienen. La lista de códigos de rechazo de la
-  solución pública no está publicada. Desde el 03-11-2026, una regla del
+  aceptación que se ha visto es el 200 de los ejemplos, y el aviso trae el
+  código y la descripción tal cual vienen. Desde el 03-11-2026, una regla del
   esquematrón europeo que tiene ficha, como `BR-CO-16`, se explica con la
-  primera frase de la ficha y el enlace; un código que no es de la norma
-  europea, como uno que empiece por `SPFE-CORE`, `SPFE-LIST` o `BR-ES`, se
-  nombra y no se traduce; y los errores de esquema no se reconocen, porque no
-  se sabe cómo se escriben. Nada publicado dice en qué campo va el código: se
-  busca en el estado y, si no, en la descripción.
+  primera frase de la ficha y el enlace; y los errores de esquema no se
+  reconocen, porque no se sabe cómo se escriben. Nada publicado dice en qué
+  campo va el código: se busca en el estado y, si no, en la descripción.
+- **Un código propio de la solución pública se busca en la lista de la AEAT**,
+  desde el 23-11-2026, el día que la publicó en su Portal de Desarrolladores
+  («Listado de códigos de error», `errores_negocio.properties`). Hasta ese día
+  se nombraba y no se traducía. La lista no explica cada código: es el
+  fichero de mensajes de su programa, con 316 reglas (461 mensajes) y 52
+  mensajes generales sin regla. El aviso dice qué mensajes da la lista a la
+  regla y si la descripción es uno de ellos, y si no lo es, si es un mensaje
+  general. No elige entre los dos: en el ejemplo de la propia AEAT,
+  `SPFE-IDEN-02` llega con «El NIF tiene un formato erróneo», que es general,
+  y la lista da para esa regla «Nif del Emisor no permitido». Un código con la
+  forma de los de la AEAT que no está en la lista se nombra y no se traduce.
+  La tabla, `validador/errores_de_la_aeat.py`, **no se escribe a mano**: la
+  genera `herramientas/errores_de_la_aeat.py` del fichero, que se deja en
+  `anexos/` (no se versiona, como el XML del BOE), con su huella SHA-256 y
+  la fecha en que la AEAT lo publicó, que el fichero no dice. Se niega a
+  generar nada si una línea no se leería igual que la lee Java (una que
+  sigue en la siguiente, una clave con dos puntos o espacios, una línea sin
+  `=`). Los errores técnicos (`errores_tecnicos.properties`, 4xxx, 5xxx y
+  8xxx) no se leen: son fallos del servicio, no el estado de una factura.
   Ningún acuse con un rechazo de verdad se ha visto: lo de las pruebas es
   nuestro.
 - **El acuse del ejemplo tiene un error de forma, y sale con él.** Le falta
