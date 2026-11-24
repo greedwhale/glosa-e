@@ -1,0 +1,149 @@
+<article class="entrada"
+  data-fecha="2026-11-24"
+  data-titulo="La lista de errores de la AEAT y sus reglas de negocio no se numeran igual"
+  data-entradilla="En una semana la AEAT ha publicado las reglas de negocio del anexo I y la lista de mensajes de error de la solución pública. Las dos hablan de las mismas reglas, pero con códigos distintos: si un acuse trae BR-ES-04, la regla está en la lista, y en el documento de reglas la BR-ES-4 es otra. Lo que trae cada una, cómo se cruzan y lo que no se encuentra."
+  data-titulo-corto="Errores y reglas de la AEAT: dos numeraciones"
+  data-descripcion="La lista de errores de la solución pública y las reglas de negocio del anexo I usan códigos distintos para las mismas reglas. Cómo se cruzan, con sus fuentes.">
+
+  <time datetime="2026-11-24">24 de noviembre de 2026</time>
+  <h1>La lista de errores de la AEAT y sus reglas de negocio no se numeran igual</h1>
+  <p class="lema">Si un acuse de la solución pública trae <code>BR-ES-04</code>,
+  lo que dice está en la <b>lista de mensajes de error</b>. En el documento de
+  reglas de negocio, la <code>BR-ES-4</code> es <b>otra regla</b>. Leído en
+  los dos ficheros que la AEAT tiene en su portal desde el 20 y el 23 de
+  noviembre.</p>
+
+  <p>En el Portal de Desarrolladores de la AEAT, en <i>Validaciones y
+  errores</i>, hay dos cosas nuevas desde el 10 de noviembre:</p>
+
+  <ul>
+    <li><b>Las reglas de negocio de los anexos I y II</b>, en dos documentos
+    marcados como borrador, versión 0.1 del 19 de noviembre. El del anexo I
+    tiene 33 páginas.</li>
+    <li><b>La lista de mensajes de error</b>, con fecha del 23 de noviembre. No
+    es un documento: son dos ficheros de texto con una clave y un mensaje por
+    línea, los mismos que usa el programa de la AEAT. El de los errores de
+    negocio trae 316 reglas con 461 mensajes, y otros 52 en dos apartados sin
+    regla: validaciones generales (36) y comunes a las reglas (16). El de los
+    errores técnicos trae 83 códigos del servicio.</li>
+  </ul>
+
+  <p>La AEAT avisa de que la lista puede cambiar al acabar el periodo de
+  pruebas, y el documento de reglas es un borrador. Lo que sigue es lo que
+  dicen hoy.</p>
+
+  <h2>El código que llega es el de la lista</h2>
+
+  <p>El código que la solución pública pone a una factura rechazada es una
+  clave de la lista: <code>SPFE-CORE-18</code>, <code>SPFE-IDEN-02</code>,
+  <code>BR-ES-04</code>. En la respuesta de ejemplo de su validador previo,
+  corregida el 19 de noviembre, una factura falla por cuatro motivos, y los
+  cuatro códigos están en la lista.</p>
+
+  <p>Lo que no siempre coincide es el texto. <code>SPFE-CORE-18</code> llega
+  con uno de sus cuatro mensajes, el del IBAN. Pero <code>SPFE-IDEN-02</code>
+  llega con <i>El NIF tiene un formato erróneo</i>, que en la lista es de las
+  validaciones generales, y la lista da para esa regla <i>Nif del Emisor no
+  permitido</i>. La regla la dice el código; el texto puede ser uno general. El
+  detalle está en <a href="./bitacora-acuse-200-solucion-publica.html">el
+  artículo del acuse 200</a>.</p>
+
+  <h2>Dos numeraciones para las mismas reglas</h2>
+
+  <p>El documento de reglas del anexo I numera sus reglas así:</p>
+
+  <ul>
+    <li><code>BR-ES-1</code> a <code>BR-ES-31</code>: los límites de
+    integridad, lo que la factura tiene que llevar (tabla ES-1).</li>
+    <li><code>BR-ES-CO-1</code> a <code>BR-ES-CO-24</code>: las condiciones,
+    las relaciones entre campos (tabla ES-3).</li>
+    <li>Y una serie por categoría de IVA, con su letra:
+    <code>BR-ES-S-1</code>, <code>BR-ES-Z-1</code>, <code>BR-ES-E-1</code>...</li>
+  </ul>
+
+  <p>En la lista no hay ningún código con esas formas. Las reglas españolas van
+  como <code>SPFE-CORE</code> (67 reglas), <code>SPFE-LIST</code> (18),
+  <code>SPFE-IDEN</code> (12), <code>SPFE-ACTION</code> (9), una
+  <code>SPFE-REPR</code>, una <code>SPFE-PLAT</code> y siete
+  <code>BR-ES</code>, de la <code>BR-ES-01</code> a la <code>BR-ES-07</code>. Y
+  esas siete no son las siete primeras del documento:</p>
+
+  <div class="cuadro">
+  <table>
+    <caption>Las siete BR-ES de la lista, buscadas en el documento de reglas</caption>
+    <thead><tr><th>En la lista</th><th>Lo que dice</th><th>En el documento</th></tr></thead>
+    <tbody>
+      <tr><td><code>BR-ES-01</code></td><td>La fecha de realización de las operaciones (BT-7), si se informa, distinta de la de expedición (BT-2)</td><td>No está. La <code>BR-ES-CO-2</code> pide que sea igual o anterior, no distinta</td></tr>
+      <tr><td><code>BR-ES-02</code></td><td>La fecha efectiva de pago (BT-ES-2), igual o anterior a la de expedición</td><td>Repartida entre <code>BR-ES-CO-4</code> y <code>BR-ES-CO-5</code></td></tr>
+      <tr><td><code>BR-ES-03</code></td><td>La fecha efectiva de pago, igual o posterior a la de realización de las operaciones</td><td>La primera mitad de <code>BR-ES-CO-5</code></td></tr>
+      <tr><td><code>BR-ES-04</code></td><td>El vencimiento (BT-9), igual o posterior a la fecha de realización de las operaciones</td><td><code>BR-ES-CO-6</code>, con las mismas palabras</td></tr>
+      <tr><td><code>BR-ES-05</code></td><td>Sin fecha de realización, el vencimiento igual o posterior a la expedición, salvo en las facturas 384 y 471</td><td>No está</td></tr>
+      <tr><td><code>BR-ES-06</code></td><td>El tipo de proceso de negocio (BT-23), obligatorio</td><td>Sin número: está en la tabla ES-2, la de los campos que pasan a ser obligatorios</td></tr>
+      <tr><td><code>BR-ES-07</code></td><td>Con una referencia a otra factura, su número (BT-25) y su fecha (BT-26), obligatorios</td><td><code>BR-ES-7</code>, la misma regla. En la lista, sus dos mensajes son también los de <code>SPFE-CORE-15</code> y <code>SPFE-CORE-16</code>, con las mismas palabras</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Solo la <code>BR-ES-07</code> coincide en número y en contenido. Quien
+  reciba una <code>BR-ES-04</code> y la busque en el documento encontrará la
+  <code>BR-ES-4</code>, que habla de otra cosa: la fecha de inicio del periodo
+  de una factura recapitulativa.</p>
+
+  <p>Y el propio documento repite números. En la tabla ES-9, la de la categoría
+  S, las reglas van <code>BR-ES-S-1</code>, <code>BR-ES-S-2</code>, y luego
+  <code>BR-ES-3</code>, <code>BR-ES-4</code> y <code>BR-ES-5</code>, sin la S
+  (página 23). Los mismos números de la tabla ES-1 (página 3), con otro
+  contenido. Parece que les falta la S, pero el documento no lo dice.</p>
+
+  <h2>Lo que no se encuentra en la lista</h2>
+
+  <p>Dos condiciones del documento no tienen en la lista ningún mensaje que las
+  nombre: que la fecha de expedición no sea anterior al 6 de octubre de 2026,
+  la entrada en vigor de la orden (<code>BR-ES-CO-1</code>), ni posterior a la
+  fecha de remisión (<code>BR-ES-CO-3</code>). Puede que se comprueben con otro
+  texto; la lista no lo dice. Y al revés, la <code>BR-ES-01</code> y la
+  <code>BR-ES-05</code> de la lista no están en el documento.</p>
+
+  <p>Así que, con lo publicado hoy, para entender un rechazo <b>se busca el
+  código en la lista</b>, y el documento de reglas sirve para leer la regla
+  entera, si se encuentra por su contenido.</p>
+
+  <h2>Lo que hace Glosa-e</h2>
+
+  <p>Glosa-e abre en tu navegador el acuse o la respuesta del validador previo
+  y, de cada código de error, dice qué mensajes le da la lista de la AEAT y si
+  el que llegó es uno de ellos, o uno de validaciones generales o de los
+  comunes a las reglas. No lo traduce más allá de la lista, y no lo empareja
+  con el documento de reglas: con dos numeraciones, emparejarlos sería
+  adivinar. El detalle, en la ficha de
+  <a href="./codigo-SPFE-ACUSE-RECHAZADA.html"><code>SPFE-ACUSE-RECHAZADA</code></a>.</p>
+
+  <p>Glosa-e es gratis, es código abierto y <b>corre entero en tu
+  navegador</b>: el fichero no sale de tu ordenador. Está <b>en desarrollo y en
+  pruebas</b>. Si encuentras algo mal o tienes alguna propuesta,
+  <a href="mailto:contacto@glosa-e.com?subject=Glosa-e%3A%20">escríbeme</a>.</p>
+
+  <footer class="fuentes">
+    <h2>De dónde sale</h2>
+    <ul>
+      <li><a href="https://www.agenciatributaria.es/AEAT.desarrolladores/Desarrolladores/_menu_/Documentacion/Solucion_Publica_de_Facturacion_Electronica__SPFE_/SPFE___Validaciones_y_errores/SPFE___Validaciones_y_errores.html">Portal
+      de Desarrolladores de la AEAT, Validaciones y errores</a>, con las
+      reglas de negocio y el listado de códigos de error.</li>
+      <li><a href="https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/Facturacion-electronica/ReglasNegocio_AnexoUno.pdf">Reglas
+      de negocio del anexo I</a>, borrador, versión 0.1 del 19 de noviembre:
+      las tablas ES-1, ES-2, ES-3 y ES-9.</li>
+      <li><a href="https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/Facturacion-electronica/errores_negocio.properties">Los
+      errores de negocio</a>, con fecha del 23 de noviembre.</li>
+      <li><a href="./bitacora-acuse-200-solucion-publica.html">Qué quiere decir
+      un 200 en el acuse de la solución pública</a>, con la respuesta de
+      ejemplo del validador previo.</li>
+    </ul>
+    <p class="metodo"><b>Cómo se comprobó.</b> Los dos ficheros se
+    descargaron del portal de la AEAT el 23 y el 24 de noviembre, sin cambios
+    de un día a otro. Las fechas son las de los ficheros en el portal: el 20 de
+    noviembre el documento de reglas y el 23 la lista. Cada regla de la lista
+    se buscó en el documento por los campos que nombra y por su texto, y donde
+    dice que una regla no está, es que no se encontró.</p>
+  </footer>
+
+</article>

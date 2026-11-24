@@ -277,7 +277,7 @@ _ACTA = re.compile(
     r"con el código que se sirve|con el código publicado", re.I)
 _PALABRAS_DEL_METODO = 90
 # Desde aquí vale; los artículos de antes se escribieron sin esta regla.
-_METODO_DESDE = "2026-11-25"
+_METODO_DESDE = "2026-11-24"
 
 
 def _tono_de_acta(metodo: str) -> list[str]:
