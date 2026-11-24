@@ -58,16 +58,16 @@ Una regla del esquematrón de la norma europea que tiene ficha, como
 `BR-CO-16`, se explica con la primera frase de la ficha, que es la de
 cualquier factura que la incumpla. Un código propio de la solución pública,
 como `SPFE-CORE-18` o `BR-ES-01`, se busca desde el 23-11-2026 en la lista de
-mensajes de error que la AEAT publicó ese día (`errores_de_la_aeat`, generado
-de su fichero): se dice qué mensaje o mensajes le da la lista y si la
+mensajes de error de la AEAT con fecha de ese día (`errores_de_la_aeat`,
+generado de su fichero): se dice qué mensaje o mensajes le da la lista y si la
 descripción que trae el acuse es uno de ellos. Hasta ese día se nombraba y no
 se traducía, porque la lista no existía.
 
 **No se traduce más allá de la lista.** La lista es el fichero de mensajes
 del programa de la AEAT, no una explicación de cada código, y el mensaje que
 llega no es siempre el de la regla: en su propio ejemplo, `SPFE-IDEN-02`
-llega con «El NIF tiene un formato erróneo», que es un mensaje general, y la
-lista da para esa regla «Nif del Emisor no permitido». Se dicen las dos cosas
+llega con «El NIF tiene un formato erróneo», que es de las validaciones
+generales de la lista, y la lista da para esa regla «Nif del Emisor no permitido». Se dicen las dos cosas
 y no se elige entre ellas. Un código con la forma de los de la AEAT que no
 está en la lista se dice así, sin más.
 
@@ -472,8 +472,10 @@ _PRIMERA_FRASE = re.compile(r"(.+?[.!?])(?=\s|$)", re.S)
 
 # Cómo se nombra la lista en los avisos, con su fecha: si la AEAT la cambia y
 # se vuelve a generar, la fecha cambia sola.
-_LISTA = ("la lista de mensajes de error que la AEAT publicó el "
-          f"{errores_de_la_aeat.PUBLICADA}")
+# La fecha es la del fichero en el servidor de la AEAT, no la de cuando salió,
+# que no se sabe (no estaba el 10-11, estaba el 23-11): por eso no se dice
+# «que publicó el».
+_LISTA = f"la lista de mensajes de error de la AEAT del {errores_de_la_aeat.PUBLICADA}"
 # Lo mínimo que tiene que traer un mensaje antes de su primer hueco para
 # reconocerlo en una descripción. Tres generales empiezan por el hueco
 # («%s en la línea %s») y casarían con casi cualquier descripción.
@@ -495,10 +497,19 @@ def _es_uno_de(descripcion: str, mensajes) -> bool:
     return any(_patron(m).match(descripcion) for m in mensajes)
 
 
-def _general(descripcion: str) -> bool:
-    return _es_uno_de(descripcion, [
-        m for _, m in errores_de_la_aeat.GENERALES
-        if len(m.strip().strip('"').split("%s")[0].strip()) >= _SIN_HUECO])
+def _general(descripcion: str) -> str:
+    """De cuál de los dos apartados sin regla de la lista es la descripción, o ''.
+
+    Son los dos con que empieza el fichero, y se nombran con su cabecera:
+    llamarlos a todos «generales, que no son de ninguna regla» era falso, porque
+    en el segundo hay claves con el nombre de una regla (`BR-X-09-...`)."""
+    for apartado, filas in (("de validaciones generales", errores_de_la_aeat.GENERALES),
+                            ("comunes a las reglas", errores_de_la_aeat.COMUNES)):
+        if _es_uno_de(descripcion, [
+                m for _, m in filas
+                if len(m.strip().strip('"').split("%s")[0].strip()) >= _SIN_HUECO]):
+            return apartado
+    return ""
 
 
 def _a_la_vista(mensaje: str) -> str:
@@ -531,10 +542,11 @@ def _de_la_lista(codigo: str, descripcion: str) -> str:
     texto = (f"{codigo} es una regla propia de la solución pública, y {_LISTA} "
              f"le da {_mensajes(mensajes)}.")
     if descripcion:
+        apartado = _general(descripcion)
         texto += (" La descripción que trae no es "
                   + ("ese" if len(mensajes) == 1 else "ninguno de ellos")
-                  + (": es uno de los mensajes generales de la lista, que no "
-                     "son de ninguna regla" if _general(descripcion) else "")
+                  + (f": es uno de los mensajes {apartado} de la lista"
+                     if apartado else "")
                   + ". La lista no dice cuándo se usa cada mensaje.")
     return texto
 

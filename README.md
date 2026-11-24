@@ -37,7 +37,7 @@ según el RD 238/2026.
 | `validador/indexnow.py` | El aviso a Bing, por IndexNow, de las páginas que cambiaron desde el último | Terminado |
 | `validador/__main__.py` | La línea de órdenes | Terminado |
 
-4424 tests, todos en verde.
+4428 tests, todos en verde.
 
 ```bash
 .venv/Scripts/python.exe -m pip install --no-deps -r requisitos-pruebas.txt
@@ -719,14 +719,18 @@ Lo que se decidió en cada una:
   reconocen, porque no se sabe cómo se escriben. Nada publicado dice en qué
   campo va el código: se busca en el estado y, si no, en la descripción.
 - **Un código propio de la solución pública se busca en la lista de la AEAT**,
-  desde el 23-11-2026, el día que la publicó en su Portal de Desarrolladores
-  («Listado de códigos de error», `errores_negocio.properties`). Hasta ese día
+  desde el 23-11-2026, con la fecha que el fichero tiene en su Portal de
+  Desarrolladores («Listado de códigos de error», `errores_negocio.properties`;
+  el 10-11 no estaba, y entre medias no se miró). Hasta ese día
   se nombraba y no se traducía. La lista no explica cada código: es el
   fichero de mensajes de su programa, con 316 reglas (461 mensajes) y 52
-  mensajes generales sin regla. El aviso dice qué mensajes da la lista a la
+  mensajes más en sus dos primeros apartados, validaciones generales (36) y
+  comunes a las reglas (16); en el segundo hay claves con el nombre de una
+  regla (`BR-X-09-TAXRATEMISSING`) que no tienen la forma de las de regla. El aviso dice qué mensajes da la lista a la
   regla y si la descripción es uno de ellos, y si no lo es, si es un mensaje
   general. No elige entre los dos: en el ejemplo de la propia AEAT,
-  `SPFE-IDEN-02` llega con «El NIF tiene un formato erróneo», que es general,
+  `SPFE-IDEN-02` llega con «El NIF tiene un formato erróneo», que es de las
+  validaciones generales,
   y la lista da para esa regla «Nif del Emisor no permitido». Un código con la
   forma de los de la AEAT que no está en la lista se nombra y no se traduce.
   La tabla, `validador/errores_de_la_aeat.py`, **no se escribe a mano**: la

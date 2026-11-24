@@ -1,6 +1,6 @@
 """La lista de mensajes de error de la solución pública, del fichero de la AEAT.
 
-La AEAT la publicó el 23-11-2026 en su Portal de Desarrolladores, y
+Está en el Portal de Desarrolladores de la AEAT con fecha del 23-11-2026, y
 `validador/errores_de_la_aeat.py` la lleva generada por
 `herramientas/errores_de_la_aeat.py`. Tres cosas:
 
@@ -46,7 +46,7 @@ def test_volver_a_generar_da_exactamente_lo_mismo(tmp_path):
 
 def test_la_fecha_es_la_de_la_cabecera():
     assert errores_de_la_aeat.PUBLICADA == "23-11-2026"
-    assert f"publicado el {errores_de_la_aeat.PUBLICADA}" in " ".join(errores_de_la_aeat.__doc__.split())
+    assert f"con fecha del {errores_de_la_aeat.PUBLICADA}" in " ".join(errores_de_la_aeat.__doc__.split())
 
 
 # --- 2. Que se niegue con lo que no lee como Java ---------------------------------
@@ -84,31 +84,46 @@ def test_la_fecha_tiene_que_ir_como_se_escribe_aqui(tmp_path):
 
 def test_se_lee_como_lo_lee_java(tmp_path):
     camino = _fichero(tmp_path, "\n".join([
+        "#MENSAJES VALIDACIONES GENERALES",
+        "ERROR_GENERAL=El de antes",
+        "ERROR_GENERAL=El de después",
+        "#MENSAJES COMUNES REGLAS",
+        "BR-X-09-ALGO=Con nombre de regla, sin ser de ella",
+        "#MENSAJES REGLAS SPFE-CORE",
         "#RULE_SPFE-CORE-09_MENSAJE=Comentada, no cuenta",
         "! también es comentario",
         "RULE_SPFE-CORE-01_MENSAJE_1=Primero: con dos puntos y = dentro",
         "RULE_SPFE-CORE-01_MENSAJE_2=  Segundo, sin los espacios de delante",
         "RULE_BR-CO-10_MENSAJE=Con \\u2211 y \\u2013",
-        "ERROR_GENERAL=El de antes",
-        "ERROR_GENERAL=El de después",
         "",
     ]))
-    reglas, generales = generador.tablas(camino)
+    reglas, generales, comunes = generador.tablas(camino)
     assert reglas == {
         "SPFE-CORE-01": ["Primero: con dos puntos y = dentro", "Segundo, sin los espacios de delante"],
         "BR-CO-10": ["Con ∑ y –"],
     }
     # Java se queda con la última; la de antes se guarda para reconocerla.
     assert generales == [("ERROR_GENERAL", "El de antes"), ("ERROR_GENERAL", "El de después")]
+    assert comunes == [("BR-X-09-ALGO", "Con nombre de regla, sin ser de ella")]
+
+
+@pytest.mark.parametrize("cabecera", ["", "#MENSAJES REGLAS SPFE-CORE\n", "#MENSAJES OTROS\n"])
+def test_un_mensaje_sin_regla_fuera_de_los_dos_apartados_se_niega(tmp_path, cabecera):
+    """Si no va en uno de los dos apartados que se conocen, no se sabe qué es."""
+    camino = _fichero(tmp_path, cabecera + "ERROR_SUELTO=Sin apartado\n")
+    with pytest.raises(generador.FicheroQueNoSeEntiende):
+        generador.tablas(camino)
 
 
 # --- 3. Lo que se contó a mano el 23-11-2026 ---------------------------------------
 
 def test_trae_lo_que_se_conto_a_mano():
-    """316 reglas con 461 mensajes y 52 generales, contados con grep ese día."""
+    """316 reglas con 461 mensajes, y 52 sin regla: 36 en el primer apartado
+    y 16 en el segundo, contados con grep ese día (líneas 2 a 37 y 40 a 55)."""
     assert len(errores_de_la_aeat.REGLAS) == 316
     assert sum(len(m) for m in errores_de_la_aeat.REGLAS.values()) == 461
-    assert len(errores_de_la_aeat.GENERALES) == 52
+    assert len(errores_de_la_aeat.GENERALES) == 36
+    assert len(errores_de_la_aeat.COMUNES) == 16
 
 
 def test_los_cuatro_codigos_del_ejemplo_de_la_aeat():
@@ -127,4 +142,5 @@ def test_las_claves_con_sufijo_raro_van_con_su_regla():
     assert len(errores_de_la_aeat.REGLAS["BR-46"]) == 2
     assert len(errores_de_la_aeat.REGLAS["BR-CO-48"]) == 2
     assert len(errores_de_la_aeat.REGLAS["BR-CO-51"]) == 2
-    assert not any(clave.startswith("RULE_") for clave, _ in errores_de_la_aeat.GENERALES)
+    assert not any(clave.startswith("RULE_") for clave, _ in
+                   errores_de_la_aeat.GENERALES + errores_de_la_aeat.COMUNES)

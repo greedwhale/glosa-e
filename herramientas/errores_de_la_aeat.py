@@ -2,29 +2,39 @@
 
 Qué es
 ------
-El 23-11-2026, a las 06:23 GMT, la AEAT puso en su Portal de Desarrolladores,
-en «SPFE - Validaciones y errores», un «Listado de códigos de error» con dos
-ficheros. Este lee el de los errores de negocio, `errores_negocio.properties`:
+El 23-11-2026 estaba en el Portal de Desarrolladores de la AEAT, en «SPFE -
+Validaciones y errores», un «Listado de códigos de error» con dos ficheros, los
+dos con fecha del servidor de ese día (el de negocio, las 06:23 GMT). Qué día
+salió no se sabe: el portal se miró el 10-11, cuando no estaba, y el 23-11. Este lee el de los errores de negocio, `errores_negocio.properties`:
 el texto de cada mensaje que dan sus reglas, con la clave con que el programa
 de la AEAT lo busca. El otro, `errores_tecnicos.properties`, trae los códigos
-de los fallos del servicio (4xxx, 5xxx y 8xxx: el sobre, el ebXML, la base de
-datos), que no son el estado de una factura en un acuse, y no se lee.
+de los fallos del servicio (83 códigos de 4xxx, 5xxx y 8xxx en 87 líneas: el
+sobre, el ebXML, la base de datos), que no son el estado de una factura en un
+acuse, y no se lee.
 
 No es una lista de códigos con su significado, aunque el portal la llame así:
 es el fichero de mensajes del programa, tal cual. Por eso hay dos clases de
-claves, y se separan:
+claves, y se separan, y las que no son de una regla van en los dos apartados
+con que el fichero empieza:
 
 - **`RULE_<regla>_MENSAJE`**, con o sin sufijo (`_1`, `_2`, `_CERO`, `_DET`,
   o un `2` pegado): los mensajes de una regla. La regla es lo que va entre
   `RULE_` y `_MENSAJE`, y es el código que la solución pública pone en
   `cbc:DocumentStatusCode` (en su ejemplo, `SPFE-CORE-18` llega con el texto
-  de `RULE_SPFE-CORE-18_MENSAJE_3`). Una regla puede tener varios mensajes,
-  uno por cada forma de incumplirla, y van en el orden del fichero.
-- **Todas las demás**: mensajes generales, sin regla (`ERROR_NIF_FORMATO_INCORRECTO`,
-  «El NIF tiene un formato erróneo»). La solución pública también los manda
-  con el código de una regla: en su propio ejemplo, `SPFE-IDEN-02` llega con
-  ese mensaje general y no con el de la regla, «Nif del Emisor no permitido».
-  Se guardan para poder decirlo.
+  de `RULE_SPFE-CORE-18_MENSAJE_3`). Una regla puede tener varios mensajes, y
+  van en el orden del fichero.
+- **Las de `#MENSAJES VALIDACIONES GENERALES`**, el primer apartado
+  (`ERROR_NIF_FORMATO_INCORRECTO`, «El NIF tiene un formato erróneo»). La
+  solución pública también los manda con el código de una regla: en su propio
+  ejemplo, `SPFE-IDEN-02` llega con ese mensaje y no con el de la regla, «Nif
+  del Emisor no permitido».
+- **Las de `#MENSAJES COMUNES REGLAS`**, el segundo (`ERROR_EN_LA_REGLA`, o
+  `BR-X-09-TAXRATEMISSING`). Algunas llevan en la clave el nombre de una
+  regla, pero no la forma `RULE_..._MENSAJE`, y no se cuelgan de ninguna: no
+  se sabe de cuál serían (`BR-X` no es una regla, es la plantilla de varias).
+
+Las dos se guardan para poder decir cuál llegó. Una clave que no es de regla
+fuera de esos dos apartados no se sabe de cuál es, y se niega.
 
 Cómo se lee el fichero
 ----------------------
@@ -50,8 +60,8 @@ el fichero:
 
     python -m herramientas.errores_de_la_aeat anexos/errores_negocio.properties 23-11-2026
 
-El segundo argumento es la fecha en que la AEAT lo publicó, que el fichero no
-dice: se mira en el portal (la fecha del servidor, `Last-Modified`). Reescribe
+El segundo argumento es la fecha del fichero, que el fichero no dice: es la
+del servidor de la AEAT (`Last-Modified`), no la de cuando salió. Reescribe
 `validador/errores_de_la_aeat.py` con la huella SHA-256 del fichero.
 """
 
@@ -65,6 +75,15 @@ DIRECCION = ("https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores
 
 _REGLA = re.compile(r"RULE_(?P<regla>[A-Z0-9]+(?:-[A-Z0-9]+)+)_MENSAJE\w*")
 _UNICODE = re.compile(r"\\u([0-9a-fA-F]{4})")
+_APARTADO = re.compile(r"#\s*MENSAJES\b.*")
+
+# Los dos apartados del principio del fichero, con los mensajes que no son de
+# una regla. La clave es su cabecera tal cual; el valor, la tabla de este
+# módulo donde van.
+APARTADOS = {
+    "#MENSAJES VALIDACIONES GENERALES": "generales",
+    "#MENSAJES COMUNES REGLAS": "comunes",
+}
 
 
 class FicheroQueNoSeEntiende(ValueError):
@@ -76,11 +95,14 @@ def _cita(s):
 
 
 def lee(camino):
-    """Las claves y los mensajes del fichero, en su orden, repetidas incluidas."""
+    """Las claves y los mensajes del fichero, en su orden, repetidas incluidas,
+    cada una con la cabecera del apartado en que va (o `None` antes de la primera)."""
     texto = pathlib.Path(camino).read_bytes().decode("latin-1")
-    pares = []
+    pares, apartado = [], None
     for n, linea in enumerate(texto.splitlines(), 1):
         limpia = linea.strip()
+        if _APARTADO.fullmatch(limpia):
+            apartado = limpia
         if not limpia or limpia[0] in "#!":
             continue
         if linea.rstrip().endswith("\\"):
@@ -92,16 +114,16 @@ def lee(camino):
         if ":" in clave or " " in clave or not clave:
             raise FicheroQueNoSeEntiende(f"línea {n}: Java no partiría la clave igual: {clave!r}")
         valor = _UNICODE.sub(lambda m: chr(int(m.group(1), 16)), valor.lstrip())
-        pares.append((clave, valor.rstrip()))
+        pares.append((clave, valor.rstrip(), apartado))
     return pares
 
 
 def tablas(camino):
-    """Las reglas con sus mensajes, y los mensajes generales."""
+    """Las reglas con sus mensajes, los mensajes generales y los comunes."""
     pares = lee(camino)
-    ultimo = dict(pares)
-    reglas, generales = {}, []
-    for clave, valor in pares:
+    ultimo = {clave: valor for clave, valor, _ in pares}
+    reglas, otros = {}, {"generales": [], "comunes": []}
+    for clave, valor, apartado in pares:
         regla = _REGLA.fullmatch(clave)
         if regla and ultimo[clave] == valor:
             reglas.setdefault(regla.group("regla"), []).append(valor)
@@ -111,16 +133,20 @@ def tablas(camino):
             raise FicheroQueNoSeEntiende(f"la clave {clave} sale dos veces con textos distintos")
         elif clave.startswith("RULE_"):
             raise FicheroQueNoSeEntiende(f"una clave de regla con otra forma: {clave}")
+        elif apartado in APARTADOS:
+            otros[APARTADOS[apartado]].append((clave, valor))
         else:
-            generales.append((clave, valor))
-    return reglas, generales
+            raise FicheroQueNoSeEntiende(
+                f"{clave} no es de una regla y va en {apartado or 'ningún apartado'}, "
+                "que no es ninguno de los dos que se conocen")
+    return reglas, otros["generales"], otros["comunes"]
 
 
 def escribe_modulo(camino, destino, publicada):
     """Reescribe `validador/errores_de_la_aeat.py` con lo que diga este fichero."""
     if not re.fullmatch(r"\d{2}-\d{2}-\d{4}", publicada):
         raise ValueError(f"la fecha va como dd-mm-aaaa: {publicada!r}")
-    reglas, generales = tablas(camino)
+    reglas, generales, comunes = tablas(camino)
     trozos = [CABEZA % {
         "publicada": publicada,
         "direccion": DIRECCION,
@@ -128,6 +154,7 @@ def escribe_modulo(camino, destino, publicada):
         "reglas": len(reglas),
         "mensajes": sum(len(m) for m in reglas.values()),
         "generales": len(generales),
+        "comunes": len(comunes),
     }]
     trozos.append(f"PUBLICADA = {_cita(publicada)}\n\n")
     trozos.append("REGLAS = {\n")
@@ -137,12 +164,13 @@ def escribe_modulo(camino, destino, publicada):
             trozos.append(f"        {_cita(mensaje)},\n")
         trozos.append("    ),\n")
     trozos.append("}\n\n")
-    trozos.append("GENERALES = (\n")
-    for clave, mensaje in generales:
-        trozos.append(f"    ({_cita(clave)}, {_cita(mensaje)}),\n")
-    trozos.append(")\n")
+    for nombre, filas in (("GENERALES", generales), ("COMUNES", comunes)):
+        trozos.append(f"{nombre} = (\n")
+        for clave, mensaje in filas:
+            trozos.append(f"    ({_cita(clave)}, {_cita(mensaje)}),\n")
+        trozos.append(")\n" if nombre == "COMUNES" else ")\n\n")
     pathlib.Path(destino).write_text("".join(trozos), encoding="utf-8")
-    return len(reglas), len(generales)
+    return len(reglas), len(generales), len(comunes)
 
 
 CABEZA = '''"""Los mensajes de error de la solución pública, tal y como los publica la AEAT.
@@ -154,24 +182,29 @@ mal es el lector, no esta tabla.
 De dónde sale
 -------------
 Del «Listado de códigos de error» del Portal de Desarrolladores de la AEAT,
-«SPFE - Validaciones y errores», publicado el %(publicada)s: los errores de
-negocio. El portal avisa de que puede cambiar al acabar el periodo de pruebas.
+«SPFE - Validaciones y errores», con fecha del %(publicada)s (la del servidor
+de la AEAT): los errores de negocio. El portal avisa de que puede cambiar al
+acabar el periodo de pruebas.
 
     %(direccion)s
     SHA-256 %(huella)s
 
-Qué trae: %(reglas)d reglas con %(mensajes)d mensajes, y %(generales)d mensajes generales.
+Qué trae: %(reglas)d reglas con %(mensajes)d mensajes, %(generales)d mensajes de
+validaciones generales y %(comunes)d comunes a las reglas.
 
 Lo que hay que tener presente al usarlo
 ---------------------------------------
 **La clave de `REGLAS` es el código** que la solución pública pone en el
-estado de la factura (`SPFE-CORE-18`), y sus mensajes son las formas de
-incumplir esa regla, en el orden del fichero.
+estado de la factura (`SPFE-CORE-18`), y sus mensajes van en el orden del
+fichero.
 
 **El mensaje que llega no es siempre uno de los de su regla.** La solución
 pública manda también los de `GENERALES` con el código de una regla: en su
 ejemplo del validador previo, `SPFE-IDEN-02` llega con «El NIF tiene un
-formato erróneo», que es general. Cuándo usa cada uno no lo dice el fichero.
+formato erróneo», que es de las validaciones generales. Cuándo usa cada uno
+no lo dice el fichero. `GENERALES` y `COMUNES` son los dos primeros
+apartados del fichero, con su cabecera: `#MENSAJES VALIDACIONES GENERALES` y
+`#MENSAJES COMUNES REGLAS`.
 
 **Los `%%s` son huecos** que el programa de la AEAT rellena con el valor del
 campo, y se copian tal cual, como las erratas.
@@ -185,5 +218,5 @@ if __name__ == "__main__":
 
     if len(sys.argv) != 3:
         sys.exit("uso: python -m herramientas.errores_de_la_aeat <errores_negocio.properties> <dd-mm-aaaa>")
-    n, g = escribe_modulo(sys.argv[1], "validador/errores_de_la_aeat.py", sys.argv[2])
-    print(f"validador/errores_de_la_aeat.py: {n} reglas y {g} mensajes generales")
+    n, g, c = escribe_modulo(sys.argv[1], "validador/errores_de_la_aeat.py", sys.argv[2])
+    print(f"validador/errores_de_la_aeat.py: {n} reglas, {g} mensajes generales y {c} comunes")

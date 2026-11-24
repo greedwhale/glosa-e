@@ -240,7 +240,7 @@ class TestCadaFactura:
         assert aviso.gravedad == AVISO
         assert aviso.encontrado == "4711"
         assert '"NIF no censado"' in aviso.mensaje
-        assert "la lista de mensajes de error que la AEAT publicó el 23-11-2026" in aviso.mensaje
+        assert "la lista de mensajes de error de la AEAT del 23-11-2026" in aviso.mensaje
 
     def test_un_codigo_que_no_es_de_ninguna_familia_no_se_adivina(self):
         aviso = una(medir(acuse(cabecera("400", "", [factura_(estado="4711", descripcion="NIF no censado")]))),
@@ -362,7 +362,7 @@ class TestLosCodigosDeRechazo:
     def test_las_de_la_aeat_que_no_estan_en_su_lista_se_nombran(self, codigo):
         aviso = self._aviso(codigo, "Campo mal informado")
         assert (f"{codigo} tiene la forma de los códigos de la solución pública, pero "
-                "no está en la lista de mensajes de error que la AEAT publicó el "
+                "no está en la lista de mensajes de error de la AEAT del "
                 "23-11-2026") in aviso.mensaje
         assert f"la regla {codigo} de la norma europea" not in aviso.mensaje
         assert '"Campo mal informado"' in aviso.mensaje
@@ -375,7 +375,7 @@ class TestLosCodigosDeRechazo:
                             "pago (BT-84) debe ser un IBAN válido: /Invoice/cac:PaymentMeans")
         assert ("SPFE-CORE-18 es una regla propia de la solución pública, y la "
                 "descripción es uno de sus 4 mensajes en la lista de mensajes de "
-                "error que la AEAT publicó el 23-11-2026.") in aviso.mensaje
+                "error de la AEAT del 23-11-2026.") in aviso.mensaje
         assert "no es ese" not in aviso.mensaje and "ninguno de ellos" not in aviso.mensaje
 
     def test_con_un_mensaje_general_lo_dice_y_no_elige(self):
@@ -383,8 +383,19 @@ class TestLosCodigosDeRechazo:
         aviso = self._aviso("SPFE-IDEN-02", "El NIF tiene un formato erróneo. NIF:XXXX. "
                             "NOMBRE_RAZON:aaa: /Invoice/cac:AccountingSupplierParty")
         assert 'le da un mensaje, "Nif del Emisor no permitido".' in aviso.mensaje
-        assert "La descripción que trae no es ese: es uno de los mensajes generales" in aviso.mensaje
-        assert "La lista no dice cuándo se usa cada mensaje." in aviso.mensaje
+        assert ("La descripción que trae no es ese: es uno de los mensajes de "
+                "validaciones generales de la lista. La lista no dice cuándo se "
+                "usa cada mensaje.") in aviso.mensaje
+        assert "ninguna regla" not in aviso.mensaje
+
+    def test_con_un_mensaje_comun_a_las_reglas_lo_nombra_por_su_apartado(self):
+        """En el segundo apartado hay claves con nombre de regla (BR-X-09-...):
+        no se dice que no sean de ninguna."""
+        aviso = self._aviso("SPFE-IDEN-02", "Falta la tasa de la categoría de IVA "
+                            "(Porcentaje) para calcular TaxAmount para la categoría 'S' "
+                            "(Estándar). Contexto: /Invoice/cac:TaxTotal")
+        assert "es uno de los mensajes comunes a las reglas de la lista." in aviso.mensaje
+        assert "ninguna regla" not in aviso.mensaje
 
     def test_con_otro_mensaje_no_lo_llama_general(self):
         aviso = self._aviso("SPFE-IDEN-02", "Campo mal informado")
@@ -399,7 +410,7 @@ class TestLosCodigosDeRechazo:
 
     def test_sin_descripcion_da_lo_que_dice_la_lista(self):
         aviso = self._aviso("SPFE-LIST-01")
-        assert ('la lista de mensajes de error que la AEAT publicó el 23-11-2026 le da '
+        assert ('la lista de mensajes de error de la AEAT del 23-11-2026 le da '
                 'un mensaje, "El valor del campo Código de tipo de factura es '
                 'incorrecto".') in aviso.mensaje
         assert "La descripción" not in aviso.mensaje

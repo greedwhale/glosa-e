@@ -7,24 +7,29 @@ mal es el lector, no esta tabla.
 De dónde sale
 -------------
 Del «Listado de códigos de error» del Portal de Desarrolladores de la AEAT,
-«SPFE - Validaciones y errores», publicado el 23-11-2026: los errores de
-negocio. El portal avisa de que puede cambiar al acabar el periodo de pruebas.
+«SPFE - Validaciones y errores», con fecha del 23-11-2026 (la del servidor
+de la AEAT): los errores de negocio. El portal avisa de que puede cambiar al
+acabar el periodo de pruebas.
 
     https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/Facturacion-electronica/errores_negocio.properties
     SHA-256 374926f3137704835fac9900257e4b4b4b4ba1cc5fe9b8c3e9e146820c90a687
 
-Qué trae: 316 reglas con 461 mensajes, y 52 mensajes generales.
+Qué trae: 316 reglas con 461 mensajes, 36 mensajes de
+validaciones generales y 16 comunes a las reglas.
 
 Lo que hay que tener presente al usarlo
 ---------------------------------------
 **La clave de `REGLAS` es el código** que la solución pública pone en el
-estado de la factura (`SPFE-CORE-18`), y sus mensajes son las formas de
-incumplir esa regla, en el orden del fichero.
+estado de la factura (`SPFE-CORE-18`), y sus mensajes van en el orden del
+fichero.
 
 **El mensaje que llega no es siempre uno de los de su regla.** La solución
 pública manda también los de `GENERALES` con el código de una regla: en su
 ejemplo del validador previo, `SPFE-IDEN-02` llega con «El NIF tiene un
-formato erróneo», que es general. Cuándo usa cada uno no lo dice el fichero.
+formato erróneo», que es de las validaciones generales. Cuándo usa cada uno
+no lo dice el fichero. `GENERALES` y `COMUNES` son los dos primeros
+apartados del fichero, con su cabecera: `#MENSAJES VALIDACIONES GENERALES` y
+`#MENSAJES COMUNES REGLAS`.
 
 **Los `%s` son huecos** que el programa de la AEAT rellena con el valor del
 campo, y se copian tal cual, como las erratas.
@@ -1165,6 +1170,9 @@ GENERALES = (
     ("ERROR_CONTRADICTORIO_CODIGOS", "Error: Acción contradictoria para facturaNum_serie %s; Fecha_Exp:%s; Nif %s. Ya se encontró %s, no se puede aplicar %s"),
     ("ERROR_CODIGO_DUPLICADO", "Error: Acción duplicada %s para factura: Num_serie %s; Fecha_Exp:%s; Nif %s.\" Todos los documentos se rechazan."),
     ("ERROR_CODIGO_NO_RECONOCIDO", "ninguna (servicio no reconocido: %s)"),
+)
+
+COMUNES = (
     ("ERROR_EN_LA_REGLA", "Error en la regla"),
     ("ERROR_EN_LA_LINEA", "Error en la línea %s"),
     ("MENSAJE_EN_LA_LINEA", "%s en la línea %s"),
