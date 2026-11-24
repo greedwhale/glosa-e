@@ -265,6 +265,66 @@ def test_ninguna_entrada_promete_certificar():
             "puede decir que lo haga ni de pasada.")
 
 
+# Lo que hizo sonar a máquina el "Cómo se midió" del borrador del 24-11-2026:
+# contar el procedimiento con sus herramientas y sus cautelas de laboratorio
+# («leída como lo lee Java», «se comprobó en el PDF, no solo en el texto sacado
+# de él», «con esa búsqueda»). Una persona cuenta qué bajó, cuándo, si cambió
+# y qué quiere decir lo que afirma, y ya.
+_ACTA = re.compile(
+    r"como lo lee|huella|esta máquina|a propósito|no solo en el|sacado de|"
+    r"con esa búsqueda|trozo a trozo|elemento a elemento|uno por uno|"
+    r"se rompió|las pruebas lo detectan|\bpypdf\b|\bgrep\b|\bpython\b|"
+    r"con el código que se sirve|con el código publicado", re.I)
+_PALABRAS_DEL_METODO = 90
+# Desde aquí vale; los artículos de antes se escribieron sin esta regla.
+_METODO_DESDE = "2026-11-25"
+
+
+def _tono_de_acta(metodo: str) -> list[str]:
+    """Lo que hace que el párrafo de método suene a acta de una máquina."""
+    texto = " ".join(re.sub(r"<[^>]+>", " ", metodo).split())
+    fallos = [f"«{m}»" for m in _ACTA.findall(texto)]
+    if len(texto.split()) > _PALABRAS_DEL_METODO:
+        fallos.append(f"{len(texto.split())} palabras (como mucho {_PALABRAS_DEL_METODO})")
+    return fallos
+
+
+def test_el_metodo_de_las_entradas_nuevas_no_suena_a_maquina():
+    """Pedido por el titular el 24-11-2026: que no se note la IA.
+
+    El párrafo de método se escribe como lo contaría quien lo hizo: qué se
+    bajó y cuándo, si cambió, de qué fecha es y qué quiere decir que algo no
+    esté. Sin herramientas, sin cautelas de laboratorio y corto.
+    """
+    for ruta in sorted(ARTICULOS.glob("*.html")):
+        texto = ruta.read_text(encoding="utf-8")
+        fecha = re.search(r'data-fecha="([\d-]+)"', texto)
+        metodo = re.search(r'<p class="metodo">(.*?)</p>', texto, re.S)
+        if not fecha or fecha.group(1) < _METODO_DESDE or not metodo:
+            continue
+        fallos = _tono_de_acta(metodo.group(1))
+        assert not fallos, (
+            f"«{ruta.name}»: el párrafo de método suena a acta: {', '.join(fallos)}. "
+            "Cuéntalo como lo contaría quien lo hizo.")
+
+
+def test_el_vigilante_del_metodo_caza_el_texto_que_lo_motivo():
+    """Roto a mano: el párrafo que hubo que cambiar el 24-11-2026 no pasa."""
+    viejo = ("<b>Cómo se midió.</b> Los ficheros se bajaron el 23 de noviembre de "
+             "2026 y se guardó su huella; el 24 se volvieron a bajar y son los "
+             "mismos. Las reglas de la lista se contaron con su fichero, leído como "
+             "lo lee Java. La página 23 se comprobó en el PDF, no solo en el texto "
+             "sacado de él. Que una regla no esté quiere decir que no se ha "
+             "encontrado con esa búsqueda.")
+    assert len(_tono_de_acta(viejo)) >= 4
+    bueno = ("<b>Cómo se comprobó.</b> Los dos ficheros se descargaron del portal "
+             "de la AEAT el 23 y el 24 de noviembre, sin cambios de un día a otro. "
+             "Cada regla de la lista se buscó en el documento por los campos que "
+             "nombra y por su texto, y donde dice que una regla no está, es que no "
+             "se encontró.")
+    assert _tono_de_acta(bueno) == []
+
+
 def test_ninguna_entrada_lleva_rayas():
     """La raya (—) hace que un texto suene escrito por una máquina.
 
