@@ -86,6 +86,36 @@ class TestLoQueContesta:
     def test_un_codigo_se_lee_entero_aunque_lleve_guiones(self):
         assert guia.trocear("BR-CO-10") == ["brco10"]
 
+    def test_la_primera_respuesta_distingue_codigo_plazo_y_ayuda(self, datos):
+        casos = {
+            "Como saber lo que significa cada código que sale después de validar mi factura?":
+                ["pagina-incidencias"],
+            "¿Dónde veo el significado de los avisos?": ["pagina-incidencias"],
+            "Tengo unos códigos en el resultado, ¿cómo los interpreto?": ["pagina-incidencias"],
+            "qué significa BR CO 10": ["BR-CO-10"],
+            "qué significa BR‑CO‑10": ["BR-CO-10"],
+            "Me sale SPFE-IDEN-02": ["SPFE-IDEN-02"],
+            "SPFE-ACUSE-RECHAZADA y SPFE IDEN 02": ["SPFE-ACUSE-RECHAZADA", "SPFE-IDEN-02"],
+            "qué significa BR-CO-9999": [],
+            "hasta cuándo puedo rechazar una factura": ["tema-plazo-rechazo"],
+            "rechazo de factura": [],
+            "no me abre el PDF": [],
+        }
+        for consulta, fichas in casos.items():
+            assert _ids(datos, consulta) == fichas, consulta
+        assert "pagina-incidencias" not in _ids(datos, "qué significa el código QR")
+        assert "pagina-incidencias" not in _ids(datos, "dónde veo el código postal")
+
+    def test_un_codigo_de_la_aeat_conserva_los_mensajes_y_la_fuente(self, datos):
+        from validador import errores_de_la_aeat
+
+        codigo = "SPFE-CORE-18"
+        ficha = datos["fichas"][datos["referencias"][codigo]]
+        assert ficha["mensajes"] == list(errores_de_la_aeat.REGLAS[codigo])
+        assert ficha["fuentes"][0][1].endswith("/errores_negocio.properties")
+        assert guia._referencias(datos, "BR-CO-9999, BR CO 10 y BR-CO-10") == [
+            "BR-CO-9999", "BR-CO-10"]
+
 
 # --- De dónde lo saca ------------------------------------------------------------
 
@@ -362,9 +392,15 @@ class TestElAsistente:
             assert guardar not in texto
 
     def test_no_pide_los_datos_al_abrir_ni_con_el_raton(self, texto):
+        # El área visible cambia al salir el teclado. Estos dos eventos solo
+        # ajustan la altura y la posición del panel.
+        interfaz = re.sub(r'window\.visualViewport\.addEventListener\("(?:resize|scroll)", '
+                          r'ajustarVentana\);', '', texto)
+        ajuste = texto.split("function ajustarVentana()", 1)[1].split("\n  }", 1)[0]
+        assert "cargar(" not in ajuste and "fetch(" not in ajuste
         for gesto in ("mousemove", "mouseover", "pointermove", "pointerover",
                       "DOMContentLoaded", '"load"', '"scroll"', '"resize"'):
-            assert gesto not in texto
+            assert gesto not in interfaz
         # Los datos se piden en un solo sitio, y a ese sitio se llega al abrir
         # el panel o al preguntar: nunca desde el aviso del minuto.
         assert texto.count("fetch(") == 1

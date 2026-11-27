@@ -579,8 +579,12 @@ footer .firma-pie { margin-top: 1.1rem; }
 .guia-icono:hover { background: var(--acento-flojo); }
 
 /* Preguntas: el hilo y la caja de abajo. */
-.guia-preguntas { display: flex; flex-direction: column; min-height: 100%; }
-.guia-hilo { flex: 1; display: grid; align-content: start; gap: 1.25rem; }
+.guia-panel[data-vista="preguntas"] .guia-cuerpo { overflow: hidden; padding: 0; }
+.guia-preguntas { display: flex; flex-direction: column; height: 100%; }
+.guia-hilo {
+  position: relative; flex: 1; min-height: 0; overflow-y: auto;
+  display: grid; align-content: start; gap: 1rem; padding: .8rem;
+}
 .guia-vacio { margin: 2rem .5rem; text-align: center; font-size: var(--t1); color: var(--tenue); }
 .guia-entrada { display: grid; gap: .5rem; }
 .guia-tuya {
@@ -629,9 +633,16 @@ footer .firma-pie { margin-top: 1.1rem; }
 .guia-codigo a { font: 600 var(--t1)/1.4 var(--mono); }
 .guia-codigo .guia-gravedad { margin-left: .4rem; font-size: var(--t0); color: var(--tenue); }
 .guia-codigo p { margin: .15rem 0 0; }
+.guia-codigo-directo { display: flex; flex-wrap: wrap; align-items: end; gap: .4rem; margin-bottom: .6rem; }
+.guia-codigo-directo label { display: grid; gap: .2rem; flex: 1 1 8rem; min-width: 0; }
+.guia-codigo-directo input {
+  min-width: 0; padding: .5rem; border: 1px solid var(--borde-fuerte); border-radius: 8px;
+  font: inherit; font-size: max(1rem, var(--t1)); color: var(--tinta); background: var(--panel-2);
+}
+.guia-codigo-directo .guia-boton { margin: 0; }
 .guia-escribir {
-  position: sticky; bottom: -1rem; display: flex; align-items: center; gap: .25rem;
-  margin: 1rem -1rem -1rem; padding: .6rem .6rem .6rem 1.25rem;
+  display: flex; align-items: center; gap: .25rem;
+  padding: .45rem .65rem;
   background: var(--panel); border-top: 1px solid var(--borde);
 }
 
@@ -668,9 +679,12 @@ footer .firma-pie { margin-top: 1.1rem; }
 @media (max-width: 34rem) {
   .guia { right: 1rem; bottom: 1rem; }
   .guia-panel {
-    position: fixed; left: .5rem; right: .5rem; top: .5rem; bottom: 5.25rem;
-    width: auto; height: auto;
+    position: fixed; left: .5rem; right: .5rem; bottom: auto;
+    top: calc(var(--guia-ventana-arriba, 0px) + .5rem);
+    width: auto; height: calc(var(--guia-ventana-alto, 100dvh) - 1rem);
   }
+  .guia-cabeza { padding-block: .45rem; }
+  .guia-buscador input, .guia-escribir input { font-size: max(1rem, var(--t1)); }
 }
 @media (forced-colors: active) {
   .guia-tuya { border: 1px solid CanvasText; }

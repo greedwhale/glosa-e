@@ -66,7 +66,7 @@ import re
 import unicodedata
 from pathlib import Path
 
-from validador import cifras, normas
+from validador import cifras, errores_de_la_aeat, normas
 from validador.codigos import Codigo
 from validador.glosario import FAMILIAS, explicar
 
@@ -273,6 +273,20 @@ def _temas() -> list[dict]:
             "palabras": "solución publica aeat hacienda agencia tributaria spfe "
                         "disponible cuando abre funcionamiento",
             "fuentes": [(f"{ORDEN[0]}, disposición adicional segunda", ORDEN[1])],
+        },
+        {
+            "id": "tema-plazo-rechazo",
+            "titulo": "Hasta cuándo se comunica el rechazo",
+            "texto": (
+                "El artículo 12 exige comunicar el rechazo a la solución pública. "
+                "En ese artículo, el plazo de cuatro días se fija para comunicar "
+                "el pago completo. El artículo 10.3 fija cuatro días para informar "
+                "de cada estado desde que se produce, sin contar sábados, domingos "
+                "ni festivos nacionales. Es el plazo para comunicar un estado: "
+                "estos artículos no fijan cuánto tiempo tienes para decidir el rechazo."
+            ),
+            "palabras": "plazo rechazo comercial rechazar comunicar estados",
+            "fuentes": [(f"{RD[0]}, artículos 10 y 12", RD[1])],
         },
     ]
 
@@ -733,15 +747,35 @@ def _indice(fichas: list[dict]) -> dict[str, list[list[int]]]:
     return indice
 
 
-def _codigos_nombrados(datos: dict, consulta: str) -> list[int]:
-    """Las fichas de los códigos que la consulta nombra, en su orden."""
-    vistos: list[int] = []
-    mayusculas = _sin_acentos(consulta).upper()
-    for encaje in re.findall(r"[A-Z0-9]+(?:-[A-Z0-9]+)*", mayusculas):
-        numero = datos["codigos"].get(encaje)
-        if numero is not None and numero not in vistos:
-            vistos.append(numero)
-    return vistos
+_PATRON_CODIGO = (
+    r"\b(?:(?:BR|BG|BT|SPFE)(?:[ -]+[A-Z][A-Z0-9]*){0,4}[ -]+[0-9]+\b(?!-)|"
+    r"[A-Z0-9]+(?:-[A-Z0-9]+)*)"
+)
+_PATRON_DESCONOCIDO = r"^(?:(?:BR|BG|BT|SPFE|FIRMA|XSD|COPIA)-|IVA-).+"
+_GUIONES = "\u2010\u2011\u2012\u2013\u2014\u2212"
+
+
+def _referencias(datos: dict, consulta: str) -> list[str]:
+    """Códigos reconocidos y referencias que parecen códigos, en su orden."""
+    texto = _sin_acentos(consulta).upper().translate(str.maketrans(_GUIONES, "-" * len(_GUIONES)))
+    claves = (re.sub(r"[ -]+", "-", m) for m in re.findall(datos["patron_codigo"], texto))
+    return list(dict.fromkeys(c for c in claves if c in datos["referencias"]
+                              or re.match(datos["patron_desconocido"], c)))
+
+
+# Se publican los mismos patrones en JS. Exigir dos señales evita que una
+# mención de factura, rechazo o código decida por sí sola qué se preguntó.
+_CONSULTAS_DIRECTAS = (
+    ("tema-plazo-rechazo", (_sin_acentos(r"\b(?:hasta cuándo|plazo|cuántos días|cuánto tiempo)\b"),
+                            r"\brechaz\w*\b")),
+    ("pagina-incidencias", (r"\b(?:codigos?|avisos?|errores)\b",
+                            r"\b(?:significa\w*|interpret\w*|entend\w*|explica\w*|donde|consult\w*)\b")),
+    ("pregunta-gravedades", (r"\b(?:resultado|informe|validacion)\b",
+                             r"\b(?:interpret\w*|entend\w*|explica\w*|que hago)\b")),
+)
+_FUERA_DE_CODIGOS = r"\b(?:qr|csv|postal|iban|tributario|rechazo comercial|rechazo de la aeat)\b"
+_PROBLEMA_DE_USO = r"\b(?:no (?:me )?abre|no (?:puedo|funciona)|no se abre)\b"
+_RECHAZO_AMBIGUO = r"^[¿¡ ]*(?:rechazo|rechazo de (?:una |la )?factura)[?!. ]*$"
 
 
 def buscar(datos: dict, consulta: str) -> list[int]:
@@ -750,9 +784,18 @@ def buscar(datos: dict, consulta: str) -> list[int]:
     Es la referencia: `web/guia.js` hace lo mismo y las comprobaciones del
     fichero vigilan que lo siga haciendo. Vacía quiere decir «no lo sé».
     """
-    nombrados = _codigos_nombrados(datos, consulta)
-    if nombrados:
-        return nombrados
+    referencias = _referencias(datos, consulta)
+    if referencias:
+        return [datos["referencias"][c] for c in referencias if c in datos["referencias"]]
+    texto = _sin_acentos(consulta)
+    if re.match(datos["rechazo_ambiguo"], texto):
+        return []
+    for numero, patrones in datos["consultas_directas"]:
+        if all(re.search(p, texto) for p in patrones):
+            if datos["fichas"][numero]["id"] == "pagina-incidencias" and re.search(
+                    datos["fuera_de_codigos"], texto):
+                continue
+            return [numero]
     # Solo cuentan las palabras que el índice conoce: una que no está en
     # ninguna ficha no puede acercar ni alejar ninguna respuesta.
     piezas = [p for p in dict.fromkeys(trocear(consulta)) if p in datos["indice"]]
@@ -768,12 +811,16 @@ def buscar(datos: dict, consulta: str) -> list[int]:
     hacen_falta = (2 * len(piezas) + 2) // 3
     validas = [n for n in puntos
                if aciertos[n] >= hacen_falta and puntos[n] >= datos["umbral"]]
+    if re.search(datos["problema_de_uso"], texto):
+        validas = [n for n in validas if datos["fichas"][n]["tipo"] != "articulo"]
     if not validas:
         return []
     validas.sort(key=lambda n: (-puntos[n], n))
     mejor = puntos[validas[0]]
     return [n for n in validas[:1 + datos["otras"]]
-            if puntos[n] * 100 >= mejor * datos["cerca"]]
+            if puntos[n] * 100 >= mejor * datos["cerca"]
+            and (datos["fichas"][n]["tipo"] != "articulo" or n == validas[0]
+                 or datos["fichas"][validas[0]]["tipo"] == "articulo")]
 
 
 # Preguntas con las que la página comprueba que trocea y suma igual que esto.
@@ -781,6 +828,16 @@ def buscar(datos: dict, consulta: str) -> list[int]:
 # guion y cifra, un código en minúsculas, varias formas de decir lo mismo y
 # una pregunta que no tiene respuesta.
 _PREGUNTAS_DE_COMPROBACION = (
+    "Como saber lo que significa cada código que sale después de validar mi factura?",
+    "¿Dónde veo el significado de los avisos?",
+    "qué significa BR CO 10",
+    "qué significa BR‑CO‑10",
+    "qué significa BR-CO-9999",
+    "Me sale SPFE-IDEN-02",
+    "hasta cuándo puedo rechazar una factura",
+    "rechazo de factura",
+    "qué significa el código QR",
+    "no me abre el PDF",
     "qué significa br-co-10",
     "BT-10",
     "me rechazan la factura por el IVA",
@@ -838,11 +895,38 @@ def armar(pagina: Path, codigos: list[Codigo], entradas, nombre_de,
         ficha["_titulo"] += " " + PALABRAS_DE_MAS.get(ficha["id"], "")
 
     indice = _indice(fichas)
+    codigos = {f["id"]: n for n, f in enumerate(fichas) if f["tipo"] == "codigo"}
+    referencias = codigos.copy()
+    for codigo, mensajes in errores_de_la_aeat.REGLAS.items():
+        if codigo in referencias:
+            continue
+        referencias[codigo] = len(fichas)
+        fichas.append({
+            "id": codigo, "tipo": "aeat", "titulo": codigo,
+            "pie": f"Lista de errores de la AEAT del {errores_de_la_aeat.PUBLICADA}",
+            "texto": "La lista asigna estos mensajes al código. Comprueba el texto "
+                     "de tu acuse: también puede llegar un mensaje general.",
+            "mensajes": list(mensajes),
+            "fuentes": [["Lista de errores de la AEAT",
+                         "https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/"
+                         "EEDD/Facturacion-electronica/errores_negocio.properties"]],
+            "url": _limpia(nombre_de("SPFE-ACUSE-RECHAZADA")),
+            "enlace": "Cómo leer el acuse",
+        })
+    por_id = {f["id"]: n for n, f in enumerate(fichas)}
     datos = {
         "fichas": [{k: v for k, v in f.items() if not k.startswith("_")}
                    for f in fichas],
         "indice": indice,
-        "codigos": {f["id"]: n for n, f in enumerate(fichas) if f["tipo"] == "codigo"},
+        "codigos": codigos,
+        "referencias": referencias,
+        "patron_codigo": _PATRON_CODIGO,
+        "patron_desconocido": _PATRON_DESCONOCIDO,
+        "fuera_de_codigos": _FUERA_DE_CODIGOS,
+        "problema_de_uso": _PROBLEMA_DE_USO,
+        "rechazo_ambiguo": _RECHAZO_AMBIGUO,
+        "consultas_directas": [[por_id[clave], patrones] for clave, patrones in _CONSULTAS_DIRECTAS
+                               if clave in por_id],
         "vacias": sorted(VACIAS),
         "propias": sorted(PROPIAS),
         "iguales": dict(sorted(IGUALES.items())),

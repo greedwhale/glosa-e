@@ -152,20 +152,28 @@
     return piezas;
   }
 
-  function codigosNombrados(consulta) {
-    const vistos = [];
-    const encajes = sinAcentos(consulta).toUpperCase().match(/[A-Z0-9]+(?:-[A-Z0-9]+)*/g) || [];
-    encajes.forEach(function (encaje) {
-      if (tiene(datos.codigos, encaje) && vistos.indexOf(datos.codigos[encaje]) < 0) {
-        vistos.push(datos.codigos[encaje]);
-      }
-    });
-    return vistos;
+  function referencias(consulta) {
+    const texto = sinAcentos(consulta).toUpperCase().replace(/[\u2010-\u2014\u2212]/g, "-");
+    const encajes = texto.match(new RegExp(datos.patron_codigo, "g")) || [];
+    const desconocido = new RegExp(datos.patron_desconocido);
+    return Array.from(new Set(encajes.map(c => c.replace(/[ -]+/g, "-"))))
+      .filter(c => tiene(datos.referencias, c) || desconocido.test(c));
   }
 
   function buscar(consulta) {
-    const nombrados = codigosNombrados(consulta);
-    if (nombrados.length) return nombrados;
+    const nombrados = referencias(consulta);
+    if (nombrados.length) {
+      return nombrados.filter(c => tiene(datos.referencias, c)).map(c => datos.referencias[c]);
+    }
+    const texto = sinAcentos(consulta);
+    if (new RegExp(datos.rechazo_ambiguo).test(texto)) return [];
+    for (const [numero, patrones] of datos.consultas_directas) {
+      if (patrones.every(p => new RegExp(p).test(texto))) {
+        if (datos.fichas[numero].id === "pagina-incidencias" &&
+            new RegExp(datos.fuera_de_codigos).test(texto)) continue;
+        return [numero];
+      }
+    }
     const piezas = Array.from(new Set(trocear(consulta))).filter(function (pieza) {
       return tiene(datos.indice, pieza);
     });
@@ -179,14 +187,18 @@
       });
     });
     const hacenFalta = Math.floor((2 * piezas.length + 2) / 3);
+    const problema = new RegExp(datos.problema_de_uso).test(texto);
     const validas = Array.from(puntos.keys()).filter(function (n) {
-      return aciertos.get(n) >= hacenFalta && puntos.get(n) >= datos.umbral;
+      return aciertos.get(n) >= hacenFalta && puntos.get(n) >= datos.umbral &&
+        (!problema || datos.fichas[n].tipo !== "articulo");
     });
     if (!validas.length) return [];
     validas.sort(function (a, b) { return (puntos.get(b) - puntos.get(a)) || (a - b); });
     const mejor = puntos.get(validas[0]);
     return validas.slice(0, 1 + datos.otras).filter(function (n) {
-      return puntos.get(n) * 100 >= mejor * datos.cerca;
+      return puntos.get(n) * 100 >= mejor * datos.cerca &&
+        (datos.fichas[n].tipo !== "articulo" || n === validas[0] ||
+         datos.fichas[validas[0]].tipo === "articulo");
     });
   }
 
@@ -373,9 +385,22 @@
     lanzador.setAttribute("aria-expanded", "true");
     lanzador.setAttribute("aria-label", "Cerrar el guía");
     mostrar(cual || "inicio");
+    ajustarVentana();
     cargar().catch(function () { /* lo dice quien pregunte */ });
     if ((cual || "inicio") === "inicio") cajaInicio.focus();
     else caja.focus();
+  }
+
+  function ajustarVentana() {
+    if (!window.visualViewport || panel.hidden) return;
+    const { height, offsetTop } = window.visualViewport;
+    panel.style.setProperty("--guia-ventana-alto", height + "px");
+    panel.style.setProperty("--guia-ventana-arriba", offsetTop + "px");
+  }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", ajustarVentana);
+    window.visualViewport.addEventListener("scroll", ajustarVentana);
   }
 
   function cerrarElPanel() {
@@ -405,9 +430,10 @@
     const una = nodo("article", "guia-entrada");
     if (pregunta) una.appendChild(nodo("p", "guia-tuya", pregunta));
     const respuesta = nodo("div", "guia-respuesta");
+    respuesta.tabIndex = -1;
     una.appendChild(respuesta);
     hilo.appendChild(una);
-    requestAnimationFrame(function () { cuerpo.scrollTop = una.offsetTop - 12; });
+    requestAnimationFrame(function () { hilo.scrollTop = una.offsetTop - 12; });
     return respuesta;
   }
 
@@ -426,6 +452,12 @@
     donde.appendChild(nodo("p", "guia-de-donde", ficha.pie));
     if (ficha.corta) donde.appendChild(nodo("p", "guia-corta", ficha.corta + "."));
     donde.appendChild(nodo("p", "", ficha.texto));
+    if (ficha.mensajes) {
+      const mensajes = nodo("ul");
+      ficha.mensajes.forEach(mensaje => mensajes.appendChild(nodo("li", "", mensaje)));
+      donde.appendChild(mensajes);
+      if (ficha.mensajes.length > 1) compararMensaje(donde, ficha.mensajes);
+    }
     if (ficha.aviso) donde.appendChild(nodo("p", "guia-advertencia", ficha.aviso));
     if (ficha.fuentes) donde.appendChild(fuentes(ficha.fuentes));
     if (ficha.url) {
@@ -435,11 +467,45 @@
     }
   }
 
+  function compararMensaje(donde, mensajes) {
+    const formulario = nodo("form", "guia-codigo-directo");
+    const etiqueta = nodo("label", "", "Mensaje del acuse");
+    const texto = nodo("input");
+    texto.required = true;
+    texto.maxLength = 600;
+    etiqueta.appendChild(texto);
+    const enviar = nodo("button", "guia-boton", "Comparar el mensaje");
+    enviar.type = "submit";
+    const resultado = nodo("p");
+    resultado.setAttribute("aria-live", "polite");
+    const limpiar = valor => valor.trim().replace(/^"+|"+$/g, "").trim().replace(/\s+/g, " ");
+    formulario.addEventListener("submit", function (evento) {
+      evento.preventDefault();
+      const leido = limpiar(texto.value);
+      if (!leido) return;
+      const coincide = mensajes.some(function (mensaje) {
+        const partes = limpiar(mensaje).split("%s");
+        if (!partes[0].trim()) return false;
+        const patron = partes.map(parte => parte.replace(/[.*+?^$\x24{}()|[\]\\]/g, "\\$&"));
+        return new RegExp("^" + patron.join(".*?")).test(leido);
+      });
+      resultado.textContent = coincide ? "Coincide con uno de los mensajes de esta regla."
+        : "No coincide con los mensajes de esta regla. Puede ser un mensaje general del acuse.";
+    });
+    formulario.append(etiqueta, enviar);
+    donde.append(formulario, resultado);
+  }
+
   function pintarCodigos(donde, numeros) {
     const lista = nodo("div", "guia-codigos");
     numeros.forEach(function (n) {
       const ficha = datos.fichas[n];
       const uno = nodo("div", "guia-codigo");
+      if (ficha.tipo === "aeat") {
+        pintarFicha(uno, ficha);
+        lista.appendChild(uno);
+        return;
+      }
       uno.appendChild(enlace(ficha.titulo, ficha.url, false));
       uno.appendChild(nodo("span", "guia-gravedad", ficha.pie));
       uno.appendChild(nodo("p", "", ficha.texto));
@@ -448,32 +514,74 @@
     donde.appendChild(lista);
   }
 
-  function noLoSe(donde, pregunta) {
+  function sinFicha(donde, nombres) {
+    const faltan = nombres.filter(c => !tiene(datos.referencias, c));
+    if (faltan.length) donde.appendChild(nodo("p", "", "No encuentro ficha para " +
+      faltan.join(", ") + ". Comprueba si el código está escrito tal como sale en el informe."));
+  }
+
+  function noLoSe(donde) {
     donde.appendChild(nodo("h3", "", "No lo sé."));
-    donde.appendChild(nodo("p", "", "Solo contesta con lo que está publicado " +
-      "en Glosa-e, y sobre eso no ha encontrado nada. Prueba con otras " +
-      "palabras, o con el código tal como sale en el informe."));
+    donde.appendChild(nodo("p", "", "¿Es un aviso del informe o una duda sobre la web? " +
+      "Si tienes un aviso, pega su código. Si algo falla en la web, dime en qué paso."));
     const p = nodo("p", "", "Si tu duda no cabe aquí, ");
     p.appendChild(enlace("escríbeme", "mailto:" + datos.correo + "?subject=" +
-      encodeURIComponent("Glosa-e: pregunta") + "&body=" + encodeURIComponent(pregunta), false));
+      encodeURIComponent("Glosa-e: pregunta"), false));
     p.appendChild(document.createTextNode("."));
     donde.appendChild(p);
   }
 
+  function explicarAvisos(donde, ficha) {
+    donde.appendChild(nodo("h3", "", "Dónde consultar los códigos"));
+    donde.appendChild(nodo("p", "", "Pulsa el código junto al aviso en el informe, " +
+      "o pégalo aquí para ver qué significa."));
+    const formulario = nodo("form", "guia-codigo-directo");
+    const etiqueta = nodo("label", "", "Código del aviso");
+    const campo = nodo("input");
+    campo.required = true;
+    campo.maxLength = 300;
+    campo.autocomplete = "off";
+    campo.placeholder = "BR-CO-10";
+    etiqueta.appendChild(campo);
+    const enviar = nodo("button", "guia-boton", "Explicar el código");
+    enviar.type = "submit";
+    formulario.append(etiqueta, enviar);
+    formulario.addEventListener("submit", evento => alPreguntar(evento, campo));
+    donde.append(formulario, enlace(ficha.titulo, ficha.url, false));
+  }
+
   function responder(pregunta) {
     const donde = entrada(pregunta);
+    donde.focus({ preventScroll: true });
     const encontradas = buscar(pregunta);
-    if (!encontradas.length) { noLoSe(donde, pregunta); return; }
-    const todasCodigos = encontradas.every(function (n) { return datos.fichas[n].tipo === "codigo"; });
-    if (encontradas.length > 1 && todasCodigos && codigosNombrados(pregunta).length > 1) {
-      donde.appendChild(nodo("h3", "", "Los " + encontradas.length + " códigos que nombras"));
-      pintarCodigos(donde, encontradas);
+    const nombres = referencias(pregunta);
+    if (nombres.length) {
+      if (encontradas.length === 1) pintarFicha(donde, datos.fichas[encontradas[0]]);
+      else if (encontradas.length > 1) pintarCodigos(donde, encontradas);
+      sinFicha(donde, nombres);
       return;
     }
-    pintarFicha(donde, datos.fichas[encontradas[0]]);
+    if (new RegExp(datos.rechazo_ambiguo).test(sinAcentos(pregunta))) {
+      donde.appendChild(nodo("h3", "", "¿Qué quieres saber sobre el rechazo?"));
+      const opciones = nodo("div", "guia-opciones");
+      for (const [rotulo, consulta] of [
+        ["El plazo para rechazar", "Hasta cuándo puedo rechazar una factura"],
+        ["Por qué falla la validación", "Me rechazan la factura al validar"],
+      ]) {
+        const opcion = boton("guia-opcion", rotulo);
+        opcion.addEventListener("click", () => responder(consulta));
+        opciones.appendChild(opcion);
+      }
+      donde.appendChild(opciones);
+      return;
+    }
+    if (!encontradas.length) { noLoSe(donde); return; }
+    const primera = datos.fichas[encontradas[0]];
+    if (primera.id === "pagina-incidencias") explicarAvisos(donde, primera);
+    else pintarFicha(donde, primera);
     if (encontradas.length > 1) {
       const mas = nodo("div", "guia-tambien");
-      mas.appendChild(nodo("p", "", "También puede ser:"));
+      mas.appendChild(nodo("p", "", "Más sobre la pregunta"));
       const ul = nodo("ul");
       encontradas.slice(1).forEach(function (n) {
         const li = nodo("li");
@@ -528,16 +636,16 @@
     const resultado = nodo("div");
     explicar.addEventListener("click", function () {
       resultado.textContent = "";
-      const numeros = codigosNombrados(area.value);
-      if (!numeros.length) {
-        resultado.appendChild(nodo("p", "", "No hay ningún código de Glosa-e " +
+      const nombres = referencias(area.value);
+      if (!nombres.length) {
+        resultado.appendChild(nodo("p", "", "No he encontrado ningún código " +
           "en ese texto. Son como BR-CO-10 o FIRMA-CADUCADA, y salen a la " +
           "izquierda de cada aviso del informe."));
         return;
       }
-      resultado.appendChild(nodo("p", "", numeros.length === 1
-        ? "Un código, explicado:" : "Los " + numeros.length + " códigos, en el orden en que salen:"));
-      pintarCodigos(resultado, numeros);
+      const numeros = nombres.filter(c => tiene(datos.referencias, c)).map(c => datos.referencias[c]);
+      if (numeros.length) pintarCodigos(resultado, numeros);
+      sinFicha(resultado, nombres);
     });
     donde.append(area, explicar, resultado);
     area.focus();
@@ -582,7 +690,7 @@
     const pregunta = desde.value.trim();
     if (!pregunta) { desde.focus(); return; }
     desde.value = "";
-    conDatos(function () { responder(pregunta); caja.focus(); });
+    conDatos(function () { responder(pregunta); });
   }
   buscador.addEventListener("submit", function (evento) { alPreguntar(evento, cajaInicio); });
   escribir.addEventListener("submit", function (evento) { alPreguntar(evento, caja); });
