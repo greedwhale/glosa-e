@@ -95,12 +95,13 @@ _RE_SUBDOMINIO = re.compile(r"\b([a-z0-9-]+)\.glosa-e\.com\b", re.I)
 # única: «el día siguiente al de su publicación», y se publicó el 05-10-2026).
 RD = ("Real Decreto 238/2026", "https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-7295")
 ORDEN = ("Orden HAC/1028/2026", "https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-20587")
+RDL_SISTEMAS = ("Real Decreto-ley 43/2026", "https://www.boe.es/eli/es/rdl/2026/11/24/43")
 ORDEN_EN_VIGOR = _dt.date(2026, 10, 6)
 _FUENTES_OFICIALES = ("https://www.boe.es/",)
-# El día en que se leyeron esos dos textos para escribir los temas y el
+# El día en que se leyeron las fuentes de los temas y el
 # cuestionario. Cuando se vuelvan a leer, se cambia aquí, y si dicen otra cosa,
 # también el texto de los temas.
-TEMAS_LEIDOS_EL = _dt.date(2026, 11, 16)
+TEMAS_LEIDOS_EL = _dt.date(2026, 11, 27)
 # Cuánto vale esa lectura. Todo lo demás que sabe el guía sale de lo publicado
 # y se rehace en cada montaje; los temas y el cuestionario no, porque los
 # escribe una persona leyendo el BOE. Si la norma cambia (otra orden, un
@@ -171,8 +172,7 @@ _NO_CERTIFICA = (
 def _temas() -> list[dict]:
     """Lo que el sitio no publicaba todavía, cada cosa con su cita.
 
-    Leídos el 16-11-2026 en los dos textos del BOE. Las frases siguen el
-    texto de cerca a propósito: aquí una paráfrasis libre es una norma nueva.
+    Las frases siguen de cerca las fuentes que cita cada tema.
     """
     grandes, resto = _en_letra(FECHA_GRANDES), _en_letra(FECHA_RESTO)
     return [
@@ -185,13 +185,17 @@ def _temas() -> list[dict]:
                 f"resto de empresarios y profesionales, desde el {resto}. Son doce "
                 f"y veinticuatro meses contados desde el {_en_letra(ORDEN_EN_VIGOR)}, "
                 "el día en que entró en vigor la orden que desarrolla la solución "
-                "pública."
+                "pública. El plazo para adaptar los sistemas informáticos de "
+                "facturación de los obligados del artículo 3.1 del Real Decreto "
+                f"1007/2023 termina el {resto}. El Real Decreto-ley 43/2026 lo "
+                "vincula al segundo tramo de la factura electrónica entre empresas."
             ),
             "palabras": "cuando obliga obligatoria fecha plazo empieza entra vigor "
                         "calendario autonomo pyme empresa grande millones",
             "fuentes": [
                 (f"{RD[0]}, disposición final cuarta, apartado 1", RD[1]),
                 (f"{ORDEN[0]}, disposición final única", ORDEN[1]),
+                (f"{RDL_SISTEMAS[0]}, disposición final primera", RDL_SISTEMAS[1]),
             ],
         },
         {
