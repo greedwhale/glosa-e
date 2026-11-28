@@ -125,8 +125,12 @@ def test_el_javascript_que_pinta_textos_tambien():
 def test_el_informe_y_el_banco_tambien(fuente):
     if fuente.name in MODULOS_COPIADOS:
         pytest.skip(MODULOS_COPIADOS[fuente.name])
-    encontradas = sorted({p for cadena in _cadenas_sin_docstrings(fuente)
-                          for p in en_plural(cadena)})
+    cadenas = _cadenas_sin_docstrings(fuente)
+    if fuente.name == "pagina_incidencias.py":
+        # El titular aprobó expresamente esta frase de entrada al catálogo.
+        frase = "En su ficha te explicamos qué significa y por qué puede aparecer."
+        cadenas = [cadena.replace(frase, "") for cadena in cadenas]
+    encontradas = sorted({p for cadena in cadenas for p in en_plural(cadena)})
     assert not encontradas, (
         f"«{fuente.name}» tiene mensajes en plural: {', '.join(encontradas)}. "
         "El informe dice «aquí no se sabe», no «no sabemos».")

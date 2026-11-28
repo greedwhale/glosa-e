@@ -164,11 +164,9 @@ def _cuerpo(codigos: list[Codigo], sin_leer: list[SinLeer]) -> str:
         '<section id="resumen"><p class="rotulo">Catálogo</p>',
         '<h2 class="titulo">Los {} códigos que puede sacar este validador.</h2>'
         .format(len(codigos)),
-        '<p class="texto" style="color:var(--tinta-2)">Salen del código fuente, '
-        "no de una lista escrita a mano: se leen de las propias llamadas a "
-        "<code>Incidencia(...)</code> al montar esta página, y de las tablas de "
-        "reglas que las alimentan. Lo que puede faltar es la explicación, y "
-        "cuando falta se dice."
+        '<p class="texto" style="color:var(--tinta-2)">Si te ha salido un código '
+        "en el informe, búscalo aquí. En su ficha te explicamos qué significa "
+        "y por qué puede aparecer."
         # Antes aquí ponía «así que aquí no puede faltar uno que exista», y era
         # mentira: el lector solo miraba el primer argumento de la llamada, y
         # los diecisiete códigos que salen de una tabla recorrida con un `for`
