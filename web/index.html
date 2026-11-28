@@ -886,7 +886,7 @@ details.documento > summary > header .estado { grid-column: 1; }
                    página, sin un solo byte pedido. En el móvil no había
                    manera de saber si estaba bajando o no. -->
               <strong id="arranque-titulo">El validador se descarga en cuanto uses la página</strong>
-              <span id="arranque-nota">Son unos 10 MB la primera vez. Después queda en la caché del navegador, marcado para un año, y no vuelve a bajarse.</span>
+              <span id="arranque-nota">La primera vez se descargan unos 10 MB. Si tu navegador conserva los archivos, la próxima vez podrá usarlos de nuevo.</span>
             </div>
             <div class="riel"><i id="riel"></i></div>
             <div class="fases" id="fases"></div>
@@ -1096,19 +1096,11 @@ details.documento > summary > header .estado { grid-column: 1; }
             <span class="a"><span class="corta no">No</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
           </summary>
           <div class="r">
-            <p>El validador entero corre <b>dentro de tu navegador</b>, en
-            WebAssembly. Tu fichero se escribe en un disco virtual que vive en
-            la memoria de tu pestaña y se va cuando la cierras. No hay ninguna
-            petición al validar: ni de tu documento, ni de un resumen suyo, ni
-            de nada.</p>
-            <p>Eso está medido y publicado en el
-            <a href="./legal.html">aviso legal</a>, con el número de peticiones
-            y de dominios de terceros. Al arrancar la página sí se descargan
-            ficheros (el intérprete, los esquemas, las anclas), todos desde este
-            mismo sitio y ninguno de un tercero.</p>
-            <p>Y se comprueba sin herramientas: cuando la página diga <i>Listo</i>,
-            <b>desconecta la red</b> (el wifi, o el modo avión) y suelta la
-            factura. El informe sale igual, porque no tiene a dónde ir.</p>
+            <p>Tu factura se comprueba en tu navegador. Puedes probarlo: espera
+            a que ponga <i>Listo</i>, desconecta internet y suelta una factura.
+            El informe sale igual.</p>
+            <p>El <a href="./legal.html">aviso legal</a> recoge qué descarga
+            el navegador y cuántas peticiones hace.</p>
           </div>
         </details>
 
@@ -1217,10 +1209,11 @@ details.documento > summary > header .estado { grid-column: 1; }
             <span class="a"><span class="corta dato">De la lista del Estado</span><svg class="galon" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
           </summary>
           <div class="r">
-            <p>De la lista de confianza del Estado español, la misma que
-            publica el organismo competente. Vienen ya montadas con la página,
-            y el informe <b>declara de qué lista salen, de qué día es y con qué
-            huella</b>, porque quien lee el informe no las eligió.</p>
+            <p>Para comprobar de quién es el certificado del firmante, Glosa-e
+            usa certificados de la lista de confianza del Estado español.
+            El informe indica qué lista se usó y de qué
+            fecha es. En el <a href="./banco.html#trae">banco de pruebas</a>
+            puedes ver cuándo toca renovarla.</p>
             <p>Si esa lista se ha quedado vieja, el informe también lo dice: una
             lista antigua sigue creyendo a autoridades a las que el Estado ya
             les retiró la cualificación.</p>

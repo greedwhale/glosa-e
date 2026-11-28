@@ -947,17 +947,11 @@ CODIGOS: dict[str, str] = {
         'aritmética se queda partida por la mitad.'
     ),
     "XSD-ORDEN": (
-        'Un elemento que el esquema no espera en ese sitio. La biblioteca que '
-        'valida dice exactamente lo mismo para tres problemas distintos '
-        '(sobra, falta, o están cambiados de orden), así que aquí se mira el '
-        'documento antes de hablar: si lo que se esperaba aparece más '
-        'adelante entre los hermanos, están al revés y se dice cuál va antes. '
-        'El caso visto aquí explica por qué se hace así: un '
-        'AdditionalDocumentReference colocado detrás del bloque de entrega, '
-        'en una factura UBL que admite ese elemento tantas veces como haga '
-        'falta. Contando apariciones, el informe habría dicho que aparece dos '
-        'veces y que el esquema no admite tantas, y quien lo leyera habría '
-        'borrado uno sin arreglar nada.'
+        'El esquema espera otro elemento en este punto. Si el informe indica '
+        'cuál debe ir primero, revisa el orden de esas etiquetas en el XML. '
+        'El mensaje del esquema puede ser el mismo si falta un elemento, '
+        'si sobra o si está fuera de orden. Glosa-e comprueba si el elemento '
+        'esperado aparece más adelante y, en ese caso, indica cuál va primero.'
     ),
     "XSD-VERSION": (
         "El documento declara una versión de UBL en `UBLVersionID` y usa "

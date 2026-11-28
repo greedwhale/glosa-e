@@ -233,8 +233,9 @@
   const titulo = nodo("h2", "guia-titulo", "¿Tienes una duda?");
   titulo.id = "guia-titulo";
   const entradilla = nodo("p", "guia-entradilla",
-    "Contesta con lo que ya está publicado en Glosa-e y te lleva a donde " +
-    "se explica. Lo que escribes no sale de tu navegador.");
+    "Pregunta por un código o por una duda sobre la factura electrónica. " +
+    "El Guía busca la explicación en Glosa-e y te muestra el enlace. " +
+    "Lo que escribes no sale de tu navegador.");
   cabeza.append(firma, cerrar, titulo, entradilla);
 
   // Inicio: lo que más se pregunta, en tarjetas.
@@ -313,7 +314,7 @@
     li.append(nodo("b", "", fila[0]), nodo("span", "", fila[1]));
     filas.appendChild(li);
   });
-  const dondeTitulo = nodo("h3", "guia-subtitulo", "Dónde está todo entero");
+  const dondeTitulo = nodo("h3", "guia-subtitulo", "Dónde seguir leyendo");
   const donde = nodo("ul", "guia-donde");
   [
     ["Qué significa cada aviso", "./incidencias"],

@@ -419,10 +419,10 @@ def _ficha(uno: Codigo, todos: list[Codigo]) -> str:
         '<dl class="procedencia">'
         f"<div><dt>De dónde viene</dt><dd>{html.escape(etiqueta)}: "
         f"{html.escape(detalle)}</dd></div>"
-        f"<div><dt>Lo escribe</dt><dd><code>validador/{html.escape(uno.modulo)}"
-        f":{uno.linea}</code></dd></div>"
         f"<div><dt>Puede salir como</dt><dd>{', '.join(uno.gravedades) or 'según el caso'}"
-        "</dd></div></dl>"
+        "</dd></div>"
+        f"<div><dt>En el código de Glosa-e</dt><dd><code>validador/{html.escape(uno.modulo)}"
+        f":{uno.linea}</code></dd></div></dl>"
         '<div class="probar"><b>Míralo en tu propia factura</b>'
         "<p>Suéltala en la herramienta y te dice si este código sale y por "
         "qué. Se lee en tu navegador: el fichero no se sube a ningún sitio. "
